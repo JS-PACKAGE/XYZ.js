@@ -223,6 +223,9 @@ export type ProceduralMaterialKind =
   | 'sanddune'
   | 'pebblebeach'
   | 'foamedge'
+  | 'lavaflow'
+  | 'cooledlava'
+  | 'ashfield'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -528,6 +531,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sanddune',
   'pebblebeach',
   'foamedge',
+  'lavaflow',
+  'cooledlava',
+  'ashfield',
   'basketball',
   'tennisball',
   'golfball',

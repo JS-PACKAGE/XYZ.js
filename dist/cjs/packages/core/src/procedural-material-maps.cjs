@@ -2247,6 +2247,21 @@ function createSurfaceSampler(t, r) {
 				H = .48 + .3 * e + .12 * t + .06 * n, Z = .44 + .22 * e + .06 * t + .02 * n, Q += .06 * (n - .5) - .1 * e, $ = 1 - .34 * (1 - e) - .1 * (1 - t);
 				break;
 			}
+			case `lavaflow`: {
+				let e = fract((o + A) * 5), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = smooth(clamp((.08 - Math.min(e, 1 - e)) / .04)), i = noise(o, A, 12, 12, r ^ 14199), a = noise(o, A, 32, 32, r ^ 18568);
+				H = .34 + .34 * t - .12 * n + .16 * i + .06 * a, Z = .44 + .26 * t - .1 * n + .02 * a, Q += .06 * (a - .5) - .12 * t + .12 * n, $ = 1 - .32 * (1 - t) - .18 * n;
+				break;
+			}
+			case `cooledlava`: {
+				let e = Math.min(fract(o * 4), 1 - fract(o * 4)), t = Math.min(fract(A * 4), 1 - fract(A * 4)), n = smooth(clamp((Math.min(e, t) - .03) / .1)), i = smooth(clamp((noise(o, A, 20, 20, r ^ 22937) - .74) / .06)), a = noise(o, A, 32, 32, r ^ 27306);
+				H = .4 + .3 * n - .1 * i + .08 * a, Z = .42 + .24 * n - .08 * i + .02 * a, Q += .06 * (a - .5) + .1 * i, $ = 1 - .34 * (1 - n) - .18 * i;
+				break;
+			}
+			case `ashfield`: {
+				let e = smooth(clamp((noise(o, A, 8, 8, r ^ 31675) - .44) / .18)), t = noise(o, A, 32, 32, r ^ 36044);
+				H = .44 + .28 * e + .08 * t, Z = .44 + .22 * e + .02 * t, Q += .06 * (t - .5), $ = 1 - .32 * (1 - e);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

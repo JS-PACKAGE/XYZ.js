@@ -241,6 +241,9 @@ const kinds: ProceduralMaterialKind[] = [
   'sanddune',
   'pebblebeach',
   'foamedge',
+  'lavaflow',
+  'cooledlava',
+  'ashfield',
   'basketball',
   'tennisball',
   'golfball',
@@ -5028,6 +5031,9 @@ describe('periodic procedural material fields', () => {
     ['sanddune', [6, 32, 48, 64]],
     ['pebblebeach', [5, 32, 48, 64]],
     ['foamedge', [6, 12, 32, 64]],
+    ['lavaflow', [5, 32, 48, 64]],
+    ['cooledlava', [4, 32, 48, 64]],
+    ['ashfield', [6, 12, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5275,6 +5281,9 @@ describe('periodic procedural material fields', () => {
     ['sanddune', 6],
     ['pebblebeach', 5],
     ['foamedge', 6],
+    ['lavaflow', 5],
+    ['cooledlava', 4],
+    ['ashfield', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6676,6 +6685,9 @@ describe('periodic procedural material fields', () => {
     'sanddune',
     'pebblebeach',
     'foamedge',
+    'lavaflow',
+    'cooledlava',
+    'ashfield',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6799,7 +6811,16 @@ describe('periodic procedural material fields', () => {
                                                                                             : kind ===
                                                                                                 'foamedge'
                                                                                               ? 6
-                                                                                              : 4;
+                                                                                              : kind ===
+                                                                                                  'lavaflow'
+                                                                                                ? 5
+                                                                                                : kind ===
+                                                                                                    'cooledlava'
+                                                                                                  ? 4
+                                                                                                  : kind ===
+                                                                                                      'ashfield'
+                                                                                                    ? 6
+                                                                                                    : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10505,6 +10526,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the foam and the film from cavity shading rather than pinning
       // seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('lava flow coils pahoehoe ropes above the dark cracks', () => {
+    const relief = proceduralMaterialPresets.lavaflow.relief;
+    const rope: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crack = { ...rope };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('lavaflow', seed);
+      sample(0.05, 0.05, rope);
+      sample(0.1, 0.1, crack);
+      expect(rope.height).toBeGreaterThan(crack.height + 0.1 * relief);
+      expect(rope.occlusion).toBeGreaterThan(crack.occlusion);
+    }
+  });
+
+  it('cooled lava lifts crusted blocks above the cracks and pores', () => {
+    const relief = proceduralMaterialPresets.cooledlava.relief;
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crack = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cooledlava', seed);
+      sample(0.125, 0.125, face);
+      sample(0.25, 0.125, crack);
+      expect(face.height).toBeGreaterThan(crack.height + 0.1 * relief);
+      expect(face.occlusion).toBeGreaterThan(crack.occlusion);
+    }
+  });
+
+  it('ash field mounds drifts over the dusted ground', () => {
+    const relief = proceduralMaterialPresets.ashfield.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('ashfield', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the drifts and the ground from cavity shading rather than
+      // pinning seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

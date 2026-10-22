@@ -8022,6 +8022,46 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - clump) - 0.1 * (1 - bubble);
         break;
       }
+      case 'lavaflow': {
+        // Pahoehoe ropes coil above the dark cracks between them.
+        const turn = fract((u + v) * 5);
+        const rope = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const crack = smooth(clamp((0.08 - Math.min(turn, 1 - turn)) / 0.04));
+        const glow = noise(u, v, 12, 12, seed ^ 0x3777);
+        const grain = noise(u, v, 32, 32, seed ^ 0x4888);
+        color = 0.34 + 0.34 * rope - 0.12 * crack + 0.16 * glow + 0.06 * grain;
+        height = 0.44 + 0.26 * rope - 0.1 * crack + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * rope + 0.12 * crack;
+        occlusion = 1 - 0.32 * (1 - rope) - 0.18 * crack;
+        break;
+      }
+      case 'cooledlava': {
+        // Crusted blocks crack apart over the pitted cooled surface.
+        const bx = Math.min(fract(u * 4), 1 - fract(u * 4));
+        const by = Math.min(fract(v * 4), 1 - fract(v * 4));
+        const block = smooth(clamp((Math.min(bx, by) - 0.03) / 0.1));
+        const pore = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x5999) - 0.74) / 0.06),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+        color = 0.4 + 0.3 * block - 0.1 * pore + 0.08 * grain;
+        height = 0.42 + 0.24 * block - 0.08 * pore + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) + 0.1 * pore;
+        occlusion = 1 - 0.34 * (1 - block) - 0.18 * pore;
+        break;
+      }
+      case 'ashfield': {
+        // Fine ash drifts mound over the dusted ground.
+        const drift = smooth(
+          clamp((noise(u, v, 8, 8, seed ^ 0x7bbb) - 0.44) / 0.18),
+        );
+        const grit = noise(u, v, 32, 32, seed ^ 0x8ccc);
+        color = 0.44 + 0.28 * drift + 0.08 * grit;
+        height = 0.44 + 0.22 * drift + 0.02 * grit;
+        roughness += 0.06 * (grit - 0.5);
+        occlusion = 1 - 0.32 * (1 - drift);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

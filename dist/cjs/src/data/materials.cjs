@@ -3030,6 +3030,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .66,
 		relief: .0022
 	}),
+	lavaflow: Object.freeze({
+		dark: [
+			52,
+			22,
+			12
+		],
+		light: [
+			212,
+			72,
+			22
+		],
+		roughness: .62,
+		relief: .0032
+	}),
+	cooledlava: Object.freeze({
+		dark: [
+			42,
+			42,
+			48
+		],
+		light: [
+			112,
+			112,
+			122
+		],
+		roughness: .78,
+		relief: .003
+	}),
+	ashfield: Object.freeze({
+		dark: [
+			72,
+			68,
+			72
+		],
+		light: [
+			162,
+			156,
+			158
+		],
+		roughness: .9,
+		relief: .0022
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4101,6 +4143,9 @@ var proceduralTileMeters = Object.freeze({
 	sanddune: .48,
 	pebblebeach: .18,
 	foamedge: .12,
+	lavaflow: .36,
+	cooledlava: .24,
+	ashfield: .4,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

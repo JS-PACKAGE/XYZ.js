@@ -1302,6 +1302,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.66;
         relief: 0.0022;
     }>;
+    lavaflow: Readonly<{
+        dark: readonly [52, 22, 12];
+        light: readonly [212, 72, 22];
+        roughness: 0.62;
+        relief: 0.0032;
+    }>;
+    cooledlava: Readonly<{
+        dark: readonly [42, 42, 48];
+        light: readonly [112, 112, 122];
+        roughness: 0.78;
+        relief: 0.003;
+    }>;
+    ashfield: Readonly<{
+        dark: readonly [72, 68, 72];
+        light: readonly [162, 156, 158];
+        roughness: 0.9;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1918,6 +1936,9 @@ export declare const proceduralTileMeters: Readonly<{
     sanddune: 0.48;
     pebblebeach: 0.18;
     foamedge: 0.12;
+    lavaflow: 0.36;
+    cooledlava: 0.24;
+    ashfield: 0.4;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;
