@@ -5180,3 +5180,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Physics]` 2D／3D `discardFrameTime(0)` 直接返回：丟棄 0 秒時每個力累積器的 `discard` 本來就立即返回，而 Scene 每幀都會以實際丟棄的時間（通常為 0）呼叫一次。原本每幀走過全部剛體並查詢力累積器（Chrome 另配置迭代結果，gameplay2d 約 1.3 KB／幀）。1500 個 2D 剛體：每次呼叫 9.5 → 0.01 µs（Node）。
 - `[Core]` 尚未初始化事件的物件改用計數（註冊時 +1、`initializeEvents` 時經 `noteEventsInitialized` −1、移除時依狀態 −1），preupdate 集合只放已初始化且有監聽者的物件；原本每個新物件都先插入集合、第一幀再刪除。判斷條件不變（計數與集合皆空時 pass 才返回）。256×256 TileMap 一次 `setTile` 65536 格：Node 約 80 → 74 ms（雙向對調各兩輪），四個每幀 pass 持平。
 - `[Graphics]` 移除 WebGPU 2D renderer 從未讀取的 `tileMatrix`／`inverse`（每個 renderer 各配置一個 Matrix3）與 `passPipelineLayout` 欄位，以及 WebGPU mesh pipeline `updateMesh` 未使用的 `scene` 參數；以 `tsc --noUnusedLocals --noUnusedParameters` 確認 src 無其他未使用的區域符號（另一方進行中的材質檔除外）。行為不變。
+- `[Graphics]` 刪除自 P24–P26 原生 2D 引擎取代後即無人引用的 `spriteWGSL`、`materialFragment` 著色器產生器與 `src/data/rendering.ts` 的 `renderingLimits`（皆非公開 API，`api=0`）。gate 全套 2677 中 `mesh-shader-variants` 一項在滿載下逾時，單獨重跑 9／9 通過；與本次變更無關。

@@ -65,10 +65,6 @@ var environmentLimits = Object.freeze({
 	prefilterWidth: 256
 });
 var graphicsRecoveryLimits = Object.freeze({ restoreTimeoutMs: 1e4 });
-Object.freeze({
-	pointLights: 32,
-	spotLights: 32
-});
 var shadowLimits = Object.freeze({
 	cascades: 4,
 	pointLights: 8,

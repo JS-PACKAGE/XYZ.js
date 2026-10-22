@@ -2,28 +2,6 @@ const nativeUniforms = `uniform vec4 uniforms[4];
 vec4 uniformValue(int index) { return uniforms[index]; }
 `;
 
-export function materialFragment(source: string): string {
-  return `#version 300 es
-precision highp float;
-in vec2 vUV;
-in vec2 vLocalUV;
-in vec2 vScreen;
-in float vOpacity;
-in vec4 vSource;
-in vec4 vTint;
-uniform sampler2D image;
-out vec4 color;
-${nativeUniforms}
-${source}
-void main() {
-  vec2 halfTexel = min(0.5 / vec2(textureSize(image, 0)), vSource.zw * 0.5);
-  vec2 uv = clamp(vUV, vSource.xy + halfTexel, vSource.xy + vSource.zw - halfTexel);
-  vec4 texel = texture(image, uv);
-  float alpha = texel.a * vOpacity * vTint.a;
-  color = effect(vec4(texel.rgb * vTint.rgb * alpha, alpha), vLocalUV, vScreen);
-}`;
-}
-
 export const layerVertex = `#version 300 es
 precision highp float;
 out vec2 vUV;

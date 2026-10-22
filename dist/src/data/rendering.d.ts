@@ -74,10 +74,6 @@ export declare const environmentLimits: Readonly<{
 export declare const graphicsRecoveryLimits: Readonly<{
     restoreTimeoutMs: 10000;
 }>;
-export declare const renderingLimits: Readonly<{
-    pointLights: 32;
-    spotLights: 32;
-}>;
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export declare const FOG_FLOAT_COUNT = 8;
 export declare const shadowLimits: Readonly<{

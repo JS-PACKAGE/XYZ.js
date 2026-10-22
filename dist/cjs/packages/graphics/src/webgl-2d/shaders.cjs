@@ -1,7 +1,4 @@
 //#region dist/packages/graphics/src/webgl-2d/shaders.js
-var e = `uniform vec4 uniforms[4];
-vec4 uniformValue(int index) { return uniforms[index]; }
-`;
 var layerVertex = `#version 300 es
 precision highp float;
 out vec2 vUV;
@@ -10,17 +7,19 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
   vUV = vec2(p.x, 1.0 - p.y);
 }`;
-function processorFragment(t) {
+function processorFragment(e) {
 	return `#version 300 es
 precision highp float;
 in vec2 vUV;
 uniform sampler2D image;
 uniform vec2 viewportSize;
 out vec4 color;
-${e}
+uniform vec4 uniforms[4];
+vec4 uniformValue(int index) { return uniforms[index]; }
+
 // Render-target storage is bottom-left; the native ABI is top-left.
 vec4 sampleInput(vec2 uv) { return texture(image, vec2(uv.x, 1.0 - uv.y)); }
-${t}
+${e}
 void main() { color = effect(sampleInput(vUV), vUV, vUV * viewportSize); }
 `;
 }

@@ -99,11 +99,6 @@ export const graphicsRecoveryLimits = Object.freeze({
   restoreTimeoutMs: 10000,
 });
 
-export const renderingLimits = Object.freeze({
-  pointLights: MAX_POINT_LIGHTS,
-  spotLights: MAX_SPOT_LIGHTS,
-});
-
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export const FOG_FLOAT_COUNT = 8;
 
