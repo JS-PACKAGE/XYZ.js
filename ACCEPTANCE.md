@@ -5517,3 +5517,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實 Chrome 的 pbr3d 在 WebGPU 逐一切換三者並渲染，狀態列顯示 `webgpu · 348 procedural material presets + plain`，無 page／console errors，三者畫面各自不同且花紋可辨（金黃斜格／乳白糖霜與蛋糕孔／深褐裂紋與核桃）。check:material-reference 通過（overall pass true，負向控制於 webgl2 與 webgpu 皆被拒絕）；regression:browser chromium canvas2d／webgl2／webgpu 通過（僅既有 SKIP：webxr 無實體裝置、WebGPU 無公開 device-loss 注入、Canvas2D 無原生 3D）。
 - metallic bytes 全為 0；roughness bytes 依序 115–150／80–120／89–145（size 64，三 seed）；每米 repeats 依序 5.555556／4.166667／5.000000。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交（CAS 落地），之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
+- `[Rendering3D]` WebGL2 判斷 mesh 是否走混色時先讀材質欄位（`PBRMaterial.alphaMode`／`transparent`，皆為唯讀欄位），只有非混色材質才查可見性項目的 LOD fade；與 WebGPU 既有順序相同，結果不變。預設 `alphaMode` 為 BLEND，2000 個 PBR mesh 的 Chrome profile 中該判斷 60–120 → 6–13 ms／5 s（三次交錯 A/B）。完整測試 2974 通過、型別、tree-shaking、API 相容通過。

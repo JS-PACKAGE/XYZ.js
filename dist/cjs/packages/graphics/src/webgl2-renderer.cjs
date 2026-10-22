@@ -216,7 +216,7 @@ var WebGL2Renderer = class {
 	depthWidth = 0;
 	depthHeight = 0;
 	depthMode = -1;
-	isColorBlended = (e) => e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage ? !1 : (this.visibility.entries.get(e)?.fade ?? 1) < 1 || require_draw_order.isBlended(e);
+	isColorBlended = (e) => e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage ? !1 : require_draw_order.isBlended(e) || (this.visibility.entries.get(e)?.fade ?? 1) < 1;
 	drawSorter = new require_draw_order.DrawSorter();
 	stats = new require_render_stats.FrameStats();
 	gpuTimingEnabled;

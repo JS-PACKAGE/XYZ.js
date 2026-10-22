@@ -502,8 +502,9 @@ export class WebGL2Renderer implements Renderer {
   private readonly isColorBlended = (mesh: Mesh): boolean => {
     if (mesh.material instanceof PBRMaterial && mesh.material.alphaToCoverage)
       return false;
+    // Material fields first: blended materials then skip the visibility lookup.
     return (
-      (this.visibility.entries.get(mesh)?.fade ?? 1) < 1 || isBlended(mesh)
+      isBlended(mesh) || (this.visibility.entries.get(mesh)?.fade ?? 1) < 1
     );
   };
   private readonly drawSorter = new DrawSorter();
