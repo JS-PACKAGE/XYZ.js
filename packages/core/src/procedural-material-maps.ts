@@ -8641,6 +8641,50 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.45 * (1 - chip);
         break;
       }
+      case 'cargomat': {
+        // Rubber ribs run into the transverse recessed grooves.
+        const rib = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
+        const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
+        const grain = noise(u, v, 32, 32, seed ^ 0x5869);
+        color =
+          (0.36 + 0.1 * grain) * (1 - 0.28 * groove) * (0.55 + 0.45 * rib);
+        height = 0.28 + 0.52 * rib - 0.22 * groove + 0.02 * grain;
+        roughness += 0.06 * grain + 0.1 * (1 - rib);
+        occlusion = 1 - 0.4 * (1 - rib) - 0.24 * groove;
+        break;
+      }
+      case 'dashboardgrain': {
+        // Pebbled leather grain with a recessed seam crease.
+        const fx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const bs = smooth(clamp((0.5 - d) / 0.34));
+        const gn = noise(u, v, 32, 32, seed ^ 0x697a);
+        const rawSeam = (1 + Math.cos(Math.PI * 2 * fract(u * 2))) / 2;
+        const seam = smooth(clamp((rawSeam - 0.8) / 0.2));
+        const pebble = bs * (0.7 + 0.3 * gn);
+        color = 0.42 + 0.3 * pebble + 0.06 * gn - 0.12 * seam;
+        height = 0.34 + 0.42 * pebble - 0.2 * seam + 0.02 * gn;
+        roughness += 0.06 * gn + 0.1 * seam - 0.06 * bs;
+        occlusion = 1 - 0.4 * (1 - bs) - 0.2 * seam;
+        break;
+      }
+      case 'licenseplate': {
+        // A raised border frames the embossed text bars over the inset.
+        const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (u - 0.5)),
+          rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (v - 0.5));
+        const bx = smooth(clamp((rawx - 0.72) / 0.24)),
+          by = smooth(clamp((rawy - 0.72) / 0.24));
+        const border = bx + by - bx * by;
+        const bar = (1 + Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5))) / 2;
+        const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
+        const raised = bar * (1 - border);
+        color = 0.44 + 0.2 * border + 0.12 * raised + 0.05 * grain;
+        height = 0.3 + 0.4 * border + 0.22 * raised + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * border;
+        occlusion = 1 - 0.3 * (1 - border) * (1 - bar);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

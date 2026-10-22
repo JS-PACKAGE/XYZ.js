@@ -283,6 +283,9 @@ const kinds: ProceduralMaterialKind[] = [
   'friedegg',
   'sushirice',
   'chocolatechip',
+  'cargomat',
+  'dashboardgrain',
+  'licenseplate',
   'basketball',
   'tennisball',
   'golfball',
@@ -5112,6 +5115,9 @@ describe('periodic procedural material fields', () => {
     ['friedegg', [4, 32, 64]],
     ['sushirice', [6, 32, 64]],
     ['chocolatechip', [3, 32, 64]],
+    ['cargomat', [2, 4, 32, 64]],
+    ['dashboardgrain', [2, 10, 32, 64]],
+    ['licenseplate', [4, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5401,6 +5407,9 @@ describe('periodic procedural material fields', () => {
     ['friedegg', 4],
     ['sushirice', 6],
     ['chocolatechip', 3],
+    ['cargomat', 4],
+    ['dashboardgrain', 10],
+    ['licenseplate', 4],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6844,6 +6853,9 @@ describe('periodic procedural material fields', () => {
     'friedegg',
     'sushirice',
     'chocolatechip',
+    'cargomat',
+    'dashboardgrain',
+    'licenseplate',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7093,7 +7105,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                 : kind ===
                                                                                                                                                                                     'chocolatechip'
                                                                                                                                                                                   ? 3
-                                                                                                                                                                                  : 4;
+                                                                                                                                                                                  : kind ===
+                                                                                                                                                                                      'cargomat'
+                                                                                                                                                                                    ? 4
+                                                                                                                                                                                    : kind ===
+                                                                                                                                                                                        'dashboardgrain'
+                                                                                                                                                                                      ? 10
+                                                                                                                                                                                      : kind ===
+                                                                                                                                                                                          'licenseplate'
+                                                                                                                                                                                        ? 4
+                                                                                                                                                                                        : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11734,6 +11755,75 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, cookie);
       expect(chip.height).toBeGreaterThan(cookie.height + 0.1 * relief);
       expect(chip.occlusion).toBeGreaterThan(cookie.occlusion);
+    }
+  });
+
+  it('cargo mat ribs crest above the grooves and cross seams', () => {
+    const relief = proceduralMaterialPresets.cargomat.relief;
+    const rib: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...rib };
+    const groove = { ...rib };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cargomat', seed);
+      sample(1 / 8, 1 / 4, rib);
+      sample(0, 1 / 4, gap);
+      sample(0, 0, groove);
+      expect(rib.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(gap.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(rib.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('dashboard grain pebbles above the valleys and seam creases', () => {
+    const relief = proceduralMaterialPresets.dashboardgrain.relief;
+    const bump: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const valley = { ...bump };
+    const seam = { ...bump };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('dashboardgrain', seed);
+      sample(1 / 20, 1 / 20, bump);
+      sample(1 / 8, 0, valley);
+      sample(0, 0, seam);
+      expect(bump.height).toBeGreaterThan(valley.height + 0.1 * relief);
+      expect(valley.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(bump.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('license plate lifts its border above the text bars and inset', () => {
+    const relief = proceduralMaterialPresets.licenseplate.relief;
+    const border: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const bar = { ...border };
+    const inset = { ...border };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('licenseplate', seed);
+      sample(0, 1 / 2, border);
+      sample(1 / 2, 3 / 8, bar);
+      sample(1 / 2, 1 / 2, inset);
+      expect(border.height).toBeGreaterThan(bar.height + 0.1 * relief);
+      expect(bar.height).toBeGreaterThan(inset.height + 0.1 * relief);
+      expect(bar.occlusion).toBeGreaterThan(inset.occlusion);
     }
   });
 

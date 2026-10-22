@@ -265,6 +265,9 @@ export type ProceduralMaterialKind =
   | 'friedegg'
   | 'sushirice'
   | 'chocolatechip'
+  | 'cargomat'
+  | 'dashboardgrain'
+  | 'licenseplate'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -612,6 +615,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'friedegg',
   'sushirice',
   'chocolatechip',
+  'cargomat',
+  'dashboardgrain',
+  'licenseplate',
   'basketball',
   'tennisball',
   'golfball',

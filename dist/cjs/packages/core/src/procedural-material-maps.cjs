@@ -2457,6 +2457,21 @@ function createSurfaceSampler(t, r) {
 				H = .62 - .3 * a + .08 * s, Z = .36 + .34 * a + .03 * s, Q += .06 * (s - .5) - .1 * a, $ = 1 - .45 * (1 - a);
 				break;
 			}
+			case `cargomat`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract(o * 4) - .5))) / 2, t = (1 + Math.cos(Math.PI * 2 * fract(A * 2))) / 2, n = noise(o, A, 32, 32, r ^ 22633);
+				H = (.36 + .1 * n) * (1 - .28 * t) * (.55 + .45 * e), Z = .28 + .52 * e - .22 * t + .02 * n, Q += .06 * n + .1 * (1 - e), $ = 1 - .4 * (1 - e) - .24 * t;
+				break;
+			}
+			case `dashboardgrain`: {
+				let e = Math.sin(Math.PI * (fract(o * 10) - .5)), t = Math.sin(Math.PI * (fract(A * 10) - .5)), n = smooth(clamp((.5 - Math.hypot(e, t)) / .34)), i = noise(o, A, 32, 32, r ^ 27002), s = smooth(clamp(((1 + Math.cos(Math.PI * 2 * fract(o * 2))) / 2 - .8) / .2)), c = n * (.7 + .3 * i);
+				H = .42 + .3 * c + .06 * i - .12 * s, Z = .34 + .42 * c - .2 * s + .02 * i, Q += .06 * i + .1 * s - .06 * n, $ = 1 - .4 * (1 - n) - .2 * s;
+				break;
+			}
+			case `licenseplate`: {
+				let e = .5 - .5 * Math.cos(Math.PI * 2 * (o - .5)), t = .5 - .5 * Math.cos(Math.PI * 2 * (A - .5)), n = smooth(clamp((e - .72) / .24)), i = smooth(clamp((t - .72) / .24)), a = n + i - n * i, s = (1 + Math.cos(Math.PI * 2 * (fract(A * 4) - .5))) / 2, c = noise(o, A, 32, 32, r ^ 31371), l = s * (1 - a);
+				H = .44 + .2 * a + .12 * l + .05 * c, Z = .3 + .4 * a + .22 * l + .02 * c, Q += .06 * (c - .5) - .1 * a, $ = 1 - .3 * (1 - a) * (1 - s);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {
