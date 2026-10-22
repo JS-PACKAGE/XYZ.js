@@ -8,6 +8,9 @@ const require_instanced_mesh = require("./instanced-mesh.cjs");
 function nearestFirst(e, t) {
 	return e.distance - t.distance;
 }
+function induced3x3Norms(e, t) {
+	return Math.max(Math.abs(e[t]) + Math.abs(e[t + 1]) + Math.abs(e[t + 2]), Math.abs(e[t + 4]) + Math.abs(e[t + 5]) + Math.abs(e[t + 6]), Math.abs(e[t + 8]) + Math.abs(e[t + 9]) + Math.abs(e[t + 10])) * Math.max(Math.abs(e[t]) + Math.abs(e[t + 4]) + Math.abs(e[t + 8]), Math.abs(e[t + 1]) + Math.abs(e[t + 5]) + Math.abs(e[t + 9]), Math.abs(e[t + 2]) + Math.abs(e[t + 6]) + Math.abs(e[t + 10]));
+}
 var Raycaster = class {
 	origin = new require_math3d.Vector3();
 	direction = new require_math3d.Vector3(0, 0, -1);
@@ -44,11 +47,17 @@ var Raycaster = class {
 		if (e instanceof require_mesh.Mesh) {
 			e.updateDeformation();
 			let t = e.updateWorldMatrix();
-			if (e instanceof require_instanced_mesh.InstancedMesh) for (let n = 0; n < e.count; n++) e.getMatrixAt(n, this.instance), this.world.copy(t).multiply(this.instance), this.intersectMesh(e, this.world, i, n);
-			else this.intersectMesh(e, t, i);
+			if (e instanceof require_instanced_mesh.InstancedMesh) {
+				let n = e.geometry.boundingSphere, r = induced3x3Norms(t.elements, 0);
+				for (let a = 0; a < e.count; a++) this.instanceMisses(t, e.matrices, a * 16, n, r) || (e.getMatrixAt(a, this.instance), this.world.copy(t).multiply(this.instance), this.intersectMesh(e, this.world, i, a));
+			} else this.intersectMesh(e, t, i);
 		}
 		let a = t ? e.existingChildren : void 0;
 		if (a) for (let e of a) this.intersectObject(e, !0, i);
+	}
+	instanceMisses(e, t, n, r, i) {
+		let a = e.elements, o = t, s = n, c = o[s] * r.x + o[s + 4] * r.y + o[s + 8] * r.z + o[s + 12], l = o[s + 1] * r.x + o[s + 5] * r.y + o[s + 9] * r.z + o[s + 13], u = o[s + 2] * r.x + o[s + 6] * r.y + o[s + 10] * r.z + o[s + 14], d = a[0] * c + a[4] * l + a[8] * u + a[12], f = a[1] * c + a[5] * l + a[9] * u + a[13], p = a[2] * c + a[6] * l + a[10] * u + a[14], m = r.radius * Math.sqrt(i * induced3x3Norms(o, s)), h = d - this.origin.x, g = f - this.origin.y, _ = p - this.origin.z, v = this.direction, y = g * v.z - _ * v.y, b = _ * v.x - h * v.z, x = h * v.y - g * v.x, S = m * 1.000001 + 1e-6 * (1 + Math.abs(h) + Math.abs(g) + Math.abs(_) + Math.abs(d) + Math.abs(f) + Math.abs(p));
+		return y * y + b * b + x * x > S * S;
 	}
 	intersectMesh(e, n, r, i) {
 		let a = n.elements, s = require_render_bounds.transformSphere(e.geometry.boundingSphere, n, this.bounds), c = s.x - this.origin.x, l = s.y - this.origin.y, u = s.z - this.origin.z, d = this.direction, f = l * d.z - u * d.y, p = u * d.x - c * d.z, m = c * d.y - l * d.x, h = s.radius * 1.000001 + 1e-6 * (1 + Math.abs(c) + Math.abs(l) + Math.abs(u));

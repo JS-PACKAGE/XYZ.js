@@ -18,6 +18,24 @@ function nearestFirst(a: RaycastHit, b: RaycastHit): number {
   return a.distance - b.distance;
 }
 
+/**
+ * Product of the upper 3×3 block's largest absolute column sum (induced 1-norm) and largest
+ * absolute row sum (induced ∞-norm), the quantity `transformSphere` scales radii by the root of.
+ */
+function induced3x3Norms(e: ArrayLike<number>, o: number): number {
+  const columns = Math.max(
+    Math.abs(e[o]!) + Math.abs(e[o + 1]!) + Math.abs(e[o + 2]!),
+    Math.abs(e[o + 4]!) + Math.abs(e[o + 5]!) + Math.abs(e[o + 6]!),
+    Math.abs(e[o + 8]!) + Math.abs(e[o + 9]!) + Math.abs(e[o + 10]!),
+  );
+  const rows = Math.max(
+    Math.abs(e[o]!) + Math.abs(e[o + 4]!) + Math.abs(e[o + 8]!),
+    Math.abs(e[o + 1]!) + Math.abs(e[o + 5]!) + Math.abs(e[o + 9]!),
+    Math.abs(e[o + 2]!) + Math.abs(e[o + 6]!) + Math.abs(e[o + 10]!),
+  );
+  return columns * rows;
+}
+
 /** Exact, two-sided indexed-triangle picking in world units, including hierarchy and instances. */
 export class Raycaster {
   readonly origin = new Vector3();
@@ -99,7 +117,19 @@ export class Raycaster {
       object.updateDeformation();
       const world = object.updateWorldMatrix();
       if (object instanceof InstancedMesh) {
+        const sphere = object.geometry.boundingSphere,
+          worldNorms = induced3x3Norms(world.elements, 0);
         for (let i = 0; i < object.count; i++) {
+          if (
+            this.instanceMisses(
+              world,
+              object.matrices,
+              i * 16,
+              sphere,
+              worldNorms,
+            )
+          )
+            continue;
           object.getMatrixAt(i, this.instance);
           this.world.copy(world).multiply(this.instance);
           this.intersectMesh(object, this.world, out, i);
@@ -109,6 +139,63 @@ export class Raycaster {
     const children = recursive ? object.existingChildren : undefined;
     if (children)
       for (const child of children) this.intersectObject(child, true, out);
+  }
+
+  /**
+   * True when the ray clearly misses an instance, judged without composing its world matrix.
+   * The sphere bounds `world · instance` through the product of each factor's induced 1- and
+   * ∞-norms, which bound the composed matrix's, so it contains the sphere `intersectMesh`
+   * tests; its rounding differs from that sphere's far less than the margins below. A miss
+   * here is therefore a miss there, and every instance that test could accept still reaches it.
+   */
+  private instanceMisses(
+    world: Matrix4,
+    matrices: Float32Array,
+    offset: number,
+    sphere: Readonly<BoundingSphere3D>,
+    worldNorms: number,
+  ): boolean {
+    const w = world.elements,
+      m = matrices,
+      o = offset;
+    const lx =
+        m[o]! * sphere.x +
+        m[o + 4]! * sphere.y +
+        m[o + 8]! * sphere.z +
+        m[o + 12]!,
+      ly =
+        m[o + 1]! * sphere.x +
+        m[o + 5]! * sphere.y +
+        m[o + 9]! * sphere.z +
+        m[o + 13]!,
+      lz =
+        m[o + 2]! * sphere.x +
+        m[o + 6]! * sphere.y +
+        m[o + 10]! * sphere.z +
+        m[o + 14]!;
+    const sx = w[0]! * lx + w[4]! * ly + w[8]! * lz + w[12]!,
+      sy = w[1]! * lx + w[5]! * ly + w[9]! * lz + w[13]!,
+      sz = w[2]! * lx + w[6]! * ly + w[10]! * lz + w[14]!;
+    const radius =
+      sphere.radius * Math.sqrt(worldNorms * induced3x3Norms(m, o));
+    const wx = sx - this.origin.x,
+      wy = sy - this.origin.y,
+      wz = sz - this.origin.z;
+    const ray = this.direction;
+    const cx = wy * ray.z - wz * ray.y,
+      cy = wz * ray.x - wx * ray.z,
+      cz = wx * ray.y - wy * ray.x;
+    const reach =
+      radius * 1.000001 +
+      1e-6 *
+        (1 +
+          Math.abs(wx) +
+          Math.abs(wy) +
+          Math.abs(wz) +
+          Math.abs(sx) +
+          Math.abs(sy) +
+          Math.abs(sz));
+    return cx * cx + cy * cy + cz * cz > reach * reach;
   }
 
   private intersectMesh(

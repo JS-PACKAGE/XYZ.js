@@ -244,6 +244,131 @@ describe('exact 3D picking', () => {
     expectPoint(hits[0].point, point);
   });
 
+  it('finds every corner hit on quarter-turned and sheared instances under a moved parent', () => {
+    // Quarter turns and uniform scales leave conservative bounds no slack, so instances whose
+    // bounds were underestimated or misplaced would lose these grazing corner hits.
+    const root = new Group();
+    root.position.set(60, -45, 80);
+    root.rotation.setFromEuler(0, Math.PI / 2, 0);
+    root.scale.set(2, 2, 2);
+    // An off-center box, so the bounding sphere center itself moves with each instance.
+    const offset = [0.3, -0.2, 0.5] as const;
+    const cube = Geometry.cube(1);
+    const positions: number[] = [],
+      normals: number[] = [],
+      uvs: number[] = [];
+    for (let at = 0; at < cube.vertices.length; at += 8) {
+      for (let axis = 0; axis < 3; axis++) {
+        positions.push(cube.vertices[at + axis]! + offset[axis]);
+        normals.push(cube.vertices[at + 3 + axis]!);
+      }
+      uvs.push(cube.vertices[at + 6]!, cube.vertices[at + 7]!);
+    }
+    const geometry = new Geometry({
+      positions,
+      normals,
+      uvs,
+      indices: cube.indices,
+    });
+    const mesh = root.add(
+      new InstancedMesh({ geometry, material: material(), count: 12 }),
+    );
+    const instances: Matrix4[] = [];
+    for (let i = 0; i < mesh.count; i++) {
+      const tight = i % 2 === 0;
+      const matrix = new Matrix4().compose(
+        new Vector3((i % 4) * 3 - 4, (i % 3) - 1, Math.floor(i / 4) * 3 - 3),
+        tight
+          ? new Quaternion().setFromEuler(0, 0, (Math.PI / 2) * (1 + (i % 3)))
+          : new Quaternion().setFromEuler(i * 0.7, i * 1.3, i * 0.4),
+        tight
+          ? new Vector3(
+              1.5 + (i % 3) * 0.5,
+              1.5 + (i % 3) * 0.5,
+              1.5 + (i % 3) * 0.5,
+            )
+          : new Vector3(0.4 + (i % 3) * 0.6, 1.5 - (i % 2) * 0.9, 0.7),
+      );
+      if (!tight) {
+        const shear = new Matrix4();
+        shear.elements[4] = 0.35 * ((i % 3) - 1);
+        shear.elements[8] = -0.2;
+        matrix.multiply(shear);
+      }
+      mesh.setMatrixAt(i, matrix);
+      // The oracle composes the stored (Float32) matrices, as picking does.
+      instances.push(mesh.getMatrixAt(i, new Matrix4()));
+    }
+    const meshWorld = new Matrix4().copy(mesh.updateWorldMatrix());
+    const corner = (instance: number, x: number, y: number, z: number) =>
+      new Matrix4()
+        .copy(meshWorld)
+        .multiply(instances[instance]!)
+        .transformPoint(new Vector3(x, y, z));
+    // Brute force over every triangle of every composed instance, two-sided.
+    const expected = (origin: Vector3, direction: Vector3) => {
+      const hits: { instance: number; face: number; distance: number }[] = [];
+      const v = geometry.vertices,
+        indices = geometry.indices;
+      for (let instance = 0; instance < mesh.count; instance++)
+        for (let face = 0; face < indices.length / 3; face++) {
+          const [a, b, c] = [0, 1, 2].map((k) => {
+            const at = indices[face * 3 + k]! * 8;
+            return corner(instance, v[at]!, v[at + 1]!, v[at + 2]!);
+          });
+          const e1 = b!.clone().subtract(a!),
+            e2 = c!.clone().subtract(a!);
+          const p = direction.clone().cross(e2),
+            det = e1.dot(p);
+          if (Math.abs(det) < 1e-12) continue;
+          const t0 = origin.clone().subtract(a!);
+          const u = t0.dot(p) / det,
+            q = t0.clone().cross(e1),
+            w = direction.dot(q) / det,
+            distance = e2.dot(q) / det;
+          if (u >= 0 && w >= 0 && u + w <= 1 && distance >= 0)
+            hits.push({ instance, face, distance });
+        }
+      return hits.sort((x, y) => x.distance - y.distance);
+    };
+    const raycaster = new Raycaster();
+    let total = 0;
+    for (let i = 0; i < mesh.count; i++)
+      for (const [x, y, z] of [
+        [0.49, 0.49, 0.49],
+        [-0.49, 0.49, -0.49],
+        [0.49, -0.49, -0.49],
+        [-0.49, -0.49, 0.49],
+      ] as const) {
+        // A ray through a point just inside a corner, perpendicular to the line from the
+        // instance's center: it passes the center at nearly the instance's full extent.
+        const target = corner(i, x + offset[0], y + offset[1], z + offset[2]);
+        const away = target
+          .clone()
+          .subtract(corner(i, offset[0], offset[1], offset[2]));
+        const direction = away
+          .clone()
+          .cross(new Vector3(0.3, 1, -0.2))
+          .normalize();
+        raycaster.origin.copy(target).subtract(direction.clone().scale(60));
+        raycaster.direction.copy(direction);
+        const hits = raycaster.intersectObjects([root]);
+        const truth = expected(raycaster.origin, raycaster.direction);
+        expect(truth.some((hit) => hit.instance === i)).toBe(true);
+        expect(hits.map((hit) => [hit.instanceId, hit.faceIndex])).toEqual(
+          truth.map((hit) => [hit.instance, hit.face]),
+        );
+        // Grazing hits amplify rounding, so distances agree relatively, not to fixed digits.
+        hits.forEach((hit, k) =>
+          expect(Math.abs(hit.distance - truth[k]!.distance)).toBeLessThan(
+            1e-5 * truth[k]!.distance,
+          ),
+        );
+        total += hits.length;
+      }
+    expect(total).toBeGreaterThan(mesh.count * 4);
+  });
+
   it('sorts intersections by world distance and honors near/far after instance updates', () => {
     const mesh = new InstancedMesh({
       geometry: triangle(),
