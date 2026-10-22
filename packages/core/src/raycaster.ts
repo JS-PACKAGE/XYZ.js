@@ -4,6 +4,7 @@ import { Mesh } from './mesh.js';
 import { Object3D } from './object3d.js';
 import { OrthographicCamera, type Camera3D } from './orthographic-camera.js';
 import type { SceneObject } from './scene-object.js';
+import { transformSphere, type BoundingSphere3D } from './render-bounds.js';
 
 export interface RaycastHit {
   object: Mesh;
@@ -29,6 +30,7 @@ export class Raycaster {
   private readonly localOrigin = new Vector3();
   private readonly localDirection = new Vector3();
   private readonly visited = new Set<Object3D>();
+  private readonly bounds: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
 
   setFromCamera(x: number, y: number, camera: Camera3D, aspect: number): this {
     if (!Number.isFinite(x) || !Number.isFinite(y))
@@ -116,6 +118,25 @@ export class Raycaster {
     instanceId?: number,
   ): void {
     const e = world.elements;
+    // A ray farther from the bounding sphere than its radius (transformed conservatively and
+    // widened for rounding and the hit tolerance) cannot meet a triangle, so a miss skips the
+    // inverse and the triangle loop. Non-finite bounds never cull.
+    const sphere = transformSphere(
+      mesh.geometry.boundingSphere,
+      world,
+      this.bounds,
+    );
+    const wx = sphere.x - this.origin.x,
+      wy = sphere.y - this.origin.y,
+      wz = sphere.z - this.origin.z;
+    const ray = this.direction;
+    const cx = wy * ray.z - wz * ray.y,
+      cy = wz * ray.x - wx * ray.z,
+      cz = wx * ray.y - wy * ray.x;
+    const reach =
+      sphere.radius * 1.000001 +
+      1e-6 * (1 + Math.abs(wx) + Math.abs(wy) + Math.abs(wz));
+    if (cx * cx + cy * cy + cz * cz > reach * reach) return;
     // Singular transforms can still contain a pickable planar triangle: use world coordinates then.
     const determinant =
       e[0] * (e[5] * e[10] - e[6] * e[9]) -

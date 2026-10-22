@@ -21,6 +21,7 @@ export declare class Raycaster {
     private readonly localOrigin;
     private readonly localDirection;
     private readonly visited;
+    private readonly bounds;
     setFromCamera(x: number, y: number, camera: Camera3D, aspect: number): this;
     /** Replaces out's contents; flat scene registration and recursive roots never duplicate a mesh. */
     intersectObjects(objects: Iterable<SceneObject>, recursive?: boolean, out?: RaycastHit[]): RaycastHit[];

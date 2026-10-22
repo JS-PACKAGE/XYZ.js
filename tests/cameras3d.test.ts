@@ -180,6 +180,27 @@ describe('exact 3D picking', () => {
     expect(raycaster.intersectObjects([mesh])).toEqual([]);
   });
 
+  it('hits the far tip of a stretched, rotated mesh and finds nothing for rays that pass beside it', () => {
+    const plank = new Mesh({
+      geometry: Geometry.cube(1),
+      material: material(),
+      scale: [8, 0.2, 0.2],
+    });
+    plank.rotation.setFromEuler(0, 0, 0.6);
+    const raycaster = new Raycaster();
+    raycaster.direction.set(0, 0, -1);
+    // The plank's axis runs toward (0.825, 0.565); this point lies 3.97 along it, inside the tip.
+    raycaster.origin.set(3.3, 2.2, 5);
+    const hits = raycaster.intersectObjects([plank]);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].distance).toBeCloseTo(4.9, 4);
+    // Beside the plank, and in line with it but beyond the tip.
+    raycaster.origin.set(3.3, 5, 5);
+    expect(raycaster.intersectObjects([plank])).toEqual([]);
+    raycaster.origin.set(5.5, 3.8, 5);
+    expect(raycaster.intersectObjects([plank])).toEqual([]);
+  });
+
   it('returns instance IDs and transformed hit positions after composing a hierarchy with each instance', () => {
     const root = new Group();
     root.position.set(1, 2, -2);
