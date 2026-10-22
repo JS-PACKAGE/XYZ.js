@@ -1453,6 +1453,67 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.44 * (1 - ridge);
         break;
       }
+      case 'cheesegrater': {
+        // Punched holes sink below a raised rim ring on a fixed lattice.
+        const nx = 6,
+          ny = 8;
+        const cx = Math.floor(u * nx),
+          cy = Math.floor(v * ny);
+        // Rim amplitude hashes wrap with the lattice periods at the seam.
+        const cellX = ((cx % nx) + nx) % nx,
+          cellY = ((cy % ny) + ny) % ny;
+        const fx = fract(u * nx) - 0.5,
+          fy = fract(v * ny) - 0.5;
+        const d = Math.hypot(fx, fy);
+        const hole = smooth(clamp((0.22 - d) / 0.1));
+        const rim =
+          smooth(clamp((d - 0.22) / 0.06)) * smooth(clamp((0.42 - d) / 0.08));
+        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x5c21);
+        const plane = (1 - rim) * (1 - hole);
+        const grain = noise(u, v, 32, 32, seed ^ 0x3a77);
+        color = 0.44 + 0.26 * rim - 0.3 * hole + 0.08 * grain;
+        height = 0.3 + 0.24 * rim * lift - 0.26 * hole;
+        roughness += 0.08 * (grain - 0.5) - 0.06 * rim + 0.1 * hole;
+        occlusion = 1 - 0.44 * hole - 0.12 * plane;
+        break;
+      }
+      case 'ovenrack': {
+        // Round rods run along u with thin crossbars along v; crossings lift.
+        const rv = fract(v * 8) - 0.5,
+          cu = fract(u * 4) - 0.5;
+        const rod = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
+        const bar = smooth(clamp((0.16 - Math.abs(cu)) / 0.08));
+        const cell = ((Math.floor(v * 8) % 8) + 8) % 8;
+        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x2b4d);
+        const grain = noise(u, v, 24, 24, seed ^ 0x6e13);
+        color = 0.4 + 0.28 * rod + 0.16 * bar + 0.05 * rod * bar + 0.08 * grain;
+        height = 0.3 + 0.36 * rod * amp + 0.16 * bar + 0.06 * rod * bar;
+        roughness += 0.08 * (grain - 0.5) - 0.08 * rod;
+        occlusion = 1 - 0.44 * (1 - rod) * (1 - bar) - 0.12 * (1 - rod) * bar;
+        break;
+      }
+      case 'muffintin': {
+        // Cup recesses sit under a raised rim ring on a coarse lattice.
+        const nx = 4,
+          ny = 4;
+        const cx = Math.floor(u * nx),
+          cy = Math.floor(v * ny);
+        const cellX = ((cx % nx) + nx) % nx,
+          cellY = ((cy % ny) + ny) % ny;
+        const fx = fract(u * nx) - 0.5,
+          fy = fract(v * ny) - 0.5;
+        const d = Math.hypot(fx, fy);
+        const cup = smooth(clamp((0.34 - d) / 0.12));
+        const rim =
+          smooth(clamp((d - 0.32) / 0.06)) * smooth(clamp((0.48 - d) / 0.06));
+        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x71b5);
+        const grain = noise(u, v, 24, 24, seed ^ 0x1f8a);
+        color = 0.42 + 0.24 * rim - 0.28 * cup + 0.08 * grain;
+        height = 0.3 + 0.2 * rim * lift - 0.28 * cup;
+        roughness += 0.08 * (grain - 0.5) - 0.05 * rim + 0.08 * cup;
+        occlusion = 1 - 0.44 * cup - 0.12 * (1 - rim) * (1 - cup);
+        break;
+      }
       case 'morel': {
         const p = morelPreset,
           x = u * p.columns,

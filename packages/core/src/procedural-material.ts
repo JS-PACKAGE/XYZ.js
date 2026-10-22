@@ -339,7 +339,10 @@ export type ProceduralMaterialKind =
   | 'lychee'
   | 'sandpaper'
   | 'steelwool'
-  | 'wirebrush';
+  | 'wirebrush'
+  | 'cheesegrater'
+  | 'ovenrack'
+  | 'muffintin';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -705,6 +708,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sandpaper',
   'steelwool',
   'wirebrush',
+  'cheesegrater',
+  'ovenrack',
+  'muffintin',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

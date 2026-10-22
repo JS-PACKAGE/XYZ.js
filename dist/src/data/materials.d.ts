@@ -2059,6 +2059,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.68;
         relief: 0.0026;
     }>;
+    cheesegrater: Readonly<{
+        dark: readonly [96, 100, 104];
+        light: readonly [222, 226, 230];
+        roughness: 0.42;
+        relief: 0.002;
+    }>;
+    ovenrack: Readonly<{
+        dark: readonly [72, 70, 68];
+        light: readonly [196, 194, 190];
+        roughness: 0.55;
+        relief: 0.0028;
+    }>;
+    muffintin: Readonly<{
+        dark: readonly [88, 76, 62];
+        light: readonly [214, 198, 176];
+        roughness: 0.5;
+        relief: 0.0026;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2395,4 +2413,7 @@ export declare const proceduralTileMeters: Readonly<{
     sandpaper: 0.12;
     steelwool: 0.16;
     wirebrush: 0.1;
+    cheesegrater: 0.2;
+    ovenrack: 0.3;
+    muffintin: 0.35;
 }>;

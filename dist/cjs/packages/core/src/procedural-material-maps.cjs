@@ -408,6 +408,21 @@ function createSurfaceSampler(t, r) {
 				H = .38 + .3 * a * s * c + .08 * l, Z = .3 + .44 * a * s * c, Q += .1 * (l - .5) - .06 * a, $ = 1 - .44 * (1 - a);
 				break;
 			}
+			case `cheesegrater`: {
+				let e = Math.floor(o * 6), t = Math.floor(A * 8), n = (e % 6 + 6) % 6, i = (t % 8 + 8) % 8, a = fract(o * 6) - .5, s = fract(A * 8) - .5, c = Math.hypot(a, s), l = smooth(clamp((.22 - c) / .1)), u = smooth(clamp((c - .22) / .06)) * smooth(clamp((.42 - c) / .08)), d = .85 + .15 * hash(n, i, r ^ 23585), f = (1 - u) * (1 - l), p = noise(o, A, 32, 32, r ^ 14967);
+				H = .44 + .26 * u - .3 * l + .08 * p, Z = .3 + .24 * u * d - .26 * l, Q += .08 * (p - .5) - .06 * u + .1 * l, $ = 1 - .44 * l - .12 * f;
+				break;
+			}
+			case `ovenrack`: {
+				let e = fract(A * 8) - .5, t = fract(o * 4) - .5, n = smooth(clamp((.3 - Math.abs(e)) / .12)), i = smooth(clamp((.16 - Math.abs(t)) / .08)), a = .85 + .15 * hash((Math.floor(A * 8) % 8 + 8) % 8, 0, r ^ 11085), s = noise(o, A, 24, 24, r ^ 28179);
+				H = .4 + .28 * n + .16 * i + .05 * n * i + .08 * s, Z = .3 + .36 * n * a + .16 * i + .06 * n * i, Q += .08 * (s - .5) - .08 * n, $ = 1 - .44 * (1 - n) * (1 - i) - .12 * (1 - n) * i;
+				break;
+			}
+			case `muffintin`: {
+				let e = Math.floor(o * 4), t = Math.floor(A * 4), n = (e % 4 + 4) % 4, i = (t % 4 + 4) % 4, a = fract(o * 4) - .5, s = fract(A * 4) - .5, c = Math.hypot(a, s), l = smooth(clamp((.34 - c) / .12)), u = smooth(clamp((c - .32) / .06)) * smooth(clamp((.48 - c) / .06)), d = .85 + .15 * hash(n, i, r ^ 29109), f = noise(o, A, 24, 24, r ^ 8074);
+				H = .42 + .24 * u - .28 * l + .08 * f, Z = .3 + .2 * u * d - .28 * l, Q += .08 * (f - .5) - .05 * u + .08 * l, $ = 1 - .44 * l - .12 * (1 - u) * (1 - l);
+				break;
+			}
 			case `morel`: {
 				let e = x, t = o * e.columns, n = A * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(o, A), s = 0, c = 0;
 				for (let a = -2; a <= 2; a++) for (let o = -2; o <= 2; o++) {

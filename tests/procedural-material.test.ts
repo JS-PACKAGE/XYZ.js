@@ -358,6 +358,9 @@ const kinds: ProceduralMaterialKind[] = [
   'sandpaper',
   'steelwool',
   'wirebrush',
+  'cheesegrater',
+  'ovenrack',
+  'muffintin',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5169,6 +5172,9 @@ describe('periodic procedural material fields', () => {
     ['sandpaper', [2, 4, 32, 64]],
     ['steelwool', [3, 32, 64]],
     ['wirebrush', [2, 4, 32, 64]],
+    ['cheesegrater', [2, 3, 32, 64]],
+    ['ovenrack', [2, 4, 32, 64]],
+    ['muffintin', [4, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5505,6 +5511,9 @@ describe('periodic procedural material fields', () => {
     ['sandpaper', 3],
     ['steelwool', 4],
     ['wirebrush', 4],
+    ['cheesegrater', 3],
+    ['ovenrack', 4],
+    ['muffintin', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -6919,6 +6928,9 @@ describe('periodic procedural material fields', () => {
     'sandpaper',
     'steelwool',
     'wirebrush',
+    'cheesegrater',
+    'ovenrack',
+    'muffintin',
   ] as const)(
     '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
@@ -7219,7 +7231,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                                                     : kind ===
                                                                                                                                                                                                                         'wirebrush'
                                                                                                                                                                                                                       ? 4
-                                                                                                                                                                                                                      : 4;
+                                                                                                                                                                                                                      : kind ===
+                                                                                                                                                                                                                          'cheesegrater'
+                                                                                                                                                                                                                        ? 3
+                                                                                                                                                                                                                        : kind ===
+                                                                                                                                                                                                                            'ovenrack'
+                                                                                                                                                                                                                          ? 4
+                                                                                                                                                                                                                          : kind ===
+                                                                                                                                                                                                                              'muffintin'
+                                                                                                                                                                                                                            ? 4
+                                                                                                                                                                                                                            : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -12244,6 +12265,75 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, groove);
       expect(bristle.height).toBeGreaterThan(groove.height + 0.1 * relief);
       expect(bristle.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('grater rims crest above the plane and their punched holes', () => {
+    const relief = proceduralMaterialPresets.cheesegrater.relief;
+    const rim: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const plane = { ...rim };
+    const hole = { ...rim };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cheesegrater', seed);
+      sample(0.136333, 1 / 16, rim);
+      sample(0, 0, plane);
+      sample(1 / 12, 1 / 16, hole);
+      expect(rim.height).toBeGreaterThan(plane.height + 0.1 * relief);
+      expect(plane.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(rim.occlusion).toBeGreaterThan(hole.occlusion);
+    }
+  });
+
+  it('oven rack rods crest above their crossbars and the gaps', () => {
+    const relief = proceduralMaterialPresets.ovenrack.relief;
+    const rod: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const bar = { ...rod };
+    const gap = { ...rod };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('ovenrack', seed);
+      sample(0.3, 1 / 16, rod);
+      sample(1 / 8, 0, bar);
+      sample(0, 0, gap);
+      expect(rod.height).toBeGreaterThan(bar.height + 0.1 * relief);
+      expect(bar.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(rod.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('muffin tin rims crest above the pan and their cup bottoms', () => {
+    const relief = proceduralMaterialPresets.muffintin.relief;
+    const rim: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pan = { ...rim };
+    const cup = { ...rim };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('muffintin', seed);
+      sample(0.225, 0.125, rim);
+      sample(0, 0, pan);
+      sample(1 / 8, 1 / 8, cup);
+      expect(rim.height).toBeGreaterThan(pan.height + 0.1 * relief);
+      expect(pan.height).toBeGreaterThan(cup.height + 0.1 * relief);
+      expect(rim.occlusion).toBeGreaterThan(cup.occlusion);
     }
   });
 

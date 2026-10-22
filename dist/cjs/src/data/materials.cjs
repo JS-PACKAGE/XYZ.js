@@ -4722,6 +4722,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .68,
 		relief: .0026
+	}),
+	cheesegrater: Object.freeze({
+		dark: [
+			96,
+			100,
+			104
+		],
+		light: [
+			222,
+			226,
+			230
+		],
+		roughness: .42,
+		relief: .002
+	}),
+	ovenrack: Object.freeze({
+		dark: [
+			72,
+			70,
+			68
+		],
+		light: [
+			196,
+			194,
+			190
+		],
+		roughness: .55,
+		relief: .0028
+	}),
+	muffintin: Object.freeze({
+		dark: [
+			88,
+			76,
+			62
+		],
+		light: [
+			214,
+			198,
+			176
+		],
+		roughness: .5,
+		relief: .0026
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5057,7 +5099,10 @@ var proceduralTileMeters = Object.freeze({
 	lychee: .055,
 	sandpaper: .12,
 	steelwool: .16,
-	wirebrush: .1
+	wirebrush: .1,
+	cheesegrater: .2,
+	ovenrack: .3,
+	muffintin: .35
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

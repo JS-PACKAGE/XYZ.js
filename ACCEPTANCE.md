@@ -5450,3 +5450,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering2D]` WebGPU／WebGL2 幾何遮罩改用每個 renderer 一張重用的 Canvas（`MaskCanvas2D`：同尺寸時重設 transform 並 clearRect，尺寸變了才換新），不再每次遮罩變動都建立 Canvas＋2D context、事後釋放；renderer destroy 時釋放。兩種上傳（`texSubImage2D`、`copyExternalImageToTexture`）於呼叫時讀取 canvas，以同一幀 12 個同／異尺寸遮罩每幀換形的對抗頁驗證：Chrome 兩 backend 截圖對 HEAD 8 個步驟逐位元組相同，前述 14 幀序列頁亦相同。遮罩每幀變動時主執行緒忙碌 WebGPU 313→231 ms、WebGL2 223→188 ms（4 s）。完整測試 2893 通過、型別與 API 相容、Chromium regression:browser（webgl2／webgpu）通過。
 - `[Text]` Text2D／Graphics2D 更新時以內部 `CanvasTexture2D.adopt` 直接接管剛畫好的 canvas 當表面，不再經 `update` 的 snapshot 再建一張 canvas、取 context、drawImage 複製、釋放原圖（同尺寸 canvas 複製為逐像素一致）；`adopt` 驗證與錯誤同 `update`，失敗時釋放傳入的 canvas。Chrome 截圖對 HEAD：5 種 Text2D 與 4 組 Graphics2D 在 WebGL2／WebGPU／Canvas2D 逐位元組相同；每次更新含繪製 WebGL2 Text2D 1.04→0.82 ms、Graphics2D 0.91→0.70 ms，WebGPU 10 個標籤每幀更新主執行緒忙碌 254→157、441→326 ms／5 s（兩輪，負載雜訊大）。完整測試 2893 通過、型別與 API 相容檢查通過。
+
+## 程序材質擴充：廚房器具（cheesegrater／ovenrack／muffintin）
+
+- 新增沖孔低於凸起孔環的起司刨刀（cheesegrater）、圓桿高於細橫桿且交點略抬高的烤架（ovenrack）、圓槽低於凸起模環的馬芬烤盤（muffintin）。本組提交後目錄由 333 增為 336 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增孔洞、圓桿或圓槽 geometry，也不做 displacement。
+- 前 333 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 e8a9a55d 乾淨工作樹重建比對，333 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 僅報 HEAD 既有的 `tests/gameplay2d-core.test.ts:93` 與 `tests/sprite-quad-validation.test.ts:13` 兩處（非本組，未改動）。本組材質測試 1414 個全數通過；完整 Vitest 2908／2908 全數通過。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：孔環高於面板高於沖孔、圓桿高於橫桿高於空隙、模環高於盤面高於圓槽，occlusion 同序。全部值域有界，週期 wrap 導數差異為 0，owned cell 邊界掃描最大欄位差異 ≤8.6e-6、斜率曲率 ≤7e-7（浮點噪聲內）。
+- 獨立 Chrome WebGPU／WebGL2 gallery（336 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序 83–140／110–150／105–158；每米 repeats 依序 5.000000／3.333333／2.857143。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
