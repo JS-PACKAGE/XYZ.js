@@ -157,13 +157,16 @@ it('draws each update into the canvas that the previous raster released', async 
   });
   // Instruction validation also creates one colour-parsing canvas per call.
   const graphic = await Graphics2D.create(square(4, '#ff0000'));
-  const first = graphic.texture.image;
+  const first = (graphic.texture as { readonly image: unknown }).image;
   await graphic.setInstructions(square(6, '#00ff00'));
   await graphic.setInstructions(square(8, '#0000ff'));
-  expect(graphic.texture.image).toBe(first);
-  expect((graphic.texture.image as unknown as Surface).drawn).toEqual([
-    '#0000ff',
-  ]);
+  expect((graphic.texture as { readonly image: unknown }).image).toBe(first);
+  expect(
+    (
+      (graphic.texture as { readonly image: unknown })
+        .image as unknown as Surface
+    ).drawn,
+  ).toEqual(['#0000ff']);
   expect(created).toHaveLength(5);
   graphic.destroy();
 });

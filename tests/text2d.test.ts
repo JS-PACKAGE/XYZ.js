@@ -211,12 +211,15 @@ it('draws the next update into the surface that the previous update released', a
   // create draws 'one' into a canvas, copies it into the texture's surface and keeps the
   // drawn canvas as the spare; each update then draws into the surface released before it.
   const label = await Text2D.create('one');
-  const first = label.texture.image;
+  const first = (label.texture as { readonly image: unknown }).image;
   await label.setText('two');
-  const second = label.texture.image;
+  const second = (label.texture as { readonly image: unknown }).image;
   await label.setText('three');
-  expect(label.texture.image).toBe(first);
-  expect((label.texture.image as unknown as Surface).drawn).toEqual(['three']);
+  expect((label.texture as { readonly image: unknown }).image).toBe(first);
+  expect(
+    ((label.texture as { readonly image: unknown }).image as unknown as Surface)
+      .drawn,
+  ).toEqual(['three']);
   expect(label.texture.width).toBe(69);
   expect(created).toHaveLength(2);
   // 'two''s surface is now the spare: still sized, never zeroed while kept.
