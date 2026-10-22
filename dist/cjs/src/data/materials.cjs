@@ -2778,6 +2778,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .28,
 		relief: .0022
 	}),
+	saddlestitch: Object.freeze({
+		dark: [
+			82,
+			52,
+			32
+		],
+		light: [
+			172,
+			122,
+			82
+		],
+		roughness: .58,
+		relief: .003
+	}),
+	tooledleather: Object.freeze({
+		dark: [
+			92,
+			58,
+			34
+		],
+		light: [
+			192,
+			138,
+			92
+		],
+		roughness: .62,
+		relief: .0034
+	}),
+	patentleather: Object.freeze({
+		dark: [
+			42,
+			22,
+			32
+		],
+		light: [
+			152,
+			82,
+			112
+		],
+		roughness: .18,
+		relief: .0018
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3831,6 +3873,9 @@ var proceduralTileMeters = Object.freeze({
 	frostedglass: .06,
 	rippledglass: .18,
 	bubbleglass: .12,
+	saddlestitch: .16,
+	tooledleather: .2,
+	patentleather: .12,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

@@ -2157,6 +2157,21 @@ function createSurfaceSampler(t, r) {
 				H = .48 + .32 * n + .08 * i, Z = .46 + .24 * n + .02 * i, Q += .08 * (i - .5) - .12 * n, $ = 1 - .3 * (1 - n);
 				break;
 			}
+			case `saddlestitch`: {
+				let e = (o - A) * 2 - .25, t = smooth(clamp((.05 - Math.min(fract(e), 1 - fract(e))) / .03)) * smooth(clamp((.3 - Math.abs(fract((o + A) * 8) - .5)) / .12)), n = noise(o, A, 24, 24, r ^ 11093);
+				H = .42 + .3 * t + .08 * n, Z = .44 + .24 * t + .02 * n, Q += .06 * (n - .5) - .12 * t, $ = 1 - .32 * (1 - t);
+				break;
+			}
+			case `tooledleather`: {
+				let e = fract(o * 4) - .5, t = fract(A * 4) - .5, n = Math.hypot(e, t), i = smooth(clamp((.36 - n) / .16)), a = smooth(clamp((.035 - Math.abs(n - .18)) / .02)), s = noise(o, A, 24, 24, r ^ 15462);
+				H = .42 + .26 * i + .1 * a + .08 * s, Z = .44 + .22 * i + .08 * a + .02 * s, Q += .06 * (s - .5) - .1 * i, $ = 1 - .34 * (1 - i);
+				break;
+			}
+			case `patentleather`: {
+				let e = smooth(clamp((noise(o, A, 32, 32, r ^ 19831) - .42) / .16)), t = noise(o, A, 6, 6, r ^ 24200);
+				H = .44 + .18 * e + .16 * t, Z = .46 + .16 * e + .02 * t, Q += .08 * (e - .5), $ = 1 - .18 * (1 - e);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

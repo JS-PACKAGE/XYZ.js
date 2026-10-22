@@ -205,6 +205,9 @@ export type ProceduralMaterialKind =
   | 'frostedglass'
   | 'rippledglass'
   | 'bubbleglass'
+  | 'saddlestitch'
+  | 'tooledleather'
+  | 'patentleather'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -492,6 +495,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'frostedglass',
   'rippledglass',
   'bubbleglass',
+  'saddlestitch',
+  'tooledleather',
+  'patentleather',
   'basketball',
   'tennisball',
   'golfball',

@@ -1194,6 +1194,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.28;
         relief: 0.0022;
     }>;
+    saddlestitch: Readonly<{
+        dark: readonly [82, 52, 32];
+        light: readonly [172, 122, 82];
+        roughness: 0.58;
+        relief: 0.003;
+    }>;
+    tooledleather: Readonly<{
+        dark: readonly [92, 58, 34];
+        light: readonly [192, 138, 92];
+        roughness: 0.62;
+        relief: 0.0034;
+    }>;
+    patentleather: Readonly<{
+        dark: readonly [42, 22, 32];
+        light: readonly [152, 82, 112];
+        roughness: 0.18;
+        relief: 0.0018;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1792,6 +1810,9 @@ export declare const proceduralTileMeters: Readonly<{
     frostedglass: 0.06;
     rippledglass: 0.18;
     bubbleglass: 0.12;
+    saddlestitch: 0.16;
+    tooledleather: 0.2;
+    patentleather: 0.12;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

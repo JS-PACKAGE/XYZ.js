@@ -223,6 +223,9 @@ const kinds: ProceduralMaterialKind[] = [
   'frostedglass',
   'rippledglass',
   'bubbleglass',
+  'saddlestitch',
+  'tooledleather',
+  'patentleather',
   'basketball',
   'tennisball',
   'golfball',
@@ -4992,6 +4995,9 @@ describe('periodic procedural material fields', () => {
     ['frostedglass', [6, 12, 32, 64]],
     ['rippledglass', [6, 32, 48, 64]],
     ['bubbleglass', [8, 32, 48, 64]],
+    ['saddlestitch', [2, 8, 32, 64]],
+    ['tooledleather', [4, 32, 48, 64]],
+    ['patentleather', [6, 12, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5221,6 +5227,9 @@ describe('periodic procedural material fields', () => {
     ['frostedglass', 32],
     ['rippledglass', 6],
     ['bubbleglass', 8],
+    ['saddlestitch', 8],
+    ['tooledleather', 4],
+    ['patentleather', 32],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6604,6 +6613,9 @@ describe('periodic procedural material fields', () => {
     'frostedglass',
     'rippledglass',
     'bubbleglass',
+    'saddlestitch',
+    'tooledleather',
+    'patentleather',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6673,7 +6685,16 @@ describe('periodic procedural material fields', () => {
                                                         ? 6
                                                         : kind === 'bubbleglass'
                                                           ? 8
-                                                          : 4;
+                                                          : kind ===
+                                                              'saddlestitch'
+                                                            ? 8
+                                                            : kind ===
+                                                                'tooledleather'
+                                                              ? 4
+                                                              : kind ===
+                                                                  'patentleather'
+                                                                ? 32
+                                                                : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9929,6 +9950,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the etch and the pane from cavity shading rather than pinning
       // seeded speckle coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('saddle stitching dashes raised thread above the grained leather', () => {
+    const relief = proceduralMaterialPresets.saddlestitch.relief;
+    const stitch: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const leather = { ...stitch };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('saddlestitch', seed);
+      sample(0.09375, 0.96875, stitch);
+      sample(0.5, 0.125, leather);
+      expect(stitch.height).toBeGreaterThan(leather.height + 0.1 * relief);
+      expect(stitch.occlusion).toBeGreaterThan(leather.occlusion);
+    }
+  });
+
+  it('tooled leather embosses medallions over the compressed ground', () => {
+    const relief = proceduralMaterialPresets.tooledleather.relief;
+    const medallion: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const ground = { ...medallion };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tooledleather', seed);
+      sample(0.125, 0.125, medallion);
+      sample(0, 0, ground);
+      expect(medallion.height).toBeGreaterThan(ground.height + 0.1 * relief);
+      expect(medallion.occlusion).toBeGreaterThan(ground.occlusion);
+    }
+  });
+
+  it('patent leather ripples orange peel across the mirror lacquer', () => {
+    const relief = proceduralMaterialPresets.patentleather.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('patentleather', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the peel and the lacquer from cavity shading rather than
+      // pinning seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

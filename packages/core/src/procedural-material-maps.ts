@@ -7770,6 +7770,49 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - bubble);
         break;
       }
+      case 'saddlestitch': {
+        // Saddle stitches dash along their seam above the grained leather.
+        const se = (u - v) * 2 - 0.25;
+        const line = smooth(
+          clamp((0.05 - Math.min(fract(se), 1 - fract(se))) / 0.03),
+        );
+        const dash = smooth(
+          clamp((0.3 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.12),
+        );
+        const stitch = line * dash;
+        const grain = noise(u, v, 24, 24, seed ^ 0x2b55);
+        color = 0.42 + 0.3 * stitch + 0.08 * grain;
+        height = 0.44 + 0.24 * stitch + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * stitch;
+        occlusion = 1 - 0.32 * (1 - stitch);
+        break;
+      }
+      case 'tooledleather': {
+        // Tooled medallions with swirl rings emboss over the compressed ground.
+        const tx = fract(u * 4) - 0.5,
+          ty = fract(v * 4) - 0.5;
+        const r = Math.hypot(tx, ty);
+        const medallion = smooth(clamp((0.36 - r) / 0.16));
+        const swirl = smooth(clamp((0.035 - Math.abs(r - 0.18)) / 0.02));
+        const grain = noise(u, v, 24, 24, seed ^ 0x3c66);
+        color = 0.42 + 0.26 * medallion + 0.1 * swirl + 0.08 * grain;
+        height = 0.44 + 0.22 * medallion + 0.08 * swirl + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * medallion;
+        occlusion = 1 - 0.34 * (1 - medallion);
+        break;
+      }
+      case 'patentleather': {
+        // Mirror lacquer carries a fine orange-peel ripple.
+        const peel = smooth(
+          clamp((noise(u, v, 32, 32, seed ^ 0x4d77) - 0.42) / 0.16),
+        );
+        const sheen = noise(u, v, 6, 6, seed ^ 0x5e88);
+        color = 0.44 + 0.18 * peel + 0.16 * sheen;
+        height = 0.46 + 0.16 * peel + 0.02 * sheen;
+        roughness += 0.08 * (peel - 0.5);
+        occlusion = 1 - 0.18 * (1 - peel);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
