@@ -354,7 +354,10 @@ export type ProceduralMaterialKind =
   | 'rugbyball'
   | 'wafflecone'
   | 'donutglaze'
-  | 'brownie';
+  | 'brownie'
+  | 'soapbar'
+  | 'loofah'
+  | 'scrubbypad';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -735,6 +738,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wafflecone',
   'donutglaze',
   'brownie',
+  'soapbar',
+  'loofah',
+  'scrubbypad',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

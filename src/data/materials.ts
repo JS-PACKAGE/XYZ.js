@@ -2150,6 +2150,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.46,
     relief: 0.0032,
   }),
+  soapbar: Object.freeze({
+    dark: [96, 142, 150] as const,
+    light: [232, 246, 246] as const,
+    roughness: 0.38,
+    relief: 0.0032,
+  }),
+  loofah: Object.freeze({
+    dark: [142, 112, 62] as const,
+    light: [232, 212, 158] as const,
+    roughness: 0.62,
+    relief: 0.0048,
+  }),
+  scrubbypad: Object.freeze({
+    dark: [46, 92, 62] as const,
+    light: [168, 208, 152] as const,
+    roughness: 0.58,
+    relief: 0.003,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2502,4 +2520,7 @@ export const proceduralTileMeters = Object.freeze({
   wafflecone: 0.18,
   donutglaze: 0.24,
   brownie: 0.2,
+  soapbar: 0.24,
+  loofah: 0.2,
+  scrubbypad: 0.14,
 });

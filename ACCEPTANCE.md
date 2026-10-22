@@ -5518,3 +5518,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - metallic bytes 全為 0；roughness bytes 依序 115–150／80–120／89–145（size 64，三 seed）；每米 repeats 依序 5.555556／4.166667／5.000000。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交（CAS 落地），之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering3D]` WebGL2 判斷 mesh 是否走混色時先讀材質欄位（`PBRMaterial.alphaMode`／`transparent`，皆為唯讀欄位），只有非混色材質才查可見性項目的 LOD fade；與 WebGPU 既有順序相同，結果不變。預設 `alphaMode` 為 BLEND，2000 個 PBR mesh 的 Chrome profile 中該判斷 60–120 → 6–13 ms／5 s（三次交錯 A/B）。完整測試 2974 通過、型別、tree-shaking、API 相容通過。
+
+## 程序材質擴充：浴室清潔（soapbar／loofah／scrubbypad）
+
+- 新增圓角斜邊皂塊帶橢圓壓印與細緻氣孔的香皂（soapbar）、交錯波浪纖維織成開放網絡的絲瓜絡（loofah）、粗礪磨砂圍繞凹陷六角切孔的菜瓜布（scrubbypad）。本組提交後目錄由 348 增為 351 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增皂塊、纖維或切孔 geometry，也不做 displacement。
+- 前 348 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 4cc1ddb0 乾淨工作樹 dist 建立基準、重建比對，348 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 報 9 處，皆為提交基準既有（`gameplay2d-core.test.ts:93`、`sprite-quad-validation.test.ts:13`、`graphics2d-raster.test.ts` 三處與 `text2d.test.ts` 四處的 `Texture2DSource.image`），與本組無關、未修改。完整 Vitest 178 檔 2987 項全數通過；同內容與 gallery 驗證併行的一輪因機器滿載出現 2 項逾時（既有 flaky pattern），隔離重跑 2987 項全過。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：香皂由中央橢圓壓印經皂肩降縫隙、occlusion 同序；絲瓜絡編織凸條高於網絡空隙；菜瓜布六角切孔中心低於周邊磨砂、roughness 較高。全部值域有界、週期 wrap 連續、metallic 恆 0。本組三個探針取樣點一次通過。
+- 真實 Chrome 的 pbr3d 在 WebGPU 逐一切換三者並渲染，狀態列顯示 `webgpu · 351 procedural material presets + plain`，無 page／console errors，三者畫面各自不同且花紋可辨（淡青皂塊與壓印／金黃開放纖維網／綠色六角切孔磨砂）。check:material-reference 通過（overall pass true，負向控制於 webgl2 與 webgpu 皆被拒絕）；regression:browser chromium canvas2d／webgl2／webgpu 通過（僅既有 SKIP：webxr 無實體裝置、WebGPU 無公開 device-loss 注入、Canvas2D 無原生 3D）。
+- metallic bytes 全為 0；roughness bytes 依序 87–122／128–173／132–189（size 64，三 seed）；每米 repeats 依序 4.166667／5.000000／7.142857。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交（CAS 落地），之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。

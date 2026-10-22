@@ -427,6 +427,9 @@ try {
     'wafflecone',
     'donutglaze',
     'brownie',
+    'soapbar',
+    'loofah',
+    'scrubbypad',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

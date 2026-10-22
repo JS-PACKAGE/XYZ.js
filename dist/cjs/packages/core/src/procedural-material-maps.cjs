@@ -477,6 +477,18 @@ function createSurfaceSampler(t, r) {
 				let l = noise(K, q, 40, 40, r ^ 15760);
 				X = .34 - .16 * s + .3 * c + .08 * (l - .5), Z = .36 - .14 * s + .2 * c + .04 * (l - .5), Q += .06 * (l - .5) + .08 * s - .1 * c, $ = 1 - .4 * s - .1 * (1 - c);
 			};
+			case `soapbar`: return () => {
+				let e = Math.floor(K * 2), t = Math.floor(q * 2), n = (e % 2 + 2) % 2, i = (t % 2 + 2) % 2, a = fract(K * 2) - .5, o = fract(q * 2) - .5, s = Math.abs(a) / .42, c = Math.abs(o) / .36, u = smooth(clamp((1.12 - (s ** 4 + c ** 4) ** .25) / .22)), d = .92 + .08 * hash(n, i, r ^ 25007), f = a / .16, p = o / .1, m = f * f + p * p, h = m < 1 ? (1 - m) * (1 - m) : 0, g = fract(K * 40) - .5, _ = fract(q * 40) - .5, v = (g * g + _ * _) / (.07 * .07), y = v < 1 ? (1 - v) * (1 - v) : 0;
+				X = .52 + .3 * u * d + .1 * h - .08 * y - .14 * (1 - u), Z = .3 + .24 * u * d + .06 * h - .05 * y, Q += .1 * (1 - u) + .06 * y - .04 * h, $ = 1 - .42 * (1 - u) - .14 * y;
+			};
+			case `loofah`: return () => {
+				let e = fract((K + .16 * Math.sin(Math.PI * 2 * q)) * 6) - .5, t = fract((q + .16 * Math.sin(Math.PI * 2 * K)) * 6) - .5, n = smooth(clamp((.16 - Math.abs(e)) / .12)), i = smooth(clamp((.16 - Math.abs(t)) / .12)), a = n + i - n * i, o = noise(K, q, 48, 48, r ^ 18625);
+				X = .46 + .32 * a + .12 * (o - .5), Z = .28 + .3 * a + .05 * (o - .5), Q += .12 * (o - .5) - .06 * a, $ = 1 - .46 * (1 - a);
+			};
+			case `scrubbypad`: return () => {
+				let e = (Math.floor(q * 8) % 2 + 2) % 2, n = fract(K * 8 + .5 * e) - .5, i = fract(q * 8) - .5, o = smooth(clamp((.34 - Math.max(Math.abs(n) * 1.15, Math.abs(i))) / .06)), s = noise(K, q, 64, 64, r ^ 30482);
+				X = .5 + .26 * (1 - o) + .16 * (s - .5) - .18 * o, Z = .32 + .2 * (1 - o) - .22 * o + .05 * (s - .5), Q += .14 * (s - .5) + .1 * o, $ = 1 - .5 * o;
+			};
 			case `morel`: return () => {
 				let e = x, t = K * e.columns, n = q * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(K, q), o = 0, s = 0;
 				for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) {

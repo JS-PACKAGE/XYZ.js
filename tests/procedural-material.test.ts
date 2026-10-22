@@ -373,6 +373,9 @@ const kinds: ProceduralMaterialKind[] = [
   'wafflecone',
   'donutglaze',
   'brownie',
+  'soapbar',
+  'loofah',
+  'scrubbypad',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5199,6 +5202,9 @@ describe('periodic procedural material fields', () => {
     ['wafflecone', [4, 32, 64]],
     ['donutglaze', [3, 32, 64]],
     ['brownie', [3, 32, 64]],
+    ['soapbar', [2, 32, 64]],
+    ['loofah', [3, 32, 64]],
+    ['scrubbypad', [3, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5552,6 +5558,10 @@ describe('periodic procedural material fields', () => {
     ['wafflecone', 8],
     ['donutglaze', 14],
     ['brownie', 7],
+    ['soapbar', 2],
+    ['soapbar', 40],
+    ['loofah', 6],
+    ['scrubbypad', 8],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13723,6 +13733,68 @@ describe('periodic procedural material fields', () => {
           if (a.height > hi) hi = a.height;
         }
       expect(hi).toBeGreaterThan(2 * lo);
+    }
+  });
+
+  it('soapbar steps from embossed oval over the bar shoulder down to the gaps', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      c = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('soapbar', seed);
+      sample(0.25, 0.25, a);
+      sample(0.36, 0.25, b);
+      sample(0.5, 0.25, c);
+      expect(a.height).toBeGreaterThan(b.height);
+      expect(b.height).toBeGreaterThan(c.height);
+      expect(b.occlusion).toBeGreaterThan(c.occlusion);
+      expect(a.occlusion).toBeGreaterThanOrEqual(b.occlusion);
+    }
+  });
+
+  it('loofah crests woven strands over the open network gaps', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('loofah', seed);
+      sample(0.25, 0, a);
+      sample(1 / 3, 0, b);
+      expect(a.height).toBeGreaterThan(b.height);
+      expect(a.occlusion).toBeGreaterThan(b.occlusion);
+    }
+  });
+
+  it('scrubbypad sinks hexagonal cut-outs below the abrasive pad', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('scrubbypad', seed);
+      sample(0.5 / 8, 0.5 / 8, a);
+      sample(0.5 / 8, 0.92 / 8, b);
+      expect(b.height).toBeGreaterThan(a.height);
+      expect(b.occlusion).toBeGreaterThan(a.occlusion);
+      expect(b.roughness).toBeLessThan(a.roughness);
     }
   });
 

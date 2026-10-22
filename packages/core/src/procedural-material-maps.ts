@@ -1797,6 +1797,73 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.4 * crack - 0.1 * (1 - nut);
           return;
         };
+      case 'soapbar':
+        return () => {
+          // Rounded bars with beveled shoulders, an embossed oval and fine pores.
+          const nx = 2,
+            ny = 2;
+          const cx = Math.floor(u * nx),
+            cy = Math.floor(v * ny);
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const rx = Math.abs(fx) / 0.42,
+            ry = Math.abs(fy) / 0.36;
+          const d = Math.pow(Math.pow(rx, 4) + Math.pow(ry, 4), 0.25);
+          const bar = smooth(clamp((1.12 - d) / 0.22));
+          const lift = 0.92 + 0.08 * hash(cellX, cellY, seed ^ 0x61af);
+          const ox = fx / 0.16,
+            oy = fy / 0.1;
+          const oq = ox * ox + oy * oy;
+          const emboss = oq < 1 ? (1 - oq) * (1 - oq) : 0;
+          const px = fract(u * 40) - 0.5,
+            py = fract(v * 40) - 0.5;
+          const pq = (px * px + py * py) / (0.07 * 0.07);
+          const pore = pq < 1 ? (1 - pq) * (1 - pq) : 0;
+          color =
+            0.52 +
+            0.3 * bar * lift +
+            0.1 * emboss -
+            0.08 * pore -
+            0.14 * (1 - bar);
+          height = 0.3 + 0.24 * bar * lift + 0.06 * emboss - 0.05 * pore;
+          roughness += 0.1 * (1 - bar) + 0.06 * pore - 0.04 * emboss;
+          occlusion = 1 - 0.42 * (1 - bar) - 0.14 * pore;
+          return;
+        };
+      case 'loofah':
+        return () => {
+          // Crossing wavy strands weave an open sponge network.
+          const a = fract((u + 0.16 * Math.sin(Math.PI * 2 * v)) * 6) - 0.5,
+            b = fract((v + 0.16 * Math.sin(Math.PI * 2 * u)) * 6) - 0.5;
+          const sa = smooth(clamp((0.16 - Math.abs(a)) / 0.12)),
+            sb = smooth(clamp((0.16 - Math.abs(b)) / 0.12));
+          const weave = sa + sb - sa * sb;
+          const fiber = noise(u, v, 48, 48, seed ^ 0x48c1);
+          color = 0.46 + 0.32 * weave + 0.12 * (fiber - 0.5);
+          height = 0.28 + 0.3 * weave + 0.05 * (fiber - 0.5);
+          roughness += 0.12 * (fiber - 0.5) - 0.06 * weave;
+          occlusion = 1 - 0.46 * (1 - weave);
+          return;
+        };
+      case 'scrubbypad':
+        return () => {
+          // Abrasive speckle surrounds recessed hexagonal cut-outs.
+          const row = Math.floor(v * 8);
+          const rowW = ((row % 2) + 2) % 2;
+          const x = u * 8 + 0.5 * rowW;
+          const fx = fract(x) - 0.5,
+            fy = fract(v * 8) - 0.5;
+          const hexDist = Math.max(Math.abs(fx) * 1.15, Math.abs(fy));
+          const hole = smooth(clamp((0.34 - hexDist) / 0.06));
+          const speck = noise(u, v, 64, 64, seed ^ 0x7712);
+          color = 0.5 + 0.26 * (1 - hole) + 0.16 * (speck - 0.5) - 0.18 * hole;
+          height = 0.32 + 0.2 * (1 - hole) - 0.22 * hole + 0.05 * (speck - 0.5);
+          roughness += 0.14 * (speck - 0.5) + 0.1 * hole;
+          occlusion = 1 - 0.5 * hole;
+          return;
+        };
       case 'morel':
         return () => {
           const p = morelPreset,
