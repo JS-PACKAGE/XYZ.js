@@ -214,6 +214,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cirrus',
   'cumulus',
   'lightning',
+  'kelp',
+  'seaweed',
+  'anemone',
   'basketball',
   'tennisball',
   'golfball',
@@ -4974,6 +4977,9 @@ describe('periodic procedural material fields', () => {
     ['cirrus', [3, 6, 32, 64]],
     ['cumulus', [5, 12, 32, 64]],
     ['lightning', [3, 4, 32, 64]],
+    ['kelp', [4, 8, 24, 64]],
+    ['seaweed', [3, 24, 32, 64]],
+    ['anemone', [2, 8, 24, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5194,6 +5200,9 @@ describe('periodic procedural material fields', () => {
     ['cirrus', 6],
     ['cumulus', 5],
     ['lightning', 3],
+    ['kelp', 4],
+    ['seaweed', 3],
+    ['anemone', 8],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6568,6 +6577,9 @@ describe('periodic procedural material fields', () => {
     'cirrus',
     'cumulus',
     'lightning',
+    'kelp',
+    'seaweed',
+    'anemone',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6619,7 +6631,13 @@ describe('periodic procedural material fields', () => {
                                       ? 5
                                       : kind === 'lightning'
                                         ? 3
-                                        : 4;
+                                        : kind === 'kelp'
+                                          ? 4
+                                          : kind === 'seaweed'
+                                            ? 3
+                                            : kind === 'anemone'
+                                              ? 8
+                                              : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9666,6 +9684,81 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('kelp ripples broad blade crests above the shadowed troughs', () => {
+    const relief = proceduralMaterialPresets.kelp.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('kelp', seed);
+      sample(0.37, 0.125, crest);
+      sample(0.37, 0.25, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('anemone rings tentacles above the recessed central mouth', () => {
+    const relief = proceduralMaterialPresets.anemone.relief;
+    const tentacle: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const mouth = { ...tentacle };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('anemone', seed);
+      sample(0.6634, 0.5, tentacle);
+      sample(0.5, 0.5, mouth);
+      expect(tentacle.height).toBeGreaterThan(mouth.height + 0.1 * relief);
+      expect(tentacle.occlusion).toBeGreaterThan(mouth.occlusion);
+    }
+  });
+
+  it('seaweed threads branch above the shaded gaps of the mat', () => {
+    const relief = proceduralMaterialPresets.seaweed.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('seaweed', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the threads and gaps from cavity shading rather than pinning
+      // warp-shifted coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
 
   it('knurled metal leaves raised diamond tips between both diagonal cuts', () => {
     const surface: SurfaceSample = {

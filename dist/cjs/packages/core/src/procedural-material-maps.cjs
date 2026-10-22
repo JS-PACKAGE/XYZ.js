@@ -2112,6 +2112,21 @@ function createSurfaceSampler(t, r) {
 				H = .22 + .3 * i + .4 * n + .06 * a, Z = .44 + .16 * i + .18 * n + .02 * a, Q += .06 * (a - .5) - .14 * n, $ = 1 - .36 * (1 - i) - .14 * (1 - n);
 				break;
 			}
+			case `kelp`: {
+				let e = noise(o, A, 4, 4, r ^ 4386) - .5, t = smooth(clamp((.32 - Math.abs(fract((A + .12 * e) * 4) - .5)) / .16)), n = smooth(clamp((noise(o, A, 8, 8, r ^ 8755) - .68) / .08)), i = noise(o, A, 24, 24, r ^ 13124);
+				H = .44 + .3 * t + .1 * n + .08 * i, Z = .44 + .28 * t + .05 * n + .02 * i, Q += .08 * (i - .5) - .22 * n - .1 * t, $ = 1 - .36 * (1 - t) - .1 * (1 - n);
+				break;
+			}
+			case `seaweed`: {
+				let e = noise(o, A, 3, 3, r ^ 17493) - .5, t = smooth(clamp((.05 - Math.abs(fract((o + A) * 3 + .3 * e) - .5)) / .03)), n = smooth(clamp((.05 - Math.abs(fract((o - A) * 3 + .3 * e) - .5)) / .03)), i = t + n - t * n, a = noise(o, A, 24, 24, r ^ 21862);
+				H = .42 + .3 * i + .08 * a, Z = .44 + .22 * i + .02 * a, Q += .06 * (a - .5) - .12 * i, $ = 1 - .34 * (1 - i);
+				break;
+			}
+			case `anemone`: {
+				let e = Math.hypot(Math.sin(Math.PI * (o - .5)), Math.sin(Math.PI * (A - .5))) * (2 / Math.PI), t = smooth(clamp((e - .12) / .08)), n = (.5 + .5 * Math.cos(Math.PI * 2 * (fract(e * 8) - .5))) * t, i = smooth(clamp((.12 - e) / .06)), a = noise(o, A, 24, 24, r ^ 26231);
+				H = .42 + .32 * n - .12 * i + .08 * a, Z = .44 + .26 * n - .12 * i + .02 * a, Q += .06 * (a - .5) - .12 * n, $ = 1 - .3 * i - .12 * (1 - n) * t;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

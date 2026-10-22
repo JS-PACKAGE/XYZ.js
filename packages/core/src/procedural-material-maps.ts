@@ -7638,6 +7638,62 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.36 * (1 - glow) - 0.14 * (1 - bolt);
         break;
       }
+      case 'kelp': {
+        // Broad slick blades ripple in waves above the shadowed troughs.
+        const warp = noise(u, v, 4, 4, seed ^ 0x1122) - 0.5;
+        const wave = smooth(
+          clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 4) - 0.5)) / 0.16),
+        );
+        const slick = smooth(
+          clamp((noise(u, v, 8, 8, seed ^ 0x2233) - 0.68) / 0.08),
+        );
+        const grain = noise(u, v, 24, 24, seed ^ 0x3344);
+        color = 0.44 + 0.3 * wave + 0.1 * slick + 0.08 * grain;
+        height = 0.44 + 0.28 * wave + 0.05 * slick + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) - 0.22 * slick - 0.1 * wave;
+        occlusion = 1 - 0.36 * (1 - wave) - 0.1 * (1 - slick);
+        break;
+      }
+      case 'seaweed': {
+        // Fine branching threads weave over the shaded gaps of the mat.
+        const warp = noise(u, v, 3, 3, seed ^ 0x4455) - 0.5;
+        const branchA = smooth(
+          clamp(
+            (0.05 - Math.abs(fract((u + v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
+          ),
+        );
+        const branchB = smooth(
+          clamp(
+            (0.05 - Math.abs(fract((u - v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
+          ),
+        );
+        const branch = branchA + branchB - branchA * branchB;
+        const grain = noise(u, v, 24, 24, seed ^ 0x5566);
+        color = 0.42 + 0.3 * branch + 0.08 * grain;
+        height = 0.44 + 0.22 * branch + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * branch;
+        occlusion = 1 - 0.34 * (1 - branch);
+        break;
+      }
+      case 'anemone': {
+        // Ringed tentacles rise around the recessed central mouth.
+        const rad =
+          Math.hypot(
+            Math.sin(Math.PI * (u - 0.5)),
+            Math.sin(Math.PI * (v - 0.5)),
+          ) *
+          (2 / Math.PI);
+        const fade = smooth(clamp((rad - 0.12) / 0.08));
+        const tentacle =
+          (0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 8) - 0.5))) * fade;
+        const mouth = smooth(clamp((0.12 - rad) / 0.06));
+        const grain = noise(u, v, 24, 24, seed ^ 0x6677);
+        color = 0.42 + 0.32 * tentacle - 0.12 * mouth + 0.08 * grain;
+        height = 0.44 + 0.26 * tentacle - 0.12 * mouth + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * tentacle;
+        occlusion = 1 - 0.3 * mouth - 0.12 * (1 - tentacle) * fade;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

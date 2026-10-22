@@ -196,6 +196,9 @@ export type ProceduralMaterialKind =
   | 'cirrus'
   | 'cumulus'
   | 'lightning'
+  | 'kelp'
+  | 'seaweed'
+  | 'anemone'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -474,6 +477,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cirrus',
   'cumulus',
   'lightning',
+  'kelp',
+  'seaweed',
+  'anemone',
   'basketball',
   'tennisball',
   'golfball',
