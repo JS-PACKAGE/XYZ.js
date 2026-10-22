@@ -220,6 +220,9 @@ export type ProceduralMaterialKind =
   | 'tealeaf'
   | 'matcha'
   | 'teabag'
+  | 'sanddune'
+  | 'pebblebeach'
+  | 'foamedge'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -522,6 +525,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tealeaf',
   'matcha',
   'teabag',
+  'sanddune',
+  'pebblebeach',
+  'foamedge',
   'basketball',
   'tennisball',
   'golfball',

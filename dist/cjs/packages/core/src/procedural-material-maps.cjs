@@ -2232,6 +2232,21 @@ function createSurfaceSampler(t, r) {
 				H = .46 + .28 * n + .1 * i + .06 * a, Z = .46 + .2 * n + .02 * a, Q += .06 * (a - .5) - .1 * n, $ = 1 - .34 * (1 - n);
 				break;
 			}
+			case `sanddune`: {
+				let e = fract((o + A) * 6), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = noise(o, A, 32, 32, r ^ 53794);
+				H = .46 + .3 * t + .08 * n, Z = .46 + .2 * t + .02 * n, Q += .06 * (n - .5) - .1 * t, $ = 1 - .3 * (1 - t);
+				break;
+			}
+			case `pebblebeach`: {
+				let e = fract(o * 5) - .5, t = fract(A * 5) - .5, n = smooth(clamp((.34 - Math.hypot(e, t)) / .14)), i = noise(o, A, 32, 32, r ^ 58163);
+				H = .44 + .32 * n + .08 * i, Z = .44 + .26 * n + .02 * i, Q += .06 * (i - .5) - .12 * n, $ = 1 - .34 * (1 - n);
+				break;
+			}
+			case `foamedge`: {
+				let e = smooth(clamp((noise(o, A, 8, 8, r ^ 62532) - .46) / .16)), t = smooth(clamp((noise(o, A, 24, 24, r ^ 5461) - .7) / .08)), n = noise(o, A, 32, 32, r ^ 9830);
+				H = .48 + .3 * e + .12 * t + .06 * n, Z = .44 + .22 * e + .06 * t + .02 * n, Q += .06 * (n - .5) - .1 * e, $ = 1 - .34 * (1 - e) - .1 * (1 - t);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

@@ -238,6 +238,9 @@ const kinds: ProceduralMaterialKind[] = [
   'tealeaf',
   'matcha',
   'teabag',
+  'sanddune',
+  'pebblebeach',
+  'foamedge',
   'basketball',
   'tennisball',
   'golfball',
@@ -5022,6 +5025,9 @@ describe('periodic procedural material fields', () => {
     ['tealeaf', [6, 12, 32, 64]],
     ['matcha', [5, 32, 48, 64]],
     ['teabag', [24, 32, 48, 64]],
+    ['sanddune', [6, 32, 48, 64]],
+    ['pebblebeach', [5, 32, 48, 64]],
+    ['foamedge', [6, 12, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5266,6 +5272,9 @@ describe('periodic procedural material fields', () => {
     ['tealeaf', 6],
     ['matcha', 5],
     ['teabag', 24],
+    ['sanddune', 6],
+    ['pebblebeach', 5],
+    ['foamedge', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6664,6 +6673,9 @@ describe('periodic procedural material fields', () => {
     'tealeaf',
     'matcha',
     'teabag',
+    'sanddune',
+    'pebblebeach',
+    'foamedge',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6778,7 +6790,16 @@ describe('periodic procedural material fields', () => {
                                                                                       : kind ===
                                                                                           'teabag'
                                                                                         ? 24
-                                                                                        : 4;
+                                                                                        : kind ===
+                                                                                            'sanddune'
+                                                                                          ? 6
+                                                                                          : kind ===
+                                                                                              'pebblebeach'
+                                                                                            ? 5
+                                                                                            : kind ===
+                                                                                                'foamedge'
+                                                                                              ? 6
+                                                                                              : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10408,6 +10429,81 @@ describe('periodic procedural material fields', () => {
         recessedHeight = 0,
         faceHeight = 0;
       // Locate the leaves and gaps from cavity shading rather than pinning
+      // seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('sand dune combs wind ripples above the grain bed', () => {
+    const relief = proceduralMaterialPresets.sanddune.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sanddune', seed);
+      sample(0.041666666666666664, 0.041666666666666664, crest);
+      sample(0.08333333333333333, 0.08333333333333333, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('pebble beach domes round pebbles over the coarse sand', () => {
+    const relief = proceduralMaterialPresets.pebblebeach.relief;
+    const pebble: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const sand = { ...pebble };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pebblebeach', seed);
+      sample(0.1, 0.1, pebble);
+      sample(0, 0, sand);
+      expect(pebble.height).toBeGreaterThan(sand.height + 0.1 * relief);
+      expect(pebble.occlusion).toBeGreaterThan(sand.occlusion);
+    }
+  });
+
+  it('foam edge piles clumps and bubbles over the thin water film', () => {
+    const relief = proceduralMaterialPresets.foamedge.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('foamedge', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the foam and the film from cavity shading rather than pinning
       // seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {

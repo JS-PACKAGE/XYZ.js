@@ -7984,6 +7984,44 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - thread);
         break;
       }
+      case 'sanddune': {
+        // Wind ripples comb fine grain across the dune face.
+        const turn = fract((u + v) * 6);
+        const ripple = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const grain = noise(u, v, 32, 32, seed ^ 0xd222);
+        color = 0.46 + 0.3 * ripple + 0.08 * grain;
+        height = 0.46 + 0.2 * ripple + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * ripple;
+        occlusion = 1 - 0.3 * (1 - ripple);
+        break;
+      }
+      case 'pebblebeach': {
+        // Round pebbles dome over the coarse sand between them.
+        const px = fract(u * 5) - 0.5,
+          py = fract(v * 5) - 0.5;
+        const pebble = smooth(clamp((0.34 - Math.hypot(px, py)) / 0.14));
+        const grain = noise(u, v, 32, 32, seed ^ 0xe333);
+        color = 0.44 + 0.32 * pebble + 0.08 * grain;
+        height = 0.44 + 0.26 * pebble + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * pebble;
+        occlusion = 1 - 0.34 * (1 - pebble);
+        break;
+      }
+      case 'foamedge': {
+        // Foam clumps and bubble specks wash over the thin water film.
+        const clump = smooth(
+          clamp((noise(u, v, 8, 8, seed ^ 0xf444) - 0.46) / 0.16),
+        );
+        const bubble = smooth(
+          clamp((noise(u, v, 24, 24, seed ^ 0x1555) - 0.7) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x2666);
+        color = 0.48 + 0.3 * clump + 0.12 * bubble + 0.06 * grain;
+        height = 0.44 + 0.22 * clump + 0.06 * bubble + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * clump;
+        occlusion = 1 - 0.34 * (1 - clump) - 0.1 * (1 - bubble);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
