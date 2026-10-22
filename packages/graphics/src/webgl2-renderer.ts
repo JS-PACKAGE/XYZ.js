@@ -2659,6 +2659,10 @@ export class WebGL2Renderer implements Renderer {
       let blendMode = -1;
       let boundProgram: WebGLProgram | undefined;
       let maskedDepth: boolean | undefined;
+      // Texture-unit uniforms only ever hold these constants, so a program keeps them once
+      // sent; each set is sent at a program's first draw (with PBR maps, for PBR maps).
+      let unitsProgram: WebGLProgram | undefined;
+      let pbrUnitsProgram: WebGLProgram | undefined;
       for (const object of draws) {
         const blended = this.isColorBlended(object);
         if (this.weighted && blended !== oitPass > 0) continue;
@@ -2807,11 +2811,14 @@ export class WebGL2Renderer implements Renderer {
           uniforms.linearOutput,
           this.linear3D ? 1 : 0,
         );
-        this.uniformValues.uniform1i(gl, uniforms.image, 0);
-        this.uniformValues.uniform1i(gl, uniforms.shadowMap, 5);
-        this.uniformValues.uniform1i(gl, uniforms.environmentMap, 6);
-        this.uniformValues.uniform1i(gl, uniforms.opaqueScene, 15);
-        this.uniformValues.uniform1i(gl, uniforms.opticalMaps, 14);
+        if (program !== unitsProgram) {
+          unitsProgram = program;
+          this.uniformValues.uniform1i(gl, uniforms.image, 0);
+          this.uniformValues.uniform1i(gl, uniforms.shadowMap, 5);
+          this.uniformValues.uniform1i(gl, uniforms.environmentMap, 6);
+          this.uniformValues.uniform1i(gl, uniforms.opaqueScene, 15);
+          this.uniformValues.uniform1i(gl, uniforms.opticalMaps, 14);
+        }
         const contact = contactSettings;
         this.uniformValues.uniform4f(
           gl,
@@ -2921,10 +2928,24 @@ export class WebGL2Renderer implements Renderer {
         if (pbr) {
           const pbrSources = pbrTextureSources(material);
           // Native PBR hooks share these maps with the ordinary material path.
-          this.uniformValues.uniform1i(gl, uniforms.metallicRoughnessMap, 1);
-          this.uniformValues.uniform1i(gl, uniforms.normalMap, 2);
-          this.uniformValues.uniform1i(gl, uniforms.occlusionMap, 3);
-          this.uniformValues.uniform1i(gl, uniforms.emissiveMap, 4);
+          if (program !== pbrUnitsProgram) {
+            pbrUnitsProgram = program;
+            this.uniformValues.uniform1i(gl, uniforms.metallicRoughnessMap, 1);
+            this.uniformValues.uniform1i(gl, uniforms.normalMap, 2);
+            this.uniformValues.uniform1i(gl, uniforms.occlusionMap, 3);
+            this.uniformValues.uniform1i(gl, uniforms.emissiveMap, 4);
+            this.uniformValues.uniform1i(gl, uniforms.specularMap, 7);
+            this.uniformValues.uniform1i(gl, uniforms.specularColorMap, 8);
+            this.uniformValues.uniform1i(gl, uniforms.clearcoatMap, 9);
+            this.uniformValues.uniform1i(
+              gl,
+              uniforms.clearcoatRoughnessMap,
+              10,
+            );
+            this.uniformValues.uniform1i(gl, uniforms.clearcoatNormalMap, 11);
+            this.uniformValues.uniform1i(gl, uniforms.sheenColorMap, 12);
+            this.uniformValues.uniform1i(gl, uniforms.sheenRoughnessMap, 13);
+          }
           this.uniformValues.uniform4f(
             gl,
             uniforms.transmission,
@@ -3033,8 +3054,6 @@ export class WebGL2Renderer implements Renderer {
             pbrSources.specularTexture ? 1 : 0,
             pbrSources.specularColorTexture ? 1 : 0,
           );
-          this.uniformValues.uniform1i(gl, uniforms.specularMap, 7);
-          this.uniformValues.uniform1i(gl, uniforms.specularColorMap, 8);
           this.bindMaterialTexture(
             pbrSources.specularTexture ?? materialBaseTexture(material),
             7,
@@ -3061,9 +3080,6 @@ export class WebGL2Renderer implements Renderer {
             pbrSources.clearcoatNormalTexture ? 1 : 0,
             0,
           );
-          this.uniformValues.uniform1i(gl, uniforms.clearcoatMap, 9);
-          this.uniformValues.uniform1i(gl, uniforms.clearcoatRoughnessMap, 10);
-          this.uniformValues.uniform1i(gl, uniforms.clearcoatNormalMap, 11);
           this.bindMaterialTexture(
             pbrSources.clearcoatTexture ?? materialBaseTexture(material),
             9,
@@ -3096,8 +3112,6 @@ export class WebGL2Renderer implements Renderer {
             material.specularAntiAliasing,
             material.alphaToCoverage ? 1 : 0,
           );
-          this.uniformValues.uniform1i(gl, uniforms.sheenColorMap, 12);
-          this.uniformValues.uniform1i(gl, uniforms.sheenRoughnessMap, 13);
           this.bindMaterialTexture(
             pbrSources.sheenColorTexture ?? materialBaseTexture(material),
             12,
