@@ -1518,6 +1518,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.68;
         relief: 0.0018;
     }>;
+    radiator: Readonly<{
+        dark: readonly [122, 122, 128];
+        light: readonly [228, 230, 236];
+        roughness: 0.36;
+        relief: 0.003;
+    }>;
+    screwhead: Readonly<{
+        dark: readonly [62, 64, 70];
+        light: readonly [188, 192, 200];
+        roughness: 0.42;
+        relief: 0.0018;
+    }>;
+    chainlink: Readonly<{
+        dark: readonly [92, 96, 102];
+        light: readonly [172, 178, 186];
+        roughness: 0.52;
+        relief: 0.0016;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2170,6 +2188,9 @@ export declare const proceduralTileMeters: Readonly<{
     filmstrip: 0.18;
     postagestamp: 0.24;
     halftoneprint: 0.06;
+    radiator: 0.3;
+    screwhead: 0.12;
+    chainlink: 0.2;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

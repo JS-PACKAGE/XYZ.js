@@ -2427,6 +2427,21 @@ function createSurfaceSampler(t, r) {
 				H = .28 + .55 * l + .08 * c, Z = .35 + .5 * l + .02 * c, Q += .12 * (1 - l) + .05 * (c - .5), $ = 1 - .55 * (1 - l);
 				break;
 			}
+			case `radiator`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract(o * 5) - .5))) / 2, t = noise(o, A, 32, 32, r ^ 40109);
+				H = .34 + .5 * e + .08 * t, Z = .32 + .6 * e + .02 * t, Q += .08 * (t - .5) - .06 * e, $ = 1 - .5 * (1 - e);
+				break;
+			}
+			case `screwhead`: {
+				let e = Math.sin(Math.PI * (fract(o * 4) - .5)), t = Math.sin(Math.PI * (fract(A * 4) - .5)), n = smooth(clamp((.55 - Math.hypot(e, t)) / .3)), i = 1 - smooth(clamp((Math.abs(e) - .08) / .12)), a = 1 - smooth(clamp((Math.abs(t) - .08) / .12)), s = (i + a - i * a) * n, c = noise(o, A, 32, 32, r ^ 44478);
+				H = .4 + .3 * n - .28 * s + .06 * c, Z = .45 + .28 * n - .42 * s, Q += .08 * (c - .5) + .1 * s, $ = 1 - .4 * s - .1 * (1 - n) * (1 - s);
+				break;
+			}
+			case `chainlink`: {
+				let e = Math.sin(Math.PI * (fract(o + A + .5) - .5)), t = Math.sin(Math.PI * (fract(o - A + .5) - .5)), n = smooth(clamp((.22 - Math.abs(e)) / .18)), i = smooth(clamp((.22 - Math.abs(t)) / .18)), a = n + i - n * i, s = n * i, c = noise(o, A, 32, 32, r ^ 48847);
+				H = .3 + .36 * a + .1 * s + .08 * c, Z = .3 + .44 * a + .16 * s + .02 * c, Q += .08 * (c - .5) - .1 * a, $ = 1 - .55 * (1 - a) - .12 * (1 - s);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

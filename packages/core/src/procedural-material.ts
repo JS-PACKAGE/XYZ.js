@@ -259,6 +259,9 @@ export type ProceduralMaterialKind =
   | 'filmstrip'
   | 'postagestamp'
   | 'halftoneprint'
+  | 'radiator'
+  | 'screwhead'
+  | 'chainlink'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -600,6 +603,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'filmstrip',
   'postagestamp',
   'halftoneprint',
+  'radiator',
+  'screwhead',
+  'chainlink',
   'basketball',
   'tennisball',
   'golfball',

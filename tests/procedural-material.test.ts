@@ -277,6 +277,9 @@ const kinds: ProceduralMaterialKind[] = [
   'filmstrip',
   'postagestamp',
   'halftoneprint',
+  'radiator',
+  'screwhead',
+  'chainlink',
   'basketball',
   'tennisball',
   'golfball',
@@ -5100,6 +5103,9 @@ describe('periodic procedural material fields', () => {
     ['filmstrip', [2, 8, 32, 64]],
     ['postagestamp', [8, 32, 64]],
     ['halftoneprint', [3, 6, 32, 64]],
+    ['radiator', [5, 32, 64]],
+    ['screwhead', [4, 32, 64]],
+    ['chainlink', [3, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5383,6 +5389,9 @@ describe('periodic procedural material fields', () => {
     ['filmstrip', 8],
     ['postagestamp', 8],
     ['halftoneprint', 6],
+    ['radiator', 5],
+    ['screwhead', 4],
+    ['chainlink', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6820,6 +6829,9 @@ describe('periodic procedural material fields', () => {
     'filmstrip',
     'postagestamp',
     'halftoneprint',
+    'radiator',
+    'screwhead',
+    'chainlink',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7051,7 +7063,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                     : kind ===
                                                                                                                                                                         'halftoneprint'
                                                                                                                                                                       ? 6
-                                                                                                                                                                      : 4;
+                                                                                                                                                                      : kind ===
+                                                                                                                                                                          'radiator'
+                                                                                                                                                                        ? 5
+                                                                                                                                                                        : kind ===
+                                                                                                                                                                            'screwhead'
+                                                                                                                                                                          ? 4
+                                                                                                                                                                          : kind ===
+                                                                                                                                                                              'chainlink'
+                                                                                                                                                                            ? 3
+                                                                                                                                                                            : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11560,6 +11581,74 @@ describe('periodic procedural material fields', () => {
       expect(dot.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(dot.color).toBeGreaterThan(gap.color + 0.1 * relief);
       expect(dot.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('radiator tubes crest above the recessed seams', () => {
+    const relief = proceduralMaterialPresets.radiator.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('radiator', seed);
+      sample(1 / 10, 1 / 4, crest);
+      sample(0, 1 / 4, gap);
+      expect(crest.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('screw heads keep their cross recesses below the head rings and panel', () => {
+    const relief = proceduralMaterialPresets.screwhead.relief;
+    const ring: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const center = { ...ring };
+    const panel = { ...ring };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('screwhead', seed);
+      sample(0.145, 0.145, ring);
+      sample(1 / 8, 1 / 8, center);
+      sample(0, 0, panel);
+      expect(ring.height).toBeGreaterThan(center.height + 0.1 * relief);
+      expect(panel.height).toBeGreaterThan(center.height + 0.1 * relief);
+      expect(ring.occlusion).toBeGreaterThan(center.occlusion);
+      expect(panel.occlusion).toBeGreaterThan(center.occlusion);
+    }
+  });
+
+  it('chain link twists nodes above the crossing wires and open diamonds', () => {
+    const relief = proceduralMaterialPresets.chainlink.relief;
+    const node: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const wire = { ...node };
+    const hole = { ...node };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('chainlink', seed);
+      sample(0, 0, node);
+      sample(1 / 4, 3 / 4, wire);
+      sample(1 / 2, 0, hole);
+      expect(node.height).toBeGreaterThan(wire.height + 0.1 * relief);
+      expect(wire.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(node.occlusion).toBeGreaterThan(hole.occlusion);
+      expect(wire.occlusion).toBeGreaterThan(hole.occlusion);
     }
   });
 

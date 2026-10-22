@@ -8551,6 +8551,48 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.55 * (1 - dot);
         break;
       }
+      case 'radiator': {
+        // Round heating tubes rise from the recessed seams between them.
+        const tube = (1 + Math.cos(Math.PI * 2 * (fract(u * 5) - 0.5))) / 2;
+        const grain = noise(u, v, 32, 32, seed ^ 0x9cad);
+        color = 0.34 + 0.5 * tube + 0.08 * grain;
+        height = 0.32 + 0.6 * tube + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) - 0.06 * tube;
+        occlusion = 1 - 0.5 * (1 - tube);
+        break;
+      }
+      case 'screwhead': {
+        // Cross-recessed screw heads sit inside their shallow panel dimples.
+        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const head = smooth(clamp((0.55 - d) / 0.3));
+        const slotX = 1 - smooth(clamp((Math.abs(fx) - 0.08) / 0.12)),
+          slotY = 1 - smooth(clamp((Math.abs(fy) - 0.08) / 0.12));
+        const cross = slotX + slotY - slotX * slotY;
+        const recess = cross * head;
+        const grain = noise(u, v, 32, 32, seed ^ 0xadbe);
+        color = 0.4 + 0.3 * head - 0.28 * recess + 0.06 * grain;
+        height = 0.45 + 0.28 * head - 0.42 * recess;
+        roughness += 0.08 * (grain - 0.5) + 0.1 * recess;
+        occlusion = 1 - 0.4 * recess - 0.1 * (1 - head) * (1 - recess);
+        break;
+      }
+      case 'chainlink': {
+        // Diamond wires twist thicker at the nodes where they cross.
+        const w1 = Math.sin(Math.PI * (fract(u + v + 0.5) - 0.5)),
+          w2 = Math.sin(Math.PI * (fract(u - v + 0.5) - 0.5));
+        const b1 = smooth(clamp((0.22 - Math.abs(w1)) / 0.18)),
+          b2 = smooth(clamp((0.22 - Math.abs(w2)) / 0.18));
+        const wire = b1 + b2 - b1 * b2,
+          node = b1 * b2;
+        const grain = noise(u, v, 32, 32, seed ^ 0xbecf);
+        color = 0.3 + 0.36 * wire + 0.1 * node + 0.08 * grain;
+        height = 0.3 + 0.44 * wire + 0.16 * node + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) - 0.1 * wire;
+        occlusion = 1 - 0.55 * (1 - wire) - 0.12 * (1 - node);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
