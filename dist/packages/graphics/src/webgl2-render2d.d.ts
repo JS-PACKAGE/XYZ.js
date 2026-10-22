@@ -95,6 +95,10 @@ export declare class WebGLRender2D {
     private bindInstances;
     private packQuad;
     private spriteMatrix;
+    /**
+     * `continuing`: the previous command was a batch drawn here in the same context, so the
+     * program, its per-context uniforms, unit 0, the VAO and the instance buffer are still set.
+     */
     private drawSprites;
     private drawSprite;
     prepareGeometry(geometry: Geometry2D): ResidencyAllocation;

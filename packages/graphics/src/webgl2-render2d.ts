@@ -551,11 +551,12 @@ export class WebGLRender2D {
     const items = commands.items;
     // drawSprites leaves the target, viewport, depth/cull/scissor and blend state as
     // bindTarget set them, so consecutive sprite batches skip re-sending it.
-    let targetBound = false;
+    let afterSprites = false;
     for (let i = 0; i < items.length;) {
       const command = items[i];
-      if (!targetBound) this.bindTarget(context);
-      targetBound = false;
+      if (!afterSprites) this.bindTarget(context);
+      const continuing = afterSprites;
+      afterSprites = false;
       if (
         command.kind === 'sprite' &&
         !command.object.material &&
@@ -588,8 +589,8 @@ export class WebGLRender2D {
             break;
           end++;
         }
-        this.drawSprites(commands, i, end, context);
-        targetBound = true;
+        this.drawSprites(commands, i, end, context, continuing);
+        afterSprites = true;
         i = end;
         continue;
       }
@@ -662,11 +663,16 @@ export class WebGLRender2D {
     }
     return this.matrix;
   }
+  /**
+   * `continuing`: the previous command was a batch drawn here in the same context, so the
+   * program, its per-context uniforms, unit 0, the VAO and the instance buffer are still set.
+   */
   private drawSprites(
     commands: RenderCommandBuffer2D,
     first: number,
     end: number,
     context: Context2D,
+    continuing: boolean,
   ): void {
     const gl = this.gl,
       count = end - first;
@@ -700,20 +706,24 @@ export class WebGLRender2D {
     if (command.kind !== 'sprite') return;
     const sprite = command.object,
       program = this.spriteProgram;
-    gl.useProgram(program.program);
+    if (!continuing) gl.useProgram(program.program);
     this.distanceField(program, sprite.texture);
-    gl.uniform2f(
-      this.uniform(program, 'viewportSize'),
-      context.bounds.width,
-      context.bounds.height,
-    );
-    gl.uniform1i(this.uniform(program, 'image'), 0);
+    if (!continuing) {
+      gl.uniform2f(
+        this.uniform(program, 'viewportSize'),
+        context.bounds.width,
+        context.bounds.height,
+      );
+      gl.uniform1i(this.uniform(program, 'image'), 0);
+    }
     gl.uniform1i(
       this.uniform(program, 'renderSource'),
       sprite.texture.kind === 'render' ? 1 : 0,
     );
-    gl.uniform1i(this.uniform(program, 'tiling'), 0);
-    gl.activeTexture(gl.TEXTURE0);
+    if (!continuing) {
+      gl.uniform1i(this.uniform(program, 'tiling'), 0);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     gl.bindTexture(gl.TEXTURE_2D, this.hooks.source(sprite.texture));
     gl.bindSampler(
       0,
@@ -725,8 +735,10 @@ export class WebGLRender2D {
     );
     // The constructor recorded the instance attributes in spriteVAO, and every other
     // attribute write binds its own VAO first; the upload below needs only the buffer.
-    gl.bindVertexArray(this.spriteVAO);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteBuffer);
+    if (!continuing) {
+      gl.bindVertexArray(this.spriteVAO);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteBuffer);
+    }
     if (this.spriteCapacity < this.spriteData.byteLength) {
       gl.bufferData(
         gl.ARRAY_BUFFER,

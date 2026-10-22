@@ -230,14 +230,16 @@ var WebGLRender2D = class {
 		let n = e.items, r = !1;
 		for (let a = 0; a < n.length;) {
 			let o = n[a];
-			if (r || this.bindTarget(t), r = !1, o.kind === `sprite` && !o.object.material && !o.object.lighting && !(o.object instanceof require_tiling_sprite2d.TilingSprite2D)) {
-				let s = o.object, c = Math.min(s.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy), l = a + 1;
-				for (; l < n.length;) {
-					let e = n[l];
-					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== s.texture || e.object.sampler?.minFilter === `nearest` != (s.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (s.sampler?.magFilter === `nearest`) || Math.min(e.object.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy) !== c) break;
-					l++;
+			r || this.bindTarget(t);
+			let s = r;
+			if (r = !1, o.kind === `sprite` && !o.object.material && !o.object.lighting && !(o.object instanceof require_tiling_sprite2d.TilingSprite2D)) {
+				let c = o.object, l = Math.min(c.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy), u = a + 1;
+				for (; u < n.length;) {
+					let e = n[u];
+					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== c.texture || e.object.sampler?.minFilter === `nearest` != (c.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (c.sampler?.magFilter === `nearest`) || Math.min(e.object.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy) !== l) break;
+					u++;
 				}
-				this.drawSprites(e, a, l, t), r = !0, a = l;
+				this.drawSprites(e, a, u, t, s), r = !0, a = u;
 				continue;
 			}
 			o.kind === `layer` ? this.drawLayer(o.object, o.commands, t) : o.kind === `sprite` ? this.drawSprite(o.object, t) : o.kind === `mesh` ? this.drawMesh(o.object, t) : this.drawParticles(o.object, t), a++;
@@ -254,9 +256,9 @@ var WebGLRender2D = class {
 	spriteMatrix(e, t) {
 		return this.objectMatrix(e, t, this.matrix), e.roundPixels && (this.matrix.elements[6] = Math.round(this.matrix.elements[6] * t.target.width / t.bounds.width) * t.bounds.width / t.target.width, this.matrix.elements[7] = Math.round(this.matrix.elements[7] * t.target.height / t.bounds.height) * t.bounds.height / t.target.height), this.matrix;
 	}
-	drawSprites(e, t, n, r) {
-		let i = this.gl, a = n - t;
-		a * 28 > this.spriteData.length && (this.spriteData = new Float32Array(Math.max(a * 28, this.spriteData.length * 2)));
+	drawSprites(e, t, n, r, i) {
+		let a = this.gl, o = n - t;
+		o * 28 > this.spriteData.length && (this.spriteData = new Float32Array(Math.max(o * 28, this.spriteData.length * 2)));
 		for (let i = t; i < n; i++) {
 			let n = e.items[i];
 			if (n.kind !== `sprite`) continue;
@@ -265,10 +267,10 @@ var WebGLRender2D = class {
 			let l = this.appearance;
 			require_sprite_instance.getRelativeAppearance2D(a, r.root, l), c[o + 8] = l[0], c[o + 9] = l[1], c[o + 10] = l[2], c[o + 11] = l[3], this.packQuad(c, o, require_sprite_instance.getSpriteQuad2D(a, this.quad));
 		}
-		let o = e.items[t];
-		if (o.kind !== `sprite`) return;
-		let s = o.object, c = this.spriteProgram;
-		i.useProgram(c.program), this.distanceField(c, s.texture), i.uniform2f(this.uniform(c, `viewportSize`), r.bounds.width, r.bounds.height), i.uniform1i(this.uniform(c, `image`), 0), i.uniform1i(this.uniform(c, `renderSource`), +(s.texture.kind === `render`)), i.uniform1i(this.uniform(c, `tiling`), 0), i.activeTexture(i.TEXTURE0), i.bindTexture(i.TEXTURE_2D, this.hooks.source(s.texture)), i.bindSampler(0, this.sampler(s.sampler?.minFilter === `nearest`, s.sampler?.magFilter === `nearest`, s.sampler?.maxAnisotropy ?? 1)), i.bindVertexArray(this.spriteVAO), i.bindBuffer(i.ARRAY_BUFFER, this.spriteBuffer), this.spriteCapacity < this.spriteData.byteLength && (i.bufferData(i.ARRAY_BUFFER, this.spriteData.byteLength, i.DYNAMIC_DRAW), this.spriteCapacity = this.spriteData.byteLength), i.bufferSubData(i.ARRAY_BUFFER, 0, this.spriteData, 0, a * 28), this.hooks.stats.upload(a * 112), i.drawArraysInstanced(i.TRIANGLES, 0, 6, a), this.hooks.stats.draw2D(a);
+		let s = e.items[t];
+		if (s.kind !== `sprite`) return;
+		let c = s.object, l = this.spriteProgram;
+		i || a.useProgram(l.program), this.distanceField(l, c.texture), i || (a.uniform2f(this.uniform(l, `viewportSize`), r.bounds.width, r.bounds.height), a.uniform1i(this.uniform(l, `image`), 0)), a.uniform1i(this.uniform(l, `renderSource`), +(c.texture.kind === `render`)), i || (a.uniform1i(this.uniform(l, `tiling`), 0), a.activeTexture(a.TEXTURE0)), a.bindTexture(a.TEXTURE_2D, this.hooks.source(c.texture)), a.bindSampler(0, this.sampler(c.sampler?.minFilter === `nearest`, c.sampler?.magFilter === `nearest`, c.sampler?.maxAnisotropy ?? 1)), i || (a.bindVertexArray(this.spriteVAO), a.bindBuffer(a.ARRAY_BUFFER, this.spriteBuffer)), this.spriteCapacity < this.spriteData.byteLength && (a.bufferData(a.ARRAY_BUFFER, this.spriteData.byteLength, a.DYNAMIC_DRAW), this.spriteCapacity = this.spriteData.byteLength), a.bufferSubData(a.ARRAY_BUFFER, 0, this.spriteData, 0, o * 28), this.hooks.stats.upload(o * 112), a.drawArraysInstanced(a.TRIANGLES, 0, 6, o), this.hooks.stats.draw2D(o);
 	}
 	drawSprite(e, t) {
 		let n = this.gl, r = require_sprite_instance.getSpriteQuad2D(e, this.quad), a = e.lighting ? e.material ? this.litProgram(e.material) : this.lightingProgram : e.material ? this.register(this.hooks.material(e.material)) : this.quadProgram;
