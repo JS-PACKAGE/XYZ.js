@@ -211,6 +211,9 @@ const kinds: ProceduralMaterialKind[] = [
   'butterflywing',
   'beetlewing',
   'spiderweb',
+  'cirrus',
+  'cumulus',
+  'lightning',
   'basketball',
   'tennisball',
   'golfball',
@@ -4968,6 +4971,9 @@ describe('periodic procedural material fields', () => {
     ['butterflywing', [3, 16, 24, 64]],
     ['beetlewing', [6, 24, 32, 64]],
     ['spiderweb', [2, 6, 32, 64]],
+    ['cirrus', [3, 6, 32, 64]],
+    ['cumulus', [5, 12, 32, 64]],
+    ['lightning', [3, 4, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5185,6 +5191,9 @@ describe('periodic procedural material fields', () => {
     ['butterflywing', 24],
     ['beetlewing', 6],
     ['spiderweb', 6],
+    ['cirrus', 6],
+    ['cumulus', 5],
+    ['lightning', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6556,6 +6565,9 @@ describe('periodic procedural material fields', () => {
     'butterflywing',
     'beetlewing',
     'spiderweb',
+    'cirrus',
+    'cumulus',
+    'lightning',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6601,7 +6613,13 @@ describe('periodic procedural material fields', () => {
                                 ? 6
                                 : kind === 'spiderweb'
                                   ? 2
-                                  : 4;
+                                  : kind === 'cirrus'
+                                    ? 6
+                                    : kind === 'cumulus'
+                                      ? 5
+                                      : kind === 'lightning'
+                                        ? 3
+                                        : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9610,6 +9628,44 @@ describe('periodic procedural material fields', () => {
       expect(spoke.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
+
+  it.each(['cirrus', 'cumulus', 'lightning'] as const)(
+    '%s lifts its bright relief above the recessed field',
+    (kind) => {
+      const relief = proceduralMaterialPresets[kind].relief;
+      const surface: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        let lowestOcclusion = Infinity,
+          highestOcclusion = -Infinity,
+          recessedHeight = 0,
+          faceHeight = 0;
+        // Locate the open field and the relief from cavity shading rather
+        // than pinning warp-shifted coordinates or incidental values.
+        for (let y = 0; y < 128; y++)
+          for (let x = 0; x < 128; x++) {
+            sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+            if (surface.occlusion < lowestOcclusion) {
+              lowestOcclusion = surface.occlusion;
+              recessedHeight = surface.height;
+            }
+            if (surface.occlusion > highestOcclusion) {
+              highestOcclusion = surface.occlusion;
+              faceHeight = surface.height;
+            }
+          }
+        expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+        expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+      }
+    },
+  );
 
   it('knurled metal leaves raised diamond tips between both diagonal cuts', () => {
     const surface: SurfaceSample = {

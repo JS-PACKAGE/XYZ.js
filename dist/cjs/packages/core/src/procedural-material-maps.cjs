@@ -2097,6 +2097,21 @@ function createSurfaceSampler(t, r) {
 				H = .4 + .3 * d + .12 * f + .08 * p, Z = .42 + .2 * d + .05 * f + .02 * p, Q += .06 * (p - .5) - .16 * d - .1 * f, $ = 1 - .34 * (1 - d);
 				break;
 			}
+			case `cirrus`: {
+				let e = noise(o, A, 3, 3, r ^ 9029) - .5, t = smooth(clamp((.3 - Math.abs(fract((A + .18 * e) * 6) - .5)) / .16)), n = noise(o, A, 32, 16, r ^ 13398);
+				H = .46 + .34 * t + .08 * n, Z = .46 + .22 * t + .02 * n, Q += .06 * (n - .5) - .12 * t, $ = 1 - .32 * (1 - t);
+				break;
+			}
+			case `cumulus`: {
+				let e = smooth(clamp((noise(o, A, 5, 5, r ^ 17767) - .42) / .18)), t = noise(o, A, 12, 12, r ^ 22136);
+				H = .48 + .36 * e + .08 * t, Z = .44 + .3 * e + .02 * t, Q += .06 * (t - .5) - .1 * e, $ = 1 - .36 * (1 - e);
+				break;
+			}
+			case `lightning`: {
+				let e = noise(o, A, 4, 4, r ^ 26505) - .5, t = fract((o + A) * 3 + .35 * e), n = smooth(clamp((.022 - Math.abs(t - .5)) / .012)), i = smooth(clamp((.16 - Math.abs(t - .5)) / .14)), a = noise(o, A, 32, 32, r ^ 30874);
+				H = .22 + .3 * i + .4 * n + .06 * a, Z = .44 + .16 * i + .18 * n + .02 * a, Q += .06 * (a - .5) - .14 * n, $ = 1 - .36 * (1 - i) - .14 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

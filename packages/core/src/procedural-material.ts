@@ -193,6 +193,9 @@ export type ProceduralMaterialKind =
   | 'butterflywing'
   | 'beetlewing'
   | 'spiderweb'
+  | 'cirrus'
+  | 'cumulus'
+  | 'lightning'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -468,6 +471,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'butterflywing',
   'beetlewing',
   'spiderweb',
+  'cirrus',
+  'cumulus',
+  'lightning',
   'basketball',
   'tennisball',
   'golfball',

@@ -7600,6 +7600,44 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - silk);
         break;
       }
+      case 'cirrus': {
+        // Wind-combed streaks feather across the open high air.
+        const warp = noise(u, v, 3, 3, seed ^ 0x2345) - 0.5;
+        const streak = smooth(
+          clamp((0.3 - Math.abs(fract((v + 0.18 * warp) * 6) - 0.5)) / 0.16),
+        );
+        const fiber = noise(u, v, 32, 16, seed ^ 0x3456);
+        color = 0.46 + 0.34 * streak + 0.08 * fiber;
+        height = 0.46 + 0.22 * streak + 0.02 * fiber;
+        roughness += 0.06 * (fiber - 0.5) - 0.12 * streak;
+        occlusion = 1 - 0.32 * (1 - streak);
+        break;
+      }
+      case 'cumulus': {
+        // Puffy cauliflower domes pile above the shaded gaps between them.
+        const puff = smooth(
+          clamp((noise(u, v, 5, 5, seed ^ 0x4567) - 0.42) / 0.18),
+        );
+        const wisp = noise(u, v, 12, 12, seed ^ 0x5678);
+        color = 0.48 + 0.36 * puff + 0.08 * wisp;
+        height = 0.44 + 0.3 * puff + 0.02 * wisp;
+        roughness += 0.06 * (wisp - 0.5) - 0.1 * puff;
+        occlusion = 1 - 0.36 * (1 - puff);
+        break;
+      }
+      case 'lightning': {
+        // A jagged bolt core glows above the dark storm sky.
+        const warp = noise(u, v, 4, 4, seed ^ 0x6789) - 0.5;
+        const zig = fract((u + v) * 3 + 0.35 * warp);
+        const bolt = smooth(clamp((0.022 - Math.abs(zig - 0.5)) / 0.012));
+        const glow = smooth(clamp((0.16 - Math.abs(zig - 0.5)) / 0.14));
+        const grain = noise(u, v, 32, 32, seed ^ 0x789a);
+        color = 0.22 + 0.3 * glow + 0.4 * bolt + 0.06 * grain;
+        height = 0.44 + 0.16 * glow + 0.18 * bolt + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.14 * bolt;
+        occlusion = 1 - 0.36 * (1 - glow) - 0.14 * (1 - bolt);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

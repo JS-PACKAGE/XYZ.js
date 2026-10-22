@@ -2610,6 +2610,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .42,
 		relief: .0022
 	}),
+	cirrus: Object.freeze({
+		dark: [
+			122,
+			138,
+			168
+		],
+		light: [
+			242,
+			246,
+			252
+		],
+		roughness: .62,
+		relief: .0018
+	}),
+	cumulus: Object.freeze({
+		dark: [
+			132,
+			142,
+			168
+		],
+		light: [
+			250,
+			250,
+			254
+		],
+		roughness: .78,
+		relief: .0026
+	}),
+	lightning: Object.freeze({
+		dark: [
+			18,
+			22,
+			48
+		],
+		light: [
+			232,
+			236,
+			255
+		],
+		roughness: .38,
+		relief: .0022
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3651,6 +3693,9 @@ var proceduralTileMeters = Object.freeze({
 	butterflywing: .12,
 	beetlewing: .16,
 	spiderweb: .3,
+	cirrus: .48,
+	cumulus: .6,
+	lightning: .9,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

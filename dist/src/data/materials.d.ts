@@ -1122,6 +1122,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.42;
         relief: 0.0022;
     }>;
+    cirrus: Readonly<{
+        dark: readonly [122, 138, 168];
+        light: readonly [242, 246, 252];
+        roughness: 0.62;
+        relief: 0.0018;
+    }>;
+    cumulus: Readonly<{
+        dark: readonly [132, 142, 168];
+        light: readonly [250, 250, 254];
+        roughness: 0.78;
+        relief: 0.0026;
+    }>;
+    lightning: Readonly<{
+        dark: readonly [18, 22, 48];
+        light: readonly [232, 236, 255];
+        roughness: 0.38;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1708,6 +1726,9 @@ export declare const proceduralTileMeters: Readonly<{
     butterflywing: 0.12;
     beetlewing: 0.16;
     spiderweb: 0.3;
+    cirrus: 0.48;
+    cumulus: 0.6;
+    lightning: 0.9;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;
