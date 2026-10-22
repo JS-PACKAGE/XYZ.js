@@ -226,6 +226,9 @@ const kinds: ProceduralMaterialKind[] = [
   'saddlestitch',
   'tooledleather',
   'patentleather',
+  'appleskin',
+  'peachskin',
+  'grapeskin',
   'basketball',
   'tennisball',
   'golfball',
@@ -4998,6 +5001,9 @@ describe('periodic procedural material fields', () => {
     ['saddlestitch', [2, 8, 32, 64]],
     ['tooledleather', [4, 32, 48, 64]],
     ['patentleather', [6, 12, 32, 64]],
+    ['appleskin', [5, 24, 32, 64]],
+    ['peachskin', [2, 12, 32, 64]],
+    ['grapeskin', [6, 24, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5230,6 +5236,9 @@ describe('periodic procedural material fields', () => {
     ['saddlestitch', 8],
     ['tooledleather', 4],
     ['patentleather', 32],
+    ['appleskin', 5],
+    ['peachskin', 2],
+    ['grapeskin', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6616,6 +6625,9 @@ describe('periodic procedural material fields', () => {
     'saddlestitch',
     'tooledleather',
     'patentleather',
+    'appleskin',
+    'peachskin',
+    'grapeskin',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6694,7 +6706,16 @@ describe('periodic procedural material fields', () => {
                                                               : kind ===
                                                                   'patentleather'
                                                                 ? 32
-                                                                : 4;
+                                                                : kind ===
+                                                                    'appleskin'
+                                                                  ? 5
+                                                                  : kind ===
+                                                                      'peachskin'
+                                                                    ? 2
+                                                                    : kind ===
+                                                                        'grapeskin'
+                                                                      ? 6
+                                                                      : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10025,6 +10046,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the peel and the lacquer from cavity shading rather than
       // pinning seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('apple skin bands blush streaks above the taut base', () => {
+    const relief = proceduralMaterialPresets.appleskin.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('appleskin', seed);
+      sample(0.37, 0.1, crest);
+      sample(0.37, 0.2, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.05 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('peach skin keeps fuzzy blush above the recessed suture groove', () => {
+    const relief = proceduralMaterialPresets.peachskin.relief;
+    const skin: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const suture = { ...skin };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('peachskin', seed);
+      sample(0.25, 0.5, skin);
+      sample(0.5, 0.5, suture);
+      expect(skin.height).toBeGreaterThan(suture.height + 0.05 * relief);
+      expect(skin.occlusion).toBeGreaterThan(suture.occlusion);
+    }
+  });
+
+  it('grape skin dusts bloom patches above the stretched skin', () => {
+    const relief = proceduralMaterialPresets.grapeskin.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('grapeskin', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the bloom and the skin from cavity shading rather than pinning
+      // seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

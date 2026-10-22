@@ -208,6 +208,9 @@ export type ProceduralMaterialKind =
   | 'saddlestitch'
   | 'tooledleather'
   | 'patentleather'
+  | 'appleskin'
+  | 'peachskin'
+  | 'grapeskin'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -498,6 +501,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'saddlestitch',
   'tooledleather',
   'patentleather',
+  'appleskin',
+  'peachskin',
+  'grapeskin',
   'basketball',
   'tennisball',
   'golfball',

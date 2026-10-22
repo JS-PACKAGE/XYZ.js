@@ -1212,6 +1212,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.18;
         relief: 0.0018;
     }>;
+    appleskin: Readonly<{
+        dark: readonly [122, 22, 32];
+        light: readonly [232, 112, 82];
+        roughness: 0.36;
+        relief: 0.0018;
+    }>;
+    peachskin: Readonly<{
+        dark: readonly [132, 62, 62];
+        light: readonly [242, 172, 132];
+        roughness: 0.82;
+        relief: 0.0026;
+    }>;
+    grapeskin: Readonly<{
+        dark: readonly [58, 32, 72];
+        light: readonly [162, 112, 182];
+        roughness: 0.42;
+        relief: 0.002;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1813,6 +1831,9 @@ export declare const proceduralTileMeters: Readonly<{
     saddlestitch: 0.16;
     tooledleather: 0.2;
     patentleather: 0.12;
+    appleskin: 0.12;
+    peachskin: 0.16;
+    grapeskin: 0.1;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

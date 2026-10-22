@@ -7813,6 +7813,42 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.18 * (1 - peel);
         break;
       }
+      case 'appleskin': {
+        // Blush streaks band the taut skin, freckled with lenticel dots.
+        const stripe = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 5) - 0.5));
+        const dot = smooth(
+          clamp((noise(u, v, 28, 28, seed ^ 0x6f99) - 0.8) / 0.05),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x7aaa);
+        color = 0.44 + 0.32 * stripe + 0.1 * dot + 0.06 * grain;
+        height = 0.46 + 0.2 * stripe + 0.05 * dot + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * stripe;
+        occlusion = 1 - 0.3 * (1 - stripe) - 0.1 * (1 - dot);
+        break;
+      }
+      case 'peachskin': {
+        // Fine fuzz covers the blush beside the recessed suture groove.
+        const suture = smooth(clamp((0.045 - Math.abs(u - 0.5)) / 0.025));
+        const fuzz = noise(u, v, 32, 32, seed ^ 0x8bbb);
+        const blush = noise(u, v, 6, 6, seed ^ 0x9ccc);
+        color = 0.46 + 0.3 * blush - 0.12 * suture + 0.08 * fuzz;
+        height = 0.46 + 0.06 * fuzz - 0.16 * suture;
+        roughness += 0.08 * (fuzz - 0.5) + 0.1 * suture;
+        occlusion = 1 - 0.4 * suture;
+        break;
+      }
+      case 'grapeskin': {
+        // Taut bloom patches dust the smooth stretched skin.
+        const bloom = smooth(
+          clamp((noise(u, v, 6, 6, seed ^ 0xaddd) - 0.5) / 0.16),
+        );
+        const pore = noise(u, v, 32, 32, seed ^ 0xbeee);
+        color = 0.46 + 0.28 * bloom + 0.08 * pore;
+        height = 0.46 + 0.18 * bloom + 0.02 * pore;
+        roughness += 0.12 * (bloom - 0.5) * 2 + 0.06 * (pore - 0.5);
+        occlusion = 1 - 0.3 * (1 - bloom);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

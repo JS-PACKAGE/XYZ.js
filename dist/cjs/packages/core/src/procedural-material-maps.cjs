@@ -2172,6 +2172,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .18 * e + .16 * t, Z = .46 + .16 * e + .02 * t, Q += .08 * (e - .5), $ = 1 - .18 * (1 - e);
 				break;
 			}
+			case `appleskin`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 5) - .5)), t = smooth(clamp((noise(o, A, 28, 28, r ^ 28569) - .8) / .05)), n = noise(o, A, 32, 32, r ^ 31402);
+				H = .44 + .32 * e + .1 * t + .06 * n, Z = .46 + .2 * e + .05 * t + .02 * n, Q += .06 * (n - .5) - .12 * e, $ = 1 - .3 * (1 - e) - .1 * (1 - t);
+				break;
+			}
+			case `peachskin`: {
+				let e = smooth(clamp((.045 - Math.abs(o - .5)) / .025)), t = noise(o, A, 32, 32, r ^ 35771);
+				H = .46 + .3 * noise(o, A, 6, 6, r ^ 40140) - .12 * e + .08 * t, Z = .46 + .06 * t - .16 * e, Q += .08 * (t - .5) + .1 * e, $ = 1 - .4 * e;
+				break;
+			}
+			case `grapeskin`: {
+				let e = smooth(clamp((noise(o, A, 6, 6, r ^ 44509) - .5) / .16)), t = noise(o, A, 32, 32, r ^ 48878);
+				H = .46 + .28 * e + .08 * t, Z = .46 + .18 * e + .02 * t, Q += .12 * (e - .5) * 2 + .06 * (t - .5), $ = 1 - .3 * (1 - e);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {
