@@ -12,6 +12,7 @@ import type { ReflectionProbe } from './reflection-probe.js';
 import type { TileMap } from './maps2d/tile-map.js';
 import { FogSettings, PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
+import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
 import { TweenGroup } from './tween.js';
@@ -179,11 +180,13 @@ export declare class Scene {
     /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
     private readonly objectUpdates;
     /**
-     * Members of `objectUpdates` that `beginObjectUpdates` would not skip (events not yet
-     * initialized, or a preupdate listener) and those with an action queue. Both conditions
-     * only ever become true, except initialization, which `trackObjectPasses` follows, so
-     * an empty set means the pass would run nothing.
+     * What `beginObjectUpdates` would not skip among `objectUpdates`: how many members have
+     * not initialized events yet, and the initialized ones with a preupdate listener. Below,
+     * members with an action queue. Listeners and queues are never removed, and
+     * initialization (once per object) is followed by `noteEventsInitialized`, so when none
+     * remain the pass would run nothing.
      */
+    private uninitializedObjects;
     private readonly preupdatePass;
     private readonly actionPass;
     /** Sprites `advanceFrameAnimations` may advance: with an animation or an override of it. */
@@ -245,6 +248,8 @@ export declare class Scene {
      * queue may have changed; see `preupdatePass`.
      */
     trackObjectPasses(object: SceneObject): void;
+    /** @internal A member's `initializeEvents` just ran; see `uninitializedObjects`. */
+    noteEventsInitialized(object: GameObject): void;
     /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
     beginObjectFrame(): void;
     /**

@@ -179,7 +179,7 @@ export class GameObject extends SceneObject {
   initializeEvents(): void {
     if (this.initializedEvents) return;
     this.initializedEvents = true;
-    this.scene?.trackObjectPasses(this);
+    this.scene?.noteEventsInitialized(this);
     this.dispatchObjectEvent('initialize');
   }
 

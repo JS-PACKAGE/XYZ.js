@@ -103,7 +103,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		this.worldSpace === `screen` && e.assertPhysicsSpace();
 	}
 	initializeEvents() {
-		this.initializedEvents || (this.initializedEvents = !0, this.scene?.trackObjectPasses(this), this.dispatchObjectEvent(`initialize`));
+		this.initializedEvents || (this.initializedEvents = !0, this.scene?.noteEventsInitialized(this), this.dispatchObjectEvent(`initialize`));
 	}
 	get position() {
 		return this.transform.position;

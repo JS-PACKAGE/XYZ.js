@@ -448,11 +448,13 @@ export class Scene {
   /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
   private readonly objectUpdates = new Set<GameObject>();
   /**
-   * Members of `objectUpdates` that `beginObjectUpdates` would not skip (events not yet
-   * initialized, or a preupdate listener) and those with an action queue. Both conditions
-   * only ever become true, except initialization, which `trackObjectPasses` follows, so
-   * an empty set means the pass would run nothing.
+   * What `beginObjectUpdates` would not skip among `objectUpdates`: how many members have
+   * not initialized events yet, and the initialized ones with a preupdate listener. Below,
+   * members with an action queue. Listeners and queues are never removed, and
+   * initialization (once per object) is followed by `noteEventsInitialized`, so when none
+   * remain the pass would run nothing.
    */
+  private uninitializedObjects = 0;
   private readonly preupdatePass = new Set<GameObject>();
   private readonly actionPass = new Set<GameObject>();
   /** Sprites `advanceFrameAnimations` may advance: with an animation or an override of it. */
@@ -647,6 +649,7 @@ export class Scene {
       if (object instanceof GameObject) {
         this.objectUpdates.add(object);
         object.sceneUpdateId = ++lastObjectUpdate;
+        if (!object.eventsInitialized) this.uninitializedObjects++;
         this.trackObjectPasses(object);
       }
       if (object instanceof ParticleEmitter)
@@ -699,6 +702,7 @@ export class Scene {
     if (isCameraDependent(object)) this.cameraDependents?.delete(object);
     if (object instanceof GameObject) {
       this.objectUpdates.delete(object);
+      if (!object.eventsInitialized) this.uninitializedObjects--;
       this.preupdatePass.delete(object);
       this.actionPass.delete(object);
       if (object instanceof Sprite) this.animationPass.delete(object);
@@ -784,7 +788,7 @@ export class Scene {
   trackObjectPasses(object: SceneObject): void {
     if (!(object instanceof GameObject) || !this.objectUpdates.has(object))
       return;
-    if (!object.eventsInitialized || object.observesUpdate('preupdate'))
+    if (object.eventsInitialized && object.observesUpdate('preupdate'))
       this.preupdatePass.add(object);
     else this.preupdatePass.delete(object);
     if (object.hasActionQueue) this.actionPass.add(object);
@@ -793,6 +797,13 @@ export class Scene {
         this.animationPass.add(object);
       else this.animationPass.delete(object);
     }
+  }
+
+  /** @internal A member's `initializeEvents` just ran; see `uninitializedObjects`. */
+  noteEventsInitialized(object: GameObject): void {
+    if (!this.objectUpdates.has(object)) return;
+    this.uninitializedObjects--;
+    this.trackObjectPasses(object);
   }
 
   /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
@@ -808,7 +819,8 @@ export class Scene {
    * check's answer and the disposed state cannot have changed since it last held.
    */
   beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void {
-    if (this.preupdatePass.size === 0) return;
+    if (this.uninitializedObjects === 0 && this.preupdatePass.size === 0)
+      return;
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
