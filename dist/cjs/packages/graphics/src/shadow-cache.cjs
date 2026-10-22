@@ -31,12 +31,13 @@ var ShadowCache = class {
 				values: new Float64Array(37 + require_rendering.nativeMaterial3DLimits.uniformFloats + require_rendering.nativeMaterial3DLimits.textures).fill(NaN),
 				seen: this.frame
 			}, this.casters.set(s, f), m = !0), (f.geometry !== u || f.material !== l) && (m = !0), f.geometry = u, f.material = l, f.seen = this.frame;
-			let p = f.values;
-			for (let e = 0; e < 16; e++) Object.is(p[e], s.worldMatrix.elements[e]) || (m = !0), p[e] = s.worldMatrix.elements[e];
-			let h = l instanceof require_pbr_material.PBRMaterial, g = require_mesh.materialBaseTexture(l), _ = h ? l.textureCoordinates.texture : void 0, v = this.scalarValues;
-			v[0] = u.version, v[1] = g.version, v[2] = +!!g.destroyed, v[3] = l.opacity, v[4] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, v[5] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, v[6] = d.get(s)?.fade ?? 1, v[7] = h ? l.alphaCutoff : 0, v[8] = h ? l.alphaMode === `OPAQUE` ? 0 : l.alphaMode === `MASK` ? 1 : 2 : 2, v[9] = h && !l.doubleSided ? 0 : 1, v[10] = _?.texCoord ?? 0, v[11] = _?.transform[0] ?? 1, v[12] = _?.transform[1] ?? 0, v[13] = _?.transform[2] ?? 0, v[14] = _?.transform[3] ?? 1, v[15] = _?.transform[4] ?? 0, v[16] = l.color[0], v[17] = l.color[1], v[18] = l.color[2], v[19] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0;
-			for (let e = 0; e < v.length; e++) Object.is(p[16 + e], v[e]) || (m = !0), p[16 + e] = v[e];
-			if (Object.is(p[36], _?.transform[5] ?? 0) || (m = !0), p[36] = _?.transform[5] ?? 0, require_native_material3d.isNativeMaterial3D(l)) {
+			let p = f.values, h = s.worldMatrix.elements;
+			if (m) for (let e = 0; e < 16; e++) p[e] = h[e];
+			else for (let e = 0; e < 16; e++) Object.is(p[e], h[e]) || (m = !0), p[e] = h[e];
+			let g = l instanceof require_pbr_material.PBRMaterial, _ = require_mesh.materialBaseTexture(l), v = g ? l.textureCoordinates.texture : void 0, y = this.scalarValues;
+			if (y[0] = u.version, y[1] = _.version, y[2] = +!!_.destroyed, y[3] = l.opacity, y[4] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, y[5] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, y[6] = d.get(s)?.fade ?? 1, y[7] = g ? l.alphaCutoff : 0, y[8] = g ? l.alphaMode === `OPAQUE` ? 0 : l.alphaMode === `MASK` ? 1 : 2 : 2, y[9] = g && !l.doubleSided ? 0 : 1, y[10] = v?.texCoord ?? 0, y[11] = v?.transform[0] ?? 1, y[12] = v?.transform[1] ?? 0, y[13] = v?.transform[2] ?? 0, y[14] = v?.transform[3] ?? 1, y[15] = v?.transform[4] ?? 0, y[16] = l.color[0], y[17] = l.color[1], y[18] = l.color[2], y[19] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0, m) p.set(y, 16);
+			else for (let e = 0; e < y.length; e++) Object.is(p[16 + e], y[e]) || (m = !0), p[16 + e] = y[e];
+			if (Object.is(p[36], v?.transform[5] ?? 0) || (m = !0), p[36] = v?.transform[5] ?? 0, require_native_material3d.isNativeMaterial3D(l)) {
 				l.validate(), l.shadowCache !== `tracked` && (m = !0);
 				for (let e = 0; e < l.uniforms.length; e++) Object.is(p[37 + e], l.uniforms[e]) || (m = !0), p[37 + e] = l.uniforms[e];
 				for (let e = 0; e < require_rendering.nativeMaterial3DLimits.textures; e++) {

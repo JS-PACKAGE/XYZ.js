@@ -94,11 +94,15 @@ export class ShadowCache {
       record.geometry = geometry;
       record.material = material;
       record.seen = this.frame;
-      const values = record.values;
-      for (let i = 0; i < 16; i++) {
-        if (!Object.is(values[i], mesh.worldMatrix.elements[i])) changed = true;
-        values[i] = mesh.worldMatrix.elements[i]!;
-      }
+      const values = record.values,
+        matrix = mesh.worldMatrix.elements;
+      // Once a change is known, only the copies matter; the comparisons decide nothing more.
+      if (changed) for (let i = 0; i < 16; i++) values[i] = matrix[i]!;
+      else
+        for (let i = 0; i < 16; i++) {
+          if (!Object.is(values[i], matrix[i])) changed = true;
+          values[i] = matrix[i]!;
+        }
       // Read mutable scalar state directly; do not rely on vector/object identity.
       const pbr = material instanceof PBRMaterial;
       const texture = materialBaseTexture(material);
@@ -130,10 +134,12 @@ export class ShadowCache {
       next[17] = material.color[1];
       next[18] = material.color[2];
       next[19] = mesh instanceof InstancedMesh ? mesh.colorVersion : 0;
-      for (let i = 0; i < next.length; i++) {
-        if (!Object.is(values[16 + i], next[i])) changed = true;
-        values[16 + i] = next[i]!;
-      }
+      if (changed) values.set(next, 16);
+      else
+        for (let i = 0; i < next.length; i++) {
+          if (!Object.is(values[16 + i], next[i])) changed = true;
+          values[16 + i] = next[i]!;
+        }
       // The remaining transform component and native uniforms/maps share the tail.
       const tail = 36;
       if (!Object.is(values[tail], base?.transform[5] ?? 0)) changed = true;
