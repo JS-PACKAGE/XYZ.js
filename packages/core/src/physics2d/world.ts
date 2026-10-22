@@ -104,9 +104,12 @@ export interface PhysicsDebugSnapshot {
   readonly contacts: readonly PhysicsDebugContact[];
   readonly joints: readonly PhysicsDebugJoint[];
 }
+/** Shared read-only stand-in for a proxy without contacts; never written. */
+const noContacts: ReadonlyMap<Proxy, Contact> = new Map();
 class Proxy {
   readonly geometry: ShapeGeometry;
-  readonly contacts = new Map<Proxy, Contact>();
+  /** Created by the first contact: most static colliders (tiles) never touch anything. */
+  contacts: Map<Proxy, Contact> | undefined;
   inverseMass = 0;
   inverseInertia = 0;
   sleepVisited = 0;
@@ -172,7 +175,7 @@ class Proxy {
       (!this.body || this.body.type !== 'dynamic') &&
       revision !== this.geometry.revision
     ) {
-      for (const contact of this.contacts.values()) {
+      for (const contact of (this.contacts ?? noContacts).values()) {
         const other = contact.a === this ? contact.b : contact.a;
         if (!contact.sensor && !contact.cancelled) other.body?.wake();
       }
@@ -639,8 +642,9 @@ export class PhysicsWorld2D {
     // Delete membership before callback dispatch: recursive unregister is harmless.
     for (const piece of proxy.group) {
       this.proxies.delete(piece);
-      for (const contact of piece.contacts.values()) this.end(contact);
-      piece.contacts.clear();
+      for (const contact of (piece.contacts ?? noContacts).values())
+        this.end(contact);
+      piece.contacts?.clear();
     }
   }
   private alive(proxy: Proxy): boolean {
@@ -722,8 +726,8 @@ export class PhysicsWorld2D {
     if (!contact.active) return;
     contact.active = false;
     this.activeContacts.delete(contact);
-    contact.a.contacts.delete(contact.b);
-    contact.b.contacts.delete(contact.a);
+    contact.a.contacts?.delete(contact.b);
+    contact.b.contacts?.delete(contact.a);
     contact.a.body?.wake();
     contact.b.body?.wake();
     this.emit(contact, 'collisionend');
@@ -841,8 +845,8 @@ export class PhysicsWorld2D {
     m.tangentImpulses[0] = m.tangentImpulses[1] = 0;
     if (!contact.active) {
       contact.active = true;
-      a.contacts.set(b, contact);
-      b.contacts.set(a, contact);
+      (a.contacts ??= new Map()).set(b, contact);
+      (b.contacts ??= new Map()).set(a, contact);
       this.activeContacts.add(contact);
       a.body?.wake();
       b.body?.wake();
@@ -918,7 +922,7 @@ export class PhysicsWorld2D {
             this.jointsBlockContact(a, b)
           )
             continue;
-          const existing = a.contacts.get(b);
+          const existing = a.contacts?.get(b);
           if (existing?.seen === token && existing.cancelled) continue;
           const time = this.continuous.timeOfImpact(
             a.motion,
@@ -965,7 +969,7 @@ export class PhysicsWorld2D {
       this.advanceBodies(first);
       remaining -= first;
       const contact =
-          impactA.contacts.get(impactB) ?? new Contact(impactA, impactB),
+          impactA.contacts?.get(impactB) ?? new Contact(impactA, impactB),
         m = contact.manifold,
         hit = this.impactManifold;
       const sign = contact.a === impactA ? 1 : -1;
@@ -1137,7 +1141,7 @@ export class PhysicsWorld2D {
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
         if (a.group[0].joints.length && this.jointsBlockContact(a, b)) continue;
-        let contact = a.contacts.get(b);
+        let contact = a.contacts?.get(b);
         if (!contact) {
           // The scratch manifold avoids allocating a contact for AABB-only candidates.
           if (!collide(a.geometry, b.geometry, this.queryManifold)) continue;
@@ -1216,7 +1220,7 @@ export class PhysicsWorld2D {
           piece.sleepVisited = token;
           group[size++] = piece;
         }
-        for (const contact of proxy.contacts.values()) {
+        for (const contact of (proxy.contacts ?? noContacts).values()) {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
           if (
@@ -1268,7 +1272,7 @@ export class PhysicsWorld2D {
           piece.sleepVisited = -token;
           group[size++] = piece;
         }
-        for (const contact of proxy.contacts.values()) {
+        for (const contact of (proxy.contacts ?? noContacts).values()) {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
           if (!other.inverseMass || other.sleepVisited === -token) continue;

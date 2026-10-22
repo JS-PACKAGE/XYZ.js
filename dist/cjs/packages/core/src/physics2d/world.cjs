@@ -10,12 +10,13 @@ const require_ccd = require("./ccd.cjs");
 const require_physics_force = require("../physics-force.cjs");
 const require_mover_sequence = require("../mover-sequence.cjs");
 //#region dist/packages/core/src/physics2d/world.js
+var y = /* @__PURE__ */ new Map();
 var Proxy = class {
 	owner;
 	collider;
 	body;
 	geometry;
-	contacts = /* @__PURE__ */ new Map();
+	contacts;
 	inverseMass = 0;
 	inverseInertia = 0;
 	sleepVisited = 0;
@@ -54,7 +55,7 @@ var Proxy = class {
 		if (this.owner.colliderPieces && this.body?.ccd) throw RangeError(`Compound CCD is unsupported.`);
 		let e = this.geometry.revision;
 		if (this.geometry.refresh(this.owner), (!this.body || this.body.type !== `dynamic`) && e !== this.geometry.revision) {
-			for (let e of this.contacts.values()) {
+			for (let e of (this.contacts ?? y).values()) {
 				let t = e.a === this ? e.b : e.a;
 				!e.sensor && !e.cancelled && t.body?.wake();
 			}
@@ -98,9 +99,9 @@ function sortSweepOrder(e) {
 	}
 }
 var continueSimulation = () => !0;
-var y = require_game_object.GameObject.prototype.dispatchEvent;
-var b = require_scene_object.SceneObject.prototype;
-var x = b.dispatchEvent;
+var b = require_game_object.GameObject.prototype.dispatchEvent;
+var x = require_scene_object.SceneObject.prototype;
+var S = x.dispatchEvent;
 function snapshotPoints(e) {
 	let t = Array(e.count);
 	for (let n = 0; n < e.count; n++) t[n] = e.points[n].clone();
@@ -313,8 +314,8 @@ var PhysicsWorld2D = class {
 			for (let e of [...t.joints]) this.removeJoint(e);
 			for (let e of t.group) {
 				this.proxies.delete(e);
-				for (let t of e.contacts.values()) this.end(t);
-				e.contacts.clear();
+				for (let t of (e.contacts ?? y).values()) this.end(t);
+				e.contacts?.clear();
 			}
 		}
 	}
@@ -328,7 +329,7 @@ var PhysicsWorld2D = class {
 		let n = !1;
 		for (let i = 0; i < 2; i++) {
 			let a = i ? e.b : e.a, o = i ? e.a : e.b;
-			if (a.owner.dispatchEvent !== y || b.dispatchEvent !== x || require_event_observers.hasObjectEventObservers(a.owner, t)) {
+			if (a.owner.dispatchEvent !== b || x.dispatchEvent !== S || require_event_observers.hasObjectEventObservers(a.owner, t)) {
 				if (t !== `collisionend` && !this.continuation()) return n;
 				this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && (n = !0, this.dispatchCollision(e, t, a, o, i ? -1 : 1));
 			}
@@ -354,7 +355,7 @@ var PhysicsWorld2D = class {
 		}
 	}
 	end(e) {
-		e.active && (e.active = !1, this.activeContacts.delete(e), e.a.contacts.delete(e.b), e.b.contacts.delete(e.a), e.a.body?.wake(), e.b.body?.wake(), this.emit(e, `collisionend`));
+		e.active && (e.active = !1, this.activeContacts.delete(e), e.a.contacts?.delete(e.b), e.b.contacts?.delete(e.a), e.a.body?.wake(), e.b.body?.wake(), this.emit(e, `collisionend`));
 	}
 	forceState(e) {
 		let t = this.forces.get(e);
@@ -410,7 +411,7 @@ var PhysicsWorld2D = class {
 	}
 	activate(e, t) {
 		let { a: n, b: r, manifold: i } = e;
-		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses[0] = i.normalImpulses[1] = 0, i.tangentImpulses[0] = i.tangentImpulses[1] = 0, e.active || (e.active = !0, n.contacts.set(r, e), r.contacts.set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || this.emit(e, `precollision`) && (!this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
+		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses[0] = i.normalImpulses[1] = 0, i.tangentImpulses[0] = i.tangentImpulses[1] = 0, e.active || (e.active = !0, (n.contacts ??= /* @__PURE__ */ new Map()).set(r, e), (r.contacts ??= /* @__PURE__ */ new Map()).set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || this.emit(e, `precollision`) && (!this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
 	}
 	integrateContinuous(e, t) {
 		let n = this.ccdStats;
@@ -428,7 +429,7 @@ var PhysicsWorld2D = class {
 				if (this.alive(c) && c.body?.ccd) for (let l = 0; l < this.sorted.length; l++) {
 					let u = this.sorted[l];
 					if (c === u || c.owner === u.owner || u.body?.ccd && l <= s || !this.alive(u) || !c.inverseMass && !u.inverseMass || c.collider.sensor || u.collider.sensor || !(c.collider.filterBits[0] & u.collider.filterBits[1]) || !(u.collider.filterBits[0] & c.collider.filterBits[1]) || this.jointsBlockContact(c, u)) continue;
-					let d = c.contacts.get(u);
+					let d = c.contacts?.get(u);
 					if (d?.seen === t && d.cancelled) continue;
 					let f = this.continuous.timeOfImpact(c.motion, u.motion, r, n.impacts >= this.ccdImpacts ? 0 : Math.max(0, this.ccdIterations - n.iterations));
 					if (n.iterations += this.continuous.iterations, this.continuous.exhausted && (i = Math.min(i, this.continuous.safeTime), c.ccdUnproven = u.ccdUnproven = !0), f < e) {
@@ -450,7 +451,7 @@ var PhysicsWorld2D = class {
 				return;
 			}
 			this.advanceBodies(e), r -= e;
-			let c = a.contacts.get(o) ?? new Contact(a, o), l = c.manifold, u = this.impactManifold, d = c.a === a ? 1 : -1;
+			let c = a.contacts?.get(o) ?? new Contact(a, o), l = c.manifold, u = this.impactManifold, d = c.a === a ? 1 : -1;
 			l.nx = u.nx * d, l.ny = u.ny * d, l.penetration = u.penetration, l.count = u.count;
 			for (let e = 0; e < u.count; e++) l.points[e].copy(u.points[e]);
 			if (c.seen !== t) {
@@ -522,7 +523,7 @@ var PhysicsWorld2D = class {
 				if (n && !e.inverseMass && !e.collider.sensor || (t.geometry.maxY < e.geometry.minY || e.geometry.maxY < t.geometry.minY) && this.liveness === f && (t.separating !== r || e.separating !== r) || t.owner === e.owner || !this.alive(e) || !(t.collider.filterBits[0] & e.collider.filterBits[1]) || !(e.collider.filterBits[0] & t.collider.filterBits[1])) continue;
 				let a = t.collider.sensor || e.collider.sensor;
 				if (t.group[0].joints.length && this.jointsBlockContact(t, e)) continue;
-				let o = t.contacts.get(e);
+				let o = t.contacts?.get(e);
 				if (!o) {
 					if (!require_narrowphase.collide(t.geometry, e.geometry, this.queryManifold)) continue;
 					o = new Contact(t, e);
@@ -560,7 +561,7 @@ var PhysicsWorld2D = class {
 				let i = p[e];
 				n &&= i.sleepReady;
 				for (let e of i.group) e.sleepVisited !== r && (e.sleepVisited = r, p[t++] = e);
-				for (let e of i.contacts.values()) {
+				for (let e of (i.contacts ?? y).values()) {
 					if (e.sensor || e.cancelled) continue;
 					let a = e.a === i ? e.b : e.a;
 					a.body?.type === `kinematic` && (a.body.velocity.x !== 0 || a.body.velocity.y !== 0 || a.body.angularVelocity !== 0) && (n = !1), a.inverseMass && a.sleepVisited !== r && (a.sleepVisited = r, p[t++] = a);
@@ -582,7 +583,7 @@ var PhysicsWorld2D = class {
 			for (let n = 0; n < r; n++) {
 				let i = t[n];
 				for (let n of i.group) n.sleepVisited !== -e && (n.sleepVisited = -e, t[r++] = n);
-				for (let n of i.contacts.values()) {
+				for (let n of (i.contacts ?? y).values()) {
 					if (n.sensor || n.cancelled) continue;
 					let a = n.a === i ? n.b : n.a;
 					a.inverseMass && a.sleepVisited !== -e && (a.body?.isSleeping && a.body.wake(), a.sleepVisited = -e, t[r++] = a);
