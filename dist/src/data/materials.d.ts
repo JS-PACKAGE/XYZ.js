@@ -2095,6 +2095,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.36;
         relief: 0.0032;
     }>;
+    bubblewrap: Readonly<{
+        dark: readonly [178, 198, 212];
+        light: readonly [240, 247, 251];
+        roughness: 0.28;
+        relief: 0.0042;
+    }>;
+    sequin: Readonly<{
+        dark: readonly [128, 36, 72];
+        light: readonly [242, 156, 188];
+        roughness: 0.24;
+        relief: 0.0022;
+    }>;
+    pennyround: Readonly<{
+        dark: readonly [148, 148, 146];
+        light: readonly [240, 238, 232];
+        roughness: 0.3;
+        relief: 0.003;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2437,4 +2455,7 @@ export declare const proceduralTileMeters: Readonly<{
     gauze: 0.09;
     elasticbandage: 0.14;
     icepack: 0.3;
+    bubblewrap: 0.12;
+    sequin: 0.096;
+    pennyround: 0.2;
 }>;

@@ -4806,6 +4806,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .36,
 		relief: .0032
+	}),
+	bubblewrap: Object.freeze({
+		dark: [
+			178,
+			198,
+			212
+		],
+		light: [
+			240,
+			247,
+			251
+		],
+		roughness: .28,
+		relief: .0042
+	}),
+	sequin: Object.freeze({
+		dark: [
+			128,
+			36,
+			72
+		],
+		light: [
+			242,
+			156,
+			188
+		],
+		roughness: .24,
+		relief: .0022
+	}),
+	pennyround: Object.freeze({
+		dark: [
+			148,
+			148,
+			146
+		],
+		light: [
+			240,
+			238,
+			232
+		],
+		roughness: .3,
+		relief: .003
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5147,7 +5189,10 @@ var proceduralTileMeters = Object.freeze({
 	muffintin: .35,
 	gauze: .09,
 	elasticbandage: .14,
-	icepack: .3
+	icepack: .3,
+	bubblewrap: .12,
+	sequin: .096,
+	pennyround: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

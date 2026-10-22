@@ -424,6 +424,18 @@ function createSurfaceSampler(t, r) {
 				let e = Math.floor(K * 4), t = Math.floor(q * 4), n = (e % 4 + 4) % 4, i = (t % 4 + 4) % 4, a = fract(K * 4) - .5, o = fract(q * 4) - .5, c = smooth(clamp((.42 - (Math.abs(a) ** 4 + Math.abs(o) ** 4) ** .25) / .12)), l = .85 + .15 * hash(n, i, r ^ 27452), u = noise(K, q, 24, 24, r ^ 12161);
 				X = .42 + .34 * c * l + .08 * u - .12 * (1 - c), Z = .3 + .24 * c * l - .16 * (1 - c), Q += .08 * (u - .5) - .05 * c, $ = 1 - .44 * (1 - c);
 			};
+			case `bubblewrap`: return () => {
+				let e = Math.floor(K * 12), t = Math.floor(q * 12), n = (e % 12 + 12) % 12, i = (t % 12 + 12) % 12, a = fract(K * 12) - .5, o = fract(q * 12) - .5, s = (a * a + o * o) / (.42 * .42), c = s < 1 ? (1 - s) * (1 - s) : 0, l = .9 + .1 * hash(n, i, r ^ 15393), u = noise(K, q, 36, 36, r ^ 30634);
+				X = .55 + .3 * c * l + .06 * (u - .5), Z = .26 + .36 * c * l, Q += .08 * (u - .5) - .12 * c, $ = 1 - .42 * (1 - c);
+			};
+			case `sequin`: return () => {
+				let e = (Math.floor(q * 10) % 10 + 10) % 10, t = .5 * (e & 1), n = K * 10 + t, i = (Math.floor(n) % 10 + 10) % 10, a = fract(n) - .5, o = fract(q * 10) - .5, c = smooth(clamp((1 - (a * a + o * o) / (.34 * .34)) / .22)), l = (a * a + o * o) / (.1 * .1), u = l < 1 ? (1 - l) * (1 - l) : 0, d = .9 + .1 * hash(i, e, r ^ 20946), f = hash(i, e, r ^ 2577) - .5, p = hash(i, e, r ^ 2850) - .5, m = noise(K, q, 30, 30, r ^ 27678), h = c * (f * a + p * o);
+				X = .46 + .34 * c * d + .16 * h - .26 * u + .06 * (m - .5), Z = .24 + .32 * c * d + .2 * h - .24 * u, Q += .08 * (m - .5) - .1 * c, $ = 1 - .44 * (1 - c) - .14 * u;
+			};
+			case `pennyround`: return () => {
+				let e = (Math.floor(q * 8) % 8 + 8) % 8, t = .5 * (e & 1), n = K * 8 + t, i = (Math.floor(n) % 8 + 8) % 8, a = fract(n) - .5, o = fract(q * 8) - .5, c = smooth(clamp((1 - (a * a + o * o) / .2116) / .22)), l = .9 + .1 * hash(i, e, r ^ 10932), u = noise(K, q, 40, 40, r ^ 30705);
+				X = .56 + .26 * c * l + .06 * (u - .5) - .14 * (1 - c), Z = .26 + .28 * c * l + .04 * (u - .5) * (1 - c), Q += .12 * (1 - c) + .06 * (u - .5), $ = 1 - .44 * (1 - c);
+			};
 			case `morel`: return () => {
 				let e = x, t = K * e.columns, n = q * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(K, q), o = 0, s = 0;
 				for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) {

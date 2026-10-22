@@ -1578,6 +1578,88 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.44 * (1 - quilt);
           return;
         };
+      case 'bubblewrap':
+        return () => {
+          // Sealed spherical domes puff above the thin film web between them.
+          const nx = 12,
+            ny = 12;
+          const cx = Math.floor(u * nx),
+            cy = Math.floor(v * ny);
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d2 = (fx * fx + fy * fy) / (0.42 * 0.42);
+          const dome = d2 < 1 ? (1 - d2) * (1 - d2) : 0;
+          const lift = 0.9 + 0.1 * hash(cellX, cellY, seed ^ 0x3c21);
+          const film = noise(u, v, 36, 36, seed ^ 0x77aa);
+          color = 0.55 + 0.3 * dome * lift + 0.06 * (film - 0.5);
+          height = 0.26 + 0.36 * dome * lift;
+          roughness += 0.08 * (film - 0.5) - 0.12 * dome;
+          occlusion = 1 - 0.42 * (1 - dome);
+          return;
+        };
+      case 'sequin':
+        return () => {
+          // Staggered discs sit on the cloth with a stitch dimple at each hub.
+          const nx = 10,
+            ny = 10;
+          const row = Math.floor(v * ny);
+          const rowW = ((row % ny) + ny) % ny;
+          const stagger = 0.5 * (rowW & 1);
+          const x = u * nx + stagger;
+          const col = Math.floor(x);
+          const colW = ((col % nx) + nx) % nx;
+          const fx = fract(x) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d2 = (fx * fx + fy * fy) / (0.34 * 0.34);
+          const disc = smooth(clamp((1 - d2) / 0.22));
+          const hole2 = (fx * fx + fy * fy) / (0.1 * 0.1);
+          const dimple = hole2 < 1 ? (1 - hole2) * (1 - hole2) : 0;
+          const lift = 0.9 + 0.1 * hash(colW, rowW, seed ^ 0x51d2);
+          const tiltX = hash(colW, rowW, seed ^ 0xa11) - 0.5;
+          const tiltY = hash(colW, rowW, seed ^ 0xb22) - 0.5;
+          const cloth = noise(u, v, 30, 30, seed ^ 0x6c1e);
+          const tilt = disc * (tiltX * fx + tiltY * fy);
+          color =
+            0.46 +
+            0.34 * disc * lift +
+            0.16 * tilt -
+            0.26 * dimple +
+            0.06 * (cloth - 0.5);
+          height = 0.24 + 0.32 * disc * lift + 0.2 * tilt - 0.24 * dimple;
+          roughness += 0.08 * (cloth - 0.5) - 0.1 * disc;
+          occlusion = 1 - 0.44 * (1 - disc) - 0.14 * dimple;
+          return;
+        };
+      case 'pennyround':
+        return () => {
+          // Round glazed tiles crowd together above recessed grainy grout.
+          const nx = 8,
+            ny = 8;
+          const row = Math.floor(v * ny);
+          const rowW = ((row % ny) + ny) % ny;
+          const stagger = 0.5 * (rowW & 1);
+          const x = u * nx + stagger;
+          const col = Math.floor(x);
+          const colW = ((col % nx) + nx) % nx;
+          const fx = fract(x) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d2 = (fx * fx + fy * fy) / (0.46 * 0.46);
+          const tile = smooth(clamp((1 - d2) / 0.22));
+          const lift = 0.9 + 0.1 * hash(colW, rowW, seed ^ 0x2ab4);
+          const grout = noise(u, v, 40, 40, seed ^ 0x77f1);
+          color =
+            0.56 +
+            0.26 * tile * lift +
+            0.06 * (grout - 0.5) -
+            0.14 * (1 - tile);
+          height =
+            0.26 + 0.28 * tile * lift + 0.04 * (grout - 0.5) * (1 - tile);
+          roughness += 0.12 * (1 - tile) + 0.06 * (grout - 0.5);
+          occlusion = 1 - 0.44 * (1 - tile);
+          return;
+        };
       case 'morel':
         return () => {
           const p = morelPreset,

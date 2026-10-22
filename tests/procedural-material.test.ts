@@ -364,6 +364,9 @@ const kinds: ProceduralMaterialKind[] = [
   'gauze',
   'elasticbandage',
   'icepack',
+  'bubblewrap',
+  'sequin',
+  'pennyround',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5181,6 +5184,9 @@ describe('periodic procedural material fields', () => {
     ['gauze', [2, 3, 32, 64]],
     ['elasticbandage', [2, 4, 32, 64]],
     ['icepack', [4, 32, 64]],
+    ['bubblewrap', [4, 32, 64]],
+    ['sequin', [3, 32, 64]],
+    ['pennyround', [4, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5523,6 +5529,9 @@ describe('periodic procedural material fields', () => {
     ['gauze', 4],
     ['elasticbandage', 3],
     ['icepack', 4],
+    ['bubblewrap', 12],
+    ['sequin', 10],
+    ['pennyround', 8],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13448,6 +13457,95 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('bubblewrap lifts sealed domes above the thin film web between them', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bubblewrap', seed);
+      for (const cx of [0.5, 1.5, 2.5, 3.5])
+        for (const cy of [0.5, 1.5, 2.5, 3.5]) {
+          sample(cx / 12, cy / 12, a);
+          sample(cx / 12 + 0.5 / 12, cy / 12, b);
+          expect(a.height).toBeGreaterThan(b.height);
+          expect(a.occlusion).toBeGreaterThan(b.occlusion);
+          expect(a.roughness).toBeLessThan(b.roughness);
+          expect(a.color).toBeGreaterThan(b.color);
+        }
+    }
+  });
+
+  it('sequin raises staggered discs above their stitched dimples and bare cloth', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sequin', seed);
+      for (const row of [0, 1, 2, 3]) {
+        const stagger = 0.5 * (row & 1);
+        for (const col of [0, 1, 2, 3]) {
+          const u = (col + 0.5 + stagger) / 10,
+            v = (row + 0.5) / 10;
+          sample(u + 0.02, v, a);
+          const crown = { ...a };
+          sample(u, v, b);
+          expect(crown.height).toBeGreaterThan(b.height);
+          expect(crown.occlusion).toBeGreaterThan(b.occlusion);
+          sample(u + 0.05, v, b);
+          expect(crown.height).toBeGreaterThan(b.height);
+          expect(crown.occlusion).toBeGreaterThan(b.occlusion);
+        }
+      }
+      // Odd rows sit half a pitch over, so a shared column lands on a
+      // dimpled hub there but on bare cloth in the even row above.
+      for (const col of [0, 1, 2, 3]) {
+        sample((col + 1) / 10, 0.5 / 10, a);
+        sample((col + 1) / 10, 1.5 / 10, b);
+        expect(b.occlusion).toBeGreaterThan(a.occlusion);
+      }
+    }
+  });
+
+  it('pennyround glazes round tiles above recessed grainy grout', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pennyround', seed);
+      for (const row of [0, 1, 2, 3]) {
+        const stagger = 0.5 * (row & 1);
+        for (const col of [0, 1, 2, 3]) {
+          const u = (col + 0.5 + stagger) / 8,
+            v = (row + 0.5) / 8;
+          sample(u, v, a);
+          sample(u + 0.5 / 8, v, b);
+          expect(a.height).toBeGreaterThan(b.height);
+          expect(a.occlusion).toBeGreaterThan(b.occlusion);
+          expect(a.roughness).toBeLessThan(b.roughness);
+          expect(a.color).toBeGreaterThan(b.color);
+        }
+      }
+    }
+  });
 
   it('every preset produces a different base color', () => {
     const signatures = kinds.map((kind) =>

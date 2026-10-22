@@ -345,7 +345,10 @@ export type ProceduralMaterialKind =
   | 'muffintin'
   | 'gauze'
   | 'elasticbandage'
-  | 'icepack';
+  | 'icepack'
+  | 'bubblewrap'
+  | 'sequin'
+  | 'pennyround';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -717,6 +720,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gauze',
   'elasticbandage',
   'icepack',
+  'bubblewrap',
+  'sequin',
+  'pennyround',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
