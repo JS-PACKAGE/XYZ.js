@@ -119,8 +119,8 @@ function createSurfaceSampler(t, r) {
 	}
 	let Ee = t === `endgrain` ? hash(0, 0, r ^ 15127) : 0, De = t === `endgrain` ? hash(0, 0, r ^ 23849) : 0, Oe = t === `houndstooth` ? /* @__PURE__ */ new Float64Array(64) : null;
 	if (Oe) for (let e = 0; e < 8; e++) for (let t = 0; t < 8; t++) Oe[e * 8 + t] = ((t - e + 8) % 4 < 2 ? t : e) < 4 ? 0 : 1;
-	let ke = t === `damask` ? /* @__PURE__ */ new Float64Array(72) : null;
-	if (ke) for (let e = 0; e < 12; e++) {
+	let j = t === `damask` ? /* @__PURE__ */ new Float64Array(72) : null;
+	if (j) for (let e = 0; e < 12; e++) {
 		let t = 0, r = -.18, i = 0, a = .065, o = .065;
 		if (e < 6) i = n * e / 6 + Math.PI / 2, t = .085 * Math.cos(i), r += .085 * Math.sin(i), a = .12, o = .055;
 		else if (e < 10) {
@@ -128,95 +128,95 @@ function createSurfaceSampler(t, r) {
 			t = n * (e < 8 ? .115 : .09), r = e < 8 ? .095 : .275, i = n * -.65, a = e < 8 ? .145 : .115, o = .06;
 		} else e === 11 && (r = .12, i = Math.PI / 2, a = .26, o = .018);
 		let s = e * 6;
-		ke[s] = t, ke[s + 1] = r, ke[s + 2] = Math.cos(i), ke[s + 3] = Math.sin(i), ke[s + 4] = 1 / a, ke[s + 5] = 1 / o;
+		j[s] = t, j[s + 1] = r, j[s + 2] = Math.cos(i), j[s + 3] = Math.sin(i), j[s + 4] = 1 / a, j[s + 5] = 1 / o;
 	}
-	let Ae = t === `closedcellfoam` ? /* @__PURE__ */ new Float64Array(3136) : null;
-	if (Ae) for (let e = 0; e < 28; e++) for (let t = 0; t < 28; t++) {
+	let ke = t === `closedcellfoam` ? /* @__PURE__ */ new Float64Array(3136) : null;
+	if (ke) for (let e = 0; e < 28; e++) for (let t = 0; t < 28; t++) {
 		let n = (e * 28 + t) * 4, i = hash(t, e, r ^ 28455), a = .55 + .16 * i;
-		Ae[n] = .3 + .4 * hash(t, e, r), Ae[n + 1] = .3 + .4 * hash(t, e, r ^ 10661), Ae[n + 2] = 1 / (a * a), Ae[n + 3] = i;
+		ke[n] = .3 + .4 * hash(t, e, r), ke[n + 1] = .3 + .4 * hash(t, e, r ^ 10661), ke[n + 2] = 1 / (a * a), ke[n + 3] = i;
 	}
-	let je = t === `snakeskin` ? 10 : 4, Me = t === `snakeskin` ? 12 : 6, Ne = t === `snakeskin` || t === `crocodile` ? new Float64Array(je * Me) : null;
-	if (Ne) for (let e = 0; e < Me; e++) for (let t = 0; t < je; t++) Ne[e * je + t] = hash(t, e, r ^ 29625);
-	let Pe = t === `engineturned` ? /* @__PURE__ */ new Float64Array(72) : null;
-	if (Pe) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
+	let Ae = t === `snakeskin` ? 10 : 4, je = t === `snakeskin` ? 12 : 6, Me = t === `snakeskin` || t === `crocodile` ? new Float64Array(Ae * je) : null;
+	if (Me) for (let e = 0; e < je; e++) for (let t = 0; t < Ae; t++) Me[e * Ae + t] = hash(t, e, r ^ 29625);
+	let Ne = t === `engineturned` ? /* @__PURE__ */ new Float64Array(72) : null;
+	if (Ne) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
 		let n = (e * 6 + t) * 2;
-		Pe[n] = hash(t, e, r ^ 14497), Pe[n + 1] = hash(t, e, r ^ 27735);
+		Ne[n] = hash(t, e, r ^ 14497), Ne[n + 1] = hash(t, e, r ^ 27735);
 	}
-	let Fe = t === `orangepeel` ? 24 : 40, Ie = t === `orangepeel` ? 24 : 8, Le = t === `orangepeel` || t === `coconut` ? new Float64Array(Fe * Ie * 3) : null;
-	if (Le) for (let e = 0; e < Ie; e++) for (let t = 0; t < Fe; t++) {
-		let n = (e * Fe + t) * 3;
-		Le[n] = .25 + .5 * hash(t, e, r ^ 7795), Le[n + 1] = .25 + .5 * hash(t, e, r ^ 21425), Le[n + 2] = hash(t, e, r ^ 31529);
+	let Pe = t === `orangepeel` ? 24 : 40, Fe = t === `orangepeel` ? 24 : 8, Ie = t === `orangepeel` || t === `coconut` ? new Float64Array(Pe * Fe * 3) : null;
+	if (Ie) for (let e = 0; e < Fe; e++) for (let t = 0; t < Pe; t++) {
+		let n = (e * Pe + t) * 3;
+		Ie[n] = .25 + .5 * hash(t, e, r ^ 7795), Ie[n + 1] = .25 + .5 * hash(t, e, r ^ 21425), Ie[n + 2] = hash(t, e, r ^ 31529);
 	}
-	let j = t === `limestone` ? /* @__PURE__ */ new Float64Array(4032) : null;
-	if (j) for (let e = 0; e < 24; e++) for (let t = 0; t < 24; t++) {
+	let M = t === `limestone` ? /* @__PURE__ */ new Float64Array(4032) : null;
+	if (M) for (let e = 0; e < 24; e++) for (let t = 0; t < 24; t++) {
 		let i = (e * 24 + t) * 7, a = n * hash(t, e, r ^ 11377);
-		j[i] = .15 + .7 * hash(t, e, r ^ 6323), j[i + 1] = .15 + .7 * hash(t, e, r ^ 20009), j[i + 2] = .25 + .19 * hash(t, e, r ^ 31377), j[i + 3] = .65 + .35 * hash(t, e, r ^ 14733), j[i + 4] = Math.cos(a), j[i + 5] = Math.sin(a), j[i + 6] = hash(t, e, r ^ 25591);
+		M[i] = .15 + .7 * hash(t, e, r ^ 6323), M[i + 1] = .15 + .7 * hash(t, e, r ^ 20009), M[i + 2] = .25 + .19 * hash(t, e, r ^ 31377), M[i + 3] = .65 + .35 * hash(t, e, r ^ 14733), M[i + 4] = Math.cos(a), M[i + 5] = Math.sin(a), M[i + 6] = hash(t, e, r ^ 25591);
 	}
-	let Re = t === `breccia` ? /* @__PURE__ */ new Float64Array(648) : null;
-	if (Re) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
+	let Le = t === `breccia` ? /* @__PURE__ */ new Float64Array(648) : null;
+	if (Le) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
 		let i = (e * 6 + t) * 18, a = n * hash(t, e, r ^ 11091), o = .3 + .35 * hash(t, e, r ^ 23063);
-		Re[i] = .15 + .7 * hash(t, e, r ^ 6089), Re[i + 1] = .15 + .7 * hash(t, e, r ^ 14545), Re[i + 2] = hash(t, e, r ^ 32323);
+		Le[i] = .15 + .7 * hash(t, e, r ^ 6089), Le[i + 1] = .15 + .7 * hash(t, e, r ^ 14545), Le[i + 2] = hash(t, e, r ^ 32323);
 		for (let s = 0; s < 5; s++) {
 			let c = a + n * s / 5 + .2 * (hash(t, e, r ^ 16823 + s) - .5), l = i + 3 + s * 3;
-			Re[l] = Math.cos(c), Re[l + 1] = Math.sin(c), Re[l + 2] = o * (.75 + .25 * hash(t, e, r ^ 26785 + s));
+			Le[l] = Math.cos(c), Le[l + 1] = Math.sin(c), Le[l + 2] = o * (.75 + .25 * hash(t, e, r ^ 26785 + s));
 		}
 	}
-	let ze = t === `plywood` ? /* @__PURE__ */ new Float64Array(6) : null;
-	if (ze) for (let e = 0; e < 2; e++) ze[e * 3] = hash(e, 0, r ^ 8679), ze[e * 3 + 1] = hash(e, 0, r ^ 25779), ze[e * 3 + 2] = .75 + .25 * hash(e, 0, r ^ 18649);
-	let Be = t === `reedmat` ? 16 : 6, Ve = t === `reedmat` || t === `rope` ? new Float64Array(Be * 2) : null;
-	if (Ve) for (let e = 0; e < Be; e++) Ve[e * 2] = hash(e, 0, r ^ 5849), Ve[e * 2 + 1] = n * hash(e, 0, r ^ 18867);
-	let M = t === `straw` ? /* @__PURE__ */ new Float64Array(1728) : null;
-	if (M) for (let e = 0; e < 3; e++) for (let t = 0; t < 8; t++) for (let i = 0; i < 8; i++) {
+	let Re = t === `plywood` ? /* @__PURE__ */ new Float64Array(6) : null;
+	if (Re) for (let e = 0; e < 2; e++) Re[e * 3] = hash(e, 0, r ^ 8679), Re[e * 3 + 1] = hash(e, 0, r ^ 25779), Re[e * 3 + 2] = .75 + .25 * hash(e, 0, r ^ 18649);
+	let ze = t === `reedmat` ? 16 : 6, Be = t === `reedmat` || t === `rope` ? new Float64Array(ze * 2) : null;
+	if (Be) for (let e = 0; e < ze; e++) Be[e * 2] = hash(e, 0, r ^ 5849), Be[e * 2 + 1] = n * hash(e, 0, r ^ 18867);
+	let N = t === `straw` ? /* @__PURE__ */ new Float64Array(1728) : null;
+	if (N) for (let e = 0; e < 3; e++) for (let t = 0; t < 8; t++) for (let i = 0; i < 8; i++) {
 		let a = ((e * 8 + t) * 8 + i) * 9, o = r ^ e * 14759, s = n * hash(i, t, o ^ 6355);
-		M[a] = .25 + .5 * hash(i, t, o ^ 20247), M[a + 1] = .25 + .5 * hash(i, t, o ^ 29641), M[a + 2] = Math.cos(s), M[a + 3] = Math.sin(s), M[a + 4] = .62 + .33 * hash(i, t, o ^ 25265), M[a + 5] = .035 + .03 * hash(i, t, o ^ 20891), M[a + 6] = hash(i, t, o ^ 11877), M[a + 7] = n * hash(i, t, o ^ 29123), M[a + 8] = hash(i, t, o ^ 14305);
+		N[a] = .25 + .5 * hash(i, t, o ^ 20247), N[a + 1] = .25 + .5 * hash(i, t, o ^ 29641), N[a + 2] = Math.cos(s), N[a + 3] = Math.sin(s), N[a + 4] = .62 + .33 * hash(i, t, o ^ 25265), N[a + 5] = .035 + .03 * hash(i, t, o ^ 20891), N[a + 6] = hash(i, t, o ^ 11877), N[a + 7] = n * hash(i, t, o ^ 29123), N[a + 8] = hash(i, t, o ^ 14305);
 	}
-	let N = t === `osb` ? 6 : 28, P = t === `osb` || t === `chipboard` ? new Float64Array(N * N * 2 * 26) : null;
-	if (P) for (let e = 0; e < 2; e++) for (let i = 0; i < N; i++) for (let a = 0; a < N; a++) {
-		let o = ((e * N + i) * N + a) * 26, s = r ^ e * 14759, c = hash(a, i, s ^ 25265), l = t === `osb` ? Math.PI / 2 + .65 * (hash(a, i, s ^ 6355) - .5) + .5 * (noise(a / 6, i / 6, 3, 3, r ^ 31529) - .5) : n * hash(a, i, s ^ 6355);
-		P[o] = .25 + .5 * hash(a, i, s ^ 20247), P[o + 1] = .25 + .5 * hash(a, i, s ^ 29641), P[o + 2] = Math.cos(l), P[o + 3] = Math.sin(l), P[o + 4] = t === `osb` ? .78 + .14 * c : .46 + .19 * c, P[o + 5] = t === `osb` ? .13 + .1 * hash(a, i, s ^ 20891) : .25 + .17 * hash(a, i, s ^ 20891), P[o + 6] = c, P[o + 7] = n * hash(a, i, s ^ 11877);
+	let P = t === `osb` ? 6 : 28, F = t === `osb` || t === `chipboard` ? new Float64Array(P * P * 2 * 26) : null;
+	if (F) for (let e = 0; e < 2; e++) for (let i = 0; i < P; i++) for (let a = 0; a < P; a++) {
+		let o = ((e * P + i) * P + a) * 26, s = r ^ e * 14759, c = hash(a, i, s ^ 25265), l = t === `osb` ? Math.PI / 2 + .65 * (hash(a, i, s ^ 6355) - .5) + .5 * (noise(a / 6, i / 6, 3, 3, r ^ 31529) - .5) : n * hash(a, i, s ^ 6355);
+		F[o] = .25 + .5 * hash(a, i, s ^ 20247), F[o + 1] = .25 + .5 * hash(a, i, s ^ 29641), F[o + 2] = Math.cos(l), F[o + 3] = Math.sin(l), F[o + 4] = t === `osb` ? .78 + .14 * c : .46 + .19 * c, F[o + 5] = t === `osb` ? .13 + .1 * hash(a, i, s ^ 20891) : .25 + .17 * hash(a, i, s ^ 20891), F[o + 6] = c, F[o + 7] = n * hash(a, i, s ^ 11877);
 		for (let e = 0; e < 6; e++) {
 			let t = o + 8 + e * 3;
-			P[t] = Math.cos(n * e / 6), P[t + 1] = Math.sin(n * e / 6), P[t + 2] = .82 + .18 * hash(a, i, s ^ 23857 + e);
+			F[t] = Math.cos(n * e / 6), F[t + 1] = Math.sin(n * e / 6), F[t + 2] = .82 + .18 * hash(a, i, s ^ 23857 + e);
 		}
 	}
-	let He = t === `crackleglaze` ? /* @__PURE__ */ new Float64Array(6656) : null;
-	if (He) for (let e = 0; e < 16; e++) for (let t = 0; t < 16; t++) {
+	let Ve = t === `crackleglaze` ? /* @__PURE__ */ new Float64Array(6656) : null;
+	if (Ve) for (let e = 0; e < 16; e++) for (let t = 0; t < 16; t++) {
 		let n = (e * 16 + t) * 26, i = .36 + .28 * hash(t, e, r ^ 17293), a = .36 + .28 * hash(t, e, r ^ 31525);
-		He[n] = i, He[n + 1] = a;
+		Ve[n] = i, Ve[n + 1] = a;
 		let o = n + 2;
 		for (let n = -1; n <= 1; n++) for (let s = -1; s <= 1; s++) {
 			if (s === 0 && n === 0) continue;
 			let c = (t + s + 16) % 16, l = (e + n + 16) % 16, u = s + .36 + .28 * hash(c, l, r ^ 17293) - i, d = n + .36 + .28 * hash(c, l, r ^ 31525) - a, f = Math.sqrt(u * u + d * d);
-			He[o++] = u / f, He[o++] = d / f, He[o++] = f / 2;
+			Ve[o++] = u / f, Ve[o++] = d / f, Ve[o++] = f / 2;
 		}
 	}
-	let Ue = t === `fishscales` ? 10 : 8, We = t === `fishscales` ? 10 : 4, Ge = t === `fishscales` || t === `feathers` ? new Float64Array(Ue * We * 2) : null;
-	if (Ge) for (let e = 0; e < We; e++) for (let t = 0; t < Ue; t++) {
-		let n = (e * Ue + t) * 2;
-		Ge[n] = hash(t, e, r ^ 15985), Ge[n + 1] = .2 * (hash(t, e, r ^ 25299) - .5);
+	let He = t === `fishscales` ? 10 : 8, Ue = t === `fishscales` ? 10 : 4, We = t === `fishscales` || t === `feathers` ? new Float64Array(He * Ue * 2) : null;
+	if (We) for (let e = 0; e < Ue; e++) for (let t = 0; t < He; t++) {
+		let n = (e * He + t) * 2;
+		We[n] = hash(t, e, r ^ 15985), We[n + 1] = .2 * (hash(t, e, r ^ 25299) - .5);
 	}
-	let Ke = t === `tortoiseshell` ? /* @__PURE__ */ new Float64Array(972) : null;
-	if (Ke) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
+	let Ge = t === `tortoiseshell` ? /* @__PURE__ */ new Float64Array(972) : null;
+	if (Ge) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) {
 		let n = (e * 6 + t) * 27, i = .22 + .56 * hash(t, e, r ^ 13751), a = .22 + .56 * hash(t, e, r ^ 28185);
-		Ke[n] = i, Ke[n + 1] = a, Ke[n + 2] = hash(t, e, r ^ 31811);
+		Ge[n] = i, Ge[n + 1] = a, Ge[n + 2] = hash(t, e, r ^ 31811);
 		let o = n + 3;
 		for (let n = -1; n <= 1; n++) for (let s = -1; s <= 1; s++) {
 			if (s === 0 && n === 0) continue;
 			let c = (t + s + 6) % 6, l = (e + n + 6) % 6, u = s + .22 + .56 * hash(c, l, r ^ 13751) - i, d = n + .22 + .56 * hash(c, l, r ^ 28185) - a, f = Math.sqrt(u * u + d * d);
-			Ke[o++] = u / f, Ke[o++] = d / f, Ke[o++] = f / 2;
+			Ge[o++] = u / f, Ge[o++] = d / f, Ge[o++] = f / 2;
 		}
 	}
-	let qe = t === `studdedrubber` ? /* @__PURE__ */ new Float64Array(36) : null;
-	if (qe) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) qe[e * 6 + t] = hash(t, e, r ^ 19225);
-	let Je = t === `groovedrubber` ? /* @__PURE__ */ new Float64Array(12) : null;
-	if (Je) for (let e = 0; e < 12; e++) Je[e] = hash(e, 0, r ^ 23607);
-	let F = t === `recycledrubber` ? /* @__PURE__ */ new Float64Array(41472) : null;
-	if (F) for (let e = 0; e < 48; e++) for (let t = 0; t < 48; t++) {
+	let Ke = t === `studdedrubber` ? /* @__PURE__ */ new Float64Array(36) : null;
+	if (Ke) for (let e = 0; e < 6; e++) for (let t = 0; t < 6; t++) Ke[e * 6 + t] = hash(t, e, r ^ 19225);
+	let qe = t === `groovedrubber` ? /* @__PURE__ */ new Float64Array(12) : null;
+	if (qe) for (let e = 0; e < 12; e++) qe[e] = hash(e, 0, r ^ 23607);
+	let Je = t === `recycledrubber` ? /* @__PURE__ */ new Float64Array(41472) : null;
+	if (Je) for (let e = 0; e < 48; e++) for (let t = 0; t < 48; t++) {
 		let i = (e * 48 + t) * 18, a = n * hash(t, e, r ^ 32019), o = .48 + .17 * hash(t, e, r ^ 6583);
-		F[i] = .2 + .6 * hash(t, e, r ^ 12969), F[i + 1] = .2 + .6 * hash(t, e, r ^ 25059), F[i + 2] = hash(t, e, r ^ 21441);
+		Je[i] = .2 + .6 * hash(t, e, r ^ 12969), Je[i + 1] = .2 + .6 * hash(t, e, r ^ 25059), Je[i + 2] = hash(t, e, r ^ 21441);
 		for (let s = 0; s < 5; s++) {
 			let c = i + 3 + s * 3, l = a + n * s / 5;
-			F[c] = Math.cos(l), F[c + 1] = Math.sin(l), F[c + 2] = o * (.78 + .22 * hash(t, e, r ^ 9969 + s));
+			Je[c] = Math.cos(l), Je[c + 1] = Math.sin(l), Je[c + 2] = o * (.78 + .22 * hash(t, e, r ^ 9969 + s));
 		}
 	}
 	let Ye = t === `breadcrust` ? /* @__PURE__ */ new Float64Array(1323) : null;
@@ -914,7 +914,7 @@ function createSurfaceSampler(t, r) {
 				for (let s = -1; s <= 1; s++) {
 					let c = n + s, l = (c % 2 + 2) % 2 * .5, u = Math.floor(e - l);
 					for (let n = -1; n <= 1; n++) {
-						let s = u + n, d = (s % 10 + 10) % 10, f = (c % 12 + 12) % 12, p = Ne[f * 10 + d], m = e - s - l - .5, h = t - c - .5;
+						let s = u + n, d = (s % 10 + 10) % 10, f = (c % 12 + 12) % 12, p = Me[f * 10 + d], m = e - s - l - .5, h = t - c - .5;
 						if (Math.abs(m) >= .48 || Math.abs(h) >= .64) continue;
 						let _ = clamp(1 - (Math.sqrt(m * m + .0016) / (.46 + .02 * p) + Math.sqrt(h * h + .0016) / (.61 + .03 * p)));
 						if (_ === 0) continue;
@@ -925,17 +925,17 @@ function createSurfaceSampler(t, r) {
 				X = .13 + .4 * r + .2 * o + .1 * i + .04 * J, Z = .04 + .64 * r + .2 * i + .065 * a + .012 * J, Q += .12 * (1 - r) - .045 * i + .045 * (J - .5), $ = .57 + .41 * r + .015 * i;
 			};
 			case `crocodile`: return () => {
-				let e = K * 4, t = q * 6, i = Math.floor(e), o = Ne[Math.floor(t) * 4 + i], s = (fract(e) - .5) / (.445 + .025 * o), c = (fract(t) - .5) / (.445 + .02 * o), l = clamp(1 - s * s * s * s - c * c * c * c), u = smooth(clamp(l / .36)), d = noise(K, q, 9, 11, r ^ 12115), f = (.5 + .5 * Math.sin(n * (19 * K + 13 * q + 1.7 * d) + a)) ** 12;
+				let e = K * 4, t = q * 6, i = Math.floor(e), o = Me[Math.floor(t) * 4 + i], s = (fract(e) - .5) / (.445 + .025 * o), c = (fract(t) - .5) / (.445 + .02 * o), l = clamp(1 - s * s * s * s - c * c * c * c), u = smooth(clamp(l / .36)), d = noise(K, q, 9, 11, r ^ 12115), f = (.5 + .5 * Math.sin(n * (19 * K + 13 * q + 1.7 * d) + a)) ** 12;
 				X = .12 + u * (.37 + .22 * o + .1 * J - .12 * f), Z = .035 + u * (.64 + .17 * l * l + .035 * o - .065 * f), Q += .13 * (1 - u) + u * (.055 * f + .04 * (J - .5)), $ = .53 + u * (.46 - .055 * f);
 			};
 			case `fishscales`:
 			case `feathers`: return () => {
-				let e = K * Ue, r = q * We, i = Math.floor(r);
+				let e = K * He, r = q * Ue, i = Math.floor(r);
 				X = .12 + .045 * J, Z = .23, $ = .76;
 				for (let a = -1; a <= 1; a++) {
-					let o = i + a, s = (o % We + We) % We, c = s % 2 * .5, l = Math.floor(e - c);
+					let o = i + a, s = (o % Ue + Ue) % Ue, c = s % 2 * .5, l = Math.floor(e - c);
 					for (let i = -1; i <= 1; i++) {
-						let a = l + i, u = (a % Ue + Ue) % Ue, d = (s * Ue + u) * 2, f = Ge[d], p = r - o - .5, m = e - a - c - .5 - Ge[d + 1] * p, h, g, _;
+						let a = l + i, u = (a % He + He) % He, d = (s * He + u) * 2, f = We[d], p = r - o - .5, m = e - a - c - .5 - We[d + 1] * p, h, g, _;
 						if (t === `fishscales`) {
 							let e = m * m / .4356 + p * p / .6724;
 							if (h = smooth(clamp((1 - e) / .18)), h === 0) continue;
@@ -958,13 +958,13 @@ function createSurfaceSampler(t, r) {
 				let e = K * 6, t = q * 6, i = Math.floor(e), a = Math.floor(t), o = noise(K, q, 19, 23, r ^ 18919);
 				X = .045 + .025 * J, Z = .22, $ = .72;
 				for (let r = -1; r <= 1; r++) for (let s = -1; s <= 1; s++) {
-					let c = i + s, l = a + r, u = (c + 6) % 6, d = ((l + 6) % 6 * 6 + u) * 27, f = e - c - Ke[d], p = t - l - Ke[d + 1], m = 1, h = 1;
+					let c = i + s, l = a + r, u = (c + 6) % 6, d = ((l + 6) % 6 * 6 + u) * 27, f = e - c - Ge[d], p = t - l - Ge[d + 1], m = 1, h = 1;
 					for (let e = 0; e < 8; e++) {
-						let t = d + 3 + e * 3, n = Ke[t + 2], r = n - f * Ke[t] - p * Ke[t + 1];
+						let t = d + 3 + e * 3, n = Ge[t + 2], r = n - f * Ge[t] - p * Ge[t + 1];
 						if (m *= smooth(clamp((r - .018) / .085)), h *= smooth(clamp(r / n)), m === 0) break;
 					}
 					if (m === 0) continue;
-					let g = Ke[d + 2], _ = Math.cos(n * (5 * h + .12 * g)), v = .28 + .25 * g + .22 * o + .09 * h + .045 * _;
+					let g = Ge[d + 2], _ = Math.cos(n * (5 * h + .12 * g)), v = .28 + .25 * g + .22 * o + .09 * h + .045 * _;
 					X += m * (v - X), Z += m * (.37 + .2 * h + .012 * _ * h - Z), $ += m * (.98 - $);
 				}
 				Q += .06 * (1 - $) + .025 * (J - .5);
@@ -1051,7 +1051,7 @@ function createSurfaceSampler(t, r) {
 			case `damask`: return () => {
 				let e = fract(2 * K + .5) - .5, t = fract(2 * q + .5) - .5, r = 1, i = 1;
 				for (let n = 0; n < 12; n++) {
-					let a = n * 6, o = e - ke[a], s = t - ke[a + 1], c = ke[a + 2], l = ke[a + 3], u = (o * c + s * l) * ke[a + 4], d = (s * c - o * l) * ke[a + 5], f = clamp(1 - u * u - d * d);
+					let a = n * 6, o = e - j[a], s = t - j[a + 1], c = j[a + 2], l = j[a + 3], u = (o * c + s * l) * j[a + 4], d = (s * c - o * l) * j[a + 5], f = clamp(1 - u * u - d * d);
 					r *= 1 - smooth(clamp(f / .28)), i *= 1 - f * f;
 				}
 				let o = 1 - r, s = 1 - i, c = .5 + .5 * Math.cos(n * 64 * K), l = .5 + .5 * Math.cos(n * 64 * q), u = .5 + .5 * Math.cos(n * (16 * K - 16 * q) + a), d = (c + l) * .5;
@@ -1104,22 +1104,22 @@ function createSurfaceSampler(t, r) {
 				X = .31 + .57 * d + .12 * J - .22 * p - .09 * f, Z = .4 + .16 * d + .07 * Y - .2 * p - .07 * f, Q += .07 * (Y - .5) + .045 * p - .025 * d, $ = .97 - .18 * p - .08 * f;
 			};
 			case `studdedrubber`: return () => {
-				let e = K * 6, t = q * 6, n = fract(e) - .5, a = fract(t) - .5, s = 1 - smooth(clamp((Math.sqrt(n * n + a * a) - .24) / .12)), c = qe[Math.floor(t) * 6 + Math.floor(e)], l = noise(K, q, 144, 144, r ^ 18867);
+				let e = K * 6, t = q * 6, n = fract(e) - .5, a = fract(t) - .5, s = 1 - smooth(clamp((Math.sqrt(n * n + a * a) - .24) / .12)), c = Ke[Math.floor(t) * 6 + Math.floor(e)], l = noise(K, q, 144, 144, r ^ 18867);
 				X = .24 + .16 * s + .06 * s * c + .05 * l, Z = .16 + .66 * s + .002 * l, Q = i.roughness + .04 * (l - .5), $ = .84 + .16 * s;
 			};
 			case `groovedrubber`: return () => {
-				let e = K * 12, n = 1 - smooth(clamp((Math.abs(fract(e) - .5) - .32) / .13)), a = Je[Math.floor(e)], o = noise(K, q, 144, 144, r ^ 28193);
+				let e = K * 12, n = 1 - smooth(clamp((Math.abs(fract(e) - .5) - .32) / .13)), a = qe[Math.floor(e)], o = noise(K, q, 144, 144, r ^ 28193);
 				X = .18 + .29 * n + .04 * n * a + .035 * o, Z = .15 + .7 * n + .0015 * o, Q = i.roughness + .035 * (o - .5), $ = .7 + .3 * n;
 			};
 			case `recycledrubber`: return () => {
 				let e = K * 48, t = q * 48, n = Math.floor(e), a = Math.floor(t), o = 0, s = 0;
 				for (let r = -1; r <= 1; r++) for (let i = -1; i <= 1; i++) {
-					let c = n + i, l = a + r, u = ((l + 48) % 48 * 48 + (c + 48) % 48) * 18, d = e - c - F[u], f = t - l - F[u + 1], p = 1;
+					let c = n + i, l = a + r, u = ((l + 48) % 48 * 48 + (c + 48) % 48) * 18, d = e - c - Je[u], f = t - l - Je[u + 1], p = 1;
 					for (let e = 0; e < 5; e++) {
-						let t = u + 3 + e * 3, n = F[t + 2] - d * F[t] - f * F[t + 1];
+						let t = u + 3 + e * 3, n = Je[t + 2] - d * Je[t] - f * Je[t + 1];
 						p *= smooth(clamp(n / .14));
 					}
-					o += p, s += p * F[u + 2];
+					o += p, s += p * Je[u + 2];
 				}
 				let c = 1 - Math.exp(-2 * o), l = noise(K, q, 144, 144, r ^ 15239);
 				X = .035 + .59 * c + .22 * s / (1 + o), Z = .25 + .18 * c + .002 * l, Q = i.roughness - .06 * c + .02 * l, $ = .83 + .17 * c;
@@ -1143,8 +1143,8 @@ function createSurfaceSampler(t, r) {
 			case `engineturned`: return () => {
 				let e = K * 6, t = q * 6, r = Math.floor(e), i = Math.floor(t), a = 0, o = 0, s = 0;
 				for (let c = -1; c <= 1; c++) for (let l = -1; l <= 1; l++) {
-					let u = r + l, d = i + c, f = (u % 6 + 6) % 6, p = (d % 6 + 6) % 6, m = e - u - .25 - p % 2 * .5, h = t - d - .5, g = m * m + h * h, _ = Math.max(0, 1 - g / .9025), v = _ * _, y = (p * 6 + f) * 2, b = Pe[y], x = .5 + .5 * Math.cos(n * (10 * g + b + .18 * m * h));
-					a += v, o += v * x, s += v * Pe[y + 1];
+					let u = r + l, d = i + c, f = (u % 6 + 6) % 6, p = (d % 6 + 6) % 6, m = e - u - .25 - p % 2 * .5, h = t - d - .5, g = m * m + h * h, _ = Math.max(0, 1 - g / .9025), v = _ * _, y = (p * 6 + f) * 2, b = Ne[y], x = .5 + .5 * Math.cos(n * (10 * g + b + .18 * m * h));
+					a += v, o += v * x, s += v * Ne[y + 1];
 				}
 				o /= a, s /= a, X = .35 + .34 * s + .22 * o + .04 * J, Z = .44 + .07 * o + .025 * J, Q += .18 * (o - .5) + .12 * (s - .5), $ = .98 + .015 * o;
 			};
@@ -1161,20 +1161,20 @@ function createSurfaceSampler(t, r) {
 				X = .62 + .24 * e + .1 * t - .2 * c, Z = .22 + .12 * e + .22 * t + .3 * c, Q += .08 * (t - .5) + .04 * c, $ = .98 - .07 * c - .035 * (1 - t);
 			};
 			case `reedmat`: return () => {
-				let e = K * 16, t = Math.floor(e), r = (fract(e) - .5) / .46, i = smooth(clamp(1 - r * r)), o = Ve[t * 2], s = Ve[t * 2 + 1], c = .5 + .5 * Math.sin(n * e * 7 + .2 * Math.sin(n * q * 3) + s), l = smooth(clamp(1 - (1 - Math.cos(n * q * 4)) / .055)), u = .5 + .5 * Math.cos(n * K * 96 + a);
+				let e = K * 16, t = Math.floor(e), r = (fract(e) - .5) / .46, i = smooth(clamp(1 - r * r)), o = Be[t * 2], s = Be[t * 2 + 1], c = .5 + .5 * Math.sin(n * e * 7 + .2 * Math.sin(n * q * 3) + s), l = smooth(clamp(1 - (1 - Math.cos(n * q * 4)) / .055)), u = .5 + .5 * Math.cos(n * K * 96 + a);
 				X = .15 + i * (.38 + .14 * o + .09 * c) + l * (.12 + .04 * u), Z = .1 + i * (.46 + .055 * o + .018 * c) + l * (.24 + .015 * u), Q += .06 * (1 - i) - .035 * i * c + .025 * l, $ = .56 + .32 * i + .07 * l;
 			};
 			case `rope`: return () => {
-				let e = K * 6, t = Math.floor(e), r = fract(e) - .5, i = smooth(clamp(1 - (r / .48) ** 2)), a = Ve[t * 2], o = Ve[t * 2 + 1], s = n * (3 * r - 6 * q) + o, c = .5 + .5 * Math.cos(s), l = .5 + .5 * Math.cos(s * 9 + .15 * Math.sin(n * q * 2));
+				let e = K * 6, t = Math.floor(e), r = fract(e) - .5, i = smooth(clamp(1 - (r / .48) ** 2)), a = Be[t * 2], o = Be[t * 2 + 1], s = n * (3 * r - 6 * q) + o, c = .5 + .5 * Math.cos(s), l = .5 + .5 * Math.cos(s * 9 + .15 * Math.sin(n * q * 2));
 				X = .13 + i * (.3 + .14 * a + .23 * c + .06 * l), Z = .08 + i * (.34 + .32 * c + .018 * l), Q += .065 * (1 - i) + i * (.025 - .045 * l), $ = .43 + i * (.35 + .17 * c);
 			};
 			case `straw`: return () => {
 				let e = K * 8, t = q * 8, n = Math.floor(e), r = Math.floor(t);
 				X = .17 + .07 * J, Z = .15 + .015 * J, $ = .55 + .035 * J;
 				for (let a = 0; a < 3; a++) for (let o = -1; o <= 1; o++) for (let s = -1; s <= 1; s++) {
-					let c = n + s, l = r + o, u = ((a * 8 + (l % 8 + 8) % 8) * 8 + (c % 8 + 8) % 8) * 9, d = e - c - M[u], f = t - l - M[u + 1], p = (d * M[u + 2] + f * M[u + 3]) / M[u + 4], m = (f * M[u + 2] - d * M[u + 3]) / M[u + 5], h = smooth(clamp((1 - p * p) / .24)) * smooth(clamp(1 - m * m));
+					let c = n + s, l = r + o, u = ((a * 8 + (l % 8 + 8) % 8) * 8 + (c % 8 + 8) % 8) * 9, d = e - c - N[u], f = t - l - N[u + 1], p = (d * N[u + 2] + f * N[u + 3]) / N[u + 4], m = (f * N[u + 2] - d * N[u + 3]) / N[u + 5], h = smooth(clamp((1 - p * p) / .24)) * smooth(clamp(1 - m * m));
 					if (h === 0) continue;
-					let g = M[u + 6], _ = .5 + .5 * Math.cos(12 * m + M[u + 7]), v = M[u + 8] > .6 ? smooth(clamp(1 - ((p - .2) / .065) ** 2)) : 0;
+					let g = N[u + 6], _ = .5 + .5 * Math.cos(12 * m + N[u + 7]), v = N[u + 8] > .6 ? smooth(clamp(1 - ((p - .2) / .065) ** 2)) : 0;
 					X = X * (1 - h) + h * (.48 + .26 * g + .07 * _ - .13 * v), Z = Z * (1 - h) + h * (.51 + .06 * a + .04 * g + .018 * _ + .055 * v), Q = Q * (1 - h) + h * (i.roughness - .04 * _ + .025 * v), $ = $ * (1 - h) + h * (.91 + .045 * _);
 				}
 			};
@@ -1777,8 +1777,8 @@ function createSurfaceSampler(t, r) {
 			case `closedcellfoam`: return () => {
 				let e = K * 28, t = q * 28, n = Math.floor(e), r = Math.floor(t), i = 0, a = 0, o = 0;
 				for (let s = -1; s <= 1; s++) for (let c = -1; c <= 1; c++) {
-					let l = n + c, u = r + s, d = (l % 28 + 28) % 28, f = ((u % 28 + 28) % 28 * 28 + d) * 4, p = e - l - Ae[f], m = t - u - Ae[f + 1], h = clamp(1 - (p * p + m * m) * Ae[f + 2]), g = h * h;
-					i += (1 - i) * g, a += (1 - a) * g * (1 - h) * 6.75, o += g * (Ae[f + 3] - .5);
+					let l = n + c, u = r + s, d = (l % 28 + 28) % 28, f = ((u % 28 + 28) % 28 * 28 + d) * 4, p = e - l - ke[f], m = t - u - ke[f + 1], h = clamp(1 - (p * p + m * m) * ke[f + 2]), g = h * h;
+					i += (1 - i) * g, a += (1 - a) * g * (1 - h) * 6.75, o += g * (ke[f + 3] - .5);
 				}
 				X = .49 + .18 * J - .13 * i + .08 * a + .1 * o, Z = .48 + .035 * J - .17 * i + .055 * a, Q += .065 * (J - .5) + .025 * i, $ = .99 - .065 * i;
 			};
@@ -1787,17 +1787,17 @@ function createSurfaceSampler(t, r) {
 				X = .24 + .25 * t + .38 * o + .08 * J, Z = .45 + .025 * J + .015 * i, Q += .09 * (i - .5) + .045 * (J - .5), $ = .99 + .008 * J;
 			};
 			case `orangepeel`: return () => {
-				let e = K * Fe, t = q * Ie, n = Math.floor(e), r = Math.floor(t), i = 0, a = 0;
+				let e = K * Pe, t = q * Fe, n = Math.floor(e), r = Math.floor(t), i = 0, a = 0;
 				for (let o = -1; o <= 1; o++) for (let s = -1; s <= 1; s++) {
-					let c = n + s, l = r + o, u = (c % Fe + Fe) % Fe, d = ((l % Ie + Ie) % Ie * Fe + u) * 3, f = e - c - Le[d], p = t - l - Le[d + 1], m = .26 + .14 * Le[d + 2], h = f * f + p * p, g = clamp(1 - h / (m * m)), _ = clamp(1 - h / .36);
+					let c = n + s, l = r + o, u = (c % Pe + Pe) % Pe, d = ((l % Fe + Fe) % Fe * Pe + u) * 3, f = e - c - Ie[d], p = t - l - Ie[d + 1], m = .26 + .14 * Ie[d + 2], h = f * f + p * p, g = clamp(1 - h / (m * m)), _ = clamp(1 - h / .36);
 					i += (1 - i) * g * g, a += (1 - a) * _ * _ * (1 - _) * 6.75;
 				}
 				X = (.48 + .28 * J) * (1 - .35 * i) + .119 * i, Z = (.46 + .025 * J + .045 * a) * (1 - i) + .22 * i, Q += .06 * (J - .5) + .035 * i, $ = 1 - .08 * i;
 			};
 			case `coconut`: return () => {
-				let e = K * Fe, t = q * Ie, n = Math.floor(e), r = Math.floor(t), i = 0, a = 0, o = .38 + .18 * J;
+				let e = K * Pe, t = q * Fe, n = Math.floor(e), r = Math.floor(t), i = 0, a = 0, o = .38 + .18 * J;
 				for (let s = -1; s <= 1; s++) for (let c = -1; c <= 1; c++) {
-					let l = n + c, u = r + s, d = (l % Fe + Fe) % Fe, f = ((u % Ie + Ie) % Ie * Fe + d) * 3, p = e - l - Le[f], m = t - u - Le[f + 1], h = Le[f + 2], g = m / (.48 + .25 * h), _ = (p + (h - .5) * .28 * m) / .12, v = clamp(1 - g * g - _ * _), y = v * v;
+					let l = n + c, u = r + s, d = (l % Pe + Pe) % Pe, f = ((u % Fe + Fe) % Fe * Pe + d) * 3, p = e - l - Ie[f], m = t - u - Ie[f + 1], h = Ie[f + 2], g = m / (.48 + .25 * h), _ = (p + (h - .5) * .28 * m) / .12, v = clamp(1 - g * g - _ * _), y = v * v;
 					h < .24 ? (a += (1 - a) * y, o = o * (1 - y) + .15 * y) : (i += (1 - i) * y, o = o * (1 - y) + (.55 + .25 * h) * y);
 				}
 				X = o, Z = (.42 + .055 * J + .18 * i) * (1 - a) + .3 * a, Q += .055 * (J - .5) + .025 * i, $ = (.96 + .025 * i) * (1 - a) + .86 * a;
@@ -1810,7 +1810,7 @@ function createSurfaceSampler(t, r) {
 				let e = K * 24, t = q * 24, i = Math.floor(e), a = Math.floor(t), o = smooth(clamp((noise(K, q, 96, 96, r ^ 6615) - .49) / .38)), s = 0;
 				X = .63 + .14 * J - .16 * o;
 				for (let r = -1; r <= 1; r++) for (let o = -1; o <= 1; o++) {
-					let c = i + o, l = a + r, u = (c % 24 + 24) % 24, d = ((l % 24 + 24) % 24 * 24 + u) * 7, f = e - c - j[d], p = t - l - j[d + 1], m = (f * j[d + 4] + p * j[d + 5]) / j[d + 2], h = (p * j[d + 4] - f * j[d + 5]) / (j[d + 2] * j[d + 3]), g = m * m + h * h, _ = smooth(clamp((1 - g) / .36)), v = j[d + 6], y = .5 + .5 * Math.cos(n * 1.5 * g), b = .5 + .24 * v + .16 * y;
+					let c = i + o, l = a + r, u = (c % 24 + 24) % 24, d = ((l % 24 + 24) % 24 * 24 + u) * 7, f = e - c - M[d], p = t - l - M[d + 1], m = (f * M[d + 4] + p * M[d + 5]) / M[d + 2], h = (p * M[d + 4] - f * M[d + 5]) / (M[d + 2] * M[d + 3]), g = m * m + h * h, _ = smooth(clamp((1 - g) / .36)), v = M[d + 6], y = .5 + .5 * Math.cos(n * 1.5 * g), b = .5 + .24 * v + .16 * y;
 					X = X * (1 - _) + b * _, s += (1 - s) * _;
 				}
 				Z = .47 + .08 * s + .025 * J - .07 * o, Q += .06 * (J - .5) + .08 * o - .05 * s, $ = .98 - .12 * o + .015 * s;
@@ -1819,12 +1819,12 @@ function createSurfaceSampler(t, r) {
 				let e = K * 6, t = q * 6, n = Math.floor(e), a = Math.floor(t), o = noise(K, q, 80, 80, r ^ 23841), s = 0;
 				X = .56 + .16 * o, Z = .33 + .035 * o, Q += .08 * o;
 				for (let r = -1; r <= 1; r++) for (let o = -1; o <= 1; o++) {
-					let c = n + o, l = a + r, u = (c % 6 + 6) % 6, d = ((l % 6 + 6) % 6 * 6 + u) * 18, f = e - c - Re[d], p = t - l - Re[d + 1], m = 1;
+					let c = n + o, l = a + r, u = (c % 6 + 6) % 6, d = ((l % 6 + 6) % 6 * 6 + u) * 18, f = e - c - Le[d], p = t - l - Le[d + 1], m = 1;
 					for (let e = 0; e < 5; e++) {
-						let t = d + 3 + e * 3, n = Re[t + 2] - f * Re[t] - p * Re[t + 1];
+						let t = d + 3 + e * 3, n = Le[t + 2] - f * Le[t] - p * Le[t + 1];
 						m *= smooth(clamp(n / .055));
 					}
-					let h = Re[d + 2], g = .15 + .66 * h + .12 * J;
+					let h = Le[d + 2], g = .15 + .66 * h + .12 * J;
 					X = X * (1 - m) + g * m, Z = Z * (1 - m) + (.54 + .1 * h + .025 * J) * m, Q = Q * (1 - m) + (i.roughness + .08 * (J - .5)) * m, s += (1 - s) * m;
 				}
 				$ = .81 + .17 * s + .015 * o;
@@ -1837,22 +1837,22 @@ function createSurfaceSampler(t, r) {
 				let e = noise(K, q, 4, 3, r ^ 17335), t = 3.2 * Math.cos(n * K + a) + 1.8 * Math.cos(n * q + .7 * a) + .45 * e, o = (.5 + .5 * Math.sin(n * t)) ** 5, s = .5 + .5 * Math.sin(n * (64 * K + .4 * e) + a);
 				X = .67 + .1 * J - .32 * o + .035 * s, Z = .48 + .025 * J - .045 * o + .015 * s, Q += .05 * o + .04 * (J - .5), $ = .99 - .045 * o;
 				for (let e = 0; e < 2; e++) {
-					let t = e * 3, r = fract(K - ze[t] + .5) - .5, a = fract(q - ze[t + 1] + .5) - .5, o = ze[t + 2], s = r * r / (.0025 * o * o) + a * a / (.0169 * o * o), c = Math.max(0, 1 - s), l = c * c, u = .5 + .5 * Math.cos(n * 2 * s);
+					let t = e * 3, r = fract(K - Re[t] + .5) - .5, a = fract(q - Re[t + 1] + .5) - .5, o = Re[t + 2], s = r * r / (.0025 * o * o) + a * a / (.0169 * o * o), c = Math.max(0, 1 - s), l = c * c, u = .5 + .5 * Math.cos(n * 2 * s);
 					X = X * (1 - l) + (.25 + .2 * u) * l, Z = Z * (1 - l) + (.44 + .025 * u) * l, Q = Q * (1 - l) + (i.roughness + .065 * u) * l, $ = $ * (1 - l) + (.95 + .025 * u) * l;
 				}
 			};
 			case `osb`:
 			case `chipboard`: return () => {
-				let e = K * N, t = q * N, n = Math.floor(e), r = Math.floor(t), a = 0;
+				let e = K * P, t = q * P, n = Math.floor(e), r = Math.floor(t), a = 0;
 				X = .24 + .12 * J, Z = .35 + .025 * J, Q += .035 * J;
 				for (let o = 0; o < 2; o++) for (let s = -1; s <= 1; s++) for (let c = -1; c <= 1; c++) {
-					let l = n + c, u = r + s, d = (l % N + N) % N, f = (u % N + N) % N, p = ((o * N + f) * N + d) * 26, m = e - l - P[p], h = t - u - P[p + 1], g = (m * P[p + 2] + h * P[p + 3]) / P[p + 4], _ = (h * P[p + 2] - m * P[p + 3]) / P[p + 5], v = 1;
+					let l = n + c, u = r + s, d = (l % P + P) % P, f = (u % P + P) % P, p = ((o * P + f) * P + d) * 26, m = e - l - F[p], h = t - u - F[p + 1], g = (m * F[p + 2] + h * F[p + 3]) / F[p + 4], _ = (h * F[p + 2] - m * F[p + 3]) / F[p + 5], v = 1;
 					for (let e = 0; e < 6; e++) {
 						let t = p + 8 + e * 3;
-						v *= smooth(clamp((P[t + 2] - g * P[t] - _ * P[t + 1]) / .12));
+						v *= smooth(clamp((F[t + 2] - g * F[t] - _ * F[t + 1]) / .12));
 					}
 					if (v === 0) continue;
-					let y = P[p + 6], b = .5 + .5 * Math.sin(18 * _ + .65 * Math.sin(3 * g) + P[p + 7]);
+					let y = F[p + 6], b = .5 + .5 * Math.sin(18 * _ + .65 * Math.sin(3 * g) + F[p + 7]);
 					X = X * (1 - v) + (.34 + .44 * y + .1 * b) * v, Z = Z * (1 - v) + (.49 + .12 * y + .025 * b) * v, Q = Q * (1 - v) + (i.roughness - .045 + .07 * b) * v, a += (1 - a) * v;
 				}
 				$ = .83 + .15 * a + .015 * J;
@@ -1860,10 +1860,10 @@ function createSurfaceSampler(t, r) {
 			case `crackleglaze`: return () => {
 				let e = K * 16 + .6 * (noise(K, q, 4, 4, r ^ 13741) - .5), t = q * 16 + .6 * (noise(K, q, 4, 4, r ^ 29123) - .5), n = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let r = -1; r <= 1; r++) for (let o = -1; o <= 1; o++) {
-					let s = n + o, c = i + r, l = ((c % 16 + 16) % 16 * 16 + (s % 16 + 16) % 16) * 26, u = e - s - He[l], d = t - c - He[l + 1], f = 1;
+					let s = n + o, c = i + r, l = ((c % 16 + 16) % 16 * 16 + (s % 16 + 16) % 16) * 26, u = e - s - Ve[l], d = t - c - Ve[l + 1], f = 1;
 					for (let e = 0; e < 8; e++) {
 						let t = l + 2 + e * 3;
-						f *= smooth(clamp((He[t + 2] - u * He[t] - d * He[t + 1]) / .024));
+						f *= smooth(clamp((Ve[t + 2] - u * Ve[t] - d * Ve[t + 1]) / .024));
 					}
 					a += f;
 				}
@@ -2335,9 +2335,9 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick();
+	}, Yt = pick(), Xt = !($e || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
-		K = fract(e), q = fract(t), Gt = Ut ? noise(K, q, 4, 4, r) : 0, J = $e || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p ? 0 : noise(K, q, 32, 32, r ^ 2747636419), Y = Wt ? noise(K, q, 64, 64, r ^ 2135587861) : 0, X = Gt, Z = Gt, Q = i.roughness, $ = 1, Kt = 0, qt = Jt, Yt(), n.color = X, n.height = Z * i.relief, n.roughness = clamp(Q), n.occlusion = $, n.mortar = Kt, n.metallic = qt;
+		K = fract(e), q = fract(t), Gt = Ut ? noise(K, q, 4, 4, r) : 0, J = Xt ? noise(K, q, 32, 32, Zt) : 0, Y = Wt ? noise(K, q, 64, 64, Qt) : 0, X = Gt, Z = Gt, Q = i.roughness, $ = 1, Kt = 0, qt = Jt, Yt(), n.color = X, n.height = Z * i.relief, n.roughness = clamp(Q), n.occlusion = $, n.mortar = Kt, n.metallic = qt;
 	};
 }
 function writeNormals(e, n, r) {

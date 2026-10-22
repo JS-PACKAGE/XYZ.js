@@ -9887,33 +9887,36 @@ export function createSurfaceSampler(
     );
   };
   const body = pick();
+  // Constant for the sampler: which noise layers the preset's own field does not replace.
+  const needsDetail = !(
+    architectural ||
+    fabricated ||
+    botanical ||
+    packaging ||
+    volcanic ||
+    mineral ||
+    bulkGrain ||
+    foliage ||
+    marine ||
+    shortFur ||
+    shell ||
+    nutshell ||
+    fruitSkin ||
+    petal ||
+    treeBark ||
+    animalSkin ||
+    municipal ||
+    fungal ||
+    rind
+  );
+  const detailSeed = seed ^ 0xa3c59ac3,
+    fineSeed = seed ^ 0x7f4a7c15;
   return (x: number, y: number, out: SurfaceSample): void => {
     u = fract(x);
     v = fract(y);
     broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
-    detail =
-      architectural ||
-      fabricated ||
-      botanical ||
-      packaging ||
-      volcanic ||
-      mineral ||
-      bulkGrain ||
-      foliage ||
-      marine ||
-      shortFur ||
-      shell ||
-      nutshell ||
-      fruitSkin ||
-      petal ||
-      treeBark ||
-      animalSkin ||
-      municipal ||
-      fungal ||
-      rind
-        ? 0
-        : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
-    fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
+    detail = needsDetail ? noise(u, v, 32, 32, detailSeed) : 0;
+    fine = needsFine ? noise(u, v, 64, 64, fineSeed) : 0;
     color = broad;
     height = broad;
     roughness = preset.roughness;
