@@ -256,6 +256,9 @@ export type ProceduralMaterialKind =
   | 'oledpanel'
   | 'crtscanline'
   | 'keyboardkey'
+  | 'filmstrip'
+  | 'postagestamp'
+  | 'halftoneprint'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -594,6 +597,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'oledpanel',
   'crtscanline',
   'keyboardkey',
+  'filmstrip',
+  'postagestamp',
+  'halftoneprint',
   'basketball',
   'tennisball',
   'golfball',

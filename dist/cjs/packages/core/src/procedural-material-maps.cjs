@@ -2412,6 +2412,21 @@ function createSurfaceSampler(t, r) {
 				H = .34 + .4 * i + .08 * a, Z = .26 + .46 * i + .04 * a, Q += .06 * (a - .5) - .06 * i, $ = 1 - .34 * (1 - i);
 				break;
 			}
+			case `filmstrip`: {
+				let e = Math.sin(Math.PI * (fract(o * 4) - .5)), t = Math.sin(Math.PI * (fract(A * 2) - .5)), n = smooth(clamp((.3 - Math.hypot(e, t)) / .28)), i = (1 + Math.cos(Math.PI * 2 * fract(A * 2))) / 2, a = noise(o, A, 16, 32, r ^ 24175);
+				H = (.45 + .2 * a) * (1 - .8 * n) * (1 - .25 * i), Z = .62 - .4 * n - .2 * i + .02 * a, Q += .05 * a + .12 * n, $ = 1 - .45 * n - .18 * i;
+				break;
+			}
+			case `postagestamp`: {
+				let e = Math.sin(Math.PI * (fract(o * 8 + .5) - .5)), t = Math.sin(Math.PI * A), n = Math.sin(Math.PI * (fract(A * 8 + .5) - .5)), i = Math.sin(Math.PI * o), a = Math.hypot(e, t), s = Math.hypot(n, i), c = smooth(clamp((.3 - a) / .28)), l = smooth(clamp((.3 - s) / .28)), u = c + l - c * l, d = smooth(clamp((.4 - Math.hypot(o - .5, A - .5)) / .12)), f = noise(o, A, 32, 32, r ^ 28538);
+				H = (.5 + .28 * d + .1 * f) * (1 - .72 * u), Z = .5 + .13 * d - .42 * u + .03 * f, Q += .08 * (f - .5) + .1 * u, $ = 1 - .5 * u;
+				break;
+			}
+			case `halftoneprint`: {
+				let e = (o + A) * 6, t = (o - A) * 6, n = Math.sin(Math.PI * (fract(e) - .5)), i = Math.sin(Math.PI * (fract(t) - .5)), a = Math.hypot(n, i), s = noise(o, A, 4, 4, r ^ 31371), c = noise(o, A, 64, 64, r ^ 35740), l = smooth(clamp((.28 + .42 * s - a) / .22));
+				H = .28 + .55 * l + .08 * c, Z = .35 + .5 * l + .02 * c, Q += .12 * (1 - l) + .05 * (c - .5), $ = 1 - .55 * (1 - l);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

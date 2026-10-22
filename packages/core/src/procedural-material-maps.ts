@@ -8502,6 +8502,55 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - cap);
         break;
       }
+      case 'filmstrip': {
+        // Perforation holes punch the film between the horizontal divider grooves.
+        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const hole = smooth(clamp((0.3 - d) / 0.28));
+        const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
+        const grain = noise(u, v, 16, 32, seed ^ 0x5e6f);
+        color = (0.45 + 0.2 * grain) * (1 - 0.8 * hole) * (1 - 0.25 * groove);
+        height = 0.62 - 0.4 * hole - 0.2 * groove + 0.02 * grain;
+        roughness += 0.05 * grain + 0.12 * hole;
+        occlusion = 1 - 0.45 * hole - 0.18 * groove;
+        break;
+      }
+      case 'postagestamp': {
+        // Border perforations frame the raised medallion on stamp paper.
+        const ax = Math.sin(Math.PI * (fract(u * 8 + 0.5) - 0.5)),
+          av = Math.sin(Math.PI * v),
+          ay = Math.sin(Math.PI * (fract(v * 8 + 0.5) - 0.5)),
+          au = Math.sin(Math.PI * u);
+        const dTop = Math.hypot(ax, av),
+          dSide = Math.hypot(ay, au);
+        const hT = smooth(clamp((0.3 - dTop) / 0.28)),
+          hS = smooth(clamp((0.3 - dSide) / 0.28));
+        const hole = hT + hS - hT * hS;
+        const med = smooth(clamp((0.4 - Math.hypot(u - 0.5, v - 0.5)) / 0.12));
+        const grain = noise(u, v, 32, 32, seed ^ 0x6f7a);
+        color = (0.5 + 0.28 * med + 0.1 * grain) * (1 - 0.72 * hole);
+        height = 0.5 + 0.13 * med - 0.42 * hole + 0.03 * grain;
+        roughness += 0.08 * (grain - 0.5) + 0.1 * hole;
+        occlusion = 1 - 0.5 * hole;
+        break;
+      }
+      case 'halftoneprint': {
+        // Tone-varying ink dots tile the paper on a rotated lattice.
+        const u1 = (u + v) * 6,
+          v1 = (u - v) * 6;
+        const fx = Math.sin(Math.PI * (fract(u1) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v1) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const tone = noise(u, v, 4, 4, seed ^ 0x7a8b),
+          grain = noise(u, v, 64, 64, seed ^ 0x8b9c);
+        const dot = smooth(clamp((0.28 + 0.42 * tone - d) / 0.22));
+        color = 0.28 + 0.55 * dot + 0.08 * grain;
+        height = 0.35 + 0.5 * dot + 0.02 * grain;
+        roughness += 0.12 * (1 - dot) + 0.05 * (grain - 0.5);
+        occlusion = 1 - 0.55 * (1 - dot);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

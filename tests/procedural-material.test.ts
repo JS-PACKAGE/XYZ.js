@@ -274,6 +274,9 @@ const kinds: ProceduralMaterialKind[] = [
   'oledpanel',
   'crtscanline',
   'keyboardkey',
+  'filmstrip',
+  'postagestamp',
+  'halftoneprint',
   'basketball',
   'tennisball',
   'golfball',
@@ -5094,6 +5097,9 @@ describe('periodic procedural material fields', () => {
     ['oledpanel', [6, 18, 36, 64]],
     ['crtscanline', [10, 32, 64]],
     ['keyboardkey', [6, 32, 64]],
+    ['filmstrip', [2, 8, 32, 64]],
+    ['postagestamp', [8, 32, 64]],
+    ['halftoneprint', [3, 6, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5374,6 +5380,9 @@ describe('periodic procedural material fields', () => {
     ['oledpanel', 18],
     ['crtscanline', 10],
     ['keyboardkey', 6],
+    ['filmstrip', 8],
+    ['postagestamp', 8],
+    ['halftoneprint', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6808,6 +6817,9 @@ describe('periodic procedural material fields', () => {
     'oledpanel',
     'crtscanline',
     'keyboardkey',
+    'filmstrip',
+    'postagestamp',
+    'halftoneprint',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7030,7 +7042,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                               : kind ===
                                                                                                                                                                   'keyboardkey'
                                                                                                                                                                 ? 6
-                                                                                                                                                                : 4;
+                                                                                                                                                                : kind ===
+                                                                                                                                                                    'filmstrip'
+                                                                                                                                                                  ? 8
+                                                                                                                                                                  : kind ===
+                                                                                                                                                                      'postagestamp'
+                                                                                                                                                                    ? 8
+                                                                                                                                                                    : kind ===
+                                                                                                                                                                        'halftoneprint'
+                                                                                                                                                                      ? 6
+                                                                                                                                                                      : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11471,6 +11492,74 @@ describe('periodic procedural material fields', () => {
       sample(0, 1 / 12, gap);
       expect(cap.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(cap.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('film strip punches perforations between the divider grooves', () => {
+    const relief = proceduralMaterialPresets.filmstrip.relief;
+    const film: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const hole = { ...film };
+    const groove = { ...film };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('filmstrip', seed);
+      sample(1 / 8, 1 / 4, hole);
+      sample(0, 1 / 4, film);
+      sample(0, 0, groove);
+      expect(film.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(film.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(film.occlusion).toBeGreaterThan(hole.occlusion);
+      expect(film.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('postage stamp raises its medallion over paper and above the perforations', () => {
+    const relief = proceduralMaterialPresets.postagestamp.relief;
+    const paper: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const hole = { ...paper };
+    const medallion = { ...paper };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('postagestamp', seed);
+      sample(0, 0, hole);
+      sample(1 / 16, 1 / 16, paper);
+      sample(1 / 2, 1 / 2, medallion);
+      expect(paper.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(medallion.height).toBeGreaterThan(paper.height + 0.1 * relief);
+      expect(paper.occlusion).toBeGreaterThan(hole.occlusion);
+    }
+  });
+
+  it('halftone dots rise above the open paper between them', () => {
+    const relief = proceduralMaterialPresets.halftoneprint.relief;
+    const dot: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...dot };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('halftoneprint', seed);
+      sample(1 / 12, 0, dot);
+      sample(0, 0, gap);
+      expect(dot.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(dot.color).toBeGreaterThan(gap.color + 0.1 * relief);
+      expect(dot.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

@@ -3492,6 +3492,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .62,
 		relief: .003
 	}),
+	filmstrip: Object.freeze({
+		dark: [
+			10,
+			10,
+			14
+		],
+		light: [
+			88,
+			92,
+			104
+		],
+		roughness: .3,
+		relief: .0024
+	}),
+	postagestamp: Object.freeze({
+		dark: [
+			150,
+			132,
+			100
+		],
+		light: [
+			238,
+			228,
+			200
+		],
+		roughness: .82,
+		relief: .0026
+	}),
+	halftoneprint: Object.freeze({
+		dark: [
+			26,
+			28,
+			32
+		],
+		light: [
+			214,
+			214,
+			210
+		],
+		roughness: .68,
+		relief: .0018
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4596,6 +4638,9 @@ var proceduralTileMeters = Object.freeze({
 	oledpanel: .12,
 	crtscanline: .16,
 	keyboardkey: .24,
+	filmstrip: .18,
+	postagestamp: .24,
+	halftoneprint: .06,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,
