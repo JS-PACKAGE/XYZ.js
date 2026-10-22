@@ -508,9 +508,9 @@ var PhysicsWorld2D = class {
 			for (let i = e + 1; i < this.sorted.length && !(n && d && this.liveness === f && (i = l[i], i === c)); i++) {
 				let e = this.sorted[i];
 				if (e.geometry.minX > t.geometry.maxX) break;
-				if (n && !e.inverseMass && !e.collider.sensor || t.owner === e.owner || !this.alive(e) || !(t.collider.filterBits[0] & e.collider.filterBits[1]) || !(e.collider.filterBits[0] & t.collider.filterBits[1])) continue;
+				if (n && !e.inverseMass && !e.collider.sensor || (t.geometry.maxY < e.geometry.minY || e.geometry.maxY < t.geometry.minY) && this.liveness === f && (t.separating !== r || e.separating !== r) || t.owner === e.owner || !this.alive(e) || !(t.collider.filterBits[0] & e.collider.filterBits[1]) || !(e.collider.filterBits[0] & t.collider.filterBits[1])) continue;
 				let a = t.collider.sensor || e.collider.sensor;
-				if (t.group[0].joints.length && this.jointsBlockContact(t, e) || (t.geometry.maxY < e.geometry.minY || e.geometry.maxY < t.geometry.minY) && this.liveness === f && (t.separating !== r || e.separating !== r)) continue;
+				if (t.group[0].joints.length && this.jointsBlockContact(t, e)) continue;
 				let o = t.contacts.get(e);
 				if (!o) {
 					if (!require_narrowphase.collide(t.geometry, e.geometry, this.queryManifold)) continue;

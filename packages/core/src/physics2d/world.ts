@@ -1082,6 +1082,15 @@ export class PhysicsWorld2D {
         const b = this.sorted[j];
         if (b.geometry.minX > a.geometry.maxX) break;
         if (passive && !b.inverseMass && !b.collider.sensor) continue;
+        // Every test from here to the contact lookup only skips the pair and none has side
+        // effects, so the Y separation, which rejects most of a sweep's candidates, runs first.
+        if (
+          (a.geometry.maxY < b.geometry.minY ||
+            b.geometry.maxY < a.geometry.minY) &&
+          this.liveness === liveness &&
+          (a.separating !== token || b.separating !== token)
+        )
+          continue;
         if (
           a.owner === b.owner ||
           !this.alive(b) ||
@@ -1091,13 +1100,6 @@ export class PhysicsWorld2D {
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
         if (a.group[0].joints.length && this.jointsBlockContact(a, b)) continue;
-        if (
-          (a.geometry.maxY < b.geometry.minY ||
-            b.geometry.maxY < a.geometry.minY) &&
-          this.liveness === liveness &&
-          (a.separating !== token || b.separating !== token)
-        )
-          continue;
         let contact = a.contacts.get(b);
         if (!contact) {
           // The scratch manifold avoids allocating a contact for AABB-only candidates.
