@@ -154,7 +154,7 @@ class Context {
     if (
       cosine &&
       sun.intensity &&
-      !this.bvh.hit(this.origin, d, Infinity, ignore)
+      !this.bvh.occluded(this.origin, d, Infinity, ignore)
     )
       for (let c = 0; c < 3; c++)
         out[c] += cosine * sun.intensity * sun.color[c];
@@ -189,7 +189,10 @@ class Context {
           );
           gain *= t * t * (3 - 2 * t);
         }
-        if (gain && !this.bvh.hit(this.origin, d, distance - this.bias, ignore))
+        if (
+          gain &&
+          !this.bvh.occluded(this.origin, d, distance - this.bias, ignore)
+        )
           for (let c = 0; c < 3; c++) out[c] += gain * light.color[c];
       }
   }
@@ -213,7 +216,7 @@ class Context {
           tangent[c] * r * Math.cos(phi) +
           bitangent[c] * r * Math.sin(phi) +
           n[c] * Math.sqrt(1 - r * r);
-      if (!this.bvh.hit(origin, d, this.distance, ignore)) open++;
+      if (!this.bvh.occluded(origin, d, this.distance, ignore)) open++;
     }
     const ambient = this.scene?.ambientLight ?? 0;
     for (let c = 0; c < 3; c++) out[c] += (ambient * open) / this.samples;
@@ -629,7 +632,7 @@ export function bakeIrradianceVolume(
             gain: number,
             far: number,
           ): void => {
-            if (!gain || ctx.bvh.hit(p, direction, far)) return;
+            if (!gain || ctx.bvh.occluded(p, direction, far)) return;
             basis(direction[0], direction[1], direction[2], b);
             for (let k = 0; k < terms; k++)
               for (let c = 0; c < 3; c++)

@@ -71,6 +71,23 @@ describe('bounded baked lighting', () => {
     expect(() => tree.hit([0, 0, 3], [0, 0, -1], 10)).toThrow(/ray budget/);
     expect(() => new BakeBVH([a, b], 1, 10)).toThrow(/triangle budget/);
   });
+  it('BVH occlusion queries match hits, honor the ray range and ignored triangle, and use the ray quota', () => {
+    const a = mesh(),
+      b = mesh();
+    b.transform.position.z = 2;
+    const tree = new BakeBVH([a, b], 2, 6);
+    const origin = [-0.5, -0.5, 3],
+      down = [0, 0, -1];
+    const nearest = tree.hit(origin, down, 10)!.triangle;
+    expect(tree.occluded(origin, down, 10)).toBe(true);
+    // The blockers sit 1 and 3 units away.
+    expect(tree.occluded(origin, down, 0.5)).toBe(false);
+    // Without the nearer triangle only the one 3 units away remains: out of range at 2, in at 10.
+    expect(tree.occluded(origin, down, 2, nearest)).toBe(false);
+    expect(tree.occluded(origin, down, 10, nearest)).toBe(true);
+    expect(tree.occluded(origin, [0, 0, 1], 10)).toBe(false);
+    expect(() => tree.occluded(origin, down, 10)).toThrow(/ray budget/);
+  });
   it('bakes sun visibility into generated UV1 without mutating receivers', async () => {
     imageGlobals();
     const s = scene(),

@@ -18,9 +18,18 @@ interface Node {
 
 /** Internal immutable world-space snapshot. Median splits bound depth and storage. */
 export class BakeBVH {
+  /** Distance of the nearest hit from the last `hit` call. */
+  private distance = 0;
   readonly triangles: BakeTriangle[] = [];
+  /** Construction scratch; `flatten` copies it into the typed arrays `hit` walks. */
   private readonly nodes: Node[] = [];
-  private readonly stack: number[] = [];
+  /** Per node: min xyz, then max xyz. */
+  private bounds = new Float64Array(0);
+  /** Per node: first triangle, end triangle, left child, right child (-1 for a leaf). */
+  private links = new Int32Array(0);
+  /** Per triangle in leaf order: its nine world-space corner coordinates. */
+  private corners = new Float64Array(0);
+  private stack = new Int32Array(0);
   rays = 0;
   constructor(
     meshes: readonly Mesh[],
@@ -70,7 +79,10 @@ export class BakeBVH {
         this.triangles.push({ mesh, indices, p, n });
       }
     }
-    if (count) this.build(0, count);
+    if (count) {
+      this.build(0, count);
+      this.flatten();
+    }
   }
   private build(start: number, end: number): number {
     const min = [Infinity, Infinity, Infinity],
@@ -105,70 +117,143 @@ export class BakeBVH {
     }
     return id;
   }
+  /** Walks flat arrays instead of node and triangle objects; the arithmetic is unchanged. */
+  private flatten(): void {
+    const nodes = this.nodes,
+      triangles = this.triangles;
+    const bounds = (this.bounds = new Float64Array(nodes.length * 6)),
+      links = (this.links = new Int32Array(nodes.length * 4)),
+      corners = (this.corners = new Float64Array(triangles.length * 9));
+    // Every node is pushed at most once per ray.
+    this.stack = new Int32Array(nodes.length + 1);
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      for (let c = 0; c < 3; c++) {
+        bounds[i * 6 + c] = node.min[c];
+        bounds[i * 6 + 3 + c] = node.max[c];
+      }
+      links[i * 4] = node.start;
+      links[i * 4 + 1] = node.end;
+      links[i * 4 + 2] = node.left;
+      links[i * 4 + 3] = node.right;
+    }
+    for (let i = 0; i < triangles.length; i++)
+      corners.set(triangles[i].p, i * 9);
+    nodes.length = 0;
+  }
   hit(
     o: ArrayLike<number>,
     d: ArrayLike<number>,
     far: number,
     ignore?: BakeTriangle,
   ): { triangle: BakeTriangle; distance: number } | undefined {
+    const found = this.trace(o, d, far, ignore, false);
+    return found >= 0
+      ? { triangle: this.triangles[found], distance: this.distance }
+      : undefined;
+  }
+  /** Whether `hit` would find any triangle; it stops at the first one rather than the nearest. */
+  occluded(
+    o: ArrayLike<number>,
+    d: ArrayLike<number>,
+    far: number,
+    ignore?: BakeTriangle,
+  ): boolean {
+    return this.trace(o, d, far, ignore, true) >= 0;
+  }
+  /** Triangle index of the nearest hit (the first with `anyHit`), or -1; distance in `distance`. */
+  private trace(
+    o: ArrayLike<number>,
+    d: ArrayLike<number>,
+    far: number,
+    ignore: BakeTriangle | undefined,
+    anyHit: boolean,
+  ): number {
     if (++this.rays > this.maxRays)
       throw new RangeError('Bake ray budget exceeded.');
-    const stack = this.stack;
-    stack.length = 0;
-    if (this.nodes.length) stack.push(0);
+    const { bounds, links, corners, stack, triangles } = this;
+    const o0 = o[0],
+      o1 = o[1],
+      o2 = o[2],
+      d0 = d[0],
+      d1 = d[1],
+      d2 = d[2];
+    const flat0 = Math.abs(d0) < 1e-15,
+      flat1 = Math.abs(d1) < 1e-15,
+      flat2 = Math.abs(d2) < 1e-15;
+    let top = 0;
+    if (links.length) stack[top++] = 0;
     let nearest = far,
-      found: BakeTriangle | undefined;
-    while (stack.length) {
-      const node = this.nodes[stack.pop()!];
+      found = -1;
+    while (top) {
+      const node = stack[--top],
+        b = node * 6;
       let lo = 0,
         hi = nearest;
-      for (let c = 0; c < 3; c++) {
-        if (Math.abs(d[c]) < 1e-15) {
-          if (o[c] < node.min[c] || o[c] > node.max[c]) hi = -1;
-        } else {
-          const a = (node.min[c] - o[c]) / d[c],
-            b = (node.max[c] - o[c]) / d[c];
-          lo = Math.max(lo, Math.min(a, b));
-          hi = Math.min(hi, Math.max(a, b));
-        }
+      if (flat0) {
+        if (o0 < bounds[b] || o0 > bounds[b + 3]) hi = -1;
+      } else {
+        const a = (bounds[b] - o0) / d0,
+          c = (bounds[b + 3] - o0) / d0;
+        lo = Math.max(lo, Math.min(a, c));
+        hi = Math.min(hi, Math.max(a, c));
+      }
+      if (flat1) {
+        if (o1 < bounds[b + 1] || o1 > bounds[b + 4]) hi = -1;
+      } else {
+        const a = (bounds[b + 1] - o1) / d1,
+          c = (bounds[b + 4] - o1) / d1;
+        lo = Math.max(lo, Math.min(a, c));
+        hi = Math.min(hi, Math.max(a, c));
+      }
+      if (flat2) {
+        if (o2 < bounds[b + 2] || o2 > bounds[b + 5]) hi = -1;
+      } else {
+        const a = (bounds[b + 2] - o2) / d2,
+          c = (bounds[b + 5] - o2) / d2;
+        lo = Math.max(lo, Math.min(a, c));
+        hi = Math.min(hi, Math.max(a, c));
       }
       if (hi < lo) continue;
-      if (node.left >= 0) {
-        stack.push(node.left, node.right);
+      const link = node * 4;
+      if (links[link + 2] >= 0) {
+        stack[top++] = links[link + 2];
+        stack[top++] = links[link + 3];
         continue;
       }
-      for (let i = node.start; i < node.end; i++) {
-        const t = this.triangles[i];
-        if (t === ignore) continue;
-        const p = t.p;
-        const ax = p[3] - p[0],
-          ay = p[4] - p[1],
-          az = p[5] - p[2];
-        const bx = p[6] - p[0],
-          by = p[7] - p[1],
-          bz = p[8] - p[2];
-        const px = d[1] * bz - d[2] * by,
-          py = d[2] * bx - d[0] * bz,
-          pz = d[0] * by - d[1] * bx;
+      for (let i = links[link], end = links[link + 1]; i < end; i++) {
+        if (ignore !== undefined && triangles[i] === ignore) continue;
+        const p = i * 9;
+        const ax = corners[p + 3] - corners[p],
+          ay = corners[p + 4] - corners[p + 1],
+          az = corners[p + 5] - corners[p + 2];
+        const bx = corners[p + 6] - corners[p],
+          by = corners[p + 7] - corners[p + 1],
+          bz = corners[p + 8] - corners[p + 2];
+        const px = d1 * bz - d2 * by,
+          py = d2 * bx - d0 * bz,
+          pz = d0 * by - d1 * bx;
         const det = ax * px + ay * py + az * pz;
         if (Math.abs(det) < 1e-12) continue;
-        const tx = o[0] - p[0],
-          ty = o[1] - p[1],
-          tz = o[2] - p[2];
+        const tx = o0 - corners[p],
+          ty = o1 - corners[p + 1],
+          tz = o2 - corners[p + 2];
         const u = (tx * px + ty * py + tz * pz) / det;
         if (u < 0 || u > 1) continue;
         const qx = ty * az - tz * ay,
           qy = tz * ax - tx * az,
           qz = tx * ay - ty * ax;
-        const v = (d[0] * qx + d[1] * qy + d[2] * qz) / det;
+        const v = (d0 * qx + d1 * qy + d2 * qz) / det;
         if (v < 0 || u + v > 1) continue;
         const distance = (bx * qx + by * qy + bz * qz) / det;
         if (distance > 1e-7 && distance < nearest) {
           nearest = distance;
-          found = t;
+          found = i;
+          if (anyHit) return i;
         }
       }
     }
-    return found ? { triangle: found, distance: nearest } : undefined;
+    this.distance = nearest;
+    return found;
   }
 }

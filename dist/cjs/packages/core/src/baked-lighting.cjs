@@ -64,7 +64,7 @@ var Context = class {
 		let a = i.directionalLight, s = this.direction, c = a.direction.length();
 		s[0] = a.direction.x / c, s[1] = a.direction.y / c, s[2] = a.direction.z / c;
 		let l = Math.max(0, t[0] * s[0] + t[1] * s[1] + t[2] * s[2]);
-		if (l && a.intensity && !this.bvh.hit(this.origin, s, 1 / 0, r)) for (let e = 0; e < 3; e++) n[e] += l * a.intensity * a.color[e];
+		if (l && a.intensity && !this.bvh.occluded(this.origin, s, 1 / 0, r)) for (let e = 0; e < 3; e++) n[e] += l * a.intensity * a.color[e];
 		for (let a of [i.pointLights, i.spotLights]) for (let i of a) {
 			s[0] = i.position.x - e[0], s[1] = i.position.y - e[1], s[2] = i.position.z - e[2];
 			let a = Math.hypot(...s);
@@ -75,7 +75,7 @@ var Context = class {
 				let e = -(s[0] * i.direction.x + s[1] * i.direction.y + s[2] * i.direction.z) / i.direction.length(), t = Math.max(0, Math.min(1, (e - Math.cos(i.outerAngle)) / (Math.cos(i.innerAngle) - Math.cos(i.outerAngle))));
 				c *= t * t * (3 - 2 * t);
 			}
-			if (c && !this.bvh.hit(this.origin, s, a - this.bias, r)) for (let e = 0; e < 3; e++) n[e] += c * i.color[e];
+			if (c && !this.bvh.occluded(this.origin, s, a - this.bias, r)) for (let e = 0; e < 3; e++) n[e] += c * i.color[e];
 		}
 	}
 	surface(e, t, n, r) {
@@ -102,7 +102,7 @@ var Context = class {
 		for (let e = 0; e < this.samples; e++) {
 			let n = Math.sqrt((e + .5) / this.samples), l = e * 2.399963229728653;
 			for (let e = 0; e < 3; e++) o[e] = i[e] * n * Math.cos(l) + a[e] * n * Math.sin(l) + t[e] * Math.sqrt(1 - n * n);
-			this.bvh.hit(s, o, this.distance, r) || c++;
+			this.bvh.occluded(s, o, this.distance, r) || c++;
 		}
 		let l = this.scene?.ambientLight ?? 0;
 		for (let e = 0; e < 3; e++) n[e] += l * c / this.samples;
@@ -335,7 +335,7 @@ function bakeIrradianceVolume(e, t) {
 		}
 		if (r) {
 			let e = r.directionalLight, project = (e, t, r, i) => {
-				if (r && !c.bvh.hit(m, e, i)) {
+				if (r && !c.bvh.occluded(m, e, i)) {
 					basis(e[0], e[1], e[2], b);
 					for (let e = 0; e < p; e++) for (let i = 0; i < 3; i++) n.coefficients[a + e * 3 + i] += t[i] * r * Math.PI * d[e] * b[e];
 				}
