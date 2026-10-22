@@ -227,20 +227,20 @@ var WebGLRender2D = class {
 	}
 	drawCommands(e, t) {
 		this.hooks.stats.pass2D();
-		let n = e.items;
-		for (let r = 0; r < n.length;) {
-			let a = n[r];
-			if (this.bindTarget(t), a.kind === `sprite` && !a.object.material && !a.object.lighting && !(a.object instanceof require_tiling_sprite2d.TilingSprite2D)) {
-				let o = a.object, s = Math.min(o.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy), c = r + 1;
-				for (; c < n.length;) {
-					let e = n[c];
-					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== o.texture || e.object.sampler?.minFilter === `nearest` != (o.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (o.sampler?.magFilter === `nearest`) || Math.min(e.object.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy) !== s) break;
-					c++;
+		let n = e.items, r = !1;
+		for (let a = 0; a < n.length;) {
+			let o = n[a];
+			if (r || this.bindTarget(t), r = !1, o.kind === `sprite` && !o.object.material && !o.object.lighting && !(o.object instanceof require_tiling_sprite2d.TilingSprite2D)) {
+				let s = o.object, c = Math.min(s.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy), l = a + 1;
+				for (; l < n.length;) {
+					let e = n[l];
+					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== s.texture || e.object.sampler?.minFilter === `nearest` != (s.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (s.sampler?.magFilter === `nearest`) || Math.min(e.object.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy) !== c) break;
+					l++;
 				}
-				this.drawSprites(e, r, c, t), r = c;
+				this.drawSprites(e, a, l, t), r = !0, a = l;
 				continue;
 			}
-			a.kind === `layer` ? this.drawLayer(a.object, a.commands, t) : a.kind === `sprite` ? this.drawSprite(a.object, t) : a.kind === `mesh` ? this.drawMesh(a.object, t) : this.drawParticles(a.object, t), r++;
+			o.kind === `layer` ? this.drawLayer(o.object, o.commands, t) : o.kind === `sprite` ? this.drawSprite(o.object, t) : o.kind === `mesh` ? this.drawMesh(o.object, t) : this.drawParticles(o.object, t), a++;
 		}
 	}
 	bindInstances(e, t, n) {

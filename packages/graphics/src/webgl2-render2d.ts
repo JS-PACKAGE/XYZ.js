@@ -549,9 +549,13 @@ export class WebGLRender2D {
   ): void {
     this.hooks.stats.pass2D();
     const items = commands.items;
+    // drawSprites leaves the target, viewport, depth/cull/scissor and blend state as
+    // bindTarget set them, so consecutive sprite batches skip re-sending it.
+    let targetBound = false;
     for (let i = 0; i < items.length;) {
       const command = items[i];
-      this.bindTarget(context);
+      if (!targetBound) this.bindTarget(context);
+      targetBound = false;
       if (
         command.kind === 'sprite' &&
         !command.object.material &&
@@ -585,6 +589,7 @@ export class WebGLRender2D {
           end++;
         }
         this.drawSprites(commands, i, end, context);
+        targetBound = true;
         i = end;
         continue;
       }
