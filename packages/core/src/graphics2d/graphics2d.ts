@@ -264,6 +264,22 @@ function rasterBounds(
   });
 }
 
+/** One released raster kept for the next to draw into, instead of creating a canvas. */
+let spareCanvas: HTMLCanvasElement | undefined;
+/**
+ * Keeps a released raster canvas as the spare; any other surface is released. The next raster
+ * starts by sizing it, which clears it and resets every context state, as a new canvas would be.
+ */
+function release(canvas: HTMLCanvasElement | OffscreenCanvas): void {
+  if (
+    typeof HTMLCanvasElement !== 'undefined' &&
+    canvas instanceof HTMLCanvasElement
+  ) {
+    if (spareCanvas) spareCanvas.width = spareCanvas.height = 0;
+    spareCanvas = canvas;
+  } else canvas.width = canvas.height = 0;
+}
+
 /** Retained immutable CPU paths rasterized into one owned canvas texture, not GPU vector geometry. */
 export class Graphics2D extends Sprite {
   private requestedInstructions: readonly GraphicsInstruction2D[];
@@ -309,7 +325,7 @@ export class Graphics2D extends Sprite {
     try {
       texture = new CanvasTexture2D(canvas);
     } finally {
-      canvas.width = canvas.height = 0;
+      release(canvas);
     }
     try {
       return new Graphics2D(snapshot, resolution, texture, bounds, options);
@@ -364,7 +380,7 @@ export class Graphics2D extends Sprite {
     // resolution.
     const texture = this.ownedTexture;
     try {
-      texture.adopt(canvas);
+      release(texture.adopt(canvas));
     } catch (error) {
       canvas.width = canvas.height = 0;
       throw error;
@@ -415,7 +431,8 @@ export class Graphics2D extends Sprite {
     resolution: number,
     bounds: Readonly<Rect2D>,
   ): Raster2D {
-    const canvas = document.createElement('canvas');
+    const canvas = spareCanvas ?? document.createElement('canvas');
+    spareCanvas = undefined;
     canvas.width = Math.round(bounds.width * resolution);
     canvas.height = Math.round(bounds.height * resolution);
     const context = canvas.getContext('2d');

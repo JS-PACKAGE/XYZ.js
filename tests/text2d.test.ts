@@ -162,3 +162,64 @@ it('rejects oversized measured text before allocating a texture', async () => {
   );
   expect(canvases.every((canvas) => canvas.drawn.length === 0)).toBe(true);
 });
+
+// Last in the file: the released raster it leaves as the module's spare canvas is one of its
+// own fakes, which earlier tests would otherwise draw into.
+it('draws the next update into the surface that the previous update released', async () => {
+  class Surface {
+    private size = [1, 1];
+    readonly drawn: string[] = [];
+    // Sizing a canvas clears it, as the reused surface relies on.
+    get width() {
+      return this.size[0]!;
+    }
+    set width(value: number) {
+      this.size[0] = value;
+      this.drawn.length = 0;
+    }
+    get height() {
+      return this.size[1]!;
+    }
+    set height(value: number) {
+      this.size[1] = value;
+      this.drawn.length = 0;
+    }
+    getContext() {
+      return {
+        measureText: (text: string) => ({
+          width: text.length * 12,
+          actualBoundingBoxLeft: 2,
+          actualBoundingBoxRight: text.length * 12 + 3,
+          actualBoundingBoxAscent: 22,
+          actualBoundingBoxDescent: 8,
+        }),
+        scale() {},
+        fillText: (text: string) => this.drawn.push(text),
+        drawImage: (source: Surface) => this.drawn.push(...source.drawn),
+      };
+    }
+  }
+  vi.stubGlobal('HTMLCanvasElement', Surface);
+  const created: Surface[] = [];
+  vi.stubGlobal('document', {
+    createElement: () => {
+      const surface = new Surface();
+      created.push(surface);
+      return surface;
+    },
+  });
+  // create draws 'one' into a canvas, copies it into the texture's surface and keeps the
+  // drawn canvas as the spare; each update then draws into the surface released before it.
+  const label = await Text2D.create('one');
+  const first = label.texture.image;
+  await label.setText('two');
+  const second = label.texture.image;
+  await label.setText('three');
+  expect(label.texture.image).toBe(first);
+  expect((label.texture.image as unknown as Surface).drawn).toEqual(['three']);
+  expect(label.texture.width).toBe(69);
+  expect(created).toHaveLength(2);
+  // 'two''s surface is now the spare: still sized, never zeroed while kept.
+  expect((second as unknown as Surface).width).toBeGreaterThan(0);
+  label.destroy();
+});

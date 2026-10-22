@@ -134,6 +134,10 @@ function rasterBounds(n, r) {
 		height: l / r
 	});
 }
+var u;
+function release(e) {
+	typeof HTMLCanvasElement < `u` && e instanceof HTMLCanvasElement ? (u && (u.width = u.height = 0), u = e) : e.width = e.height = 0;
+}
 var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 	ownedTexture;
 	requestedInstructions;
@@ -161,7 +165,7 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 		try {
 			s = new require_texture2d.CanvasTexture2D(o);
 		} finally {
-			o.width = o.height = 0;
+			release(o);
 		}
 		try {
 			return new Graphics2D(r, i, s, a, t);
@@ -193,7 +197,7 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 		}
 		let { canvas: i, bounds: a } = n, o = this.ownedTexture;
 		try {
-			o.adopt(i);
+			release(o.adopt(i));
 		} catch (e) {
 			throw i.width = i.height = 0, e;
 		}
@@ -230,15 +234,15 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 		this.ownedTexture.destroy();
 	}
 	static rasterize(e, n, r) {
-		let s = document.createElement(`canvas`);
-		s.width = Math.round(r.width * n), s.height = Math.round(r.height * n);
+		let s = u ?? document.createElement(`canvas`);
+		u = void 0, s.width = Math.round(r.width * n), s.height = Math.round(r.height * n);
 		let c = s.getContext(`2d`);
 		if (!c) throw new require_texture.AssetError(`Native Canvas2D is required for raster Graphics.`);
 		let l = new require_canvas_sprite_source.CanvasSpriteSource(() => {
 			throw new require_texture.AssetError(`Raster Graphics patterns cannot read native render targets.`);
-		}), u = require_sprite_instance.createTextureQuad2D(), d = [], f = /* @__PURE__ */ new Map(), nativePaint = (e) => {
+		}), d = require_sprite_instance.createTextureQuad2D(), f = [], p = /* @__PURE__ */ new Map(), nativePaint = (e) => {
 			if (typeof e == `string`) return e;
-			let n = f.get(e);
+			let n = p.get(e);
 			if (n) return n;
 			let r;
 			if (e.kind === `linear-gradient` || e.kind === `radial-gradient`) {
@@ -246,19 +250,19 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 				for (let t of e.stops) r.addColorStop(t.offset, t.color);
 			} else {
 				let n = e.texture ?? e.view.source;
-				require_sprite_instance.getTextureQuad2D(n, e.view, void 0, u);
+				require_sprite_instance.getTextureQuad2D(n, e.view, void 0, d);
 				let i = document.createElement(`canvas`);
-				i.width = Math.round(u.naturalWidth * u.resolution), i.height = Math.round(u.naturalHeight * u.resolution), d.push(i);
+				i.width = Math.round(d.naturalWidth * d.resolution), i.height = Math.round(d.naturalHeight * d.resolution), f.push(i);
 				let a = i.getContext(`2d`);
 				if (!a) throw new require_texture.AssetError(`Native Canvas2D is required for local patterns.`);
-				a.drawImage(l.image(n, u, [
+				a.drawImage(l.image(n, d, [
 					1,
 					1,
 					1
-				]), u.trimX * u.resolution, u.trimY * u.resolution);
+				]), d.trimX * d.resolution, d.trimY * d.resolution);
 				let s = c.createPattern(i, e.repetition ?? `repeat`);
 				if (!s) throw new require_texture.AssetError(`Unable to create native Graphics pattern.`);
-				let [f, p, m, h, g, _] = e.transform ?? [
+				let [u, p, m, h, g, _] = e.transform ?? [
 					1,
 					0,
 					0,
@@ -267,15 +271,15 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 					0
 				];
 				s.setTransform(new DOMMatrix([
-					f / u.resolution,
-					p / u.resolution,
-					m / u.resolution,
-					h / u.resolution,
+					u / d.resolution,
+					p / d.resolution,
+					m / d.resolution,
+					h / d.resolution,
 					g,
 					_
 				])), r = s;
 			}
-			return f.set(e, r), r;
+			return p.set(e, r), r;
 		};
 		try {
 			c.setTransform(n, 0, 0, n, -r.x * n, -r.y * n);
@@ -294,7 +298,7 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 			throw s.width = s.height = 0, e;
 		} finally {
 			l.destroy();
-			for (let e of d) e.width = e.height = 0;
+			for (let e of f) e.width = e.height = 0;
 		}
 	}
 };

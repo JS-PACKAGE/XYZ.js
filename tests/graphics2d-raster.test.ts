@@ -114,3 +114,56 @@ it('an update replaces a borrowed texture with the owned one without destroying 
   expect(shared.destroyed).toBe(false);
   shared.destroy();
 });
+
+// Last in the file: the released raster it leaves as the module's spare canvas is one of its
+// own fakes, which earlier tests would otherwise draw into.
+it('draws each update into the canvas that the previous raster released', async () => {
+  class Surface {
+    private size = [1, 1];
+    readonly drawn: string[] = [];
+    get width() {
+      return this.size[0]!;
+    }
+    set width(value: number) {
+      this.size[0] = value;
+      this.drawn.length = 0;
+    }
+    get height() {
+      return this.size[1]!;
+    }
+    set height(value: number) {
+      this.size[1] = value;
+      this.drawn.length = 0;
+    }
+    getContext() {
+      const context = {
+        fillStyle: '#000000',
+        globalAlpha: 1,
+        setTransform() {},
+        fill: () => this.drawn.push(context.fillStyle),
+        drawImage: (source: Surface) => this.drawn.push(...source.drawn),
+      };
+      return context;
+    }
+  }
+  vi.stubGlobal('HTMLCanvasElement', Surface);
+  const created: Surface[] = [];
+  vi.stubGlobal('document', {
+    createElement: () => {
+      const surface = new Surface();
+      created.push(surface);
+      return surface;
+    },
+  });
+  // Instruction validation also creates one colour-parsing canvas per call.
+  const graphic = await Graphics2D.create(square(4, '#ff0000'));
+  const first = graphic.texture.image;
+  await graphic.setInstructions(square(6, '#00ff00'));
+  await graphic.setInstructions(square(8, '#0000ff'));
+  expect(graphic.texture.image).toBe(first);
+  expect((graphic.texture.image as unknown as Surface).drawn).toEqual([
+    '#0000ff',
+  ]);
+  expect(created).toHaveLength(5);
+  graphic.destroy();
+});

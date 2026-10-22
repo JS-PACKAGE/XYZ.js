@@ -75,6 +75,22 @@ interface RasterizedCanvas {
   readonly layout: Text2DLayout;
 }
 
+/** One released label raster kept for the next to draw into, instead of creating a canvas. */
+let spareCanvas: HTMLCanvasElement | undefined;
+/**
+ * Keeps a released raster canvas as the spare; any other surface is released. The next raster
+ * starts by sizing it, which clears it and resets every context state, as a new canvas would be.
+ */
+function release(canvas: HTMLCanvasElement | OffscreenCanvas): void {
+  if (
+    typeof HTMLCanvasElement !== 'undefined' &&
+    canvas instanceof HTMLCanvasElement
+  ) {
+    if (spareCanvas) spareCanvas.width = spareCanvas.height = 0;
+    spareCanvas = canvas;
+  } else canvas.width = canvas.height = 0;
+}
+
 /** @internal Shared browser-shaped raster style for 2D and 3D labels. */
 export function snapshotTextStyle(options: Text2DOptions): Text2DStyle {
   const style = {
@@ -206,7 +222,7 @@ export class Text2D extends Sprite {
     try {
       texture = new CanvasTexture2D(canvas);
     } finally {
-      canvas.width = canvas.height = 0;
+      release(canvas);
     }
     try {
       return new Text2D(text, style, texture, layout);
@@ -274,7 +290,7 @@ export class Text2D extends Sprite {
     // texture remains borrowed and is replaced by it, as before.
     const texture = this.ownedTexture;
     try {
-      texture.adopt(canvas);
+      release(texture.adopt(canvas));
     } catch (error) {
       canvas.width = canvas.height = 0;
       throw error;
@@ -328,7 +344,8 @@ export class Text2D extends Sprite {
   }
 
   private static drawText(text: string, style: Text2DStyle): RasterizedCanvas {
-    const canvas = document.createElement('canvas');
+    const canvas = spareCanvas ?? document.createElement('canvas');
+    spareCanvas = undefined;
     canvas.lang = style.locale;
     canvas.width = canvas.height = 1;
     const context = canvas.getContext('2d');

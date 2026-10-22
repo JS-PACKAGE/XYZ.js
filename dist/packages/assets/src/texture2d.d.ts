@@ -59,10 +59,11 @@ export declare class CanvasTexture2D {
     update(source: CanvasImageSource): void;
     /**
      * @internal Takes `canvas` itself as the new surface instead of copying it, for a caller that
-     * drew it only for this texture and gives it up; the previous surface is released as by
-     * `update`. A same-size canvas copy is pixel-exact, so the result matches `update(canvas)`.
+     * drew it only for this texture and gives it up. A same-size canvas copy is pixel-exact, so
+     * the result matches `update(canvas)`. Returns the previous surface, which no longer belongs
+     * to the texture: the caller releases (or redraws) it, as `update` would have released it.
      */
-    adopt(canvas: HTMLCanvasElement | OffscreenCanvas): void;
+    adopt(canvas: HTMLCanvasElement | OffscreenCanvas): HTMLCanvasElement | OffscreenCanvas;
     /** Reuses the owned surface for live sources without decoding a bitmap per frame. */
     protected copyFrame(source: CanvasImageSource): void;
     destroy(): void;
