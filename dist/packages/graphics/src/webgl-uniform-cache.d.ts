@@ -19,4 +19,5 @@ export declare class WebGLUniformCache {
     uniform2f(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number, y: number): void;
     uniform3f(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number, y: number, z: number): void;
     uniform4f(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number, y: number, z: number, w: number): void;
+    uniform4i(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number, y: number, z: number, w: number): void;
 }

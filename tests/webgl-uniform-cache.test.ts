@@ -6,6 +6,7 @@ function context() {
     uniform1i: vi.fn(),
     uniform1f: vi.fn(),
     uniform4f: vi.fn(),
+    uniform4i: vi.fn(),
     uniform4fv: vi.fn(),
   };
 }
@@ -31,6 +32,13 @@ describe('WebGLUniformCache', () => {
     cache.uniform4f(raw, a, 1, 2, 3, 4);
     cache.uniform4f(raw, a, 1, 2, 3, 5);
     expect(gl.uniform4f).toHaveBeenCalledTimes(2);
+    cache.uniform4i(raw, b, 1, 2, 3, 4);
+    cache.uniform4i(raw, b, 1, 2, 3, 4);
+    cache.uniform4i(raw, b, 1, 2, 3, 0);
+    expect(gl.uniform4i.mock.calls).toEqual([
+      [b, 1, 2, 3, 4],
+      [b, 1, 2, 3, 0],
+    ]);
   });
 
   it('sends array uniforms when any element changes, even after the caller reuses its buffer', () => {

@@ -128,6 +128,18 @@ export class WebGLUniformCache {
     if (location && this.changed(location, x, y, z, w))
       gl.uniform4f(location, x, y, z, w);
   }
+
+  uniform4i(
+    gl: WebGL2RenderingContext,
+    location: WebGLUniformLocation | null,
+    x: number,
+    y: number,
+    z: number,
+    w: number,
+  ): void {
+    if (location && this.changed(location, x, y, z, w))
+      gl.uniform4i(location, x, y, z, w);
+  }
 }
 
 /** `===` except that -0 and +0 differ, since shaders can observe the sign. */

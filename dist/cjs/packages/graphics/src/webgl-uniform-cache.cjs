@@ -40,6 +40,9 @@ var WebGLUniformCache = class {
 	uniform4f(e, t, n, r, i, a) {
 		t && this.changed(t, n, r, i, a) && e.uniform4f(t, n, r, i, a);
 	}
+	uniform4i(e, t, n, r, i, a) {
+		t && this.changed(t, n, r, i, a) && e.uniform4i(t, n, r, i, a);
+	}
 };
 function same(e, t) {
 	return e === t && (e !== 0 || 1 / e == 1 / t);

@@ -932,7 +932,6 @@ export class WebGL2Renderer implements Renderer {
   private activeUnit = -1;
   /** Generic mesh attribute defaults written during the current mesh pass. */
   private meshAttributeDefaults = false;
-  private readonly tintData = new Float32Array(4);
   private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
   /** Shadow tile whose view-projection each shadow program last received. */
   private readonly shadowViewStamps = new WeakMap<WebGLProgram, number>();
@@ -2653,6 +2652,12 @@ export class WebGL2Renderer implements Renderer {
           oitPass === 1 ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA,
         );
       }
+      // Blend/coverage/color-mask, the program and the depth mask are written only by this
+      // loop between draws, so each is sent when it differs from the previous draw. Unknown
+      // (-1, undefined) at the start of every phase, which earlier code may have changed.
+      let blendMode = -1;
+      let boundProgram: WebGLProgram | undefined;
+      let maskedDepth: boolean | undefined;
       for (const object of draws) {
         const blended = this.isColorBlended(object);
         if (this.weighted && blended !== oitPass > 0) continue;
@@ -2666,14 +2671,18 @@ export class WebGL2Renderer implements Renderer {
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         const coverage = pbr && material.alphaToCoverage;
-        if (coverage) {
-          gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
-          gl.disable(gl.BLEND);
-          gl.colorMask(true, true, true, false);
-        } else {
-          gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
-          gl.enable(gl.BLEND);
-          gl.colorMask(true, true, true, true);
+        const mode = coverage ? 1 : 0;
+        if (mode !== blendMode) {
+          blendMode = mode;
+          if (coverage) {
+            gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+            gl.disable(gl.BLEND);
+            gl.colorMask(true, true, true, false);
+          } else {
+            gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+            gl.enable(gl.BLEND);
+            gl.colorMask(true, true, true, true);
+          }
         }
         if (isNativeMaterial3D(material)) {
           const entry = this.nativeMaterials.get(material);
@@ -2684,7 +2693,7 @@ export class WebGL2Renderer implements Renderer {
           material.validate();
           uniforms = entry.uniforms;
           program = entry.program;
-          gl.useProgram(program);
+          if (program !== boundProgram) gl.useProgram((boundProgram = program));
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
           if (!(material instanceof NativePBRMaterial)) {
             for (let i = 0; i < 4; i++) {
@@ -2700,7 +2709,7 @@ export class WebGL2Renderer implements Renderer {
           const entry = this.meshProgramFor(material, object, scene);
           uniforms = entry.uniforms;
           program = entry.program;
-          gl.useProgram(program);
+          if (program !== boundProgram) gl.useProgram((boundProgram = program));
         }
         const irradiance = constantMeshIrradiance(object);
         if (irradiance) {
@@ -2844,7 +2853,8 @@ export class WebGL2Renderer implements Renderer {
           depthWrites =
             (this.visibility.entries.get(object)?.fade ?? 1) === 1 &&
             !(isNativeMaterial3D(material) && material.transparent);
-          gl.depthMask(depthWrites);
+          if (depthWrites !== maskedDepth)
+            gl.depthMask((maskedDepth = depthWrites));
         }
         if (pbr) {
           if (!probeBlendReady) {
@@ -2887,12 +2897,14 @@ export class WebGL2Renderer implements Renderer {
                 : 2
             : 2,
         );
-        const tint = this.tintData;
-        tint[0] = material.color[0];
-        tint[1] = material.color[1];
-        tint[2] = material.color[2];
-        tint[3] = material.opacity;
-        gl.uniform4fv(uniforms.tint, tint);
+        this.uniformValues.uniform4f(
+          gl,
+          uniforms.tint,
+          material.color[0],
+          material.color[1],
+          material.color[2],
+          material.opacity,
+        );
         this.uniformValues.uniform1i(
           gl,
           uniforms.receiveShadow,
@@ -3115,7 +3127,8 @@ export class WebGL2Renderer implements Renderer {
             material.alphaCutoff,
           );
           const emissive = pbrEmissiveSlot(material);
-          gl.uniform4i(
+          this.uniformValues.uniform4i(
+            gl,
             uniforms.maps,
             pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0,
             pbrTextureSources(material).normalTexture ? 1 : 0,

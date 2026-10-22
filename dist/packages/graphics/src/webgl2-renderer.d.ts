@@ -136,7 +136,6 @@ export declare class WebGL2Renderer implements Renderer {
     private activeUnit;
     /** Generic mesh attribute defaults written during the current mesh pass. */
     private meshAttributeDefaults;
-    private readonly tintData;
     private readonly materialUVData;
     /** Shadow tile whose view-projection each shadow program last received. */
     private readonly shadowViewStamps;
