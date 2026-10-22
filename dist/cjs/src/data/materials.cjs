@@ -4974,6 +4974,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .58,
 		relief: .003
+	}),
+	orangeflesh: Object.freeze({
+		dark: [
+			186,
+			92,
+			24
+		],
+		light: [
+			252,
+			196,
+			96
+		],
+		roughness: .42,
+		relief: .0032
+	}),
+	kiwiflesh: Object.freeze({
+		dark: [
+			88,
+			116,
+			42
+		],
+		light: [
+			198,
+			226,
+			128
+		],
+		roughness: .46,
+		relief: .003
+	}),
+	avocadoflesh: Object.freeze({
+		dark: [
+			92,
+			118,
+			58
+		],
+		light: [
+			222,
+			232,
+			152
+		],
+		roughness: .44,
+		relief: .0036
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5327,7 +5369,10 @@ var proceduralTileMeters = Object.freeze({
 	brownie: .2,
 	soapbar: .24,
 	loofah: .2,
-	scrubbypad: .14
+	scrubbypad: .14,
+	orangeflesh: .12,
+	kiwiflesh: .08,
+	avocadoflesh: .1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

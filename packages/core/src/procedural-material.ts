@@ -357,7 +357,10 @@ export type ProceduralMaterialKind =
   | 'brownie'
   | 'soapbar'
   | 'loofah'
-  | 'scrubbypad';
+  | 'scrubbypad'
+  | 'orangeflesh'
+  | 'kiwiflesh'
+  | 'avocadoflesh';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -741,6 +744,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'soapbar',
   'loofah',
   'scrubbypad',
+  'orangeflesh',
+  'kiwiflesh',
+  'avocadoflesh',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

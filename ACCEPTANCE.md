@@ -5533,3 +5533,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Rendering3D]` WebGL2 綁定材質貼圖時只查一次貼圖快取：快取項目為目前版本就直接 touch 並綁定，否則才切換 active unit 並走 `cacheTexture` 上傳；原本每次綁定查兩次 Map 並重複 render／destroyed 檢查（render 貼圖從不進快取，所以略過的檢查不改變結果）。2000 個 PBR mesh（每個 13 次綁定）Chrome profile 各 7 次交錯 A/B，`bindMaterialTexture`+`cacheTexture` 中位數 182 → 73 ms／5 s。完整測試 2988 通過、型別、tree-shaking、API 相容與 Chromium regression:browser（webgl2）通過。
 - `[Rendering3D]` WebGL2 mesh 色彩 pass 的 16 個貼圖單元 uniform（image、shadowMap、environmentMap、opaqueScene、opticalMaps 與 11 個 PBR map）只在每個 phase 中某 program 第一次繪製時送出（PBR 那組在第一次 PBR 繪製時）；這些位置只會被寫入同一組常數，之後每次繪製原本都只是快取比對後略過，所以 GL 狀態與呼叫完全相同。2000 個 PBR mesh Chrome profile 各 7 次交錯 A/B，uniform 快取相關時間中位數 193 → 143 ms／5 s。完整測試 2988 通過、型別、tree-shaking、API 相容與 Chromium regression:browser（webgl2）通過。
 - `[Shadows]` 陰影快取檢查（WebGL2／WebGPU 共用 `ShadowCache.needsRender`）在已確定需要重繪後，每個投影者只複製快照值、不再逐一比較；世界矩陣元素陣列只取一次。讀取的欄位與次數不變，回傳值相同。移動相機的 4 階 cascade 場景（2000 個投影者，WebGL2）Chrome profile 各 5 次交錯 A/B，`needsRender` 中位數 127 → 96 ms／5 s。完整測試 2988 通過、型別、tree-shaking、API 相容通過。
+
+## 程序材質擴充：水果剖面（orangeflesh／kiwiflesh／avocadoflesh）
+
+- 新增凸起汁囊瓣片在凸起果皮環內匯聚於凹陷果白的柳橙果肉（orangeflesh）、凸起種子凸點與淺色果心凸起於輻射纖維之上的奇異果果肉（kiwiflesh）、平滑果肉圍繞凹陷中央果核的酪梨果肉（avocadoflesh）。本組提交後目錄由 351 增為 354 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增果瓣、種子或果核 geometry，也不做 displacement。
+- 前 351 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 99f176e3 乾淨工作樹 dist 建立基準、重建比對，351 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 報 9 處，皆為提交基準既有（`gameplay2d-core.test.ts:93`、`sprite-quad-validation.test.ts:13`、`graphics2d-raster.test.ts` 三處與 `text2d.test.ts` 四處的 `Texture2DSource.image`），與本組無關、未修改。完整 Vitest 178 檔 3000 項全數通過（含本組三個家族探針與兩張邊界矩陣新列）。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：柳橙果白凹槽低於汁囊瓣片與背景、occlusion 同序；奇異果種子凸點與果心高於周邊果肉與背景；酪梨平滑果肉高於中央果核與背景。全部值域有界、週期 wrap 連續、metallic 恆 0。初版奇異果纖維振盪未受外徑衰減遮罩導致外邊界斜率微小跳變，加入 inner 平滑遮罩後邊界與斜率矩陣全過。
+- 真實 Chrome 的 pbr3d 在 WebGL2 逐一切換三者並渲染，狀態列顯示 `WebGL2 · 354 procedural material presets + plain`，無 page／console errors，三者畫面各自不同且花紋可辨（暖橘汁囊與白果心／亮綠果肉與黑種子放射環／奶油黃綠平滑果肉與中央果核）。check:material-reference 通過（overall pass true，負向控制於 webgl2 與 webgpu 皆被拒絕）；regression:browser chromium canvas2d／webgl2／webgpu 通過（僅既有 SKIP：webxr 無實體裝置、WebGPU 無公開 device-loss 注入、Canvas2D 無原生 3D）。
+- metallic bytes 全為 0；roughness bytes 依序 85–140／90–145／90–155（size 64，三 seed）；每米 repeats 依序 8.333333／12.500000／10.000000。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交（CAS 落地），之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。

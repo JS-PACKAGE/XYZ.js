@@ -376,6 +376,9 @@ const kinds: ProceduralMaterialKind[] = [
   'soapbar',
   'loofah',
   'scrubbypad',
+  'orangeflesh',
+  'kiwiflesh',
+  'avocadoflesh',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5205,6 +5208,9 @@ describe('periodic procedural material fields', () => {
     ['soapbar', [2, 32, 64]],
     ['loofah', [3, 32, 64]],
     ['scrubbypad', [3, 32, 64]],
+    ['orangeflesh', [3, 32, 64]],
+    ['kiwiflesh', [3, 32, 64]],
+    ['avocadoflesh', [3, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5562,6 +5568,9 @@ describe('periodic procedural material fields', () => {
     ['soapbar', 40],
     ['loofah', 6],
     ['scrubbypad', 8],
+    ['orangeflesh', 2],
+    ['kiwiflesh', 2],
+    ['avocadoflesh', 2],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13795,6 +13804,77 @@ describe('periodic procedural material fields', () => {
       expect(b.height).toBeGreaterThan(a.height);
       expect(b.occlusion).toBeGreaterThan(a.occlusion);
       expect(b.roughness).toBeLessThan(a.roughness);
+    }
+  });
+  it('orangeflesh recesses pith dividers below juice segments and background', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      c = { ...a };
+    const thetaFlesh = Math.PI / 10;
+    const fleshU = 0.5 + 0.2 * Math.cos(thetaFlesh),
+      fleshV = 0.5 + 0.2 * Math.sin(thetaFlesh);
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('orangeflesh', seed);
+      sample(0.7, 0.5, a);
+      sample(fleshU, fleshV, b);
+      sample(0.02, 0.02, c);
+      expect(b.height).toBeGreaterThan(a.height);
+      expect(b.occlusion).toBeGreaterThan(a.occlusion);
+      expect(a.height).toBeGreaterThan(c.height);
+    }
+  });
+
+  it('kiwiflesh raises seed bumps and pale core above the surrounding flesh and background', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      c = { ...a };
+    const thetaGap = Math.PI / 16;
+    const gapU = 0.5 + 0.2 * Math.cos(thetaGap),
+      gapV = 0.5 + 0.2 * Math.sin(thetaGap);
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('kiwiflesh', seed);
+      sample(0.7, 0.5, a);
+      sample(gapU, gapV, b);
+      sample(0.02, 0.02, c);
+      expect(a.height).toBeGreaterThan(b.height);
+      expect(a.occlusion).toBeLessThan(b.occlusion);
+      expect(b.height).toBeGreaterThan(c.height);
+    }
+  });
+
+  it('avocadoflesh sinks an elliptical central pit below smooth flesh and background', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      c = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('avocadoflesh', seed);
+      sample(0.5, 0.5, a);
+      sample(0.75, 0.5, b);
+      sample(0.02, 0.02, c);
+      expect(b.height).toBeGreaterThan(a.height);
+      expect(b.occlusion).toBeGreaterThan(a.occlusion);
+      expect(b.height).toBeGreaterThan(c.height);
     }
   });
 

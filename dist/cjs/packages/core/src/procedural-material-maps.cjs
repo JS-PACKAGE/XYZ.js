@@ -489,6 +489,18 @@ function createSurfaceSampler(t, r) {
 				let e = (Math.floor(q * 8) % 2 + 2) % 2, n = fract(K * 8 + .5 * e) - .5, i = fract(q * 8) - .5, o = smooth(clamp((.34 - Math.max(Math.abs(n) * 1.15, Math.abs(i))) / .06)), s = noise(K, q, 64, 64, r ^ 30482);
 				X = .5 + .26 * (1 - o) + .16 * (s - .5) - .18 * o, Z = .32 + .2 * (1 - o) - .22 * o + .05 * (s - .5), Q += .14 * (s - .5) + .1 * o, $ = 1 - .5 * o;
 			};
+			case `orangeflesh`: return () => {
+				let e = fract(K) - .5, t = fract(q) - .5, n = Math.hypot(e, t), i = Math.atan2(t, e), a = smooth(clamp((.46 - n) / .03)), o = smooth(clamp((.45 - n) / .03)) - smooth(clamp((.38 - n) / .03)), s = smooth(clamp((.38 - n) / .03)), c = smooth(clamp((n - .05) / .04)), l = smooth(clamp((.09 - Math.abs(Math.sin(5 * i))) / .05)) * s * c, u = .5 + .5 * Math.sin(48 * i + n * 72), d = noise(K, q, 40, 40, r ^ 12743);
+				X = .34 + .3 * a + .16 * o + .12 * u * s * c - .18 * l + .05 * (d - .5), Z = .24 + .24 * a + .12 * o + .06 * u * s * c - .12 * l, Q += .06 * (d - .5) + .12 * l - .06 * u * s * c, $ = 1 - .44 * (1 - a) - .4 * l;
+			};
+			case `kiwiflesh`: return () => {
+				let e = fract(K) - .5, t = fract(q) - .5, n = Math.hypot(e, t), i = Math.atan2(t, e), a = smooth(clamp((.46 - n) / .03)), o = smooth(clamp((.45 - n) / .03)) - smooth(clamp((.38 - n) / .03)), s = smooth(clamp((.1 - n) / .04)), c = smooth(clamp((n - .08) / .04)), l = smooth(clamp((.38 - n) / .03)), u = smooth(clamp((.06 - Math.abs(n - .2)) / .03)), d = (.5 + .5 * Math.cos(16 * i)) * u, f = (.5 + .5 * Math.sin(56 * i + n * 48)) * c * l, p = noise(K, q, 40, 40, r ^ 21930);
+				X = .38 + .26 * a + .18 * s - .26 * d + .08 * f + .05 * (p - .5), Z = .26 + .24 * a + .08 * s + .08 * d + .04 * f + .1 * o, Q += .06 * (p - .5) - .08 * d - .06 * s + .08 * (1 - a), $ = 1 - .44 * (1 - a) - .18 * d;
+			};
+			case `avocadoflesh`: return () => {
+				let e = fract(K) - .5, t = fract(q) - .5, n = Math.hypot(e, t), i = smooth(clamp((.46 - n) / .03)), a = smooth(clamp((.45 - n) / .03)) - smooth(clamp((.39 - n) / .03)), o = e / .15 * (e / .15) + t / .19 * (t / .19), s = o < 1 ? smooth(clamp((1 - o) / .22)) : 0, c = noise(K, q, 12, 12, r ^ 26307), l = noise(K, q, 48, 48, r ^ 8923);
+				X = .36 + .3 * i + .14 * a - .2 * s + .08 * (c - .5) + .04 * (l - .5), Z = .26 + .26 * i + .12 * a - .22 * s, Q += .06 * (l - .5) + .14 * s - .06 * (1 - s) * i, $ = 1 - .44 * (1 - i) - .38 * s;
+			};
 			case `morel`: return () => {
 				let e = x, t = K * e.columns, n = q * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(K, q), o = 0, s = 0;
 				for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) {

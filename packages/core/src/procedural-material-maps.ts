@@ -1864,6 +1864,108 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.5 * hole;
           return;
         };
+      case 'orangeflesh':
+        return () => {
+          // Radial juice segments meet at recessed pith under a raised rind ring.
+          const du = fract(u) - 0.5,
+            dv = fract(v) - 0.5;
+          const r = Math.hypot(du, dv);
+          const theta = Math.atan2(dv, du);
+          const body = smooth(clamp((0.46 - r) / 0.03));
+          const rind =
+            smooth(clamp((0.45 - r) / 0.03)) - smooth(clamp((0.38 - r) / 0.03));
+          const inner = smooth(clamp((0.38 - r) / 0.03));
+          const hub = smooth(clamp((r - 0.05) / 0.04));
+          const pith =
+            smooth(clamp((0.09 - Math.abs(Math.sin(5 * theta))) / 0.05)) *
+            inner *
+            hub;
+          const vesicle = 0.5 + 0.5 * Math.sin(48 * theta + r * 72);
+          const grain = noise(u, v, 40, 40, seed ^ 0x31c7);
+          color =
+            0.34 +
+            0.3 * body +
+            0.16 * rind +
+            0.12 * vesicle * inner * hub -
+            0.18 * pith +
+            0.05 * (grain - 0.5);
+          height =
+            0.24 +
+            0.24 * body +
+            0.12 * rind +
+            0.06 * vesicle * inner * hub -
+            0.12 * pith;
+          roughness +=
+            0.06 * (grain - 0.5) + 0.12 * pith - 0.06 * vesicle * inner * hub;
+          occlusion = 1 - 0.44 * (1 - body) - 0.4 * pith;
+          return;
+        };
+      case 'kiwiflesh':
+        return () => {
+          // Pale core with a ring of dark seeds and radiating fibers.
+          const du = fract(u) - 0.5,
+            dv = fract(v) - 0.5;
+          const r = Math.hypot(du, dv);
+          const theta = Math.atan2(dv, du);
+          const body = smooth(clamp((0.46 - r) / 0.03));
+          const rind =
+            smooth(clamp((0.45 - r) / 0.03)) - smooth(clamp((0.38 - r) / 0.03));
+          const core = smooth(clamp((0.1 - r) / 0.04));
+          const hub = smooth(clamp((r - 0.08) / 0.04));
+          const inner = smooth(clamp((0.38 - r) / 0.03));
+          const ring = smooth(clamp((0.06 - Math.abs(r - 0.2)) / 0.03));
+          const seedSpot = (0.5 + 0.5 * Math.cos(16 * theta)) * ring;
+          const fiber =
+            (0.5 + 0.5 * Math.sin(56 * theta + r * 48)) * hub * inner;
+          const grain = noise(u, v, 40, 40, seed ^ 0x55aa);
+          color =
+            0.38 +
+            0.26 * body +
+            0.18 * core -
+            0.26 * seedSpot +
+            0.08 * fiber +
+            0.05 * (grain - 0.5);
+          height =
+            0.26 +
+            0.24 * body +
+            0.08 * core +
+            0.08 * seedSpot +
+            0.04 * fiber +
+            0.1 * rind;
+          roughness +=
+            0.06 * (grain - 0.5) -
+            0.08 * seedSpot -
+            0.06 * core +
+            0.08 * (1 - body);
+          occlusion = 1 - 0.44 * (1 - body) - 0.18 * seedSpot;
+          return;
+        };
+      case 'avocadoflesh':
+        return () => {
+          // Buttery smooth flesh cradles an elliptical pit recess.
+          const du = fract(u) - 0.5,
+            dv = fract(v) - 0.5;
+          const r = Math.hypot(du, dv);
+          const body = smooth(clamp((0.46 - r) / 0.03));
+          const rind =
+            smooth(clamp((0.45 - r) / 0.03)) - smooth(clamp((0.39 - r) / 0.03));
+          const pq = (du / 0.15) * (du / 0.15) + (dv / 0.19) * (dv / 0.19);
+          const pit = pq < 1 ? smooth(clamp((1 - pq) / 0.22)) : 0;
+          const swirl = noise(u, v, 12, 12, seed ^ 0x66c3);
+          const grain = noise(u, v, 48, 48, seed ^ 0x22db);
+          color =
+            0.36 +
+            0.3 * body +
+            0.14 * rind -
+            0.2 * pit +
+            0.08 * (swirl - 0.5) +
+            0.04 * (grain - 0.5);
+          height = 0.26 + 0.26 * body + 0.12 * rind - 0.22 * pit;
+          roughness +=
+            0.06 * (grain - 0.5) + 0.14 * pit - 0.06 * (1 - pit) * body;
+          occlusion = 1 - 0.44 * (1 - body) - 0.38 * pit;
+          return;
+        };
       case 'morel':
         return () => {
           const p = morelPreset,

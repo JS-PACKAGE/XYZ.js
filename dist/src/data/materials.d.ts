@@ -2167,6 +2167,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.58;
         relief: 0.003;
     }>;
+    orangeflesh: Readonly<{
+        dark: readonly [186, 92, 24];
+        light: readonly [252, 196, 96];
+        roughness: 0.42;
+        relief: 0.0032;
+    }>;
+    kiwiflesh: Readonly<{
+        dark: readonly [88, 116, 42];
+        light: readonly [198, 226, 128];
+        roughness: 0.46;
+        relief: 0.003;
+    }>;
+    avocadoflesh: Readonly<{
+        dark: readonly [92, 118, 58];
+        light: readonly [222, 232, 152];
+        roughness: 0.44;
+        relief: 0.0036;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2521,4 +2539,7 @@ export declare const proceduralTileMeters: Readonly<{
     soapbar: 0.24;
     loofah: 0.2;
     scrubbypad: 0.14;
+    orangeflesh: 0.12;
+    kiwiflesh: 0.08;
+    avocadoflesh: 0.1;
 }>;
