@@ -5448,3 +5448,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 獨立 Chrome WebGPU／WebGL2 gallery（333 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
 - metallic 全為 0，roughness bytes 依序 230–255／199–241／147–185；每米 repeats 依序 8.333333／6.250000／10.000000。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
+- `[Rendering2D]` WebGPU／WebGL2 幾何遮罩改用每個 renderer 一張重用的 Canvas（`MaskCanvas2D`：同尺寸時重設 transform 並 clearRect，尺寸變了才換新），不再每次遮罩變動都建立 Canvas＋2D context、事後釋放；renderer destroy 時釋放。兩種上傳（`texSubImage2D`、`copyExternalImageToTexture`）於呼叫時讀取 canvas，以同一幀 12 個同／異尺寸遮罩每幀換形的對抗頁驗證：Chrome 兩 backend 截圖對 HEAD 8 個步驟逐位元組相同，前述 14 幀序列頁亦相同。遮罩每幀變動時主執行緒忙碌 WebGPU 313→231 ms、WebGL2 223→188 ms（4 s）。完整測試 2893 通過、型別與 API 相容、Chromium regression:browser（webgl2／webgpu）通過。

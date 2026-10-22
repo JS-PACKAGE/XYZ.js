@@ -1,3 +1,4 @@
+const require_errors = require("./errors.cjs");
 const require_rendering2d = require("../../../src/data/rendering2d.cjs");
 const require_game_object = require("../../core/src/game-object.cjs");
 const require_sprite = require("../../core/src/sprite.cjs");
@@ -171,32 +172,32 @@ function partitionBoundaries2D(i, a, o) {
 		i && ((!c || u !== s) && (s = u, c = o.membersOf(u)), c.objects[c.count++] = l);
 	}
 }
-var o = {
+var s = {
 	x: 0,
 	y: 0,
 	width: 0,
 	height: 0
 };
-var s = {
+var c = {
 	objects: [],
 	count: 0
 };
-function collectBoundary2D(t, c, l, u, d, f, p, m) {
+function collectBoundary2D(t, o, l, u, d, f, p, m) {
 	if (p > require_rendering2d.rendering2dLimits.layerDepth) throw RangeError(`Isolated layer nesting exceeds the render budget.`);
-	let h = t.camera2D, g = m.boundaryMembers.get(d) ?? s;
-	for (let s = 0; s < g.count; s++) {
-		let d = g.objects[s], _ = d instanceof require_isolated_group.IsolatedGroup2D && d.isolationEnabled;
+	let h = t.camera2D, g = m.boundaryMembers.get(d) ?? c;
+	for (let c = 0; c < g.count; c++) {
+		let d = g.objects[c], _ = d instanceof require_isolated_group.IsolatedGroup2D && d.isolationEnabled;
 		if (_ || d instanceof require_sprite.Sprite || d instanceof require_mesh2d.Mesh2D || d instanceof require_particle_layer2d.ParticleLayer2D) {
 			if (d instanceof require_sprite.Sprite || d instanceof require_mesh2d.Mesh2D) {
 				if (!d.renderEnabled || d.texture.destroyed) continue;
 				d.view?.validate();
 			}
 			if (!f && !(_ && d.cacheAsTexture)) {
-				let e = d.getWorldBounds(o), t = d.worldSpace === `world`, n = t ? h.zoom : 1, r = e.x * n + (t ? -h.position.x * n + h.renderOffset.x : 0), i = e.y * n + (t ? -h.position.y * n + h.renderOffset.y : 0), a = r + e.width * n, s = i + e.height * n;
-				if (a < 0 || s < 0 || r > c || i > l || !Number.isFinite(r + i + a + s)) continue;
+				let e = d.getWorldBounds(s), t = d.worldSpace === `world`, n = t ? h.zoom : 1, r = e.x * n + (t ? -h.position.x * n + h.renderOffset.x : 0), i = e.y * n + (t ? -h.position.y * n + h.renderOffset.y : 0), a = r + e.width * n, c = i + e.height * n;
+				if (a < 0 || c < 0 || r > o || i > l || !Number.isFinite(r + i + a + c)) continue;
 			}
 			if (++m.collectedCount > require_rendering2d.rendering2dLimits.commands) throw RangeError(`Visible render commands exceed the render budget.`);
-			_ ? collectBoundary2D(t, c, l, u.appendLayer(d), d, !0, p + 1, m) : d instanceof require_sprite.Sprite ? u.appendSprite(d) : d instanceof require_mesh2d.Mesh2D ? u.appendMesh(d) : d instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(d);
+			_ ? collectBoundary2D(t, o, l, u.appendLayer(d), d, !0, p + 1, m) : d instanceof require_sprite.Sprite ? u.appendSprite(d) : d instanceof require_mesh2d.Mesh2D ? u.appendMesh(d) : d instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(d);
 		}
 	}
 	u.finishAppends(), u.sort();
@@ -207,7 +208,28 @@ function maskRasterCurrent(e, t, n) {
 function recordMaskRaster(e, t, n) {
 	e.mask = t.texture ? void 0 : t, e.maskX = n.x, e.maskY = n.y, e.maskWidth = n.width, e.maskHeight = n.height;
 }
+var MaskCanvas2D = class {
+	canvas;
+	context;
+	draw(e, t, n, r) {
+		let i = this.canvas, a = this.context;
+		if (!i || !a || i.width !== t || i.height !== n) {
+			if (this.release(), i = document.createElement(`canvas`), i.width = t, i.height = n, a = i.getContext(`2d`) ?? void 0, !a) throw new require_errors.GraphicsError(`Native geometric mask rasterization requires Canvas2D.`);
+			this.canvas = i, this.context = a;
+		} else a.setTransform(1, 0, 0, 1, 0, 0), a.clearRect(0, 0, t, n);
+		if (a.setTransform(t / r.width, 0, 0, n / r.height, -r.x * t / r.width, -r.y * n / r.height), a.transform(...e.transform), a.fillStyle = `#fff`, e.path) a.fill(e.path.nativePath2D, e.path.fillRule);
+		else {
+			let t = e.rect;
+			a.fillRect(t.x, t.y, t.width, t.height);
+		}
+		return i;
+	}
+	release() {
+		this.canvas && (this.canvas.width = this.canvas.height = 0), this.canvas = this.context = void 0;
+	}
+};
 //#endregion
+exports.MaskCanvas2D = MaskCanvas2D;
 exports.RenderCommandBuffer2D = RenderCommandBuffer2D;
 exports.collectRenderCommands2D = collectRenderCommands2D;
 exports.maskRasterCurrent = maskRasterCurrent;

@@ -30,6 +30,7 @@ import { GraphicsError } from './errors.js';
 import type { FrameStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
+  MaskCanvas2D,
   maskRasterCurrent,
   recordMaskRaster,
   RenderCommandBuffer2D,
@@ -160,6 +161,7 @@ export class WebGPURender2D {
   private readonly matrix = new Matrix3();
   private readonly mapping = new Matrix3();
   private readonly layers = new Map<IsolatedGroup2D, Layer2D>();
+  private readonly maskCanvas = new MaskCanvas2D();
   private readonly targets = new Map<RenderTexture2D, GPUColorTarget>();
   private readonly meshes = new Map<Geometry2D, MeshBuffers2D>();
   private readonly particles = new Map<ParticleLayer2D, ParticleBuffers2D>();
@@ -1589,39 +1591,18 @@ export class WebGPURender2D {
       return;
     }
     // Geometric masks are exact Path2D coverage rasterized once per isolated render.
-    const canvas = document.createElement('canvas');
-    canvas.width = target.width;
-    canvas.height = target.height;
-    const context = canvas.getContext('2d');
-    if (!context)
-      throw new GraphicsError(
-        'Native geometric mask rasterization requires Canvas2D.',
-      );
-    context.setTransform(
-      target.width / bounds.width,
-      0,
-      0,
-      target.height / bounds.height,
-      (-bounds.x * target.width) / bounds.width,
-      (-bounds.y * target.height) / bounds.height,
+    const canvas = this.maskCanvas.draw(
+      mask,
+      target.width,
+      target.height,
+      bounds,
     );
-    context.transform(...mask.transform);
-    context.fillStyle = '#fff';
-    if (mask.path) context.fill(mask.path.nativePath2D, mask.path.fillRule);
-    else {
-      const rect = mask.rect!;
-      context.fillRect(rect.x, rect.y, rect.width, rect.height);
-    }
     this.device.queue.copyExternalImageToTexture(
       { source: canvas },
       { texture: target.texture, premultipliedAlpha: true },
       [target.width, target.height],
     );
     this.hooks.stats.upload(target.width * target.height * 4);
-    // The upload is queued immediately, so the canvas can be released only after it has been copied.
-    void this.device.queue.onSubmittedWorkDone().then(() => {
-      canvas.width = canvas.height = 0;
-    });
   }
   private filterPass(
     input: GPUColorTarget,
@@ -1991,5 +1972,6 @@ export class WebGPURender2D {
     this.uniformBuffer.destroy();
     this.instanceBuffer.destroy();
     this.dummy.destroy();
+    this.maskCanvas.release();
   }
 }

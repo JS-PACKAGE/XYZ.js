@@ -8,6 +8,7 @@ import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 import { rendering2dLimits } from '../../../src/data/rendering2d.js';
+import { GraphicsError } from './errors.js';
 
 export interface RenderSnapshot {
   readonly backend: GraphicsBackend;
@@ -488,4 +489,66 @@ export function recordMaskRaster(
   layer.maskY = bounds.y;
   layer.maskWidth = bounds.width;
   layer.maskHeight = bounds.height;
+}
+
+/**
+ * One reused canvas for geometric mask coverage. A mask that changes every frame (a scrolling
+ * view) would otherwise create, size and release a canvas and its 2D context each time. Both
+ * uploads (`texSubImage2D`, `copyExternalImageToTexture`) read the canvas when called, so it
+ * may be redrawn for the next mask right away. A size change replaces it, as a fresh canvas.
+ */
+export class MaskCanvas2D {
+  private canvas: HTMLCanvasElement | undefined;
+  private context: CanvasRenderingContext2D | undefined;
+  draw(
+    mask: Mask2D,
+    width: number,
+    height: number,
+    bounds: Readonly<Rect2D>,
+  ): HTMLCanvasElement {
+    let canvas = this.canvas,
+      context = this.context;
+    if (
+      !canvas ||
+      !context ||
+      canvas.width !== width ||
+      canvas.height !== height
+    ) {
+      this.release();
+      canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      context = canvas.getContext('2d') ?? undefined;
+      if (!context)
+        throw new GraphicsError(
+          'Native geometric mask rasterization requires Canvas2D.',
+        );
+      this.canvas = canvas;
+      this.context = context;
+    } else {
+      // Drawing below only sets the transform and fill style, so clearing restores a fresh canvas.
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, width, height);
+    }
+    context.setTransform(
+      width / bounds.width,
+      0,
+      0,
+      height / bounds.height,
+      (-bounds.x * width) / bounds.width,
+      (-bounds.y * height) / bounds.height,
+    );
+    context.transform(...mask.transform);
+    context.fillStyle = '#fff';
+    if (mask.path) context.fill(mask.path.nativePath2D, mask.path.fillRule);
+    else {
+      const rect = mask.rect!;
+      context.fillRect(rect.x, rect.y, rect.width, rect.height);
+    }
+    return canvas;
+  }
+  release(): void {
+    if (this.canvas) this.canvas.width = this.canvas.height = 0;
+    this.canvas = this.context = undefined;
+  }
 }

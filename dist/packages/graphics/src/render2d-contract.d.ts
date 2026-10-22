@@ -119,3 +119,15 @@ export interface MaskRaster2D {
  */
 export declare function maskRasterCurrent(layer: MaskRaster2D, mask: Mask2D, bounds: Readonly<Rect2D>): boolean;
 export declare function recordMaskRaster(layer: MaskRaster2D, mask: Mask2D, bounds: Readonly<Rect2D>): void;
+/**
+ * One reused canvas for geometric mask coverage. A mask that changes every frame (a scrolling
+ * view) would otherwise create, size and release a canvas and its 2D context each time. Both
+ * uploads (`texSubImage2D`, `copyExternalImageToTexture`) read the canvas when called, so it
+ * may be redrawn for the next mask right away. A size change replaces it, as a fresh canvas.
+ */
+export declare class MaskCanvas2D {
+    private canvas;
+    private context;
+    draw(mask: Mask2D, width: number, height: number, bounds: Readonly<Rect2D>): HTMLCanvasElement;
+    release(): void;
+}

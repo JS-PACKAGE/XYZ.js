@@ -65,6 +65,7 @@ var WebGLRender2D = class {
 	inverse = new require_index.Matrix3();
 	programs = /* @__PURE__ */ new Map();
 	layers = /* @__PURE__ */ new Map();
+	maskCanvas = new require_render2d_contract.MaskCanvas2D();
 	frame = 0;
 	targets = /* @__PURE__ */ new Map();
 	meshes = /* @__PURE__ */ new Map();
@@ -351,8 +352,8 @@ var WebGLRender2D = class {
 		n.bindBuffer(n.ARRAY_BUFFER, i.buffer);
 		let a = -1, o = 0;
 		for (let t = 0; t < e.activeCount; t++) {
-			let s = e.activeSlotAt(t), c = e.getSlot(s), l = t * 28, u = t * 4, d = i.data, f = i.slots[t] !== s || i.generations[t] !== c.generation, m = require_sprite_instance.getTextureQuad2D(c.texture, c.view, c.source, this.quad), h = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Transform) || i.versions[u] !== c.transformVersion, g = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Tint) || i.versions[u + 1] !== c.tintVersion, _ = f || !!(e.dynamicAttributes & (require_particle_layer2d.ParticleAttribute2D.Source | require_particle_layer2d.ParticleAttribute2D.Anchor)) || i.versions[u + 2] !== c.sourceVersion || i.versions[u + 3] !== c.anchorVersion || d[l + 12] !== Math.fround(m.x - c.anchorX * m.naturalWidth) || d[l + 13] !== Math.fround(m.y - c.anchorY * m.naturalHeight) || d[l + 14] !== Math.fround(m.width) || d[l + 15] !== Math.fround(m.height) || d[l + 16] !== Math.fround(m.u0) || d[l + 17] !== Math.fround(m.v0) || d[l + 20] !== Math.fround(m.ux) || d[l + 21] !== Math.fround(m.vx) || d[l + 22] !== Math.fround(m.uy) || d[l + 23] !== Math.fround(m.vy);
-			h && (d[l] = c.a, d[l + 1] = c.b, d[l + 2] = c.c, d[l + 3] = c.d, d[l + 4] = c.tx, d[l + 5] = c.ty, d[l + 6] = +(c.space === `world`), i.versions[u] = c.transformVersion), g && (d[l + 8] = c.tintR, d[l + 9] = c.tintG, d[l + 10] = c.tintB, d[l + 11] = c.tintA, i.versions[u + 1] = c.tintVersion), _ && (this.packQuad(d, l, m), d[l + 12] = m.x - c.anchorX * m.naturalWidth, d[l + 13] = m.y - c.anchorY * m.naturalHeight, i.versions[u + 2] = c.sourceVersion, i.versions[u + 3] = c.anchorVersion), i.slots[t] = s, i.generations[t] = c.generation, h || g || _ ? (a < 0 && (a = l), o = l + 28) : a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, d, a, o - a), this.hooks.stats.upload((o - a) * 4), a = -1);
+			let s = e.activeSlotAt(t), c = e.getSlot(s), l = t * 28, u = t * 4, d = i.data, f = i.slots[t] !== s || i.generations[t] !== c.generation, p = require_sprite_instance.getTextureQuad2D(c.texture, c.view, c.source, this.quad), h = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Transform) || i.versions[u] !== c.transformVersion, g = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Tint) || i.versions[u + 1] !== c.tintVersion, _ = f || !!(e.dynamicAttributes & (require_particle_layer2d.ParticleAttribute2D.Source | require_particle_layer2d.ParticleAttribute2D.Anchor)) || i.versions[u + 2] !== c.sourceVersion || i.versions[u + 3] !== c.anchorVersion || d[l + 12] !== Math.fround(p.x - c.anchorX * p.naturalWidth) || d[l + 13] !== Math.fround(p.y - c.anchorY * p.naturalHeight) || d[l + 14] !== Math.fround(p.width) || d[l + 15] !== Math.fround(p.height) || d[l + 16] !== Math.fround(p.u0) || d[l + 17] !== Math.fround(p.v0) || d[l + 20] !== Math.fround(p.ux) || d[l + 21] !== Math.fround(p.vx) || d[l + 22] !== Math.fround(p.uy) || d[l + 23] !== Math.fround(p.vy);
+			h && (d[l] = c.a, d[l + 1] = c.b, d[l + 2] = c.c, d[l + 3] = c.d, d[l + 4] = c.tx, d[l + 5] = c.ty, d[l + 6] = +(c.space === `world`), i.versions[u] = c.transformVersion), g && (d[l + 8] = c.tintR, d[l + 9] = c.tintG, d[l + 10] = c.tintB, d[l + 11] = c.tintA, i.versions[u + 1] = c.tintVersion), _ && (this.packQuad(d, l, p), d[l + 12] = p.x - c.anchorX * p.naturalWidth, d[l + 13] = p.y - c.anchorY * p.naturalHeight, i.versions[u + 2] = c.sourceVersion, i.versions[u + 3] = c.anchorVersion), i.slots[t] = s, i.generations[t] = c.generation, h || g || _ ? (a < 0 && (a = l), o = l + 28) : a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, d, a, o - a), this.hooks.stats.upload((o - a) * 4), a = -1);
 		}
 		a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, i.data, a, o - a), this.hooks.stats.upload((o - a) * 4)), this.objectMatrix(e, t, this.matrix), this.objectMatrix(e, t, this.mapping, !0), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance);
 		for (let r = 0; r < e.activeCount;) {
@@ -398,20 +399,20 @@ var WebGLRender2D = class {
 			root: e
 		};
 		this.clear(s.target), this.drawCommands(t, s);
-		let c = r.targets[0], d = r.targets[1];
+		let c = r.targets[0], l = r.targets[1];
 		if (e.mask) {
-			require_render2d_contract.maskRasterCurrent(r, e.mask, i) || (this.drawMask(e.mask, r.targets[2], i), require_render2d_contract.recordMaskRaster(r, e.mask, i)), this.pass(c, d, i, 6, void 0, r.targets[2], e.mask);
+			require_render2d_contract.maskRasterCurrent(r, e.mask, i) || (this.drawMask(e.mask, r.targets[2], i), require_render2d_contract.recordMaskRaster(r, e.mask, i)), this.pass(c, l, i, 6, void 0, r.targets[2], e.mask);
 			let t = c;
-			c = d, d = t;
+			c = l, l = t;
 		}
 		for (let t of e.filters) {
 			if (t.kind === `blur`) {
-				this.pass(c, d, i, 3, t, void 0, void 0, !0);
+				this.pass(c, l, i, 3, t, void 0, void 0, !0);
 				let e = c;
-				c = d, d = e, this.pass(c, d, i, 3, t, void 0, void 0, !1);
-			} else this.pass(c, d, i, t.kind === `alpha` ? 1 : t.kind === `color-matrix` ? 2 : t.kind === `noise` ? 4 : 5, t);
+				c = l, l = e, this.pass(c, l, i, 3, t, void 0, void 0, !1);
+			} else this.pass(c, l, i, t.kind === `alpha` ? 1 : t.kind === `color-matrix` ? 2 : t.kind === `noise` ? 4 : 5, t);
 			let e = c;
-			c = d, d = e;
+			c = l, l = e;
 		}
 		return r.result = c, r.version = e.cacheVersion, r;
 	}
@@ -448,16 +449,8 @@ var WebGLRender2D = class {
 			}, e.texture, this.quad, this.matrix, this.appearance), r.drawArrays(r.TRIANGLES, 0, 6), this.hooks.stats.draw2D();
 			return;
 		}
-		let i = document.createElement(`canvas`);
-		i.width = t.width, i.height = t.height;
-		let a = i.getContext(`2d`);
-		if (!a) throw new require_errors.GraphicsError(`Native geometric mask rasterization requires Canvas2D.`);
-		if (a.setTransform(t.width / n.width, 0, 0, t.height / n.height, -n.x * t.width / n.width, -n.y * t.height / n.height), a.transform(...e.transform), a.fillStyle = `#fff`, e.path) a.fill(e.path.nativePath2D, e.path.fillRule);
-		else {
-			let t = e.rect;
-			a.fillRect(t.x, t.y, t.width, t.height);
-		}
-		r.activeTexture(r.TEXTURE0), r.bindTexture(r.TEXTURE_2D, t.texture), r.pixelStorei(r.UNPACK_FLIP_Y_WEBGL, !0), r.pixelStorei(r.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !0), r.texSubImage2D(r.TEXTURE_2D, 0, 0, 0, r.RGBA, r.UNSIGNED_BYTE, i), this.hooks.stats.upload(t.width * t.height * 4), r.pixelStorei(r.UNPACK_FLIP_Y_WEBGL, !1), r.pixelStorei(r.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !1), i.width = i.height = 0;
+		let i = this.maskCanvas.draw(e, t.width, t.height, n);
+		r.activeTexture(r.TEXTURE0), r.bindTexture(r.TEXTURE_2D, t.texture), r.pixelStorei(r.UNPACK_FLIP_Y_WEBGL, !0), r.pixelStorei(r.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !0), r.texSubImage2D(r.TEXTURE_2D, 0, 0, 0, r.RGBA, r.UNSIGNED_BYTE, i), this.hooks.stats.upload(t.width * t.height * 4), r.pixelStorei(r.UNPACK_FLIP_Y_WEBGL, !1), r.pixelStorei(r.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !1);
 	}
 	pass(e, t, r, i, a, o, s, c = !0) {
 		let l = this.gl, u = this.passProgram;
@@ -616,7 +609,7 @@ var WebGLRender2D = class {
 			this.passProgram,
 			this.blendProgram
 		]) e.deleteProgram(t.program);
-		e.deleteVertexArray(this.emptyVAO), e.deleteVertexArray(this.spriteVAO), e.deleteBuffer(this.spriteBuffer), this.targets.clear(), this.layers.clear(), this.meshes.clear(), this.particles.clear(), this.samplers.clear(), this.programs.clear(), this.captureCommands.destroy();
+		e.deleteVertexArray(this.emptyVAO), e.deleteVertexArray(this.spriteVAO), e.deleteBuffer(this.spriteBuffer), this.targets.clear(), this.layers.clear(), this.meshes.clear(), this.particles.clear(), this.samplers.clear(), this.programs.clear(), this.captureCommands.destroy(), this.maskCanvas.release();
 	}
 };
 //#endregion

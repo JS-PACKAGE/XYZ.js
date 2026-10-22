@@ -33,6 +33,7 @@ import { GraphicsError } from './errors.js';
 import type { FrameStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
+  MaskCanvas2D,
   maskRasterCurrent,
   recordMaskRaster,
   RenderCommandBuffer2D,
@@ -160,6 +161,7 @@ export class WebGLRender2D {
   private readonly inverse = new Matrix3();
   private readonly programs = new Map<WebGLProgram, Program2D>();
   private readonly layers = new Map<IsolatedGroup2D, Layer2D>();
+  private readonly maskCanvas = new MaskCanvas2D();
   /** Counts `draw` calls; layers record the last one that used them. */
   private frame = 0;
   private readonly targets = new Map<RenderTexture2D, GLTarget2D>();
@@ -1330,29 +1332,12 @@ export class WebGLRender2D {
       this.hooks.stats.draw2D();
       return;
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = target.width;
-    canvas.height = target.height;
-    const context = canvas.getContext('2d');
-    if (!context)
-      throw new GraphicsError(
-        'Native geometric mask rasterization requires Canvas2D.',
-      );
-    context.setTransform(
-      target.width / bounds.width,
-      0,
-      0,
-      target.height / bounds.height,
-      (-bounds.x * target.width) / bounds.width,
-      (-bounds.y * target.height) / bounds.height,
+    const canvas = this.maskCanvas.draw(
+      mask,
+      target.width,
+      target.height,
+      bounds,
     );
-    context.transform(...mask.transform);
-    context.fillStyle = '#fff';
-    if (mask.path) context.fill(mask.path.nativePath2D, mask.path.fillRule);
-    else {
-      const rect = mask.rect!;
-      context.fillRect(rect.x, rect.y, rect.width, rect.height);
-    }
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, target.texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -1361,7 +1346,6 @@ export class WebGLRender2D {
     this.hooks.stats.upload(target.width * target.height * 4);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    canvas.width = canvas.height = 0;
   }
   private pass(
     input: GLTarget2D,
@@ -1803,5 +1787,6 @@ export class WebGLRender2D {
     this.samplers.clear();
     this.programs.clear();
     this.captureCommands.destroy();
+    this.maskCanvas.release();
   }
 }

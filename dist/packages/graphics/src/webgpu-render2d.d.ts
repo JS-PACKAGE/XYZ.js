@@ -29,6 +29,7 @@ export declare class WebGPURender2D {
     private readonly matrix;
     private readonly mapping;
     private readonly layers;
+    private readonly maskCanvas;
     private readonly targets;
     private readonly meshes;
     private readonly particles;
