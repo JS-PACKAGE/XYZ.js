@@ -260,6 +260,57 @@ export function collide(
   return out.count > 0;
 }
 
+/**
+ * True only when `rayDistance` with the same arguments would miss: the ray's segment misses
+ * the AABB grown past every point that function can report. A hit (or contained origin) lies
+ * within `rayEdgeTolerance` (contains) plus `maxDistance * EPSILON` (drift along an edge
+ * treated as parallel) of the edge lines beside each extreme vertex, so at most that times
+ * `rayAmplification` past the AABB; the margin takes four times that, plus a relative slack
+ * far above the rounding of either test. Without a usable bound it never claims a miss.
+ */
+export function rayMissesBounds(
+  shape: ShapeGeometry,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  maxDistance: number,
+): boolean {
+  const amplification = shape.rayAmplification();
+  if (!(amplification <= 1e6)) return false;
+  const span =
+    Math.abs(x - (shape.minX + shape.maxX) / 2) +
+    Math.abs(y - (shape.minY + shape.maxY) / 2) +
+    (shape.maxX - shape.minX) +
+    (shape.maxY - shape.minY);
+  const margin =
+    4 * amplification * (shape.rayEdgeTolerance + maxDistance * EPSILON) +
+    1e-6 * (1 + maxDistance + span);
+  const minX = shape.minX - margin,
+    maxX = shape.maxX + margin,
+    minY = shape.minY - margin,
+    maxY = shape.maxY + margin;
+  let near = 0,
+    far = maxDistance;
+  if (dx === 0) {
+    if (x < minX || x > maxX) return true;
+  } else {
+    const a = (minX - x) / dx,
+      b = (maxX - x) / dx;
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
+  }
+  if (dy === 0) {
+    if (y < minY || y > maxY) return true;
+  } else {
+    const a = (minY - y) / dy,
+      b = (maxY - y) / dy;
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
+  }
+  return near > far;
+}
+
 /** Exact circle/convex ray intersection. Inside starts hit at distance zero. */
 export function rayDistance(
   shape: ShapeGeometry,

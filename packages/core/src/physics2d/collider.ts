@@ -233,6 +233,10 @@ export class ShapeGeometry {
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
   private edges: Float64Array | undefined;
   private edgesRevision = -1;
+  /** @internal Valid after `rayAmplification`; see there. */
+  rayEdgeTolerance = 0;
+  private rayBound = 1;
+  private rayBoundRevision = -1;
   /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
   private readonly poseInputs = new Float64Array(9).fill(NaN);
   /**
@@ -268,6 +272,64 @@ export class ShapeGeometry {
   /** @internal For writers of `points` outside `refresh` (motion samples). */
   invalidateEdges(): void {
     this.edgesRevision = -1;
+  }
+  /**
+   * @internal Bounds how far outside the AABB `rayDistance` can report a hit, contained
+   * origins included. Every such point lies within some tolerance `e` of the two edge lines
+   * beside each extreme vertex (`a·(p − v) ≤ e`), so it lies at most `e` times the returned
+   * factor past that vertex along the axis: the summed nonnegative weights expressing the
+   * axis direction in those two edge normals. Infinity where that decomposition fails.
+   * `rayEdgeTolerance` is `contains`'s own tolerance as a distance: EPSILON over the shortest
+   * edge. Circles return 1 (and 0), and are computed once per world-geometry refresh.
+   */
+  rayAmplification(): number {
+    if (this.rayBoundRevision === this.revision) return this.rayBound;
+    this.rayBoundRevision = this.revision;
+    if (this.collider.kind === 'circle') {
+      this.rayEdgeTolerance = 0;
+      return (this.rayBound = 1);
+    }
+    const p = this.points,
+      edges = this.edgeData(),
+      count = p.length >> 1;
+    let shortest = Infinity;
+    for (let k = 0; k < count; k++)
+      shortest = Math.min(shortest, edges[k * 3 + 2]!);
+    this.rayEdgeTolerance = EPSILON / shortest;
+    let bound = 0;
+    for (let axis = 0; axis < 4; axis++) {
+      // +x, -x, +y, -y and the matching extreme coordinate.
+      const ux = axis === 0 ? 1 : axis === 1 ? -1 : 0,
+        uy = axis === 2 ? 1 : axis === 3 ? -1 : 0,
+        extreme =
+          axis === 0
+            ? this.maxX
+            : axis === 1
+              ? this.minX
+              : axis === 2
+                ? this.maxY
+                : this.minY;
+      let vertex = 0;
+      while (vertex < count && p[vertex * 2 + (axis >> 1)] !== extreme)
+        vertex++;
+      const before = ((vertex + count - 1) % count) * 3,
+        after = vertex * 3;
+      const ax = edges[before]!,
+        ay = edges[before + 1]!,
+        bx = edges[after]!,
+        by = edges[after + 1]!;
+      const determinant = ax * by - ay * bx;
+      const first = (ux * by - uy * bx) / determinant,
+        second = (ax * uy - ay * ux) / determinant;
+      // Rounding leaves exact zeros slightly negative; a real negative weight means the
+      // normals do not bracket the axis (degenerate geometry), and nothing is bounded.
+      if (!(first >= -1e-9 && second >= -1e-9)) {
+        bound = Infinity;
+        break;
+      }
+      bound = Math.max(bound, Math.max(0, first) + Math.max(0, second));
+    }
+    return (this.rayBound = bound);
   }
   refresh(owner: GameObject): void {
     const t = owner.transform,

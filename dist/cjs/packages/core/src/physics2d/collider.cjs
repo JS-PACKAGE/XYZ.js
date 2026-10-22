@@ -132,6 +132,9 @@ var ShapeGeometry = class {
 	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
 	edges;
 	edgesRevision = -1;
+	rayEdgeTolerance = 0;
+	rayBound = 1;
+	rayBoundRevision = -1;
 	poseInputs = (/* @__PURE__ */ new Float64Array(9)).fill(NaN);
 	childInputs = (/* @__PURE__ */ new Float64Array(15)).fill(NaN);
 	constructor(e) {
@@ -149,6 +152,25 @@ var ShapeGeometry = class {
 	}
 	invalidateEdges() {
 		this.edgesRevision = -1;
+	}
+	rayAmplification() {
+		if (this.rayBoundRevision === this.revision) return this.rayBound;
+		if (this.rayBoundRevision = this.revision, this.collider.kind === `circle`) return this.rayEdgeTolerance = 0, this.rayBound = 1;
+		let e = this.points, t = this.edgeData(), n = e.length >> 1, r = 1 / 0;
+		for (let e = 0; e < n; e++) r = Math.min(r, t[e * 3 + 2]);
+		this.rayEdgeTolerance = i / r;
+		let a = 0;
+		for (let r = 0; r < 4; r++) {
+			let i = r === 0 ? 1 : r === 1 ? -1 : 0, o = r === 2 ? 1 : r === 3 ? -1 : 0, s = r === 0 ? this.maxX : r === 1 ? this.minX : r === 2 ? this.maxY : this.minY, c = 0;
+			for (; c < n && e[c * 2 + (r >> 1)] !== s;) c++;
+			let l = (c + n - 1) % n * 3, u = c * 3, d = t[l], f = t[l + 1], p = t[u], m = t[u + 1], h = d * m - f * p, g = (i * m - o * p) / h, _ = (d * o - f * i) / h;
+			if (!(g >= -1e-9 && _ >= -1e-9)) {
+				a = 1 / 0;
+				break;
+			}
+			a = Math.max(a, Math.max(0, g) + Math.max(0, _));
+		}
+		return this.rayBound = a;
 	}
 	refresh(e) {
 		let t = e.transform, n = this.poseInputs, r = e.composesFromTransform;

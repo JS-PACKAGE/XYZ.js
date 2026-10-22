@@ -559,6 +559,30 @@ describe('bounded rigid body physics', () => {
     expect([face.normal.x, face.normal.y]).toEqual([-1, -0]);
   });
 
+  it('raycasts keep inside hits that tolerance places just outside the bounds', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    // The 1e-5 edge at x = 1, between two nearly horizontal ones, makes `contains` accept
+    // points up to geometryEpsilon / 1e-5 (1e-3) beyond it, so beyond the AABB too: a ray
+    // starting there hits at distance zero even pointing away.
+    const sliver = object(
+      Colliders.polygon([
+        [-10, -0.001],
+        [1, 0],
+        [1, 1e-5],
+        [-10, 0.00101],
+      ]),
+      0,
+      0,
+      { type: 'static' },
+    );
+    world.register(sliver);
+    const away = new Vector2(1, 0);
+    expect(world.raycast(new Vector2(1.0005, 5e-6), away, 10)).toMatchObject([
+      { owner: sliver, distance: 0 },
+    ]);
+    expect(world.raycast(new Vector2(1.01, 5e-6), away, 10)).toEqual([]);
+  });
+
   it('emits transient contact start/end within a single catchup frame', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 0] });
     const sensor = object(Colliders.box(1, 4), 0, 0, { type: 'static' });

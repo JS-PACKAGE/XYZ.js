@@ -100,6 +100,24 @@ function collide(e, t, i) {
 	}
 	return i.count > 0;
 }
+function rayMissesBounds(e, t, n, i, a, o) {
+	let s = e.rayAmplification();
+	if (!(s <= 1e6)) return !1;
+	let c = Math.abs(t - (e.minX + e.maxX) / 2) + Math.abs(n - (e.minY + e.maxY) / 2) + (e.maxX - e.minX) + (e.maxY - e.minY), l = 4 * s * (e.rayEdgeTolerance + o * r) + 1e-6 * (1 + o + c), u = e.minX - l, d = e.maxX + l, f = e.minY - l, p = e.maxY + l, m = 0, h = o;
+	if (i === 0) {
+		if (t < u || t > d) return !0;
+	} else {
+		let e = (u - t) / i, n = (d - t) / i;
+		m = Math.max(m, Math.min(e, n)), h = Math.min(h, Math.max(e, n));
+	}
+	if (a === 0) {
+		if (n < f || n > p) return !0;
+	} else {
+		let e = (f - n) / a, t = (p - n) / a;
+		m = Math.max(m, Math.min(e, t)), h = Math.min(h, Math.max(e, t));
+	}
+	return m > h;
+}
 function rayDistance(e, t, n, i, a, o, s) {
 	if (e.contains(t, n)) return s.set(-i, -a), 0;
 	if (e.collider.kind === `circle`) {
@@ -124,5 +142,6 @@ function rayDistance(e, t, n, i, a, o, s) {
 exports.Manifold = Manifold;
 exports.collide = collide;
 exports.rayDistance = rayDistance;
+exports.rayMissesBounds = rayMissesBounds;
 
 //# sourceMappingURL=narrowphase.cjs.map

@@ -95,9 +95,9 @@ function sortSweepOrder(e) {
 	}
 }
 var continueSimulation = () => !0;
-var v = require_game_object.GameObject.prototype.dispatchEvent;
-var y = require_scene_object.SceneObject.prototype;
-var b = y.dispatchEvent;
+var y = require_game_object.GameObject.prototype.dispatchEvent;
+var b = require_scene_object.SceneObject.prototype;
+var x = b.dispatchEvent;
 function snapshotPoints(e) {
 	let t = Array(e.count);
 	for (let n = 0; n < e.count; n++) t[n] = e.points[n].clone();
@@ -325,7 +325,7 @@ var PhysicsWorld2D = class {
 		let n = !1;
 		for (let i = 0; i < 2; i++) {
 			let a = i ? e.b : e.a, o = i ? e.a : e.b;
-			if (a.owner.dispatchEvent !== v || y.dispatchEvent !== b || require_event_observers.hasObjectEventObservers(a.owner, t)) {
+			if (a.owner.dispatchEvent !== y || b.dispatchEvent !== x || require_event_observers.hasObjectEventObservers(a.owner, t)) {
 				if (t !== `collisionend` && !this.continuation()) return n;
 				this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && (n = !0, this.dispatchCollision(e, t, a, o, i ? -1 : 1));
 			}
@@ -687,7 +687,7 @@ var PhysicsWorld2D = class {
 		require_collider.finite(r.x, `displacement.x`), require_collider.finite(r.y, `displacement.y`);
 		let u = require_collider.unsigned(a.mask ?? 4294967295, `mask`), d = this.queryMotions.get(t);
 		d || (d = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, d)), d.geometry.refresh(n), d.setExplicit(n.position.x, n.position.y, r.x, r.y), s.hit = !1, s.owner = void 0, s.collider = void 0, s.fraction = s.safeFraction = 1, s.exhausted = !1, s.normal.set(0, 0), s.point.set(0, 0);
-		let f = this.queryRefreshEpoch, p = this.sweepBox, h = require_world2d.physicsDefaults.sweepTolerance, g = this.orderedProxies(), _ = g.length, v = this.knownBounds(f, _), y = this.snapshotBounds, b = this.snapshotBlockBounds;
+		let f = this.queryRefreshEpoch, p = this.sweepBox, m = require_world2d.physicsDefaults.sweepTolerance, g = this.orderedProxies(), _ = g.length, v = this.knownBounds(f, _), y = this.snapshotBounds, b = this.snapshotBlockBounds;
 		this.continuous.sweptBox(d, 1, p);
 		let x = this.openMatrixPass(n);
 		try {
@@ -695,21 +695,21 @@ var PhysicsWorld2D = class {
 				if (v) {
 					if (!(e & 31) && this.blockKnown(e, _)) {
 						let t = (e >> 5) * 4;
-						if (!(p[0] <= b[t + 1] + h && p[1] >= b[t] && p[2] <= b[t + 3] + h && p[3] >= b[t + 2])) {
+						if (!(p[0] <= b[t + 1] + m && p[1] >= b[t] && p[2] <= b[t + 3] + m && p[3] >= b[t + 2])) {
 							e += 31;
 							continue;
 						}
 					}
 					if (v[e]) {
 						let t = e * 4;
-						if (!(p[0] <= y[t + 1] + h && p[1] >= y[t] && p[2] <= y[t + 3] + h && p[3] >= y[t + 2])) continue;
+						if (!(p[0] <= y[t + 1] + m && p[1] >= y[t] && p[2] <= y[t + 3] + m && p[3] >= y[t + 2])) continue;
 					}
 				}
 				let r = g[e];
 				if (r.owner === n || r.owner === a.ignore || r.owner === a.ignoreOther || !this.alive(r) || !a.includeSensors && r.collider.sensor || !(t.category & r.collider.mask) || !(r.collider.category & t.mask & u)) continue;
 				f === 0 ? r.refresh() : refreshInSnapshot(r, f), v && this.recordBounds(r, e, f);
 				let i = r.geometry;
-				if (!(p[0] <= i.maxX + h && p[1] >= i.minX && p[2] <= i.maxY + h && p[3] >= i.minY)) continue;
+				if (!(p[0] <= i.maxX + m && p[1] >= i.minX && p[2] <= i.maxY + m && p[3] >= i.minY)) continue;
 				r.motion.setExplicit(r.owner.position.x, r.owner.position.y, 0, 0);
 				let o = this.continuous.timeOfImpact(d, r.motion, 1, this.ccdIterations);
 				if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), o < s.fraction) {
@@ -725,12 +725,12 @@ var PhysicsWorld2D = class {
 	raycast(t, n, r, i = 4294967295) {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		if (require_collider.finite(t.x, `origin.x`), require_collider.finite(t.y, `origin.y`), require_collider.finite(n.x, `direction.x`), require_collider.finite(n.y, `direction.y`), require_collider.finite(r, `maxDistance`), require_collider.unsigned(i, `mask`), r < 0) throw RangeError(`maxDistance must be nonnegative.`);
-		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [], p = this.queryRefreshEpoch, m;
+		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [], m = this.queryRefreshEpoch, h;
 		try {
 			for (let n of this.proxies) {
 				if (!this.alive(n) || !(n.collider.category & i)) continue;
-				m ||= this.openMatrixPass(n.owner), p === 0 ? n.refresh() : refreshInSnapshot(n, p);
-				let a = require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
+				h ||= this.openMatrixPass(n.owner), m === 0 ? n.refresh() : refreshInSnapshot(n, m);
+				let a = require_narrowphase.rayMissesBounds(n.geometry, t.x, t.y, c, u, r) ? void 0 : require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
 				a !== void 0 && d.push({
 					owner: n.owner,
 					collider: n.collider,
@@ -740,7 +740,7 @@ var PhysicsWorld2D = class {
 				});
 			}
 		} finally {
-			m?.endMatrixPass();
+			h?.endMatrixPass();
 		}
 		return d.sort((e, t) => e.distance - t.distance), d;
 	}

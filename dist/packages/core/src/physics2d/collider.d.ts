@@ -61,6 +61,10 @@ export declare class ShapeGeometry {
     private readonly matrixSnapshot;
     private edges;
     private edgesRevision;
+    /** @internal Valid after `rayAmplification`; see there. */
+    rayEdgeTolerance: number;
+    private rayBound;
+    private rayBoundRevision;
     /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
     private readonly poseInputs;
     /**
@@ -77,6 +81,16 @@ export declare class ShapeGeometry {
     edgeData(): Float64Array;
     /** @internal For writers of `points` outside `refresh` (motion samples). */
     invalidateEdges(): void;
+    /**
+     * @internal Bounds how far outside the AABB `rayDistance` can report a hit, contained
+     * origins included. Every such point lies within some tolerance `e` of the two edge lines
+     * beside each extreme vertex (`a·(p − v) ≤ e`), so it lies at most `e` times the returned
+     * factor past that vertex along the axis: the summed nonnegative weights expressing the
+     * axis direction in those two edge normals. Infinity where that decomposition fails.
+     * `rayEdgeTolerance` is `contains`'s own tolerance as a distance: EPSILON over the shortest
+     * edge. Circles return 1 (and 0), and are computed once per world-geometry refresh.
+     */
+    rayAmplification(): number;
     refresh(owner: GameObject): void;
     private childUnchanged;
     private recordChild;

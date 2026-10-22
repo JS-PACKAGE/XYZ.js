@@ -15,7 +15,12 @@ import {
   unsigned,
 } from './collider.js';
 import { RigidBody2D } from './body.js';
-import { collide, Manifold, rayDistance } from './narrowphase.js';
+import {
+  collide,
+  Manifold,
+  rayDistance,
+  rayMissesBounds,
+} from './narrowphase.js';
 import { ContinuousCollision2D, ShapeMotion2D } from './ccd.js';
 import type { Joint2D } from './joints.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
@@ -1733,15 +1738,25 @@ export class PhysicsWorld2D {
         if (!pass) pass = this.openMatrixPass(proxy.owner);
         if (epoch === 0) proxy.refresh();
         else refreshInSnapshot(proxy, epoch);
-        const distance = rayDistance(
+        // A proven miss skips the exact test, which on a miss writes nothing.
+        const distance = rayMissesBounds(
           proxy.geometry,
           origin.x,
           origin.y,
           dx,
           dy,
           maxDistance,
-          this.queryNormal,
-        );
+        )
+          ? undefined
+          : rayDistance(
+              proxy.geometry,
+              origin.x,
+              origin.y,
+              dx,
+              dy,
+              maxDistance,
+              this.queryNormal,
+            );
         if (distance !== undefined)
           results.push({
             owner: proxy.owner,
