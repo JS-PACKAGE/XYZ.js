@@ -8366,6 +8366,51 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - band);
         break;
       }
+      case 'haybale': {
+        // Combed straw streaks run beside the compressed bind bands.
+        const warp = noise(u, v, 3, 3, seed ^ 0xe444) - 0.5;
+        const straw =
+          0.5 +
+          0.5 *
+            Math.cos(Math.PI * 2 * (fract((u + v + 0.008 * warp) * 10) - 0.5));
+        const bind = smooth(
+          clamp((0.08 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.04),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0xf555);
+        color = 0.46 + 0.3 * straw - 0.1 * bind + 0.08 * grain;
+        height = 0.44 + 0.22 * straw - 0.1 * bind + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * straw + 0.08 * bind;
+        occlusion = 1 - 0.32 * (1 - straw) - 0.14 * bind;
+        break;
+      }
+      case 'corncrib': {
+        // Slatted crib rails cross over the dark open gaps.
+        const slatH = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
+        const slatV = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
+        const slat = slatH + slatV - slatH * slatV;
+        const grain = noise(u, v, 32, 32, seed ^ 0x1666);
+        color = 0.4 + 0.32 * slat + 0.08 * grain;
+        height = 0.42 + 0.24 * slat + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * slat;
+        occlusion = 1 - 0.34 * (1 - slat);
+        break;
+      }
+      case 'fencepost': {
+        // Weathered vertical grain ridges split by dark checks.
+        const turn = fract(u * 6);
+        const grainridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const check = smooth(clamp((0.03 - Math.min(turn, 1 - turn)) / 0.015));
+        const knot = smooth(
+          clamp((noise(u, v, 10, 10, seed ^ 0x2777) - 0.72) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x3888);
+        color =
+          0.44 + 0.3 * grainridge - 0.12 * check + 0.08 * knot + 0.06 * grain;
+        height = 0.44 + 0.22 * grainridge - 0.1 * check + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * grainridge + 0.1 * check;
+        occlusion = 1 - 0.32 * (1 - grainridge) - 0.16 * check;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

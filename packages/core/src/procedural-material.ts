@@ -247,6 +247,9 @@ export type ProceduralMaterialKind =
   | 'puzzletile'
   | 'legobrick'
   | 'rubberband'
+  | 'haybale'
+  | 'corncrib'
+  | 'fencepost'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -576,6 +579,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'puzzletile',
   'legobrick',
   'rubberband',
+  'haybale',
+  'corncrib',
+  'fencepost',
   'basketball',
   'tennisball',
   'golfball',

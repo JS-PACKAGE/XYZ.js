@@ -3366,6 +3366,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .58,
 		relief: .0022
 	}),
+	haybale: Object.freeze({
+		dark: [
+			162,
+			132,
+			62
+		],
+		light: [
+			242,
+			218,
+			132
+		],
+		roughness: .72,
+		relief: .0032
+	}),
+	corncrib: Object.freeze({
+		dark: [
+			102,
+			82,
+			62
+		],
+		light: [
+			192,
+			162,
+			112
+		],
+		roughness: .68,
+		relief: .0028
+	}),
+	fencepost: Object.freeze({
+		dark: [
+			92,
+			72,
+			52
+		],
+		light: [
+			182,
+			152,
+			112
+		],
+		roughness: .78,
+		relief: .003
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4461,6 +4503,9 @@ var proceduralTileMeters = Object.freeze({
 	puzzletile: .24,
 	legobrick: .2,
 	rubberband: .16,
+	haybale: .5,
+	corncrib: .3,
+	fencepost: .18,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

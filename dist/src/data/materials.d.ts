@@ -1446,6 +1446,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.58;
         relief: 0.0022;
     }>;
+    haybale: Readonly<{
+        dark: readonly [162, 132, 62];
+        light: readonly [242, 218, 132];
+        roughness: 0.72;
+        relief: 0.0032;
+    }>;
+    corncrib: Readonly<{
+        dark: readonly [102, 82, 62];
+        light: readonly [192, 162, 112];
+        roughness: 0.68;
+        relief: 0.0028;
+    }>;
+    fencepost: Readonly<{
+        dark: readonly [92, 72, 52];
+        light: readonly [182, 152, 112];
+        roughness: 0.78;
+        relief: 0.003;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2086,6 +2104,9 @@ export declare const proceduralTileMeters: Readonly<{
     puzzletile: 0.24;
     legobrick: 0.2;
     rubberband: 0.16;
+    haybale: 0.5;
+    corncrib: 0.3;
+    fencepost: 0.18;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

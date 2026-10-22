@@ -2367,6 +2367,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .3 * n + .08 * i, Z = .44 + .2 * n + .02 * i, Q += .06 * (i - .5) - .1 * n, $ = 1 - .32 * (1 - n);
 				break;
 			}
+			case `haybale`: {
+				let e = noise(o, A, 3, 3, r ^ 58436) - .5, t = .5 + .5 * Math.cos(Math.PI * 2 * (fract((o + A + .008 * e) * 10) - .5)), n = smooth(clamp((.08 - Math.min(fract(o * 3), 1 - fract(o * 3))) / .04)), i = noise(o, A, 32, 32, r ^ 62805);
+				H = .46 + .3 * t - .1 * n + .08 * i, Z = .44 + .22 * t - .1 * n + .02 * i, Q += .06 * (i - .5) - .1 * t + .08 * n, $ = 1 - .32 * (1 - t) - .14 * n;
+				break;
+			}
+			case `corncrib`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 4) - .5)), t = .5 + .5 * Math.cos(Math.PI * 2 * (fract(o * 3) - .5)), n = e + t - e * t, i = noise(o, A, 32, 32, r ^ 5734);
+				H = .4 + .32 * n + .08 * i, Z = .42 + .24 * n + .02 * i, Q += .06 * (i - .5) - .1 * n, $ = 1 - .34 * (1 - n);
+				break;
+			}
+			case `fencepost`: {
+				let e = fract(o * 6), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = smooth(clamp((.03 - Math.min(e, 1 - e)) / .015)), i = smooth(clamp((noise(o, A, 10, 10, r ^ 10103) - .72) / .08)), a = noise(o, A, 32, 32, r ^ 14472);
+				H = .44 + .3 * t - .12 * n + .08 * i + .06 * a, Z = .44 + .22 * t - .1 * n + .02 * a, Q += .06 * (a - .5) - .08 * t + .1 * n, $ = 1 - .32 * (1 - t) - .16 * n;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

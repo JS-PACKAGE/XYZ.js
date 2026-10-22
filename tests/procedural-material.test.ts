@@ -265,6 +265,9 @@ const kinds: ProceduralMaterialKind[] = [
   'puzzletile',
   'legobrick',
   'rubberband',
+  'haybale',
+  'corncrib',
+  'fencepost',
   'basketball',
   'tennisball',
   'golfball',
@@ -5076,6 +5079,9 @@ describe('periodic procedural material fields', () => {
     ['puzzletile', [2, 8, 32, 64]],
     ['legobrick', [4, 32, 48, 64]],
     ['rubberband', [3, 32, 48, 64]],
+    ['haybale', [3, 10, 32, 64]],
+    ['corncrib', [3, 4, 32, 64]],
+    ['fencepost', [6, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5347,6 +5353,9 @@ describe('periodic procedural material fields', () => {
     ['puzzletile', 2],
     ['legobrick', 4],
     ['rubberband', 3],
+    ['haybale', 10],
+    ['corncrib', 3],
+    ['fencepost', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6772,6 +6781,9 @@ describe('periodic procedural material fields', () => {
     'puzzletile',
     'legobrick',
     'rubberband',
+    'haybale',
+    'corncrib',
+    'fencepost',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6967,7 +6979,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                             : kind ===
                                                                                                                                                 'rubberband'
                                                                                                                                               ? 3
-                                                                                                                                              : 4;
+                                                                                                                                              : kind ===
+                                                                                                                                                  'haybale'
+                                                                                                                                                ? 10
+                                                                                                                                                : kind ===
+                                                                                                                                                    'corncrib'
+                                                                                                                                                  ? 3
+                                                                                                                                                  : kind ===
+                                                                                                                                                      'fencepost'
+                                                                                                                                                    ? 6
+                                                                                                                                                    : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11222,6 +11243,70 @@ describe('periodic procedural material fields', () => {
       expect(single.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(crossing.occlusion).toBeGreaterThan(gap.occlusion);
       expect(single.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('hay bale combs straw streaks above the bind grooves', () => {
+    const relief = proceduralMaterialPresets.haybale.relief;
+    const straw: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...straw };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('haybale', seed);
+      sample(0.05, 0, straw);
+      sample(0.1, 0, gap);
+      expect(straw.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(straw.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('corn crib crosses slat rails over the open gaps', () => {
+    const relief = proceduralMaterialPresets.corncrib.relief;
+    const crossing: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const single = { ...crossing };
+    const gap = { ...crossing };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('corncrib', seed);
+      sample(1 / 6, 0.125, crossing);
+      sample(1 / 6, 0.25, single);
+      sample(1 / 3, 0.25, gap);
+      expect(crossing.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(single.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(crossing.occlusion).toBeGreaterThan(gap.occlusion);
+      expect(single.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('fence post lifts grain ridges above the dark checks', () => {
+    const relief = proceduralMaterialPresets.fencepost.relief;
+    const ridge: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const check = { ...ridge };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('fencepost', seed);
+      sample(1 / 12, 0.37, ridge);
+      sample(0, 0.37, check);
+      expect(ridge.height).toBeGreaterThan(check.height + 0.1 * relief);
+      expect(ridge.occlusion).toBeGreaterThan(check.occlusion);
     }
   });
 
