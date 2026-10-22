@@ -262,6 +262,9 @@ const kinds: ProceduralMaterialKind[] = [
   'sunflower',
   'daisy',
   'clover',
+  'puzzletile',
+  'legobrick',
+  'rubberband',
   'basketball',
   'tennisball',
   'golfball',
@@ -5070,6 +5073,9 @@ describe('periodic procedural material fields', () => {
     ['sunflower', [8, 16, 32, 64]],
     ['daisy', [4, 32, 48, 64]],
     ['clover', [3, 32, 48, 64]],
+    ['puzzletile', [2, 8, 32, 64]],
+    ['legobrick', [4, 32, 48, 64]],
+    ['rubberband', [3, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5338,6 +5344,9 @@ describe('periodic procedural material fields', () => {
     ['sunflower', 8],
     ['daisy', 4],
     ['clover', 3],
+    ['puzzletile', 2],
+    ['legobrick', 4],
+    ['rubberband', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6760,6 +6769,9 @@ describe('periodic procedural material fields', () => {
     'sunflower',
     'daisy',
     'clover',
+    'puzzletile',
+    'legobrick',
+    'rubberband',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6946,7 +6958,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                       : kind ===
                                                                                                                                           'clover'
                                                                                                                                         ? 3
-                                                                                                                                        : 4;
+                                                                                                                                        : kind ===
+                                                                                                                                            'puzzletile'
+                                                                                                                                          ? 2
+                                                                                                                                          : kind ===
+                                                                                                                                              'legobrick'
+                                                                                                                                            ? 4
+                                                                                                                                            : kind ===
+                                                                                                                                                'rubberband'
+                                                                                                                                              ? 3
+                                                                                                                                              : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11134,6 +11155,73 @@ describe('periodic procedural material fields', () => {
       sample(0.525, 0.5433, gap);
       expect(lobe.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(lobe.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('puzzle tiles lift pieces and knobs above the seams', () => {
+    const relief = proceduralMaterialPresets.puzzletile.relief;
+    const piece: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const knob = { ...piece };
+    const corner = { ...piece };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('puzzletile', seed);
+      sample(0.25, 0.25, piece);
+      sample(0, 0.25, knob);
+      sample(0, 0, corner);
+      expect(piece.height).toBeGreaterThan(corner.height + 0.1 * relief);
+      expect(knob.height).toBeGreaterThan(corner.height + 0.1 * relief);
+      expect(piece.occlusion).toBeGreaterThan(corner.occlusion);
+    }
+  });
+
+  it('lego brick domes studs above the smooth plate', () => {
+    const relief = proceduralMaterialPresets.legobrick.relief;
+    const stud: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const plate = { ...stud };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('legobrick', seed);
+      sample(1 / 8, 1 / 8, stud);
+      sample(0, 0, plate);
+      expect(stud.height).toBeGreaterThan(plate.height + 0.1 * relief);
+      expect(stud.occlusion).toBeGreaterThan(plate.occlusion);
+    }
+  });
+
+  it('rubber band stretches crossed bands over the base wrap', () => {
+    const relief = proceduralMaterialPresets.rubberband.relief;
+    const crossing: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const single = { ...crossing };
+    const gap = { ...crossing };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rubberband', seed);
+      sample(1 / 6, 1 / 6, crossing);
+      sample(1 / 6, 1 / 3, single);
+      sample(1 / 3, 1 / 3, gap);
+      expect(crossing.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(single.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(crossing.occlusion).toBeGreaterThan(gap.occlusion);
+      expect(single.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

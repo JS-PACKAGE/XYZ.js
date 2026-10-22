@@ -1428,6 +1428,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.68;
         relief: 0.0028;
     }>;
+    puzzletile: Readonly<{
+        dark: readonly [162, 102, 42];
+        light: readonly [242, 192, 112];
+        roughness: 0.52;
+        relief: 0.003;
+    }>;
+    legobrick: Readonly<{
+        dark: readonly [152, 42, 42];
+        light: readonly [232, 142, 112];
+        roughness: 0.38;
+        relief: 0.0028;
+    }>;
+    rubberband: Readonly<{
+        dark: readonly [72, 112, 62];
+        light: readonly [172, 222, 142];
+        roughness: 0.58;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2065,6 +2083,9 @@ export declare const proceduralTileMeters: Readonly<{
     sunflower: 0.24;
     daisy: 0.2;
     clover: 0.24;
+    puzzletile: 0.24;
+    legobrick: 0.2;
+    rubberband: 0.16;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

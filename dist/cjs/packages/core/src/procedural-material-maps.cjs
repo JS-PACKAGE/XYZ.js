@@ -2352,6 +2352,21 @@ function createSurfaceSampler(t, r) {
 				H = .4 + .34 * i + .08 * a + .06 * s, Z = .42 + .24 * i + .03 * a + .02 * s, Q += .06 * (s - .5) - .08 * i, $ = 1 - .34 * (1 - i);
 				break;
 			}
+			case `puzzletile`: {
+				let e = Math.min(fract(o * 2), 1 - fract(o * 2)), t = Math.min(fract(A * 2), 1 - fract(A * 2)), n = smooth(clamp((Math.min(e, t) - .02) / .05)), i = smooth(clamp((.13 - Math.hypot(e, fract(A * 2) - .5)) / .05)), a = smooth(clamp((.13 - Math.hypot(t, fract(o * 2) - .5)) / .05)), s = 1 - (1 - n) * (1 - i) * (1 - a), c = noise(o, A, 32, 32, r ^ 48076);
+				H = .44 + .3 * s + .08 * c, Z = .44 + .24 * s + .02 * c, Q += .06 * (c - .5) - .1 * s, $ = 1 - .34 * (1 - s);
+				break;
+			}
+			case `legobrick`: {
+				let e = Math.sin(Math.PI * (fract(o * 4) - .5)), t = Math.sin(Math.PI * (fract(A * 4) - .5)), n = clamp((.55 - Math.hypot(e * .8, t * .8)) / .55), i = .5 - .5 * Math.cos(Math.PI * n), a = noise(o, A, 32, 32, r ^ 52700);
+				H = .46 + .3 * i + .06 * a, Z = .44 + .24 * i + .02 * a, Q += .06 * (a - .5) - .1 * i, $ = 1 - .3 * (1 - i);
+				break;
+			}
+			case `rubberband`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 3) - .5)), t = .5 + .5 * Math.cos(Math.PI * 2 * (fract(o * 3) - .5)), n = e + t - e * t, i = noise(o, A, 32, 32, r ^ 56814);
+				H = .42 + .3 * n + .08 * i, Z = .44 + .2 * n + .02 * i, Q += .06 * (i - .5) - .1 * n, $ = 1 - .32 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

@@ -8322,6 +8322,50 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - lobe);
         break;
       }
+      case 'puzzletile': {
+        // Jigsaw pieces rise over their seams, bridged by rounded knobs.
+        const bx = Math.min(fract(u * 2), 1 - fract(u * 2)),
+          by = Math.min(fract(v * 2), 1 - fract(v * 2));
+        const piece = smooth(clamp((Math.min(bx, by) - 0.02) / 0.05));
+        const knobH = smooth(
+          clamp((0.13 - Math.hypot(bx, fract(v * 2) - 0.5)) / 0.05),
+        );
+        const knobV = smooth(
+          clamp((0.13 - Math.hypot(by, fract(u * 2) - 0.5)) / 0.05),
+        );
+        const top = 1 - (1 - piece) * (1 - knobH) * (1 - knobV);
+        const grain = noise(u, v, 32, 32, seed ^ 0xbbcc);
+        color = 0.44 + 0.3 * top + 0.08 * grain;
+        height = 0.44 + 0.24 * top + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * top;
+        occlusion = 1 - 0.34 * (1 - top);
+        break;
+      }
+      case 'legobrick': {
+        // Cylindrical studs dome over the smooth brick plate.
+        const sx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+          sy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+        const st = clamp((0.55 - Math.hypot(sx * 0.8, sy * 0.8)) / 0.55);
+        const stud = 0.5 - 0.5 * Math.cos(Math.PI * st);
+        const grain = noise(u, v, 32, 32, seed ^ 0xcddc);
+        color = 0.46 + 0.3 * stud + 0.06 * grain;
+        height = 0.44 + 0.24 * stud + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * stud;
+        occlusion = 1 - 0.3 * (1 - stud);
+        break;
+      }
+      case 'rubberband': {
+        // Crossed elastic bands stretch over the base wrap.
+        const bandU = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 3) - 0.5));
+        const bandV = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
+        const band = bandU + bandV - bandU * bandV;
+        const stretch = noise(u, v, 32, 32, seed ^ 0xddee);
+        color = 0.42 + 0.3 * band + 0.08 * stretch;
+        height = 0.44 + 0.2 * band + 0.02 * stretch;
+        roughness += 0.06 * (stretch - 0.5) - 0.1 * band;
+        occlusion = 1 - 0.32 * (1 - band);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

@@ -244,6 +244,9 @@ export type ProceduralMaterialKind =
   | 'sunflower'
   | 'daisy'
   | 'clover'
+  | 'puzzletile'
+  | 'legobrick'
+  | 'rubberband'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -570,6 +573,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sunflower',
   'daisy',
   'clover',
+  'puzzletile',
+  'legobrick',
+  'rubberband',
   'basketball',
   'tennisball',
   'golfball',
