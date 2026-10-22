@@ -179,6 +179,12 @@ export class PhysicsWorld3D {
   private sequenceMembership = -1;
   /** The last snapshot's movers in `sequencePoses`: the only entries moved since. */
   private readonly sequenceMovers: Entry3D[] = [];
+  /**
+   * This step's entries that can move without user code: those `moveBodies` moved, and those
+   * whose pose is not their own transform (children, overridden or interpolated composition),
+   * from the step's first full refresh. See `refreshMoved`.
+   */
+  private readonly stepMovers: Entry3D[] = [];
   /** Bumped by every registration change. */
   private membership = 0;
   private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
@@ -321,6 +327,23 @@ export class PhysicsWorld3D {
     if (entry) this.snapshotMovers.push(entry);
     const children = object.existingChildren;
     if (children) for (const child of children) this.collectMovers(child);
+  }
+  /**
+   * `refreshIndex()` after a step whose only motion was `moveBodies`, following a full
+   * refresh with no user code since: a root whose pose is its own transform alone keeps it
+   * unless `moveBodies` moved it, so only `stepMovers` (deduplicated, in `ordered` order) are
+   * refreshed. Pose checks still count every entry.
+   */
+  private refreshMoved(): void {
+    const movers = this.stepMovers;
+    sortByOrder(movers);
+    let kept = 0;
+    for (let i = 0; i < movers.length; i++)
+      if (kept === 0 || movers[kept - 1] !== movers[i])
+        movers[kept++] = movers[i]!;
+    movers.length = kept;
+    this.counters.poseChecks += this.ordered.length - kept;
+    this.refreshIndex(movers);
   }
   get joints(): readonly Joint3D[] {
     return this.constraints;
@@ -747,9 +770,11 @@ export class PhysicsWorld3D {
         integrateRotation3D(o.rotation, b.angularVelocity, dt, o.rotation);
       if (e.shape.refresh(o)) ++this.counters.refreshedLeaves;
       b.refreshInertia(e.shape);
+      this.stepMovers.push(e);
     }
   }
-  private integrateContinuous(dt: number, canContinue: () => boolean): void {
+  /** True when bodies only moved through one `moveBodies`, which ran no user code. */
+  private integrateContinuous(dt: number, canContinue: () => boolean): boolean {
     let continuous = false;
     for (const entry of this.ordered)
       if (entry.body?.type === 'dynamic' && entry.body.continuous) {
@@ -758,7 +783,7 @@ export class PhysicsWorld3D {
       }
     if (!continuous) {
       this.moveBodies(dt);
-      return;
+      return true;
     }
     let remaining = dt,
       events = 0;
@@ -850,7 +875,7 @@ export class PhysicsWorld3D {
       }
       if (!hitA || !hitB || nearest > remaining) {
         this.moveBodies(remaining);
-        return;
+        return false;
       }
       this.moveBodies(nearest);
       remaining -= nearest;
@@ -865,7 +890,7 @@ export class PhysicsWorld3D {
       }
       const contact = this.prepareContact(hitA, hitB, this.queryManifold);
       if (!contact.started) this.start(contact);
-      if (!canContinue() || this.disposed) return;
+      if (!canContinue() || this.disposed) return false;
       if (!this.valid(hitA) || !this.valid(hitB)) {
         ++events;
         continue;
@@ -892,6 +917,7 @@ export class PhysicsWorld3D {
       ++this.counters.ccdExhaustions;
       this.counters.ccdLimitedTime += remaining;
     }
+    return false;
   }
   private step(dt: number, canContinue: () => boolean): void {
     ++this.stepId;
@@ -902,9 +928,10 @@ export class PhysicsWorld3D {
     this.counters.ccdImpacts = 0;
     this.counters.ccdExhaustions = 0;
     this.counters.ccdLimitedTime = 0;
-    this.refreshIndex();
-    // Outside a pose snapshot that refreshed every entry's shape, and nothing below moves one.
+    // Outside a pose snapshot this refreshes every entry's shape, and nothing below moves one.
     const refreshedAll = !this.poseSnapshot;
+    this.stepMovers.length = 0;
+    this.refreshIndex(undefined, refreshedAll ? this.stepMovers : undefined);
     for (const e of this.ordered) {
       e.ccdStopped = false;
       this.validateWith(e.object, refreshedAll ? e.shape : undefined);
@@ -948,9 +975,11 @@ export class PhysicsWorld3D {
     this.counters.jointIterations = 0;
     for (let iteration = 0; iteration < this.solverIterations; iteration++)
       this.solveJoints();
-    this.integrateContinuous(dt, canContinue);
+    const discrete = this.integrateContinuous(dt, canContinue);
     if (!canContinue() || this.disposed) return;
-    this.refreshIndex();
+    if (discrete && refreshedAll && !this.indexDirty) this.refreshMoved();
+    else this.refreshIndex();
+    this.stepMovers.length = 0;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     // Both ways yield each overlapping pair with a body or sensor once; pairs are then
@@ -1345,7 +1374,7 @@ export class PhysicsWorld3D {
     this.applyImpulse(b, p, -1);
   }
   /** `only`: the entries that alone can have moved since every pose was last refreshed. */
-  private refreshIndex(only?: readonly Entry3D[]): void {
+  private refreshIndex(only?: readonly Entry3D[], indirect?: Entry3D[]): void {
     const snapshot = this.poseSnapshot && !this.indexDirty;
     if (snapshot && this.snapshotMovers.length === 0) return;
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
@@ -1361,6 +1390,7 @@ export class PhysicsWorld3D {
         }
         ++this.counters.poseChecks;
         if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
+        if (indirect && !e.shape.composedDirectly()) indirect.push(e);
         if (e.indexedRevision !== e.shape.revision) {
           changed = true;
           if (!this.indexDirty) this.counters.refits += this.index.update(e);

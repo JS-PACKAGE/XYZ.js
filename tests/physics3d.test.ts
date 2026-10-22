@@ -504,6 +504,37 @@ describe('3D shape queries and ownership', () => {
     scene.destroy();
   });
 
+  it('finds contacts of a moving body child collider at the pose reached in the same step', () => {
+    const scene = new Scene();
+    const trigger = scene.add(
+      object(
+        new BoxCollider3D(new Vector3(0.1, 1, 1), { sensor: true }),
+        new Vector3(1, 0, 0),
+      ),
+    );
+    const body = scene.add(
+      object(new SphereCollider3D(0.1), new Vector3(-2.05, 0, 0), {
+        gravityScale: 0,
+      }),
+    );
+    // A sensor carried one unit ahead; the body moves 0.1 per fixed step.
+    const probe = body.add(
+      object(new SphereCollider3D(0.1, { sensor: true }), new Vector3(1, 0, 0)),
+    );
+    body.body!.velocity.x = 0.1 / scene.physics3D.fixedDelta;
+    let depth: number | undefined;
+    trigger.addEventListener('collisionstart', (event) => {
+      const contact = (event as CustomEvent<PhysicsContact3D>).detail;
+      if (contact.other === probe && depth === undefined)
+        depth = body.position.x + 1 + 0.1 - 0.9;
+    });
+    for (let step = 0; step < 30 && depth === undefined; step++)
+      scene.physics3D.update(scene.physics3D.fixedDelta);
+    // First overlap is 0.05 deep; a pose one step stale would report it only at 0.15.
+    expect(depth).toBeCloseTo(0.05, 6);
+    scene.destroy();
+  });
+
   for (const change of ['remove', 'separate'] as const) {
     it(`does not wake a sleeping dynamic on sensor contact ${change === 'remove' ? 'removal' : 'separation'}`, () => {
       const scene = new Scene();

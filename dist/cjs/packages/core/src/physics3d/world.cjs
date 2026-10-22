@@ -68,6 +68,7 @@ var PhysicsWorld3D = class {
 	sequencePoses = 0;
 	sequenceMembership = -1;
 	sequenceMovers = [];
+	stepMovers = [];
 	membership = 0;
 	sweptIndex = new require_spatial.SpatialIndex3D();
 	sweptStore = [];
@@ -163,6 +164,13 @@ var PhysicsWorld3D = class {
 		t && this.snapshotMovers.push(t);
 		let n = e.existingChildren;
 		if (n) for (let e of n) this.collectMovers(e);
+	}
+	refreshMoved() {
+		let e = this.stepMovers;
+		require_spatial.sortByOrder(e);
+		let t = 0;
+		for (let n = 0; n < e.length; n++) (t === 0 || e[t - 1] !== e[n]) && (e[t++] = e[n]);
+		e.length = t, this.counters.poseChecks += this.ordered.length - t, this.refreshIndex(e);
 	}
 	get joints() {
 		return this.constraints;
@@ -375,7 +383,7 @@ var PhysicsWorld3D = class {
 			let n = t.body;
 			if (!n || n.type === `static` || n.isSleeping || t.ccdStopped) continue;
 			let r = t.object;
-			r.position.x += n.velocity.x * e, r.position.y += n.velocity.y * e, r.position.z += n.velocity.z * e, n.lockRotation || require_ccd.integrateRotation3D(r.rotation, n.angularVelocity, e, r.rotation), t.shape.refresh(r) && ++this.counters.refreshedLeaves, n.refreshInertia(t.shape);
+			r.position.x += n.velocity.x * e, r.position.y += n.velocity.y * e, r.position.z += n.velocity.z * e, n.lockRotation || require_ccd.integrateRotation3D(r.rotation, n.angularVelocity, e, r.rotation), t.shape.refresh(r) && ++this.counters.refreshedLeaves, n.refreshInertia(t.shape), this.stepMovers.push(t);
 		}
 	}
 	integrateContinuous(e, t) {
@@ -384,10 +392,7 @@ var PhysicsWorld3D = class {
 			n = !0;
 			break;
 		}
-		if (!n) {
-			this.moveBodies(e);
-			return;
-		}
+		if (!n) return this.moveBodies(e), !0;
 		let r = e, i = 0;
 		for (; r > 1e-12 && i < require_physics3d.physics3DDefaults.ccdMaxImpacts;) {
 			for (let e of this.sweptEntries) require_ccd.rigidSweptBounds3D(e.entry, r, e.bounds, this.ccdDisplacement), this.sweptIndexDirty || this.sweptIndex.update(e);
@@ -414,16 +419,13 @@ var PhysicsWorld3D = class {
 				this.moveBodies(n), r -= n, s.ccdStopped = !0, c.ccdStopped = !0, ++this.counters.ccdExhaustions, this.counters.ccdLimitedTime += r, ++i;
 				continue;
 			}
-			if (!a || !o || e > r) {
-				this.moveBodies(r);
-				return;
-			}
+			if (!a || !o || e > r) return this.moveBodies(r), !1;
 			if (this.moveBodies(e), r -= e, this.narrow.collide(a.shape, o.shape, this.queryManifold), this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) {
 				a.ccdStopped = !0, o.ccdStopped = !0, ++this.counters.ccdExhaustions, this.counters.ccdLimitedTime += r, ++i;
 				continue;
 			}
 			let l = this.prepareContact(a, o, this.queryManifold);
-			if (l.started || this.start(l), !t() || this.disposed) return;
+			if (l.started || this.start(l), !t() || this.disposed) return !1;
 			if (!this.valid(a) || !this.valid(o)) {
 				++i;
 				continue;
@@ -437,11 +439,12 @@ var PhysicsWorld3D = class {
 			}
 			++this.counters.ccdImpacts, ++i;
 		}
-		r > 1e-12 && (++this.counters.ccdExhaustions, this.counters.ccdLimitedTime += r);
+		return r > 1e-12 && (++this.counters.ccdExhaustions, this.counters.ccdLimitedTime += r), !1;
 	}
 	step(e, t) {
-		++this.stepId, this.activeCount = 0, this.counters.ccdTests = 0, this.counters.ccdIterations = 0, this.counters.ccdImpacts = 0, this.counters.ccdExhaustions = 0, this.counters.ccdLimitedTime = 0, this.refreshIndex();
+		++this.stepId, this.activeCount = 0, this.counters.ccdTests = 0, this.counters.ccdIterations = 0, this.counters.ccdImpacts = 0, this.counters.ccdExhaustions = 0, this.counters.ccdLimitedTime = 0;
 		let n = !this.poseSnapshot;
+		this.stepMovers.length = 0, this.refreshIndex(void 0, n ? this.stepMovers : void 0);
 		for (let t of this.ordered) {
 			t.ccdStopped = !1, this.validateWith(t.object, n ? t.shape : void 0);
 			let r = t.body;
@@ -458,27 +461,28 @@ var PhysicsWorld3D = class {
 		for (let t of this.constraints) t.prepare(e), this.counters.jointRows += t.solverRowCount, this.jointSnapshot.push(t);
 		this.counters.jointIterations = 0;
 		for (let e = 0; e < this.solverIterations; e++) this.solveJoints();
-		if (this.integrateContinuous(e, t), !t() || this.disposed) return;
-		this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
-		let r = this.pairLows, i = this.pairHighs, a = this.pairSequence, o = 0, s = 0;
-		for (let e of this.ordered) pairsWithin(e) && s++;
-		if (s >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
+		let r = this.integrateContinuous(e, t);
+		if (!t() || this.disposed) return;
+		r && n && !this.indexDirty ? this.refreshMoved() : this.refreshIndex(), this.stepMovers.length = 0, this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
+		let i = this.pairLows, a = this.pairHighs, o = this.pairSequence, s = 0, l = 0;
+		for (let e of this.ordered) pairsWithin(e) && l++;
+		if (l >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
 			let e = this.pairFirsts, t = this.pairSeconds;
 			this.index.pairs(pairsWithin, require_physics3d.physics3DDefaults.contactMargin, e, t);
 			for (let n = 0; n < e.length; n++) {
-				let s = e[n], c = t[n];
-				a[o] = o, r[o] = c.order < s.order ? c : s, i[o++] = c.order < s.order ? s : c;
+				let r = e[n], c = t[n];
+				o[s] = s, i[s] = c.order < r.order ? c : r, a[s++] = c.order < r.order ? r : c;
 			}
 		} else for (let e of this.ordered) if (pairsWithin(e)) {
 			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
-			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (a[o] = o, r[o] = t.order < e.order ? t : e, i[o++] = t.order < e.order ? e : t));
+			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (o[s] = s, i[s] = t.order < e.order ? t : e, a[s++] = t.order < e.order ? e : t));
 		}
-		r.length = i.length = a.length = o, a.sort(this.comparePairs);
-		for (let e of a) {
-			let t = r[e], n = i[e];
+		i.length = a.length = o.length = s, o.sort(this.comparePairs);
+		for (let e of o) {
+			let t = i[e], n = a[e];
 			this.counters.candidatePairs++;
-			let a = t.shape.collider, o = n.shape.collider;
-			a.category & o.mask && o.category & a.mask && (this.connected(t, n) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, n.shape, this.queryManifold), !(this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) && (this.active[this.activeCount++] = this.prepareContact(t, n, this.queryManifold))));
+			let r = t.shape.collider, o = n.shape.collider;
+			r.category & o.mask && o.category & r.mask && (this.connected(t, n) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, n.shape, this.queryManifold), !(this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) && (this.active[this.activeCount++] = this.prepareContact(t, n, this.queryManifold))));
 		}
 		this.active.length = this.activeCount;
 		for (let e of this.contacts.keys()) {
@@ -587,22 +591,22 @@ var PhysicsWorld3D = class {
 		let g = Math.sqrt((n ? n.friction : .5) * (r ? r.friction : .5)) * p, _ = e.tangentImpulses[t], v = Math.max(-g, Math.min(g, _ - (c * m.x + l * m.y + u * m.z) / h));
 		e.tangentImpulses[t] = v, this.solveImpulse.set(m.x * (v - _), m.y * (v - _), m.z * (v - _)), this.applyImpulse(n, a, 1), this.applyImpulse(r, a, -1);
 	}
-	refreshIndex(e) {
-		let t = this.poseSnapshot && !this.indexDirty;
-		if (t && this.snapshotMovers.length === 0) return;
-		let n = this.indexDirty, r;
+	refreshIndex(e, t) {
+		let n = this.poseSnapshot && !this.indexDirty;
+		if (n && this.snapshotMovers.length === 0) return;
+		let r = this.indexDirty, i;
 		try {
-			for (let i of e ?? (t ? this.snapshotMovers : this.ordered)) {
-				if (!r) {
-					let e = i.object.scene;
-					e?.beginMatrixPass() && (r = e);
+			for (let a of e ?? (n ? this.snapshotMovers : this.ordered)) {
+				if (!i) {
+					let e = a.object.scene;
+					e?.beginMatrixPass() && (i = e);
 				}
-				++this.counters.poseChecks, i.shape.refresh(i.object) && ++this.counters.refreshedLeaves, i.indexedRevision !== i.shape.revision && (n = !0, this.indexDirty || (this.counters.refits += this.index.update(i)), i.indexedRevision = i.shape.revision);
+				++this.counters.poseChecks, a.shape.refresh(a.object) && ++this.counters.refreshedLeaves, t && !a.shape.composedDirectly() && t.push(a), a.indexedRevision !== a.shape.revision && (r = !0, this.indexDirty || (this.counters.refits += this.index.update(a)), a.indexedRevision = a.shape.revision);
 			}
 		} finally {
-			r?.endMatrixPass();
+			i?.endMatrixPass();
 		}
-		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), n && ++this.counters.indexGeneration;
+		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), r && ++this.counters.indexGeneration;
 	}
 	candidates(e) {
 		this.refreshIndex(), this.index.query(e, this.queryCandidates), this.counters.queryCandidates = this.queryCandidates.length;
