@@ -120,6 +120,13 @@ var CanvasTexture2D = class {
 		let n = snapshot(t), r = this.canvas;
 		this.canvas = n, this.pixelWidth = n.width, this.pixelHeight = n.height, this.revision++, r.width = r.height = 0;
 	}
+	adopt(t) {
+		if (this.disposed) throw new require_texture.AssetError(`Cannot update a destroyed CanvasTexture2D.`);
+		if (this.revision === 2 ** 53 - 1) throw RangeError(`CanvasTexture2D version overflow.`);
+		dimensions(t.width, t.height);
+		let n = this.canvas;
+		this.canvas = t, this.pixelWidth = t.width, this.pixelHeight = t.height, this.revision++, n.width = n.height = 0;
+	}
 	copyFrame(t) {
 		if (this.disposed) throw new require_texture.AssetError(`Cannot update a destroyed CanvasTexture2D.`);
 		if (this.revision === 2 ** 53 - 1) throw RangeError(`CanvasTexture2D version overflow.`);

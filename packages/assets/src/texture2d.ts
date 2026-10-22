@@ -259,6 +259,24 @@ export class CanvasTexture2D {
     this.revision++;
     previous.width = previous.height = 0;
   }
+  /**
+   * @internal Takes `canvas` itself as the new surface instead of copying it, for a caller that
+   * drew it only for this texture and gives it up; the previous surface is released as by
+   * `update`. A same-size canvas copy is pixel-exact, so the result matches `update(canvas)`.
+   */
+  adopt(canvas: HTMLCanvasElement | OffscreenCanvas): void {
+    if (this.disposed)
+      throw new AssetError('Cannot update a destroyed CanvasTexture2D.');
+    if (this.revision === Number.MAX_SAFE_INTEGER)
+      throw new RangeError('CanvasTexture2D version overflow.');
+    dimensions(canvas.width, canvas.height);
+    const previous = this.canvas;
+    this.canvas = canvas;
+    this.pixelWidth = canvas.width;
+    this.pixelHeight = canvas.height;
+    this.revision++;
+    previous.width = previous.height = 0;
+  }
   /** Reuses the owned surface for live sources without decoding a bitmap per frame. */
   protected copyFrame(source: CanvasImageSource): void {
     if (this.disposed)

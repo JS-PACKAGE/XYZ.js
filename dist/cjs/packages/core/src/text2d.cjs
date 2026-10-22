@@ -126,21 +126,25 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 			throw t === this.revision && (this.requestedText = this.content, this.requestedStyle = this.displayedStyle), e;
 		}
 		let { canvas: a, layout: o } = i;
-		try {
-			if (this.destroyed || t !== this.revision) return;
-			let e = this.ownedTexture;
-			e.update(a), this.view = new require_texture2d.TextureView2D(e, {
-				frame: {
-					x: 0,
-					y: 0,
-					width: e.width,
-					height: e.height
-				},
-				resolution: r.resolution
-			}), this.content = n, this.displayedStyle = r, this.displayedLayout = o;
-		} finally {
+		if (this.destroyed || t !== this.revision) {
 			a.width = a.height = 0;
+			return;
 		}
+		let c = this.ownedTexture;
+		try {
+			c.adopt(a);
+		} catch (e) {
+			throw a.width = a.height = 0, e;
+		}
+		this.view = new require_texture2d.TextureView2D(c, {
+			frame: {
+				x: 0,
+				y: 0,
+				width: c.width,
+				height: c.height
+			},
+			resolution: r.resolution
+		}), this.content = n, this.displayedStyle = r, this.displayedLayout = o;
 	}
 	onDestroy() {
 		this.revision++, this.ownedTexture.destroy();

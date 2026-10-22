@@ -359,21 +359,23 @@ export class Graphics2D extends Sprite {
       throw error;
     }
     const { canvas, bounds } = raster;
+    // The owned texture takes the drawn canvas as its surface; an externally substituted
+    // texture remains borrowed and is replaced by it. rasterBounds already validated the view
+    // resolution.
+    const texture = this.ownedTexture;
     try {
-      // The owned texture is redrawn in place; an externally substituted texture remains
-      // borrowed and is replaced by it. rasterBounds already validated the view resolution.
-      const texture = this.ownedTexture;
-      texture.update(canvas);
-      this.view = new TextureView2D(texture, {
-        frame: { x: 0, y: 0, width: texture.width, height: texture.height },
-        resolution,
-      });
-      this.rasterOrigin = bounds;
-      this.displayedInstructions = instructions;
-      this.displayedResolution = resolution;
-    } finally {
+      texture.adopt(canvas);
+    } catch (error) {
       canvas.width = canvas.height = 0;
+      throw error;
     }
+    this.view = new TextureView2D(texture, {
+      frame: { x: 0, y: 0, width: texture.width, height: texture.height },
+      resolution,
+    });
+    this.rasterOrigin = bounds;
+    this.displayedInstructions = instructions;
+    this.displayedResolution = resolution;
   }
   override getLocalBounds(
     out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },

@@ -191,21 +191,21 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 		} catch (e) {
 			throw this.requestedInstructions = this.displayedInstructions, this.requestedResolution = this.displayedResolution, e;
 		}
-		let { canvas: i, bounds: a } = n;
+		let { canvas: i, bounds: a } = n, o = this.ownedTexture;
 		try {
-			let n = this.ownedTexture;
-			n.update(i), this.view = new require_texture2d.TextureView2D(n, {
-				frame: {
-					x: 0,
-					y: 0,
-					width: n.width,
-					height: n.height
-				},
-				resolution: t
-			}), this.rasterOrigin = a, this.displayedInstructions = e, this.displayedResolution = t;
-		} finally {
-			i.width = i.height = 0;
+			o.adopt(i);
+		} catch (e) {
+			throw i.width = i.height = 0, e;
 		}
+		this.view = new require_texture2d.TextureView2D(o, {
+			frame: {
+				x: 0,
+				y: 0,
+				width: o.width,
+				height: o.height
+			},
+			resolution: t
+		}), this.rasterOrigin = a, this.displayedInstructions = e, this.displayedResolution = t;
 	}
 	getLocalBounds(e = {
 		x: 0,
