@@ -96,7 +96,11 @@ export class GameObject extends SceneObject {
   }
 
   get actions(): ActionQueue {
-    return (this.actionQueue ??= new ActionQueue(this));
+    if (!this.actionQueue) {
+      this.actionQueue = new ActionQueue(this);
+      this.scene?.trackObjectPasses(this);
+    }
+    return this.actionQueue;
   }
   /** @internal Do not instantiate queues on passive glyph/tile/pool sprites. */
   advanceActions(dt: number, canContinue?: () => boolean): void {
@@ -175,6 +179,7 @@ export class GameObject extends SceneObject {
   initializeEvents(): void {
     if (this.initializedEvents) return;
     this.initializedEvents = true;
+    this.scene?.trackObjectPasses(this);
     this.dispatchObjectEvent('initialize');
   }
 

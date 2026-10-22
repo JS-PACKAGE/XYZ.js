@@ -425,6 +425,14 @@ export class Scene {
   private cameraDependents: Set<Object3D & CameraDependent3D> | undefined;
   /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
   private readonly objectUpdates = new Set<GameObject>();
+  /**
+   * Members of `objectUpdates` that `beginObjectUpdates` would not skip (events not yet
+   * initialized, or a preupdate listener) and those with an action queue. Both conditions
+   * only ever become true, except initialization, which `trackObjectPasses` follows, so
+   * an empty set means the pass would run nothing.
+   */
+  private readonly preupdatePass = new Set<GameObject>();
+  private readonly actionPass = new Set<GameObject>();
   private frameObjectUpdate = 0;
   private pointerRouter: PointerRouter | undefined;
   /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
@@ -615,6 +623,7 @@ export class Scene {
       if (object instanceof GameObject) {
         this.objectUpdates.add(object);
         object.sceneUpdateId = ++lastObjectUpdate;
+        this.trackObjectPasses(object);
       }
       if (object instanceof ParticleEmitter)
         (this.particleEmitters ??= new Set()).add(object);
@@ -666,6 +675,8 @@ export class Scene {
     if (isCameraDependent(object)) this.cameraDependents?.delete(object);
     if (object instanceof GameObject) {
       this.objectUpdates.delete(object);
+      this.preupdatePass.delete(object);
+      this.actionPass.delete(object);
       object.sceneUpdateId = 0;
     }
     if (object instanceof ParticleEmitter)
@@ -741,6 +752,19 @@ export class Scene {
     void signal;
   }
 
+  /**
+   * @internal Called when a member's event initialization, preupdate observation or action
+   * queue may have changed; see `preupdatePass`.
+   */
+  trackObjectPasses(object: SceneObject): void {
+    if (!(object instanceof GameObject) || !this.objectUpdates.has(object))
+      return;
+    if (!object.eventsInitialized || object.observesUpdate('preupdate'))
+      this.preupdatePass.add(object);
+    else this.preupdatePass.delete(object);
+    if (object.hasActionQueue) this.actionPass.add(object);
+  }
+
   /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
   beginObjectFrame(): void {
     this.frameObjectUpdate = lastObjectUpdate;
@@ -754,6 +778,7 @@ export class Scene {
    * check's answer and the disposed state cannot have changed since it last held.
    */
   beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void {
+    if (this.preupdatePass.size === 0) return;
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
@@ -780,6 +805,7 @@ export class Scene {
 
   /** @internal Only queues explicitly accessed by consumers are advanced. */
   advanceActions(deltaTime: number, canContinue: () => boolean): void {
+    if (this.actionPass.size === 0) return;
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;

@@ -9,7 +9,7 @@ var SceneObject = class extends EventTarget {
 		return this.ownershipGeneration;
 	}
 	addEventListener(n, r, i) {
-		super.addEventListener(n, r, i), r && !(typeof i == `object` && i.signal?.aborted) && (this.observedEventTypes || require_event_observers.observeObjectEventTypes(this, this.observedEventTypes = /* @__PURE__ */ new Set()), this.observedEventTypes.add(n), require_event_observers.observeEventType(n));
+		super.addEventListener(n, r, i), r && !(typeof i == `object` && i.signal?.aborted) && (this.observedEventTypes || require_event_observers.observeObjectEventTypes(this, this.observedEventTypes = /* @__PURE__ */ new Set()), this.observedEventTypes.add(n), require_event_observers.observeEventType(n), n === `preupdate` && this.owningScene?.trackObjectPasses(this));
 	}
 	dispatchObjectEvent(e, t) {
 		this.observedEventTypes?.has(e) && this.dispatchEvent(new CustomEvent(e, { detail: t }));

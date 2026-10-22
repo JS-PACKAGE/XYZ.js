@@ -50,7 +50,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		this.interactionListeners?.dispatch(e, t, n);
 	}
 	get actions() {
-		return this.actionQueue ??= new require_action_queue.ActionQueue(this);
+		return this.actionQueue || (this.actionQueue = new require_action_queue.ActionQueue(this), this.scene?.trackObjectPasses(this)), this.actionQueue;
 	}
 	advanceActions(e, t) {
 		this.actionQueue?.update(e, t);
@@ -103,7 +103,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		this.worldSpace === `screen` && e.assertPhysicsSpace();
 	}
 	initializeEvents() {
-		this.initializedEvents || (this.initializedEvents = !0, this.dispatchObjectEvent(`initialize`));
+		this.initializedEvents || (this.initializedEvents = !0, this.scene?.trackObjectPasses(this), this.dispatchObjectEvent(`initialize`));
 	}
 	get position() {
 		return this.transform.position;

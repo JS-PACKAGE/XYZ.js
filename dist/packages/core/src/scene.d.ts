@@ -178,6 +178,14 @@ export declare class Scene {
     private cameraDependents;
     /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
     private readonly objectUpdates;
+    /**
+     * Members of `objectUpdates` that `beginObjectUpdates` would not skip (events not yet
+     * initialized, or a preupdate listener) and those with an action queue. Both conditions
+     * only ever become true, except initialization, which `trackObjectPasses` follows, so
+     * an empty set means the pass would run nothing.
+     */
+    private readonly preupdatePass;
+    private readonly actionPass;
     private frameObjectUpdate;
     private pointerRouter;
     /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
@@ -230,6 +238,11 @@ export declare class Scene {
     private prepareBatch;
     protected preload(game: Game, signal: AbortSignal): PreloadBatch | void | Promise<PreloadBatch | void>;
     protected initialize(game: Game, signal: AbortSignal): void | Promise<void>;
+    /**
+     * @internal Called when a member's event initialization, preupdate observation or action
+     * queue may have changed; see `preupdatePass`.
+     */
+    trackObjectPasses(object: SceneObject): void;
     /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
     beginObjectFrame(): void;
     /**

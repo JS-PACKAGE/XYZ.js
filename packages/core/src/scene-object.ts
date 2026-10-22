@@ -26,6 +26,7 @@ export abstract class SceneObject extends EventTarget {
         observeObjectEventTypes(this, (this.observedEventTypes = new Set()));
       this.observedEventTypes.add(type);
       observeEventType(type);
+      if (type === 'preupdate') this.owningScene?.trackObjectPasses(this);
     }
   }
 

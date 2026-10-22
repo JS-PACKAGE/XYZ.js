@@ -220,6 +220,8 @@ var Scene = class {
 	particleEmitters;
 	cameraDependents;
 	objectUpdates = /* @__PURE__ */ new Set();
+	preupdatePass = /* @__PURE__ */ new Set();
+	actionPass = /* @__PURE__ */ new Set();
 	frameObjectUpdate = 0;
 	pointerRouter;
 	get pointerEvents() {
@@ -314,7 +316,7 @@ var Scene = class {
 		n.attach(this);
 		let r;
 		try {
-			r = this.world.createEntity(), n instanceof require_game_object.GameObject && this.world.addComponent(r, require_index.Transform2D, n.transform), n instanceof require_sprite.Sprite && this.world.addComponent(r, require_sprite.Sprite, n), n instanceof require_object3d.Object3D && this.world.addComponent(r, require_math3d.Transform3D, n.transform), n instanceof require_mesh.Mesh && this.world.addComponent(r, require_mesh.Mesh, n), n instanceof require_game_object.GameObject && (n.body || n.collider) && this.physics.register(n), n instanceof require_object3d.Object3D && (n.body || n.collider) && this.physics3D.register(n), this.registrations.set(n, r), this.registeredObjects.add(n), n instanceof require_mesh.Mesh && ((this.registeredMeshes ??= /* @__PURE__ */ new Set()).add(n), ++this.meshRevision), n instanceof require_gpu_particles3d.GPUParticleEmitter3D && (this.registeredGPUParticles ??= /* @__PURE__ */ new Set()).add(n), require_objects3d.isCameraDependent(n) && (this.cameraDependents ??= /* @__PURE__ */ new Set()).add(n), n instanceof require_game_object.GameObject && (this.objectUpdates.add(n), n.sceneUpdateId = ++k), n instanceof require_index$1.ParticleEmitter && (this.particleEmitters ??= /* @__PURE__ */ new Set()).add(n);
+			r = this.world.createEntity(), n instanceof require_game_object.GameObject && this.world.addComponent(r, require_index.Transform2D, n.transform), n instanceof require_sprite.Sprite && this.world.addComponent(r, require_sprite.Sprite, n), n instanceof require_object3d.Object3D && this.world.addComponent(r, require_math3d.Transform3D, n.transform), n instanceof require_mesh.Mesh && this.world.addComponent(r, require_mesh.Mesh, n), n instanceof require_game_object.GameObject && (n.body || n.collider) && this.physics.register(n), n instanceof require_object3d.Object3D && (n.body || n.collider) && this.physics3D.register(n), this.registrations.set(n, r), this.registeredObjects.add(n), n instanceof require_mesh.Mesh && ((this.registeredMeshes ??= /* @__PURE__ */ new Set()).add(n), ++this.meshRevision), n instanceof require_gpu_particles3d.GPUParticleEmitter3D && (this.registeredGPUParticles ??= /* @__PURE__ */ new Set()).add(n), require_objects3d.isCameraDependent(n) && (this.cameraDependents ??= /* @__PURE__ */ new Set()).add(n), n instanceof require_game_object.GameObject && (this.objectUpdates.add(n), n.sceneUpdateId = ++k, this.trackObjectPasses(n)), n instanceof require_index$1.ParticleEmitter && (this.particleEmitters ??= /* @__PURE__ */ new Set()).add(n);
 		} catch (e) {
 			throw n instanceof require_game_object.GameObject && this.physicsWorld?.unregister(n), n instanceof require_object3d.Object3D && this.physicsWorld3D?.unregister(n), r !== void 0 && this.world.removeEntity(r), n.detach(this), e;
 		}
@@ -337,7 +339,7 @@ var Scene = class {
 	}
 	unregister(e) {
 		let t = this.registrations.get(e);
-		t !== void 0 && (this.registrations.delete(e), this.registeredObjects.delete(e), e instanceof require_mesh.Mesh && (this.registeredMeshes?.delete(e), ++this.meshRevision), e instanceof require_gpu_particles3d.GPUParticleEmitter3D && this.registeredGPUParticles?.delete(e), require_objects3d.isCameraDependent(e) && this.cameraDependents?.delete(e), e instanceof require_game_object.GameObject && (this.objectUpdates.delete(e), e.sceneUpdateId = 0), e instanceof require_index$1.ParticleEmitter && this.particleEmitters?.delete(e), e.detach(this), this.world.removeEntity(t), e instanceof require_game_object.GameObject && this.physicsWorld?.unregister(e), e instanceof require_object3d.Object3D && this.physicsWorld3D?.unregister(e), e instanceof require_game_object.GameObject && this.pointerRouter?.forget(e));
+		t !== void 0 && (this.registrations.delete(e), this.registeredObjects.delete(e), e instanceof require_mesh.Mesh && (this.registeredMeshes?.delete(e), ++this.meshRevision), e instanceof require_gpu_particles3d.GPUParticleEmitter3D && this.registeredGPUParticles?.delete(e), require_objects3d.isCameraDependent(e) && this.cameraDependents?.delete(e), e instanceof require_game_object.GameObject && (this.objectUpdates.delete(e), this.preupdatePass.delete(e), this.actionPass.delete(e), e.sceneUpdateId = 0), e instanceof require_index$1.ParticleEmitter && this.particleEmitters?.delete(e), e.detach(this), this.world.removeEntity(t), e instanceof require_game_object.GameObject && this.physicsWorld?.unregister(e), e instanceof require_object3d.Object3D && this.physicsWorld3D?.unregister(e), e instanceof require_game_object.GameObject && this.pointerRouter?.forget(e));
 	}
 	claim(e) {
 		if (this.disposed || this.owner) throw Error(`Scene is destroyed or already owned by a Game.`);
@@ -359,11 +361,14 @@ var Scene = class {
 	}
 	preload(e, t) {}
 	initialize(e, t) {}
+	trackObjectPasses(e) {
+		e instanceof require_game_object.GameObject && this.objectUpdates.has(e) && (!e.eventsInitialized || e.observesUpdate(`preupdate`) ? this.preupdatePass.add(e) : this.preupdatePass.delete(e), e.hasActionQueue && this.actionPass.add(e));
+	}
 	beginObjectFrame() {
 		this.frameObjectUpdate = k;
 	}
 	beginObjectUpdates(e, t) {
-		for (let n of this.objectUpdates) {
+		if (this.preupdatePass.size !== 0) for (let n of this.objectUpdates) {
 			let r = n.sceneUpdateId;
 			if (r > this.frameObjectUpdate) break;
 			if (!n.eventsInitialized || n.observesUpdate(`preupdate`)) {
@@ -382,7 +387,7 @@ var Scene = class {
 		}
 	}
 	advanceActions(e, t) {
-		for (let n of this.objectUpdates) {
+		if (this.actionPass.size !== 0) for (let n of this.objectUpdates) {
 			if (n.sceneUpdateId > this.frameObjectUpdate) break;
 			if (n.hasActionQueue) {
 				if (!t() || this.disposed) return;

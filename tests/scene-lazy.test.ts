@@ -52,6 +52,30 @@ describe('scene lazy service lifetime', () => {
     texture.destroy();
   });
 
+  it('runs preupdate listeners an already initialized object gains later', () => {
+    const scene = new Scene();
+    const object = scene.add(new GameObject());
+    const frame = (delta: number) => {
+      scene.beginObjectFrame();
+      scene.beginObjectUpdates(delta, continueFrame);
+    };
+    const initialized = vi.fn();
+    object.addEventListener('initialize', initialized);
+    frame(0.1);
+    expect(initialized).toHaveBeenCalledTimes(1);
+    const deltas: number[] = [];
+    object.addEventListener('preupdate', (event) =>
+      deltas.push((event as CustomEvent<{ dt: number }>).detail.dt),
+    );
+    frame(0.2);
+    scene.remove(object);
+    scene.add(object);
+    frame(0.3);
+    expect(deltas).toEqual([0.2, 0.3]);
+    expect(initialized).toHaveBeenCalledTimes(1);
+    scene.destroy();
+  });
+
   it('activates only 2D physics for a late attachment and unregisters on removal', () => {
     const scene = new Scene();
     const object = scene.add(new GameObject());
