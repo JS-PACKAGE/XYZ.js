@@ -58,20 +58,20 @@ export declare class ShapeGeometry {
     area: number;
     /** @internal Changes only after a successful world-geometry refresh. */
     revision: number;
-    private readonly matrixSnapshot;
     private edges;
     private edgesRevision;
     /** @internal Valid after `rayAmplification`; see there. */
     rayEdgeTolerance: number;
     private rayBound;
     private rayBoundRevision;
-    /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
-    private readonly poseInputs;
     /**
-     * A child's parent world matrix (indices 0, 1, 3, 4, 6, 7) then its transform inputs, as
-     * `poseInputs` is for a root. Each form invalidates the other when it refreshes.
+     * Pose caches in one allocation, NaN when unknown. From `SNAPSHOT`: the world matrix
+     * entries the geometry was last built from. From `POSE`: the transform inputs `refresh`
+     * last composed a root's pose from. From `CHILD`: a child's parent world matrix (indices
+     * 0, 1, 3, 4, 6, 7) then its transform inputs, as `POSE` is for a root. Each of the last
+     * two forms invalidates the other when it refreshes.
      */
-    private readonly childInputs;
+    private readonly poseState;
     constructor(collider: Collider2D);
     /**
      * @internal Per polygon edge `i -> i + 1`: unit normal `(ey, -ex) / |e|` and length `|e|`

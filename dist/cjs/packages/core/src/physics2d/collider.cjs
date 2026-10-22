@@ -129,14 +129,12 @@ var ShapeGeometry = class {
 	inertiaPerMass = 0;
 	area = 0;
 	revision = 0;
-	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
 	edges;
 	edgesRevision = -1;
 	rayEdgeTolerance = 0;
 	rayBound = 1;
 	rayBoundRevision = -1;
-	poseInputs = (/* @__PURE__ */ new Float64Array(9)).fill(NaN);
-	childInputs = (/* @__PURE__ */ new Float64Array(15)).fill(NaN);
+	poseState = (/* @__PURE__ */ new Float64Array(30)).fill(NaN);
 	constructor(e) {
 		this.collider = e, this.points = new Float64Array(e.vertices.length * 2);
 	}
@@ -173,22 +171,22 @@ var ShapeGeometry = class {
 		return this.rayBound = a;
 	}
 	refresh(e) {
-		let t = e.transform, n = this.poseInputs, r = e.composesFromTransform;
-		if (r && n[0] === t.position.x && n[1] === t.position.y && n[2] === t.rotation && n[3] === t.scale.x && n[4] === t.scale.y && n[5] === t.pivot.x && n[6] === t.pivot.y && n[7] === t.skew.x && n[8] === t.skew.y) return;
+		let t = e.transform, n = this.poseState, r = e.composesFromTransform;
+		if (r && n[6] === t.position.x && n[7] === t.position.y && n[8] === t.rotation && n[9] === t.scale.x && n[10] === t.scale.y && n[11] === t.pivot.x && n[12] === t.pivot.y && n[13] === t.skew.x && n[14] === t.skew.y) return;
 		let i = r ? void 0 : e.baseComposedParent;
-		i && this.childUnchanged(i, t) || (n[0] = NaN, this.childInputs[0] = NaN, this.refreshPose(e), i ? this.recordChild(i, t) : r && (n[0] = t.position.x, n[1] = t.position.y, n[2] = t.rotation, n[3] = t.scale.x, n[4] = t.scale.y, n[5] = t.pivot.x, n[6] = t.pivot.y, n[7] = t.skew.x, n[8] = t.skew.y));
+		i && this.childUnchanged(i, t) || (n[6] = NaN, this.poseState[15] = NaN, this.refreshPose(e), i ? this.recordChild(i, t) : r && (n[6] = t.position.x, n[7] = t.position.y, n[8] = t.rotation, n[9] = t.scale.x, n[10] = t.scale.y, n[11] = t.pivot.x, n[12] = t.pivot.y, n[13] = t.skew.x, n[14] = t.skew.y));
 	}
 	childUnchanged(e, t) {
-		let n = e.updateWorldMatrix().elements, r = this.childInputs;
-		return r[0] === n[0] && r[1] === n[1] && r[2] === n[3] && r[3] === n[4] && r[4] === n[6] && r[5] === n[7] && r[6] === t.position.x && r[7] === t.position.y && r[8] === t.rotation && r[9] === t.scale.x && r[10] === t.scale.y && r[11] === t.pivot.x && r[12] === t.pivot.y && r[13] === t.skew.x && r[14] === t.skew.y;
+		let n = e.updateWorldMatrix().elements, r = this.poseState;
+		return r[15] === n[0] && r[16] === n[1] && r[17] === n[3] && r[18] === n[4] && r[19] === n[6] && r[20] === n[7] && r[21] === t.position.x && r[22] === t.position.y && r[23] === t.rotation && r[24] === t.scale.x && r[25] === t.scale.y && r[26] === t.pivot.x && r[27] === t.pivot.y && r[28] === t.skew.x && r[29] === t.skew.y;
 	}
 	recordChild(e, t) {
-		let n = e.updateWorldMatrix().elements, r = this.childInputs;
-		r[0] = n[0], r[1] = n[1], r[2] = n[3], r[3] = n[4], r[4] = n[6], r[5] = n[7], r[6] = t.position.x, r[7] = t.position.y, r[8] = t.rotation, r[9] = t.scale.x, r[10] = t.scale.y, r[11] = t.pivot.x, r[12] = t.pivot.y, r[13] = t.skew.x, r[14] = t.skew.y;
+		let n = e.updateWorldMatrix().elements, r = this.poseState;
+		r[15] = n[0], r[16] = n[1], r[17] = n[3], r[18] = n[4], r[19] = n[6], r[20] = n[7], r[21] = t.position.x, r[22] = t.position.y, r[23] = t.rotation, r[24] = t.scale.x, r[25] = t.scale.y, r[26] = t.pivot.x, r[27] = t.pivot.y, r[28] = t.skew.x, r[29] = t.skew.y;
 	}
 	refreshPose(e) {
 		let t = e.updateWorldMatrix().elements, n = !1;
-		for (let e = 0; e < a.length; e++) if (this.matrixSnapshot[e] !== t[a[e]]) {
+		for (let e = 0; e < a.length; e++) if (this.poseState[0 + e] !== t[a[e]]) {
 			n = !0;
 			break;
 		}
@@ -201,7 +199,7 @@ var ShapeGeometry = class {
 			let e = require_hypot.hypot2(t[0], t[1]), n = require_hypot.hypot2(t[3], t[4]);
 			if (Math.abs(e - n) > i * Math.max(e, n) || Math.abs(t[0] * t[3] + t[1] * t[4]) > i * e * n) throw RangeError(`Circle colliders require uniform absolute world scale without shear.`);
 			this.radius = this.collider.radius * e, this.area = Math.PI * this.radius * this.radius, this.minX = this.x - this.radius, this.maxX = this.x + this.radius, this.minY = this.y - this.radius, this.maxY = this.y + this.radius, this.inertiaPerMass = this.radius * this.radius / 2 + (this.x - t[6]) ** 2 + (this.y - t[7]) ** 2, positive(this.inertiaPerMass, `world geometry inertia`);
-			for (let e = 0; e < a.length; e++) this.matrixSnapshot[e] = t[a[e]];
+			for (let e = 0; e < a.length; e++) this.poseState[0 + e] = t[a[e]];
 			this.revision++;
 			return;
 		}
@@ -217,7 +215,7 @@ var ShapeGeometry = class {
 			u += s, d += s * (r * r + r * a + a * a + i * i + i * o + o * o);
 		}
 		this.inertiaPerMass = d / (6 * u), this.area = u / 2, positive(this.inertiaPerMass, `world geometry inertia`);
-		for (let e = 0; e < a.length; e++) this.matrixSnapshot[e] = t[a[e]];
+		for (let e = 0; e < a.length; e++) this.poseState[0 + e] = t[a[e]];
 		this.revision++;
 	}
 	contains(e, t) {

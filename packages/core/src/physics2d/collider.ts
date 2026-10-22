@@ -8,6 +8,10 @@ import { hypot2 } from '../../../math/src/hypot.js';
 
 const EPSILON = physicsDefaults.geometryEpsilon;
 const TRANSFORM_INDICES = [0, 1, 3, 4, 6, 7] as const;
+/** Offsets of ShapeGeometry's pose caches in `poseState`. */
+const SNAPSHOT = 0,
+  POSE = 6,
+  CHILD = 15;
 export type ColliderKind = 'circle' | 'polygon';
 export interface ColliderOptions {
   offset?: [number, number];
@@ -230,20 +234,20 @@ export class ShapeGeometry {
   area = 0;
   /** @internal Changes only after a successful world-geometry refresh. */
   revision = 0;
-  private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
   private edges: Float64Array | undefined;
   private edgesRevision = -1;
   /** @internal Valid after `rayAmplification`; see there. */
   rayEdgeTolerance = 0;
   private rayBound = 1;
   private rayBoundRevision = -1;
-  /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
-  private readonly poseInputs = new Float64Array(9).fill(NaN);
   /**
-   * A child's parent world matrix (indices 0, 1, 3, 4, 6, 7) then its transform inputs, as
-   * `poseInputs` is for a root. Each form invalidates the other when it refreshes.
+   * Pose caches in one allocation, NaN when unknown. From `SNAPSHOT`: the world matrix
+   * entries the geometry was last built from. From `POSE`: the transform inputs `refresh`
+   * last composed a root's pose from. From `CHILD`: a child's parent world matrix (indices
+   * 0, 1, 3, 4, 6, 7) then its transform inputs, as `POSE` is for a root. Each of the last
+   * two forms invalidates the other when it refreshes.
    */
-  private readonly childInputs = new Float64Array(15).fill(NaN);
+  private readonly poseState = new Float64Array(30).fill(NaN);
   constructor(readonly collider: Collider2D) {
     this.points = new Float64Array(collider.vertices.length * 2);
   }
@@ -333,88 +337,88 @@ export class ShapeGeometry {
   }
   refresh(owner: GameObject): void {
     const t = owner.transform,
-      k = this.poseInputs;
+      k = this.poseState;
     const direct = owner.composesFromTransform;
     // A root's world matrix is composed from these values alone; when none changed,
     // the matrix snapshot below would match and nothing would be refreshed.
     if (
       direct &&
-      k[0] === t.position.x &&
-      k[1] === t.position.y &&
-      k[2] === t.rotation &&
-      k[3] === t.scale.x &&
-      k[4] === t.scale.y &&
-      k[5] === t.pivot.x &&
-      k[6] === t.pivot.y &&
-      k[7] === t.skew.x &&
-      k[8] === t.skew.y
+      k[POSE] === t.position.x &&
+      k[POSE + 1] === t.position.y &&
+      k[POSE + 2] === t.rotation &&
+      k[POSE + 3] === t.scale.x &&
+      k[POSE + 4] === t.scale.y &&
+      k[POSE + 5] === t.pivot.x &&
+      k[POSE + 6] === t.pivot.y &&
+      k[POSE + 7] === t.skew.x &&
+      k[POSE + 8] === t.skew.y
     )
       return;
     // A child's matrix is its parent's times its transform, so the parent's matrix stands in
     // for every ancestor input.
     const parent = direct ? undefined : owner.baseComposedParent;
     if (parent && this.childUnchanged(parent, t)) return;
-    k[0] = NaN;
-    this.childInputs[0] = NaN;
+    k[POSE] = NaN;
+    this.poseState[CHILD] = NaN;
     this.refreshPose(owner);
     if (parent) this.recordChild(parent, t);
     else if (direct) {
-      k[0] = t.position.x;
-      k[1] = t.position.y;
-      k[2] = t.rotation;
-      k[3] = t.scale.x;
-      k[4] = t.scale.y;
-      k[5] = t.pivot.x;
-      k[6] = t.pivot.y;
-      k[7] = t.skew.x;
-      k[8] = t.skew.y;
+      k[POSE] = t.position.x;
+      k[POSE + 1] = t.position.y;
+      k[POSE + 2] = t.rotation;
+      k[POSE + 3] = t.scale.x;
+      k[POSE + 4] = t.scale.y;
+      k[POSE + 5] = t.pivot.x;
+      k[POSE + 6] = t.pivot.y;
+      k[POSE + 7] = t.skew.x;
+      k[POSE + 8] = t.skew.y;
     }
   }
   private childUnchanged(parent: GameObject, t: Transform2D): boolean {
     const p = parent.updateWorldMatrix().elements,
-      c = this.childInputs;
+      c = this.poseState;
     return (
-      c[0] === p[0] &&
-      c[1] === p[1] &&
-      c[2] === p[3] &&
-      c[3] === p[4] &&
-      c[4] === p[6] &&
-      c[5] === p[7] &&
-      c[6] === t.position.x &&
-      c[7] === t.position.y &&
-      c[8] === t.rotation &&
-      c[9] === t.scale.x &&
-      c[10] === t.scale.y &&
-      c[11] === t.pivot.x &&
-      c[12] === t.pivot.y &&
-      c[13] === t.skew.x &&
-      c[14] === t.skew.y
+      c[CHILD] === p[0] &&
+      c[CHILD + 1] === p[1] &&
+      c[CHILD + 2] === p[3] &&
+      c[CHILD + 3] === p[4] &&
+      c[CHILD + 4] === p[6] &&
+      c[CHILD + 5] === p[7] &&
+      c[CHILD + 6] === t.position.x &&
+      c[CHILD + 7] === t.position.y &&
+      c[CHILD + 8] === t.rotation &&
+      c[CHILD + 9] === t.scale.x &&
+      c[CHILD + 10] === t.scale.y &&
+      c[CHILD + 11] === t.pivot.x &&
+      c[CHILD + 12] === t.pivot.y &&
+      c[CHILD + 13] === t.skew.x &&
+      c[CHILD + 14] === t.skew.y
     );
   }
   private recordChild(parent: GameObject, t: Transform2D): void {
     const p = parent.updateWorldMatrix().elements,
-      c = this.childInputs;
-    c[0] = p[0];
-    c[1] = p[1];
-    c[2] = p[3];
-    c[3] = p[4];
-    c[4] = p[6];
-    c[5] = p[7];
-    c[6] = t.position.x;
-    c[7] = t.position.y;
-    c[8] = t.rotation;
-    c[9] = t.scale.x;
-    c[10] = t.scale.y;
-    c[11] = t.pivot.x;
-    c[12] = t.pivot.y;
-    c[13] = t.skew.x;
-    c[14] = t.skew.y;
+      c = this.poseState;
+    c[CHILD] = p[0];
+    c[CHILD + 1] = p[1];
+    c[CHILD + 2] = p[3];
+    c[CHILD + 3] = p[4];
+    c[CHILD + 4] = p[6];
+    c[CHILD + 5] = p[7];
+    c[CHILD + 6] = t.position.x;
+    c[CHILD + 7] = t.position.y;
+    c[CHILD + 8] = t.rotation;
+    c[CHILD + 9] = t.scale.x;
+    c[CHILD + 10] = t.scale.y;
+    c[CHILD + 11] = t.pivot.x;
+    c[CHILD + 12] = t.pivot.y;
+    c[CHILD + 13] = t.skew.x;
+    c[CHILD + 14] = t.skew.y;
   }
   private refreshPose(owner: GameObject): void {
     const e = owner.updateWorldMatrix().elements;
     let changed = false;
     for (let i = 0; i < TRANSFORM_INDICES.length; i++)
-      if (this.matrixSnapshot[i] !== e[TRANSFORM_INDICES[i]]) {
+      if (this.poseState[SNAPSHOT + i] !== e[TRANSFORM_INDICES[i]]) {
         changed = true;
         break;
       }
@@ -448,7 +452,7 @@ export class ShapeGeometry {
         (this.y - e[7]) ** 2;
       positive(this.inertiaPerMass, 'world geometry inertia');
       for (let i = 0; i < TRANSFORM_INDICES.length; i++)
-        this.matrixSnapshot[i] = e[TRANSFORM_INDICES[i]];
+        this.poseState[SNAPSHOT + i] = e[TRANSFORM_INDICES[i]];
       this.revision++;
       return;
     }
@@ -486,7 +490,7 @@ export class ShapeGeometry {
     this.area = crossSum / 2;
     positive(this.inertiaPerMass, 'world geometry inertia');
     for (let i = 0; i < TRANSFORM_INDICES.length; i++)
-      this.matrixSnapshot[i] = e[TRANSFORM_INDICES[i]];
+      this.poseState[SNAPSHOT + i] = e[TRANSFORM_INDICES[i]];
     this.revision++;
   }
   contains(x: number, y: number): boolean {
