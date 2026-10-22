@@ -244,6 +244,9 @@ const kinds: ProceduralMaterialKind[] = [
   'lavaflow',
   'cooledlava',
   'ashfield',
+  'stalactite',
+  'flowstone',
+  'cavefloor',
   'basketball',
   'tennisball',
   'golfball',
@@ -5034,6 +5037,9 @@ describe('periodic procedural material fields', () => {
     ['lavaflow', [5, 32, 48, 64]],
     ['cooledlava', [4, 32, 48, 64]],
     ['ashfield', [6, 12, 32, 64]],
+    ['stalactite', [4, 32, 48, 64]],
+    ['flowstone', [5, 32, 48, 64]],
+    ['cavefloor', [6, 12, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5284,6 +5290,9 @@ describe('periodic procedural material fields', () => {
     ['lavaflow', 5],
     ['cooledlava', 4],
     ['ashfield', 6],
+    ['stalactite', 4],
+    ['flowstone', 5],
+    ['cavefloor', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6688,6 +6697,9 @@ describe('periodic procedural material fields', () => {
     'lavaflow',
     'cooledlava',
     'ashfield',
+    'stalactite',
+    'flowstone',
+    'cavefloor',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6820,7 +6832,16 @@ describe('periodic procedural material fields', () => {
                                                                                                   : kind ===
                                                                                                       'ashfield'
                                                                                                     ? 6
-                                                                                                    : 4;
+                                                                                                    : kind ===
+                                                                                                        'stalactite'
+                                                                                                      ? 4
+                                                                                                      : kind ===
+                                                                                                          'flowstone'
+                                                                                                        ? 5
+                                                                                                        : kind ===
+                                                                                                            'cavefloor'
+                                                                                                          ? 6
+                                                                                                          : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10601,6 +10622,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the drifts and the ground from cavity shading rather than
       // pinning seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('stalactite hangs dripping cones over the shadowed pockets', () => {
+    const relief = proceduralMaterialPresets.stalactite.relief;
+    const cone: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pocket = { ...cone };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('stalactite', seed);
+      sample(0.125, 0.125, cone);
+      sample(0, 0, pocket);
+      expect(cone.height).toBeGreaterThan(pocket.height + 0.1 * relief);
+      expect(cone.occlusion).toBeGreaterThan(pocket.occlusion);
+    }
+  });
+
+  it('flowstone terraces flow bands above the drip seams', () => {
+    const relief = proceduralMaterialPresets.flowstone.relief;
+    const terrace: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...terrace };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('flowstone', seed);
+      sample(0.05, 0.05, terrace);
+      sample(0.1, 0.1, seam);
+      expect(terrace.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(terrace.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('cave floor breaks rubble around the shallow puddles', () => {
+    const relief = proceduralMaterialPresets.cavefloor.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cavefloor', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the rubble and puddles from cavity shading rather than pinning
+      // seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

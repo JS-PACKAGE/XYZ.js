@@ -226,6 +226,9 @@ export type ProceduralMaterialKind =
   | 'lavaflow'
   | 'cooledlava'
   | 'ashfield'
+  | 'stalactite'
+  | 'flowstone'
+  | 'cavefloor'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -534,6 +537,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lavaflow',
   'cooledlava',
   'ashfield',
+  'stalactite',
+  'flowstone',
+  'cavefloor',
   'basketball',
   'tennisball',
   'golfball',

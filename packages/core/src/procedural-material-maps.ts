@@ -8062,6 +8062,48 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - drift);
         break;
       }
+      case 'stalactite': {
+        // Dripping cone tips hang over the shadowed pockets between them.
+        const cx = fract(u * 4) - 0.5,
+          cy = fract(v * 4) - 0.5;
+        const cone = smooth(clamp((0.32 - Math.hypot(cx, cy)) / 0.16));
+        const drip = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x9ddd) - 0.7) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+        color = 0.44 + 0.3 * cone + 0.1 * drip + 0.06 * grain;
+        height = 0.44 + 0.26 * cone + 0.05 * drip + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * cone;
+        occlusion = 1 - 0.36 * (1 - cone) - 0.1 * (1 - drip);
+        break;
+      }
+      case 'flowstone': {
+        // Terraced flow bands step over the fine drip ripples.
+        const turn = fract((u + v) * 5);
+        const terrace = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
+        const ripple = noise(u, v, 24, 24, seed ^ 0xbfff);
+        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+        color = 0.46 + 0.3 * terrace + 0.08 * ripple + 0.06 * grain;
+        height = 0.44 + 0.26 * terrace + 0.04 * ripple + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * terrace;
+        occlusion = 1 - 0.32 * (1 - terrace);
+        break;
+      }
+      case 'cavefloor': {
+        // Rubble and grit break around the smooth shallow puddles.
+        const rubble = smooth(
+          clamp((noise(u, v, 8, 8, seed ^ 0xd222) - 0.46) / 0.16),
+        );
+        const puddle = smooth(
+          clamp((noise(u, v, 5, 5, seed ^ 0xe333) - 0.72) / 0.06),
+        );
+        const grit = noise(u, v, 32, 32, seed ^ 0xf444);
+        color = 0.42 + 0.28 * rubble + 0.12 * puddle + 0.08 * grit;
+        height = 0.44 + 0.2 * rubble - 0.1 * puddle + 0.02 * grit;
+        roughness += 0.06 * (grit - 0.5) + 0.2 * puddle;
+        occlusion = 1 - 0.34 * (1 - rubble) - 0.1 * puddle;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

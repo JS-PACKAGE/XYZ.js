@@ -2262,6 +2262,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .28 * e + .08 * t, Z = .44 + .22 * e + .02 * t, Q += .06 * (t - .5), $ = 1 - .32 * (1 - e);
 				break;
 			}
+			case `stalactite`: {
+				let e = fract(o * 4) - .5, t = fract(A * 4) - .5, n = smooth(clamp((.32 - Math.hypot(e, t)) / .16)), i = smooth(clamp((noise(o, A, 20, 20, r ^ 40413) - .7) / .08)), a = noise(o, A, 32, 32, r ^ 44782);
+				H = .44 + .3 * n + .1 * i + .06 * a, Z = .44 + .26 * n + .05 * i + .02 * a, Q += .06 * (a - .5) - .1 * n, $ = 1 - .36 * (1 - n) - .1 * (1 - i);
+				break;
+			}
+			case `flowstone`: {
+				let e = fract((o + A) * 5), t = smooth(clamp((.34 - Math.abs(e - .5)) / .12)), n = noise(o, A, 24, 24, r ^ 49151), i = noise(o, A, 32, 32, r ^ 49425);
+				H = .46 + .3 * t + .08 * n + .06 * i, Z = .44 + .26 * t + .04 * n + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .32 * (1 - t);
+				break;
+			}
+			case `cavefloor`: {
+				let e = smooth(clamp((noise(o, A, 8, 8, r ^ 53794) - .46) / .16)), t = smooth(clamp((noise(o, A, 5, 5, r ^ 58163) - .72) / .06)), n = noise(o, A, 32, 32, r ^ 62532);
+				H = .42 + .28 * e + .12 * t + .08 * n, Z = .44 + .2 * e - .1 * t + .02 * n, Q += .06 * (n - .5) + .2 * t, $ = 1 - .34 * (1 - e) - .1 * t;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {
