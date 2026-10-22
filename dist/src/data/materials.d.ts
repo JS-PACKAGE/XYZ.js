@@ -1464,6 +1464,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.78;
         relief: 0.003;
     }>;
+    poolfelt: Readonly<{
+        dark: readonly [22, 62, 42];
+        light: readonly [62, 142, 92];
+        roughness: 0.9;
+        relief: 0.0022;
+    }>;
+    icesurface: Readonly<{
+        dark: readonly [142, 172, 202];
+        light: readonly [242, 250, 255];
+        roughness: 0.16;
+        relief: 0.0018;
+    }>;
+    climbingwall: Readonly<{
+        dark: readonly [72, 68, 78];
+        light: readonly [182, 172, 192];
+        roughness: 0.86;
+        relief: 0.0034;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2107,6 +2125,9 @@ export declare const proceduralTileMeters: Readonly<{
     haybale: 0.5;
     corncrib: 0.3;
     fencepost: 0.18;
+    poolfelt: 0.3;
+    icesurface: 0.24;
+    climbingwall: 0.4;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

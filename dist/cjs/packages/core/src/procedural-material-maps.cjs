@@ -2382,6 +2382,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .3 * t - .12 * n + .08 * i + .06 * a, Z = .44 + .22 * t - .1 * n + .02 * a, Q += .06 * (a - .5) - .08 * t + .1 * n, $ = 1 - .32 * (1 - t) - .16 * n;
 				break;
 			}
+			case `poolfelt`: {
+				let e = Math.sin(Math.PI * (fract(o * 8) - .5)), t = Math.sin(Math.PI * (fract(A * 8) - .5)), n = smooth(clamp((.18 - Math.hypot(e, t)) / .08)), i = noise(o, A, 32, 32, r ^ 18841);
+				H = .36 + .34 * n + .1 * i, Z = .46 + .16 * n + .02 * i, Q += .06 * (i - .5) - .06 * n, $ = 1 - .28 * (1 - n);
+				break;
+			}
+			case `icesurface`: {
+				let e = noise(o, A, 3, 3, r ^ 23210) - .5, t = .5 + .5 * Math.cos(Math.PI * 2 * (fract((o + A + .008 * e) * 7) - .5)), n = smooth(clamp((noise(o, A, 20, 20, r ^ 27579) - .72) / .08)), i = noise(o, A, 32, 32, r ^ 31948);
+				H = .52 + .28 * t + .1 * n + .08 * i, Z = .46 + .18 * t + .04 * n + .02 * i, Q += .08 * (i - .5) + .2 * n, $ = 1 - .3 * (1 - t) - .1 * (1 - n);
+				break;
+			}
+			case `climbingwall`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 3) - .5)), n = clamp((.5 - Math.hypot(e * .8, t)) / .5), i = .5 - .5 * Math.cos(Math.PI * n), a = noise(o, A, 32, 32, r ^ 36317);
+				H = .4 + .34 * i + .08 * a, Z = .42 + .28 * i + .02 * a, Q += .06 * (a - .5) - .08 * i, $ = 1 - .36 * (1 - i);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

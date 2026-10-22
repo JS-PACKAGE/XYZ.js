@@ -250,6 +250,9 @@ export type ProceduralMaterialKind =
   | 'haybale'
   | 'corncrib'
   | 'fencepost'
+  | 'poolfelt'
+  | 'icesurface'
+  | 'climbingwall'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -582,6 +585,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'haybale',
   'corncrib',
   'fencepost',
+  'poolfelt',
+  'icesurface',
+  'climbingwall',
   'basketball',
   'tennisball',
   'golfball',

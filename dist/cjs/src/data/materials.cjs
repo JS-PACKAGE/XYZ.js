@@ -3408,6 +3408,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .78,
 		relief: .003
 	}),
+	poolfelt: Object.freeze({
+		dark: [
+			22,
+			62,
+			42
+		],
+		light: [
+			62,
+			142,
+			92
+		],
+		roughness: .9,
+		relief: .0022
+	}),
+	icesurface: Object.freeze({
+		dark: [
+			142,
+			172,
+			202
+		],
+		light: [
+			242,
+			250,
+			255
+		],
+		roughness: .16,
+		relief: .0018
+	}),
+	climbingwall: Object.freeze({
+		dark: [
+			72,
+			68,
+			78
+		],
+		light: [
+			182,
+			172,
+			192
+		],
+		roughness: .86,
+		relief: .0034
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4506,6 +4548,9 @@ var proceduralTileMeters = Object.freeze({
 	haybale: .5,
 	corncrib: .3,
 	fencepost: .18,
+	poolfelt: .3,
+	icesurface: .24,
+	climbingwall: .4,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

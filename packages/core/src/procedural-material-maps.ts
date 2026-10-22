@@ -8411,6 +8411,48 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - grainridge) - 0.16 * check;
         break;
       }
+      case 'poolfelt': {
+        // Dense felt nap holds the crisp white marking dots.
+        const fx = Math.sin(Math.PI * (fract(u * 8) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 8) - 0.5));
+        const dot = smooth(clamp((0.18 - Math.hypot(fx, fy)) / 0.08));
+        const felt = noise(u, v, 32, 32, seed ^ 0x4999);
+        color = 0.36 + 0.34 * dot + 0.1 * felt;
+        height = 0.46 + 0.16 * dot + 0.02 * felt;
+        roughness += 0.06 * (felt - 0.5) - 0.06 * dot;
+        occlusion = 1 - 0.28 * (1 - dot);
+        break;
+      }
+      case 'icesurface': {
+        // Zamboni sweep arcs gloss over the scratched ice with frost flecks.
+        const warp = noise(u, v, 3, 3, seed ^ 0x5aaa) - 0.5;
+        const sweep =
+          0.5 +
+          0.5 *
+            Math.cos(Math.PI * 2 * (fract((u + v + 0.008 * warp) * 7) - 0.5));
+        const frost = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x6bbb) - 0.72) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x7ccc);
+        color = 0.52 + 0.28 * sweep + 0.1 * frost + 0.08 * grain;
+        height = 0.46 + 0.18 * sweep + 0.04 * frost + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) + 0.2 * frost;
+        occlusion = 1 - 0.3 * (1 - sweep) - 0.1 * (1 - frost);
+        break;
+      }
+      case 'climbingwall': {
+        // Rounded climbing holds rise over the gritty wall panels.
+        const cx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          cy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+        const ht = clamp((0.5 - Math.hypot(cx * 0.8, cy)) / 0.5);
+        const hold = 0.5 - 0.5 * Math.cos(Math.PI * ht);
+        const grit = noise(u, v, 32, 32, seed ^ 0x8ddd);
+        color = 0.4 + 0.34 * hold + 0.08 * grit;
+        height = 0.42 + 0.28 * hold + 0.02 * grit;
+        roughness += 0.06 * (grit - 0.5) - 0.08 * hold;
+        occlusion = 1 - 0.36 * (1 - hold);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

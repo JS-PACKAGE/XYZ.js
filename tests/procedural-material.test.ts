@@ -268,6 +268,9 @@ const kinds: ProceduralMaterialKind[] = [
   'haybale',
   'corncrib',
   'fencepost',
+  'poolfelt',
+  'icesurface',
+  'climbingwall',
   'basketball',
   'tennisball',
   'golfball',
@@ -5082,6 +5085,9 @@ describe('periodic procedural material fields', () => {
     ['haybale', [3, 10, 32, 64]],
     ['corncrib', [3, 4, 32, 64]],
     ['fencepost', [6, 32, 48, 64]],
+    ['poolfelt', [8, 32, 48, 64]],
+    ['icesurface', [3, 7, 32, 64]],
+    ['climbingwall', [3, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5356,6 +5362,9 @@ describe('periodic procedural material fields', () => {
     ['haybale', 10],
     ['corncrib', 3],
     ['fencepost', 6],
+    ['poolfelt', 8],
+    ['icesurface', 7],
+    ['climbingwall', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6784,6 +6793,9 @@ describe('periodic procedural material fields', () => {
     'haybale',
     'corncrib',
     'fencepost',
+    'poolfelt',
+    'icesurface',
+    'climbingwall',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6988,7 +7000,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                   : kind ===
                                                                                                                                                       'fencepost'
                                                                                                                                                     ? 6
-                                                                                                                                                    : 4;
+                                                                                                                                                    : kind ===
+                                                                                                                                                        'poolfelt'
+                                                                                                                                                      ? 8
+                                                                                                                                                      : kind ===
+                                                                                                                                                          'icesurface'
+                                                                                                                                                        ? 7
+                                                                                                                                                        : kind ===
+                                                                                                                                                            'climbingwall'
+                                                                                                                                                          ? 3
+                                                                                                                                                          : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11290,7 +11311,7 @@ describe('periodic procedural material fields', () => {
     }
   });
 
-  it('fence post lifts grain ridges above the dark checks', () => {
+  it('fencepost lifts weathered grain ridges above the dark checks', () => {
     const relief = proceduralMaterialPresets.fencepost.relief;
     const ridge: SurfaceSample = {
       color: 0,
@@ -11307,6 +11328,66 @@ describe('periodic procedural material fields', () => {
       sample(0, 0.37, check);
       expect(ridge.height).toBeGreaterThan(check.height + 0.1 * relief);
       expect(ridge.occlusion).toBeGreaterThan(check.occlusion);
+    }
+  });
+
+  it('pool felt raises its white marking dots above the nap', () => {
+    const relief = proceduralMaterialPresets.poolfelt.relief;
+    const dot: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const felt = { ...dot };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('poolfelt', seed);
+      sample(1 / 16, 1 / 16, dot);
+      sample(0, 0, felt);
+      expect(dot.height).toBeGreaterThan(felt.height + 0.1 * relief);
+      expect(dot.occlusion).toBeGreaterThan(felt.occlusion);
+    }
+  });
+
+  it('ice glosses the sweep crests above the troughs', () => {
+    const relief = proceduralMaterialPresets.icesurface.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('icesurface', seed);
+      sample(1 / 14, 0, crest);
+      sample(1 / 7, 0, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('climbing wall lifts holds over the gritty panels', () => {
+    const relief = proceduralMaterialPresets.climbingwall.relief;
+    const hold: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const wall = { ...hold };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('climbingwall', seed);
+      sample(1 / 6, 1 / 6, hold);
+      sample(0, 0, wall);
+      expect(hold.height).toBeGreaterThan(wall.height + 0.1 * relief);
+      expect(hold.occlusion).toBeGreaterThan(wall.occlusion);
     }
   });
 
