@@ -403,7 +403,7 @@ var PhysicsWorld2D = class {
 	advanceBodies(e) {
 		for (let t of this.sorted) {
 			let n = t.body;
-			if (this.alive(t) && this.owners.get(t.owner) === t && n && n.type !== `static` && !n.isSleeping && !t.ccdStopped) {
+			if (n && n.type !== `static` && this.alive(t) && this.owners.get(t.owner) === t && !n.isSleeping && !t.ccdStopped) {
 				t.owner.position.x += n.velocity.x * e, t.owner.position.y += n.velocity.y * e, n.lockRotation || (t.owner.rotation += n.angularVelocity * e), t.refresh();
 				for (let e of t.group) e !== t && e.refresh();
 			}

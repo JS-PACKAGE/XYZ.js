@@ -819,11 +819,13 @@ export class PhysicsWorld2D {
   private advanceBodies(dt: number): void {
     for (const proxy of this.sorted) {
       const body = proxy.body;
+      // Bodiless and static proxies (tiles) skip first: the liveness and owner checks before
+      // `isSleeping` (which may wake) have no effects, so only their cost changes.
       if (
-        !this.alive(proxy) ||
-        this.owners.get(proxy.owner) !== proxy ||
         !body ||
         body.type === 'static' ||
+        !this.alive(proxy) ||
+        this.owners.get(proxy.owner) !== proxy ||
         body.isSleeping ||
         proxy.ccdStopped
       )
