@@ -42,12 +42,49 @@ interface SemanticEntry {
   spaceDown: boolean;
   /** Inline host styles last written; the host element is private to the manager. */
   readonly hostStyle: Record<HostStyle, string>;
+  /**
+   * Mirrored attribute values known to be on `node` (null: known absent), or undefined while
+   * an attribute observer is unavailable. `node` is public through `element()`, so any
+   * mutation of a mirrored attribute, by the page or by the manager, forgets the entry.
+   */
+  readonly attributes:
+    Partial<Record<MirroredAttribute, string | null>> | undefined;
 }
 type HostStyle = 'display' | 'left' | 'top' | 'width' | 'height';
+const mirroredAttributes = [
+  'role',
+  'aria-label',
+  'lang',
+  'aria-description',
+  'aria-modal',
+  'aria-disabled',
+  'tabindex',
+  'aria-hidden',
+] as const;
+type MirroredAttribute = (typeof mirroredAttributes)[number];
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 let nextMaskId = 0;
-function setAttribute(element: Element, name: string, value: string): void {
-  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+/** Writes only a differing value; a known value spares reading the attribute back. */
+function setAttribute(
+  entry: SemanticEntry,
+  name: MirroredAttribute,
+  value: string,
+): void {
+  const known = entry.attributes;
+  const current = known?.[name];
+  if (current === value) return;
+  if (current === undefined && entry.node.getAttribute(name) === value) {
+    if (known) known[name] = value;
+    return;
+  }
+  entry.node.setAttribute(name, value);
+  if (known) known[name] = value;
+}
+function removeAttribute(entry: SemanticEntry, name: MirroredAttribute): void {
+  const known = entry.attributes;
+  if (known?.[name] === null) return;
+  entry.node.removeAttribute(name);
+  if (known) known[name] = null;
 }
 function setHostStyle(
   entry: SemanticEntry,
@@ -80,6 +117,12 @@ export class AccessibilityManager {
   >();
   private readonly modalScopes = new Map<GameObject, GameObject>();
   private semanticSequence = 0;
+  /** Forgets known attribute values when anything mutates a mirrored attribute. */
+  private readonly attributeObserver =
+    typeof MutationObserver === 'undefined'
+      ? undefined
+      : new MutationObserver((records) => this.forget(records));
+  private readonly observedEntries = new WeakMap<Node, SemanticEntry>();
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly getSize: () => { width: number; height: number },
@@ -315,7 +358,15 @@ export class AccessibilityManager {
       clipCoverage: false,
       spaceDown: false,
       hostStyle: { display: '', left: '', top: '', width: '', height: '' },
+      attributes: this.attributeObserver ? {} : undefined,
     };
+    if (this.attributeObserver) {
+      this.attributeObserver.observe(node, {
+        attributes: true,
+        attributeFilter: mirroredAttributes as unknown as string[],
+      });
+      this.observedEntries.set(node, entry);
+    }
     const options = { signal: entry.controller.signal };
     node.addEventListener(
       'focus',
@@ -571,6 +622,18 @@ export class AccessibilityManager {
     for (let i = 3; i < pixels.length; i += 4) if (pixels[i] !== 0) return true;
     return false;
   }
+  /** Applies mutation records that have not been delivered to the observer callback yet. */
+  private flushAttributeRecords(): void {
+    const observer = this.attributeObserver;
+    if (observer) this.forget(observer.takeRecords());
+  }
+  private forget(records: readonly MutationRecord[]): void {
+    for (const record of records) {
+      const entry = this.observedEntries.get(record.target);
+      if (entry?.attributes && record.attributeName)
+        entry.attributes[record.attributeName as MirroredAttribute] = undefined;
+    }
+  }
   private remove(object: GameObject, entry: SemanticEntry): void {
     if (entry.node === entry.node.ownerDocument.activeElement)
       entry.node.blur();
@@ -695,22 +758,24 @@ export class AccessibilityManager {
       }
       const node = entry.node;
       // Mirrors run every frame; writing only differing values keeps unchanged nodes
-      // from re-entering attribute/style mutation and accessibility-tree work.
-      setAttribute(node, 'role', semantic.role);
-      setAttribute(node, 'aria-label', semantic.label);
+      // from re-entering attribute/style mutation and accessibility-tree work. Code that
+      // ran since the last flush (callbacks, overrides) may have changed attributes.
+      this.flushAttributeRecords();
+      setAttribute(entry, 'role', semantic.role);
+      setAttribute(entry, 'aria-label', semantic.label);
       setAttribute(
-        node,
+        entry,
         'lang',
         semantic.language ?? this.canvas.ownerDocument.documentElement.lang,
       );
       if (semantic.description)
-        setAttribute(node, 'aria-description', semantic.description);
-      else node.removeAttribute('aria-description');
-      if (semantic.modal) setAttribute(node, 'aria-modal', 'true');
-      else node.removeAttribute('aria-modal');
-      setAttribute(node, 'aria-disabled', String(semantic.disabled ?? false));
+        setAttribute(entry, 'aria-description', semantic.description);
+      else removeAttribute(entry, 'aria-description');
+      if (semantic.modal) setAttribute(entry, 'aria-modal', 'true');
+      else removeAttribute(entry, 'aria-modal');
+      setAttribute(entry, 'aria-disabled', String(semantic.disabled ?? false));
       setAttribute(
-        node,
+        entry,
         'tabindex',
         String(semantic.disabled ? -1 : (semantic.tabIndex ?? 0)),
       );
@@ -764,7 +829,8 @@ export class AccessibilityManager {
       }
       entry.coverage = visible;
       setHostStyle(entry, 'display', visible ? 'block' : 'none');
-      setAttribute(node, 'aria-hidden', String(!visible));
+      this.flushAttributeRecords();
+      setAttribute(entry, 'aria-hidden', String(!visible));
       if (!visible || semantic.disabled) {
         entry.spaceDown = false;
         if (node === node.ownerDocument.activeElement) node.blur();
@@ -816,6 +882,7 @@ export class AccessibilityManager {
   destroy(): void {
     if (this.disposed) return;
     this.reset();
+    this.attributeObserver?.disconnect();
     this.disposed = true;
   }
 }

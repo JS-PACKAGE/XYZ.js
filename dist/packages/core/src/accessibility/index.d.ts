@@ -27,6 +27,9 @@ export declare class AccessibilityManager {
     private readonly announcementTimers;
     private readonly modalScopes;
     private semanticSequence;
+    /** Forgets known attribute values when anything mutates a mirrored attribute. */
+    private readonly attributeObserver;
+    private readonly observedEntries;
     constructor(canvas: HTMLCanvasElement, getSize: () => {
         width: number;
         height: number;
@@ -48,6 +51,9 @@ export declare class AccessibilityManager {
     private shape;
     private createClip;
     private clip;
+    /** Applies mutation records that have not been delivered to the observer callback yet. */
+    private flushAttributeRecords;
+    private forget;
     private remove;
     /** Canvas content box in client pixels, refreshed by measureCanvas for one update. */
     private readonly layout;

@@ -3,10 +3,31 @@ const require_index = require("../../../math/src/index.cjs");
 const require_game_object = require("../game-object.cjs");
 const require_accessibility = require("../../../../src/data/accessibility.cjs");
 //#region dist/packages/core/src/accessibility/index.js
-var i = `http://www.w3.org/2000/svg`;
-var a = 0;
+var i = [
+	`role`,
+	`aria-label`,
+	`lang`,
+	`aria-description`,
+	`aria-modal`,
+	`aria-disabled`,
+	`tabindex`,
+	`aria-hidden`
+];
+var a = `http://www.w3.org/2000/svg`;
+var o = 0;
 function setAttribute(e, t, n) {
-	e.getAttribute(t) !== n && e.setAttribute(t, n);
+	let r = e.attributes, i = r?.[t];
+	if (i !== n) {
+		if (i === void 0 && e.node.getAttribute(t) === n) {
+			r && (r[t] = n);
+			return;
+		}
+		e.node.setAttribute(t, n), r && (r[t] = n);
+	}
+}
+function removeAttribute(e, t) {
+	let n = e.attributes;
+	n?.[t] !== null && (e.node.removeAttribute(t), n && (n[t] = null));
 }
 function setHostStyle(e, t, n) {
 	e.hostStyle[t] !== n && (e.host.style[t] = n, e.hostStyle[t] = n);
@@ -32,6 +53,8 @@ var AccessibilityManager = class {
 	announcementTimers = /* @__PURE__ */ new Map();
 	modalScopes = /* @__PURE__ */ new Map();
 	semanticSequence = 0;
+	attributeObserver = typeof MutationObserver > `u` ? void 0 : new MutationObserver((e) => this.forget(e));
+	observedEntries = /* @__PURE__ */ new WeakMap();
 	constructor(e, t) {
 		this.canvas = e, this.getSize = t;
 	}
@@ -117,7 +140,7 @@ var AccessibilityManager = class {
 	}
 	create(e) {
 		let t = this.canvas.ownerDocument, n = t.createElement(`div`), r = t.createElement(e.accessibility?.nativeInput ? `input` : `div`);
-		r.dataset.xyzAccessibility = ``, r.id = `xyz-semantic-${++a}-${++this.semanticSequence}`, n.dataset.xyzAccessibilityHost = ``, Object.assign(n.style, {
+		r.dataset.xyzAccessibility = ``, r.id = `xyz-semantic-${++o}-${++this.semanticSequence}`, n.dataset.xyzAccessibilityHost = ``, Object.assign(n.style, {
 			position: `fixed`,
 			pointerEvents: `none`,
 			margin: `0`,
@@ -140,7 +163,7 @@ var AccessibilityManager = class {
 			color: `transparent`,
 			outline: `none`
 		}), r.tagName === `INPUT` && (r.type = `text`), n.append(r);
-		let i = {
+		let a = {
 			node: r,
 			host: n,
 			controller: new AbortController(),
@@ -157,15 +180,21 @@ var AccessibilityManager = class {
 				top: ``,
 				width: ``,
 				height: ``
-			}
-		}, o = { signal: i.controller.signal };
-		return r.addEventListener(`focus`, (t) => this.emit(e, i, `focus`, t), o), r.addEventListener(`blur`, (t) => {
-			i.spaceDown = !1, this.emit(e, i, `blur`, t);
-		}, o), r.addEventListener(`keydown`, (t) => {
-			e.accessibility?.nativeInput || e.accessibility?.disabled || t.repeat || t.altKey || t.ctrlKey || t.metaKey || t.shiftKey || (t.code === `Enter` ? (t.preventDefault(), this.emit(e, i, `activate`, t)) : t.code === `Space` && (t.preventDefault(), i.spaceDown = !0));
-		}, o), r.addEventListener(`keyup`, (t) => {
-			e.accessibility?.nativeInput || t.code === `Space` && i.spaceDown && (i.spaceDown = !1, t.preventDefault(), this.emit(e, i, `activate`, t));
-		}, o), t.body.append(n), i;
+			},
+			attributes: this.attributeObserver ? {} : void 0
+		};
+		this.attributeObserver && (this.attributeObserver.observe(r, {
+			attributes: !0,
+			attributeFilter: i
+		}), this.observedEntries.set(r, a));
+		let s = { signal: a.controller.signal };
+		return r.addEventListener(`focus`, (t) => this.emit(e, a, `focus`, t), s), r.addEventListener(`blur`, (t) => {
+			a.spaceDown = !1, this.emit(e, a, `blur`, t);
+		}, s), r.addEventListener(`keydown`, (t) => {
+			e.accessibility?.nativeInput || e.accessibility?.disabled || t.repeat || t.altKey || t.ctrlKey || t.metaKey || t.shiftKey || (t.code === `Enter` ? (t.preventDefault(), this.emit(e, a, `activate`, t)) : t.code === `Space` && (t.preventDefault(), a.spaceDown = !0));
+		}, s), r.addEventListener(`keyup`, (t) => {
+			e.accessibility?.nativeInput || t.code === `Space` && a.spaceDown && (a.spaceDown = !1, t.preventDefault(), this.emit(e, a, `activate`, t));
+		}, s), t.body.append(n), a;
 	}
 	shape(e) {
 		let t = this.shapes.get(e);
@@ -187,9 +216,9 @@ var AccessibilityManager = class {
 	}
 	createClip(e) {
 		let t = this.canvas.ownerDocument;
-		this.definitions || (this.definitions = t.createElementNS(i, `svg`), this.definitions.setAttribute(`width`, `0`), this.definitions.setAttribute(`height`, `0`), this.definitions.setAttribute(`aria-hidden`, `true`), this.definitions.style.cssText = `position:absolute;pointer-events:none;overflow:hidden`, t.body.append(this.definitions));
-		let n = t.createElementNS(i, `mask`), r = t.createElementNS(i, `rect`), o = t.createElementNS(i, `path`), s = t.createElement(`div`), c = `xyz-semantic-mask-${a++}`;
-		return n.id = c, n.setAttribute(`maskUnits`, `userSpaceOnUse`), n.setAttribute(`maskContentUnits`, `userSpaceOnUse`), n.setAttribute(`mask-type`, `luminance`), n.setAttribute(`x`, `0`), n.setAttribute(`y`, `0`), r.setAttribute(`fill`, `white`), n.append(r, o), this.definitions.append(n), Object.assign(s.style, {
+		this.definitions || (this.definitions = t.createElementNS(a, `svg`), this.definitions.setAttribute(`width`, `0`), this.definitions.setAttribute(`height`, `0`), this.definitions.setAttribute(`aria-hidden`, `true`), this.definitions.style.cssText = `position:absolute;pointer-events:none;overflow:hidden`, t.body.append(this.definitions));
+		let n = t.createElementNS(a, `mask`), r = t.createElementNS(a, `rect`), i = t.createElementNS(a, `path`), s = t.createElement(`div`), c = `xyz-semantic-mask-${o++}`;
+		return n.id = c, n.setAttribute(`maskUnits`, `userSpaceOnUse`), n.setAttribute(`maskContentUnits`, `userSpaceOnUse`), n.setAttribute(`mask-type`, `luminance`), n.setAttribute(`x`, `0`), n.setAttribute(`y`, `0`), r.setAttribute(`fill`, `white`), n.append(r, i), this.definitions.append(n), Object.assign(s.style, {
 			position: `absolute`,
 			inset: `0`,
 			pointerEvents: `none`,
@@ -200,7 +229,7 @@ var AccessibilityManager = class {
 			wrapper: s,
 			definition: n,
 			background: r,
-			path: o,
+			path: i,
 			transform: /* @__PURE__ */ new Float64Array(6)
 		};
 	}
@@ -244,6 +273,16 @@ var AccessibilityManager = class {
 		for (let e = 3; e < _.length; e += 4) if (_[e] !== 0) return !0;
 		return !1;
 	}
+	flushAttributeRecords() {
+		let e = this.attributeObserver;
+		e && this.forget(e.takeRecords());
+	}
+	forget(e) {
+		for (let t of e) {
+			let e = this.observedEntries.get(t.target);
+			e?.attributes && t.attributeName && (e.attributes[t.attributeName] = void 0);
+		}
+	}
 	remove(e, t) {
 		t.node === t.node.ownerDocument.activeElement && t.node.blur(), e.dispatchEvent(new CustomEvent(`semanticdetach`)), t.controller.abort(), t.host.remove();
 		for (let e of t.clips) e.definition.remove();
@@ -276,7 +315,7 @@ var AccessibilityManager = class {
 			let { cssWidth: s, cssHeight: c } = i, l = this.entries.get(a);
 			l && l.node.tagName === `INPUT` != !!o.nativeInput && (this.remove(a, l), l = void 0), l || (l = this.create(a), this.entries.set(a, l));
 			let u = l.node;
-			if (setAttribute(u, `role`, o.role), setAttribute(u, `aria-label`, o.label), setAttribute(u, `lang`, o.language ?? this.canvas.ownerDocument.documentElement.lang), o.description ? setAttribute(u, `aria-description`, o.description) : u.removeAttribute(`aria-description`), o.modal ? setAttribute(u, `aria-modal`, `true`) : u.removeAttribute(`aria-modal`), setAttribute(u, `aria-disabled`, String(o.disabled ?? !1)), setAttribute(u, `tabindex`, String(o.disabled ? -1 : o.tabIndex ?? 0)), u.tagName === `INPUT`) {
+			if (this.flushAttributeRecords(), setAttribute(l, `role`, o.role), setAttribute(l, `aria-label`, o.label), setAttribute(l, `lang`, o.language ?? this.canvas.ownerDocument.documentElement.lang), o.description ? setAttribute(l, `aria-description`, o.description) : removeAttribute(l, `aria-description`), o.modal ? setAttribute(l, `aria-modal`, `true`) : removeAttribute(l, `aria-modal`), setAttribute(l, `aria-disabled`, String(o.disabled ?? !1)), setAttribute(l, `tabindex`, String(o.disabled ? -1 : o.tabIndex ?? 0)), u.tagName === `INPUT`) {
 				let e = o.disabled ?? !1;
 				u.disabled !== e && (u.disabled = e);
 			}
@@ -284,7 +323,7 @@ var AccessibilityManager = class {
 			let d = this.bounds.x, f = this.bounds.y, p = d + this.bounds.width, m = f + this.bounds.height;
 			a.worldSpace === `world` && (e.camera2D.worldToScreen(this.point.set(d, f), this.point), d = this.point.x, f = this.point.y, e.camera2D.worldToScreen(this.point.set(p, m), this.point), p = this.point.x, m = this.point.y), d = Math.max(0, d), f = Math.max(0, f), p = Math.min(r.width, p), m = Math.min(r.height, m);
 			let h = this.inScope(a) && a.worldVisible && a.worldOpacity > 0 && a.worldTint[3] > 0 && p > d && m > f && r.width > 0 && r.height > 0 && s > 0 && c > 0 && i.canvasShown;
-			h &&= (l.clipCoverage = this.clip(l, a, e, d, f, (p - d) * s / r.width, (m - f) * c / r.height, s / r.width, c / r.height), l.clipCoverage), l.coverage = h, setHostStyle(l, `display`, h ? `block` : `none`), setAttribute(u, `aria-hidden`, String(!h)), (!h || o.disabled) && (l.spaceDown = !1, u === u.ownerDocument.activeElement && u.blur()), h && (setHostStyle(l, `left`, `${i.left + d * s / r.width}px`), setHostStyle(l, `top`, `${i.top + f * c / r.height}px`), setHostStyle(l, `width`, `${l.width}px`), setHostStyle(l, `height`, `${l.height}px`));
+			h &&= (l.clipCoverage = this.clip(l, a, e, d, f, (p - d) * s / r.width, (m - f) * c / r.height, s / r.width, c / r.height), l.clipCoverage), l.coverage = h, setHostStyle(l, `display`, h ? `block` : `none`), this.flushAttributeRecords(), setAttribute(l, `aria-hidden`, String(!h)), (!h || o.disabled) && (l.spaceDown = !1, u === u.ownerDocument.activeElement && u.blur()), h && (setHostStyle(l, `left`, `${i.left + d * s / r.width}px`), setHostStyle(l, `top`, `${i.top + f * c / r.height}px`), setHostStyle(l, `width`, `${l.width}px`), setHostStyle(l, `height`, `${l.height}px`));
 		}
 		for (let e of this.modalScopes.values()) {
 			let t = this.element(e);
@@ -308,7 +347,7 @@ var AccessibilityManager = class {
 		this.liveRegions.clear(), this.scene = void 0, this.definitions?.remove(), this.definitions = void 0, this.coverageCanvas &&= (this.coverageCanvas.width = this.coverageCanvas.height = 0, void 0);
 	}
 	destroy() {
-		this.disposed ||= (this.reset(), !0);
+		this.disposed ||= (this.reset(), this.attributeObserver?.disconnect(), !0);
 	}
 };
 //#endregion
