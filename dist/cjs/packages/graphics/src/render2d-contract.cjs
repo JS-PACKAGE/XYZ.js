@@ -201,8 +201,16 @@ function collectBoundary2D(t, c, l, u, d, f, p, m) {
 	}
 	u.finishAppends(), u.sort();
 }
+function maskRasterCurrent(e, t, n) {
+	return !t.texture && e.mask === t && e.maskX === n.x && e.maskY === n.y && e.maskWidth === n.width && e.maskHeight === n.height;
+}
+function recordMaskRaster(e, t, n) {
+	e.mask = t.texture ? void 0 : t, e.maskX = n.x, e.maskY = n.y, e.maskWidth = n.width, e.maskHeight = n.height;
+}
 //#endregion
 exports.RenderCommandBuffer2D = RenderCommandBuffer2D;
 exports.collectRenderCommands2D = collectRenderCommands2D;
+exports.maskRasterCurrent = maskRasterCurrent;
+exports.recordMaskRaster = recordMaskRaster;
 
 //# sourceMappingURL=render2d-contract.cjs.map

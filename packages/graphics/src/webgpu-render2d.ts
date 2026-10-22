@@ -30,7 +30,10 @@ import { GraphicsError } from './errors.js';
 import type { FrameStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
+  maskRasterCurrent,
+  recordMaskRaster,
   RenderCommandBuffer2D,
+  type MaskRaster2D,
 } from './render2d-contract.js';
 import {
   createTextureQuad2D,
@@ -77,7 +80,7 @@ type Context2D = {
   bounds: Rect2D;
   root?: IsolatedGroup2D;
 };
-interface Layer2D {
+interface Layer2D extends MaskRaster2D {
   targets: GPUColorTarget[];
   bounds: Rect2D;
   version: number;
@@ -1407,6 +1410,11 @@ export class WebGPURender2D {
         version: -1,
         result: targets[0],
         seen: this.frame,
+        mask: undefined,
+        maskX: NaN,
+        maskY: NaN,
+        maskWidth: NaN,
+        maskHeight: NaN,
       };
       this.layers.set(group, entry);
     }
@@ -1426,7 +1434,10 @@ export class WebGPURender2D {
     let input = entry.targets[0],
       output = entry.targets[1];
     if (group.mask) {
-      this.drawMask(group.mask, entry.targets[2], bounds);
+      if (!maskRasterCurrent(entry, group.mask, bounds)) {
+        this.drawMask(group.mask, entry.targets[2], bounds);
+        recordMaskRaster(entry, group.mask, bounds);
+      }
       this.filterPass(
         input,
         output,

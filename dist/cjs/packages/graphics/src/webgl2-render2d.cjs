@@ -351,8 +351,8 @@ var WebGLRender2D = class {
 		n.bindBuffer(n.ARRAY_BUFFER, i.buffer);
 		let a = -1, o = 0;
 		for (let t = 0; t < e.activeCount; t++) {
-			let s = e.activeSlotAt(t), c = e.getSlot(s), l = t * 28, u = t * 4, f = i.data, p = i.slots[t] !== s || i.generations[t] !== c.generation, m = require_sprite_instance.getTextureQuad2D(c.texture, c.view, c.source, this.quad), h = p || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Transform) || i.versions[u] !== c.transformVersion, g = p || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Tint) || i.versions[u + 1] !== c.tintVersion, _ = p || !!(e.dynamicAttributes & (require_particle_layer2d.ParticleAttribute2D.Source | require_particle_layer2d.ParticleAttribute2D.Anchor)) || i.versions[u + 2] !== c.sourceVersion || i.versions[u + 3] !== c.anchorVersion || f[l + 12] !== Math.fround(m.x - c.anchorX * m.naturalWidth) || f[l + 13] !== Math.fround(m.y - c.anchorY * m.naturalHeight) || f[l + 14] !== Math.fround(m.width) || f[l + 15] !== Math.fround(m.height) || f[l + 16] !== Math.fround(m.u0) || f[l + 17] !== Math.fround(m.v0) || f[l + 20] !== Math.fround(m.ux) || f[l + 21] !== Math.fround(m.vx) || f[l + 22] !== Math.fround(m.uy) || f[l + 23] !== Math.fround(m.vy);
-			h && (f[l] = c.a, f[l + 1] = c.b, f[l + 2] = c.c, f[l + 3] = c.d, f[l + 4] = c.tx, f[l + 5] = c.ty, f[l + 6] = +(c.space === `world`), i.versions[u] = c.transformVersion), g && (f[l + 8] = c.tintR, f[l + 9] = c.tintG, f[l + 10] = c.tintB, f[l + 11] = c.tintA, i.versions[u + 1] = c.tintVersion), _ && (this.packQuad(f, l, m), f[l + 12] = m.x - c.anchorX * m.naturalWidth, f[l + 13] = m.y - c.anchorY * m.naturalHeight, i.versions[u + 2] = c.sourceVersion, i.versions[u + 3] = c.anchorVersion), i.slots[t] = s, i.generations[t] = c.generation, h || g || _ ? (a < 0 && (a = l), o = l + 28) : a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, f, a, o - a), this.hooks.stats.upload((o - a) * 4), a = -1);
+			let s = e.activeSlotAt(t), c = e.getSlot(s), l = t * 28, u = t * 4, d = i.data, f = i.slots[t] !== s || i.generations[t] !== c.generation, m = require_sprite_instance.getTextureQuad2D(c.texture, c.view, c.source, this.quad), h = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Transform) || i.versions[u] !== c.transformVersion, g = f || !!(e.dynamicAttributes & require_particle_layer2d.ParticleAttribute2D.Tint) || i.versions[u + 1] !== c.tintVersion, _ = f || !!(e.dynamicAttributes & (require_particle_layer2d.ParticleAttribute2D.Source | require_particle_layer2d.ParticleAttribute2D.Anchor)) || i.versions[u + 2] !== c.sourceVersion || i.versions[u + 3] !== c.anchorVersion || d[l + 12] !== Math.fround(m.x - c.anchorX * m.naturalWidth) || d[l + 13] !== Math.fround(m.y - c.anchorY * m.naturalHeight) || d[l + 14] !== Math.fround(m.width) || d[l + 15] !== Math.fround(m.height) || d[l + 16] !== Math.fround(m.u0) || d[l + 17] !== Math.fround(m.v0) || d[l + 20] !== Math.fround(m.ux) || d[l + 21] !== Math.fround(m.vx) || d[l + 22] !== Math.fround(m.uy) || d[l + 23] !== Math.fround(m.vy);
+			h && (d[l] = c.a, d[l + 1] = c.b, d[l + 2] = c.c, d[l + 3] = c.d, d[l + 4] = c.tx, d[l + 5] = c.ty, d[l + 6] = +(c.space === `world`), i.versions[u] = c.transformVersion), g && (d[l + 8] = c.tintR, d[l + 9] = c.tintG, d[l + 10] = c.tintB, d[l + 11] = c.tintA, i.versions[u + 1] = c.tintVersion), _ && (this.packQuad(d, l, m), d[l + 12] = m.x - c.anchorX * m.naturalWidth, d[l + 13] = m.y - c.anchorY * m.naturalHeight, i.versions[u + 2] = c.sourceVersion, i.versions[u + 3] = c.anchorVersion), i.slots[t] = s, i.generations[t] = c.generation, h || g || _ ? (a < 0 && (a = l), o = l + 28) : a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, d, a, o - a), this.hooks.stats.upload((o - a) * 4), a = -1);
 		}
 		a >= 0 && (n.bufferSubData(n.ARRAY_BUFFER, a * 4, i.data, a, o - a), this.hooks.stats.upload((o - a) * 4)), this.objectMatrix(e, t, this.matrix), this.objectMatrix(e, t, this.mapping, !0), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance);
 		for (let r = 0; r < e.activeCount;) {
@@ -382,7 +382,12 @@ var WebGLRender2D = class {
 				bounds: i,
 				version: -1,
 				result: t[0],
-				seen: this.frame
+				seen: this.frame,
+				mask: void 0,
+				maskX: NaN,
+				maskY: NaN,
+				maskWidth: NaN,
+				maskHeight: NaN
 			}, this.layers.set(e, r);
 		}
 		r.bounds = i, r.seen = this.frame;
@@ -393,20 +398,20 @@ var WebGLRender2D = class {
 			root: e
 		};
 		this.clear(s.target), this.drawCommands(t, s);
-		let c = r.targets[0], l = r.targets[1];
+		let c = r.targets[0], d = r.targets[1];
 		if (e.mask) {
-			this.drawMask(e.mask, r.targets[2], i), this.pass(c, l, i, 6, void 0, r.targets[2], e.mask);
+			require_render2d_contract.maskRasterCurrent(r, e.mask, i) || (this.drawMask(e.mask, r.targets[2], i), require_render2d_contract.recordMaskRaster(r, e.mask, i)), this.pass(c, d, i, 6, void 0, r.targets[2], e.mask);
 			let t = c;
-			c = l, l = t;
+			c = d, d = t;
 		}
 		for (let t of e.filters) {
 			if (t.kind === `blur`) {
-				this.pass(c, l, i, 3, t, void 0, void 0, !0);
+				this.pass(c, d, i, 3, t, void 0, void 0, !0);
 				let e = c;
-				c = l, l = e, this.pass(c, l, i, 3, t, void 0, void 0, !1);
-			} else this.pass(c, l, i, t.kind === `alpha` ? 1 : t.kind === `color-matrix` ? 2 : t.kind === `noise` ? 4 : 5, t);
+				c = d, d = e, this.pass(c, d, i, 3, t, void 0, void 0, !1);
+			} else this.pass(c, d, i, t.kind === `alpha` ? 1 : t.kind === `color-matrix` ? 2 : t.kind === `noise` ? 4 : 5, t);
 			let e = c;
-			c = l, l = e;
+			c = d, d = e;
 		}
 		return r.result = c, r.version = e.cacheVersion, r;
 	}
@@ -457,10 +462,10 @@ var WebGLRender2D = class {
 	pass(e, t, r, i, a, o, s, c = !0) {
 		let l = this.gl, u = this.passProgram;
 		this.clear(t), this.hooks.stats.pass2D(), l.disable(l.BLEND), l.useProgram(u.program), l.bindVertexArray(this.emptyVAO), l.activeTexture(l.TEXTURE0), l.bindTexture(l.TEXTURE_2D, e.texture), l.bindSampler(0, this.sampler(!1, !1)), l.uniform1i(this.uniform(u, `image`), 0), l.uniform1i(this.uniform(u, `mode`), i), l.uniform2f(this.uniform(u, `logicalSize`), r.width, r.height);
-		let f = a?.uniforms;
-		if (l.uniform4f(this.uniform(u, `parameters`), i === 3 ? c ? f[0] : 0 : f?.[0] ?? 0, i === 3 ? c ? 0 : f[0] : f?.[1] ?? 0, i === 3 ? f[1] * 4 : 0, 0), i === 2) {
-			for (let e = 0; e < 4; e++) for (let t = 0; t < 4; t++) this.matrixRows[e * 4 + t] = f[e * 5 + t];
-			for (let e = 0; e < 4; e++) this.matrixRows[16 + e] = f[e * 5 + 4];
+		let d = a?.uniforms;
+		if (l.uniform4f(this.uniform(u, `parameters`), i === 3 ? c ? d[0] : 0 : d?.[0] ?? 0, i === 3 ? c ? 0 : d[0] : d?.[1] ?? 0, i === 3 ? d[1] * 4 : 0, 0), i === 2) {
+			for (let e = 0; e < 4; e++) for (let t = 0; t < 4; t++) this.matrixRows[e * 4 + t] = d[e * 5 + t];
+			for (let e = 0; e < 4; e++) this.matrixRows[16 + e] = d[e * 5 + 4];
 			l.uniform4fv(this.uniform(u, `rows[0]`), this.matrixRows);
 		}
 		if (a instanceof require_filters2d.DisplacementFilter2D || o) {

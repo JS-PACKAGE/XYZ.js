@@ -1,7 +1,8 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Sprite } from '../../core/src/sprite.js';
 import type { GraphicsBackend } from './index.js';
-import type { ColorRGBA } from '../../core/src/gameplay/contracts.js';
+import type { ColorRGBA, Rect2D } from '../../core/src/gameplay/contracts.js';
+import type { Mask2D } from '../../core/src/rendering2d/mask2d.js';
 import { GameObject } from '../../core/src/game-object.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
@@ -446,4 +447,45 @@ function collectBoundary2D(
   // Stable sort retains Scene registration order for equal summed z in each space.
   out.finishAppends();
   out.sort();
+}
+
+/** The geometric mask last rasterized into an isolated layer's retained mask target. */
+export interface MaskRaster2D {
+  mask: Mask2D | undefined;
+  maskX: number;
+  maskY: number;
+  maskWidth: number;
+  maskHeight: number;
+}
+
+/**
+ * Whether `mask` over `bounds` is already in the layer's mask target. A geometric mask is frozen
+ * and its raster depends only on it, the bounds and the target size (fixed for a layer entry),
+ * and nothing else writes that target, so an unchanged pair keeps the previous coverage. Image
+ * masks always redraw: their texture source can change between frames.
+ */
+export function maskRasterCurrent(
+  layer: MaskRaster2D,
+  mask: Mask2D,
+  bounds: Readonly<Rect2D>,
+): boolean {
+  return (
+    !mask.texture &&
+    layer.mask === mask &&
+    layer.maskX === bounds.x &&
+    layer.maskY === bounds.y &&
+    layer.maskWidth === bounds.width &&
+    layer.maskHeight === bounds.height
+  );
+}
+export function recordMaskRaster(
+  layer: MaskRaster2D,
+  mask: Mask2D,
+  bounds: Readonly<Rect2D>,
+): void {
+  layer.mask = mask.texture ? undefined : mask;
+  layer.maskX = bounds.x;
+  layer.maskY = bounds.y;
+  layer.maskWidth = bounds.width;
+  layer.maskHeight = bounds.height;
 }
