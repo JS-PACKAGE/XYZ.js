@@ -7694,6 +7694,47 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * mouth - 0.12 * (1 - tentacle) * fade;
         break;
       }
+      case 'candy': {
+        // Glossy hard-candy stripes twist above their shallow seams.
+        const turn = fract((u + v) * 4);
+        const stripe = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
+        const seam = smooth(clamp((0.1 - Math.min(turn, 1 - turn)) / 0.03));
+        const gloss = noise(u, v, 16, 16, seed ^ 0x7788);
+        color = 0.42 + 0.36 * stripe - 0.12 * seam + 0.08 * gloss;
+        height = 0.44 + 0.26 * stripe - 0.06 * seam + 0.02 * gloss;
+        roughness += 0.08 * (gloss - 0.5) - 0.12 * stripe;
+        occlusion = 1 - 0.32 * (1 - stripe) - 0.12 * seam;
+        break;
+      }
+      case 'marshmallow': {
+        // Soft piped ridges roll over their rounded grooves, dusted with starch.
+        const roll = fract((u + v) * 5);
+        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (roll - 0.5));
+        const starch = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x8899) - 0.7) / 0.1),
+        );
+        const grain = noise(u, v, 24, 24, seed ^ 0x99aa);
+        color = 0.5 + 0.3 * ridge + 0.1 * starch + 0.06 * grain;
+        height = 0.44 + 0.28 * ridge + 0.05 * starch + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * ridge;
+        occlusion = 1 - 0.32 * (1 - ridge);
+        break;
+      }
+      case 'nougat': {
+        // Nut chunks and bubble pits break the chewy sugar base.
+        const nut = smooth(
+          clamp((noise(u, v, 6, 6, seed ^ 0xaabb) - 0.55) / 0.12),
+        );
+        const pit = smooth(
+          clamp((noise(u, v, 16, 16, seed ^ 0xbbcc) - 0.72) / 0.05),
+        );
+        const grain = noise(u, v, 24, 24, seed ^ 0xccdd);
+        color = 0.44 + 0.3 * nut - 0.12 * pit + 0.08 * grain;
+        height = 0.44 + 0.24 * nut - 0.1 * pit + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) - 0.1 * nut + 0.12 * pit;
+        occlusion = 1 - 0.34 * (1 - nut) - 0.18 * pit;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

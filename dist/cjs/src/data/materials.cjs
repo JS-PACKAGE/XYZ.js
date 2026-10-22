@@ -2694,6 +2694,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .52,
 		relief: .003
 	}),
+	candy: Object.freeze({
+		dark: [
+			122,
+			22,
+			62
+		],
+		light: [
+			252,
+			132,
+			172
+		],
+		roughness: .22,
+		relief: .002
+	}),
+	marshmallow: Object.freeze({
+		dark: [
+			188,
+			148,
+			168
+		],
+		light: [
+			252,
+			232,
+			242
+		],
+		roughness: .86,
+		relief: .003
+	}),
+	nougat: Object.freeze({
+		dark: [
+			92,
+			62,
+			38
+		],
+		light: [
+			232,
+			202,
+			152
+		],
+		roughness: .62,
+		relief: .0032
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3741,6 +3783,9 @@ var proceduralTileMeters = Object.freeze({
 	kelp: .5,
 	seaweed: .3,
 	anemone: .24,
+	candy: .18,
+	marshmallow: .2,
+	nougat: .24,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

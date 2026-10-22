@@ -2127,6 +2127,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .32 * n - .12 * i + .08 * a, Z = .44 + .26 * n - .12 * i + .02 * a, Q += .06 * (a - .5) - .12 * n, $ = 1 - .3 * i - .12 * (1 - n) * t;
 				break;
 			}
+			case `candy`: {
+				let e = fract((o + A) * 4), t = smooth(clamp((.34 - Math.abs(e - .5)) / .12)), n = smooth(clamp((.1 - Math.min(e, 1 - e)) / .03)), i = noise(o, A, 16, 16, r ^ 30600);
+				H = .42 + .36 * t - .12 * n + .08 * i, Z = .44 + .26 * t - .06 * n + .02 * i, Q += .08 * (i - .5) - .12 * t, $ = 1 - .32 * (1 - t) - .12 * n;
+				break;
+			}
+			case `marshmallow`: {
+				let e = fract((o + A) * 5), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = smooth(clamp((noise(o, A, 20, 20, r ^ 34969) - .7) / .1)), i = noise(o, A, 24, 24, r ^ 39338);
+				H = .5 + .3 * t + .1 * n + .06 * i, Z = .44 + .28 * t + .05 * n + .02 * i, Q += .06 * (i - .5) - .08 * t, $ = 1 - .32 * (1 - t);
+				break;
+			}
+			case `nougat`: {
+				let e = smooth(clamp((noise(o, A, 6, 6, r ^ 43707) - .55) / .12)), t = smooth(clamp((noise(o, A, 16, 16, r ^ 48076) - .72) / .05)), n = noise(o, A, 24, 24, r ^ 52445);
+				H = .44 + .3 * e - .12 * t + .08 * n, Z = .44 + .24 * e - .1 * t + .02 * n, Q += .08 * (n - .5) - .1 * e + .12 * t, $ = 1 - .34 * (1 - e) - .18 * t;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

@@ -199,6 +199,9 @@ export type ProceduralMaterialKind =
   | 'kelp'
   | 'seaweed'
   | 'anemone'
+  | 'candy'
+  | 'marshmallow'
+  | 'nougat'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -480,6 +483,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kelp',
   'seaweed',
   'anemone',
+  'candy',
+  'marshmallow',
+  'nougat',
   'basketball',
   'tennisball',
   'golfball',

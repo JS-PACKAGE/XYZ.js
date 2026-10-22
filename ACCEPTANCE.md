@@ -4433,6 +4433,42 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   PLAN／DESIGN 與技術文件；本組沒有新增連結。
   不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+
+## 程序材質擴充：糖果與甜點（candy／marshmallow／nougat）
+
+- 新增光亮扭轉條紋高於淺接縫的硬糖（candy）、柔軟擠花圓稜高於
+  圓弧凹槽並灑粉的棉花糖（marshmallow）、堅果塊與氣泡孔穿插
+  耐嚼糖體的牛軋糖（nougat）。本組提交快照由 249 增為 252 種
+  （與 gallery 狀態列 252 presets 一致）；三者皆為 opaque dielectric，
+  metallic 通道與預設 factor 為 0，僅為表面 shading，
+  不新增條紋、圓稜或堅果塊 geometry，也不做 displacement。
+- 原 249 種在 size 64／seed 7 下四份 maps SHA256 全部不變
+  （以 HEAD 乾淨工作樹重建基準逐位元組比對，changed 0）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check
+  通過；typecheck 僅報共享 HEAD 既有
+  `tests/sprite-quad-validation.test.ts:13` 缺少 `destroy` 欄位
+  （非本組，未改動）。本組材質測試 994 個單獨全數通過；
+  完整 Vitest 2477 個測試中 2476 通過，唯一失敗為文件記載的
+  已知不穩定 mesh-shader-variants（單獨重跑 9 個通過）。
+  條紋高於接縫、擠花圓稜高於凹槽為固定點斷言，牛軋糖堅果塊
+  則以 128×128 掃描 occlusion 極值取樣斷言；加上場域值域有界
+  與週期／owned cell 邊界斜率連續性皆納入回歸；
+  實作期間以逐點探針先行驗證。
+- 獨立 Chrome WebGPU／WebGL2 gallery（252 種）逐一切換三者：
+  場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  check:material-reference 通過（negativeRejected 兩後端皆拒斥），
+  regression-browser chromium webgl2 與 webgpu 通過
+  （僅既有 SKIP：webxr 無實體裝置）。
+- metallic 全為 0，roughness bytes 依序
+  16–66／192–227／123–198；每米 repeats 依序
+  5.555556／5.000000／4.166667。
+- 共享工作目錄同時有其他行程的提交與未提交修改；本組以檔案級
+  篩選只收本組 source／docs／examples／tests 與對應 dist，
+  同步的其他修改不納入本組。同步中／英／日說明、
+  PLAN／DESIGN 與技術文件；本組沒有新增連結。
+  不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
 - `[Visibility]` 3D 可見性收集時，一旦已知有變更就只複製 pose／邊界戳記而不再逐值比較（`changed`／`boundsChanged` 一經成立即不再改變）；BVH refit 改為依前序建構的節點陣列倒序走訪（子節點先於父節點），取代遞迴。結果、epoch、refit 與剔除計數不變（Node 4352 個網格對拍雜湊相同）。新增測試在一個不影響邊界的變更之後移動兩個葉節點進入視野再移出，倒序或比較捷徑的 mutant 皆失敗。production visibility（WebGL2、high）剖析中可見性收集佔 CPU busy 27.2–27.8% → 23.7–24.4%；Node 同程序 1.47–1.76 → 1.31–1.40 ms／幀，屬 CPU 時間。WebGL2／WebGPU browser regression 通過；build 與完整測試（2089 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[WebGPU]` WebGPU 2D 的 quad slot 數達 `stagedUploadQuads`（64）時，instance 資料改填入已 map 的 MAP_WRITE staging buffer（與 instance buffer 同大小，最多 `uploadStagingBuffers` = 3 個在途），在 draw 結束時以單一 `copyBufferToBuffer` command buffer 排在該幀主 command buffer 之前送出（renderToTexture 亦同）；送出後才重新 `mapAsync`，沒有已 map 的 staging 時沿用 `queue.writeBuffer`。獨立量測 2.88 MB 上傳：writeBuffer 1.5 ms、分段寫入無差異、staging 0.1–0.2 ms；64 quads 以下兩者相同。20k sprites WebGPU 每幀 CPU submit p50 8.9–9.0 → 7.5–7.7 ms，2000 sprites 1.3 → 1.2 ms，200 sprites 不變（屬 CPU 時間，不是 fps）；剖析中 writeBuffer 由 busy 的 17–18% 消失。WebGPU 3000／40 sprites 與 WebGL2 的主畫面及 render-texture 像素雜湊與修改前完全相同，拿掉 endFrame 送出 copy 的 mutant 會改變雜湊。三 backend browser regression、smoke examples 163/163 通過；build 與完整測試（2101 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[WebGPU]` 陰影關閉（`scene.shadows.enabled = false`）時，只因投影而收集、不在相機可見清單中的網格不再於該幀更新 uniform（它們只由陰影 pass 繪製）；仍照常驗證、快取並標記 seen，駐留行為不變。uniform 上傳一直以 GPU 端鏡像比對差異，網格再次被繪製時當幀補齊。這與 WebGL2 只在繪製時設定 uniform 的行為一致；此類離屏網格的無效 UV／TEXCOORD_1 錯誤改在實際繪製時拋出。production visibility（WebGPU、high，4096 個旋轉中的離屏網格）CPU busy 0.582–0.585 → 0.351–0.355，`uploadChangedSpan`＋`writeBuffer` 由約 36% busy 消失（CPU 時間，不是 fps）。24 個 PBR／Texture 網格輪流進出視野並於第 30–44 幀開啟陰影的 60 幀 WebGPU 像素雜湊與修改前逐幀相同，少更新一個可見網格的 mutant 會改變雜湊。WebGL2／WebGPU browser regression、smoke examples 163/163 通過；build 與完整測試（2115 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

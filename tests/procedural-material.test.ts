@@ -217,6 +217,9 @@ const kinds: ProceduralMaterialKind[] = [
   'kelp',
   'seaweed',
   'anemone',
+  'candy',
+  'marshmallow',
+  'nougat',
   'basketball',
   'tennisball',
   'golfball',
@@ -4980,6 +4983,9 @@ describe('periodic procedural material fields', () => {
     ['kelp', [4, 8, 24, 64]],
     ['seaweed', [3, 24, 32, 64]],
     ['anemone', [2, 8, 24, 64]],
+    ['candy', [4, 32, 48, 64]],
+    ['marshmallow', [5, 32, 48, 64]],
+    ['nougat', [6, 16, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5203,6 +5209,9 @@ describe('periodic procedural material fields', () => {
     ['kelp', 4],
     ['seaweed', 3],
     ['anemone', 8],
+    ['candy', 4],
+    ['marshmallow', 5],
+    ['nougat', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6580,6 +6589,9 @@ describe('periodic procedural material fields', () => {
     'kelp',
     'seaweed',
     'anemone',
+    'candy',
+    'marshmallow',
+    'nougat',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6637,7 +6649,13 @@ describe('periodic procedural material fields', () => {
                                             ? 3
                                             : kind === 'anemone'
                                               ? 8
-                                              : 4;
+                                              : kind === 'candy'
+                                                ? 4
+                                                : kind === 'marshmallow'
+                                                  ? 5
+                                                  : kind === 'nougat'
+                                                    ? 6
+                                                    : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9743,6 +9761,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the threads and gaps from cavity shading rather than pinning
       // warp-shifted coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('candy twists glossy stripes above their shallow seams', () => {
+    const relief = proceduralMaterialPresets.candy.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('candy', seed);
+      sample(0.0625, 0.0625, crest);
+      sample(0.125, 0.125, seam);
+      expect(crest.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('marshmallow rolls soft piped ridges above their grooves', () => {
+    const relief = proceduralMaterialPresets.marshmallow.relief;
+    const ridge: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...ridge };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('marshmallow', seed);
+      sample(0.05, 0.05, ridge);
+      sample(0.1, 0.1, groove);
+      expect(ridge.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(ridge.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('nougat raises nut chunks above the chewy base and bubble pits', () => {
+    const relief = proceduralMaterialPresets.nougat.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('nougat', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the chunks and pits from cavity shading rather than pinning
+      // seeded blob coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
