@@ -4,6 +4,7 @@ const require_spatial = require("./spatial.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
 const require_collider = require("./collider.cjs");
 const require_physics_force = require("../physics-force.cjs");
+const require_mover_sequence = require("../mover-sequence.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_joints = require("./joints.cjs");
 const require_ccd = require("./ccd.cjs");
@@ -13,7 +14,7 @@ const require_physics_profiles = require("../../../../src/data/physics-profiles.
 const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
-var w = 0;
+var T = 0;
 var pairsWithin = (e) => !!e.body || e.shape.collider.sensor;
 function sleepState(e, t) {
 	return t || (e.isSleeping ? 1 : 2);
@@ -64,6 +65,10 @@ var PhysicsWorld3D = class {
 	indexDirty = !0;
 	poseSnapshot = !1;
 	snapshotMovers = [];
+	sequencePoses = 0;
+	sequenceMembership = -1;
+	sequenceMovers = [];
+	membership = 0;
 	sweptIndex = new require_spatial.SpatialIndex3D();
 	sweptStore = [];
 	ccdCandidates = [];
@@ -141,9 +146,10 @@ var PhysicsWorld3D = class {
 			if (t) throw Error(`A moving pose snapshot cannot be nested.`);
 			return e();
 		}
-		if (this.refreshIndex(), t) {
-			for (let e of this.ordered) for (let n = e.object; n; n = n.parent) if (n === t) {
-				this.snapshotMovers.push(e);
+		let n = require_mover_sequence.activeMoverSequence();
+		if (n !== 0 && this.sequencePoses === n && this.sequenceMembership === this.membership && !this.indexDirty ? this.refreshIndex(this.sequenceMovers) : this.refreshIndex(), this.sequencePoses = n, this.sequenceMembership = this.membership, this.sequenceMovers.length = 0, t) {
+			for (let e of this.ordered) for (let r = e.object; r; r = r.parent) if (r === t) {
+				this.snapshotMovers.push(e), n !== 0 && this.sequenceMovers.push(e);
 				break;
 			}
 		}
@@ -238,7 +244,7 @@ var PhysicsWorld3D = class {
 			contactRow: -1,
 			partnerRows: void 0
 		} : void 0;
-		s && (s.shape.refresh(e) && ++this.counters.refreshedLeaves, s.body?.refreshInertia(s.shape)), t && this.unregister(e), s && !e.destroyed && e.collider === r && e.body === s.body && e.scene === i && e.registrationGeneration === a && !this.entries.has(e) && (this.entries.set(e, s), this.ordered.push(s), this.sweptEntries.push({
+		s && (s.shape.refresh(e) && ++this.counters.refreshedLeaves, s.body?.refreshInertia(s.shape)), t && this.unregister(e), s && !e.destroyed && e.collider === r && e.body === s.body && e.scene === i && e.registrationGeneration === a && !this.entries.has(e) && (this.entries.set(e, s), this.ordered.push(s), ++this.membership, this.sweptEntries.push({
 			entry: s,
 			bounds: new require_spatial.Bounds3D(),
 			order: s.order
@@ -251,7 +257,7 @@ var PhysicsWorld3D = class {
 			let n = this.constraints[t];
 			(n.bodyA === e || n.bodyB === e) && this.removeJoint(n);
 		}
-		this.entries.delete(e), t.registered = !1, ++this.unregisteredEntries, t.body && this.forces.delete(t.body), this.indexDirty = !0, this.sweptIndexDirty = !0;
+		this.entries.delete(e), ++this.membership, t.registered = !1, ++this.unregisteredEntries, t.body && this.forces.delete(t.body), this.indexDirty = !0, this.sweptIndexDirty = !0;
 		let n = [];
 		if (t.contactRow >= 0 && n.push(t), t.partnerRows) for (let e of t.partnerRows) n.push(e);
 		n.sort(compareContactRows);
@@ -416,7 +422,7 @@ var PhysicsWorld3D = class {
 				continue;
 			}
 			if (!a.shape.collider.sensor && !o.shape.collider.sensor) {
-				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++w;
+				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++T;
 				for (let e = 0; e < this.solverIterations; e++) {
 					for (let e = 0; e < l.manifold.count; e++) this.solve(l, e);
 					this.solveJoints();
@@ -477,7 +483,7 @@ var PhysicsWorld3D = class {
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
 		for (let e of this.active) e.responds = !e.ended && this.valid(e.a) && this.valid(e.b) && !e.a.shape.collider.sensor && !e.b.shape.collider.sensor;
-		++this.massEpoch, this.solvePhase = ++w;
+		++this.massEpoch, this.solvePhase = ++T;
 		for (let e = 0; e < this.solverIterations; e++) {
 			this.solveJoints();
 			for (let e of this.active) {
@@ -573,22 +579,22 @@ var PhysicsWorld3D = class {
 		let g = Math.sqrt((n ? n.friction : .5) * (r ? r.friction : .5)) * p, _ = e.tangentImpulses[t], v = Math.max(-g, Math.min(g, _ - (c * m.x + l * m.y + u * m.z) / h));
 		e.tangentImpulses[t] = v, this.solveImpulse.set(m.x * (v - _), m.y * (v - _), m.z * (v - _)), this.applyImpulse(n, a, 1), this.applyImpulse(r, a, -1);
 	}
-	refreshIndex() {
-		let e = this.poseSnapshot && !this.indexDirty;
-		if (e && this.snapshotMovers.length === 0) return;
-		let t = this.indexDirty, n;
+	refreshIndex(e) {
+		let t = this.poseSnapshot && !this.indexDirty;
+		if (t && this.snapshotMovers.length === 0) return;
+		let n = this.indexDirty, r;
 		try {
-			for (let r of e ? this.snapshotMovers : this.ordered) {
-				if (!n) {
-					let e = r.object.scene;
-					e?.beginMatrixPass() && (n = e);
+			for (let i of e ?? (t ? this.snapshotMovers : this.ordered)) {
+				if (!r) {
+					let e = i.object.scene;
+					e?.beginMatrixPass() && (r = e);
 				}
-				++this.counters.poseChecks, r.shape.refresh(r.object) && ++this.counters.refreshedLeaves, r.indexedRevision !== r.shape.revision && (t = !0, this.indexDirty || (this.counters.refits += this.index.update(r)), r.indexedRevision = r.shape.revision);
+				++this.counters.poseChecks, i.shape.refresh(i.object) && ++this.counters.refreshedLeaves, i.indexedRevision !== i.shape.revision && (n = !0, this.indexDirty || (this.counters.refits += this.index.update(i)), i.indexedRevision = i.shape.revision);
 			}
 		} finally {
-			n?.endMatrixPass();
+			r?.endMatrixPass();
 		}
-		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), t && ++this.counters.indexGeneration;
+		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), n && ++this.counters.indexGeneration;
 	}
 	candidates(e) {
 		this.refreshIndex(), this.index.query(e, this.queryCandidates), this.counters.queryCandidates = this.queryCandidates.length;

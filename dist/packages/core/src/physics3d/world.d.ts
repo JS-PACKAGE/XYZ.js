@@ -83,6 +83,13 @@ export declare class PhysicsWorld3D {
     private poseSnapshot;
     /** Entries of the snapshot mover and its descendants, in `ordered` order. */
     private readonly snapshotMovers;
+    /** Mover sequence in which a snapshot last refreshed every pose; 0 when none did. */
+    private sequencePoses;
+    private sequenceMembership;
+    /** The last snapshot's movers in `sequencePoses`: the only entries moved since. */
+    private readonly sequenceMovers;
+    /** Bumped by every registration change. */
+    private membership;
     private readonly sweptIndex;
     private readonly sweptStore;
     private readonly ccdCandidates;
@@ -189,6 +196,7 @@ export declare class PhysicsWorld3D {
      */
     private applyImpulse;
     private solve;
+    /** `only`: the entries that alone can have moved since every pose was last refreshed. */
     private refreshIndex;
     private candidates;
     private accepts;

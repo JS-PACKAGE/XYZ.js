@@ -30,6 +30,7 @@ import {
 } from './debug-geometry.js';
 import { physicsProfiles } from '../../../../src/data/physics-profiles.js';
 import { hypot3 } from '../../../math/src/hypot.js';
+import { activeMoverSequence } from '../mover-sequence.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -173,6 +174,13 @@ export class PhysicsWorld3D {
   private poseSnapshot = false;
   /** Entries of the snapshot mover and its descendants, in `ordered` order. */
   private readonly snapshotMovers: Entry3D[] = [];
+  /** Mover sequence in which a snapshot last refreshed every pose; 0 when none did. */
+  private sequencePoses = 0;
+  private sequenceMembership = -1;
+  /** The last snapshot's movers in `sequencePoses`: the only entries moved since. */
+  private readonly sequenceMovers: Entry3D[] = [];
+  /** Bumped by every registration change. */
+  private membership = 0;
   private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
   private readonly sweptStore: SweptEntry3D[] = [];
   private readonly ccdCandidates: SweptEntry3D[] = [];
@@ -279,12 +287,26 @@ export class PhysicsWorld3D {
       if (mover) throw new Error('A moving pose snapshot cannot be nested.');
       return run();
     }
-    this.refreshIndex();
+    // Within a mover sequence only the previous snapshot's movers can have moved since it
+    // refreshed every pose, so only they are refreshed again.
+    const sequence = activeMoverSequence();
+    if (
+      sequence !== 0 &&
+      this.sequencePoses === sequence &&
+      this.sequenceMembership === this.membership &&
+      !this.indexDirty
+    )
+      this.refreshIndex(this.sequenceMovers);
+    else this.refreshIndex();
+    this.sequencePoses = sequence;
+    this.sequenceMembership = this.membership;
+    this.sequenceMovers.length = 0;
     if (mover)
       for (const e of this.ordered)
         for (let o: Object3D | undefined = e.object; o; o = o.parent)
           if (o === mover) {
             this.snapshotMovers.push(e);
+            if (sequence !== 0) this.sequenceMovers.push(e);
             break;
           }
     this.poseSnapshot = true;
@@ -454,6 +476,7 @@ export class PhysicsWorld3D {
     ) {
       this.entries.set(object, next);
       this.ordered.push(next);
+      ++this.membership;
       this.sweptEntries.push({
         entry: next,
         bounds: new Bounds3D(),
@@ -472,6 +495,7 @@ export class PhysicsWorld3D {
         this.removeJoint(joint);
     }
     this.entries.delete(object);
+    ++this.membership;
     entry.registered = false;
     // Splicing both arrays per removal made bulk teardown quadratic; compact lazily.
     ++this.unregisteredEntries;
@@ -1301,7 +1325,8 @@ export class PhysicsWorld3D {
     this.applyImpulse(a, p, 1);
     this.applyImpulse(b, p, -1);
   }
-  private refreshIndex(): void {
+  /** `only`: the entries that alone can have moved since every pose was last refreshed. */
+  private refreshIndex(only?: readonly Entry3D[]): void {
     const snapshot = this.poseSnapshot && !this.indexDirty;
     if (snapshot && this.snapshotMovers.length === 0) return;
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
@@ -1310,7 +1335,7 @@ export class PhysicsWorld3D {
     // rather than once per child collider.
     let pass: Object3D['scene'];
     try {
-      for (const e of snapshot ? this.snapshotMovers : this.ordered) {
+      for (const e of only ?? (snapshot ? this.snapshotMovers : this.ordered)) {
         if (!pass) {
           const scene = e.object.scene;
           if (scene?.beginMatrixPass()) pass = scene;

@@ -5,6 +5,7 @@ import { Object3D } from '../packages/core/src/object3d.js';
 import {
   CapsuleCollider3D,
   BoxCollider3D,
+  SphereCollider3D,
 } from '../packages/core/src/physics3d/collider.js';
 import { CharacterController3D } from '../packages/core/src/physics3d/character.js';
 import { PathFollower3D } from '../packages/core/src/navigation/follower.js';
@@ -250,6 +251,42 @@ describe('bounded reciprocal crowd and steering', () => {
     expect(sequenced).toEqual(run(false));
     // Stopped against the mover's new pose at the origin, not its stale one.
     expect(sequenced[0]).toBeGreaterThan(0.45);
+  });
+  it('lets a later 3D snapshot of one mover sequence see where an earlier mover went', () => {
+    const run = (sequence: boolean): number | undefined => {
+      const scene = new Scene();
+      const world = scene.physics3D;
+      const make = (x: number) => {
+        const object = new Object3D();
+        object.collider = new SphereCollider3D(0.5);
+        object.position.set(x, 0, 0);
+        scene.add(object);
+        return object;
+      };
+      const first = make(-5),
+        mover = make(5),
+        last = make(-10);
+      const origin = new Vector3(0, 5, 0),
+        down = new Vector3(0, -1, 0);
+      const queries = () => {
+        // The first snapshot refreshes every pose; the mover then moves without a query.
+        world.withPoseSnapshot(() => world.raycast(origin, down, 10), first);
+        world.withPoseSnapshot(() => mover.position.set(0, 0, 0), mover);
+        const hit = world.withPoseSnapshot(
+          () => world.raycast(origin, down, 10),
+          last,
+        );
+        return hit?.object === mover ? hit.distance : undefined;
+      };
+      try {
+        return sequence ? runMoverSequence(queries) : queries();
+      } finally {
+        scene.destroy();
+      }
+    };
+    const sequenced = run(true);
+    expect(sequenced).toBe(run(false));
+    expect(sequenced).toBeCloseTo(4.5, 9);
   });
   it('fails closed on neighbor overflow, ignores repeated epochs and releases borrowed controllers', () => {
     const scene = new CrowdSmokeScene();
