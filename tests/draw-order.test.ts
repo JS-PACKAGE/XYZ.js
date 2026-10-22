@@ -101,6 +101,57 @@ describe('DrawSorter', () => {
     new DrawSorter().sort(draws, camera);
     expect(draws).toEqual([distant, middle]);
   });
+
+  it('orders large blended lists exactly as a stable farthest-first comparator sort', () => {
+    // Large lists take the radix path; ties (including -0 and +0), negatives, infinities,
+    // subnormals and values differing only in low mantissa bits (every 11-bit digit) must
+    // land exactly where the stable comparator sort puts them.
+    const values = [
+      0,
+      -0,
+      1,
+      1,
+      2.5,
+      -1,
+      -3,
+      Infinity,
+      -Infinity,
+      5e-324,
+      1e300,
+      1 + 2 ** -52,
+      1 + 2 ** -41,
+      1 + 2 ** -30,
+      1 + 2 ** -29,
+      1 + 2 ** -20,
+      1 + 2 ** -19,
+      -(1 + 2 ** -30),
+    ];
+    const fake = (id: number, distance: number) =>
+      ({ id, distanceSquaredTo: () => distance }) as unknown as Mesh;
+    const items = Array.from({ length: 600 }, (_, i) =>
+      fake(i, values[(i * 7) % values.length]! * (1 + (i % 3))),
+    );
+    const expected = items
+      .map((item, index) => ({
+        item,
+        index,
+        d: item.distanceSquaredTo(0, 0, 0),
+      }))
+      .sort((a, b) => (b.d > a.d ? 1 : b.d < a.d ? -1 : a.index - b.index))
+      .map(({ item }) => item);
+    const draws = [...items];
+    new DrawSorter().sort(draws, camera, () => true);
+    expect(draws).toEqual(expected);
+    // NaN compares equal to everything; that input still gets Array#sort's own order.
+    const withNaN = [...items];
+    withNaN[300] = fake(-1, NaN);
+    const reference = withNaN
+      .map((item) => ({ item, d: item.distanceSquaredTo(0, 0, 0) }))
+      .sort((a, b) => (b.d > a.d ? 1 : b.d < a.d ? -1 : 0))
+      .map(({ item }) => item);
+    new DrawSorter().sort(withNaN, camera, () => true);
+    expect(withNaN).toEqual(reference);
+  });
 });
 
 describe('transparent pass classification', () => {
