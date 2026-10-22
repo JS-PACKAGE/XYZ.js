@@ -57,6 +57,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('automatic backend isolation', () => {
+  // The first call imports and transforms every renderer module (seconds alone). Under a
+  // loaded full run that passed the 5 s default, and the timed-out call's late warnings then
+  // leaked into the next test's console spies.
   it('falls back after WebGPU binds and configure fails without poisoning the user canvas', async () => {
     setup(true);
     const canvas = new Canvas();
@@ -71,7 +74,7 @@ describe('automatic backend isolation', () => {
     renderer.resize(128, 80);
     expect([canvas.width, canvas.height]).toEqual([128, 80]);
     renderer.destroy();
-  });
+  }, 30_000);
   it('reports automatic fallback and successful backend at configured levels', async () => {
     setup(true);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
