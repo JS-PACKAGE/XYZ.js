@@ -1,32 +1,33 @@
 //#region dist/packages/math/src/hypot.js
-function hypot2(e, t) {
-	e = Math.abs(e), t = Math.abs(t);
-	let n = 0;
-	if (e > n && (n = e), t > n && (n = t), n === 1 / 0) return 1 / 0;
-	if (e !== e || t !== t) return NaN;
-	if (n === 0) return 0;
-	let r = 0, i = 0, a, o;
-	a = e / n, o = a * a - i;
-	let s = r + o;
-	return i = s - r - o, r = s, a = t / n, o = a * a - i, r += o, Math.sqrt(r) * n;
-}
-function hypot3(e, t, n) {
-	e = Math.abs(e), t = Math.abs(t), n = Math.abs(n);
+var e = { nan: NaN };
+function hypot2(t, n) {
+	t = Math.abs(t), n = Math.abs(n);
 	let r = 0;
-	if (e > r && (r = e), t > r && (r = t), n > r && (r = n), r === 1 / 0) return 1 / 0;
-	if (e !== e || t !== t || n !== n) return NaN;
+	if (t > r && (r = t), n > r && (r = n), r === 1 / 0) return 1 / 0;
+	if (t !== t || n !== n) return e.nan;
 	if (r === 0) return 0;
-	let i = 0, a = 0, o, s, c;
-	return o = e / r, s = o * o - a, c = i + s, a = c - i - s, i = c, o = t / r, s = o * o - a, c = i + s, a = c - i - s, i = c, o = n / r, s = o * o - a, i += s, Math.sqrt(i) * r;
+	let i = 0, a = 0, o, s;
+	o = t / r, s = o * o - a;
+	let c = i + s;
+	return a = c - i - s, i = c, o = n / r, s = o * o - a, i += s, Math.sqrt(i) * r;
 }
-function hypot4(e, t, n, r) {
-	e = Math.abs(e), t = Math.abs(t), n = Math.abs(n), r = Math.abs(r);
+function hypot3(t, n, r) {
+	t = Math.abs(t), n = Math.abs(n), r = Math.abs(r);
 	let i = 0;
-	if (e > i && (i = e), t > i && (i = t), n > i && (i = n), r > i && (i = r), i === 1 / 0) return 1 / 0;
-	if (e !== e || t !== t || n !== n || r !== r) return NaN;
+	if (t > i && (i = t), n > i && (i = n), r > i && (i = r), i === 1 / 0) return 1 / 0;
+	if (t !== t || n !== n || r !== r) return e.nan;
 	if (i === 0) return 0;
 	let a = 0, o = 0, s, c, l;
-	return s = e / i, c = s * s - o, l = a + c, o = l - a - c, a = l, s = t / i, c = s * s - o, l = a + c, o = l - a - c, a = l, s = n / i, c = s * s - o, l = a + c, o = l - a - c, a = l, s = r / i, c = s * s - o, a += c, Math.sqrt(a) * i;
+	return s = t / i, c = s * s - o, l = a + c, o = l - a - c, a = l, s = n / i, c = s * s - o, l = a + c, o = l - a - c, a = l, s = r / i, c = s * s - o, a += c, Math.sqrt(a) * i;
+}
+function hypot4(t, n, r, i) {
+	t = Math.abs(t), n = Math.abs(n), r = Math.abs(r), i = Math.abs(i);
+	let a = 0;
+	if (t > a && (a = t), n > a && (a = n), r > a && (a = r), i > a && (a = i), a === 1 / 0) return 1 / 0;
+	if (t !== t || n !== n || r !== r || i !== i) return e.nan;
+	if (a === 0) return 0;
+	let o = 0, s = 0, c, l, u;
+	return c = t / a, l = c * c - s, u = o + l, s = u - o - l, o = u, c = n / a, l = c * c - s, u = o + l, s = u - o - l, o = u, c = r / a, l = c * c - s, u = o + l, s = u - o - l, o = u, c = i / a, l = c * c - s, o += l, Math.sqrt(o) * a;
 }
 //#endregion
 exports.hypot2 = hypot2;
