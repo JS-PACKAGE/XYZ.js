@@ -295,6 +295,9 @@ const kinds: ProceduralMaterialKind[] = [
   'xylophone',
   'tambourine',
   'castanet',
+  'pillcapsule',
+  'pilltablet',
+  'bathbomb',
   'basketball',
   'tennisball',
   'golfball',
@@ -5136,6 +5139,9 @@ describe('periodic procedural material fields', () => {
     ['xylophone', [2, 4, 32, 64]],
     ['tambourine', [5, 32, 64]],
     ['castanet', [3, 32, 64]],
+    ['pillcapsule', [2, 3, 32, 64]],
+    ['pilltablet', [4, 32, 64]],
+    ['bathbomb', [2, 4, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5437,6 +5443,9 @@ describe('periodic procedural material fields', () => {
     ['xylophone', 4],
     ['tambourine', 5],
     ['castanet', 3],
+    ['pillcapsule', 3],
+    ['pilltablet', 4],
+    ['bathbomb', 4],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6892,6 +6901,9 @@ describe('periodic procedural material fields', () => {
     'xylophone',
     'tambourine',
     'castanet',
+    'pillcapsule',
+    'pilltablet',
+    'bathbomb',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7177,7 +7189,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                                         : kind ===
                                                                                                                                                                                                             'castanet'
                                                                                                                                                                                                           ? 3
-                                                                                                                                                                                                          : 4;
+                                                                                                                                                                                                          : kind ===
+                                                                                                                                                                                                              'pillcapsule'
+                                                                                                                                                                                                            ? 3
+                                                                                                                                                                                                            : kind ===
+                                                                                                                                                                                                                'pilltablet'
+                                                                                                                                                                                                              ? 4
+                                                                                                                                                                                                              : kind ===
+                                                                                                                                                                                                                  'bathbomb'
+                                                                                                                                                                                                                ? 4
+                                                                                                                                                                                                                : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -12076,6 +12097,72 @@ describe('periodic procedural material fields', () => {
       expect(rim.height).toBeGreaterThan(center.height + 0.1 * relief);
       expect(center.height).toBeGreaterThan(felt.height + 0.1 * relief);
       expect(rim.occlusion).toBeGreaterThan(felt.occlusion);
+    }
+  });
+
+  it('capsule halves dome above their seams and the backing', () => {
+    const relief = proceduralMaterialPresets.pillcapsule.relief;
+    const half: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...half };
+    const base = { ...half };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pillcapsule', seed);
+      sample(1 / 6, 0.28, half);
+      sample(1 / 6, 1 / 4, seam);
+      sample(0, 0, base);
+      expect(half.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(seam.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(half.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('tablet crowns rise above their score grooves and the backing', () => {
+    const relief = proceduralMaterialPresets.pilltablet.relief;
+    const crown: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const score = { ...crown };
+    const base = { ...crown };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pilltablet', seed);
+      sample(0.155, 0.125, crown);
+      sample(1 / 8, 1 / 8, score);
+      sample(0, 0, base);
+      expect(crown.height).toBeGreaterThan(score.height + 0.1 * relief);
+      expect(score.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(crown.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('bath bomb fizz stays above the diagonal fissures', () => {
+    const relief = proceduralMaterialPresets.bathbomb.relief;
+    const field: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crack = { ...field };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bathbomb', seed);
+      sample(1 / 8, 0, field);
+      sample(0, 0, crack);
+      expect(field.height).toBeGreaterThan(crack.height + 0.1 * relief);
+      expect(field.occlusion).toBeGreaterThan(crack.occlusion);
     }
   });
 

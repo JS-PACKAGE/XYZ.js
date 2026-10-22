@@ -5427,3 +5427,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Graphics2D]` Graphics2D 比照 Text2D 改持有單一 `CanvasTexture2D`，`setInstructions`／`setResolution` 同步 rasterize 並原地重繪（使用者已核准；texture 物件不換、kind 為 canvas、移除已不可能觸發的 revision 競態追蹤），PhysicsDebugDraw2D 因此每次 refresh 都反映當下狀態。Chrome 實測（4 組含漸層／描邊／alpha／resolution 2 的 Graphics2D，640×400 截圖對 HEAD）：WebGPU、Canvas2D 逐位元組相同，WebGL2 有 255 個位元組差 1（同 Text2D 的直通 alpha 反預乘捨入）；每次更新含繪製 WebGPU 0.86→0.14 ms、Canvas2D 0.92→0.13 ms，WebGL2 無明確增益。新增 tests/graphics2d.test.ts（突變檢查通過），完整測試 2829 通過、型別與 API 相容檢查通過。
 - `[Rendering2D]` WebGPU／WebGL2 的隔離圖層在幾何遮罩（rect／path，凍結不可變）與圖層 bounds 不變時，沿用該圖層專屬 mask target 中上一幀的覆蓋，不再每幀建立 Canvas、rasterize、上傳；image 遮罩照舊每幀重繪。Chrome 連續 14 幀序列（遮罩互換、bounds 移動、新建遮罩物件、inverse、CanvasTexture2D image 遮罩）兩 backend 截圖對 HEAD 逐位元組相同；20 個遮罩群組主執行緒忙碌 WebGPU 207→57 ms／5 s、WebGL2 150→42 ms／5 s；mask 上傳與 WebGL2 的 pass 計數隨實際工作減少。完整測試 2863 通過、型別與 API 相容、Chromium regression:browser（canvas2d／webgl2／webgpu）通過。
 - `[Assets]` `CanvasTexture2D` 的 `width`／`height` 改讀欄位（建構、`update`、子類 frame copy 改尺寸與 `destroy` 時同步），不再每次讀 canvas DOM 屬性；renderer 每個 sprite 每幀讀數次（view `validate`、quad 計算），Text2D／Graphics2D 改用 CanvasTexture2D 後這成為新熱點。`image` 文件註明為擁有的快照表面、只經 `update` 改尺寸。Chrome WebGL2 UI 壓力頁（300 widget）getter 成本約 16–19 ms／5 s 歸零。新增 VideoTexture 尺寸變更與 destroy 後尺寸斷言（突變檢查通過）；完整測試 2863 通過、型別與 API 相容檢查通過。
+
+## 程序材質擴充：保健與美容（pillcapsule／pilltablet／bathbomb）
+
+- 新增兩半高於接縫與底板的膠囊（pillcapsule）、圓頂高於刻痕的藥錠（pilltablet）、顆粒高於斜向裂隙的入浴球（bathbomb）。本組提交後目錄由 327 增為 330 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增膠囊、錠劑或裂隙 geometry，也不做 displacement。
+- 前 327 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 85faa47d 乾淨工作樹重建比對，327 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 僅報 HEAD 既有的 `tests/gameplay2d-core.test.ts:93` 與 `tests/sprite-quad-validation.test.ts:13` 兩處（非本組，未改動）。本組材質測試 1384 個全數通過；完整 Vitest 2878／2878 全數通過。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：膠囊兩半高於接縫高於底板、藥錠圓頂高於刻痕高於底板、入浴球顆粒高於斜向裂隙（field 對 crack 以雙向斜格 OR 組合取裂隙，避免 min 在交叉線產生 C1 折角）。全部值域有界，週期／owned cell 邊界斜率掃描差異為 0。
+- 獨立 Chrome WebGPU／WebGL2 gallery（330 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序 130–173／151–181／174–224；每米 repeats 依序 4.166667／6.250000／5.000000。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。

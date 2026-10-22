@@ -277,6 +277,9 @@ export type ProceduralMaterialKind =
   | 'xylophone'
   | 'tambourine'
   | 'castanet'
+  | 'pillcapsule'
+  | 'pilltablet'
+  | 'bathbomb'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -636,6 +639,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'xylophone',
   'tambourine',
   'castanet',
+  'pillcapsule',
+  'pilltablet',
+  'bathbomb',
   'basketball',
   'tennisball',
   'golfball',

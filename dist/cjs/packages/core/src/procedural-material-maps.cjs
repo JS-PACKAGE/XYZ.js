@@ -2517,6 +2517,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .26 * i - .18 * a + .08 * s, Z = .3 + .42 * i - .3 * a, Q += .06 * (s - .5) + .1 * a, $ = 1 - .44 * (1 - i) - .12 * a;
 				break;
 			}
+			case `pillcapsule`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 2) - .5)), i = smooth(clamp((.52 - Math.hypot(e * .72, t * 1.25)) / .3)), a = (1 - smooth(clamp((Math.abs(t) - .06) / .12))) * i, s = noise(o, A, 32, 32, r ^ 31371);
+				H = .46 + .28 * i - .2 * a + .06 * s, Z = .3 + .44 * i - .26 * a, Q += .06 * (s - .5) + .12 * a, $ = 1 - .44 * (1 - i) - .12 * a;
+				break;
+			}
+			case `pilltablet`: {
+				let e = Math.sin(Math.PI * (fract(o * 4) - .5)), t = Math.sin(Math.PI * (fract(A * 4) - .5)), n = smooth(clamp((.62 - Math.hypot(e, t)) / .3)), i = (1 - smooth(clamp((Math.abs(e) - .05) / .1))) * n, a = noise(o, A, 32, 32, r ^ 35740);
+				H = .5 + .26 * n - .2 * i + .06 * a, Z = .3 + .42 * n - .24 * i, Q += .06 * (a - .5) + .12 * i, $ = 1 - .44 * (1 - n) - .12 * i;
+				break;
+			}
+			case `bathbomb`: {
+				let e = Math.sin(Math.PI * (fract((o + A) * 4) - .5)), t = Math.sin(Math.PI * (fract((o - A) * 4) - .5)), n = smooth(clamp((Math.abs(e) - .62) / .2)) + smooth(clamp((Math.abs(t) - .62) / .2)) - smooth(clamp((Math.abs(e) - .62) / .2)) * smooth(clamp((Math.abs(t) - .62) / .2)), i = noise(o, A, 24, 24, r ^ 40109), a = smooth(clamp((i - .34) / .3));
+				H = .42 + .26 * a - .16 * n + .08 * i, Z = .34 + .02 * i - .22 * n, Q += .08 * (i - .5) + .12 * n, $ = 1 - .4 * n - .16 * (1 - a);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

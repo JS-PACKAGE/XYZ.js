@@ -1626,6 +1626,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.56;
         relief: 0.0024;
     }>;
+    pillcapsule: Readonly<{
+        dark: readonly [232, 92, 72];
+        light: readonly [252, 232, 224];
+        roughness: 0.54;
+        relief: 0.0022;
+    }>;
+    pilltablet: Readonly<{
+        dark: readonly [222, 222, 218];
+        light: readonly [252, 252, 248];
+        roughness: 0.62;
+        relief: 0.0018;
+    }>;
+    bathbomb: Readonly<{
+        dark: readonly [142, 82, 192];
+        light: readonly [232, 192, 242];
+        roughness: 0.72;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2296,6 +2314,9 @@ export declare const proceduralTileMeters: Readonly<{
     xylophone: 0.24;
     tambourine: 0.3;
     castanet: 0.2;
+    pillcapsule: 0.24;
+    pilltablet: 0.16;
+    bathbomb: 0.2;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

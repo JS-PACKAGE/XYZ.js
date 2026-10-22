@@ -8820,6 +8820,53 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.44 * (1 - shell) - 0.12 * dimple;
         break;
       }
+      case 'pillcapsule': {
+        // Elongated capsule halves dome over the blister backing.
+        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
+        const d = Math.hypot(fx * 0.72, fy * 1.25);
+        const body = smooth(clamp((0.52 - d) / 0.3));
+        const seam = 1 - smooth(clamp((Math.abs(fy) - 0.06) / 0.12));
+        const groove = seam * body;
+        const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
+        color = 0.46 + 0.28 * body - 0.2 * groove + 0.06 * grain;
+        height = 0.3 + 0.44 * body - 0.26 * groove;
+        roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
+        occlusion = 1 - 0.44 * (1 - body) - 0.12 * groove;
+        break;
+      }
+      case 'pilltablet': {
+        // Round tablets carry a score groove across their crowns.
+        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const tablet = smooth(clamp((0.62 - d) / 0.3));
+        const score = 1 - smooth(clamp((Math.abs(fx) - 0.05) / 0.1));
+        const groove = score * tablet;
+        const grain = noise(u, v, 32, 32, seed ^ 0x8b9c);
+        color = 0.5 + 0.26 * tablet - 0.2 * groove + 0.06 * grain;
+        height = 0.3 + 0.42 * tablet - 0.24 * groove;
+        roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
+        occlusion = 1 - 0.44 * (1 - tablet) - 0.12 * groove;
+        break;
+      }
+      case 'bathbomb': {
+        // Coarse fizz grain breaks along shallow diagonal fissures.
+        const fx = Math.sin(Math.PI * (fract((u + v) * 4) - 0.5)),
+          fy = Math.sin(Math.PI * (fract((u - v) * 4) - 0.5));
+        const crack =
+          smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) +
+          smooth(clamp((Math.abs(fy) - 0.62) / 0.2)) -
+          smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) *
+            smooth(clamp((Math.abs(fy) - 0.62) / 0.2));
+        const grain = noise(u, v, 24, 24, seed ^ 0x9cad);
+        const fizz = smooth(clamp((grain - 0.34) / 0.3));
+        color = 0.42 + 0.26 * fizz - 0.16 * crack + 0.08 * grain;
+        height = 0.34 + 0.02 * grain - 0.22 * crack;
+        roughness += 0.08 * (grain - 0.5) + 0.12 * crack;
+        occlusion = 1 - 0.4 * crack - 0.16 * (1 - fizz);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
