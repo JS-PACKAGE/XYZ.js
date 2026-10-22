@@ -2042,6 +2042,24 @@ export const proceduralMaterialPresets = Object.freeze({
     edge: 0.48,
     jitter: 0.015,
   }),
+  sandpaper: Object.freeze({
+    dark: [86, 66, 48] as const,
+    light: [214, 172, 118] as const,
+    roughness: 0.93,
+    relief: 0.0028,
+  }),
+  steelwool: Object.freeze({
+    dark: [96, 99, 104] as const,
+    light: [214, 218, 224] as const,
+    roughness: 0.82,
+    relief: 0.003,
+  }),
+  wirebrush: Object.freeze({
+    dark: [64, 62, 60] as const,
+    light: [202, 200, 196] as const,
+    roughness: 0.68,
+    relief: 0.0026,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2376,4 +2394,7 @@ export const proceduralTileMeters = Object.freeze({
   pineapple: 0.16,
   strawberry: 0.055,
   lychee: 0.055,
+  sandpaper: 0.12,
+  steelwool: 0.16,
+  wirebrush: 0.1,
 });

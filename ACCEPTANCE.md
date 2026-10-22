@@ -5437,3 +5437,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 獨立 Chrome WebGPU／WebGL2 gallery（330 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
 - metallic 全為 0，roughness bytes 依序 130–173／151–181／174–224；每米 repeats 依序 4.166667／6.250000／5.000000。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
+
+## 程序材質擴充：打磨與清潔（sandpaper／steelwool／wirebrush）
+
+- 新增錯列磨料凸粒高於背板、間隙帶平滑噪聲脫落凹坑的砂紙（sandpaper）、三向斜向纏繞絲脊交錯且交點略抬高的鋼絲棉（steelwool）、密排平行刷毛高於溝槽的鋼絲刷（wirebrush）。本組提交後目錄由 330 增為 333 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增磨料、絲線或刷毛 geometry，也不做 displacement。
+- 前 330 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 4a499a37 乾淨工作樹重建比對，330 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 僅報 HEAD 既有的 `tests/gameplay2d-core.test.ts:93` 與 `tests/sprite-quad-validation.test.ts:13` 兩處（非本組，未改動）。本組材質測試 1399 個全數通過；完整 Vitest 2893／2893 全數通過。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：磨料凸粒高於背板、絲脊高於間隙、刷毛高於溝槽，occlusion 同序。全部值域有界，週期 wrap 與 owned cell 邊界掃描的最大欄位差異 ≤2.6e-5、斜率曲率 ~1e-6（浮點噪聲內）。
+- 實作上修正三處 wrap 週期問題才通過邊界／斜率／C1 檢查：鋼絲棉的交點項改以 pair-OR 有界化（避免三絲交疊把 color 推出 [0,1]）、絲線振幅 hash 鍵取 mod 3 週期化（第三族 `(2u+v)` 無法週期標記索引，改固定振幅）；砂紙脫落凹坑改為純平滑噪聲斑並在凸粒處抑制（不使用 cell 角落幾何，避免錯列行界跳變）；鋼絲刷 hash 鍵隨刷毛週期取 mod 24。
+- 獨立 Chrome WebGPU／WebGL2 gallery（333 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序 230–255／199–241／147–185；每米 repeats 依序 8.333333／6.250000／10.000000。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。

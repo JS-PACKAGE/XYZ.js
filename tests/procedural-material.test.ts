@@ -355,6 +355,9 @@ const kinds: ProceduralMaterialKind[] = [
   'pineapple',
   'strawberry',
   'lychee',
+  'sandpaper',
+  'steelwool',
+  'wirebrush',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5163,6 +5166,9 @@ describe('periodic procedural material fields', () => {
     ['pineapple', [8, 16, 96]],
     ['strawberry', [10, 12, 96]],
     ['lychee', [16, 18, 96]],
+    ['sandpaper', [2, 4, 32, 64]],
+    ['steelwool', [3, 32, 64]],
+    ['wirebrush', [2, 4, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5496,6 +5502,9 @@ describe('periodic procedural material fields', () => {
     ['lychee', 16],
     ['lychee', 18],
     ['lychee', 96],
+    ['sandpaper', 3],
+    ['steelwool', 4],
+    ['wirebrush', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -6907,6 +6916,9 @@ describe('periodic procedural material fields', () => {
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
+    'sandpaper',
+    'steelwool',
+    'wirebrush',
   ] as const)(
     '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
@@ -7198,7 +7210,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                                               : kind ===
                                                                                                                                                                                                                   'bathbomb'
                                                                                                                                                                                                                 ? 4
-                                                                                                                                                                                                                : 4;
+                                                                                                                                                                                                                : kind ===
+                                                                                                                                                                                                                    'sandpaper'
+                                                                                                                                                                                                                  ? 3
+                                                                                                                                                                                                                  : kind ===
+                                                                                                                                                                                                                      'steelwool'
+                                                                                                                                                                                                                    ? 4
+                                                                                                                                                                                                                    : kind ===
+                                                                                                                                                                                                                        'wirebrush'
+                                                                                                                                                                                                                      ? 4
+                                                                                                                                                                                                                      : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -12163,6 +12184,66 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, crack);
       expect(field.height).toBeGreaterThan(crack.height + 0.1 * relief);
       expect(field.occlusion).toBeGreaterThan(crack.occlusion);
+    }
+  });
+
+  it('grit domes rise above the sandpaper backing', () => {
+    const relief = proceduralMaterialPresets.sandpaper.relief;
+    const dome: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const backing = { ...dome };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sandpaper', seed);
+      sample(1 / 20, 1 / 24, dome);
+      sample(0, 1 / 24, backing);
+      expect(dome.height).toBeGreaterThan(backing.height + 0.1 * relief);
+      expect(dome.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('steel wool strands crest above the gaps between crossings', () => {
+    const relief = proceduralMaterialPresets.steelwool.relief;
+    const strand: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...strand };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('steelwool', seed);
+      sample(0.25, 0.25, strand);
+      sample(0, 0, gap);
+      expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(strand.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('wire brush bristles crest above their grooves', () => {
+    const relief = proceduralMaterialPresets.wirebrush.relief;
+    const bristle: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...bristle };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wirebrush', seed);
+      sample(1 / 48, 0, bristle);
+      sample(0, 0, groove);
+      expect(bristle.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(bristle.occlusion).toBeGreaterThan(groove.occlusion);
     }
   });
 

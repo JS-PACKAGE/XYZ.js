@@ -393,6 +393,21 @@ function createSurfaceSampler(t, r) {
 				t === `strawberry` ? (Z = .62 + .004 * c - .3 * l + .09 * u, H = .12 + .012 * c + .78 * u, $ = 1 - .32 * l + .12 * u, Q = i.roughness + .04 * l - .06 * u) : (Z = .16 + .28 * d + .15 * f + .004 * c, H = .12 + .55 * d + .08 * f + .012 * c, $ = .55 + .42 * d, Q = i.roughness + .04 * (1 - d) - .03 * f);
 				break;
 			}
+			case `sandpaper`: {
+				let e = Math.floor(A * 12), t = (e & 1) * .5, n = (Math.floor(o * 10 + t) % 10 + 10) % 10, i = (e % 12 + 12) % 12, a = fract(o * 10 + t) - .5, s = fract(A * 12) - .5, c = Math.hypot(a, s), l = .38 + .1 * hash(n, i, r ^ 12058), u = smooth(clamp((l - c) / (l * .55))), d = smooth(clamp((noise(o, A, 6, 6, r ^ 30659) - .72) / .18)) * (1 - u), f = noise(o, A, 48, 48, r ^ 21921);
+				H = .4 + .3 * u - .14 * d + .08 * f, Z = .3 + .34 * u - .12 * d, Q += .06 * (f - .5) + .04 * (1 - u), $ = 1 - .44 * (1 - u) - .12 * d;
+				break;
+			}
+			case `steelwool`: {
+				let e = Math.sin(Math.PI * (fract(3 * (o + A)) - .5)), t = Math.sin(Math.PI * (fract(3 * (o - A)) - .5)), n = Math.sin(Math.PI * (fract(2 * o + A) - .5)), i = smooth(clamp((.22 - Math.abs(e)) / .14)), a = smooth(clamp((.22 - Math.abs(t)) / .14)), s = smooth(clamp((.22 - Math.abs(n)) / .14)), c = (Math.floor(3 * (o + A)) % 3 + 3) % 3, l = (Math.floor(3 * (o - A)) % 3 + 3) % 3, u = i * (.85 + .15 * hash(c, 0, r ^ 7505)), d = a * (.85 + .15 * hash(l, 1, r ^ 19499)), f = s * .92, p = 1 - (1 - u) * (1 - d) * (1 - f), m = 1 - (1 - u * d) * (1 - d * f) * (1 - f * u), h = noise(o, A, 32, 32, r ^ 11783);
+				H = .44 + .34 * p + .1 * m + .08 * h, Z = .3 + .3 * p + .08 * m, Q += .1 * (h - .5) + .08 * (1 - p), $ = 1 - .44 * (1 - p);
+				break;
+			}
+			case `wirebrush`: {
+				let e = o * 24 + .3 * Math.sin(n * A), t = (Math.floor(e) % 24 + 24) % 24, i = fract(e) - .5, a = smooth(clamp((.32 - Math.abs(i)) / .12)), s = .85 + .15 * hash(t, 0, r ^ 15473), c = .9 + .1 * Math.sin(n * (2 * A + hash(t, 1, r ^ 25042))), l = noise(o, A, 32, 32, r ^ 6959);
+				H = .38 + .3 * a * s * c + .08 * l, Z = .3 + .44 * a * s * c, Q += .1 * (l - .5) - .06 * a, $ = 1 - .44 * (1 - a);
+				break;
+			}
 			case `morel`: {
 				let e = x, t = o * e.columns, n = A * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(o, A), s = 0, c = 0;
 				for (let a = -2; a <= 2; a++) for (let o = -2; o <= 2; o++) {

@@ -1383,6 +1383,76 @@ export function createSurfaceSampler(
         }
         break;
       }
+      case 'sandpaper': {
+        // Grit domes stay on a fixed staggered lattice; seed only sizes them.
+        const nx = 10,
+          ny = 12;
+        const cy = Math.floor(v * ny),
+          stagger = (cy & 1) * 0.5;
+        const cx = Math.floor(u * nx + stagger);
+        // Radius hashes wrap with the lattice periods so the seam stays continuous.
+        const cellX = ((cx % nx) + nx) % nx,
+          cellY = ((cy % ny) + ny) % ny;
+        const fx = fract(u * nx + stagger) - 0.5,
+          fy = fract(v * ny) - 0.5;
+        const d = Math.hypot(fx, fy);
+        const r = 0.38 + 0.1 * hash(cellX, cellY, seed ^ 0x2f1a);
+        const dome = smooth(clamp((r - d) / (r * 0.55)));
+        // Shedding pits gather where smooth noise stays high and never reach the domes.
+        const pit =
+          smooth(clamp((noise(u, v, 6, 6, seed ^ 0x77c3) - 0.72) / 0.18)) *
+          (1 - dome);
+        const grain = noise(u, v, 48, 48, seed ^ 0x55a1);
+        color = 0.4 + 0.3 * dome - 0.14 * pit + 0.08 * grain;
+        height = 0.3 + 0.34 * dome - 0.12 * pit;
+        roughness += 0.06 * (grain - 0.5) + 0.04 * (1 - dome);
+        occlusion = 1 - 0.44 * (1 - dome) - 0.12 * pit;
+        break;
+      }
+      case 'steelwool': {
+        // Tangled strand ridges run along three wrapped diagonal families.
+        const f1 = Math.sin(Math.PI * (fract(3 * (u + v)) - 0.5)),
+          f2 = Math.sin(Math.PI * (fract(3 * (u - v)) - 0.5)),
+          f3 = Math.sin(Math.PI * (fract(2 * u + v) - 0.5));
+        const e1 = smooth(clamp((0.22 - Math.abs(f1)) / 0.14)),
+          e2 = smooth(clamp((0.22 - Math.abs(f2)) / 0.14)),
+          e3 = smooth(clamp((0.22 - Math.abs(f3)) / 0.14));
+        const i1 = ((Math.floor(3 * (u + v)) % 3) + 3) % 3,
+          i2 = ((Math.floor(3 * (u - v)) % 3) + 3) % 3;
+        // The third family keeps a constant amplitude: its strand index cannot
+        // be labeled periodically, so hashing it would break the wrapped seam.
+        const a1 = e1 * (0.85 + 0.15 * hash(i1, 0, seed ^ 0x1d51)),
+          a2 = e2 * (0.85 + 0.15 * hash(i2, 1, seed ^ 0x4c2b)),
+          a3 = e3 * 0.92;
+        // OR of the three envelopes keeps crossing slopes continuous; the
+        // pair OR stays bounded so packed crossings cannot leave the unit range.
+        const strand = 1 - (1 - a1) * (1 - a2) * (1 - a3);
+        const cross = 1 - (1 - a1 * a2) * (1 - a2 * a3) * (1 - a3 * a1);
+        const grain = noise(u, v, 32, 32, seed ^ 0x2e07);
+        color = 0.44 + 0.34 * strand + 0.1 * cross + 0.08 * grain;
+        height = 0.3 + 0.3 * strand + 0.08 * cross;
+        roughness += 0.1 * (grain - 0.5) + 0.08 * (1 - strand);
+        occlusion = 1 - 0.44 * (1 - strand);
+        break;
+      }
+      case 'wirebrush': {
+        // Dense parallel bristles lean together and flick only in amplitude.
+        // Hash keys wrap with the bristle period so the seam stays continuous.
+        const x = u * 24 + 0.3 * Math.sin(TAU * v);
+        const ix = Math.floor(x);
+        const cell = ((ix % 24) + 24) % 24;
+        const fx = fract(x) - 0.5;
+        const ridge = smooth(clamp((0.32 - Math.abs(fx)) / 0.12));
+        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x3c71);
+        const flick =
+          0.9 + 0.1 * Math.sin(TAU * (2 * v + hash(cell, 1, seed ^ 0x61d2)));
+        const grain = noise(u, v, 32, 32, seed ^ 0x1b2f);
+        color = 0.38 + 0.3 * ridge * amp * flick + 0.08 * grain;
+        height = 0.3 + 0.44 * ridge * amp * flick;
+        roughness += 0.1 * (grain - 0.5) - 0.06 * ridge;
+        occlusion = 1 - 0.44 * (1 - ridge);
+        break;
+      }
       case 'morel': {
         const p = morelPreset,
           x = u * p.columns,
