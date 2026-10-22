@@ -4890,6 +4890,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .5,
 		relief: .0034
+	}),
+	wafflecone: Object.freeze({
+		dark: [
+			122,
+			74,
+			30
+		],
+		light: [
+			232,
+			186,
+			112
+		],
+		roughness: .55,
+		relief: .0034
+	}),
+	donutglaze: Object.freeze({
+		dark: [
+			132,
+			84,
+			56
+		],
+		light: [
+			246,
+			232,
+			226
+		],
+		roughness: .32,
+		relief: .0038
+	}),
+	brownie: Object.freeze({
+		dark: [
+			42,
+			24,
+			18
+		],
+		light: [
+			148,
+			96,
+			62
+		],
+		roughness: .46,
+		relief: .0032
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5237,7 +5279,10 @@ var proceduralTileMeters = Object.freeze({
 	pennyround: .2,
 	volleyball: .3,
 	bowlingball: .24,
-	rugbyball: .28
+	rugbyball: .28,
+	wafflecone: .18,
+	donutglaze: .24,
+	brownie: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

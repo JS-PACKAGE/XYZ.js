@@ -351,7 +351,10 @@ export type ProceduralMaterialKind =
   | 'pennyround'
   | 'volleyball'
   | 'bowlingball'
-  | 'rugbyball';
+  | 'rugbyball'
+  | 'wafflecone'
+  | 'donutglaze'
+  | 'brownie';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -729,6 +732,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'volleyball',
   'bowlingball',
   'rugbyball',
+  'wafflecone',
+  'donutglaze',
+  'brownie',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

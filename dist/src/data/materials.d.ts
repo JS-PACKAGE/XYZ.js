@@ -2131,6 +2131,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.5;
         relief: 0.0034;
     }>;
+    wafflecone: Readonly<{
+        dark: readonly [122, 74, 30];
+        light: readonly [232, 186, 112];
+        roughness: 0.55;
+        relief: 0.0034;
+    }>;
+    donutglaze: Readonly<{
+        dark: readonly [132, 84, 56];
+        light: readonly [246, 232, 226];
+        roughness: 0.32;
+        relief: 0.0038;
+    }>;
+    brownie: Readonly<{
+        dark: readonly [42, 24, 18];
+        light: readonly [148, 96, 62];
+        roughness: 0.46;
+        relief: 0.0032;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2479,4 +2497,7 @@ export declare const proceduralTileMeters: Readonly<{
     volleyball: 0.3;
     bowlingball: 0.24;
     rugbyball: 0.28;
+    wafflecone: 0.18;
+    donutglaze: 0.24;
+    brownie: 0.2;
 }>;

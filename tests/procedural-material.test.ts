@@ -370,6 +370,9 @@ const kinds: ProceduralMaterialKind[] = [
   'volleyball',
   'bowlingball',
   'rugbyball',
+  'wafflecone',
+  'donutglaze',
+  'brownie',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5193,6 +5196,9 @@ describe('periodic procedural material fields', () => {
     ['volleyball', [3, 32, 64]],
     ['bowlingball', [2, 32, 64]],
     ['rugbyball', [3, 32, 64]],
+    ['wafflecone', [4, 32, 64]],
+    ['donutglaze', [3, 32, 64]],
+    ['brownie', [3, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5543,6 +5549,9 @@ describe('periodic procedural material fields', () => {
     ['bowlingball', 2],
     ['rugbyball', 2],
     ['rugbyball', 12],
+    ['wafflecone', 8],
+    ['donutglaze', 14],
+    ['brownie', 7],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13633,6 +13642,87 @@ describe('periodic procedural material fields', () => {
         expect(b.height).toBeGreaterThan(c.height);
         expect(a.occlusion).toBeGreaterThan(c.occlusion);
       }
+    }
+  });
+
+  it('wafflecone crests diagonal lattice ridges above toasted pockets', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wafflecone', seed);
+      for (const k of [1, 2, 3]) {
+        sample((k + 0.25) / 8, (k + 0.25) / 8, a);
+        sample(k / 8, k / 8, b);
+        expect(a.height).toBeGreaterThan(b.height);
+        expect(a.occlusion).toBeGreaterThan(b.occlusion);
+      }
+    }
+  });
+
+  it('donutglaze sinks cake pores below the surrounding crumb everywhere', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('donutglaze', seed);
+      let lower = 0,
+        occluded = 0;
+      for (const i of [0, 1, 2, 3])
+        for (const j of [0, 1, 2, 3]) {
+          sample((i + 0.5) / 14, (j + 0.5) / 14, a);
+          sample((i + 1) / 14, (j + 0.5) / 14, b);
+          if (a.height < b.height) lower++;
+          if (a.occlusion < b.occlusion) occluded++;
+        }
+      expect(lower).toBeGreaterThanOrEqual(10);
+      expect(occluded).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('brownie lifts walnut chunks above the cracked fudge top', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('brownie', seed);
+      for (const [nu, nv] of [
+        [0.22, 0.3],
+        [0.62, 0.58],
+        [0.42, 0.82],
+      ] as const) {
+        sample(nu, nv, a);
+        sample(nu + 0.09, nv, b);
+        expect(a.height).toBeGreaterThan(b.height);
+        expect(a.roughness).toBeLessThan(b.roughness);
+      }
+      let lo = 1,
+        hi = 0;
+      for (let i = 0; i <= 16; i++)
+        for (let j = 0; j <= 16; j++) {
+          sample(i / 16, j / 16, a);
+          if (a.height < lo) lo = a.height;
+          if (a.height > hi) hi = a.height;
+        }
+      expect(hi).toBeGreaterThan(2 * lo);
     }
   });
 

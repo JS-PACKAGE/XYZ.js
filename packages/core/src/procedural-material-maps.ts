@@ -1731,6 +1731,72 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.42 * groove - 0.14 * (1 - stitch) * band;
           return;
         };
+      case 'wafflecone':
+        return () => {
+          // Diagonal lattice ridges cradle toasted diamond pockets.
+          const a = fract((u + v) * 8) - 0.5,
+            b = fract((u - v) * 8) - 0.5;
+          const ra = smooth(clamp((0.12 - Math.abs(a)) / 0.08)),
+            rb = smooth(clamp((0.12 - Math.abs(b)) / 0.08));
+          const ridge = ra + rb - ra * rb;
+          const toast = noise(u, v, 24, 24, seed ^ 0x2f31);
+          color = 0.42 + 0.3 * ridge - 0.1 * (1 - ridge) + 0.12 * (toast - 0.5);
+          height = 0.28 + 0.24 * ridge;
+          roughness += 0.08 * (toast - 0.5) - 0.06 * ridge;
+          occlusion = 1 - 0.4 * (1 - ridge);
+          return;
+        };
+      case 'donutglaze':
+        return () => {
+          // Smooth glaze puddles with rounded edges sit over a porous cake.
+          const g1 = noise(u, v, 5, 5, seed ^ 0x4c2b),
+            g2 = noise(u, v, 11, 11, seed ^ 0x5d3c);
+          const glazeField = 0.65 * g1 + 0.35 * g2;
+          const glaze = smooth(clamp((glazeField - 0.46) / 0.14));
+          const px = fract(u * 14) - 0.5,
+            py = fract(v * 14) - 0.5;
+          const q = (px * px + py * py) / (0.08 * 0.08);
+          const pore = q < 1 ? (1 - q) * (1 - q) : 0;
+          const pit = pore * (1 - 0.6 * glaze);
+          color = 0.5 + 0.3 * glaze + 0.1 * (g2 - 0.5) - 0.12 * pit;
+          height = 0.3 + 0.22 * glaze - 0.1 * pit;
+          roughness += 0.14 * (1 - glaze) + 0.05 * (g1 - 0.5);
+          occlusion = 1 - 0.4 * pit - 0.12 * (1 - glaze);
+          return;
+        };
+      case 'brownie':
+        return () => {
+          // Coarse fudge cracks and walnut chunks break the baked top.
+          const w1 = noise(u, v, 3, 3, seed ^ 0x1b7e) - 0.5,
+            w2 = noise(u, v, 3, 3, seed ^ 0x2c8f) - 0.5;
+          const x = 7 * u + 0.5 * w1,
+            y = 7 * v + 0.5 * w2;
+          const cxr = smooth(
+              clamp((0.1 - (0.5 - Math.abs(fract(x) - 0.5))) / 0.05),
+            ),
+            cyr = smooth(
+              clamp((0.1 - (0.5 - Math.abs(fract(y) - 0.5))) / 0.05),
+            );
+          const crack = cxr + cyr - cxr * cyr;
+          let nut = 0;
+          for (const [nu, nv] of [
+            [0.22, 0.3],
+            [0.62, 0.58],
+            [0.42, 0.82],
+          ] as const) {
+            const du = fract(u - nu + 0.5) - 0.5,
+              dv = fract(v - nv + 0.5) - 0.5;
+            const q = (du * du + dv * dv) / (0.06 * 0.06);
+            const bump = q < 1 ? (1 - q) * (1 - q) : 0;
+            nut += bump - nut * bump;
+          }
+          const grain = noise(u, v, 40, 40, seed ^ 0x3d90);
+          color = 0.34 - 0.16 * crack + 0.3 * nut + 0.08 * (grain - 0.5);
+          height = 0.36 - 0.14 * crack + 0.2 * nut + 0.04 * (grain - 0.5);
+          roughness += 0.06 * (grain - 0.5) + 0.08 * crack - 0.1 * nut;
+          occlusion = 1 - 0.4 * crack - 0.1 * (1 - nut);
+          return;
+        };
       case 'morel':
         return () => {
           const p = morelPreset,
