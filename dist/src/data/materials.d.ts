@@ -1248,6 +1248,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.52;
         relief: 0.0026;
     }>;
+    bedsheet: Readonly<{
+        dark: readonly [142, 148, 178];
+        light: readonly [232, 236, 252];
+        roughness: 0.78;
+        relief: 0.0024;
+    }>;
+    pillow: Readonly<{
+        dark: readonly [162, 158, 178];
+        light: readonly [242, 238, 252];
+        roughness: 0.82;
+        relief: 0.003;
+    }>;
+    mattress: Readonly<{
+        dark: readonly [102, 98, 118];
+        light: readonly [192, 188, 212];
+        roughness: 0.86;
+        relief: 0.003;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1855,6 +1873,9 @@ export declare const proceduralTileMeters: Readonly<{
     broccoli: 0.18;
     cabbage: 0.24;
     onion: 0.16;
+    bedsheet: 0.24;
+    pillow: 0.3;
+    mattress: 0.36;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

@@ -2202,6 +2202,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .3 * t + .1 * n + .06 * i, Z = .44 + .24 * t + .05 * n + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .32 * (1 - t);
 				break;
 			}
+			case `bedsheet`: {
+				let e = noise(o, A, 4, 4, r ^ 9318) - .5, t = smooth(clamp((.3 - Math.abs(fract((A + .16 * e) * 4) - .5)) / .16)), n = noise(o, A, 32, 32, r ^ 13687);
+				H = .5 + .3 * t + .08 * n, Z = .46 + .22 * t + .02 * n, Q += .06 * (n - .5) - .1 * t, $ = 1 - .3 * (1 - t);
+				break;
+			}
+			case `pillow`: {
+				let e = fract(o * 2) - .5, t = fract(A * 2) - .5, n = smooth(clamp((.36 - Math.hypot(e, t)) / .16)), i = smooth(clamp((.045 - Math.min(fract(o * 2), 1 - fract(o * 2))) / .025)) + smooth(clamp((.045 - Math.min(fract(A * 2), 1 - fract(A * 2))) / .025)), a = noise(o, A, 32, 32, r ^ 22425);
+				H = .5 + .3 * n - .1 * Math.min(i, 1) + .06 * a, Z = .44 + .24 * n - .12 * Math.min(i, 1) + .02 * a, Q += .06 * (a - .5) - .08 * n, $ = 1 - .34 * (1 - n) - .12 * Math.min(i, 1);
+				break;
+			}
+			case `mattress`: {
+				let e = fract(o * 4) - .5, t = fract(A * 4) - .5, n = smooth(clamp((.18 - Math.hypot(e, t)) / .08)), i = noise(o, A, 24, 24, r ^ 26794);
+				H = .46 + .3 * (1 - n) * .4 + .1 * i, Z = .46 + .12 * i - .2 * n, Q += .06 * (i - .5), $ = 1 - .42 * n;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

@@ -232,6 +232,9 @@ const kinds: ProceduralMaterialKind[] = [
   'broccoli',
   'cabbage',
   'onion',
+  'bedsheet',
+  'pillow',
+  'mattress',
   'basketball',
   'tennisball',
   'golfball',
@@ -5010,6 +5013,9 @@ describe('periodic procedural material fields', () => {
     ['broccoli', [10, 24, 32, 64]],
     ['cabbage', [3, 32, 48, 64]],
     ['onion', [6, 24, 32, 64]],
+    ['bedsheet', [4, 32, 48, 64]],
+    ['pillow', [2, 5, 32, 64]],
+    ['mattress', [4, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5248,6 +5254,9 @@ describe('periodic procedural material fields', () => {
     ['broccoli', 10],
     ['cabbage', 3],
     ['onion', 6],
+    ['bedsheet', 4],
+    ['pillow', 2],
+    ['mattress', 4],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6640,6 +6649,9 @@ describe('periodic procedural material fields', () => {
     'broccoli',
     'cabbage',
     'onion',
+    'bedsheet',
+    'pillow',
+    'mattress',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6736,7 +6748,16 @@ describe('periodic procedural material fields', () => {
                                                                           : kind ===
                                                                               'onion'
                                                                             ? 6
-                                                                            : 4;
+                                                                            : kind ===
+                                                                                'bedsheet'
+                                                                              ? 4
+                                                                              : kind ===
+                                                                                  'pillow'
+                                                                                ? 2
+                                                                                : kind ===
+                                                                                    'mattress'
+                                                                                  ? 4
+                                                                                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10217,6 +10238,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the buds and gaps from cavity shading rather than pinning
       // seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('pillow domes quilted puffs above the recessed piped seams', () => {
+    const relief = proceduralMaterialPresets.pillow.relief;
+    const loft: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...loft };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pillow', seed);
+      sample(0.25, 0.25, loft);
+      sample(0.5, 0.25, seam);
+      expect(loft.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(loft.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('mattress keeps the woven surface above the button tuft dimples', () => {
+    const relief = proceduralMaterialPresets.mattress.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const tuft = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('mattress', seed);
+      sample(0, 0, surface);
+      sample(0.125, 0.125, tuft);
+      expect(surface.height).toBeGreaterThan(tuft.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(tuft.occlusion);
+    }
+  });
+
+  it('bed sheet presses soft wrinkles over the woven base', () => {
+    const relief = proceduralMaterialPresets.bedsheet.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bedsheet', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the wrinkles and the base from cavity shading rather than
+      // pinning warp-shifted coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

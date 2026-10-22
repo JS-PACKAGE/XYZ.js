@@ -2904,6 +2904,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .52,
 		relief: .0026
 	}),
+	bedsheet: Object.freeze({
+		dark: [
+			142,
+			148,
+			178
+		],
+		light: [
+			232,
+			236,
+			252
+		],
+		roughness: .78,
+		relief: .0024
+	}),
+	pillow: Object.freeze({
+		dark: [
+			162,
+			158,
+			178
+		],
+		light: [
+			242,
+			238,
+			252
+		],
+		roughness: .82,
+		relief: .003
+	}),
+	mattress: Object.freeze({
+		dark: [
+			102,
+			98,
+			118
+		],
+		light: [
+			192,
+			188,
+			212
+		],
+		roughness: .86,
+		relief: .003
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3966,6 +4008,9 @@ var proceduralTileMeters = Object.freeze({
 	broccoli: .18,
 	cabbage: .24,
 	onion: .16,
+	bedsheet: .24,
+	pillow: .3,
+	mattress: .36,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

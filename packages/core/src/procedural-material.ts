@@ -214,6 +214,9 @@ export type ProceduralMaterialKind =
   | 'broccoli'
   | 'cabbage'
   | 'onion'
+  | 'bedsheet'
+  | 'pillow'
+  | 'mattress'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -510,6 +513,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'broccoli',
   'cabbage',
   'onion',
+  'bedsheet',
+  'pillow',
+  'mattress',
   'basketball',
   'tennisball',
   'golfball',

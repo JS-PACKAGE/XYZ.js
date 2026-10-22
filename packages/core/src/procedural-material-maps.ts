@@ -7896,6 +7896,51 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - layer);
         break;
       }
+      case 'bedsheet': {
+        // Soft pressed wrinkles drift across the woven sheet.
+        const warp = noise(u, v, 4, 4, seed ^ 0x2466) - 0.5;
+        const wrinkle = smooth(
+          clamp((0.3 - Math.abs(fract((v + 0.16 * warp) * 4) - 0.5)) / 0.16),
+        );
+        const weave = noise(u, v, 32, 32, seed ^ 0x3577);
+        color = 0.5 + 0.3 * wrinkle + 0.08 * weave;
+        height = 0.46 + 0.22 * wrinkle + 0.02 * weave;
+        roughness += 0.06 * (weave - 0.5) - 0.1 * wrinkle;
+        occlusion = 1 - 0.3 * (1 - wrinkle);
+        break;
+      }
+      case 'pillow': {
+        // Lofty quilted puffs dome between the recessed piped seams.
+        const px = fract(u * 2) - 0.5,
+          py = fract(v * 2) - 0.5;
+        const puff = smooth(clamp((0.36 - Math.hypot(px, py)) / 0.16));
+        const seam =
+          smooth(
+            clamp((0.045 - Math.min(fract(u * 2), 1 - fract(u * 2))) / 0.025),
+          ) +
+          smooth(
+            clamp((0.045 - Math.min(fract(v * 2), 1 - fract(v * 2))) / 0.025),
+          );
+        const weave = noise(u, v, 32, 32, seed ^ 0x5799);
+        color = 0.5 + 0.3 * puff - 0.1 * Math.min(seam, 1) + 0.06 * weave;
+        height = 0.44 + 0.24 * puff - 0.12 * Math.min(seam, 1) + 0.02 * weave;
+        roughness += 0.06 * (weave - 0.5) - 0.08 * puff;
+        occlusion = 1 - 0.34 * (1 - puff) - 0.12 * Math.min(seam, 1);
+        break;
+      }
+      case 'mattress': {
+        // Button tufts pull dimples into the coarse woven surface.
+        const tx = fract(u * 4) - 0.5,
+          ty = fract(v * 4) - 0.5;
+        const r = Math.hypot(tx, ty);
+        const tuft = smooth(clamp((0.18 - r) / 0.08));
+        const weave = noise(u, v, 24, 24, seed ^ 0x68aa);
+        color = 0.46 + 0.3 * (1 - tuft) * 0.4 + 0.1 * weave;
+        height = 0.46 + 0.12 * weave - 0.2 * tuft;
+        roughness += 0.06 * (weave - 0.5);
+        occlusion = 1 - 0.42 * tuft;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
