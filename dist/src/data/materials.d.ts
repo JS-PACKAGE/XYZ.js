@@ -1230,6 +1230,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.42;
         relief: 0.002;
     }>;
+    broccoli: Readonly<{
+        dark: readonly [42, 68, 38];
+        light: readonly [122, 172, 82];
+        roughness: 0.78;
+        relief: 0.0034;
+    }>;
+    cabbage: Readonly<{
+        dark: readonly [72, 108, 62];
+        light: readonly [192, 222, 152];
+        roughness: 0.68;
+        relief: 0.003;
+    }>;
+    onion: Readonly<{
+        dark: readonly [132, 92, 42];
+        light: readonly [232, 192, 112];
+        roughness: 0.52;
+        relief: 0.0026;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1834,6 +1852,9 @@ export declare const proceduralTileMeters: Readonly<{
     appleskin: 0.12;
     peachskin: 0.16;
     grapeskin: 0.1;
+    broccoli: 0.18;
+    cabbage: 0.24;
+    onion: 0.16;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

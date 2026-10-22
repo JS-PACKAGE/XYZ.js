@@ -211,6 +211,9 @@ export type ProceduralMaterialKind =
   | 'appleskin'
   | 'peachskin'
   | 'grapeskin'
+  | 'broccoli'
+  | 'cabbage'
+  | 'onion'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -504,6 +507,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'appleskin',
   'peachskin',
   'grapeskin',
+  'broccoli',
+  'cabbage',
+  'onion',
   'basketball',
   'tennisball',
   'golfball',

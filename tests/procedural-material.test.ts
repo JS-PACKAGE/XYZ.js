@@ -229,6 +229,9 @@ const kinds: ProceduralMaterialKind[] = [
   'appleskin',
   'peachskin',
   'grapeskin',
+  'broccoli',
+  'cabbage',
+  'onion',
   'basketball',
   'tennisball',
   'golfball',
@@ -5004,6 +5007,9 @@ describe('periodic procedural material fields', () => {
     ['appleskin', [5, 24, 32, 64]],
     ['peachskin', [2, 12, 32, 64]],
     ['grapeskin', [6, 24, 32, 64]],
+    ['broccoli', [10, 24, 32, 64]],
+    ['cabbage', [3, 32, 48, 64]],
+    ['onion', [6, 24, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5239,6 +5245,9 @@ describe('periodic procedural material fields', () => {
     ['appleskin', 5],
     ['peachskin', 2],
     ['grapeskin', 6],
+    ['broccoli', 10],
+    ['cabbage', 3],
+    ['onion', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6628,6 +6637,9 @@ describe('periodic procedural material fields', () => {
     'appleskin',
     'peachskin',
     'grapeskin',
+    'broccoli',
+    'cabbage',
+    'onion',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6715,7 +6727,16 @@ describe('periodic procedural material fields', () => {
                                                                     : kind ===
                                                                         'grapeskin'
                                                                       ? 6
-                                                                      : 4;
+                                                                      : kind ===
+                                                                          'broccoli'
+                                                                        ? 10
+                                                                        : kind ===
+                                                                            'cabbage'
+                                                                          ? 3
+                                                                          : kind ===
+                                                                              'onion'
+                                                                            ? 6
+                                                                            : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10120,6 +10141,81 @@ describe('periodic procedural material fields', () => {
         recessedHeight = 0,
         faceHeight = 0;
       // Locate the bloom and the skin from cavity shading rather than pinning
+      // seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('cabbage folds leafy ripples above the recessed veins', () => {
+    const relief = proceduralMaterialPresets.cabbage.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cabbage', seed);
+      sample(0.08333333333333333, 0.08333333333333333, crest);
+      sample(0.16666666666666666, 0.16666666666666666, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('onion arcs layer bands above the papery seams', () => {
+    const relief = proceduralMaterialPresets.onion.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('onion', seed);
+      sample(0.041666666666666664, 0.041666666666666664, crest);
+      sample(0.08333333333333333, 0.08333333333333333, seam);
+      expect(crest.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('broccoli clusters floret buds above the shaded gaps', () => {
+    const relief = proceduralMaterialPresets.broccoli.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('broccoli', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the buds and gaps from cavity shading rather than pinning
       // seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {

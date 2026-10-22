@@ -7849,6 +7849,53 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - bloom);
         break;
       }
+      case 'broccoli': {
+        // Dense floret buds cluster above the shaded gaps of the head.
+        const floret = smooth(
+          clamp((noise(u, v, 10, 10, seed ^ 0xcf11) - 0.45) / 0.14),
+        );
+        const bud = smooth(
+          clamp((noise(u, v, 28, 28, seed ^ 0xd022) - 0.58) / 0.1),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0xe133);
+        color = 0.42 + 0.3 * floret + 0.12 * bud + 0.06 * grain;
+        height = 0.44 + 0.24 * floret + 0.08 * bud + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * floret;
+        occlusion = 1 - 0.36 * (1 - floret) - 0.1 * (1 - bud);
+        break;
+      }
+      case 'cabbage': {
+        // Leafy folds ripple beside the recessed veins between them.
+        const turn = fract((u + v) * 3);
+        const fold = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const vein =
+          smooth(
+            clamp((0.045 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
+          ) +
+          smooth(
+            clamp((0.045 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.025),
+          );
+        const grain = noise(u, v, 24, 24, seed ^ 0xf244);
+        color = 0.44 + 0.3 * fold - 0.12 * Math.min(vein, 1) + 0.08 * grain;
+        height = 0.44 + 0.26 * fold - 0.1 * Math.min(vein, 1) + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * fold;
+        occlusion = 1 - 0.34 * (1 - fold) - 0.12 * Math.min(vein, 1);
+        break;
+      }
+      case 'onion': {
+        // Concentric layer bands arc over the dry papery skin fibers.
+        const turn = fract((u + v) * 6);
+        const layer = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const fiber = smooth(
+          clamp((0.035 - Math.abs(fract((u - v) * 8) - 0.5)) / 0.02),
+        );
+        const grain = noise(u, v, 24, 24, seed ^ 0x1355);
+        color = 0.44 + 0.3 * layer + 0.1 * fiber + 0.06 * grain;
+        height = 0.44 + 0.24 * layer + 0.05 * fiber + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
+        occlusion = 1 - 0.32 * (1 - layer);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

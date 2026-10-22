@@ -2862,6 +2862,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .42,
 		relief: .002
 	}),
+	broccoli: Object.freeze({
+		dark: [
+			42,
+			68,
+			38
+		],
+		light: [
+			122,
+			172,
+			82
+		],
+		roughness: .78,
+		relief: .0034
+	}),
+	cabbage: Object.freeze({
+		dark: [
+			72,
+			108,
+			62
+		],
+		light: [
+			192,
+			222,
+			152
+		],
+		roughness: .68,
+		relief: .003
+	}),
+	onion: Object.freeze({
+		dark: [
+			132,
+			92,
+			42
+		],
+		light: [
+			232,
+			192,
+			112
+		],
+		roughness: .52,
+		relief: .0026
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3921,6 +3963,9 @@ var proceduralTileMeters = Object.freeze({
 	appleskin: .12,
 	peachskin: .16,
 	grapeskin: .1,
+	broccoli: .18,
+	cabbage: .24,
+	onion: .16,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,
