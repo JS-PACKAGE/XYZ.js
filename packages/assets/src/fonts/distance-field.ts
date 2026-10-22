@@ -101,45 +101,61 @@ export function getDistanceFieldCanvas(
   if (!context)
     throw new AssetError('Canvas2D distance-field fallback unavailable.');
   const image = context.createImageData(width, height),
-    pixels = cache.pixels;
-  const read = (x: number, y: number, c: number) =>
-    pixels[
-      (Math.max(0, Math.min(texture.height - 1, y)) * texture.width +
-        Math.max(0, Math.min(texture.width - 1, x))) *
-        4 +
-        c
-    ]! / 255;
-  const sample = (ix: number, iy: number, fx: number, fy: number, c: number) =>
-    (read(ix, iy, c) * (1 - fx) + read(ix + 1, iy, c) * fx) * (1 - fy) +
-    (read(ix, iy + 1, c) * (1 - fx) + read(ix + 1, iy + 1, c) * fx) * fy;
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width; x++) {
-      const px = (x + 0.5) / scale - 0.5,
-        py = (y + 0.5) / scale - 0.5,
-        ix = Math.floor(px),
-        iy = Math.floor(py),
-        fx = px - ix,
-        fy = py - iy;
-      const red = sample(ix, iy, fx, fy, 0);
+    data = image.data,
+    pixels = cache.pixels,
+    msdf = profile.type === 'msdf';
+  // Taps clamp to the page edge. The horizontal ones depend only on the column, so every
+  // row shares one table instead of re-clamping four taps per channel per pixel.
+  const left = new Int32Array(width),
+    right = new Int32Array(width),
+    along = new Float64Array(width);
+  for (let x = 0; x < width; x++) {
+    const px = (x + 0.5) / scale - 0.5,
+      ix = Math.floor(px);
+    along[x] = px - ix;
+    left[x] = Math.max(0, Math.min(texture.width - 1, ix)) * 4;
+    right[x] = Math.max(0, Math.min(texture.width - 1, ix + 1)) * 4;
+  }
+  const stride = texture.width * 4;
+  for (let y = 0; y < height; y++) {
+    const py = (y + 0.5) / scale - 0.5,
+      iy = Math.floor(py),
+      fy = py - iy,
+      keepY = 1 - fy,
+      top = Math.max(0, Math.min(texture.height - 1, iy)) * stride,
+      bottom = Math.max(0, Math.min(texture.height - 1, iy + 1)) * stride;
+    for (let x = 0, offset = y * width * 4; x < width; x++, offset += 4) {
+      const fx = along[x]!,
+        keepX = 1 - fx,
+        a = top + left[x]!,
+        b = top + right[x]!,
+        c = bottom + left[x]!,
+        d = bottom + right[x]!;
+      const red =
+        ((pixels[a]! / 255) * keepX + (pixels[b]! / 255) * fx) * keepY +
+        ((pixels[c]! / 255) * keepX + (pixels[d]! / 255) * fx) * fy;
       let value = red;
-      if (profile.type === 'msdf') {
-        const green = sample(ix, iy, fx, fy, 1),
-          blue = sample(ix, iy, fx, fy, 2);
+      if (msdf) {
+        const green =
+            ((pixels[a + 1]! / 255) * keepX + (pixels[b + 1]! / 255) * fx) *
+              keepY +
+            ((pixels[c + 1]! / 255) * keepX + (pixels[d + 1]! / 255) * fx) * fy,
+          blue =
+            ((pixels[a + 2]! / 255) * keepX + (pixels[b + 2]! / 255) * fx) *
+              keepY +
+            ((pixels[c + 2]! / 255) * keepX + (pixels[d + 2]! / 255) * fx) * fy;
         value = Math.max(
           Math.min(red, green),
           Math.min(Math.max(red, green), blue),
         );
       }
-      const offset = (y * width + x) * 4;
-      image.data[offset] =
-        image.data[offset + 1] =
-        image.data[offset + 2] =
-          255;
-      image.data[offset + 3] = Math.round(
+      data[offset] = data[offset + 1] = data[offset + 2] = 255;
+      data[offset + 3] = Math.round(
         Math.max(0, Math.min(1, (value - 0.5) * profile.range * scale + 0.5)) *
           255,
       );
     }
+  }
   context.putImageData(image, 0, 0);
   if (cache.scales.size >= limits.cachedScales)
     cache.scales.delete(cache.scales.keys().next().value!);

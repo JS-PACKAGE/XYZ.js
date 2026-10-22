@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BitmapFontAsset,
   BitmapFontLoader,
 } from '../packages/assets/src/fonts/bitmap-font.js';
 import {
+  getDistanceFieldCanvas,
   getTextureDistanceField,
   getDistanceFieldRasterScale,
+  registerTextureDistanceField,
 } from '../packages/assets/src/fonts/distance-field.js';
 import { Texture } from '../packages/assets/src/texture.js';
 import {
@@ -136,5 +138,111 @@ describe('distance-field font import and metrics ownership', () => {
         'json',
       ),
     ).toThrow(/Channel/);
+  });
+});
+
+/** Per-tap clamped bilinear reference, written independently of the table-driven raster. */
+function referenceAlpha(
+  pixels: Uint8ClampedArray,
+  size: { width: number; height: number },
+  scale: number,
+  profile: { type: 'sdf' | 'msdf'; range: number },
+): number[] {
+  const width = Math.ceil(size.width * scale),
+    height = Math.ceil(size.height * scale);
+  const read = (x: number, y: number, channel: number): number =>
+    pixels[
+      (Math.max(0, Math.min(size.height - 1, y)) * size.width +
+        Math.max(0, Math.min(size.width - 1, x))) *
+        4 +
+        channel
+    ]! / 255;
+  const sample = (ix: number, iy: number, fx: number, fy: number, c: number) =>
+    (read(ix, iy, c) * (1 - fx) + read(ix + 1, iy, c) * fx) * (1 - fy) +
+    (read(ix, iy + 1, c) * (1 - fx) + read(ix + 1, iy + 1, c) * fx) * fy;
+  const alpha: number[] = [];
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      const px = (x + 0.5) / scale - 0.5,
+        py = (y + 0.5) / scale - 0.5,
+        ix = Math.floor(px),
+        iy = Math.floor(py);
+      const red = sample(ix, iy, px - ix, py - iy, 0);
+      let value = red;
+      if (profile.type === 'msdf') {
+        const green = sample(ix, iy, px - ix, py - iy, 1),
+          blue = sample(ix, iy, px - ix, py - iy, 2);
+        value = Math.max(
+          Math.min(red, green),
+          Math.min(Math.max(red, green), blue),
+        );
+      }
+      alpha.push(
+        Math.round(
+          Math.max(
+            0,
+            Math.min(1, (value - 0.5) * profile.range * scale + 0.5),
+          ) * 255,
+        ),
+      );
+    }
+  return alpha;
+}
+
+describe('distance-field fallback raster', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('samples every channel bilinearly with clamped page edges', () => {
+    const size = { width: 5, height: 3 };
+    const pixels = new Uint8ClampedArray(size.width * size.height * 4);
+    let seed = 12345;
+    for (let i = 0; i < pixels.length; i++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      pixels[i] = seed >>> 24;
+    }
+    // The first canvas holds the source page, the second receives the raster.
+    const canvases: { data?: Uint8ClampedArray }[] = [];
+    vi.stubGlobal('document', {
+      createElement: () => {
+        const canvas = {
+          width: 0,
+          height: 0,
+          data: undefined as Uint8ClampedArray | undefined,
+          getContext: () => ({
+            drawImage: () => undefined,
+            getImageData: () => ({ data: pixels }),
+            createImageData: (width: number, height: number) => ({
+              data: new Uint8ClampedArray(width * height * 4),
+            }),
+            putImageData: (image: { data: Uint8ClampedArray }) => {
+              canvas.data = image.data;
+            },
+          }),
+        };
+        canvases.push(canvas);
+        return canvas;
+      },
+    });
+    for (const profile of [
+      { type: 'sdf', range: 4 },
+      { type: 'msdf', range: 6 },
+    ] as const)
+      for (const scale of [0.5, 1, 1.5, 2]) {
+        const texture = new Texture({
+          ...size,
+          close: () => undefined,
+        } as unknown as ImageBitmap);
+        registerTextureDistanceField(texture, profile);
+        canvases.length = 0;
+        getDistanceFieldCanvas(texture, scale);
+        const output = canvases[1]!.data!;
+        const alpha = Array.from(
+          { length: output.length / 4 },
+          (_, i) => output[i * 4 + 3]!,
+        );
+        expect(alpha).toEqual(referenceAlpha(pixels, size, scale, profile));
+        expect(
+          output.filter((_, i) => i % 4 !== 3).every((v) => v === 255),
+        ).toBe(true);
+      }
   });
 });

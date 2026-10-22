@@ -40,15 +40,22 @@ function getDistanceFieldCanvas(i, a = 1) {
 	d.width = s, d.height = c;
 	let f = d.getContext(`2d`);
 	if (!f) throw new require_texture.AssetError(`Canvas2D distance-field fallback unavailable.`);
-	let p = f.createImageData(s, c), m = l.pixels, read = (e, t, n) => m[(Math.max(0, Math.min(i.height - 1, t)) * i.width + Math.max(0, Math.min(i.width - 1, e))) * 4 + n] / 255, sample = (e, t, n, r, i) => (read(e, t, i) * (1 - n) + read(e + 1, t, i) * n) * (1 - r) + (read(e, t + 1, i) * (1 - n) + read(e + 1, t + 1, i) * n) * r;
-	for (let e = 0; e < c; e++) for (let t = 0; t < s; t++) {
-		let n = (t + .5) / a - .5, r = (e + .5) / a - .5, i = Math.floor(n), c = Math.floor(r), l = n - i, u = r - c, d = sample(i, c, l, u, 0), f = d;
-		if (o.type === `msdf`) {
-			let e = sample(i, c, l, u, 1), t = sample(i, c, l, u, 2);
-			f = Math.max(Math.min(d, e), Math.min(Math.max(d, e), t));
+	let p = f.createImageData(s, c), m = p.data, h = l.pixels, g = o.type === `msdf`, _ = new Int32Array(s), v = new Int32Array(s), y = new Float64Array(s);
+	for (let e = 0; e < s; e++) {
+		let t = (e + .5) / a - .5, n = Math.floor(t);
+		y[e] = t - n, _[e] = Math.max(0, Math.min(i.width - 1, n)) * 4, v[e] = Math.max(0, Math.min(i.width - 1, n + 1)) * 4;
+	}
+	let b = i.width * 4;
+	for (let e = 0; e < c; e++) {
+		let t = (e + .5) / a - .5, n = Math.floor(t), r = t - n, c = 1 - r, l = Math.max(0, Math.min(i.height - 1, n)) * b, u = Math.max(0, Math.min(i.height - 1, n + 1)) * b;
+		for (let t = 0, n = e * s * 4; t < s; t++, n += 4) {
+			let e = y[t], i = 1 - e, s = l + _[t], d = l + v[t], f = u + _[t], p = u + v[t], b = (h[s] / 255 * i + h[d] / 255 * e) * c + (h[f] / 255 * i + h[p] / 255 * e) * r, x = b;
+			if (g) {
+				let t = (h[s + 1] / 255 * i + h[d + 1] / 255 * e) * c + (h[f + 1] / 255 * i + h[p + 1] / 255 * e) * r, n = (h[s + 2] / 255 * i + h[d + 2] / 255 * e) * c + (h[f + 2] / 255 * i + h[p + 2] / 255 * e) * r;
+				x = Math.max(Math.min(b, t), Math.min(Math.max(b, t), n));
+			}
+			m[n] = m[n + 1] = m[n + 2] = 255, m[n + 3] = Math.round(Math.max(0, Math.min(1, (x - .5) * o.range * a + .5)) * 255);
 		}
-		let m = (e * s + t) * 4;
-		p.data[m] = p.data[m + 1] = p.data[m + 2] = 255, p.data[m + 3] = Math.round(Math.max(0, Math.min(1, (f - .5) * o.range * a + .5)) * 255);
 	}
 	return f.putImageData(p, 0, 0), l.scales.size >= require_fonts.distanceFieldLimits.cachedScales && l.scales.delete(l.scales.keys().next().value), l.scales.set(a, d), d;
 }
