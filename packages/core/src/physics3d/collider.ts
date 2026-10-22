@@ -296,6 +296,7 @@ export class Shape3D {
   private readonly poseState = new Float64Array(52).fill(NaN);
   /** @internal Changes only after shape geometry/bounds are refreshed. */
   revision = 0;
+  private refreshedDirectly = false;
   /** @internal Translation does not invalidate angular inertia. */
   inertiaRevision = 0;
   readonly worldScale = new Vector3();
@@ -321,6 +322,13 @@ export class Shape3D {
         );
       }
   }
+  /**
+   * @internal The last `refresh` saw a root composed from its transform alone. It then
+   * recorded those inputs, so repeating it before anything moves only compares them equal.
+   */
+  composedDirectly(): boolean {
+    return this.refreshedDirectly;
+  }
   /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
   forgetPose(): void {
     this.poseState[POSE] = NaN;
@@ -334,6 +342,7 @@ export class Shape3D {
       s = t.scale,
       k = this.poseState;
     const direct = object.composesFromTransform;
+    this.refreshedDirectly = direct;
     // A root's world matrix is composed from these values alone; when none changed,
     // refreshMatrix would find its cached pose and report no change.
     if (

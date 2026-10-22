@@ -414,6 +414,14 @@ export class PhysicsWorld3D {
   }
   /** @internal Preflight before changing either attachment or hierarchy. */
   validate(object: Object3D): void {
+    this.validateWith(object, undefined);
+  }
+  /**
+   * `validate`, given `refreshed`: the registered shape of `object`, whose `refresh` just ran
+   * with nothing moved since. Repeating it for a direct root would only compare equal
+   * inputs, so it is skipped.
+   */
+  private validateWith(object: Object3D, refreshed: Shape3D | undefined): void {
     const c = object.collider,
       b = object.body;
     if (b?.type !== 'static' && b && object.parent)
@@ -429,9 +437,11 @@ export class PhysicsWorld3D {
         );
     }
     if (c) {
-      const previous = this.entries.get(object)?.shape;
+      // A registered entry's own shape is what the lookup would find.
+      const previous = refreshed ?? this.entries.get(object)?.shape;
       const shape = previous?.collider === c ? previous : new Shape3D(c);
-      shape.refresh(object);
+      if (shape !== refreshed || !shape.composedDirectly())
+        shape.refresh(object);
       if (b) shape.validateMoving(b.type);
     }
   }
@@ -460,7 +470,7 @@ export class PhysicsWorld3D {
           indexedRevision: -1,
           ccdShape: undefined,
           ccdStopped: false,
-          registered: true,
+          registered: false,
           contactRow: -1,
           partnerRows: undefined,
         }
@@ -479,6 +489,7 @@ export class PhysicsWorld3D {
       object.registrationGeneration === generation &&
       !this.entries.has(object)
     ) {
+      next.registered = true;
       this.entries.set(object, next);
       this.ordered.push(next);
       ++this.membership;
@@ -557,11 +568,10 @@ export class PhysicsWorld3D {
     this.sweptStore.length = kept;
   }
   private valid(entry: Entry3D): boolean {
-    return (
-      !this.disposed &&
-      !entry.object.destroyed &&
-      this.entries.get(entry.object) === entry
-    );
+    // `registered` holds exactly while `entries` maps the object to this entry: `register`
+    // sets it where it stores the entry, `unregister` clears it where it deletes it, and
+    // `destroy`, which clears the map, sets `disposed` first.
+    return !this.disposed && !entry.object.destroyed && entry.registered;
   }
   private start(c: Contact3D): void {
     c.started = true;
@@ -893,9 +903,11 @@ export class PhysicsWorld3D {
     this.counters.ccdExhaustions = 0;
     this.counters.ccdLimitedTime = 0;
     this.refreshIndex();
+    // Outside a pose snapshot that refreshed every entry's shape, and nothing below moves one.
+    const refreshedAll = !this.poseSnapshot;
     for (const e of this.ordered) {
       e.ccdStopped = false;
-      this.validate(e.object);
+      this.validateWith(e.object, refreshedAll ? e.shape : undefined);
       const b = e.body;
       if (!b) continue;
       b.refreshInertia(e.shape);

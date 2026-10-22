@@ -134,6 +134,7 @@ var Shape3D = class Shape3D {
 	radius = 0;
 	poseState = (/* @__PURE__ */ new Float64Array(52)).fill(NaN);
 	revision = 0;
+	refreshedDirectly = !1;
 	inertiaRevision = 0;
 	worldScale = new require_math3d.Vector3();
 	constructor(e, t = !1) {
@@ -143,12 +144,15 @@ var Shape3D = class Shape3D {
 		}
 		if (e instanceof CompoundCollider3D && (this.childWorld = new require_math3d.Matrix4()), e instanceof CompoundCollider3D) for (let t of e.children) this.children.push(new Shape3D(t.collider, !0)), this.childLocal.push(new require_math3d.Matrix4().compose(t.position, t.rotation, t.scale));
 	}
+	composedDirectly() {
+		return this.refreshedDirectly;
+	}
 	forgetPose() {
 		this.poseState[16] = NaN, this.poseState[26] = NaN, this.poseState[0] = NaN;
 	}
 	refresh(e) {
 		let t = e.transform, n = t.position, r = t.rotation, i = t.scale, a = this.poseState, o = e.composesFromTransform;
-		if (o && a[16] === n.x && a[17] === n.y && a[18] === n.z && a[19] === r.x && a[20] === r.y && a[21] === r.z && a[22] === r.w && a[23] === i.x && a[24] === i.y && a[25] === i.z) return !1;
+		if (this.refreshedDirectly = o, o && a[16] === n.x && a[17] === n.y && a[18] === n.z && a[19] === r.x && a[20] === r.y && a[21] === r.z && a[22] === r.w && a[23] === i.x && a[24] === i.y && a[25] === i.z) return !1;
 		let s = o ? void 0 : e.baseComposedParent;
 		if (s && this.childUnchanged(s, t)) return !1;
 		let c = this.refreshMatrix(e.updateWorldMatrix());

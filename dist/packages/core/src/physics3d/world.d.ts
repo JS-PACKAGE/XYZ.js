@@ -160,6 +160,12 @@ export declare class PhysicsWorld3D {
     private connected;
     /** @internal Preflight before changing either attachment or hierarchy. */
     validate(object: Object3D): void;
+    /**
+     * `validate`, given `refreshed`: the registered shape of `object`, whose `refresh` just ran
+     * with nothing moved since. Repeating it for a direct root would only compare equal
+     * inputs, so it is skipped.
+     */
+    private validateWith;
     /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */
     register(object: Object3D): void;
     unregister(object: Object3D): void;

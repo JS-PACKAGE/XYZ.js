@@ -219,15 +219,18 @@ var PhysicsWorld3D = class {
 		return !1;
 	}
 	validate(e) {
-		let t = e.collider, r = e.body;
-		if (r?.type !== `static` && r && e.parent) throw Error(`Dynamic/kinematic bodies require root Object3D.`);
-		if (t && r && r.type !== `static`) {
-			if (t.kind === `plane` || t.kind === `mesh`) throw Error(`PlaneCollider3D/TriangleMeshCollider3D are static only.`);
-			if (t.offset.x !== 0 || t.offset.y !== 0 || t.offset.z !== 0) throw Error(`Moving body collider offsets are unsupported (origin is center of mass).`);
+		this.validateWith(e, void 0);
+	}
+	validateWith(e, t) {
+		let r = e.collider, i = e.body;
+		if (i?.type !== `static` && i && e.parent) throw Error(`Dynamic/kinematic bodies require root Object3D.`);
+		if (r && i && i.type !== `static`) {
+			if (r.kind === `plane` || r.kind === `mesh`) throw Error(`PlaneCollider3D/TriangleMeshCollider3D are static only.`);
+			if (r.offset.x !== 0 || r.offset.y !== 0 || r.offset.z !== 0) throw Error(`Moving body collider offsets are unsupported (origin is center of mass).`);
 		}
-		if (t) {
-			let i = this.entries.get(e)?.shape, a = i?.collider === t ? i : new require_collider.Shape3D(t);
-			a.refresh(e), r && a.validateMoving(r.type);
+		if (r) {
+			let a = t ?? this.entries.get(e)?.shape, o = a?.collider === r ? a : new require_collider.Shape3D(r);
+			(o !== t || !o.composedDirectly()) && o.refresh(e), i && o.validateMoving(i.type);
 		}
 	}
 	register(e) {
@@ -244,11 +247,11 @@ var PhysicsWorld3D = class {
 			indexedRevision: -1,
 			ccdShape: void 0,
 			ccdStopped: !1,
-			registered: !0,
+			registered: !1,
 			contactRow: -1,
 			partnerRows: void 0
 		} : void 0;
-		s && (s.shape.refresh(e) && ++this.counters.refreshedLeaves, s.body?.refreshInertia(s.shape)), t && this.unregister(e), s && !e.destroyed && e.collider === r && e.body === s.body && e.scene === i && e.registrationGeneration === a && !this.entries.has(e) && (this.entries.set(e, s), this.ordered.push(s), ++this.membership, this.sweptEntries.push({
+		s && (s.shape.refresh(e) && ++this.counters.refreshedLeaves, s.body?.refreshInertia(s.shape)), t && this.unregister(e), s && !e.destroyed && e.collider === r && e.body === s.body && e.scene === i && e.registrationGeneration === a && !this.entries.has(e) && (s.registered = !0, this.entries.set(e, s), this.ordered.push(s), ++this.membership, this.sweptEntries.push({
 			entry: s,
 			bounds: new require_spatial.Bounds3D(),
 			order: s.order
@@ -292,7 +295,7 @@ var PhysicsWorld3D = class {
 		this.sweptStore.length = e;
 	}
 	valid(e) {
-		return !this.disposed && !e.object.destroyed && this.entries.get(e.object) === e;
+		return !this.disposed && !e.object.destroyed && e.registered;
 	}
 	start(e) {
 		e.started = !0;
@@ -438,14 +441,15 @@ var PhysicsWorld3D = class {
 	}
 	step(e, t) {
 		++this.stepId, this.activeCount = 0, this.counters.ccdTests = 0, this.counters.ccdIterations = 0, this.counters.ccdImpacts = 0, this.counters.ccdExhaustions = 0, this.counters.ccdLimitedTime = 0, this.refreshIndex();
+		let n = !this.poseSnapshot;
 		for (let t of this.ordered) {
-			t.ccdStopped = !1, this.validate(t.object);
-			let n = t.body;
-			if (n && (n.refreshInertia(t.shape), require_collider.vector3D(n.velocity, `velocity`), require_collider.vector3D(n.angularVelocity, `angularVelocity`), n.type !== `static`)) {
-				if (n.type === `dynamic`) {
-					let t = this.forceState(n);
-					if (t.consume(n, e), n.isSleeping) continue;
-					n.velocity.x += (this.gravity.x * n.gravityScale + t.value[0] * n.inverseMass) * e, n.velocity.y += (this.gravity.y * n.gravityScale + t.value[1] * n.inverseMass) * e, n.velocity.z += (this.gravity.z * n.gravityScale + t.value[2] * n.inverseMass) * e, this.torque.set(t.value[3], t.value[4], t.value[5]), n.inverseInertia(this.torque, this.torque), n.angularVelocity.x += this.torque.x * e, n.angularVelocity.y += this.torque.y * e, n.angularVelocity.z += this.torque.z * e, n.velocity.scale(1 / (1 + n.linearDamping * e)), n.angularVelocity.scale(1 / (1 + n.angularDamping * e));
+			t.ccdStopped = !1, this.validateWith(t.object, n ? t.shape : void 0);
+			let r = t.body;
+			if (r && (r.refreshInertia(t.shape), require_collider.vector3D(r.velocity, `velocity`), require_collider.vector3D(r.angularVelocity, `angularVelocity`), r.type !== `static`)) {
+				if (r.type === `dynamic`) {
+					let t = this.forceState(r);
+					if (t.consume(r, e), r.isSleeping) continue;
+					r.velocity.x += (this.gravity.x * r.gravityScale + t.value[0] * r.inverseMass) * e, r.velocity.y += (this.gravity.y * r.gravityScale + t.value[1] * r.inverseMass) * e, r.velocity.z += (this.gravity.z * r.gravityScale + t.value[2] * r.inverseMass) * e, this.torque.set(t.value[3], t.value[4], t.value[5]), r.inverseInertia(this.torque, this.torque), r.angularVelocity.x += this.torque.x * e, r.angularVelocity.y += this.torque.y * e, r.angularVelocity.z += this.torque.z * e, r.velocity.scale(1 / (1 + r.linearDamping * e)), r.angularVelocity.scale(1 / (1 + r.angularDamping * e));
 				}
 				t.object.capturePhysicsPose();
 			}
@@ -456,25 +460,25 @@ var PhysicsWorld3D = class {
 		for (let e = 0; e < this.solverIterations; e++) this.solveJoints();
 		if (this.integrateContinuous(e, t), !t() || this.disposed) return;
 		this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
-		let n = this.pairLows, r = this.pairHighs, i = this.pairSequence, a = 0, o = 0;
-		for (let e of this.ordered) pairsWithin(e) && o++;
-		if (o >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
+		let r = this.pairLows, i = this.pairHighs, a = this.pairSequence, o = 0, s = 0;
+		for (let e of this.ordered) pairsWithin(e) && s++;
+		if (s >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
 			let e = this.pairFirsts, t = this.pairSeconds;
 			this.index.pairs(pairsWithin, require_physics3d.physics3DDefaults.contactMargin, e, t);
-			for (let o = 0; o < e.length; o++) {
-				let s = e[o], c = t[o];
-				i[a] = a, n[a] = c.order < s.order ? c : s, r[a++] = c.order < s.order ? s : c;
+			for (let n = 0; n < e.length; n++) {
+				let s = e[n], c = t[n];
+				a[o] = o, r[o] = c.order < s.order ? c : s, i[o++] = c.order < s.order ? s : c;
 			}
 		} else for (let e of this.ordered) if (pairsWithin(e)) {
 			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
-			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (i[a] = a, n[a] = t.order < e.order ? t : e, r[a++] = t.order < e.order ? e : t));
+			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (a[o] = o, r[o] = t.order < e.order ? t : e, i[o++] = t.order < e.order ? e : t));
 		}
-		n.length = r.length = i.length = a, i.sort(this.comparePairs);
-		for (let e of i) {
-			let t = n[e], i = r[e];
+		r.length = i.length = a.length = o, a.sort(this.comparePairs);
+		for (let e of a) {
+			let t = r[e], n = i[e];
 			this.counters.candidatePairs++;
-			let a = t.shape.collider, o = i.shape.collider;
-			a.category & o.mask && o.category & a.mask && (this.connected(t, i) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, i.shape, this.queryManifold), !(this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) && (this.active[this.activeCount++] = this.prepareContact(t, i, this.queryManifold))));
+			let a = t.shape.collider, o = n.shape.collider;
+			a.category & o.mask && o.category & a.mask && (this.connected(t, n) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, n.shape, this.queryManifold), !(this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) && (this.active[this.activeCount++] = this.prepareContact(t, n, this.queryManifold))));
 		}
 		this.active.length = this.activeCount;
 		for (let e of this.contacts.keys()) {
