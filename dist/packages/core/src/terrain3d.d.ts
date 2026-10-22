@@ -48,12 +48,14 @@ export declare class Terrain3D extends Group {
     constructor(options: Terrain3DOptions);
     /** Exact full-resolution triangle height, undefined outside the terrain rectangle. */
     heightAt(x: number, z: number): number | undefined;
+    /** Triangle interpolation at grid coordinates already known to lie inside the grid. */
+    private interpolate;
     /** Smooth finite-difference normal used by all LOD meshes, in terrain-local space. */
     normalAt(x: number, z: number, out?: Vector3): Vector3 | undefined;
     /** Picks visible native LOD/HLOD triangles (including skirts), in world units. */
     raycast(origin: Readonly<Vector3>, direction: Readonly<Vector3>, far?: number): RaycastHit | undefined;
     markUpdated(): void;
-    private readonly skirtVertices;
+    private readonly firstSkirtVertex;
     private buildGeometry;
     /** Fresh detached chunk roots borrowing this terrain's geometry/material, for WorldStreamingController.
      * Catalog requires an unparented translation-only source; destroy consumers before its material.

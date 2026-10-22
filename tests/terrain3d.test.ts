@@ -144,6 +144,57 @@ describe('Terrain3D CPU heightfield', () => {
     expect(mesh.geometry.vertices[4]).toBe(1);
     expect(mesh.geometry.vertices[5]).toBeCloseTo(0);
     expect(mesh.geometry.tangents[3]).toBe(-1);
+    // The grid's last vertex lies on the surface; every vertex after it is a skirt.
+    expect(mesh.geometry.vertices[3 * 8 + 1]).toBe(5);
+    const last = mesh.geometry.vertices.length / 8 - 1;
+    expect(mesh.geometry.vertices[last * 8 + 1]).toBe(2);
+  });
+  it('derives normals from clamped height taps on the border and off the diagonal', () => {
+    const columns = 5,
+      rows = 4,
+      width = 8,
+      depth = 3;
+    const heights = Array.from(
+      { length: columns * rows },
+      (_, i) => Math.sin(i * 1.7) * 3 + (i % 3),
+    );
+    const field = new Terrain3D({
+      heightmap: { width: columns, height: rows, heights },
+      material: material(),
+      width,
+      depth,
+    });
+    const dx = width / (columns - 1),
+      dz = depth / (rows - 1);
+    const points: [number, number][] = [
+      [-4, -1.5],
+      [4, 1.5],
+      [-4, 0.4],
+      [4, -0.9],
+      [0.3, -1.5],
+      [-1.7, 1.5],
+      [0.3, -0.7],
+      [2.2, 0.9],
+      [0, 0],
+    ];
+    for (const [x, z] of points) {
+      // Documented finite difference of heightAt, taps clamped to the rectangle.
+      const left = Math.max(-width / 2, x - dx),
+        right = Math.min(width / 2, x + dx),
+        back = Math.max(-depth / 2, z - dz),
+        front = Math.min(depth / 2, z + dz);
+      const nx =
+          -(field.heightAt(right, z)! - field.heightAt(left, z)!) /
+          (right - left),
+        nz =
+          -(field.heightAt(x, front)! - field.heightAt(x, back)!) /
+          (front - back);
+      const length = Math.hypot(nx, 1, nz);
+      const normal = field.normalAt(x, z)!;
+      expect(normal.x).toBeCloseTo(nx / length, 12);
+      expect(normal.y).toBeCloseTo(1 / length, 12);
+      expect(normal.z).toBeCloseTo(nz / length, 12);
+    }
   });
   it('picks the selected visibility branch in world units', () => {
     const field = terrain(),

@@ -80,14 +80,16 @@ var Terrain3D = class extends require_group.Group {
 	heightAt(e, t) {
 		if (!Number.isFinite(e) || !Number.isFinite(t)) throw RangeError(`Terrain coordinates must be finite.`);
 		let n = (e / this.width + .5) * (this.columns - 1), r = (t / this.depth + .5) * (this.rows - 1);
-		if (n < 0 || r < 0 || n > this.columns - 1 || r > this.rows - 1) return;
-		let i = Math.min(Math.floor(n), this.columns - 2), a = Math.min(Math.floor(r), this.rows - 2), o = n - i, s = r - a, c = this.heights[a * this.columns + i], l = this.heights[a * this.columns + i + 1], u = this.heights[(a + 1) * this.columns + i], d = this.heights[(a + 1) * this.columns + i + 1];
-		return o + s <= 1 ? c + (l - c) * o + (u - c) * s : d + (u - d) * (1 - o) + (l - d) * (1 - s);
+		if (!(n < 0 || r < 0 || n > this.columns - 1 || r > this.rows - 1)) return this.interpolate(n, r);
+	}
+	interpolate(e, t) {
+		let n = Math.min(Math.floor(e), this.columns - 2), r = Math.min(Math.floor(t), this.rows - 2), i = e - n, a = t - r, o = this.heights[r * this.columns + n], s = this.heights[r * this.columns + n + 1], c = this.heights[(r + 1) * this.columns + n], l = this.heights[(r + 1) * this.columns + n + 1];
+		return i + a <= 1 ? o + (s - o) * i + (c - o) * a : l + (c - l) * (1 - i) + (s - l) * (1 - a);
 	}
 	normalAt(e, n, r = new require_math3d.Vector3()) {
 		if (this.heightAt(e, n) === void 0) return;
-		let i = this.width / (this.columns - 1), a = this.depth / (this.rows - 1), o = Math.max(-this.width / 2, e - i), s = Math.min(this.width / 2, e + i), c = Math.max(-this.depth / 2, n - a), l = Math.min(this.depth / 2, n + a);
-		return r.set(-(this.heightAt(s, n) - this.heightAt(o, n)) / (s - o), 1, -(this.heightAt(e, l) - this.heightAt(e, c)) / (l - c)).normalize();
+		let i = this.width / (this.columns - 1), a = this.depth / (this.rows - 1), o = Math.max(-this.width / 2, e - i), s = Math.min(this.width / 2, e + i), c = Math.max(-this.depth / 2, n - a), l = Math.min(this.depth / 2, n + a), u = this.columns - 1, d = this.rows - 1, f = (e / this.width + .5) * u, p = (n / this.depth + .5) * d, m = (o / this.width + .5) * u, h = (s / this.width + .5) * u, g = (c / this.depth + .5) * d, _ = (l / this.depth + .5) * d;
+		return r.set(-(this.interpolate(h, p) - this.interpolate(m, p)) / (s - o), 1, -(this.interpolate(f, _) - this.interpolate(f, g)) / (l - c)).normalize();
 	}
 	raycast(e, t, n = 1 / 0) {
 		return this.picker.origin.set(e.x, e.y, e.z), this.picker.direction.set(t.x, t.y, t.z), this.picker.far = n, this.picker.intersectObjects([this], !0, this.hits)[0];
@@ -95,52 +97,53 @@ var Terrain3D = class extends require_group.Group {
 	markUpdated() {
 		if (this.destroyed) throw Error(`Terrain is destroyed.`);
 		for (let e = 0; e < this.heights.length; e++) if (!Number.isFinite(this.heights[e])) throw RangeError(`Terrain heights must be finite.`);
-		for (let e of this.records) for (let t of e.meshes) {
-			let e = t.geometry.vertices;
-			for (let n = 0; n < e.length; n += 8) {
-				let r = (e[n + 6] - .5) * this.width, i = (e[n + 7] - .5) * this.depth, a = this.skirtVertices.get(t.geometry).has(n / 8);
-				e[n + 1] = this.heightAt(r, i) - (a ? this.skirtDepth : 0), this.normalAt(r, i, this.normal), e[n + 3] = this.normal.x, e[n + 4] = this.normal.y, e[n + 5] = this.normal.z;
-				let o = n / 2, s = require_hypot.hypot2(this.normal.y, this.normal.x);
-				t.geometry.tangents[o] = this.normal.y / s, t.geometry.tangents[o + 1] = -this.normal.x / s, t.geometry.tangents[o + 2] = 0, t.geometry.tangents[o + 3] = -1;
+		let { normal: e, skirtDepth: t } = this;
+		for (let n of this.records) for (let r of n.meshes) {
+			let { geometry: n } = r, { vertices: i, tangents: a } = n, o = this.firstSkirtVertex.get(n);
+			for (let n = 0; n < i.length; n += 8) {
+				let r = (i[n + 6] - .5) * this.width, s = (i[n + 7] - .5) * this.depth;
+				i[n + 1] = this.heightAt(r, s) - (n / 8 >= o ? t : 0), this.normalAt(r, s, e), i[n + 3] = e.x, i[n + 4] = e.y, i[n + 5] = e.z;
+				let c = n / 2, u = require_hypot.hypot2(e.y, e.x);
+				a[c] = e.y / u, a[c + 1] = -e.x / u, a[c + 2] = 0, a[c + 3] = -1;
 			}
-			t.geometry.markUpdated();
+			n.markUpdated();
 		}
 	}
-	skirtVertices = /* @__PURE__ */ new Map();
+	firstSkirtVertex = /* @__PURE__ */ new Map();
 	buildGeometry(e, t, r, i, a) {
 		let o = [], s = [];
 		for (let t = e; t < r; t += a) o.push(t);
 		o.push(r);
 		for (let e = t; e < i; e += a) s.push(e);
 		s.push(i);
-		let c = [], l = [], u = [], d = [], f = /* @__PURE__ */ new Set(), p = ((e + r) / 2 / (this.columns - 1) - .5) * this.width, m = ((t + i) / 2 / (this.rows - 1) - .5) * this.depth;
+		let c = [], l = [], u = [], d = [], f = ((e + r) / 2 / (this.columns - 1) - .5) * this.width, p = ((t + i) / 2 / (this.rows - 1) - .5) * this.depth;
 		for (let e of s) for (let t of o) {
 			let n = (t / (this.columns - 1) - .5) * this.width, r = (e / (this.rows - 1) - .5) * this.depth;
-			c.push(n - p, this.heights[e * this.columns + t], r - m), this.normalAt(n, r, this.normal), l.push(this.normal.x, this.normal.y, this.normal.z), u.push(t / (this.columns - 1), e / (this.rows - 1));
+			c.push(n - f, this.heights[e * this.columns + t], r - p), this.normalAt(n, r, this.normal), l.push(this.normal.x, this.normal.y, this.normal.z), u.push(t / (this.columns - 1), e / (this.rows - 1));
 		}
-		let h = o.length;
-		for (let e = 0; e < s.length - 1; e++) for (let t = 0; t < h - 1; t++) {
-			let n = e * h + t, r = n + 1, i = n + h, a = i + 1;
+		let m = o.length;
+		for (let e = 0; e < s.length - 1; e++) for (let t = 0; t < m - 1; t++) {
+			let n = e * m + t, r = n + 1, i = n + m, a = i + 1;
 			d.push(n, i, r, r, i, a);
 		}
-		let g = [];
-		for (let e = 0; e < h; e++) g.push(e);
-		for (let e = 1; e < s.length; e++) g.push(e * h + h - 1);
-		for (let e = h - 2; e >= 0; e--) g.push((s.length - 1) * h + e);
-		for (let e = s.length - 2; e > 0; e--) g.push(e * h);
-		let _ = c.length / 3;
-		for (let e of g) f.add(c.length / 3), c.push(c[e * 3], c[e * 3 + 1] - this.skirtDepth, c[e * 3 + 2]), l.push(l[e * 3], l[e * 3 + 1], l[e * 3 + 2]), u.push(u[e * 2], u[e * 2 + 1]);
-		for (let e = 0; e < g.length; e++) {
-			let t = (e + 1) % g.length;
-			d.push(g[e], _ + e, g[t], g[t], _ + e, _ + t);
+		let h = [];
+		for (let e = 0; e < m; e++) h.push(e);
+		for (let e = 1; e < s.length; e++) h.push(e * m + m - 1);
+		for (let e = m - 2; e >= 0; e--) h.push((s.length - 1) * m + e);
+		for (let e = s.length - 2; e > 0; e--) h.push(e * m);
+		let g = c.length / 3;
+		for (let e of h) c.push(c[e * 3], c[e * 3 + 1] - this.skirtDepth, c[e * 3 + 2]), l.push(l[e * 3], l[e * 3 + 1], l[e * 3 + 2]), u.push(u[e * 2], u[e * 2 + 1]);
+		for (let e = 0; e < h.length; e++) {
+			let t = (e + 1) % h.length;
+			d.push(h[e], g + e, h[t], h[t], g + e, g + t);
 		}
-		let v = new require_geometry.Geometry({
+		let _ = new require_geometry.Geometry({
 			positions: c,
 			normals: l,
 			uvs: u,
 			indices: d
 		});
-		return this.skirtVertices.set(v, f), v;
+		return this.firstSkirtVertex.set(_, g), _;
 	}
 	createStreamingCells(n = `terrain`) {
 		if (this.destroyed || this.parent || this.rotation.x !== 0 || this.rotation.y !== 0 || this.rotation.z !== 0 || Math.abs(this.rotation.w) !== 1 || this.scale.x !== 1 || this.scale.y !== 1 || this.scale.z !== 1) throw Error(`Terrain streaming catalogs require a live unparented translation-only source.`);

@@ -191,6 +191,11 @@ export class Terrain3D extends Group {
       gz = (z / this.depth + 0.5) * (this.rows - 1);
     if (gx < 0 || gz < 0 || gx > this.columns - 1 || gz > this.rows - 1)
       return undefined;
+    return this.interpolate(gx, gz);
+  }
+
+  /** Triangle interpolation at grid coordinates already known to lie inside the grid. */
+  private interpolate(gx: number, gz: number): number {
     const ix = Math.min(Math.floor(gx), this.columns - 2),
       iz = Math.min(Math.floor(gz), this.rows - 2);
     const u = gx - ix,
@@ -213,11 +218,23 @@ export class Terrain3D extends Group {
       right = Math.min(this.width / 2, x + dx);
     const back = Math.max(-this.depth / 2, z - dz),
       front = Math.min(this.depth / 2, z + dz);
+    // The point is inside the terrain and the taps are clamped to its rectangle, so each
+    // tap lies inside the grid and needs neither the finiteness nor the bounds check.
+    const spanX = this.columns - 1,
+      spanZ = this.rows - 1;
+    const gx = (x / this.width + 0.5) * spanX,
+      gz = (z / this.depth + 0.5) * spanZ;
+    const gridLeft = (left / this.width + 0.5) * spanX,
+      gridRight = (right / this.width + 0.5) * spanX,
+      gridBack = (back / this.depth + 0.5) * spanZ,
+      gridFront = (front / this.depth + 0.5) * spanZ;
     return out
       .set(
-        -(this.heightAt(right, z)! - this.heightAt(left, z)!) / (right - left),
+        -(this.interpolate(gridRight, gz) - this.interpolate(gridLeft, gz)) /
+          (right - left),
         1,
-        -(this.heightAt(x, front)! - this.heightAt(x, back)!) / (front - back),
+        -(this.interpolate(gx, gridFront) - this.interpolate(gx, gridBack)) /
+          (front - back),
       )
       .normalize();
   }
@@ -239,30 +256,33 @@ export class Terrain3D extends Group {
     for (let i = 0; i < this.heights.length; i++)
       if (!Number.isFinite(this.heights[i]))
         throw new RangeError('Terrain heights must be finite.');
+    const { normal, skirtDepth } = this;
     for (const record of this.records)
       for (const mesh of record.meshes) {
-        const vertices = mesh.geometry.vertices;
+        const { geometry } = mesh,
+          { vertices, tangents } = geometry;
+        // Skirt vertices are the ones appended after the grid (see buildGeometry).
+        const firstSkirt = this.firstSkirtVertex.get(geometry)!;
         for (let i = 0; i < vertices.length; i += 8) {
           const x = (vertices[i + 6]! - 0.5) * this.width,
             z = (vertices[i + 7]! - 0.5) * this.depth;
-          const skirt = this.skirtVertices.get(mesh.geometry)!.has(i / 8);
           vertices[i + 1] =
-            this.heightAt(x, z)! - (skirt ? this.skirtDepth : 0);
-          this.normalAt(x, z, this.normal);
-          vertices[i + 3] = this.normal.x;
-          vertices[i + 4] = this.normal.y;
-          vertices[i + 5] = this.normal.z;
+            this.heightAt(x, z)! - (i / 8 >= firstSkirt ? skirtDepth : 0);
+          this.normalAt(x, z, normal);
+          vertices[i + 3] = normal.x;
+          vertices[i + 4] = normal.y;
+          vertices[i + 5] = normal.z;
           const tangent = i / 2;
-          const length = hypot2(this.normal.y, this.normal.x);
-          mesh.geometry.tangents[tangent] = this.normal.y / length;
-          mesh.geometry.tangents[tangent + 1] = -this.normal.x / length;
-          mesh.geometry.tangents[tangent + 2] = 0;
-          mesh.geometry.tangents[tangent + 3] = -1;
+          const length = hypot2(normal.y, normal.x);
+          tangents[tangent] = normal.y / length;
+          tangents[tangent + 1] = -normal.x / length;
+          tangents[tangent + 2] = 0;
+          tangents[tangent + 3] = -1;
         }
-        mesh.geometry.markUpdated();
+        geometry.markUpdated();
       }
   }
-  private readonly skirtVertices = new Map<Geometry, Set<number>>();
+  private readonly firstSkirtVertex = new Map<Geometry, number>();
 
   private buildGeometry(
     x: number,
@@ -281,7 +301,6 @@ export class Terrain3D extends Group {
       normals: number[] = [],
       uvs: number[] = [],
       indices: number[] = [];
-    const skirts = new Set<number>();
     const centerX = ((x + endX) / 2 / (this.columns - 1) - 0.5) * this.width;
     const centerZ = ((z + endZ) / 2 / (this.rows - 1) - 0.5) * this.depth;
     for (const iz of zs)
@@ -315,7 +334,6 @@ export class Terrain3D extends Group {
     for (let row = zs.length - 2; row > 0; row--) edge.push(row * columns);
     const start = positions.length / 3;
     for (const vertex of edge) {
-      skirts.add(positions.length / 3);
       positions.push(
         positions[vertex * 3]!,
         positions[vertex * 3 + 1]! - this.skirtDepth,
@@ -340,7 +358,7 @@ export class Terrain3D extends Group {
       );
     }
     const geometry = new Geometry({ positions, normals, uvs, indices });
-    this.skirtVertices.set(geometry, skirts);
+    this.firstSkirtVertex.set(geometry, start);
     return geometry;
   }
 
