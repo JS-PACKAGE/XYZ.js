@@ -2292,6 +2292,21 @@ function createSurfaceSampler(t, r) {
 				H = .52 + .28 * i + .08 * a, Z = .44 + .22 * i + .02 * a, Q += .06 * (a - .5) - .12 * i, $ = 1 - .32 * (1 - i);
 				break;
 			}
+			case `icecream`: {
+				let e = fract((o + A) * 5), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = smooth(clamp((noise(o, A, 16, 16, r ^ 31675) - .72) / .08)), i = noise(o, A, 32, 32, r ^ 36044);
+				H = .52 + .28 * t + .1 * n + .06 * i, Z = .44 + .24 * t + .05 * n + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .3 * (1 - t) - .1 * (1 - n);
+				break;
+			}
+			case `popsicle`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 8) - .5)), t = noise(o, A, 24, 24, r ^ 40413), n = noise(o, A, 32, 32, r ^ 44782);
+				H = .46 + .3 * e + .1 * t + .06 * n, Z = .44 + .22 * e + .04 * t + .02 * n, Q += .08 * (n - .5) - .1 * e, $ = 1 - .32 * (1 - e);
+				break;
+			}
+			case `sorbet`: {
+				let e = fract((o - A) * 6), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = smooth(clamp((noise(o, A, 12, 12, r ^ 49151) - .68) / .1)), i = noise(o, A, 32, 32, r ^ 49425);
+				H = .46 + .28 * t + .12 * n + .06 * i, Z = .44 + .2 * t + .06 * n + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .3 * (1 - t) - .1 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

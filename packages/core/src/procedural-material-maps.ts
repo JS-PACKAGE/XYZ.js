@@ -8143,6 +8143,45 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - rod);
         break;
       }
+      case 'icecream': {
+        // Piped cream ridges roll between the melting drip specks.
+        const turn = fract((u + v) * 5);
+        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const drip = smooth(
+          clamp((noise(u, v, 16, 16, seed ^ 0x7bbb) - 0.72) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
+        color = 0.52 + 0.28 * ridge + 0.1 * drip + 0.06 * grain;
+        height = 0.44 + 0.24 * ridge + 0.05 * drip + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * ridge;
+        occlusion = 1 - 0.3 * (1 - ridge) - 0.1 * (1 - drip);
+        break;
+      }
+      case 'popsicle': {
+        // Frozen drip ridges run down the frosted ice pop.
+        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 8) - 0.5));
+        const frost = noise(u, v, 24, 24, seed ^ 0x9ddd);
+        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+        color = 0.46 + 0.3 * ridge + 0.1 * frost + 0.06 * grain;
+        height = 0.44 + 0.22 * ridge + 0.04 * frost + 0.02 * grain;
+        roughness += 0.08 * (grain - 0.5) - 0.1 * ridge;
+        occlusion = 1 - 0.32 * (1 - ridge);
+        break;
+      }
+      case 'sorbet': {
+        // Scoop scrapes ridge over the fruit-flecked surface.
+        const turn = fract((u - v) * 6);
+        const scrape = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const fruit = smooth(
+          clamp((noise(u, v, 12, 12, seed ^ 0xbfff) - 0.68) / 0.1),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+        color = 0.46 + 0.28 * scrape + 0.12 * fruit + 0.06 * grain;
+        height = 0.44 + 0.2 * scrape + 0.06 * fruit + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * scrape;
+        occlusion = 1 - 0.3 * (1 - scrape) - 0.1 * (1 - fruit);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

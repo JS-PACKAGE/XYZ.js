@@ -232,6 +232,9 @@ export type ProceduralMaterialKind =
   | 'jam'
   | 'peanutbutter'
   | 'sprinkles'
+  | 'icecream'
+  | 'popsicle'
+  | 'sorbet'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -546,6 +549,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'jam',
   'peanutbutter',
   'sprinkles',
+  'icecream',
+  'popsicle',
+  'sorbet',
   'basketball',
   'tennisball',
   'golfball',

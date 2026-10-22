@@ -1356,6 +1356,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.42;
         relief: 0.0024;
     }>;
+    icecream: Readonly<{
+        dark: readonly [222, 182, 192];
+        light: readonly [252, 238, 242];
+        roughness: 0.82;
+        relief: 0.0026;
+    }>;
+    popsicle: Readonly<{
+        dark: readonly [122, 42, 62];
+        light: readonly [232, 132, 152];
+        roughness: 0.32;
+        relief: 0.002;
+    }>;
+    sorbet: Readonly<{
+        dark: readonly [162, 72, 42];
+        light: readonly [242, 172, 112];
+        roughness: 0.58;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1981,6 +1999,9 @@ export declare const proceduralTileMeters: Readonly<{
     jam: 0.12;
     peanutbutter: 0.14;
     sprinkles: 0.1;
+    icecream: 0.18;
+    popsicle: 0.14;
+    sorbet: 0.16;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

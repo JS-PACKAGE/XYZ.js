@@ -250,6 +250,9 @@ const kinds: ProceduralMaterialKind[] = [
   'jam',
   'peanutbutter',
   'sprinkles',
+  'icecream',
+  'popsicle',
+  'sorbet',
   'basketball',
   'tennisball',
   'golfball',
@@ -5046,6 +5049,9 @@ describe('periodic procedural material fields', () => {
     ['jam', [5, 32, 48, 64]],
     ['peanutbutter', [6, 12, 32, 64]],
     ['sprinkles', [6, 32, 48, 64]],
+    ['icecream', [5, 20, 32, 64]],
+    ['popsicle', [8, 32, 48, 64]],
+    ['sorbet', [6, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5302,6 +5308,9 @@ describe('periodic procedural material fields', () => {
     ['jam', 5],
     ['peanutbutter', 6],
     ['sprinkles', 6],
+    ['icecream', 5],
+    ['popsicle', 8],
+    ['sorbet', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6712,6 +6721,9 @@ describe('periodic procedural material fields', () => {
     'jam',
     'peanutbutter',
     'sprinkles',
+    'icecream',
+    'popsicle',
+    'sorbet',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6862,7 +6874,16 @@ describe('periodic procedural material fields', () => {
                                                                                                               : kind ===
                                                                                                                   'sprinkles'
                                                                                                                 ? 6
-                                                                                                                : 4;
+                                                                                                                : kind ===
+                                                                                                                    'icecream'
+                                                                                                                  ? 5
+                                                                                                                  : kind ===
+                                                                                                                      'popsicle'
+                                                                                                                    ? 8
+                                                                                                                    : kind ===
+                                                                                                                        'sorbet'
+                                                                                                                      ? 6
+                                                                                                                      : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10807,6 +10828,66 @@ describe('periodic procedural material fields', () => {
         }
       expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
       expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('ice cream rolls piped ridges above the melting grooves', () => {
+    const relief = proceduralMaterialPresets.icecream.relief;
+    const ridge: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...ridge };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('icecream', seed);
+      sample(0.05, 0.05, ridge);
+      sample(0.1, 0.1, groove);
+      expect(ridge.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(ridge.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('popsicle runs frozen drip ridges above the grooves', () => {
+    const relief = proceduralMaterialPresets.popsicle.relief;
+    const ridge: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...ridge };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('popsicle', seed);
+      sample(0.37, 1 / 16, ridge);
+      sample(0.37, 1 / 8, groove);
+      expect(ridge.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(ridge.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('sorbet scoops scrape ridges above the fruit-flecked gaps', () => {
+    const relief = proceduralMaterialPresets.sorbet.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sorbet', seed);
+      sample(0.25, 0.16666666666666666, crest);
+      sample(0.25, 0.08333333333333333, gap);
+      expect(crest.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 
