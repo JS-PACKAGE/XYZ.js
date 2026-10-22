@@ -5564,3 +5564,32 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Math]` 上一筆的 `Number.NaN` 會被 dist 的 minifier 折回全域 `NaN`，發佈版因此沒有受益；改為讀取模組層物件的 `nan` 屬性（minifier 保留，值相同）。以 headfull 完整建置的 minified `dist/` 重新量測 1500 顆圓場景：`refreshPose`／`collide` 每幀配置歸零，與原始碼路徑一致。完整測試 3014 通過、型別、tree-shaking、API 相容通過。
 - `[Math]` 修正上一筆把 `hypot2` 的 `@internal` JSDoc 掛到新常數上、導致 `dist/packages/math/src/hypot.d.ts` 少了該註解：常數移到 JSDoc 之前，產生的 `.d.ts` 與原本相同。完整測試 3014 通過、型別、tree-shaking、API 相容通過。
 - `[Audio]` 依使用者要求將 vendor 的官方 OPM.js 由 v1.11.1 更新為 [v1.13.0](https://github.com/JS-PACKAGE/OPM.js/releases/tag/v1.13.0)：附件 `opm.js-1.13.0.tgz` SHA256 `9b51057238ea2e633eed7e7b359521c3658f62c7de701f1358eaae2677ad2f73` 與 GitHub asset digest 相符；仍為 162 個官方 dist 檔加 LICENSE（未變）與 manifest，`vendor/opm` 與 `dist/vendor/opm` 皆與官方封裝逐位元組一致，無修改。上游 voice 格式仍為 v7、worklet 協定不變，公開 `OPMVoice` `version: 1`、八個隔離 slot 與認證範圍不變；上游新增的 WAV dither 等功能未經引擎公開。乾淨匯出完整建置後測試 3014 通過、型別、tree-shaking、API 相容、check-distribution 通過；Chromium 載入 audio-lab 並解鎖、播放 OPM 音樂／SFX 無錯誤，模組回報版本 1.13.0（未做人耳聆聽驗證）。
+
+## v1.20.0 發佈準備
+
+- 使用者確認版本為 v1.20.0，授權推送及 GitHub Release；不做 npm
+  publish、不移動歷史 tags。隔離工作目錄整合本機已提交功能與
+  遠端 main 的 Vite 8.3.3 更新，保留共享目錄未提交修改。
+- package metadata、README 共用版本及中／英技術與操作文件同步；
+  PLAN／DESIGN 僅更新目前版本與授權，歷史驗收原文保留。
+  修改的文件連結與基準一致。
+- 補齊 sprite quad fixture 的 destroy 契約。fallback 測試於 collection
+  載入正式 backend，避免冷轉譯超出測試期限後污染下一測試。
+  shader 全組合改為逐 variant 註冊，feature-independent vertex 僅查一次。
+  lily 三 seed 各自註冊；通用材質連續性檢查彙總最大 residual，
+  保留全部 seed／取樣點／欄位與原容限，移除熱迴圈 assertion 配置。
+  未延長 timeout、刪除覆蓋或修改正式 runtime 來繞過驗證。
+- 修正前完整 suite 有 fallback／shader 失敗，後續分別遇到 lily
+  與 pinecone 逾時；上述根因修正後，最終 177 檔、4480 測試全通過。
+  fallback／shader／sprite 專項 2231 通過；lily 三項、
+  通用邊界連續性 140 項通過。計數增加來自既有矩陣拆分，
+  不代表新增同等數量的功能。
+- frozen install、build、typecheck、lint、完整 format check 通過；
+  後續改動檔案另經格式檢查。API 相容性 737 exports／2810 directional
+  contracts／710 historical namespaces／五組 consumers 通過，
+  41 組 positive／negative compatibility cases 通過。
+- 真實 1.20.0 tarball 的 package hygiene 與 extracted consumer smoke
+  通過；distribution 檢查含 362 exports、ESM／CJS 身分隔離與實際
+  vendor voice validation 通過。完整 vendor 與授權保留。
+- 此處記錄本機發佈準備；GitHub CI／Release workflow 仍須通過原有
+  gates 才可發佈，不能把本機結果當作遠端發佈或新增裝置認證。
