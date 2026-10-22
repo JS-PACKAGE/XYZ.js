@@ -7735,6 +7735,41 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - nut) - 0.18 * pit;
         break;
       }
+      case 'frostedglass': {
+        // Fine acid-etch speckle scatters over the pane.
+        const etch = smooth(
+          clamp((noise(u, v, 32, 32, seed ^ 0xdd11) - 0.42) / 0.16),
+        );
+        const micro = noise(u, v, 64, 64, seed ^ 0xee22);
+        color = 0.5 + 0.26 * etch + 0.08 * micro;
+        height = 0.46 + 0.18 * etch + 0.02 * micro;
+        roughness += 0.08 * (micro - 0.5) - 0.1 * etch;
+        occlusion = 1 - 0.28 * (1 - etch);
+        break;
+      }
+      case 'rippledglass': {
+        // Vertical rolled ribs ripple across the drawn glass.
+        const rib = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 6) - 0.5));
+        const micro = noise(u, v, 32, 32, seed ^ 0xff33);
+        color = 0.48 + 0.32 * rib + 0.08 * micro;
+        height = 0.46 + 0.26 * rib + 0.02 * micro;
+        roughness += 0.08 * (micro - 0.5) - 0.12 * rib;
+        occlusion = 1 - 0.3 * (1 - rib);
+        break;
+      }
+      case 'bubbleglass': {
+        // Seeded round bubbles dome over the clear glass body.
+        const dx = fract(u * 8) - 0.5,
+          dy = fract(v * 8) - 0.5;
+        const r = Math.hypot(dx, dy);
+        const bubble = smooth(clamp((0.34 - r) / 0.14));
+        const micro = noise(u, v, 32, 32, seed ^ 0x1a44);
+        color = 0.48 + 0.32 * bubble + 0.08 * micro;
+        height = 0.46 + 0.24 * bubble + 0.02 * micro;
+        roughness += 0.08 * (micro - 0.5) - 0.12 * bubble;
+        occlusion = 1 - 0.3 * (1 - bubble);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

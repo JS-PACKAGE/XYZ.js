@@ -2142,6 +2142,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .3 * e - .12 * t + .08 * n, Z = .44 + .24 * e - .1 * t + .02 * n, Q += .08 * (n - .5) - .1 * e + .12 * t, $ = 1 - .34 * (1 - e) - .18 * t;
 				break;
 			}
+			case `frostedglass`: {
+				let e = smooth(clamp((noise(o, A, 32, 32, r ^ 56593) - .42) / .16)), t = noise(o, A, 64, 64, r ^ 60962);
+				H = .5 + .26 * e + .08 * t, Z = .46 + .18 * e + .02 * t, Q += .08 * (t - .5) - .1 * e, $ = 1 - .28 * (1 - e);
+				break;
+			}
+			case `rippledglass`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(o * 6) - .5)), t = noise(o, A, 32, 32, r ^ 65331);
+				H = .48 + .32 * e + .08 * t, Z = .46 + .26 * e + .02 * t, Q += .08 * (t - .5) - .12 * e, $ = 1 - .3 * (1 - e);
+				break;
+			}
+			case `bubbleglass`: {
+				let e = fract(o * 8) - .5, t = fract(A * 8) - .5, n = smooth(clamp((.34 - Math.hypot(e, t)) / .14)), i = noise(o, A, 32, 32, r ^ 6724);
+				H = .48 + .32 * n + .08 * i, Z = .46 + .24 * n + .02 * i, Q += .08 * (i - .5) - .12 * n, $ = 1 - .3 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

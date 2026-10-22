@@ -202,6 +202,9 @@ export type ProceduralMaterialKind =
   | 'candy'
   | 'marshmallow'
   | 'nougat'
+  | 'frostedglass'
+  | 'rippledglass'
+  | 'bubbleglass'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -486,6 +489,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'candy',
   'marshmallow',
   'nougat',
+  'frostedglass',
+  'rippledglass',
+  'bubbleglass',
   'basketball',
   'tennisball',
   'golfball',

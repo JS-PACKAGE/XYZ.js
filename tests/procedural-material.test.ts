@@ -220,6 +220,9 @@ const kinds: ProceduralMaterialKind[] = [
   'candy',
   'marshmallow',
   'nougat',
+  'frostedglass',
+  'rippledglass',
+  'bubbleglass',
   'basketball',
   'tennisball',
   'golfball',
@@ -4986,6 +4989,9 @@ describe('periodic procedural material fields', () => {
     ['candy', [4, 32, 48, 64]],
     ['marshmallow', [5, 32, 48, 64]],
     ['nougat', [6, 16, 32, 64]],
+    ['frostedglass', [6, 12, 32, 64]],
+    ['rippledglass', [6, 32, 48, 64]],
+    ['bubbleglass', [8, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5212,6 +5218,9 @@ describe('periodic procedural material fields', () => {
     ['candy', 4],
     ['marshmallow', 5],
     ['nougat', 6],
+    ['frostedglass', 32],
+    ['rippledglass', 6],
+    ['bubbleglass', 8],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6592,6 +6601,9 @@ describe('periodic procedural material fields', () => {
     'candy',
     'marshmallow',
     'nougat',
+    'frostedglass',
+    'rippledglass',
+    'bubbleglass',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6655,7 +6667,13 @@ describe('periodic procedural material fields', () => {
                                                   ? 5
                                                   : kind === 'nougat'
                                                     ? 6
-                                                    : 4;
+                                                    : kind === 'frostedglass'
+                                                      ? 32
+                                                      : kind === 'rippledglass'
+                                                        ? 6
+                                                        : kind === 'bubbleglass'
+                                                          ? 8
+                                                          : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9836,6 +9854,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the chunks and pits from cavity shading rather than pinning
       // seeded blob coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('rippled glass rolls vertical ribs above their troughs', () => {
+    const relief = proceduralMaterialPresets.rippledglass.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rippledglass', seed);
+      sample(1 / 12, 0.37, crest);
+      sample(1 / 6, 0.37, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('bubble glass domes seeded bubbles over the clear body', () => {
+    const relief = proceduralMaterialPresets.bubbleglass.relief;
+    const dome: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const body = { ...dome };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bubbleglass', seed);
+      sample(1 / 16, 1 / 16, dome);
+      sample(0, 0, body);
+      expect(dome.height).toBeGreaterThan(body.height + 0.1 * relief);
+      expect(dome.occlusion).toBeGreaterThan(body.occlusion);
+    }
+  });
+
+  it('frosted glass speckles its etched field above the smoother pane', () => {
+    const relief = proceduralMaterialPresets.frostedglass.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('frostedglass', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the etch and the pane from cavity shading rather than pinning
+      // seeded speckle coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
