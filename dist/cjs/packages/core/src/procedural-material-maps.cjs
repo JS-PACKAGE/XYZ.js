@@ -436,6 +436,26 @@ function createSurfaceSampler(t, r) {
 				let e = (Math.floor(q * 8) % 8 + 8) % 8, t = .5 * (e & 1), n = K * 8 + t, i = (Math.floor(n) % 8 + 8) % 8, a = fract(n) - .5, o = fract(q * 8) - .5, c = smooth(clamp((1 - (a * a + o * o) / .2116) / .22)), l = .9 + .1 * hash(i, e, r ^ 10932), u = noise(K, q, 40, 40, r ^ 30705);
 				X = .56 + .26 * c * l + .06 * (u - .5) - .14 * (1 - c), Z = .26 + .28 * c * l + .04 * (u - .5) * (1 - c), Q += .12 * (1 - c) + .06 * (u - .5), $ = 1 - .44 * (1 - c);
 			};
+			case `volleyball`: return () => {
+				let e = 3 * K + .18 * Math.sin(n * q), t = (Math.floor(e) % 3 + 3) % 3, i = fract(e) - .5, o = smooth(clamp((.06 - (.5 - Math.abs(i))) / .04)), s = .92 + .08 * hash(t, 0, r ^ 20937), c = fract(K * 24) - .5, l = fract(q * 24) - .5, u = (c * c + l * l) / .0036, d = u < 1 ? (1 - u) * (1 - u) : 0, f = noise(K, q, 40, 40, r ^ 13223);
+				X = .42 + .4 * s * (1 - o) - .14 * o - .08 * d + .05 * (f - .5), Z = .3 + .22 * s * (1 - o) - .16 * o - .07 * d, Q += .06 * (f - .5) + .08 * o + .05 * d, $ = 1 - .4 * o - .16 * d;
+			};
+			case `bowlingball`: return () => {
+				let e = .6 * noise(K, q, 6, 6, r ^ 6575) + .4 * noise(K, q, 14, 14, r ^ 11121), t = 0;
+				for (let [e, n] of [
+					[.5, .36],
+					[.38, .52],
+					[.62, .52]
+				]) {
+					let r = fract(K - e + .5) - .5, i = fract(q - n + .5) - .5, a = (r * r + i * i) / .003025, o = a < 1 ? (1 - a) * (1 - a) : 0;
+					t += o - t * o;
+				}
+				X = .36 + .34 * e - .24 * t, Z = .38 + .1 * e - .3 * t, Q += .05 * (e - .5) + .22 * t, $ = 1 - .5 * t;
+			};
+			case `rugbyball`: return () => {
+				let e = fract(q - .25 + .5) - .5, t = smooth(clamp((.05 - Math.abs(e)) / .03)), n = fract(K * 12) - .5, i = smooth(clamp((.18 - Math.abs(n)) / .08)) * t, o = smooth(clamp((.035 - (.5 - Math.abs(fract(q * 2) - .5))) / .025)), s = noise(K, q, 72, 72, r ^ 27948);
+				X = .42 + .26 * i - .16 * o + .12 * (s - .5) + .06 * t, Z = .32 + .16 * i - .12 * o + .05 * (s - .5), Q += .1 * (s - .5) - .12 * i + .06 * o, $ = 1 - .42 * o - .14 * (1 - i) * t;
+			};
 			case `morel`: return () => {
 				let e = x, t = K * e.columns, n = q * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(K, q), o = 0, s = 0;
 				for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) {

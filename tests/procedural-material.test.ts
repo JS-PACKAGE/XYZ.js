@@ -367,6 +367,9 @@ const kinds: ProceduralMaterialKind[] = [
   'bubblewrap',
   'sequin',
   'pennyround',
+  'volleyball',
+  'bowlingball',
+  'rugbyball',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5187,6 +5190,9 @@ describe('periodic procedural material fields', () => {
     ['bubblewrap', [4, 32, 64]],
     ['sequin', [3, 32, 64]],
     ['pennyround', [4, 32, 64]],
+    ['volleyball', [3, 32, 64]],
+    ['bowlingball', [2, 32, 64]],
+    ['rugbyball', [3, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5532,6 +5538,11 @@ describe('periodic procedural material fields', () => {
     ['bubblewrap', 12],
     ['sequin', 10],
     ['pennyround', 8],
+    ['volleyball', 3],
+    ['volleyball', 24],
+    ['bowlingball', 2],
+    ['rugbyball', 2],
+    ['rugbyball', 12],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13543,6 +13554,84 @@ describe('periodic procedural material fields', () => {
           expect(a.roughness).toBeLessThan(b.roughness);
           expect(a.color).toBeGreaterThan(b.color);
         }
+      }
+    }
+  });
+
+  it('volleyball keeps curved panel seams and dimples below the panel skin', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('volleyball', seed);
+      for (const v of [0.1, 0.3, 0.55, 0.8]) {
+        const shift = 0.18 * Math.sin(Math.PI * 2 * v);
+        const panel = (0.5 - shift) / 3,
+          seam = (1 - shift) / 3;
+        sample(panel, v, a);
+        sample(seam, v, b);
+        expect(a.height).toBeGreaterThan(b.height);
+        expect(a.occlusion).toBeGreaterThan(b.occlusion);
+      }
+      sample(1 / 24, 1 / 24, a);
+      sample(0.5 / 24, 0.5 / 24, b);
+      expect(a.height).toBeGreaterThan(b.height);
+      expect(a.occlusion).toBeGreaterThan(b.occlusion);
+    }
+  });
+
+  it('bowlingball sinks three recessed finger holes into the pearl swirl', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bowlingball', seed);
+      for (const [hu, hv] of [
+        [0.5, 0.36],
+        [0.38, 0.52],
+        [0.62, 0.52],
+      ] as const) {
+        sample(hu, hv, a);
+        sample(hu + 0.09, hv, b);
+        expect(b.height).toBeGreaterThan(a.height);
+        expect(b.occlusion).toBeGreaterThan(a.occlusion);
+        expect(b.roughness).toBeLessThan(a.roughness);
+      }
+    }
+  });
+
+  it('rugbyball raises lacing stitches above the band and seam grooves', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      c = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rugbyball', seed);
+      for (const i of [0, 1, 2, 3]) {
+        sample((i + 0.5) / 12, 0.25, a);
+        sample(i / 12, 0.25, b);
+        sample((i + 0.5) / 12, 0, c);
+        expect(a.height).toBeGreaterThan(b.height);
+        expect(b.height).toBeGreaterThan(c.height);
+        expect(a.occlusion).toBeGreaterThan(c.occlusion);
       }
     }
   });

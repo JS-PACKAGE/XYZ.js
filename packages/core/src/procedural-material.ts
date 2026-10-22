@@ -348,7 +348,10 @@ export type ProceduralMaterialKind =
   | 'icepack'
   | 'bubblewrap'
   | 'sequin'
-  | 'pennyround';
+  | 'pennyround'
+  | 'volleyball'
+  | 'bowlingball'
+  | 'rugbyball';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -723,6 +726,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bubblewrap',
   'sequin',
   'pennyround',
+  'volleyball',
+  'bowlingball',
+  'rugbyball',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

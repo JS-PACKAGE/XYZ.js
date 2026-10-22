@@ -1660,6 +1660,77 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.44 * (1 - tile);
           return;
         };
+      case 'volleyball':
+        return () => {
+          // Three broad curved panels meet at recessed seams over a dimpled skin.
+          const x = 3 * u + 0.18 * Math.sin(TAU * v);
+          const band = Math.floor(x);
+          const bandW = ((band % 3) + 3) % 3;
+          const fx = fract(x) - 0.5;
+          const edge = 0.5 - Math.abs(fx);
+          const seam = smooth(clamp((0.06 - edge) / 0.04));
+          const lift = 0.92 + 0.08 * hash(bandW, 0, seed ^ 0x51c9);
+          const dx = fract(u * 24) - 0.5,
+            dy = fract(v * 24) - 0.5;
+          const q = (dx * dx + dy * dy) / (0.06 * 0.06);
+          const dimple = q < 1 ? (1 - q) * (1 - q) : 0;
+          const grain = noise(u, v, 40, 40, seed ^ 0x33a7);
+          color =
+            0.42 +
+            0.4 * lift * (1 - seam) -
+            0.14 * seam -
+            0.08 * dimple +
+            0.05 * (grain - 0.5);
+          height = 0.3 + 0.22 * lift * (1 - seam) - 0.16 * seam - 0.07 * dimple;
+          roughness += 0.06 * (grain - 0.5) + 0.08 * seam + 0.05 * dimple;
+          occlusion = 1 - 0.4 * seam - 0.16 * dimple;
+          return;
+        };
+      case 'bowlingball':
+        return () => {
+          // Polished pearl swirl wraps a cluster of three recessed finger holes.
+          const swirl =
+            0.6 * noise(u, v, 6, 6, seed ^ 0x19af) +
+            0.4 * noise(u, v, 14, 14, seed ^ 0x2b71);
+          let hole = 0;
+          for (const [hu, hv] of [
+            [0.5, 0.36],
+            [0.38, 0.52],
+            [0.62, 0.52],
+          ] as const) {
+            const du = fract(u - hu + 0.5) - 0.5,
+              dv = fract(v - hv + 0.5) - 0.5;
+            const q = (du * du + dv * dv) / (0.055 * 0.055);
+            const recess = q < 1 ? (1 - q) * (1 - q) : 0;
+            hole += recess - hole * recess;
+          }
+          color = 0.36 + 0.34 * swirl - 0.24 * hole;
+          height = 0.38 + 0.1 * swirl - 0.3 * hole;
+          roughness += 0.05 * (swirl - 0.5) + 0.22 * hole;
+          occlusion = 1 - 0.5 * hole;
+          return;
+        };
+      case 'rugbyball':
+        return () => {
+          // Pebbled leather panels run under a stitched lacing seam.
+          const dv = fract(v - 0.25 + 0.5) - 0.5;
+          const band = smooth(clamp((0.05 - Math.abs(dv)) / 0.03));
+          const s = fract(u * 12) - 0.5;
+          const stitch = smooth(clamp((0.18 - Math.abs(s)) / 0.08)) * band;
+          const seamV = 0.5 - Math.abs(fract(v * 2) - 0.5);
+          const groove = smooth(clamp((0.035 - seamV) / 0.025));
+          const pebble = noise(u, v, 72, 72, seed ^ 0x6d2c);
+          color =
+            0.42 +
+            0.26 * stitch -
+            0.16 * groove +
+            0.12 * (pebble - 0.5) +
+            0.06 * band;
+          height = 0.32 + 0.16 * stitch - 0.12 * groove + 0.05 * (pebble - 0.5);
+          roughness += 0.1 * (pebble - 0.5) - 0.12 * stitch + 0.06 * groove;
+          occlusion = 1 - 0.42 * groove - 0.14 * (1 - stitch) * band;
+          return;
+        };
       case 'morel':
         return () => {
           const p = morelPreset,
