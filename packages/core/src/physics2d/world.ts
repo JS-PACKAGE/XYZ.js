@@ -1551,6 +1551,18 @@ export class PhysicsWorld2D {
           }
         }
         const proxy = list[index]!;
+        // A frozen snapshot refreshed every live pose up front, so the same bounds test can
+        // run on the proxy's own geometry ahead of the filters; a dead proxy is skipped either way.
+        if (epoch < 0) {
+          const other = proxy.geometry;
+          if (
+            geometry.maxX < other.minX ||
+            other.maxX < geometry.minX ||
+            geometry.maxY < other.minY ||
+            other.maxY < geometry.minY
+          )
+            continue;
+        }
         if (
           proxy.owner === owner ||
           !this.alive(proxy) ||

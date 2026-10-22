@@ -11,6 +11,7 @@ import {
   Trigger2D,
   type Collider2D,
   type CollisionDetail,
+  type ContactQuery,
 } from '../packages/core/src/physics2d/index.js';
 
 function object(
@@ -760,6 +761,48 @@ describe('mutable static poses', () => {
     expect(hit()).toBe(0);
     holder.position.x = 0;
     expect(hit()).toBe(1);
+    scene.destroy();
+  });
+
+  it('returns the same overlaps inside a frozen pose snapshot as outside it', () => {
+    const scene = new Scene();
+    const world = scene.physics;
+    // Unit boxes on a jittered grid, with sensors and a collider whose category the probe masks out.
+    const owners: GameObject[] = [];
+    for (let i = 0; i < 80; i++) {
+      const owner = scene.add(new GameObject());
+      owner.collider = Colliders.box(1, 1);
+      owner.collider.sensor = i % 9 === 0;
+      if (i % 11 === 0) owner.collider.category = 2;
+      owner.position.set(
+        (i % 10) * 1.3 + (i % 3) * 0.1,
+        Math.floor(i / 10) * 1.3,
+      );
+      owners.push(owner);
+    }
+    const probe = new GameObject();
+    const shape = Colliders.circle(0.7);
+    shape.mask = 1;
+    const summarize = (hits: readonly ContactQuery[]) =>
+      hits.map((hit) => [
+        owners.indexOf(hit.owner),
+        hit.sensor,
+        hit.penetration,
+        hit.normal.x,
+        hit.normal.y,
+      ]);
+    let compared = 0;
+    for (let i = 0; i < 60; i++) {
+      probe.position.set(((i * 0.37) % 14) - 0.5, ((i * 0.53) % 11) - 0.5);
+      const live = summarize(world.overlap(shape, probe));
+      const frozen = world.withPoseSnapshot(() =>
+        summarize(world.overlap(shape, probe)),
+      );
+      expect(frozen).toEqual(live);
+      compared += live.length;
+    }
+    // The probes must actually touch things, or equality would be vacuous.
+    expect(compared).toBeGreaterThan(40);
     scene.destroy();
   });
 

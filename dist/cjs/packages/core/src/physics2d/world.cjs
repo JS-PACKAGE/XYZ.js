@@ -663,6 +663,10 @@ var PhysicsWorld2D = class {
 					}
 				}
 				let p = o[c];
+				if (a < 0) {
+					let e = p.geometry;
+					if (r.maxX < e.minX || e.maxX < r.minX || r.maxY < e.minY || e.maxY < r.minY) continue;
+				}
 				if (p.owner === n || !this.alive(p) || !(t.category & p.collider.mask) || !(p.collider.category & t.mask) || (a === 0 ? p.refresh() : refreshInSnapshot(p, a), l && this.recordBounds(p, c, a), !require_narrowphase.collide(r, p.geometry, this.queryManifold))) continue;
 				let m = this.queryManifold;
 				i.push({
