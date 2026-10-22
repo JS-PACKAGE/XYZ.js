@@ -26,8 +26,17 @@ function axis(
 ): boolean {
   const length = hypot2(x, y);
   if (length <= EPSILON) return true;
-  x /= length;
-  y /= length;
+  return unitAxis(a, b, x / length, y / length, out);
+}
+
+/** `axis` for an already normalized direction. */
+function unitAxis(
+  a: ShapeGeometry,
+  b: ShapeGeometry,
+  x: number,
+  y: number,
+  out: Manifold,
+): boolean {
   let minA = Infinity,
     maxA = -Infinity,
     minB = Infinity,
@@ -71,10 +80,12 @@ function polygonAxes(
   b: ShapeGeometry,
   out: Manifold,
 ): boolean {
-  const p = polygon.points;
-  for (let i = 0; i < p.length; i += 2) {
-    const j = (i + 2) % p.length;
-    if (!axis(a, b, p[j + 1] - p[i + 1], p[i] - p[j], out)) return false;
+  // Each edge's axis `(ey, -ex)` normalized, as `axis` would: hypot2 ignores signs and
+  // argument order, and negating a difference is exact, so the cached unit normal matches.
+  const edges = polygon.edgeData();
+  for (let k = 0; k < edges.length; k += 3) {
+    if (edges[k + 2]! <= EPSILON) continue;
+    if (!unitAxis(a, b, edges[k]!, edges[k + 1]!, out)) return false;
   }
   return true;
 }
@@ -104,12 +115,13 @@ function closestVertexAxis(
 function bestEdge(polygon: ShapeGeometry, nx: number, ny: number): number {
   let best = -Infinity,
     edge = 0;
-  const p = polygon.points;
+  const p = polygon.points,
+    edges = polygon.edgeData();
   for (let i = 0; i < p.length; i += 2) {
     const j = (i + 2) % p.length;
     const dx = p[j] - p[i],
       dy = p[j + 1] - p[i + 1],
-      length = hypot2(dx, dy);
+      length = edges[(i >> 1) * 3 + 2]!;
     const dot = (dy * nx - dx * ny) / length;
     if (dot > best) {
       best = dot;
@@ -158,8 +170,10 @@ function polygonContacts(
     ady = ap[aj + 1] - ap[ae + 1];
   const bdx = bp[bj] - bp[be],
     bdy = bp[bj + 1] - bp[be + 1];
-  const aAlignment = (ady * out.nx - adx * out.ny) / hypot2(adx, ady);
-  const bAlignment = (-bdy * out.nx + bdx * out.ny) / hypot2(bdx, bdy);
+  const aAlignment =
+    (ady * out.nx - adx * out.ny) / a.edgeData()[(ae >> 1) * 3 + 2]!;
+  const bAlignment =
+    (-bdy * out.nx + bdx * out.ny) / b.edgeData()[(be >> 1) * 3 + 2]!;
   const reference = aAlignment >= bAlignment ? a : b;
   const incident = reference === a ? b : a;
   const edge = reference === a ? ae : be;
@@ -170,7 +184,7 @@ function polygonContacts(
     j = (edge + 2) % p.length;
   const dx = p[j] - p[edge],
     dy = p[j + 1] - p[edge + 1],
-    length = hypot2(dx, dy);
+    length = reference.edgeData()[(edge >> 1) * 3 + 2]!;
   const tx = dx / length,
     ty = dy / length;
   const ie = bestEdge(incident, -nx, -ny),
@@ -280,10 +294,10 @@ export function rayDistance(
     nx = 0,
     ny = 0;
   const p = shape.points,
-    normals = shape.edgeNormals();
+    edges = shape.edgeData();
   for (let i = 0; i < p.length; i += 2) {
-    const ax = normals[i]!,
-      ay = normals[i + 1]!;
+    const ax = edges[(i >> 1) * 3]!,
+      ay = edges[(i >> 1) * 3 + 1]!;
     const numerator = ax * (p[i] - x) + ay * (p[i + 1] - y),
       denominator = ax * dx + ay * dy;
     if (Math.abs(denominator) <= EPSILON) {

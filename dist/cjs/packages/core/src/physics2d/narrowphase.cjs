@@ -15,39 +15,37 @@ var Manifold = class {
 };
 function axis(e, t, i, a, o) {
 	let s = require_hypot.hypot2(i, a);
-	if (s <= r) return !0;
-	i /= s, a /= s;
-	let c = 1 / 0, l = -1 / 0, u = 1 / 0, d = -1 / 0;
+	return s <= r || unitAxis(e, t, i / s, a / s, o);
+}
+function unitAxis(e, t, n, i, a) {
+	let o = 1 / 0, s = -1 / 0, c = 1 / 0, l = -1 / 0;
 	if (e.collider.kind === `circle`) {
-		let t = e.x * i + e.y * a;
-		c = t - e.radius, l = t + e.radius;
+		let t = e.x * n + e.y * i;
+		o = t - e.radius, s = t + e.radius;
 	} else for (let t = 0; t < e.points.length; t += 2) {
-		let n = e.points[t] * i + e.points[t + 1] * a;
-		c = Math.min(c, n), l = Math.max(l, n);
+		let r = e.points[t] * n + e.points[t + 1] * i;
+		o = Math.min(o, r), s = Math.max(s, r);
 	}
 	if (t.collider.kind === `circle`) {
-		let e = t.x * i + t.y * a;
-		u = e - t.radius, d = e + t.radius;
+		let e = t.x * n + t.y * i;
+		c = e - t.radius, l = e + t.radius;
 	} else for (let e = 0; e < t.points.length; e += 2) {
-		let n = t.points[e] * i + t.points[e + 1] * a;
-		u = Math.min(u, n), d = Math.max(d, n);
+		let r = t.points[e] * n + t.points[e + 1] * i;
+		c = Math.min(c, r), l = Math.max(l, r);
 	}
-	let f = l - u, p = d - c;
-	if (f < -r || p < -r) return !1;
-	let m = Math.min(f, p);
-	if (m < o.penetration) {
-		o.penetration = Math.max(0, m);
-		let e = f <= p ? 1 : -1;
-		o.nx = i * e, o.ny = a * e;
+	let u = s - c, d = l - o;
+	if (u < -r || d < -r) return !1;
+	let f = Math.min(u, d);
+	if (f < a.penetration) {
+		a.penetration = Math.max(0, f);
+		let e = u <= d ? 1 : -1;
+		a.nx = n * e, a.ny = i * e;
 	}
 	return !0;
 }
-function polygonAxes(e, t, n, r) {
-	let i = e.points;
-	for (let e = 0; e < i.length; e += 2) {
-		let a = (e + 2) % i.length;
-		if (!axis(t, n, i[a + 1] - i[e + 1], i[e] - i[a], r)) return !1;
-	}
+function polygonAxes(e, t, n, i) {
+	let a = e.edgeData();
+	for (let e = 0; e < a.length; e += 3) if (!(a[e + 2] <= r) && !unitAxis(t, n, a[e], a[e + 1], i)) return !1;
 	return !0;
 }
 function closestVertexAxis(e, t, n, r, i) {
@@ -58,13 +56,13 @@ function closestVertexAxis(e, t, n, r, i) {
 	}
 	return axis(n, r, o, s, i);
 }
-function bestEdge(e, t, r) {
-	let i = -1 / 0, a = 0, o = e.points;
-	for (let e = 0; e < o.length; e += 2) {
-		let s = (e + 2) % o.length, c = o[s] - o[e], l = o[s + 1] - o[e + 1], u = require_hypot.hypot2(c, l), d = (l * t - c * r) / u;
-		d > i && (i = d, a = e);
+function bestEdge(e, t, n) {
+	let r = -1 / 0, i = 0, a = e.points, o = e.edgeData();
+	for (let e = 0; e < a.length; e += 2) {
+		let s = (e + 2) % a.length, c = a[s] - a[e], l = a[s + 1] - a[e + 1], u = o[(e >> 1) * 3 + 2], d = (l * t - c * n) / u;
+		d > r && (r = d, i = e);
 	}
-	return a;
+	return i;
 }
 function clipSegment(e, t, n, i) {
 	let a = e[0] * t + e[1] * n - i, o = e[2] * t + e[3] * n - i;
@@ -76,7 +74,7 @@ function clipSegment(e, t, n, i) {
 	return !0;
 }
 function polygonContacts(e, t, i) {
-	let a = bestEdge(e, i.nx, i.ny), o = bestEdge(t, -i.nx, -i.ny), s = e.points, c = t.points, l = (a + 2) % s.length, u = (o + 2) % c.length, d = s[l] - s[a], f = s[l + 1] - s[a + 1], p = c[u] - c[o], m = c[u + 1] - c[o + 1], h = (f * i.nx - d * i.ny) / require_hypot.hypot2(d, f) >= (-m * i.nx + p * i.ny) / require_hypot.hypot2(p, m) ? e : t, g = h === e ? t : e, _ = h === e ? a : o, v = h === e ? 1 : -1, y = i.nx * v, b = i.ny * v, x = h.points, S = (_ + 2) % x.length, C = x[S] - x[_], w = x[S + 1] - x[_ + 1], T = require_hypot.hypot2(C, w), E = C / T, D = w / T, O = bestEdge(g, -y, -b), k = (O + 2) % g.points.length, A = i.clip;
+	let a = bestEdge(e, i.nx, i.ny), o = bestEdge(t, -i.nx, -i.ny), s = e.points, c = t.points, l = (a + 2) % s.length, u = (o + 2) % c.length, d = s[l] - s[a], f = s[l + 1] - s[a + 1], p = c[u] - c[o], m = c[u + 1] - c[o + 1], h = (f * i.nx - d * i.ny) / e.edgeData()[(a >> 1) * 3 + 2] >= (-m * i.nx + p * i.ny) / t.edgeData()[(o >> 1) * 3 + 2] ? e : t, g = h === e ? t : e, _ = h === e ? a : o, v = h === e ? 1 : -1, y = i.nx * v, b = i.ny * v, x = h.points, S = (_ + 2) % x.length, C = x[S] - x[_], w = x[S + 1] - x[_ + 1], T = h.edgeData()[(_ >> 1) * 3 + 2], E = C / T, D = w / T, O = bestEdge(g, -y, -b), k = (O + 2) % g.points.length, A = i.clip;
 	if (A[0] = g.points[O], A[1] = g.points[O + 1], A[2] = g.points[k], A[3] = g.points[k + 1], !clipSegment(A, -E, -D, -E * x[_] - D * x[_ + 1]) || !clipSegment(A, E, D, E * x[S] + D * x[S + 1])) return;
 	let j = y * x[_] + b * x[_ + 1];
 	for (let e = 0; e < 4; e += 2) {
@@ -110,9 +108,9 @@ function rayDistance(e, t, n, i, a, o, s) {
 		let f = -l - Math.sqrt(d);
 		return f < 0 || f > o ? void 0 : (s.set((t + f * i - e.x) / e.radius, (n + f * a - e.y) / e.radius), f);
 	}
-	let c = 0, l = o, u = 0, d = 0, f = e.points, p = e.edgeNormals();
+	let c = 0, l = o, u = 0, d = 0, f = e.points, p = e.edgeData();
 	for (let e = 0; e < f.length; e += 2) {
-		let o = p[e], s = p[e + 1], m = o * (f[e] - t) + s * (f[e + 1] - n), h = o * i + s * a;
+		let o = p[(e >> 1) * 3], s = p[(e >> 1) * 3 + 1], m = o * (f[e] - t) + s * (f[e + 1] - n), h = o * i + s * a;
 		if (Math.abs(h) <= r) {
 			if (m < 0) return;
 			continue;

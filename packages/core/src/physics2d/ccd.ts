@@ -74,6 +74,7 @@ export class ShapeMotion2D {
         out.minY = Math.min(out.minY, qy);
         out.maxY = Math.max(out.maxY, qy);
       }
+      out.invalidateEdges();
     }
     return out;
   }

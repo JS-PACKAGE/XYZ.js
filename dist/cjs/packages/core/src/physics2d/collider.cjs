@@ -130,22 +130,25 @@ var ShapeGeometry = class {
 	area = 0;
 	revision = 0;
 	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
-	normals;
-	normalsRevision = -1;
+	edges;
+	edgesRevision = -1;
 	poseInputs = (/* @__PURE__ */ new Float64Array(9)).fill(NaN);
 	childInputs = (/* @__PURE__ */ new Float64Array(15)).fill(NaN);
 	constructor(e) {
 		this.collider = e, this.points = new Float64Array(e.vertices.length * 2);
 	}
-	edgeNormals() {
-		let e = this.points, t = this.normals;
-		if (t && this.normalsRevision === this.revision) return t;
-		t ??= this.normals = new Float64Array(e.length);
-		for (let n = 0; n < e.length; n += 2) {
-			let i = (n + 2) % e.length, a = e[i] - e[n], o = e[i + 1] - e[n + 1], s = require_hypot.hypot2(a, o);
-			t[n] = o / s, t[n + 1] = -a / s;
+	edgeData() {
+		let e = this.points, t = this.edges;
+		if (t && this.edgesRevision === this.revision) return t;
+		t ??= this.edges = new Float64Array((e.length >> 1) * 3);
+		for (let n = 0, i = 0; n < e.length; n += 2, i += 3) {
+			let a = (n + 2) % e.length, o = e[a] - e[n], s = e[a + 1] - e[n + 1], c = require_hypot.hypot2(o, s);
+			t[i] = s / c, t[i + 1] = -o / c, t[i + 2] = c;
 		}
-		return this.normalsRevision = this.revision, t;
+		return this.edgesRevision = this.revision, t;
+	}
+	invalidateEdges() {
+		this.edgesRevision = -1;
 	}
 	refresh(e) {
 		let t = e.transform, n = this.poseInputs, r = e.composesFromTransform;

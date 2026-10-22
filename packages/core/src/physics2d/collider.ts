@@ -231,8 +231,8 @@ export class ShapeGeometry {
   /** @internal Changes only after a successful world-geometry refresh. */
   revision = 0;
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
-  private normals: Float64Array | undefined;
-  private normalsRevision = -1;
+  private edges: Float64Array | undefined;
+  private edgesRevision = -1;
   /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
   private readonly poseInputs = new Float64Array(9).fill(NaN);
   /**
@@ -244,25 +244,30 @@ export class ShapeGeometry {
     this.points = new Float64Array(collider.vertices.length * 2);
   }
   /**
-   * @internal Each polygon edge's unit normal `(ey, -ex) / |e|` as `[x, y]` per vertex,
-   * computed on first use after each world-geometry refresh. Only for geometry whose points
-   * change through `refresh` (a revision bump), not motion samples.
+   * @internal Per polygon edge `i -> i + 1`: unit normal `(ey, -ex) / |e|` and length `|e|`
+   * (`hypot2(ex, ey)`), three floats each, computed on first use after each world-geometry
+   * refresh. Code that writes `points` otherwise must call `invalidateEdges`.
    */
-  edgeNormals(): Float64Array {
+  edgeData(): Float64Array {
     const p = this.points;
-    let normals = this.normals;
-    if (normals && this.normalsRevision === this.revision) return normals;
-    normals ??= this.normals = new Float64Array(p.length);
-    for (let i = 0; i < p.length; i += 2) {
+    let edges = this.edges;
+    if (edges && this.edgesRevision === this.revision) return edges;
+    edges ??= this.edges = new Float64Array((p.length >> 1) * 3);
+    for (let i = 0, k = 0; i < p.length; i += 2, k += 3) {
       const j = (i + 2) % p.length;
       const ex = p[j]! - p[i]!,
         ey = p[j + 1]! - p[i + 1]!,
         length = hypot2(ex, ey);
-      normals[i] = ey / length;
-      normals[i + 1] = -ex / length;
+      edges[k] = ey / length;
+      edges[k + 1] = -ex / length;
+      edges[k + 2] = length;
     }
-    this.normalsRevision = this.revision;
-    return normals;
+    this.edgesRevision = this.revision;
+    return edges;
+  }
+  /** @internal For writers of `points` outside `refresh` (motion samples). */
+  invalidateEdges(): void {
+    this.edgesRevision = -1;
   }
   refresh(owner: GameObject): void {
     const t = owner.transform,

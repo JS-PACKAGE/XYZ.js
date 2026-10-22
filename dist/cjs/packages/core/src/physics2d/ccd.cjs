@@ -34,6 +34,7 @@ var ShapeMotion2D = class {
 				let s = t.points[e] - this.x, c = t.points[e + 1] - this.y, l = a + r * s - i * c, u = o + i * s + r * c;
 				n.points[e] = l, n.points[e + 1] = u, n.minX = Math.min(n.minX, l), n.maxX = Math.max(n.maxX, l), n.minY = Math.min(n.minY, u), n.maxY = Math.max(n.maxY, u);
 			}
+			n.invalidateEdges();
 		}
 		return n;
 	}
