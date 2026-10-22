@@ -26,21 +26,22 @@ var o = Object.freeze([
 	1
 ]);
 var s = Object.freeze([.5, .5]);
+var c = [
+	1,
+	0,
+	0,
+	1,
+	0,
+	0,
+	1,
+	1,
+	1,
+	1,
+	.5,
+	.5
+];
 var Slot = class {
-	#e = new Float64Array([
-		1,
-		0,
-		0,
-		1,
-		0,
-		0,
-		1,
-		1,
-		1,
-		1,
-		.5,
-		.5
-	]);
+	#e;
 	#t = `local`;
 	#n;
 	#r;
@@ -50,6 +51,9 @@ var Slot = class {
 	#s = 0;
 	#c = 0;
 	#l = 0;
+	constructor(e) {
+		e.set(c), this.#e = e;
+	}
 	get a() {
 		return this.#e[0];
 	}
@@ -184,8 +188,9 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		let t = e.dynamicAttributes ?? ParticleAttribute2D.Transform | ParticleAttribute2D.Tint;
 		if (!Number.isSafeInteger(t) || t < 0 || t > ParticleAttribute2D.All) throw RangeError(`Unknown particle dynamic attribute mask.`);
 		this.capacity = e.capacity, this.dynamicAttributes = t, this.occupied = new Uint8Array(this.capacity), this.active = new Int32Array(this.capacity), this.positions = new Int32Array(this.capacity), this.free = new Int32Array(this.capacity), this.freeCount = this.capacity, (e.texture || e.view || e.source) && (this.defaultSource = checkedSource(e));
+		let r = new Float64Array(this.capacity * 12);
 		for (let e = 0; e < this.capacity; e++) {
-			let t = new Slot();
+			let t = new Slot(r.subarray(e * 12, (e + 1) * 12));
 			Object.freeze(t), this.slots.push(t), this.free[e] = this.capacity - e - 1;
 		}
 	}

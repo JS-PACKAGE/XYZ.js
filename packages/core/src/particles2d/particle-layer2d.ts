@@ -86,8 +86,12 @@ const identity: ParticleTransform2D = Object.freeze({
 const white: ColorRGBA = Object.freeze([1, 1, 1, 1]);
 const center: readonly [number, number] = Object.freeze([0.5, 0.5]);
 
+/** Per slot: affine a, b, c, d, tx, ty; tint r, g, b, a; anchor x, y. */
+const slotValueCount = 12;
+const slotDefaults = [1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0.5, 0.5];
+
 class Slot implements ParticleSlot2D {
-  #values = new Float64Array([1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0.5, 0.5]);
+  #values: Float64Array;
   #space: 'local' | 'world' = 'local';
   #texture!: Texture2DSource;
   #view: TextureView2D | undefined;
@@ -97,6 +101,10 @@ class Slot implements ParticleSlot2D {
   #tintVersion = 0;
   #sourceVersion = 0;
   #anchorVersion = 0;
+  constructor(values: Float64Array) {
+    values.set(slotDefaults);
+    this.#values = values;
+  }
   get a(): number {
     return this.#values[0];
   }
@@ -338,8 +346,13 @@ export class ParticleLayer2D extends GameObject {
     this.freeCount = this.capacity;
     if (options.texture || options.view || options.source)
       this.defaultSource = checkedSource(options);
+    // One backing store for every slot's twelve values keeps a layer's per-particle reads
+    // adjacent, instead of one separate allocation per slot.
+    const values = new Float64Array(this.capacity * slotValueCount);
     for (let i = 0; i < this.capacity; i++) {
-      const slot = new Slot();
+      const slot = new Slot(
+        values.subarray(i * slotValueCount, (i + 1) * slotValueCount),
+      );
       Object.freeze(slot);
       this.slots.push(slot);
       this.free[i] = this.capacity - i - 1;
