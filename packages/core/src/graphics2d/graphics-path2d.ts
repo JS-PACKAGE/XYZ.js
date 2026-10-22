@@ -350,7 +350,8 @@ export class GraphicsPath2D {
   readonly fillRule: CanvasFillRule;
   readonly bounds: Readonly<Rect2D>;
   private readonly native: Path2D;
-  private readonly svgData: string;
+  /** SVG path data, serialized on first `toSVGPathData()`: commands and holes are frozen. */
+  private readonly svgData: { text: string | undefined } = { text: undefined };
   readonly commandCount: number;
   private static hitContext: CanvasRenderingContext2D | undefined;
 
@@ -757,10 +758,6 @@ export class GraphicsPath2D {
     }
     this.commands = Object.freeze(snapshots);
     this.commandCount = commandCount;
-    this.svgData = [
-      serializeCommands(snapshots),
-      ...this.holes.map((hole) => hole.toSVGPathData()),
-    ].join(' ');
     this.bounds = Object.freeze({
       x: left === Infinity ? 0 : left,
       y: top === Infinity ? 0 : top,
@@ -774,7 +771,10 @@ export class GraphicsPath2D {
     return new Path2D(this.native);
   }
   toSVGPathData(): string {
-    return this.svgData;
+    return (this.svgData.text ??= [
+      serializeCommands(this.commands),
+      ...this.holes.map((hole) => hole.toSVGPathData()),
+    ].join(' '));
   }
   containsPoint(x: number, y: number, stroke?: Stroke2D): boolean {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;

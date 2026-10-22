@@ -154,7 +154,7 @@ var GraphicsPath2D = class GraphicsPath2D {
 	fillRule;
 	bounds;
 	native;
-	svgData;
+	svgData = { text: void 0 };
 	commandCount;
 	static hitContext;
 	constructor(t, n = {}) {
@@ -257,7 +257,7 @@ var GraphicsPath2D = class GraphicsPath2D {
 			m.push(t);
 		}
 		for (let e of this.holes) this.native.addPath(e.nativePath2D), (e.bounds.width > 0 || e.bounds.height > 0) && (point(e.bounds.x, e.bounds.y), point(e.bounds.x + e.bounds.width, e.bounds.y + e.bounds.height));
-		this.commands = Object.freeze(m), this.commandCount = r, this.svgData = [serializeCommands(m), ...this.holes.map((e) => e.toSVGPathData())].join(` `), this.bounds = Object.freeze({
+		this.commands = Object.freeze(m), this.commandCount = r, this.bounds = Object.freeze({
 			x: i === 1 / 0 ? 0 : i,
 			y: a === 1 / 0 ? 0 : a,
 			width: i === 1 / 0 ? 0 : o - i,
@@ -268,7 +268,7 @@ var GraphicsPath2D = class GraphicsPath2D {
 		return new Path2D(this.native);
 	}
 	toSVGPathData() {
-		return this.svgData;
+		return this.svgData.text ??= [serializeCommands(this.commands), ...this.holes.map((e) => e.toSVGPathData())].join(` `);
 	}
 	containsPoint(e, t, n) {
 		if (!Number.isFinite(e) || !Number.isFinite(t)) return !1;

@@ -108,6 +108,7 @@ export declare class GraphicsPath2D {
     readonly fillRule: CanvasFillRule;
     readonly bounds: Readonly<Rect2D>;
     private readonly native;
+    /** SVG path data, serialized on first `toSVGPathData()`: commands and holes are frozen. */
     private readonly svgData;
     readonly commandCount: number;
     private static hitContext;
