@@ -262,6 +262,9 @@ export type ProceduralMaterialKind =
   | 'radiator'
   | 'screwhead'
   | 'chainlink'
+  | 'friedegg'
+  | 'sushirice'
+  | 'chocolatechip'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -606,6 +609,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'radiator',
   'screwhead',
   'chainlink',
+  'friedegg',
+  'sushirice',
+  'chocolatechip',
   'basketball',
   'tennisball',
   'golfball',

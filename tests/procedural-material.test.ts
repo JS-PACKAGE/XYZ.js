@@ -280,6 +280,9 @@ const kinds: ProceduralMaterialKind[] = [
   'radiator',
   'screwhead',
   'chainlink',
+  'friedegg',
+  'sushirice',
+  'chocolatechip',
   'basketball',
   'tennisball',
   'golfball',
@@ -5106,6 +5109,9 @@ describe('periodic procedural material fields', () => {
     ['radiator', [5, 32, 64]],
     ['screwhead', [4, 32, 64]],
     ['chainlink', [3, 32, 64]],
+    ['friedegg', [4, 32, 64]],
+    ['sushirice', [6, 32, 64]],
+    ['chocolatechip', [3, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5392,6 +5398,9 @@ describe('periodic procedural material fields', () => {
     ['radiator', 5],
     ['screwhead', 4],
     ['chainlink', 3],
+    ['friedegg', 4],
+    ['sushirice', 6],
+    ['chocolatechip', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6832,6 +6841,9 @@ describe('periodic procedural material fields', () => {
     'radiator',
     'screwhead',
     'chainlink',
+    'friedegg',
+    'sushirice',
+    'chocolatechip',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7072,7 +7084,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                           : kind ===
                                                                                                                                                                               'chainlink'
                                                                                                                                                                             ? 3
-                                                                                                                                                                            : 4;
+                                                                                                                                                                            : kind ===
+                                                                                                                                                                                'friedegg'
+                                                                                                                                                                              ? 4
+                                                                                                                                                                              : kind ===
+                                                                                                                                                                                  'sushirice'
+                                                                                                                                                                                ? 6
+                                                                                                                                                                                : kind ===
+                                                                                                                                                                                    'chocolatechip'
+                                                                                                                                                                                  ? 3
+                                                                                                                                                                                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11649,6 +11670,70 @@ describe('periodic procedural material fields', () => {
       expect(wire.height).toBeGreaterThan(hole.height + 0.1 * relief);
       expect(node.occlusion).toBeGreaterThan(hole.occlusion);
       expect(wire.occlusion).toBeGreaterThan(hole.occlusion);
+    }
+  });
+
+  it('fried egg domes the yolk above the white and the pan', () => {
+    const relief = proceduralMaterialPresets.friedegg.relief;
+    const yolk: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const white = { ...yolk };
+    const pan = { ...yolk };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('friedegg', seed);
+      sample(1 / 2, 1 / 2, yolk);
+      sample(1 / 2, 0.35, white);
+      sample(0, 0.05, pan);
+      expect(yolk.height).toBeGreaterThan(white.height + 0.1 * relief);
+      expect(white.height).toBeGreaterThan(pan.height + 0.1 * relief);
+      expect(yolk.occlusion).toBeGreaterThan(pan.occlusion);
+      expect(white.occlusion).toBeGreaterThan(pan.occlusion);
+    }
+  });
+
+  it('sushi rice grains dome above the crevices', () => {
+    const relief = proceduralMaterialPresets.sushirice.relief;
+    const grain: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...grain };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sushirice', seed);
+      sample(1 / 12, 1 / 12, grain);
+      sample(0, 0, gap);
+      expect(grain.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(grain.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('chocolate chips rise above the cookie crumb', () => {
+    const relief = proceduralMaterialPresets.chocolatechip.relief;
+    const chip: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const cookie = { ...chip };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('chocolatechip', seed);
+      sample(1 / 6, 1 / 6, chip);
+      sample(0, 0, cookie);
+      expect(chip.height).toBeGreaterThan(cookie.height + 0.1 * relief);
+      expect(chip.occlusion).toBeGreaterThan(cookie.occlusion);
     }
   });
 

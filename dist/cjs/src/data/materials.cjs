@@ -3576,6 +3576,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .52,
 		relief: .0016
 	}),
+	friedegg: Object.freeze({
+		dark: [
+			222,
+			176,
+			66
+		],
+		light: [
+			252,
+			251,
+			246
+		],
+		roughness: .52,
+		relief: .0026
+	}),
+	sushirice: Object.freeze({
+		dark: [
+			188,
+			182,
+			172
+		],
+		light: [
+			250,
+			249,
+			246
+		],
+		roughness: .66,
+		relief: .0018
+	}),
+	chocolatechip: Object.freeze({
+		dark: [
+			72,
+			42,
+			26
+		],
+		light: [
+			218,
+			186,
+			140
+		],
+		roughness: .72,
+		relief: .0022
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4686,6 +4728,9 @@ var proceduralTileMeters = Object.freeze({
 	radiator: .3,
 	screwhead: .12,
 	chainlink: .2,
+	friedegg: .24,
+	sushirice: .16,
+	chocolatechip: .24,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

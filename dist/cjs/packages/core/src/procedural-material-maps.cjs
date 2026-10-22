@@ -2442,6 +2442,21 @@ function createSurfaceSampler(t, r) {
 				H = .3 + .36 * a + .1 * s + .08 * c, Z = .3 + .44 * a + .16 * s + .02 * c, Q += .08 * (c - .5) - .1 * a, $ = 1 - .55 * (1 - a) - .12 * (1 - s);
 				break;
 			}
+			case `friedegg`: {
+				let e = noise(o, A, 4, 4, r ^ 53200) - .5, t = noise(o, A, 4, 4, r ^ 53473) - .5, n = noise(o, A, 4, 4, r ^ 57842) - .5, i = Math.hypot(o - .5 + .06 * e, A - .5 + .06 * t), a = smooth(clamp((.16 - i) / .06)), s = smooth(clamp((.34 - (i + .1 * n)) / .1)), c = noise(o, A, 32, 32, r ^ 61955);
+				H = .4 + .34 * a + .2 * s + .05 * c, Z = .3 + .45 * a + .18 * s + .02 * c, Q += .1 * (1 - a) - .06 * s, $ = .5 + .5 * (a + s - a * s);
+				break;
+			}
+			case `sushirice`: {
+				let e = Math.sin(Math.PI * (fract(o * 6) - .5)), t = Math.sin(Math.PI * (fract(A * 6) - .5)), n = noise(o, A, 6, 6, r ^ 788) - .5, i = noise(o, A, 6, 6, r ^ 5157) - .5, a = 1 + .16 * (n * (2 * e * e - 1) + i * (2 * t * t - 1)), c = smooth(clamp((.34 - Math.hypot(e * 1.2, t * .8) * a) / .22)), l = noise(o, A, 32, 32, r ^ 9526);
+				H = .62 + .28 * c + .06 * l, Z = .34 + .5 * c + .03 * l, Q += .08 * (l - .5) - .08 * c, $ = 1 - .5 * (1 - c);
+				break;
+			}
+			case `chocolatechip`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 3) - .5)), n = Math.hypot(e, t), a = smooth(clamp((.45 + .1 * hash(Math.floor(o * 3), Math.floor(A * 3), r ^ 13895) - n) / .12)), s = noise(o, A, 32, 32, r ^ 18264);
+				H = .62 - .3 * a + .08 * s, Z = .36 + .34 * a + .03 * s, Q += .06 * (s - .5) - .1 * a, $ = 1 - .45 * (1 - a);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

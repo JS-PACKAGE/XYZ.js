@@ -8593,6 +8593,54 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.55 * (1 - wire) - 0.12 * (1 - node);
         break;
       }
+      case 'friedegg': {
+        // A warped white blob carries the yolk dome at its center.
+        const w1 = noise(u, v, 4, 4, seed ^ 0xcfd0) - 0.5,
+          w2 = noise(u, v, 4, 4, seed ^ 0xd0e1) - 0.5,
+          w3 = noise(u, v, 4, 4, seed ^ 0xe1f2) - 0.5;
+        const r = Math.hypot(u - 0.5 + 0.06 * w1, v - 0.5 + 0.06 * w2);
+        const yolk = smooth(clamp((0.16 - r) / 0.06));
+        const white = smooth(clamp((0.34 - (r + 0.1 * w3)) / 0.1));
+        const grain = noise(u, v, 32, 32, seed ^ 0xf203);
+        color = 0.4 + 0.34 * yolk + 0.2 * white + 0.05 * grain;
+        height = 0.3 + 0.45 * yolk + 0.18 * white + 0.02 * grain;
+        roughness += 0.1 * (1 - yolk) - 0.06 * white;
+        occlusion = 0.5 + 0.5 * (yolk + white - yolk * white);
+        break;
+      }
+      case 'sushirice': {
+        // Rice grains dome up from the crevices, with even warp modulation.
+        const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+        const w1 = noise(u, v, 6, 6, seed ^ 0x0314) - 0.5,
+          w2 = noise(u, v, 6, 6, seed ^ 0x1425) - 0.5;
+        const mod =
+          1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
+        const d = Math.hypot(fx * 1.2, fy * 0.8) * mod;
+        const grain = smooth(clamp((0.34 - d) / 0.22));
+        const sheen = noise(u, v, 32, 32, seed ^ 0x2536);
+        color = 0.62 + 0.28 * grain + 0.06 * sheen;
+        height = 0.34 + 0.5 * grain + 0.03 * sheen;
+        roughness += 0.08 * (sheen - 0.5) - 0.08 * grain;
+        occlusion = 1 - 0.5 * (1 - grain);
+        break;
+      }
+      case 'chocolatechip': {
+        // Chocolate discs sink into the soft cookie crumb.
+        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const radius =
+          0.45 +
+          0.1 * hash(Math.floor(u * 3), Math.floor(v * 3), seed ^ 0x3647);
+        const chip = smooth(clamp((radius - d) / 0.12));
+        const crumb = noise(u, v, 32, 32, seed ^ 0x4758);
+        color = 0.62 - 0.3 * chip + 0.08 * crumb;
+        height = 0.36 + 0.34 * chip + 0.03 * crumb;
+        roughness += 0.06 * (crumb - 0.5) - 0.1 * chip;
+        occlusion = 1 - 0.45 * (1 - chip);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
