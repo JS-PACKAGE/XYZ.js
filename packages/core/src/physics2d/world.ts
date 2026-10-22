@@ -1730,33 +1730,50 @@ export class PhysicsWorld2D {
       dy = direction.y / length;
     const results: PhysicsRayHit[] = [];
     const epoch = this.queryRefreshEpoch;
+    // In a frozen snapshot every pose is current, so a proven miss (see below) is skipped
+    // before the liveness and mask filters, which would skip it too and have no effects.
+    const frozen = epoch < 0;
     // As in `overlap`: a shared parent composes its world matrix once for the whole loop.
     let pass: GameObject['scene'];
     try {
       for (const proxy of this.proxies) {
+        if (
+          frozen &&
+          rayMissesBounds(
+            proxy.geometry,
+            origin.x,
+            origin.y,
+            dx,
+            dy,
+            maxDistance,
+          )
+        )
+          continue;
         if (!this.alive(proxy) || !(proxy.collider.category & mask)) continue;
         if (!pass) pass = this.openMatrixPass(proxy.owner);
         if (epoch === 0) proxy.refresh();
         else refreshInSnapshot(proxy, epoch);
         // A proven miss skips the exact test, which on a miss writes nothing.
-        const distance = rayMissesBounds(
-          proxy.geometry,
-          origin.x,
-          origin.y,
-          dx,
-          dy,
-          maxDistance,
-        )
-          ? undefined
-          : rayDistance(
-              proxy.geometry,
-              origin.x,
-              origin.y,
-              dx,
-              dy,
-              maxDistance,
-              this.queryNormal,
-            );
+        const distance =
+          !frozen &&
+          rayMissesBounds(
+            proxy.geometry,
+            origin.x,
+            origin.y,
+            dx,
+            dy,
+            maxDistance,
+          )
+            ? undefined
+            : rayDistance(
+                proxy.geometry,
+                origin.x,
+                origin.y,
+                dx,
+                dy,
+                maxDistance,
+                this.queryNormal,
+              );
         if (distance !== undefined)
           results.push({
             owner: proxy.owner,
