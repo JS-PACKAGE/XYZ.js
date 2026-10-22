@@ -231,6 +231,8 @@ export class ShapeGeometry {
   /** @internal Changes only after a successful world-geometry refresh. */
   revision = 0;
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
+  private normals: Float64Array | undefined;
+  private normalsRevision = -1;
   /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
   private readonly poseInputs = new Float64Array(9).fill(NaN);
   /**
@@ -240,6 +242,27 @@ export class ShapeGeometry {
   private readonly childInputs = new Float64Array(15).fill(NaN);
   constructor(readonly collider: Collider2D) {
     this.points = new Float64Array(collider.vertices.length * 2);
+  }
+  /**
+   * @internal Each polygon edge's unit normal `(ey, -ex) / |e|` as `[x, y]` per vertex,
+   * computed on first use after each world-geometry refresh. Only for geometry whose points
+   * change through `refresh` (a revision bump), not motion samples.
+   */
+  edgeNormals(): Float64Array {
+    const p = this.points;
+    let normals = this.normals;
+    if (normals && this.normalsRevision === this.revision) return normals;
+    normals ??= this.normals = new Float64Array(p.length);
+    for (let i = 0; i < p.length; i += 2) {
+      const j = (i + 2) % p.length;
+      const ex = p[j]! - p[i]!,
+        ey = p[j + 1]! - p[i + 1]!,
+        length = hypot2(ex, ey);
+      normals[i] = ey / length;
+      normals[i + 1] = -ex / length;
+    }
+    this.normalsRevision = this.revision;
+    return normals;
   }
   refresh(owner: GameObject): void {
     const t = owner.transform,

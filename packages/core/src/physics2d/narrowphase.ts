@@ -279,14 +279,11 @@ export function rayDistance(
     far = maxDistance,
     nx = 0,
     ny = 0;
-  const p = shape.points;
+  const p = shape.points,
+    normals = shape.edgeNormals();
   for (let i = 0; i < p.length; i += 2) {
-    const j = (i + 2) % p.length;
-    const ex = p[j] - p[i],
-      ey = p[j + 1] - p[i + 1],
-      length = hypot2(ex, ey);
-    const ax = ey / length,
-      ay = -ex / length;
+    const ax = normals[i]!,
+      ay = normals[i + 1]!;
     const numerator = ax * (p[i] - x) + ay * (p[i + 1] - y),
       denominator = ax * dx + ay * dy;
     if (Math.abs(denominator) <= EPSILON) {

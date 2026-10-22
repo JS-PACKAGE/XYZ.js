@@ -102,25 +102,25 @@ function collide(e, t, i) {
 	}
 	return i.count > 0;
 }
-function rayDistance(e, t, i, a, o, s, c) {
-	if (e.contains(t, i)) return c.set(-a, -o), 0;
+function rayDistance(e, t, n, i, a, o, s) {
+	if (e.contains(t, n)) return s.set(-i, -a), 0;
 	if (e.collider.kind === `circle`) {
-		let n = t - e.x, r = i - e.y, l = n * a + r * o, u = n * n + r * r - e.radius * e.radius, d = l * l - u;
+		let r = t - e.x, c = n - e.y, l = r * i + c * a, u = r * r + c * c - e.radius * e.radius, d = l * l - u;
 		if (d < 0) return;
 		let f = -l - Math.sqrt(d);
-		return f < 0 || f > s ? void 0 : (c.set((t + f * a - e.x) / e.radius, (i + f * o - e.y) / e.radius), f);
+		return f < 0 || f > o ? void 0 : (s.set((t + f * i - e.x) / e.radius, (n + f * a - e.y) / e.radius), f);
 	}
-	let l = 0, u = s, d = 0, f = 0, p = e.points;
-	for (let e = 0; e < p.length; e += 2) {
-		let s = (e + 2) % p.length, c = p[s] - p[e], m = p[s + 1] - p[e + 1], h = require_hypot.hypot2(c, m), g = m / h, _ = -c / h, v = g * (p[e] - t) + _ * (p[e + 1] - i), y = g * a + _ * o;
-		if (Math.abs(y) <= r) {
-			if (v < 0) return;
+	let c = 0, l = o, u = 0, d = 0, f = e.points, p = e.edgeNormals();
+	for (let e = 0; e < f.length; e += 2) {
+		let o = p[e], s = p[e + 1], m = o * (f[e] - t) + s * (f[e + 1] - n), h = o * i + s * a;
+		if (Math.abs(h) <= r) {
+			if (m < 0) return;
 			continue;
 		}
-		let b = v / y;
-		if (y < 0 && b > l ? (l = b, d = g, f = _) : y > 0 && (u = Math.min(u, b)), l > u) return;
+		let g = m / h;
+		if (h < 0 && g > c ? (c = g, u = o, d = s) : h > 0 && (l = Math.min(l, g)), c > l) return;
 	}
-	if (!(l < 0 || l > s)) return c.set(d, f), l;
+	if (!(c < 0 || c > o)) return s.set(u, d), c;
 }
 //#endregion
 exports.Manifold = Manifold;

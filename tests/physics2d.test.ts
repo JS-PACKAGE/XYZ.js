@@ -552,6 +552,11 @@ describe('bounded rigid body physics', () => {
     expect(
       world.raycast(new Vector2(4, 0), new Vector2(1, 0), 0)[0].distance,
     ).toBe(0);
+    // Turned back square, the same ray meets a face rather than a corner.
+    polygon.rotation = 0;
+    const face = world.raycast(new Vector2(), new Vector2(1, 0), 10, 2)[0];
+    expect(face.distance).toBeCloseTo(7, 9);
+    expect([face.normal.x, face.normal.y]).toEqual([-1, -0]);
   });
 
   it('emits transient contact start/end within a single catchup frame', () => {

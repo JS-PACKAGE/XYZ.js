@@ -59,6 +59,8 @@ export declare class ShapeGeometry {
     /** @internal Changes only after a successful world-geometry refresh. */
     revision: number;
     private readonly matrixSnapshot;
+    private normals;
+    private normalsRevision;
     /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
     private readonly poseInputs;
     /**
@@ -67,6 +69,12 @@ export declare class ShapeGeometry {
      */
     private readonly childInputs;
     constructor(collider: Collider2D);
+    /**
+     * @internal Each polygon edge's unit normal `(ey, -ex) / |e|` as `[x, y]` per vertex,
+     * computed on first use after each world-geometry refresh. Only for geometry whose points
+     * change through `refresh` (a revision bump), not motion samples.
+     */
+    edgeNormals(): Float64Array;
     refresh(owner: GameObject): void;
     private childUnchanged;
     private recordChild;
