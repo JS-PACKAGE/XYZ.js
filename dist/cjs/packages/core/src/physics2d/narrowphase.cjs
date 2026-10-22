@@ -13,39 +13,40 @@ var Manifold = class {
 	bounceVelocities = /* @__PURE__ */ new Float64Array(2);
 	clip = /* @__PURE__ */ new Float64Array(4);
 };
-function axis(e, t, i, a, o) {
-	let s = require_hypot.hypot2(i, a);
-	return s <= r || unitAxis(e, t, i / s, a / s, o);
+var i = /* @__PURE__ */ new Float64Array(4);
+function axis(e, t, a, o, s) {
+	let c = require_hypot.hypot2(a, o);
+	return c <= r || (i[0] = a / c, i[1] = o / c, unitAxis(e, t, s));
 }
-function unitAxis(e, t, n, i, a) {
-	let o = 1 / 0, s = -1 / 0, c = 1 / 0, l = -1 / 0;
+function unitAxis(e, t, n) {
+	let a = i[0], o = i[1], s = 1 / 0, c = -1 / 0, l = 1 / 0, u = -1 / 0;
 	if (e.collider.kind === `circle`) {
-		let t = e.x * n + e.y * i;
-		o = t - e.radius, s = t + e.radius;
+		let t = e.x * a + e.y * o;
+		s = t - e.radius, c = t + e.radius;
 	} else for (let t = 0; t < e.points.length; t += 2) {
-		let r = e.points[t] * n + e.points[t + 1] * i;
-		o = Math.min(o, r), s = Math.max(s, r);
+		let n = e.points[t] * a + e.points[t + 1] * o;
+		s = Math.min(s, n), c = Math.max(c, n);
 	}
 	if (t.collider.kind === `circle`) {
-		let e = t.x * n + t.y * i;
-		c = e - t.radius, l = e + t.radius;
+		let e = t.x * a + t.y * o;
+		l = e - t.radius, u = e + t.radius;
 	} else for (let e = 0; e < t.points.length; e += 2) {
-		let r = t.points[e] * n + t.points[e + 1] * i;
-		c = Math.min(c, r), l = Math.max(l, r);
+		let n = t.points[e] * a + t.points[e + 1] * o;
+		l = Math.min(l, n), u = Math.max(u, n);
 	}
-	let u = s - c, d = l - o;
-	if (u < -r || d < -r) return !1;
-	let f = Math.min(u, d);
-	if (f < a.penetration) {
-		a.penetration = Math.max(0, f);
-		let e = u <= d ? 1 : -1;
-		a.nx = n * e, a.ny = i * e;
+	let d = c - l, f = u - s;
+	if (d < -r || f < -r) return !1;
+	let p = Math.min(d, f);
+	if (p < n.penetration) {
+		n.penetration = Math.max(0, p);
+		let e = d <= f ? 1 : -1;
+		n.nx = a * e, n.ny = o * e;
 	}
 	return !0;
 }
-function polygonAxes(e, t, n, i) {
-	let a = e.edgeData();
-	for (let e = 0; e < a.length; e += 3) if (!(a[e + 2] <= r) && !unitAxis(t, n, a[e], a[e + 1], i)) return !1;
+function polygonAxes(e, t, n, a) {
+	let o = e.edgeData();
+	for (let e = 0; e < o.length; e += 3) if (!(o[e + 2] <= r) && (i[0] = o[e], i[1] = o[e + 1], !unitAxis(t, n, a))) return !1;
 	return !0;
 }
 function closestVertexAxis(e, t, n, r, i) {
@@ -56,32 +57,37 @@ function closestVertexAxis(e, t, n, r, i) {
 	}
 	return axis(n, r, o, s, i);
 }
-function bestEdge(e, t, n) {
-	let r = -1 / 0, i = 0, a = e.points, o = e.edgeData();
-	for (let e = 0; e < a.length; e += 2) {
-		let s = (e + 2) % a.length, c = a[s] - a[e], l = a[s + 1] - a[e + 1], u = o[(e >> 1) * 3 + 2], d = (l * t - c * n) / u;
-		d > r && (r = d, i = e);
+function bestEdge(e) {
+	let t = i[2], n = i[3], r = -1 / 0, a = 0, o = e.points, s = e.edgeData();
+	for (let e = 0; e < o.length; e += 2) {
+		let i = (e + 2) % o.length, c = o[i] - o[e], l = o[i + 1] - o[e + 1], u = s[(e >> 1) * 3 + 2], d = (l * t - c * n) / u;
+		d > r && (r = d, a = e);
 	}
-	return i;
+	return a;
 }
-function clipSegment(e, t, n, i) {
-	let a = e[0] * t + e[1] * n - i, o = e[2] * t + e[3] * n - i;
-	if (a > r && o > r) return !1;
-	if (a > r != o > r) {
-		let t = a / (a - o), n = e[0] + t * (e[2] - e[0]), i = e[1] + t * (e[3] - e[1]);
-		a > r ? (e[0] = n, e[1] = i) : (e[2] = n, e[3] = i);
+function clipSegment(e) {
+	let t = i[0], n = i[1], a = i[2], o = e[0] * t + e[1] * n - a, s = e[2] * t + e[3] * n - a;
+	if (o > r && s > r) return !1;
+	if (o > r != s > r) {
+		let t = o / (o - s), n = e[0] + t * (e[2] - e[0]), i = e[1] + t * (e[3] - e[1]);
+		o > r ? (e[0] = n, e[1] = i) : (e[2] = n, e[3] = i);
 	}
 	return !0;
 }
-function polygonContacts(e, t, i) {
-	let a = bestEdge(e, i.nx, i.ny), o = bestEdge(t, -i.nx, -i.ny), s = e.points, c = t.points, l = (a + 2) % s.length, u = (o + 2) % c.length, d = s[l] - s[a], f = s[l + 1] - s[a + 1], p = c[u] - c[o], m = c[u + 1] - c[o + 1], h = (f * i.nx - d * i.ny) / e.edgeData()[(a >> 1) * 3 + 2] >= (-m * i.nx + p * i.ny) / t.edgeData()[(o >> 1) * 3 + 2] ? e : t, g = h === e ? t : e, _ = h === e ? a : o, v = h === e ? 1 : -1, y = i.nx * v, b = i.ny * v, x = h.points, S = (_ + 2) % x.length, C = x[S] - x[_], w = x[S + 1] - x[_ + 1], T = h.edgeData()[(_ >> 1) * 3 + 2], E = C / T, D = w / T, O = bestEdge(g, -y, -b), k = (O + 2) % g.points.length, A = i.clip;
-	if (A[0] = g.points[O], A[1] = g.points[O + 1], A[2] = g.points[k], A[3] = g.points[k + 1], !clipSegment(A, -E, -D, -E * x[_] - D * x[_ + 1]) || !clipSegment(A, E, D, E * x[S] + D * x[S + 1])) return;
-	let j = y * x[_] + b * x[_ + 1];
+function polygonContacts(e, t, a) {
+	i[2] = a.nx, i[3] = a.ny;
+	let o = bestEdge(e);
+	i[2] = -a.nx, i[3] = -a.ny;
+	let s = bestEdge(t), c = e.points, l = t.points, u = (o + 2) % c.length, d = (s + 2) % l.length, f = c[u] - c[o], p = c[u + 1] - c[o + 1], m = l[d] - l[s], h = l[d + 1] - l[s + 1], g = (p * a.nx - f * a.ny) / e.edgeData()[(o >> 1) * 3 + 2] >= (-h * a.nx + m * a.ny) / t.edgeData()[(s >> 1) * 3 + 2] ? e : t, _ = g === e ? t : e, v = g === e ? o : s, y = g === e ? 1 : -1, b = a.nx * y, x = a.ny * y, S = g.points, C = (v + 2) % S.length, w = S[C] - S[v], T = S[C + 1] - S[v + 1], E = g.edgeData()[(v >> 1) * 3 + 2], D = w / E, O = T / E;
+	i[2] = -b, i[3] = -x;
+	let k = bestEdge(_), A = (k + 2) % _.points.length, j = a.clip;
+	if (j[0] = _.points[k], j[1] = _.points[k + 1], j[2] = _.points[A], j[3] = _.points[A + 1], i[0] = -D, i[1] = -O, i[2] = -D * S[v] - O * S[v + 1], !clipSegment(j) || (i[0] = D, i[1] = O, i[2] = D * S[C] + O * S[C + 1], !clipSegment(j))) return;
+	let M = b * S[v] + x * S[v + 1];
 	for (let e = 0; e < 4; e += 2) {
-		let t = y * A[e] + b * A[e + 1] - j;
+		let t = b * j[e] + x * j[e + 1] - M;
 		if (t <= r) {
-			if (i.count && require_hypot.hypot2(A[e] - A[0], A[e + 1] - A[1]) <= r) continue;
-			i.points[i.count++].set(A[e] - y * t / 2, A[e + 1] - b * t / 2);
+			if (a.count && require_hypot.hypot2(j[e] - j[0], j[e + 1] - j[1]) <= r) continue;
+			a.points[a.count++].set(j[e] - b * t / 2, j[e + 1] - x * t / 2);
 		}
 	}
 }

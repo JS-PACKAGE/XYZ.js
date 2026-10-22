@@ -255,8 +255,26 @@ export class ShapeGeometry {
    * two forms invalidates the other when it refreshes.
    */
   private readonly poseState = new Float64Array(30).fill(NaN);
+  /**
+   * The collider's immutable offset and offset-applied local vertices as plain numbers.
+   * Reading them from the frozen Vector2 and tuples on every refresh took V8's slow
+   * property path in Chrome, which allocated on each read.
+   */
+  private readonly offsetX: number;
+  private readonly offsetY: number;
+  private readonly local: Float64Array;
   constructor(readonly collider: Collider2D) {
-    this.points = new Float64Array(collider.vertices.length * 2);
+    const vertices = collider.vertices,
+      offset = collider.offset;
+    this.points = new Float64Array(vertices.length * 2);
+    this.offsetX = offset.x;
+    this.offsetY = offset.y;
+    this.local = new Float64Array(vertices.length * 2);
+    for (let i = 0; i < vertices.length; i++) {
+      const vertex = vertices[i]!;
+      this.local[i * 2] = vertex[0] + offset.x;
+      this.local[i * 2 + 1] = vertex[1] + offset.y;
+    }
   }
   /**
    * @internal Per polygon edge `i -> i + 1`: unit normal `(ey, -ex) / |e|` and length `|e|`
@@ -432,13 +450,15 @@ export class ShapeGeometry {
         break;
       }
     if (!changed) return;
-    for (const index of TRANSFORM_INDICES) finite(e[index], 'world transform');
+    for (let i = 0; i < TRANSFORM_INDICES.length; i++)
+      finite(e[TRANSFORM_INDICES[i]!]!, 'world transform');
     const determinant = e[0] * e[4] - e[1] * e[3];
     if (Math.abs(determinant) <= EPSILON)
       throw new RangeError('Physics requires a nonsingular world transform.');
-    const offset = this.collider.offset;
-    this.x = e[0] * offset.x + e[3] * offset.y + e[6];
-    this.y = e[1] * offset.x + e[4] * offset.y + e[7];
+    const offsetX = this.offsetX,
+      offsetY = this.offsetY;
+    this.x = e[0] * offsetX + e[3] * offsetY + e[6];
+    this.y = e[1] * offsetX + e[4] * offsetY + e[7];
     if (this.collider.kind === 'circle') {
       const sx = hypot2(e[0], e[1]),
         sy = hypot2(e[3], e[4]);
@@ -465,31 +485,39 @@ export class ShapeGeometry {
       this.revision++;
       return;
     }
-    this.minX = this.minY = Infinity;
-    this.maxX = this.maxY = -Infinity;
-    const vertices = this.collider.vertices,
-      count = vertices.length;
+    // Locals through both loops; the fields are written once each at the end.
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    const local = this.local,
+      points = this.points,
+      count = local.length >> 1;
     for (let i = 0; i < count; i++) {
-      const vertex = vertices[determinant < 0 ? count - 1 - i : i];
-      const lx = vertex[0] + offset.x,
-        ly = vertex[1] + offset.y;
+      const at = (determinant < 0 ? count - 1 - i : i) * 2;
+      const lx = local[at]!,
+        ly = local[at + 1]!;
       const x = e[0] * lx + e[3] * ly + e[6],
         y = e[1] * lx + e[4] * ly + e[7];
-      this.points[i * 2] = x;
-      this.points[i * 2 + 1] = y;
-      this.minX = Math.min(this.minX, x);
-      this.maxX = Math.max(this.maxX, x);
-      this.minY = Math.min(this.minY, y);
-      this.maxY = Math.max(this.maxY, y);
+      points[i * 2] = x;
+      points[i * 2 + 1] = y;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
     }
+    this.minX = minX;
+    this.maxX = maxX;
+    this.minY = minY;
+    this.maxY = maxY;
     let crossSum = 0,
       moment = 0;
     for (let i = 0; i < count; i++) {
       const j = (i + 1) % count;
-      const ax = this.points[i * 2] - e[6],
-        ay = this.points[i * 2 + 1] - e[7];
-      const bx = this.points[j * 2] - e[6],
-        by = this.points[j * 2 + 1] - e[7];
+      const ax = points[i * 2]! - e[6]!,
+        ay = points[i * 2 + 1]! - e[7]!;
+      const bx = points[j * 2]! - e[6]!,
+        by = points[j * 2 + 1]! - e[7]!;
       const cross = ax * by - ay * bx;
       crossSum += cross;
       moment +=

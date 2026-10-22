@@ -136,8 +136,17 @@ var ShapeGeometry = class {
 	rayBound = 1;
 	rayBoundRevision = -1;
 	poseState = (/* @__PURE__ */ new Float64Array(30)).fill(NaN);
+	offsetX;
+	offsetY;
+	local;
 	constructor(e) {
-		this.collider = e, this.points = new Float64Array(e.vertices.length * 2);
+		this.collider = e;
+		let t = e.vertices, n = e.offset;
+		this.points = new Float64Array(t.length * 2), this.offsetX = n.x, this.offsetY = n.y, this.local = new Float64Array(t.length * 2);
+		for (let e = 0; e < t.length; e++) {
+			let r = t[e];
+			this.local[e * 2] = r[0] + n.x, this.local[e * 2 + 1] = r[1] + n.y;
+		}
 	}
 	edgeData() {
 		let e = this.points, t = this.edges;
@@ -192,11 +201,11 @@ var ShapeGeometry = class {
 			break;
 		}
 		if (!n) return;
-		for (let e of a) finite(t[e], `world transform`);
+		for (let e = 0; e < a.length; e++) finite(t[a[e]], `world transform`);
 		let o = t[0] * t[4] - t[1] * t[3];
 		if (Math.abs(o) <= i) throw RangeError(`Physics requires a nonsingular world transform.`);
-		let s = this.collider.offset;
-		if (this.x = t[0] * s.x + t[3] * s.y + t[6], this.y = t[1] * s.x + t[4] * s.y + t[7], this.collider.kind === `circle`) {
+		let s = this.offsetX, c = this.offsetY;
+		if (this.x = t[0] * s + t[3] * c + t[6], this.y = t[1] * s + t[4] * c + t[7], this.collider.kind === `circle`) {
 			let e = require_hypot.hypot2(t[0], t[1]), n = require_hypot.hypot2(t[3], t[4]);
 			if (Math.abs(e - n) > i * Math.max(e, n) || Math.abs(t[0] * t[3] + t[1] * t[4]) > i * e * n) throw RangeError(`Circle colliders require uniform absolute world scale without shear.`);
 			this.radius = this.collider.radius * e, this.area = Math.PI * this.radius * this.radius, this.minX = this.x - this.radius, this.maxX = this.x + this.radius, this.minY = this.y - this.radius, this.maxY = this.y + this.radius, this.inertiaPerMass = this.radius * this.radius / 2 + (this.x - t[6]) ** 2 + (this.y - t[7]) ** 2, positive(this.inertiaPerMass, `world geometry inertia`);
@@ -204,18 +213,18 @@ var ShapeGeometry = class {
 			this.revision++;
 			return;
 		}
-		this.minX = this.minY = 1 / 0, this.maxX = this.maxY = -1 / 0;
-		let c = this.collider.vertices, l = c.length;
-		for (let e = 0; e < l; e++) {
-			let n = c[o < 0 ? l - 1 - e : e], r = n[0] + s.x, i = n[1] + s.y, a = t[0] * r + t[3] * i + t[6], u = t[1] * r + t[4] * i + t[7];
-			this.points[e * 2] = a, this.points[e * 2 + 1] = u, this.minX = Math.min(this.minX, a), this.maxX = Math.max(this.maxX, a), this.minY = Math.min(this.minY, u), this.maxY = Math.max(this.maxY, u);
+		let l = 1 / 0, u = 1 / 0, d = -1 / 0, f = -1 / 0, p = this.local, m = this.points, h = p.length >> 1;
+		for (let e = 0; e < h; e++) {
+			let n = (o < 0 ? h - 1 - e : e) * 2, r = p[n], i = p[n + 1], a = t[0] * r + t[3] * i + t[6], s = t[1] * r + t[4] * i + t[7];
+			m[e * 2] = a, m[e * 2 + 1] = s, l = Math.min(l, a), d = Math.max(d, a), u = Math.min(u, s), f = Math.max(f, s);
 		}
-		let u = 0, d = 0;
-		for (let e = 0; e < l; e++) {
-			let n = (e + 1) % l, r = this.points[e * 2] - t[6], i = this.points[e * 2 + 1] - t[7], a = this.points[n * 2] - t[6], o = this.points[n * 2 + 1] - t[7], s = r * o - i * a;
-			u += s, d += s * (r * r + r * a + a * a + i * i + i * o + o * o);
+		this.minX = l, this.maxX = d, this.minY = u, this.maxY = f;
+		let g = 0, _ = 0;
+		for (let e = 0; e < h; e++) {
+			let n = (e + 1) % h, r = m[e * 2] - t[6], i = m[e * 2 + 1] - t[7], a = m[n * 2] - t[6], o = m[n * 2 + 1] - t[7], s = r * o - i * a;
+			g += s, _ += s * (r * r + r * a + a * a + i * i + i * o + o * o);
 		}
-		this.inertiaPerMass = d / (6 * u), this.area = u / 2, positive(this.inertiaPerMass, `world geometry inertia`);
+		this.inertiaPerMass = _ / (6 * g), this.area = g / 2, positive(this.inertiaPerMass, `world geometry inertia`);
 		for (let e = 0; e < a.length; e++) this.poseState[0 + e] = t[a[e]];
 		this.revision++;
 	}

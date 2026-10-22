@@ -79,6 +79,14 @@ export declare class ShapeGeometry {
      * two forms invalidates the other when it refreshes.
      */
     private readonly poseState;
+    /**
+     * The collider's immutable offset and offset-applied local vertices as plain numbers.
+     * Reading them from the frozen Vector2 and tuples on every refresh took V8's slow
+     * property path in Chrome, which allocated on each read.
+     */
+    private readonly offsetX;
+    private readonly offsetY;
+    private readonly local;
     constructor(collider: Collider2D);
     /**
      * @internal Per polygon edge `i -> i + 1`: unit normal `(ey, -ex) / |e|` and length `|e|`

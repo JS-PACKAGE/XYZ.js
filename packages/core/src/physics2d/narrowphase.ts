@@ -17,6 +17,11 @@ export class Manifold {
   readonly clip = new Float64Array(4);
 }
 
+/**
+ * Scalar arguments of the helpers below: a double passed to a call V8 does not inline is
+ * boxed into a heap number, and these run for every axis of every candidate pair.
+ */
+const scalars = new Float64Array(4);
 function axis(
   a: ShapeGeometry,
   b: ShapeGeometry,
@@ -26,17 +31,15 @@ function axis(
 ): boolean {
   const length = hypot2(x, y);
   if (length <= EPSILON) return true;
-  return unitAxis(a, b, x / length, y / length, out);
+  scalars[0] = x / length;
+  scalars[1] = y / length;
+  return unitAxis(a, b, out);
 }
 
-/** `axis` for an already normalized direction. */
-function unitAxis(
-  a: ShapeGeometry,
-  b: ShapeGeometry,
-  x: number,
-  y: number,
-  out: Manifold,
-): boolean {
+/** `axis` for an already normalized direction in `scalars[0..1]`. */
+function unitAxis(a: ShapeGeometry, b: ShapeGeometry, out: Manifold): boolean {
+  const x = scalars[0]!,
+    y = scalars[1]!;
   let minA = Infinity,
     maxA = -Infinity,
     minB = Infinity,
@@ -85,7 +88,9 @@ function polygonAxes(
   const edges = polygon.edgeData();
   for (let k = 0; k < edges.length; k += 3) {
     if (edges[k + 2]! <= EPSILON) continue;
-    if (!unitAxis(a, b, edges[k]!, edges[k + 1]!, out)) return false;
+    scalars[0] = edges[k]!;
+    scalars[1] = edges[k + 1]!;
+    if (!unitAxis(a, b, out)) return false;
   }
   return true;
 }
@@ -112,7 +117,10 @@ function closestVertexAxis(
   return axis(a, b, x, y, out);
 }
 
-function bestEdge(polygon: ShapeGeometry, nx: number, ny: number): number {
+/** Best edge for the direction in `scalars[2..3]`. */
+function bestEdge(polygon: ShapeGeometry): number {
+  const nx = scalars[2]!,
+    ny = scalars[3]!;
   let best = -Infinity,
     edge = 0;
   const p = polygon.points,
@@ -131,12 +139,11 @@ function bestEdge(polygon: ShapeGeometry, nx: number, ny: number): number {
   return edge;
 }
 
-function clipSegment(
-  clip: Float64Array,
-  nx: number,
-  ny: number,
-  limit: number,
-): boolean {
+/** Clips against the plane in `scalars[0..2]` (normal x, y and limit). */
+function clipSegment(clip: Float64Array): boolean {
+  const nx = scalars[0]!,
+    ny = scalars[1]!,
+    limit = scalars[2]!;
   const d0 = clip[0] * nx + clip[1] * ny - limit;
   const d1 = clip[2] * nx + clip[3] * ny - limit;
   if (d0 > EPSILON && d1 > EPSILON) return false;
@@ -160,8 +167,12 @@ function polygonContacts(
   b: ShapeGeometry,
   out: Manifold,
 ): void {
-  const ae = bestEdge(a, out.nx, out.ny),
-    be = bestEdge(b, -out.nx, -out.ny);
+  scalars[2] = out.nx;
+  scalars[3] = out.ny;
+  const ae = bestEdge(a);
+  scalars[2] = -out.nx;
+  scalars[3] = -out.ny;
+  const be = bestEdge(b);
   const ap = a.points,
     bp = b.points;
   const aj = (ae + 2) % ap.length,
@@ -187,18 +198,23 @@ function polygonContacts(
     length = reference.edgeData()[(edge >> 1) * 3 + 2]!;
   const tx = dx / length,
     ty = dy / length;
-  const ie = bestEdge(incident, -nx, -ny),
+  scalars[2] = -nx;
+  scalars[3] = -ny;
+  const ie = bestEdge(incident),
     ij = (ie + 2) % incident.points.length;
   const c = out.clip;
   c[0] = incident.points[ie];
   c[1] = incident.points[ie + 1];
   c[2] = incident.points[ij];
   c[3] = incident.points[ij + 1];
-  if (
-    !clipSegment(c, -tx, -ty, -tx * p[edge] - ty * p[edge + 1]) ||
-    !clipSegment(c, tx, ty, tx * p[j] + ty * p[j + 1])
-  )
-    return;
+  scalars[0] = -tx;
+  scalars[1] = -ty;
+  scalars[2] = -tx * p[edge]! - ty * p[edge + 1]!;
+  if (!clipSegment(c)) return;
+  scalars[0] = tx;
+  scalars[1] = ty;
+  scalars[2] = tx * p[j]! + ty * p[j + 1]!;
+  if (!clipSegment(c)) return;
   const plane = nx * p[edge] + ny * p[edge + 1];
   for (let i = 0; i < 4; i += 2) {
     const separation = nx * c[i] + ny * c[i + 1] - plane;
