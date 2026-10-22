@@ -416,13 +416,26 @@ export class GLTFLoader {
       options.allowedOrigins,
     );
     const bytes = await context.bytes(resolved, modelLimits.inputBytes);
-    return this.parse(bytes, resolved, options);
+    return this.decode(bytes, resolved, options, true);
   }
 
-  async parse(
+  parse(
     input: ArrayBuffer | string,
     baseURL?: string,
     options: GLTFLoadOptions = {},
+  ): Promise<GLTFAsset> {
+    return this.decode(input, baseURL, options, false);
+  }
+
+  /**
+   * `owned`: nothing else holds `input` (fetched by `load`), so a GLB's binary chunk is read in
+   * place. A caller's buffer is copied first, since decoding awaits and the caller may reuse it.
+   */
+  private async decode(
+    input: ArrayBuffer | string,
+    baseURL: string | undefined,
+    options: GLTFLoadOptions,
+    owned: boolean,
   ): Promise<GLTFAsset> {
     const context = new DecodeContext(
       options.signal ?? new AbortController().signal,
@@ -434,6 +447,9 @@ export class GLTFLoader {
     const nodes: Group[] = [];
     try {
       let json: string, binary: ArrayBuffer | undefined;
+      // The binary chunk's position and size within `binary`, which is all of an owned input.
+      let binaryBase = 0,
+        binaryLength = 0;
       if (typeof input === 'string') {
         if (input.length > modelLimits.inputBytes)
           throw new AssetError('Model input exceeds byte budget.');
@@ -489,7 +505,9 @@ export class GLTFLoader {
               if (binary || chunks !== 2)
                 throw new AssetError('Invalid GLB binary chunk.');
               context.reserve(length);
-              binary = input.slice(offset, offset + length);
+              binary = owned ? input : input.slice(offset, offset + length);
+              binaryBase = owned ? offset : 0;
+              binaryLength = length;
             }
             offset += length;
           }
@@ -532,6 +550,8 @@ export class GLTFLoader {
         sceneDefs = list(document.scenes, 'scenes');
       // EXT_meshopt_compression may mark a buffer as an uncompressed fallback that is never loaded.
       const buffers: (ArrayBuffer | undefined)[] = [];
+      /** Where each buffer's bytes start within its ArrayBuffer. */
+      const bufferBases: number[] = [];
       for (let i = 0; i < bufferDefs.length; i++) {
         const def = bufferDefs[i],
           length = integer(
@@ -550,22 +570,25 @@ export class GLTFLoader {
             throw new AssetError('Meshopt fallback must be boolean.');
           if (fallback === true) {
             buffers.push(undefined);
+            bufferBases.push(0);
             continue;
           }
         }
-        const data =
-          def.uri === undefined
-            ? i === 0
-              ? binary
-              : undefined
-            : await context.resource(def.uri);
+        const embedded = def.uri === undefined;
+        const data = embedded
+          ? i === 0
+            ? binary
+            : undefined
+          : await context.resource(def.uri);
+        const dataLength = embedded ? binaryLength : data?.byteLength;
         if (
           !data ||
-          data.byteLength < length ||
-          (def.uri === undefined && data.byteLength - length > 3)
+          dataLength! < length ||
+          (embedded && dataLength! - length > 3)
         )
           throw new AssetError('Buffer length does not match glTF.');
         buffers.push(data);
+        bufferBases.push(embedded ? binaryBase : 0);
       }
       const views = viewDefs.map((def) => {
         const offset = integer(def.byteOffset ?? 0, 'bufferView offset'),
@@ -617,7 +640,7 @@ export class GLTFLoader {
             decoded,
             count,
             step,
-            new Uint8Array(source, start, size),
+            new Uint8Array(source, bufferBases[sourceIndex]! + start, size),
             ext.mode,
             ext.filter,
           );
@@ -634,7 +657,12 @@ export class GLTFLoader {
         );
         if (offset + length > declared)
           throw new AssetError('bufferView is out of bounds.');
-        return { buffer, offset, length, stride };
+        return {
+          buffer,
+          offset: bufferBases[def.buffer as number]! + offset,
+          length,
+          stride,
+        };
       });
       const accessors = new Map<number, AccessorData>();
       const readAccessor = (index: unknown): AccessorData => {

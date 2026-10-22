@@ -71,6 +71,11 @@ export declare class GLTFLoader {
     task(key: string, uri: string): LoadTask<GLTFAsset>;
     load(uri: string, options?: GLTFLoadOptions): Promise<GLTFAsset>;
     parse(input: ArrayBuffer | string, baseURL?: string, options?: GLTFLoadOptions): Promise<GLTFAsset>;
+    /**
+     * `owned`: nothing else holds `input` (fetched by `load`), so a GLB's binary chunk is read in
+     * place. A caller's buffer is copied first, since decoding awaits and the caller may reuse it.
+     */
+    private decode;
     /** Bakes KHR_lights_punctual definitions at each referencing node's world transform. */
     private readLights;
     private normals;

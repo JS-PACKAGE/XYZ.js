@@ -187,6 +187,45 @@ describe('EXT_meshopt_compression in glTF', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('decodes compressed views from a fetched GLB binary chunk read in place', async () => {
+    const document = compressedModel(pack);
+    const embedded = document.buffers[0];
+    const source = bytes(embedded.uri.slice(embedded.uri.indexOf(',') + 1));
+    delete embedded.uri;
+    const text = new TextEncoder().encode(JSON.stringify(document));
+    const jsonLength = Math.ceil(text.length / 4) * 4,
+      binLength = Math.ceil(source.length / 4) * 4;
+    const file = new Uint8Array(28 + jsonLength + binLength),
+      header = new DataView(file.buffer);
+    header.setUint32(0, 0x46546c67, true);
+    header.setUint32(4, 2, true);
+    header.setUint32(8, file.length, true);
+    header.setUint32(12, jsonLength, true);
+    header.setUint32(16, 0x4e4f534a, true);
+    file.fill(32, 20, 20 + jsonLength);
+    file.set(text, 20);
+    header.setUint32(20 + jsonLength, binLength, true);
+    header.setUint32(24 + jsonLength, 0x004e4942, true);
+    file.set(source, 28 + jsonLength);
+    installImages();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(file)),
+    );
+    const asset = await new GLTFLoader().load('https://example.test/m.glb');
+    const mesh = [...[...asset.scene.children][0]!.children][0] as Mesh;
+    const stride = mesh.geometry.vertices.length / 5;
+    expect(
+      Array.from({ length: 5 }, (_, i) =>
+        Array.from(mesh.geometry.vertices.subarray(i * stride, i * stride + 3)),
+      ).flat(),
+    ).toEqual(fixture.positions);
+    expect(canonical(mesh.geometry.indices)).toEqual(
+      canonical(fixture.indices),
+    );
+    asset.dispose();
+  });
 });
 
 function dracoModel(

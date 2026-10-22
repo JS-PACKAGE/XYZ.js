@@ -5471,3 +5471,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 獨立 Chrome WebGPU／WebGL2 gallery（339 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
 - metallic 全為 0，roughness bytes 依序 215–234／194–229／70–102；每米 repeats 依序 11.111111／7.142857／3.333333。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
+- `[Assets]` `GLTFLoader.load` 取得的 GLB 由 loader 獨占，二進位 chunk 改為就地讀取（buffer 0 帶 chunk 起點偏移，bufferView 與 meshopt 來源加上偏移），不再 `slice` 複製整段；呼叫端傳入 `parse` 的 buffer 仍先複製（解碼會 await，呼叫端可能重用）。預算 `reserve` 與錯誤條件不變。新增 fetch 的 GLB（含 stride、byteOffset）與 meshopt GLB 就地讀取測試（突變檢查通過）。Chrome 12 MB GLB `load` 中位數約 51.6→48.1 ms（三輪、雜訊大），並省下一份與 binary chunk 同大小的暫存。完整測試 2911 通過、型別、tree-shaking 與 API 相容檢查通過。

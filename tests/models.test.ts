@@ -426,6 +426,45 @@ describe('glTF decoding and owned assets', () => {
     expect([...mesh.geometry.vertices.slice(6, 8)]).toEqual([0, 0]);
     asset.dispose();
   });
+  it('reads a fetched GLB binary chunk in place at its offset, including stride and byte offsets', async () => {
+    installImages();
+    // Interleaved positions after a padding vertex, so views and accessors start mid-chunk.
+    const floats = new Float32Array([
+      -9, -9, -9, -9, 0, 0, 0, -9, 1, 0, 0, -9, 0, 1, 0, -9,
+    ]);
+    const bytes = new Uint8Array(floats.buffer);
+    const file = glb(
+      {
+        asset: { version: '2.0' },
+        buffers: [{ byteLength: bytes.length }],
+        bufferViews: [
+          { buffer: 0, byteOffset: 16, byteLength: 48, byteStride: 16 },
+        ],
+        accessors: [
+          { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3' },
+        ],
+        meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+        nodes: [{ mesh: 0 }],
+        scenes: [{ nodes: [0] }],
+      },
+      bytes,
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(file)),
+    );
+    const fetched = await new GLTFLoader().load('https://example.test/a.glb');
+    const parsed = await new GLTFLoader().parse(file);
+    const vertices = (asset: typeof fetched) =>
+      [
+        ...([...[...asset.scene.children][0].children][0] as Mesh).geometry
+          .vertices,
+      ].filter((_, i) => i % 8 < 3);
+    expect(vertices(fetched)).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+    expect(vertices(parsed)).toEqual(vertices(fetched));
+    fetched.dispose();
+    parsed.dispose();
+  });
   it('retains independent glTF wrapping and filtering per material map while sharing its decoded image', async () => {
     const image = installImages();
     const document = {
