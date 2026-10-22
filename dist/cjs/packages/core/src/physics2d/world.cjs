@@ -548,8 +548,10 @@ var PhysicsWorld2D = class {
 		for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
 		for (let e of this.owners.values()) this.alive(e) && e.owner.sealPhysicsPose();
 		for (let t of this.owners.values()) {
-			let n = t.body?.updateSleep(e) ?? !1;
-			for (let e of t.group) e.sleepReady = n;
+			let n = t.body;
+			if (!n) continue;
+			let r = n.updateSleep(e);
+			for (let e of t.group) e.sleepReady = r;
 		}
 		let p = this.sleepGroup;
 		for (let e of this.sorted) {

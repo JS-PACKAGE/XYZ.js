@@ -1203,7 +1203,11 @@ export class PhysicsWorld2D {
     for (const proxy of this.owners.values())
       if (this.alive(proxy)) proxy.owner.sealPhysicsPose();
     for (const proxy of this.owners.values()) {
-      const ready = proxy.body?.updateSleep(dt) ?? false;
+      // Only islands read the flag, and they hold only proxies with mass: a bodiless one
+      // (a tile) would just store `false` again.
+      const body = proxy.body;
+      if (!body) continue;
+      const ready = body.updateSleep(dt);
       for (const piece of proxy.group) piece.sleepReady = ready;
     }
     // Islands reuse `sleepGroup` by count: emptying it per island dropped its storage.
