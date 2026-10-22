@@ -17,14 +17,10 @@ beforeEach(() => {
         }),
         scale() {},
         fillText() {},
+        drawImage() {},
       }),
     }),
   });
-  vi.stubGlobal('createImageBitmap', async () => ({
-    width: 8,
-    height: 8,
-    close: vi.fn(),
-  }));
 });
 afterEach(() => vi.unstubAllGlobals());
 

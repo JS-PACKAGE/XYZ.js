@@ -53,6 +53,7 @@ beforeEach(() => {
         setTransform() {},
         fill() {},
         fillText() {},
+        drawImage() {},
       }),
     }),
   });

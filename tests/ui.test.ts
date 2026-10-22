@@ -35,6 +35,7 @@ beforeEach(() => {
         setTransform() {},
         fill() {},
         fillText() {},
+        drawImage() {},
       }),
     }),
   });
@@ -309,24 +310,26 @@ describe('UI focus and widget transitions', () => {
       for (const child of object.children) collect(child);
     };
     collect(root);
-    let resolve!: (bitmap: ImageBitmap) => void;
-    vi.stubGlobal(
-      'createImageBitmap',
-      () =>
-        new Promise<ImageBitmap>((done) => {
-          resolve = done;
-        }),
-    );
+    // Font loading is the only asynchronous step of a label raster.
+    let resolve!: () => void;
+    Object.assign(document, {
+      fonts: {
+        load: () =>
+          new Promise<void>((done) => {
+            resolve = done;
+          }),
+        ready: Promise.resolve(),
+      },
+    });
     const pending = checkbox.setText('After');
     root.destroy();
-    const close = vi.fn();
-    resolve({ width: 50, height: 22, close } as unknown as ImageBitmap);
+    resolve();
+    // A late raster is dropped, never drawn into the destroyed label texture.
     await pending;
     expect(checkbox.destroyed).toBe(true);
     expect(
       sprites.every((sprite) => sprite.destroyed && sprite.texture.destroyed),
     ).toBe(true);
-    expect(close).toHaveBeenCalledOnce();
     expect(root.focus.focused).toBeUndefined();
   });
 });

@@ -56,7 +56,7 @@ export declare function snapshotTextStyle(options: Text2DOptions): Text2DStyle;
 /** Rasterized browser-shaped full lines, using the ordinary Sprite pipeline. */
 export declare class Text2D extends Sprite {
     private content;
-    private ownedTexture;
+    private readonly ownedTexture;
     private displayedLayout;
     private revision;
     private requestedText;
@@ -77,4 +77,6 @@ export declare class Text2D extends Sprite {
     private static validateText;
     /** @internal Shared raster generation; the caller owns the returned texture. */
     static rasterize(text: string, style: Text2DStyle): Promise<RasterizedText>;
+    private static rasterizeCanvas;
+    private static drawText;
 }

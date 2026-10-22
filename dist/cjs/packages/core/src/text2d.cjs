@@ -79,8 +79,17 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 		}) }), this.content = e, this.ownedTexture = n, this.displayedLayout = r, this.requestedText = e, this.requestedStyle = this.displayedStyle = t;
 	}
 	static async create(e, t = {}) {
-		let n = snapshotTextStyle(t), r = await Text2D.rasterize(e, n);
-		return new Text2D(e, n, r.texture, r.layout);
+		let n = snapshotTextStyle(t), { canvas: r, layout: i } = await Text2D.rasterizeCanvas(e, n), o;
+		try {
+			o = new require_texture2d.CanvasTexture2D(r);
+		} finally {
+			r.width = r.height = 0;
+		}
+		try {
+			return new Text2D(e, n, o, i);
+		} catch (e) {
+			throw o.destroy(), e;
+		}
 	}
 	get text() {
 		return this.content;
@@ -112,25 +121,26 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 		if (!e && n === this.content && r === this.displayedStyle) return;
 		let i;
 		try {
-			i = await Text2D.rasterize(n, r);
+			i = await Text2D.rasterizeCanvas(n, r);
 		} catch (e) {
 			throw t === this.revision && (this.requestedText = this.content, this.requestedStyle = this.displayedStyle), e;
 		}
-		let { texture: a, layout: s } = i;
-		if (this.destroyed || t !== this.revision) {
-			a.destroy();
-			return;
+		let { canvas: a, layout: o } = i;
+		try {
+			if (this.destroyed || t !== this.revision) return;
+			let e = this.ownedTexture;
+			e.update(a), this.view = new require_texture2d.TextureView2D(e, {
+				frame: {
+					x: 0,
+					y: 0,
+					width: e.width,
+					height: e.height
+				},
+				resolution: r.resolution
+			}), this.content = n, this.displayedStyle = r, this.displayedLayout = o;
+		} finally {
+			a.width = a.height = 0;
 		}
-		let c = this.ownedTexture;
-		this.view = new require_texture2d.TextureView2D(a, {
-			frame: {
-				x: 0,
-				y: 0,
-				width: a.width,
-				height: a.height
-			},
-			resolution: r.resolution
-		}), this.ownedTexture = a, this.content = n, this.displayedStyle = r, this.displayedLayout = s, c.destroy();
 	}
 	onDestroy() {
 		this.revision++, this.ownedTexture.destroy();
@@ -138,76 +148,86 @@ var Text2D = class Text2D extends require_sprite.Sprite {
 	static validateText(e) {
 		if (typeof e != `string` || e.length > require_graphics2d.graphics2dLimits.textCodeUnits) throw RangeError(`Text exceeds its input budget.`);
 	}
-	static async rasterize(t, n) {
-		Text2D.validateText(t), n.fontReadiness === `wait` && document.fonts && await require_text_layout.waitForTextFonts(t, n);
+	static async rasterize(e, t) {
+		Text2D.validateText(e), t.fontReadiness === `wait` && document.fonts && await require_text_layout.waitForTextFonts(e, t);
+		let { canvas: n, layout: r } = Text2D.drawText(e, t);
+		try {
+			return {
+				texture: await require_texture.Texture.fromImage(n),
+				layout: r
+			};
+		} finally {
+			n.width = n.height = 0;
+		}
+	}
+	static async rasterizeCanvas(e, t) {
+		return Text2D.validateText(e), t.fontReadiness === `wait` && document.fonts && await require_text_layout.waitForTextFonts(e, t), Text2D.drawText(e, t);
+	}
+	static drawText(t, n) {
 		let r = document.createElement(`canvas`);
 		r.lang = n.locale, r.width = r.height = 1;
-		let o = r.getContext(`2d`);
-		if (!o) throw new require_texture.AssetError(`Canvas2D is required to rasterize text.`);
-		let s = require_text_layout.textFont(n), configure = () => {
-			if (o.font = s, o.textAlign = `left`, o.textBaseline = `alphabetic`, o.fontKerning = `auto`, `letterSpacing` in o) o.letterSpacing = `${n.letterSpacing}px`;
+		let a = r.getContext(`2d`);
+		if (!a) throw new require_texture.AssetError(`Canvas2D is required to rasterize text.`);
+		let o = require_text_layout.textFont(n), configure = () => {
+			if (a.font = o, a.textAlign = `left`, a.textBaseline = `alphabetic`, a.fontKerning = `auto`, `letterSpacing` in a) a.letterSpacing = `${n.letterSpacing}px`;
 			else if (n.letterSpacing !== 0) throw new require_texture.AssetError(`Native Canvas letterSpacing is required for shaped spaced text.`);
 		};
 		configure();
-		let f = [], p = [];
+		let s = [], c = [];
 		for (let e of t.split(/\r\n|\r|\n/)) {
 			let t = require_text_layout.paragraphDirection(e, n);
-			o.direction = t;
+			a.direction = t;
 			let pushLine = (e) => {
-				f.push(e), p.push(t);
+				s.push(e), c.push(t);
 			};
 			if (n.wrapWidth === void 0) {
 				pushLine(e);
 				continue;
 			}
 			let r = ``;
-			for (let t of e.match(/\S+|\s+/gu) ?? []) if (r && o.measureText(r + t).width > n.wrapWidth && (pushLine(r.trimEnd()), r = ``), r || !/^\s+$/u.test(t)) {
-				if (n.breakWords && o.measureText(t).width > n.wrapWidth) {
+			for (let t of e.match(/\S+|\s+/gu) ?? []) if (r && a.measureText(r + t).width > n.wrapWidth && (pushLine(r.trimEnd()), r = ``), r || !/^\s+$/u.test(t)) {
+				if (n.breakWords && a.measureText(t).width > n.wrapWidth) {
 					let e = require_text_graphemes.graphemeBoundaries(t, n.locale);
 					for (let i = 1; i < e.length; i++) {
-						let a = t.slice(e[i - 1], e[i]);
-						r && o.measureText(r + a).width > n.wrapWidth && (pushLine(r), r = ``), r += a;
+						let o = t.slice(e[i - 1], e[i]);
+						r && a.measureText(r + o).width > n.wrapWidth && (pushLine(r), r = ``), r += o;
 					}
 				} else r += t;
 			}
 			pushLine(r.trimEnd());
 		}
-		let m = f.map((e, t) => (o.direction = p[t], o.measureText(e).width)), h = n.wrapWidth ?? Math.max(0, ...m), g = m.map((e, t) => {
-			let r = n.align === `right` || n.align === `start` && p[t] === `rtl` || n.align === `end` && p[t] === `ltr`;
-			return n.align === `center` ? (h - e) / 2 : r ? h - e : 0;
-		}), _ = 0, v = h, y = -n.fontSize, b = (f.length - 1) * n.lineHeight + n.fontSize * .25;
-		for (let e = 0; e < f.length; e++) {
-			o.direction = p[e];
-			let t = o.measureText(f[e]);
-			_ = Math.min(_, g[e] - t.actualBoundingBoxLeft), v = Math.max(v, g[e] + Math.max(t.width, t.actualBoundingBoxRight)), y = Math.min(y, e * n.lineHeight - t.actualBoundingBoxAscent), b = Math.max(b, e * n.lineHeight + t.actualBoundingBoxDescent);
+		let d = s.map((e, t) => (a.direction = c[t], a.measureText(e).width)), p = n.wrapWidth ?? Math.max(0, ...d), m = d.map((e, t) => {
+			let r = n.align === `right` || n.align === `start` && c[t] === `rtl` || n.align === `end` && c[t] === `ltr`;
+			return n.align === `center` ? (p - e) / 2 : r ? p - e : 0;
+		}), h = 0, g = p, _ = -n.fontSize, v = (s.length - 1) * n.lineHeight + n.fontSize * .25;
+		for (let e = 0; e < s.length; e++) {
+			a.direction = c[e];
+			let t = a.measureText(s[e]);
+			h = Math.min(h, m[e] - t.actualBoundingBoxLeft), g = Math.max(g, m[e] + Math.max(t.width, t.actualBoundingBoxRight)), _ = Math.min(_, e * n.lineHeight - t.actualBoundingBoxAscent), v = Math.max(v, e * n.lineHeight + t.actualBoundingBoxDescent);
 		}
-		let x = (n.stroke?.width ?? 0) / 2, S = n.shadow, C = (S?.blur ?? 0) * 3, w = x + Math.max(0, C - (S?.offsetX ?? 0)), T = x + Math.max(0, C + (S?.offsetX ?? 0)), E = x + Math.max(0, C - (S?.offsetY ?? 0)), D = x + Math.max(0, C + (S?.offsetY ?? 0)), O = Math.max(1, Math.ceil((v - _ + n.padding * 2 + w + T) * n.resolution)), k = Math.max(1, Math.ceil((b - y + n.padding * 2 + E + D) * n.resolution));
-		if (!Number.isSafeInteger(O) || !Number.isSafeInteger(k) || O > require_assets.assetLimits.textureDimension || k > require_assets.assetLimits.textureDimension || O * k > require_assets.assetLimits.texturePixels) throw new require_texture.AssetError(`Text exceeds the texture resource budget.`);
-		r.width = O, r.height = k, o.scale(n.resolution, n.resolution), configure(), o.fillStyle = n.color, n.stroke && (o.strokeStyle = n.stroke.color, o.lineWidth = n.stroke.width, o.lineJoin = `round`), S && (o.shadowColor = S.color, o.shadowBlur = S.blur * n.resolution, o.shadowOffsetX = S.offsetX * n.resolution, o.shadowOffsetY = S.offsetY * n.resolution);
-		let A = [];
-		for (let e = 0; e < f.length; e++) {
-			let t = n.padding + w - _ + g[e], r = n.padding + E - y + e * n.lineHeight;
-			o.direction = p[e], A.push(Object.freeze({
-				text: f[e],
-				direction: p[e],
+		let y = (n.stroke?.width ?? 0) / 2, b = n.shadow, x = (b?.blur ?? 0) * 3, S = y + Math.max(0, x - (b?.offsetX ?? 0)), C = y + Math.max(0, x + (b?.offsetX ?? 0)), w = y + Math.max(0, x - (b?.offsetY ?? 0)), T = y + Math.max(0, x + (b?.offsetY ?? 0)), E = Math.max(1, Math.ceil((g - h + n.padding * 2 + S + C) * n.resolution)), D = Math.max(1, Math.ceil((v - _ + n.padding * 2 + w + T) * n.resolution));
+		if (!Number.isSafeInteger(E) || !Number.isSafeInteger(D) || E > require_assets.assetLimits.textureDimension || D > require_assets.assetLimits.textureDimension || E * D > require_assets.assetLimits.texturePixels) throw new require_texture.AssetError(`Text exceeds the texture resource budget.`);
+		r.width = E, r.height = D, a.scale(n.resolution, n.resolution), configure(), a.fillStyle = n.color, n.stroke && (a.strokeStyle = n.stroke.color, a.lineWidth = n.stroke.width, a.lineJoin = `round`), b && (a.shadowColor = b.color, a.shadowBlur = b.blur * n.resolution, a.shadowOffsetX = b.offsetX * n.resolution, a.shadowOffsetY = b.offsetY * n.resolution);
+		let O = [];
+		for (let e = 0; e < s.length; e++) {
+			let t = n.padding + S - h + m[e], r = n.padding + w - _ + e * n.lineHeight;
+			a.direction = c[e], O.push(Object.freeze({
+				text: s[e],
+				direction: c[e],
 				x: t,
 				baseline: r,
-				width: m[e]
-			})), n.stroke && n.stroke.width && o.strokeText(f[e], t, r), o.fillText(f[e], t, r);
+				width: d[e]
+			})), n.stroke && n.stroke.width && a.strokeText(s[e], t, r), a.fillText(s[e], t, r);
 		}
-		try {
-			return {
-				texture: await require_texture.Texture.fromImage(r),
-				layout: Object.freeze({
-					lines: Object.freeze(A),
-					width: O / n.resolution,
-					height: k / n.resolution,
-					fontReadiness: document.fonts ? n.fontReadiness === `wait` ? `ready` : `current` : `unavailable`
-				})
-			};
-		} finally {
-			r.width = r.height = 0;
-		}
+		return {
+			canvas: r,
+			layout: Object.freeze({
+				lines: Object.freeze(O),
+				width: E / n.resolution,
+				height: D / n.resolution,
+				fontReadiness: document.fonts ? n.fontReadiness === `wait` ? `ready` : `current` : `unavailable`
+			})
+		};
 	}
 };
 //#endregion

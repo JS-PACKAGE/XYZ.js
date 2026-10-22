@@ -2,7 +2,12 @@ import { assetLimits } from '../../../src/data/assets.js';
 import { graphics2dLimits } from '../../../src/data/graphics2d.js';
 import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 import { textDefaults } from '../../../src/data/text.js';
-import { AssetError, Texture, TextureView2D } from '../../assets/src/index.js';
+import {
+  AssetError,
+  CanvasTexture2D,
+  Texture,
+  TextureView2D,
+} from '../../assets/src/index.js';
 import { Sprite } from './sprite.js';
 import {
   paragraphDirection,
@@ -62,6 +67,11 @@ export interface Text2DLayout {
 /** @internal An independent raster texture; ownership transfers to the caller. */
 export interface RasterizedText {
   readonly texture: Texture;
+  readonly layout: Text2DLayout;
+}
+/** The drawn canvas behind a `RasterizedText`; ownership transfers to the caller. */
+interface RasterizedCanvas {
+  readonly canvas: HTMLCanvasElement;
   readonly layout: Text2DLayout;
 }
 
@@ -168,7 +178,7 @@ export class Text2D extends Sprite {
   private constructor(
     private content: string,
     style: Text2DStyle,
-    private ownedTexture: Texture,
+    private readonly ownedTexture: CanvasTexture2D,
     private displayedLayout: Text2DLayout,
   ) {
     super({
@@ -191,8 +201,19 @@ export class Text2D extends Sprite {
     options: Text2DOptions = {},
   ): Promise<Text2D> {
     const style = snapshotTextStyle(options);
-    const raster = await Text2D.rasterize(text, style);
-    return new Text2D(text, style, raster.texture, raster.layout);
+    const { canvas, layout } = await Text2D.rasterizeCanvas(text, style);
+    let texture: CanvasTexture2D;
+    try {
+      texture = new CanvasTexture2D(canvas);
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+    try {
+      return new Text2D(text, style, texture, layout);
+    } catch (error) {
+      texture.destroy();
+      throw error;
+    }
   }
 
   get text(): string {
@@ -234,9 +255,9 @@ export class Text2D extends Sprite {
     // Returning to the displayed state supersedes any pending raster without redrawing.
     if (!force && text === this.content && style === this.displayedStyle)
       return;
-    let raster: RasterizedText;
+    let raster: RasterizedCanvas;
     try {
-      raster = await Text2D.rasterize(text, style);
+      raster = await Text2D.rasterizeCanvas(text, style);
     } catch (error) {
       if (revision === this.revision) {
         this.requestedText = this.content;
@@ -244,22 +265,23 @@ export class Text2D extends Sprite {
       }
       throw error;
     }
-    const { texture, layout } = raster;
-    if (this.destroyed || revision !== this.revision) {
-      texture.destroy();
-      return;
+    const { canvas, layout } = raster;
+    try {
+      if (this.destroyed || revision !== this.revision) return;
+      // The owned texture is redrawn in place; an externally substituted texture remains
+      // borrowed and is replaced by it, as before.
+      const texture = this.ownedTexture;
+      texture.update(canvas);
+      this.view = new TextureView2D(texture, {
+        frame: { x: 0, y: 0, width: texture.width, height: texture.height },
+        resolution: style.resolution,
+      });
+      this.content = text;
+      this.displayedStyle = style;
+      this.displayedLayout = layout;
+    } finally {
+      canvas.width = canvas.height = 0;
     }
-    const previous = this.ownedTexture;
-    // An externally substituted texture remains borrowed; only our bitmap is released.
-    this.view = new TextureView2D(texture, {
-      frame: { x: 0, y: 0, width: texture.width, height: texture.height },
-      resolution: style.resolution,
-    });
-    this.ownedTexture = texture;
-    this.content = text;
-    this.displayedStyle = style;
-    this.displayedLayout = layout;
-    previous.destroy();
   }
 
   protected override onDestroy(): void {
@@ -283,6 +305,25 @@ export class Text2D extends Sprite {
     Text2D.validateText(text);
     if (style.fontReadiness === 'wait' && document.fonts)
       await waitForTextFonts(text, style);
+    const { canvas, layout } = Text2D.drawText(text, style);
+    try {
+      return { texture: await Texture.fromImage(canvas), layout };
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+  }
+
+  private static async rasterizeCanvas(
+    text: string,
+    style: Text2DStyle,
+  ): Promise<RasterizedCanvas> {
+    Text2D.validateText(text);
+    if (style.fontReadiness === 'wait' && document.fonts)
+      await waitForTextFonts(text, style);
+    return Text2D.drawText(text, style);
+  }
+
+  private static drawText(text: string, style: Text2DStyle): RasterizedCanvas {
     const canvas = document.createElement('canvas');
     canvas.lang = style.locale;
     canvas.width = canvas.height = 1;
@@ -443,23 +484,18 @@ export class Text2D extends Sprite {
         context.strokeText(lines[i]!, x, y);
       context.fillText(lines[i]!, x, y);
     }
-    try {
-      const texture = await Texture.fromImage(canvas);
-      return {
-        texture,
-        layout: Object.freeze({
-          lines: Object.freeze(layoutLines),
-          width: width / style.resolution,
-          height: height / style.resolution,
-          fontReadiness: !document.fonts
-            ? 'unavailable'
-            : style.fontReadiness === 'wait'
-              ? 'ready'
-              : 'current',
-        }),
-      };
-    } finally {
-      canvas.width = canvas.height = 0;
-    }
+    return {
+      canvas,
+      layout: Object.freeze({
+        lines: Object.freeze(layoutLines),
+        width: width / style.resolution,
+        height: height / style.resolution,
+        fontReadiness: !document.fonts
+          ? 'unavailable'
+          : style.fontReadiness === 'wait'
+            ? 'ready'
+            : 'current',
+      }),
+    };
   }
 }
