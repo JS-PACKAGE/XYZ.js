@@ -151,6 +151,7 @@ export declare class PhysicsWorld3D {
      * may move inside `run`; their entries alone are rechecked per query.
      */
     withPoseSnapshot<T>(run: () => T, mover?: Object3D): T;
+    private collectMovers;
     get joints(): readonly Joint3D[];
     /** Explicit immutable wireframe snapshot; no collider/body references escape. */
     debugSnapshot(): PhysicsDebugSnapshot3D;

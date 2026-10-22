@@ -128,5 +128,6 @@ function sortByOrder(e) {
 //#endregion
 exports.Bounds3D = Bounds3D;
 exports.SpatialIndex3D = SpatialIndex3D;
+exports.sortByOrder = sortByOrder;
 
 //# sourceMappingURL=spatial.cjs.map

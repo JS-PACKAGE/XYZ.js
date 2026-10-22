@@ -15,7 +15,7 @@ import type { RigidBody3D } from './body.js';
 import { Manifold3D, Narrowphase3D } from './geometry.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
-import { Bounds3D, SpatialIndex3D } from './spatial.js';
+import { Bounds3D, SpatialIndex3D, sortByOrder } from './spatial.js';
 import { Joint3D } from './joints.js';
 import {
   ContinuousCollision3D,
@@ -301,14 +301,13 @@ export class PhysicsWorld3D {
     this.sequencePoses = sequence;
     this.sequenceMembership = this.membership;
     this.sequenceMovers.length = 0;
-    if (mover)
-      for (const e of this.ordered)
-        for (let o: Object3D | undefined = e.object; o; o = o.parent)
-          if (o === mover) {
-            this.snapshotMovers.push(e);
-            if (sequence !== 0) this.sequenceMovers.push(e);
-            break;
-          }
+    if (mover) {
+      const movers = this.snapshotMovers;
+      this.collectMovers(mover);
+      // `ordered` is in registration order; scanning it for descendants cost O(entries).
+      sortByOrder(movers);
+      if (sequence !== 0) for (const e of movers) this.sequenceMovers.push(e);
+    }
     this.poseSnapshot = true;
     try {
       return run();
@@ -316,6 +315,12 @@ export class PhysicsWorld3D {
       this.poseSnapshot = false;
       this.snapshotMovers.length = 0;
     }
+  }
+  private collectMovers(object: Object3D): void {
+    const entry = this.entries.get(object);
+    if (entry) this.snapshotMovers.push(entry);
+    const children = object.existingChildren;
+    if (children) for (const child of children) this.collectMovers(child);
   }
   get joints(): readonly Joint3D[] {
     return this.constraints;

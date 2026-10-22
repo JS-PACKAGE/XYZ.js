@@ -14,7 +14,7 @@ const require_physics_profiles = require("../../../../src/data/physics-profiles.
 const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
-var T = 0;
+var E = 0;
 var pairsWithin = (e) => !!e.body || e.shape.collider.sensor;
 function sleepState(e, t) {
 	return t || (e.isSleeping ? 1 : 2);
@@ -148,10 +148,8 @@ var PhysicsWorld3D = class {
 		}
 		let n = require_mover_sequence.activeMoverSequence();
 		if (n !== 0 && this.sequencePoses === n && this.sequenceMembership === this.membership && !this.indexDirty ? this.refreshIndex(this.sequenceMovers) : this.refreshIndex(), this.sequencePoses = n, this.sequenceMembership = this.membership, this.sequenceMovers.length = 0, t) {
-			for (let e of this.ordered) for (let r = e.object; r; r = r.parent) if (r === t) {
-				this.snapshotMovers.push(e), n !== 0 && this.sequenceMovers.push(e);
-				break;
-			}
+			let e = this.snapshotMovers;
+			if (this.collectMovers(t), require_spatial.sortByOrder(e), n !== 0) for (let t of e) this.sequenceMovers.push(t);
 		}
 		this.poseSnapshot = !0;
 		try {
@@ -159,6 +157,12 @@ var PhysicsWorld3D = class {
 		} finally {
 			this.poseSnapshot = !1, this.snapshotMovers.length = 0;
 		}
+	}
+	collectMovers(e) {
+		let t = this.entries.get(e);
+		t && this.snapshotMovers.push(t);
+		let n = e.existingChildren;
+		if (n) for (let e of n) this.collectMovers(e);
 	}
 	get joints() {
 		return this.constraints;
@@ -422,7 +426,7 @@ var PhysicsWorld3D = class {
 				continue;
 			}
 			if (!a.shape.collider.sensor && !o.shape.collider.sensor) {
-				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++T;
+				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++E;
 				for (let e = 0; e < this.solverIterations; e++) {
 					for (let e = 0; e < l.manifold.count; e++) this.solve(l, e);
 					this.solveJoints();
@@ -483,7 +487,7 @@ var PhysicsWorld3D = class {
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
 		for (let e of this.active) e.responds = !e.ended && this.valid(e.a) && this.valid(e.b) && !e.a.shape.collider.sensor && !e.b.shape.collider.sensor;
-		++this.massEpoch, this.solvePhase = ++T;
+		++this.massEpoch, this.solvePhase = ++E;
 		for (let e = 0; e < this.solverIterations; e++) {
 			this.solveJoints();
 			for (let e of this.active) {

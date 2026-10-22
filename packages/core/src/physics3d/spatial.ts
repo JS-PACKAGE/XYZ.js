@@ -274,7 +274,7 @@ function compareOrder(a: SpatialItem3D, b: SpatialItem3D): number {
  * Stable ascending `order`, like `Array.prototype.sort(compareOrder)`. Query results are
  * usually a handful of items, and the builtin sort allocates a work array per call.
  */
-function sortByOrder(items: SpatialItem3D[]): void {
+export function sortByOrder(items: SpatialItem3D[]): void {
   if (items.length > 32) {
     items.sort(compareOrder);
     return;

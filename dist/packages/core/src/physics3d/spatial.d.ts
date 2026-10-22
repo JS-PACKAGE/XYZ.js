@@ -36,3 +36,8 @@ export declare class SpatialIndex3D<T extends SpatialItem3D> {
     pairs(active: (item: T) => boolean, margin: number, firsts: T[], seconds: T[]): void;
     clear(): void;
 }
+/**
+ * Stable ascending `order`, like `Array.prototype.sort(compareOrder)`. Query results are
+ * usually a handful of items, and the builtin sort allocates a work array per call.
+ */
+export declare function sortByOrder(items: SpatialItem3D[]): void;
