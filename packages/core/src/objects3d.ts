@@ -208,8 +208,12 @@ export class LOD extends Group implements CameraDependent3D {
   renderWeight(object: Object3D): number {
     let branch = object;
     while (branch.parent && branch.parent !== this) branch = branch.parent;
-    const index = this.entries.findIndex((entry) => entry.object === branch);
-    return index < 0 ? 1 : this.weights[index]!;
+    // A loop rather than findIndex: renderers ask once per drawn mesh, and the predicate
+    // closure was allocated on every call.
+    const entries = this.entries;
+    for (let index = 0; index < entries.length; index++)
+      if (entries[index]!.object === branch) return this.weights[index]!;
+    return 1;
   }
 
   protected projectedDiameter(

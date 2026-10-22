@@ -95,8 +95,9 @@ var LOD = class extends require_group.Group {
 	renderWeight(e) {
 		let t = e;
 		for (; t.parent && t.parent !== this;) t = t.parent;
-		let n = this.entries.findIndex((e) => e.object === t);
-		return n < 0 ? 1 : this.weights[n];
+		let n = this.entries;
+		for (let e = 0; e < n.length; e++) if (n[e].object === t) return this.weights[e];
+		return 1;
 	}
 	projectedDiameter(e, t) {
 		let n = this.screenSphere;
