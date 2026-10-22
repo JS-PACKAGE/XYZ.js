@@ -739,6 +739,8 @@ export class PhysicsWorld2D {
   }
   /** @internal Discard only simulation time omitted by the scene catch-up limit. */
   discardFrameTime(delta: number): void {
+    // Discarding nothing leaves every accumulator unchanged; most frames drop no time.
+    if (delta === 0) return;
     for (const proxy of this.owners.values())
       if (proxy.body) this.forces.get(proxy.body)?.discard(delta);
   }

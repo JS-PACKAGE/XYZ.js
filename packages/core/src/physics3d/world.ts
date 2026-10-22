@@ -632,6 +632,8 @@ export class PhysicsWorld3D {
   }
   /** @internal Discard only simulation time omitted by the scene catch-up limit. */
   discardFrameTime(delta: number): void {
+    // Discarding nothing leaves every accumulator unchanged; most frames drop no time.
+    if (delta === 0) return;
     for (const entry of this.ordered)
       if (entry.body) this.forces.get(entry.body)?.discard(delta);
   }

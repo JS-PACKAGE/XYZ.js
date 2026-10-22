@@ -364,7 +364,7 @@ var PhysicsWorld2D = class {
 		for (let t of this.owners.values()) t.body?.type === `dynamic` && this.forceState(t.body).sampleFixed(t.body, e);
 	}
 	discardFrameTime(e) {
-		for (let t of this.owners.values()) t.body && this.forces.get(t.body)?.discard(e);
+		if (e !== 0) for (let t of this.owners.values()) t.body && this.forces.get(t.body)?.discard(e);
 	}
 	get interpolationAlpha() {
 		return Math.min(1, Math.max(0, this.accumulator / this.fixedDelta));
