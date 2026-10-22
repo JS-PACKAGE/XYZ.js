@@ -1659,30 +1659,37 @@ export class PhysicsWorld2D {
       dy = direction.y / length;
     const results: PhysicsRayHit[] = [];
     const epoch = this.queryRefreshEpoch;
-    for (const proxy of this.proxies) {
-      if (!this.alive(proxy) || !(proxy.collider.category & mask)) continue;
-      if (epoch === 0) proxy.refresh();
-      else refreshInSnapshot(proxy, epoch);
-      const distance = rayDistance(
-        proxy.geometry,
-        origin.x,
-        origin.y,
-        dx,
-        dy,
-        maxDistance,
-        this.queryNormal,
-      );
-      if (distance !== undefined)
-        results.push({
-          owner: proxy.owner,
-          collider: proxy.collider,
-          distance,
-          point: new Vector2(
-            origin.x + dx * distance,
-            origin.y + dy * distance,
-          ),
-          normal: this.queryNormal.clone(),
-        });
+    // As in `overlap`: a shared parent composes its world matrix once for the whole loop.
+    let pass: GameObject['scene'];
+    try {
+      for (const proxy of this.proxies) {
+        if (!this.alive(proxy) || !(proxy.collider.category & mask)) continue;
+        if (!pass) pass = this.openMatrixPass(proxy.owner);
+        if (epoch === 0) proxy.refresh();
+        else refreshInSnapshot(proxy, epoch);
+        const distance = rayDistance(
+          proxy.geometry,
+          origin.x,
+          origin.y,
+          dx,
+          dy,
+          maxDistance,
+          this.queryNormal,
+        );
+        if (distance !== undefined)
+          results.push({
+            owner: proxy.owner,
+            collider: proxy.collider,
+            distance,
+            point: new Vector2(
+              origin.x + dx * distance,
+              origin.y + dy * distance,
+            ),
+            normal: this.queryNormal.clone(),
+          });
+      }
+    } finally {
+      pass?.endMatrixPass();
     }
     results.sort((a, b) => a.distance - b.distance);
     return results;

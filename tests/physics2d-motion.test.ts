@@ -140,6 +140,12 @@ describe('2D rigid kinematic and conservative continuous motion', () => {
     ).toBe(true);
     map.position.x = 50;
     expect(tile.updateWorldMatrix().elements[6]).toBe(50);
+    expect(
+      scene.physics.raycast(new Vector2(40, 0), new Vector2(1, 0), 20)[0]!
+        .distance,
+    ).toBe(9);
+    map.position.x = 60;
+    expect(tile.updateWorldMatrix().elements[6]).toBe(60);
     scene.destroy();
   });
   it('integrates prescribed kinematic translation/rotation without gravity, force, or impulse response', () => {

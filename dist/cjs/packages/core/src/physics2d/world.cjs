@@ -704,18 +704,22 @@ var PhysicsWorld2D = class {
 	raycast(t, n, r, i = 4294967295) {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		if (require_collider.finite(t.x, `origin.x`), require_collider.finite(t.y, `origin.y`), require_collider.finite(n.x, `direction.x`), require_collider.finite(n.y, `direction.y`), require_collider.finite(r, `maxDistance`), require_collider.unsigned(i, `mask`), r < 0) throw RangeError(`maxDistance must be nonnegative.`);
-		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [], p = this.queryRefreshEpoch;
-		for (let n of this.proxies) {
-			if (!this.alive(n) || !(n.collider.category & i)) continue;
-			p === 0 ? n.refresh() : refreshInSnapshot(n, p);
-			let a = require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
-			a !== void 0 && d.push({
-				owner: n.owner,
-				collider: n.collider,
-				distance: a,
-				point: new require_index.Vector2(t.x + c * a, t.y + u * a),
-				normal: this.queryNormal.clone()
-			});
+		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [], p = this.queryRefreshEpoch, m;
+		try {
+			for (let n of this.proxies) {
+				if (!this.alive(n) || !(n.collider.category & i)) continue;
+				m ||= this.openMatrixPass(n.owner), p === 0 ? n.refresh() : refreshInSnapshot(n, p);
+				let a = require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
+				a !== void 0 && d.push({
+					owner: n.owner,
+					collider: n.collider,
+					distance: a,
+					point: new require_index.Vector2(t.x + c * a, t.y + u * a),
+					normal: this.queryNormal.clone()
+				});
+			}
+		} finally {
+			m?.endMatrixPass();
 		}
 		return d.sort((e, t) => e.distance - t.distance), d;
 	}
