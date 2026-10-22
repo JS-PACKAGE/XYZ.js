@@ -235,6 +235,9 @@ const kinds: ProceduralMaterialKind[] = [
   'bedsheet',
   'pillow',
   'mattress',
+  'tealeaf',
+  'matcha',
+  'teabag',
   'basketball',
   'tennisball',
   'golfball',
@@ -5016,6 +5019,9 @@ describe('periodic procedural material fields', () => {
     ['bedsheet', [4, 32, 48, 64]],
     ['pillow', [2, 5, 32, 64]],
     ['mattress', [4, 32, 48, 64]],
+    ['tealeaf', [6, 12, 32, 64]],
+    ['matcha', [5, 32, 48, 64]],
+    ['teabag', [24, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5257,6 +5263,9 @@ describe('periodic procedural material fields', () => {
     ['bedsheet', 4],
     ['pillow', 2],
     ['mattress', 4],
+    ['tealeaf', 6],
+    ['matcha', 5],
+    ['teabag', 24],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6652,6 +6661,9 @@ describe('periodic procedural material fields', () => {
     'bedsheet',
     'pillow',
     'mattress',
+    'tealeaf',
+    'matcha',
+    'teabag',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6757,7 +6769,16 @@ describe('periodic procedural material fields', () => {
                                                                                 : kind ===
                                                                                     'mattress'
                                                                                   ? 4
-                                                                                  : 4;
+                                                                                  : kind ===
+                                                                                      'tealeaf'
+                                                                                    ? 6
+                                                                                    : kind ===
+                                                                                        'matcha'
+                                                                                      ? 5
+                                                                                      : kind ===
+                                                                                          'teabag'
+                                                                                        ? 24
+                                                                                        : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10313,6 +10334,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the wrinkles and the base from cavity shading rather than
       // pinning warp-shifted coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('matcha combs whisk streaks above the powder bed', () => {
+    const relief = proceduralMaterialPresets.matcha.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('matcha', seed);
+      sample(0.05, 0.05, crest);
+      sample(0.1, 0.1, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('tea bag threads its filter mesh over the open pores', () => {
+    const relief = proceduralMaterialPresets.teabag.relief;
+    const crossing: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pore = { ...crossing };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('teabag', seed);
+      sample(1 / 48, 1 / 48, crossing);
+      sample(0, 0, pore);
+      expect(crossing.height).toBeGreaterThan(pore.height + 0.1 * relief);
+      expect(crossing.occlusion).toBeGreaterThan(pore.occlusion);
+    }
+  });
+
+  it('tea leaf piles curled pieces above the shaded gaps', () => {
+    const relief = proceduralMaterialPresets.tealeaf.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tealeaf', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the leaves and gaps from cavity shading rather than pinning
+      // seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

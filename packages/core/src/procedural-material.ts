@@ -217,6 +217,9 @@ export type ProceduralMaterialKind =
   | 'bedsheet'
   | 'pillow'
   | 'mattress'
+  | 'tealeaf'
+  | 'matcha'
+  | 'teabag'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -516,6 +519,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bedsheet',
   'pillow',
   'mattress',
+  'tealeaf',
+  'matcha',
+  'teabag',
   'basketball',
   'tennisball',
   'golfball',

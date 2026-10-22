@@ -7941,6 +7941,49 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.42 * tuft;
         break;
       }
+      case 'tealeaf': {
+        // Curled leaf pieces pile over the shaded gaps of the heap.
+        const leaf = smooth(
+          clamp((noise(u, v, 6, 6, seed ^ 0x79bb) - 0.48) / 0.14),
+        );
+        const curl = smooth(
+          clamp((noise(u, v, 14, 14, seed ^ 0x8acc) - 0.62) / 0.1),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x9bdd);
+        color = 0.42 + 0.3 * leaf + 0.12 * curl + 0.06 * grain;
+        height = 0.44 + 0.22 * leaf + 0.08 * curl + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * leaf;
+        occlusion = 1 - 0.36 * (1 - leaf) - 0.1 * (1 - curl);
+        break;
+      }
+      case 'matcha': {
+        // Whisk streaks comb across the fine powder bed.
+        const turn = fract((u + v) * 5);
+        const streak = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+        const powder = noise(u, v, 32, 32, seed ^ 0xaeee);
+        color = 0.46 + 0.3 * streak + 0.08 * powder;
+        height = 0.46 + 0.2 * streak + 0.02 * powder;
+        roughness += 0.06 * (powder - 0.5) - 0.08 * streak;
+        occlusion = 1 - 0.3 * (1 - streak);
+        break;
+      }
+      case 'teabag': {
+        // Filter-paper mesh threads cross over the open pores and tea shadows.
+        const warp = smooth(
+          clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
+        );
+        const weft = smooth(
+          clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
+        );
+        const thread = warp + weft - warp * weft;
+        const shadow = noise(u, v, 6, 6, seed ^ 0xbfff);
+        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+        color = 0.46 + 0.28 * thread + 0.1 * shadow + 0.06 * grain;
+        height = 0.46 + 0.2 * thread + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * thread;
+        occlusion = 1 - 0.34 * (1 - thread);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

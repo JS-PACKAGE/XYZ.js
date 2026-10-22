@@ -1266,6 +1266,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.86;
         relief: 0.003;
     }>;
+    tealeaf: Readonly<{
+        dark: readonly [42, 62, 32];
+        light: readonly [122, 152, 72];
+        roughness: 0.72;
+        relief: 0.003;
+    }>;
+    matcha: Readonly<{
+        dark: readonly [82, 108, 42];
+        light: readonly [182, 212, 112];
+        roughness: 0.88;
+        relief: 0.002;
+    }>;
+    teabag: Readonly<{
+        dark: readonly [122, 102, 72];
+        light: readonly [232, 218, 182];
+        roughness: 0.82;
+        relief: 0.0022;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1876,6 +1894,9 @@ export declare const proceduralTileMeters: Readonly<{
     bedsheet: 0.24;
     pillow: 0.3;
     mattress: 0.36;
+    tealeaf: 0.12;
+    matcha: 0.18;
+    teabag: 0.08;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

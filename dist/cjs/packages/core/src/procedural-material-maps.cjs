@@ -2217,6 +2217,21 @@ function createSurfaceSampler(t, r) {
 				H = .46 + .3 * (1 - n) * .4 + .1 * i, Z = .46 + .12 * i - .2 * n, Q += .06 * (i - .5), $ = 1 - .42 * n;
 				break;
 			}
+			case `tealeaf`: {
+				let e = smooth(clamp((noise(o, A, 6, 6, r ^ 31163) - .48) / .14)), t = smooth(clamp((noise(o, A, 14, 14, r ^ 35532) - .62) / .1)), n = noise(o, A, 32, 32, r ^ 39901);
+				H = .42 + .3 * e + .12 * t + .06 * n, Z = .44 + .22 * e + .08 * t + .02 * n, Q += .06 * (n - .5) - .08 * e, $ = 1 - .36 * (1 - e) - .1 * (1 - t);
+				break;
+			}
+			case `matcha`: {
+				let e = fract((o + A) * 5), t = .5 + .5 * Math.cos(Math.PI * 2 * (e - .5)), n = noise(o, A, 32, 32, r ^ 44782);
+				H = .46 + .3 * t + .08 * n, Z = .46 + .2 * t + .02 * n, Q += .06 * (n - .5) - .08 * t, $ = 1 - .3 * (1 - t);
+				break;
+			}
+			case `teabag`: {
+				let e = smooth(clamp((.12 - Math.abs(fract(o * 24) - .5)) / .06)), t = smooth(clamp((.12 - Math.abs(fract(A * 24) - .5)) / .06)), n = e + t - e * t, i = noise(o, A, 6, 6, r ^ 49151), a = noise(o, A, 32, 32, r ^ 49425);
+				H = .46 + .28 * n + .1 * i + .06 * a, Z = .46 + .2 * n + .02 * a, Q += .06 * (a - .5) - .1 * n, $ = 1 - .34 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {
