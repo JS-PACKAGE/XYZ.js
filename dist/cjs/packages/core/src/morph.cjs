@@ -96,26 +96,45 @@ var MorphTargets = class {
 		}
 		return !0;
 	}
-	accumulate(e, t, a, o, s) {
-		let c = 0;
-		for (let l = 0; l < a.length; l++) {
-			let u = a[l];
-			if (u !== 0) for (let a = 0; a < 3; a++) {
-				let d = a === 0 ? this.positions[l] : a === 1 ? this.normals[l] : this.tangents[l];
-				if (!d) continue;
-				let f = a === 2 ? t : e;
-				if (!f) continue;
-				a === 1 ? c |= n : a === 2 && (c |= r);
-				let p = a === 2 ? 4 : 8, m = a === 1 ? 3 : 0, h = s ? this.touched[a][l] : void 0, g = h ? h.length : o;
-				for (let e = 0; e < g; e++) {
-					let t = h ? h[e] : e, n = t * p + m, r = t * 3;
-					f[n] += u * d[r], f[n + 1] += u * d[r + 1], f[n + 2] += u * d[r + 2], s && (isNegativeZero(f[n]) || isNegativeZero(f[n + 1]) || isNegativeZero(f[n + 2])) && (c |= i);
+	accumulate(e, t, i, a, o) {
+		let s = 0, c = this.touched;
+		for (let l = 0; l < i.length; l++) {
+			let u = i[l];
+			if (u === 0) continue;
+			let d = this.positions[l], f = this.normals[l], p = this.tangents[l];
+			if (d) {
+				if (o) s |= addDelta(e, 8, 0, u, d, c[0][l], a);
+				else for (let t = 0; t < a; t++) {
+					let n = t * 8, r = t * 3;
+					e[n] += u * d[r], e[n + 1] += u * d[r + 1], e[n + 2] += u * d[r + 2];
+				}
+			}
+			if (f) {
+				if (s |= n, o) s |= addDelta(e, 8, 3, u, f, c[1][l], a);
+				else for (let t = 0; t < a; t++) {
+					let n = t * 8 + 3, r = t * 3;
+					e[n] += u * f[r], e[n + 1] += u * f[r + 1], e[n + 2] += u * f[r + 2];
+				}
+			}
+			if (p && t) {
+				if (s |= r, o) s |= addDelta(t, 4, 0, u, p, c[2][l], a);
+				else for (let e = 0; e < a; e++) {
+					let n = e * 4, r = e * 3;
+					t[n] += u * p[r], t[n + 1] += u * p[r + 1], t[n + 2] += u * p[r + 2];
 				}
 			}
 		}
-		return c;
+		return s;
 	}
 };
+function addDelta(e, t, n, r, a, o, s) {
+	let c = 0, l = o ? o.length : s;
+	for (let s = 0; s < l; s++) {
+		let l = o ? o[s] : s, u = l * t + n, d = l * 3;
+		e[u] += r * a[d], e[u + 1] += r * a[d + 1], e[u + 2] += r * a[d + 2], (isNegativeZero(e[u]) || isNegativeZero(e[u + 1]) || isNegativeZero(e[u + 2])) && (c = i);
+	}
+	return c;
+}
 var n = 1;
 var r = 2;
 var i = 4;

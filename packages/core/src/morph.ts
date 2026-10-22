@@ -243,44 +243,96 @@ export class MorphTargets {
     sparse: boolean,
   ): number {
     let flags = 0;
+    const touched = this.touched;
     for (let t = 0; t < weights.length; t++) {
       const weight = weights[t]!;
       if (weight === 0) continue;
-      for (let channel = 0; channel < 3; channel++) {
-        const delta =
-          channel === 0
-            ? this.positions[t]
-            : channel === 1
-              ? this.normals[t]
-              : this.tangents[t];
-        if (!delta) continue;
-        const target = channel === 2 ? tangents : out;
-        if (!target) continue;
-        if (channel === 1) flags |= NORMALS_MOVED;
-        else if (channel === 2) flags |= TANGENTS_MOVED;
-        const stride = channel === 2 ? 4 : 8,
-          first = channel === 1 ? 3 : 0,
-          list = sparse ? this.touched[channel]![t] : undefined,
-          count = list ? list.length : vertexCount;
-        for (let k = 0; k < count; k++) {
-          const v = list ? list[k]! : k,
-            o = v * stride + first,
-            d = v * 3;
-          target[o] += weight * delta[d]!;
-          target[o + 1] += weight * delta[d + 1]!;
-          target[o + 2] += weight * delta[d + 2]!;
-          if (
-            sparse &&
-            (isNegativeZero(target[o]!) ||
-              isNegativeZero(target[o + 1]!) ||
-              isNegativeZero(target[o + 2]!))
-          )
-            flags |= NEGATIVE_ZERO;
-        }
+      const p = this.positions[t],
+        n = this.normals[t],
+        tangent = this.tangents[t];
+      // Dense morphs keep the literal-stride loops, which V8 compiles tighter than addDelta.
+      if (p) {
+        if (sparse)
+          flags |= addDelta(out, 8, 0, weight, p, touched[0]![t], vertexCount);
+        else
+          for (let v = 0; v < vertexCount; v++) {
+            const o = v * 8,
+              d = v * 3;
+            out[o] += weight * p[d]!;
+            out[o + 1] += weight * p[d + 1]!;
+            out[o + 2] += weight * p[d + 2]!;
+          }
+      }
+      if (n) {
+        flags |= NORMALS_MOVED;
+        if (sparse)
+          flags |= addDelta(out, 8, 3, weight, n, touched[1]![t], vertexCount);
+        else
+          for (let v = 0; v < vertexCount; v++) {
+            const o = v * 8 + 3,
+              d = v * 3;
+            out[o] += weight * n[d]!;
+            out[o + 1] += weight * n[d + 1]!;
+            out[o + 2] += weight * n[d + 2]!;
+          }
+      }
+      if (tangent && tangents) {
+        flags |= TANGENTS_MOVED;
+        if (sparse)
+          flags |= addDelta(
+            tangents,
+            4,
+            0,
+            weight,
+            tangent,
+            touched[2]![t],
+            vertexCount,
+          );
+        else
+          for (let v = 0; v < vertexCount; v++) {
+            const o = v * 4,
+              d = v * 3;
+            tangents[o] += weight * tangent[d]!;
+            tangents[o + 1] += weight * tangent[d + 1]!;
+            tangents[o + 2] += weight * tangent[d + 2]!;
+          }
       }
     }
     return flags;
   }
+}
+
+/**
+ * Sparse-mode accumulation: adds `weight * delta` to the xyz at `first` of each
+ * `stride`-sized record, the listed vertices or (unlisted delta) all of them, and reports
+ * NEGATIVE_ZERO when any stored value is -0.
+ */
+function addDelta(
+  target: Float32Array,
+  stride: number,
+  first: number,
+  weight: number,
+  delta: Float32Array,
+  list: Uint32Array | undefined,
+  vertexCount: number,
+): number {
+  let flags = 0;
+  const count = list ? list.length : vertexCount;
+  for (let k = 0; k < count; k++) {
+    const v = list ? list[k]! : k,
+      o = v * stride + first,
+      d = v * 3;
+    target[o] += weight * delta[d]!;
+    target[o + 1] += weight * delta[d + 1]!;
+    target[o + 2] += weight * delta[d + 2]!;
+    if (
+      isNegativeZero(target[o]!) ||
+      isNegativeZero(target[o + 1]!) ||
+      isNegativeZero(target[o + 2]!)
+    )
+      flags = NEGATIVE_ZERO;
+  }
+  return flags;
 }
 
 const NORMALS_MOVED = 1,
