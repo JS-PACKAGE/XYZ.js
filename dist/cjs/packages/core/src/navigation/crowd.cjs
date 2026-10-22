@@ -2,6 +2,7 @@ const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_collider = require("../physics3d/collider.cjs");
+const require_mover_sequence = require("../mover-sequence.cjs");
 const require_crowd = require("../../../../src/data/crowd.cjs");
 //#region dist/packages/core/src/navigation/crowd.js
 function positive(e, t, n = 1 / 0) {
@@ -136,16 +137,17 @@ var CrowdSolver = class {
 				let n = !1;
 				for (let e of this.ordered) e.state === `budget-exceeded` && (n = !0);
 				if (n) for (let e of this.ordered) e.next.set(0, 0, 0), e.state = `budget-exceeded`;
-				this.movementOptions.epoch = t;
-				for (let t of this.ordered) {
-					this.displacement.set(t.next.x * e, t.state === `budget-exceeded` || t.state === `blocked` ? 0 : t.preferred.y * e, t.next.z * e);
-					let n = t.controller3D ? t.controller3D.move(this.displacement, this.movementOptions) : t.controller2D.move(this.displacement2D.set(this.displacement.x, this.displacement.z), this.movementOptions);
-					t.velocity.set(n.locomotionDisplacement.x / e, 0, t.controller3D ? n.locomotionDisplacement.z / e : n.locomotionDisplacement.y / e), (n.blocked || n.unresolvedPenetration) && (t.state = `blocked`);
-				}
-				this.epoch = t;
+				this.movementOptions.epoch = t, require_mover_sequence.runMoverSequence(() => this.moveAgents(e)), this.epoch = t;
 			} finally {
 				this.updating = !1, this.neighbors.length = 0;
 			}
+		}
+	}
+	moveAgents(e) {
+		for (let t of this.ordered) {
+			this.displacement.set(t.next.x * e, t.state === `budget-exceeded` || t.state === `blocked` ? 0 : t.preferred.y * e, t.next.z * e);
+			let n = t.controller3D ? t.controller3D.move(this.displacement, this.movementOptions) : t.controller2D.move(this.displacement2D.set(this.displacement.x, this.displacement.z), this.movementOptions);
+			t.velocity.set(n.locomotionDisplacement.x / e, 0, t.controller3D ? n.locomotionDisplacement.z / e : n.locomotionDisplacement.y / e), (n.blocked || n.unresolvedPenetration) && (t.state = `blocked`);
 		}
 	}
 	insertDisc(e) {

@@ -130,6 +130,8 @@ export declare class PhysicsWorld2D {
     private snapshotBlockKnown;
     private snapshotBoundsEpoch;
     private snapshotBoundsLiveness;
+    /** Mover sequence the known bounds were recorded in; 0 outside one. */
+    private snapshotBoundsSequence;
     private readonly queryMotions;
     private continuation;
     private accumulator;
@@ -168,7 +170,8 @@ export declare class PhysicsWorld2D {
     /**
      * The known-bounds flags for a moving snapshot `epoch`, else undefined. Inside one, no user
      * code runs, so `proxyList` keeps its order and a refreshed proxy that is not moving keeps
-     * its bounds.
+     * its bounds. A mover sequence extends that across its snapshots; `markMoving` forgets
+     * each new mover's bounds.
      */
     private knownBounds;
     /** A matrix pass on `owner`'s Scene for a query loop, or undefined when one is open. */

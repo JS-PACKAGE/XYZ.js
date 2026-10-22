@@ -15,6 +15,8 @@ import {
 import { GameObject } from '../packages/core/src/game-object.js';
 import { Colliders } from '../packages/core/src/physics2d/index.js';
 import { CharacterController2D } from '../packages/core/src/physics2d/character.js';
+import { Vector2 } from '../packages/math/src/index.js';
+import { runMoverSequence } from '../packages/core/src/mover-sequence.js';
 import {
   SteeringWander3D,
   steeringSeek,
@@ -209,6 +211,45 @@ describe('bounded reciprocal crowd and steering', () => {
       controller.destroy();
       scene.destroy();
     }
+  });
+  it('keeps later 2D movers of one sequence colliding with poses earlier movers reached', () => {
+    const run = (sequence: boolean): number[] => {
+      const scene = new Scene();
+      const make = (x: number, y: number) => {
+        const object = new GameObject();
+        object.collider = Colliders.circle(0.25);
+        object.position.set(x, y);
+        scene.add(object);
+        return new CharacterController2D(object, scene.physics, {
+          groundSnap: 0,
+          stepHeight: 0,
+        });
+      };
+      const first = make(-3, 0),
+        mover = make(0, 2),
+        blocked = make(2, 0);
+      const moves = () => {
+        // The first snapshot records every collider's bounds, including the next mover's.
+        first.move(new Vector2(0.01, 0));
+        mover.move(new Vector2(0, -2));
+        return blocked.move(new Vector2(-2, 0)).blocked;
+      };
+      try {
+        const stopped = sequence ? runMoverSequence(moves) : moves();
+        return [
+          blocked.object.position.x,
+          blocked.object.position.y,
+          stopped ? 1 : 0,
+        ];
+      } finally {
+        for (const controller of [first, mover, blocked]) controller.destroy();
+        scene.destroy();
+      }
+    };
+    const sequenced = run(true);
+    expect(sequenced).toEqual(run(false));
+    // Stopped against the mover's new pose at the origin, not its stale one.
+    expect(sequenced[0]).toBeGreaterThan(0.45);
   });
   it('fails closed on neighbor overflow, ignores repeated epochs and releases borrowed controllers', () => {
     const scene = new CrowdSmokeScene();

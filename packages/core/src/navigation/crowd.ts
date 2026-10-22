@@ -6,6 +6,7 @@ import type { CharacterController2D } from '../physics2d/character.js';
 import type { PathFollower3D } from './follower.js';
 import { CapsuleCollider3D } from '../physics3d/collider.js';
 import { hypot2, hypot3 } from '../../../math/src/hypot.js';
+import { runMoverSequence } from '../mover-sequence.js';
 
 export interface CrowdOptions {
   maxAgents?: number;
@@ -346,35 +347,40 @@ export class CrowdSolver {
           agent.state = 'budget-exceeded';
         }
       this.movementOptions.epoch = epoch;
-      for (const agent of this.ordered) {
-        this.displacement.set(
-          agent.next.x * deltaSeconds,
-          agent.state === 'budget-exceeded' || agent.state === 'blocked'
-            ? 0
-            : agent.preferred.y * deltaSeconds,
-          agent.next.z * deltaSeconds,
-        );
-        const result = agent.controller3D
-          ? agent.controller3D.move(this.displacement, this.movementOptions)
-          : agent.controller2D!.move(
-              this.displacement2D.set(this.displacement.x, this.displacement.z),
-              this.movementOptions,
-            );
-        agent.velocity.set(
-          result.locomotionDisplacement.x / deltaSeconds,
-          0,
-          agent.controller3D
-            ? (result.locomotionDisplacement as Vector3).z / deltaSeconds
-            : result.locomotionDisplacement.y / deltaSeconds,
-        );
-        if (result.blocked || result.unresolvedPenetration)
-          agent.state = 'blocked';
-      }
+      // No user code runs between these moves, and each moves only its own character.
+      runMoverSequence(() => this.moveAgents(deltaSeconds));
       this.epoch = epoch;
     } finally {
       this.updating = false;
       // Drop the last neighborhoods so removed agents are not kept alive between updates.
       this.neighbors.length = 0;
+    }
+  }
+
+  private moveAgents(deltaSeconds: number): void {
+    for (const agent of this.ordered) {
+      this.displacement.set(
+        agent.next.x * deltaSeconds,
+        agent.state === 'budget-exceeded' || agent.state === 'blocked'
+          ? 0
+          : agent.preferred.y * deltaSeconds,
+        agent.next.z * deltaSeconds,
+      );
+      const result = agent.controller3D
+        ? agent.controller3D.move(this.displacement, this.movementOptions)
+        : agent.controller2D!.move(
+            this.displacement2D.set(this.displacement.x, this.displacement.z),
+            this.movementOptions,
+          );
+      agent.velocity.set(
+        result.locomotionDisplacement.x / deltaSeconds,
+        0,
+        agent.controller3D
+          ? (result.locomotionDisplacement as Vector3).z / deltaSeconds
+          : result.locomotionDisplacement.y / deltaSeconds,
+      );
+      if (result.blocked || result.unresolvedPenetration)
+        agent.state = 'blocked';
     }
   }
 

@@ -60,6 +60,7 @@ export declare class CrowdSolver {
     private register;
     addObstacle(id: number, center: Readonly<Vector3>, radius: number): () => void;
     update(deltaSeconds: number, epoch: number): void;
+    private moveAgents;
     private insertDisc;
     private solve;
     private candidate;

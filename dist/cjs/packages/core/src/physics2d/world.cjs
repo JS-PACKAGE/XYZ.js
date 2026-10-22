@@ -8,6 +8,7 @@ const require_game_object = require("../game-object.cjs");
 const require_narrowphase = require("./narrowphase.cjs");
 const require_ccd = require("./ccd.cjs");
 const require_physics_force = require("../physics-force.cjs");
+const require_mover_sequence = require("../mover-sequence.cjs");
 //#region dist/packages/core/src/physics2d/world.js
 var Proxy = class {
 	owner;
@@ -32,6 +33,7 @@ var Proxy = class {
 	group;
 	queryEpoch = 0;
 	movingEpoch = 0;
+	listIndex = -1;
 	observedGeometry = -1;
 	observedCategory = NaN;
 	observedMask = NaN;
@@ -93,9 +95,9 @@ function sortSweepOrder(e) {
 	}
 }
 var continueSimulation = () => !0;
-var _ = require_game_object.GameObject.prototype.dispatchEvent;
-var v = require_scene_object.SceneObject.prototype;
-var y = v.dispatchEvent;
+var v = require_game_object.GameObject.prototype.dispatchEvent;
+var y = require_scene_object.SceneObject.prototype;
+var b = y.dispatchEvent;
 function snapshotPoints(e) {
 	let t = Array(e.count);
 	for (let n = 0; n < e.count; n++) t[n] = e.points[n].clone();
@@ -141,6 +143,7 @@ var PhysicsWorld2D = class {
 	snapshotBlockKnown = /* @__PURE__ */ new Uint8Array();
 	snapshotBoundsEpoch = 0;
 	snapshotBoundsLiveness = -1;
+	snapshotBoundsSequence = 0;
 	queryMotions = /* @__PURE__ */ new WeakMap();
 	continuation = continueSimulation;
 	accumulator = 0;
@@ -170,7 +173,8 @@ var PhysicsWorld2D = class {
 			return e();
 		}
 		if (t) {
-			this.markMoving(t, this.moverEpoch = ++this.moverEpochs);
+			let n = require_mover_sequence.activeMoverSequence() !== 0 && this.snapshotBoundsSequence === require_mover_sequence.activeMoverSequence() && this.snapshotBoundsLiveness === this.liveness && this.proxyListLiveness === this.liveness;
+			this.markMoving(t, this.moverEpoch = ++this.moverEpochs, n);
 			try {
 				return e();
 			} finally {
@@ -184,10 +188,14 @@ var PhysicsWorld2D = class {
 			this.poseSnapshot = !1;
 		}
 	}
-	markMoving(e, t) {
-		let n = this.owners.get(e);
-		if (n) for (let e of n.group) e.movingEpoch = t;
-		for (let n of e.children) this.markMoving(n, t);
+	markMoving(e, t, n) {
+		let r = this.owners.get(e);
+		if (r) for (let e of r.group) {
+			e.movingEpoch = t;
+			let r = e.listIndex;
+			n && this.snapshotKnown[r] && (this.snapshotKnown[r] = 0, this.snapshotBlockKnown[r >> 5]--);
+		}
+		for (let r of e.children) this.markMoving(r, t, n);
 	}
 	get queryRefreshEpoch() {
 		return this.poseSnapshot ? -1 : this.moverEpoch;
@@ -195,18 +203,18 @@ var PhysicsWorld2D = class {
 	orderedProxies() {
 		if (this.proxyListLiveness !== this.liveness) {
 			let e = this.proxyList, t = 0;
-			for (let n of this.proxies) e[t++] = n;
+			for (let n of this.proxies) n.listIndex = t, e[t++] = n;
 			e.length = t, this.proxyListLiveness = this.liveness;
 		}
 		return this.proxyList;
 	}
 	knownBounds(e, t) {
 		if (!(e <= 0)) {
-			if (this.snapshotBoundsEpoch !== e || this.snapshotBoundsLiveness !== this.liveness) {
-				let n = t + 32 - 1 >> 5;
-				this.snapshotKnown.length < t ? (this.snapshotKnown = new Uint8Array(t * 2), this.snapshotBounds = new Float64Array(t * 8), this.snapshotBlockKnown = new Uint8Array(n * 2), this.snapshotBlockBounds = new Float64Array(n * 8)) : (this.snapshotKnown.fill(0, 0, t), this.snapshotBlockKnown.fill(0, 0, n)), this.snapshotBoundsEpoch = e, this.snapshotBoundsLiveness = this.liveness;
+			if (this.snapshotBoundsLiveness !== this.liveness || this.snapshotBoundsEpoch !== e && (require_mover_sequence.activeMoverSequence() === 0 || this.snapshotBoundsSequence !== require_mover_sequence.activeMoverSequence())) {
+				let e = t + 32 - 1 >> 5;
+				this.snapshotKnown.length < t ? (this.snapshotKnown = new Uint8Array(t * 2), this.snapshotBounds = new Float64Array(t * 8), this.snapshotBlockKnown = new Uint8Array(e * 2), this.snapshotBlockBounds = new Float64Array(e * 8)) : (this.snapshotKnown.fill(0, 0, t), this.snapshotBlockKnown.fill(0, 0, e)), this.snapshotBoundsLiveness = this.liveness, this.snapshotBoundsSequence = require_mover_sequence.activeMoverSequence();
 			}
-			return this.snapshotKnown;
+			return this.snapshotBoundsEpoch = e, this.snapshotKnown;
 		}
 	}
 	openMatrixPass(e) {
@@ -317,7 +325,7 @@ var PhysicsWorld2D = class {
 		let n = !1;
 		for (let i = 0; i < 2; i++) {
 			let a = i ? e.b : e.a, o = i ? e.a : e.b;
-			if (a.owner.dispatchEvent !== _ || v.dispatchEvent !== y || require_event_observers.hasObjectEventObservers(a.owner, t)) {
+			if (a.owner.dispatchEvent !== v || y.dispatchEvent !== b || require_event_observers.hasObjectEventObservers(a.owner, t)) {
 				if (t !== `collisionend` && !this.continuation()) return n;
 				this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && (n = !0, this.dispatchCollision(e, t, a, o, i ? -1 : 1));
 			}

@@ -20,6 +20,7 @@ import { ContinuousCollision2D, ShapeMotion2D } from './ccd.js';
 import type { Joint2D } from './joints.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
 import { hypot2 } from '../../../math/src/hypot.js';
+import { activeMoverSequence } from '../mover-sequence.js';
 
 export interface CollisionDetail {
   readonly self: GameObject;
@@ -123,6 +124,8 @@ class Proxy {
   queryEpoch = 0;
   /** Mover snapshot whose mover owns this proxy directly or through an ancestor. */
   movingEpoch = 0;
+  /** Position in the world's `proxyList` while that list is current. */
+  listIndex = -1;
   private observedGeometry = -1;
   /** int32 `filterBits`, which never equal NaN: the first check always reports a change. */
   private observedCategory = NaN;
@@ -309,6 +312,8 @@ export class PhysicsWorld2D {
   private snapshotBlockKnown = new Uint8Array(0);
   private snapshotBoundsEpoch = 0;
   private snapshotBoundsLiveness = -1;
+  /** Mover sequence the known bounds were recorded in; 0 outside one. */
+  private snapshotBoundsSequence = 0;
   private readonly queryMotions = new WeakMap<Collider2D, ShapeMotion2D>();
   private continuation: () => boolean = continueSimulation;
   private accumulator = 0;
@@ -354,7 +359,13 @@ export class PhysicsWorld2D {
       return run();
     }
     if (mover) {
-      this.markMoving(mover, (this.moverEpoch = ++this.moverEpochs));
+      // Within a mover sequence the known bounds carry over; only this mover's go stale.
+      const forget =
+        activeMoverSequence() !== 0 &&
+        this.snapshotBoundsSequence === activeMoverSequence() &&
+        this.snapshotBoundsLiveness === this.liveness &&
+        this.proxyListLiveness === this.liveness;
+      this.markMoving(mover, (this.moverEpoch = ++this.moverEpochs), forget);
       try {
         return run();
       } finally {
@@ -369,10 +380,19 @@ export class PhysicsWorld2D {
       this.poseSnapshot = false;
     }
   }
-  private markMoving(object: GameObject, epoch: number): void {
+  private markMoving(object: GameObject, epoch: number, forget: boolean): void {
     const proxy = this.owners.get(object);
-    if (proxy) for (const piece of proxy.group) piece.movingEpoch = epoch;
-    for (const child of object.children) this.markMoving(child, epoch);
+    if (proxy)
+      for (const piece of proxy.group) {
+        piece.movingEpoch = epoch;
+        const index = piece.listIndex;
+        if (forget && this.snapshotKnown[index]) {
+          this.snapshotKnown[index] = 0;
+          // The block's union keeps the old bounds: a superset only skips less.
+          this.snapshotBlockKnown[index >> snapshotBlockShift]!--;
+        }
+      }
+    for (const child of object.children) this.markMoving(child, epoch, forget);
   }
   /** -1: every pose is current; 0: refresh each queried proxy; else the mover epoch. */
   private get queryRefreshEpoch(): number {
@@ -382,7 +402,10 @@ export class PhysicsWorld2D {
     if (this.proxyListLiveness !== this.liveness) {
       const list = this.proxyList;
       let count = 0;
-      for (const proxy of this.proxies) list[count++] = proxy;
+      for (const proxy of this.proxies) {
+        proxy.listIndex = count;
+        list[count++] = proxy;
+      }
       list.length = count;
       this.proxyListLiveness = this.liveness;
     }
@@ -391,13 +414,16 @@ export class PhysicsWorld2D {
   /**
    * The known-bounds flags for a moving snapshot `epoch`, else undefined. Inside one, no user
    * code runs, so `proxyList` keeps its order and a refreshed proxy that is not moving keeps
-   * its bounds.
+   * its bounds. A mover sequence extends that across its snapshots; `markMoving` forgets
+   * each new mover's bounds.
    */
   private knownBounds(epoch: number, count: number): Uint8Array | undefined {
     if (epoch <= 0) return undefined;
     if (
-      this.snapshotBoundsEpoch !== epoch ||
-      this.snapshotBoundsLiveness !== this.liveness
+      this.snapshotBoundsLiveness !== this.liveness ||
+      (this.snapshotBoundsEpoch !== epoch &&
+        (activeMoverSequence() === 0 ||
+          this.snapshotBoundsSequence !== activeMoverSequence()))
     ) {
       const blocks = (count + snapshotBlock - 1) >> snapshotBlockShift;
       if (this.snapshotKnown.length < count) {
@@ -409,9 +435,10 @@ export class PhysicsWorld2D {
         this.snapshotKnown.fill(0, 0, count);
         this.snapshotBlockKnown.fill(0, 0, blocks);
       }
-      this.snapshotBoundsEpoch = epoch;
       this.snapshotBoundsLiveness = this.liveness;
+      this.snapshotBoundsSequence = activeMoverSequence();
     }
+    this.snapshotBoundsEpoch = epoch;
     return this.snapshotKnown;
   }
   /** A matrix pass on `owner`'s Scene for a query loop, or undefined when one is open. */
