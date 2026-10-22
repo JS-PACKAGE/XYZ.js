@@ -9,6 +9,10 @@ const require_physics_presentation = require("./physics-presentation.cjs");
 //#region dist/packages/core/src/game-object.js
 var d = new require_index.Matrix3();
 var f = new require_index.Vector2();
+function composeInto(e, t, n) {
+	let r = e.elements, i = t.elements, a = n.elements, o = i[0], s = i[1], c = i[3], l = i[4], u = i[6], d = i[7], f = a[0], p = a[1], m = a[3], h = a[4], g = a[6], _ = a[7];
+	r[0] = o * f + c * p, r[1] = s * f + l * p, r[2] = i[2], r[3] = o * m + c * h, r[4] = s * m + l * h, r[5] = i[5], r[6] = o * g + c * _ + u, r[7] = s * g + l * _ + d, r[8] = i[8];
+}
 var GameObject = class GameObject extends require_scene_object.SceneObject {
 	transform = new require_index.Transform2D();
 	worldMatrix = new require_index.Matrix3();
@@ -260,7 +264,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 			let t = Math.min(1, e.physics.interpolationAlpha + e.fixedInterpolationAlpha * e.fixedDelta / e.physics.fixedDelta);
 			r = this.physicsPresentation.matrix(this.transform, t);
 		} else r = this.transform.updateMatrix();
-		return n ? this.worldMatrix.copy(n).multiply(r) : this.worldMatrix.copy(r), t !== 0 && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && (this.matrixPass = t), this.worldMatrix;
+		return n ? composeInto(this.worldMatrix, n, r) : this.worldMatrix.copy(r), t !== 0 && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && (this.matrixPass = t), this.worldMatrix;
 	}
 	getLocalBounds(e = {
 		x: 0,

@@ -22,6 +22,37 @@ import { PhysicsPresentation2D } from './physics-presentation.js';
 const inverseScratch = new Matrix3();
 const pointScratch = new Vector2();
 
+/**
+ * `out.copy(parent).multiply(local)` in one pass: `multiply` leaves the last row alone, so
+ * that row is the parent's, and every product reads the parent's stored values.
+ */
+function composeInto(out: Matrix3, parent: Matrix3, local: Matrix3): void {
+  const e = out.elements,
+    a = parent.elements,
+    b = local.elements;
+  const a0 = a[0],
+    a1 = a[1],
+    a3 = a[3],
+    a4 = a[4],
+    a6 = a[6],
+    a7 = a[7];
+  const b0 = b[0],
+    b1 = b[1],
+    b3 = b[3],
+    b4 = b[4],
+    b6 = b[6],
+    b7 = b[7];
+  e[0] = a0 * b0 + a3 * b1;
+  e[1] = a1 * b0 + a4 * b1;
+  e[2] = a[2];
+  e[3] = a0 * b3 + a3 * b4;
+  e[4] = a1 * b3 + a4 * b4;
+  e[5] = a[5];
+  e[6] = a0 * b6 + a3 * b7 + a6;
+  e[7] = a1 * b6 + a4 * b7 + a7;
+  e[8] = a[8];
+}
+
 /** Public 2D facade; entities and component registration belong to Scene. */
 export class GameObject extends SceneObject {
   readonly transform = new Transform2D();
@@ -412,7 +443,7 @@ export class GameObject extends SceneObject {
       );
       localMatrix = this.physicsPresentation.matrix(this.transform, alpha);
     } else localMatrix = this.transform.updateMatrix();
-    if (parentMatrix) this.worldMatrix.copy(parentMatrix).multiply(localMatrix);
+    if (parentMatrix) composeInto(this.worldMatrix, parentMatrix, localMatrix);
     else this.worldMatrix.copy(localMatrix);
     // Overrides may adjust the returned matrix after super; reusing it would
     // apply their adjustment twice, so only the base composition is reused.
