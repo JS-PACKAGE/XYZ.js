@@ -123,7 +123,7 @@ class Proxy {
   /** Step token in which an existing contact of this piece became Y-separated. */
   separating = -1;
   readonly joints: Joint2D[] = [];
-  readonly motion: ShapeMotion2D;
+  private motionState: ShapeMotion2D | undefined;
   group!: readonly Proxy[];
   /** Mover snapshot in which a query last refreshed this proxy; see `refreshInSnapshot`. */
   queryEpoch = 0;
@@ -154,7 +154,10 @@ class Proxy {
     readonly body: RigidBody2D | undefined,
   ) {
     this.geometry = new ShapeGeometry(collider);
-    this.motion = new ShapeMotion2D(this.geometry);
+  }
+  /** Continuous-collision state, created on first use: most proxies never move or sweep. */
+  get motion(): ShapeMotion2D {
+    return (this.motionState ??= new ShapeMotion2D(this.geometry));
   }
   refresh(): void {
     if (this.owner.worldSpace !== 'world')

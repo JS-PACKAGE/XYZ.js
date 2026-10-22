@@ -29,7 +29,7 @@ var Proxy = class {
 	ccdUnproven = !1;
 	separating = -1;
 	joints = [];
-	motion;
+	motionState;
 	group;
 	queryEpoch = 0;
 	movingEpoch = 0;
@@ -43,7 +43,10 @@ var Proxy = class {
 		return this.observedGeometry = this.geometry.revision, this.observedCategory = this.collider.filterBits[0], this.observedMask = this.collider.filterBits[1], this.observedSensor = this.collider.sensor, e;
 	}
 	constructor(e, t, n) {
-		this.owner = e, this.collider = t, this.body = n, this.geometry = new require_collider.ShapeGeometry(t), this.motion = new require_ccd.ShapeMotion2D(this.geometry);
+		this.owner = e, this.collider = t, this.body = n, this.geometry = new require_collider.ShapeGeometry(t);
+	}
+	get motion() {
+		return this.motionState ??= new require_ccd.ShapeMotion2D(this.geometry);
 	}
 	refresh() {
 		if (this.owner.worldSpace !== `world`) throw Error(`Screen-space colliders are unsupported.`);
