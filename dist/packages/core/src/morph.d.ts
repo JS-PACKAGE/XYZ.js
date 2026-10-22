@@ -36,6 +36,13 @@ export declare class MorphTargets {
     private baseTangents?;
     private tangentOutput?;
     private applied;
+    /**
+     * Per stream (positions, normals, tangents) and target, the vertices whose delta is not
+     * zero, so accumulation skips the rest; undefined where the delta is absent or dense.
+     * Empty while `sparse` is false. See accumulate for when skipping is exact.
+     */
+    private readonly touched;
+    private sparse;
     constructor(data: MorphTargetData);
     get targetCount(): number;
     /** @internal Captures the undeformed vertices; called once by the owning Mesh. */
@@ -48,4 +55,10 @@ export declare class MorphTargets {
      * whether either stream changed.
      */
     apply(out: Float32Array): boolean;
+    /**
+     * Adds every weighted delta in target order. `sparse` walks only the touched vertices of
+     * listed deltas: skipping a zero delta matches adding it unless the value is -0, so the
+     * sparse pass reports any -0 it stores and the caller redoes the work densely.
+     */
+    private accumulate;
 }

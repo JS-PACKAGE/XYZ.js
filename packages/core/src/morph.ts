@@ -73,6 +73,13 @@ export class MorphTargets {
   private baseTangents?: Float32Array;
   private tangentOutput?: Float32Array;
   private applied = -1;
+  /**
+   * Per stream (positions, normals, tangents) and target, the vertices whose delta is not
+   * zero, so accumulation skips the rest; undefined where the delta is absent or dense.
+   * Empty while `sparse` is false. See accumulate for when skipping is exact.
+   */
+  private readonly touched: (Uint32Array | undefined)[][] = [[], [], []];
+  private sparse = false;
 
   constructor(data: MorphTargetData) {
     const count = data.weights.count;
@@ -119,6 +126,25 @@ export class MorphTargets {
     this.base = geometry.vertices.slice();
     this.baseTangents = geometry.tangents.slice();
     this.tangentOutput = geometry.tangents;
+    // Adding a zero delta changes a value only when it is -0 (-0 + 0 is +0); bases holding
+    // -0 therefore always accumulate densely, and accumulate checks for any later -0.
+    if (
+      !hasNegativeZero(this.base, 8, 6) &&
+      !hasNegativeZero(this.baseTangents, 4, 3)
+    )
+      for (let channel = 0; channel < 3; channel++) {
+        const deltas =
+          channel === 0
+            ? this.positions
+            : channel === 1
+              ? this.normals
+              : this.tangents;
+        for (let t = 0; t < deltas.length; t++) {
+          const list = nonzeroVertices(deltas[t], count);
+          this.touched[channel]![t] = list;
+          if (list) this.sparse = true;
+        }
+      }
   }
 
   /** @internal Retargets writes to the native skin bind stream without copying it per update. */
@@ -144,52 +170,21 @@ export class MorphTargets {
     this.applied = this.weights.version;
     const weights = this.weights.values;
     const vertexCount = base.length / 8;
-    for (let v = 0; v < vertexCount; v++) {
-      const o = v * 8;
-      for (let j = 0; j < 6; j++) out[o + j] = base[o + j];
-      if (tangents) {
-        const offset = v * 4;
-        for (let j = 0; j < 4; j++)
-          tangents[offset + j] = baseTangents[offset + j];
-      }
+    copyBase(base, baseTangents, out, tangents, vertexCount);
+    let moved = this.accumulate(
+      out,
+      tangents,
+      weights,
+      vertexCount,
+      this.sparse,
+    );
+    if (moved & NEGATIVE_ZERO) {
+      // A -0 appeared, which a skipped zero delta would have turned into +0: redo densely.
+      copyBase(base, baseTangents, out, tangents, vertexCount);
+      moved = this.accumulate(out, tangents, weights, vertexCount, false);
     }
-    let normalsMoved = false;
-    let tangentsMoved = false;
-    for (let t = 0; t < weights.length; t++) {
-      const weight = weights[t];
-      if (weight === 0) continue;
-      const p = this.positions[t],
-        n = this.normals[t],
-        tangent = this.tangents[t];
-      if (p)
-        for (let v = 0; v < vertexCount; v++) {
-          const o = v * 8,
-            d = v * 3;
-          out[o] += weight * p[d];
-          out[o + 1] += weight * p[d + 1];
-          out[o + 2] += weight * p[d + 2];
-        }
-      if (n) {
-        normalsMoved = true;
-        for (let v = 0; v < vertexCount; v++) {
-          const o = v * 8 + 3,
-            d = v * 3;
-          out[o] += weight * n[d];
-          out[o + 1] += weight * n[d + 1];
-          out[o + 2] += weight * n[d + 2];
-        }
-      }
-      if (tangent && tangents) {
-        tangentsMoved = true;
-        for (let v = 0; v < vertexCount; v++) {
-          const o = v * 4,
-            d = v * 3;
-          tangents[o] += weight * tangent[d];
-          tangents[o + 1] += weight * tangent[d + 1];
-          tangents[o + 2] += weight * tangent[d + 2];
-        }
-      }
-    }
+    const normalsMoved = (moved & NORMALS_MOVED) !== 0,
+      tangentsMoved = (moved & TANGENTS_MOVED) !== 0;
     if (normalsMoved)
       for (let v = 0; v < vertexCount; v++) {
         const o = v * 8 + 3;
@@ -233,6 +228,117 @@ export class MorphTargets {
         }
       }
     return true;
+  }
+
+  /**
+   * Adds every weighted delta in target order. `sparse` walks only the touched vertices of
+   * listed deltas: skipping a zero delta matches adding it unless the value is -0, so the
+   * sparse pass reports any -0 it stores and the caller redoes the work densely.
+   */
+  private accumulate(
+    out: Float32Array,
+    tangents: Float32Array | undefined,
+    weights: Readonly<Float32Array>,
+    vertexCount: number,
+    sparse: boolean,
+  ): number {
+    let flags = 0;
+    for (let t = 0; t < weights.length; t++) {
+      const weight = weights[t]!;
+      if (weight === 0) continue;
+      for (let channel = 0; channel < 3; channel++) {
+        const delta =
+          channel === 0
+            ? this.positions[t]
+            : channel === 1
+              ? this.normals[t]
+              : this.tangents[t];
+        if (!delta) continue;
+        const target = channel === 2 ? tangents : out;
+        if (!target) continue;
+        if (channel === 1) flags |= NORMALS_MOVED;
+        else if (channel === 2) flags |= TANGENTS_MOVED;
+        const stride = channel === 2 ? 4 : 8,
+          first = channel === 1 ? 3 : 0,
+          list = sparse ? this.touched[channel]![t] : undefined,
+          count = list ? list.length : vertexCount;
+        for (let k = 0; k < count; k++) {
+          const v = list ? list[k]! : k,
+            o = v * stride + first,
+            d = v * 3;
+          target[o] += weight * delta[d]!;
+          target[o + 1] += weight * delta[d + 1]!;
+          target[o + 2] += weight * delta[d + 2]!;
+          if (
+            sparse &&
+            (isNegativeZero(target[o]!) ||
+              isNegativeZero(target[o + 1]!) ||
+              isNegativeZero(target[o + 2]!))
+          )
+            flags |= NEGATIVE_ZERO;
+        }
+      }
+    }
+    return flags;
+  }
+}
+
+const NORMALS_MOVED = 1,
+  TANGENTS_MOVED = 2,
+  NEGATIVE_ZERO = 4;
+/** Deltas touching more of the vertices than this accumulate densely. */
+const sparseShare = 0.5;
+
+function isNegativeZero(value: number): boolean {
+  return value === 0 && 1 / value < 0;
+}
+
+/** Whether any of the first `components` values of a `stride`-sized record is -0. */
+function hasNegativeZero(
+  values: Float32Array,
+  stride: number,
+  components: number,
+): boolean {
+  for (let o = 0; o < values.length; o += stride)
+    for (let j = 0; j < components; j++)
+      if (isNegativeZero(values[o + j]!)) return true;
+  return false;
+}
+
+/** Vertices whose xyz delta is not all zero; undefined for absent or mostly nonzero deltas. */
+function nonzeroVertices(
+  delta: Float32Array | undefined,
+  vertexCount: number,
+): Uint32Array | undefined {
+  if (!delta) return undefined;
+  let count = 0;
+  for (let v = 0; v < vertexCount; v++)
+    if (delta[v * 3] !== 0 || delta[v * 3 + 1] !== 0 || delta[v * 3 + 2] !== 0)
+      count++;
+  if (count > vertexCount * sparseShare) return undefined;
+  const list = new Uint32Array(count);
+  for (let v = 0, k = 0; v < vertexCount; v++)
+    if (delta[v * 3] !== 0 || delta[v * 3 + 1] !== 0 || delta[v * 3 + 2] !== 0)
+      list[k++] = v;
+  return list;
+}
+
+/** Resets positions, normals and tangents (handedness included) to the captured base. */
+function copyBase(
+  base: Float32Array,
+  baseTangents: Float32Array,
+  out: Float32Array,
+  tangents: Float32Array | undefined,
+  vertexCount: number,
+): void {
+  for (let v = 0; v < vertexCount; v++) {
+    const o = v * 8;
+    for (let j = 0; j < 6; j++) out[o + j] = base[o + j]!;
+    if (tangents) {
+      const offset = v * 4;
+      for (let j = 0; j < 4; j++)
+        tangents[offset + j] = baseTangents[offset + j]!;
+    }
   }
 }
 

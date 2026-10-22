@@ -208,6 +208,148 @@ describe('MorphTargets on Mesh', () => {
     // The caller's geometry stays undeformed.
     expect(geometry.vertices[2]).toBe(0);
   });
+
+  it('accumulates sparse deltas exactly like the ordered dense sum, sign of zero included', () => {
+    const size = 8,
+      count = size * size;
+    const grid = (y: (vertex: number) => number) => {
+      const positions: number[] = [],
+        normals: number[] = [],
+        uvs: number[] = [],
+        indices: number[] = [];
+      for (let v = 0; v < count; v++) {
+        positions.push((v % size) * 0.25, y(v), Math.floor(v / size) * 0.25);
+        normals.push(0, 1, 0);
+        uvs.push((v % size) / size, Math.floor(v / size) / size);
+      }
+      for (let row = 0; row < size - 1; row++)
+        for (let column = 0; column < size - 1; column++) {
+          const a = row * size + column;
+          indices.push(a, a + size, a + 1, a + 1, a + size, a + size + 1);
+        }
+      return new Geometry({ positions, normals, uvs, indices });
+    };
+    const delta = (entries: [number, number, number, number][]) => {
+      const values = new Float32Array(count * 3);
+      for (const [vertex, x, y, z] of entries)
+        values.set([x, y, z], vertex * 3);
+      return values;
+    };
+    /**
+     * Documented semantics: from the base, add each weighted delta in target order; normals
+     * are then renormalized, falling back to the base when they cancel.
+     */
+    const expectExact = (
+      geometry: Geometry,
+      base: Float32Array,
+      deltas: (Float32Array | undefined)[],
+      weights: MorphWeights,
+      first = 0,
+    ) => {
+      for (let v = 0; v < count; v++) {
+        const values = [0, 1, 2].map((c) => {
+          let value = base[v * 8 + first + c]!;
+          deltas.forEach((d, t) => {
+            const w = weights.get(t);
+            if (d && w !== 0) value = Math.fround(value + w * d[v * 3 + c]!);
+          });
+          return value;
+        });
+        if (first === 3) {
+          const length = Math.hypot(...values);
+          values.forEach((value, c) => {
+            values[c] =
+              length > 1e-8
+                ? Math.fround(value / length)
+                : base[v * 8 + first + c]!;
+          });
+        }
+        values.forEach((value, c) =>
+          expect(Object.is(geometry.vertices[v * 8 + first + c], value)).toBe(
+            true,
+          ),
+        );
+      }
+    };
+    // Sparse, dense and absent deltas with zero, negative and large weights.
+    const sparse = grid((v) => Math.sin(v) * 0.1);
+    const sparseBase = sparse.vertices.slice();
+    const dense = Float32Array.from({ length: count * 3 }, (_, i) =>
+      i % 3 === 1 ? 0.01 * ((i % 7) + 1) : -0.003 * (i % 5),
+    );
+    const deltas = [
+      delta([
+        [3, 0.5, -0.25, 0.125],
+        [40, -1, 2, 0],
+      ]),
+      dense,
+      undefined,
+      delta([[63, 0, 0.75, 0]]),
+    ];
+    const normalDeltas = [
+      delta([[7, 0.3, 0, -0.2]]),
+      undefined,
+      delta([
+        [10, -0.5, 0.2, 0],
+        [11, 0, -2, 0],
+      ]),
+      undefined,
+    ];
+    const weights = new MorphWeights([0.75, -0.5, 1, 1.5]);
+    const mesh = new Mesh({
+      geometry: sparse,
+      material: material(),
+      morph: new MorphTargets({
+        positions: deltas,
+        normals: normalDeltas,
+        weights,
+      }),
+    });
+    mesh.updateDeformation();
+    expectExact(sparse, sparseBase, deltas, weights);
+    expectExact(sparse, sparseBase, normalDeltas, weights, 3);
+    weights.set(1, 0);
+    mesh.updateDeformation();
+    expectExact(sparse, sparseBase, deltas, weights);
+    expectExact(sparse, sparseBase, normalDeltas, weights, 3);
+
+    // A tiny product underflows to -0, from a listed or a dense delta; a later target that
+    // skips the vertex must still leave the +0 that adding its zero delta produces.
+    for (const first of [
+      delta([
+        [1, 0, -1e-30, 0],
+        [2, 0, -1e-30, 0],
+      ]),
+      Float32Array.from({ length: count * 3 }, (_, i) =>
+        i % 3 === 1 ? -1e-30 : 0,
+      ),
+    ]) {
+      const underflow = grid(() => 0);
+      const underflowBase = underflow.vertices.slice();
+      const tiny = [first, delta([[5, 0, 0.5, 0]])];
+      const tinyWeights = new MorphWeights([1e-30, 0.5]);
+      new Mesh({
+        geometry: underflow,
+        material: material(),
+        morph: new MorphTargets({ positions: tiny, weights: tinyWeights }),
+      }).updateDeformation();
+      expectExact(underflow, underflowBase, tiny, tinyWeights);
+      expect(Object.is(underflow.vertices[1 * 8 + 1], 0)).toBe(true);
+    }
+
+    // A -0 base coordinate that no delta touches becomes +0 as well.
+    const signed = grid((v) => (v === 4 ? -0 : 0.1));
+    const signedBase = signed.vertices.slice();
+    const one = [delta([[9, 0, 0.5, 0]])];
+    const oneWeight = new MorphWeights([0.5]);
+    new Mesh({
+      geometry: signed,
+      material: material(),
+      morph: new MorphTargets({ positions: one, weights: oneWeight }),
+    }).updateDeformation();
+    expectExact(signed, signedBase, one, oneWeight);
+    expect(Object.is(signed.vertices[4 * 8 + 1], 0)).toBe(true);
+  });
 });
 
 describe('weights KeyframeTrack', () => {
