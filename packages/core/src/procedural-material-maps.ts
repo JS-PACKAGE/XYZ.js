@@ -8104,6 +8104,45 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - rubble) - 0.1 * puddle;
         break;
       }
+      case 'jam': {
+        // Glossy fruit chunks sit in the clear set syrup.
+        const jx = fract(u * 5) - 0.5,
+          jy = fract(v * 5) - 0.5;
+        const chunk = smooth(clamp((0.3 - Math.hypot(jx, jy)) / 0.14));
+        const syrup = noise(u, v, 16, 16, seed ^ 0x1555);
+        const grain = noise(u, v, 32, 32, seed ^ 0x2666);
+        color = 0.42 + 0.32 * chunk + 0.12 * syrup + 0.06 * grain;
+        height = 0.44 + 0.22 * chunk + 0.02 * grain;
+        roughness += 0.1 * (grain - 0.5) - 0.12 * chunk;
+        occlusion = 1 - 0.32 * (1 - chunk);
+        break;
+      }
+      case 'peanutbutter': {
+        // Chopped nut pieces break the smooth swirled paste.
+        const nut = smooth(
+          clamp((noise(u, v, 10, 10, seed ^ 0x3777) - 0.6) / 0.1),
+        );
+        const swirl = noise(u, v, 6, 6, seed ^ 0x4888);
+        const grain = noise(u, v, 32, 32, seed ^ 0x5999);
+        color = 0.46 + 0.28 * nut + 0.1 * swirl + 0.06 * grain;
+        height = 0.44 + 0.18 * nut + 0.04 * swirl + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * nut;
+        occlusion = 1 - 0.3 * (1 - nut);
+        break;
+      }
+      case 'sprinkles': {
+        // Sugar rods scatter over the frosted base.
+        const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+          sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+        const t = clamp((0.32 - Math.hypot(sx * 0.5, sy * 2)) / 0.32);
+        const rod = 0.5 - 0.5 * Math.cos(Math.PI * t);
+        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+        color = 0.52 + 0.28 * rod + 0.08 * grain;
+        height = 0.44 + 0.22 * rod + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * rod;
+        occlusion = 1 - 0.32 * (1 - rod);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

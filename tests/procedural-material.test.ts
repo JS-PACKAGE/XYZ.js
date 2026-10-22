@@ -247,6 +247,9 @@ const kinds: ProceduralMaterialKind[] = [
   'stalactite',
   'flowstone',
   'cavefloor',
+  'jam',
+  'peanutbutter',
+  'sprinkles',
   'basketball',
   'tennisball',
   'golfball',
@@ -5040,6 +5043,9 @@ describe('periodic procedural material fields', () => {
     ['stalactite', [4, 32, 48, 64]],
     ['flowstone', [5, 32, 48, 64]],
     ['cavefloor', [6, 12, 32, 64]],
+    ['jam', [5, 32, 48, 64]],
+    ['peanutbutter', [6, 12, 32, 64]],
+    ['sprinkles', [6, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5293,6 +5299,9 @@ describe('periodic procedural material fields', () => {
     ['stalactite', 4],
     ['flowstone', 5],
     ['cavefloor', 6],
+    ['jam', 5],
+    ['peanutbutter', 6],
+    ['sprinkles', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6700,6 +6709,9 @@ describe('periodic procedural material fields', () => {
     'stalactite',
     'flowstone',
     'cavefloor',
+    'jam',
+    'peanutbutter',
+    'sprinkles',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6841,7 +6853,16 @@ describe('periodic procedural material fields', () => {
                                                                                                         : kind ===
                                                                                                             'cavefloor'
                                                                                                           ? 6
-                                                                                                          : 4;
+                                                                                                          : kind ===
+                                                                                                              'jam'
+                                                                                                            ? 5
+                                                                                                            : kind ===
+                                                                                                                'peanutbutter'
+                                                                                                              ? 6
+                                                                                                              : kind ===
+                                                                                                                  'sprinkles'
+                                                                                                                ? 6
+                                                                                                                : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10697,6 +10718,81 @@ describe('periodic procedural material fields', () => {
         faceHeight = 0;
       // Locate the rubble and puddles from cavity shading rather than pinning
       // seeded noise coordinates or incidental relief values.
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+          if (surface.occlusion < lowestOcclusion) {
+            lowestOcclusion = surface.occlusion;
+            recessedHeight = surface.height;
+          }
+          if (surface.occlusion > highestOcclusion) {
+            highestOcclusion = surface.occlusion;
+            faceHeight = surface.height;
+          }
+        }
+      expect(highestOcclusion - lowestOcclusion).toBeGreaterThan(0.1);
+      expect(faceHeight).toBeGreaterThan(recessedHeight + 0.1 * relief);
+    }
+  });
+
+  it('jam sets glossy fruit chunks above the clear syrup', () => {
+    const relief = proceduralMaterialPresets.jam.relief;
+    const chunk: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const syrup = { ...chunk };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('jam', seed);
+      sample(0.1, 0.1, chunk);
+      sample(0, 0, syrup);
+      expect(chunk.height).toBeGreaterThan(syrup.height + 0.1 * relief);
+      expect(chunk.occlusion).toBeGreaterThan(syrup.occlusion);
+    }
+  });
+
+  it('sprinkles scatter sugar rods over the frosted base', () => {
+    const relief = proceduralMaterialPresets.sprinkles.relief;
+    const rod: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...rod };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sprinkles', seed);
+      sample(1 / 12, 1 / 12, rod);
+      sample(0, 0, base);
+      expect(rod.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(rod.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('peanut butter breaks nut pieces through the swirled paste', () => {
+    const relief = proceduralMaterialPresets.peanutbutter.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('peanutbutter', seed);
+      let lowestOcclusion = Infinity,
+        highestOcclusion = -Infinity,
+        recessedHeight = 0,
+        faceHeight = 0;
+      // Locate the nut pieces and paste from cavity shading rather than
+      // pinning seeded noise coordinates or incidental relief values.
       for (let y = 0; y < 128; y++)
         for (let x = 0; x < 128; x++) {
           sample((x + 0.5) / 128, (y + 0.5) / 128, surface);

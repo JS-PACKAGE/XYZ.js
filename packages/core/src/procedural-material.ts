@@ -229,6 +229,9 @@ export type ProceduralMaterialKind =
   | 'stalactite'
   | 'flowstone'
   | 'cavefloor'
+  | 'jam'
+  | 'peanutbutter'
+  | 'sprinkles'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -540,6 +543,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'stalactite',
   'flowstone',
   'cavefloor',
+  'jam',
+  'peanutbutter',
+  'sprinkles',
   'basketball',
   'tennisball',
   'golfball',
