@@ -208,6 +208,9 @@ const kinds: ProceduralMaterialKind[] = [
   'pretzel',
   'bagel',
   'croissant',
+  'butterflywing',
+  'beetlewing',
+  'spiderweb',
   'basketball',
   'tennisball',
   'golfball',
@@ -4962,6 +4965,9 @@ describe('periodic procedural material fields', () => {
     ['pretzel', [3, 32, 48, 64]],
     ['bagel', [2, 32, 48, 64]],
     ['croissant', [4, 32, 48, 64]],
+    ['butterflywing', [3, 16, 24, 64]],
+    ['beetlewing', [6, 24, 32, 64]],
+    ['spiderweb', [2, 6, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5176,6 +5182,9 @@ describe('periodic procedural material fields', () => {
     ['pretzel', 3],
     ['bagel', 2],
     ['croissant', 4],
+    ['butterflywing', 24],
+    ['beetlewing', 6],
+    ['spiderweb', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6544,6 +6553,9 @@ describe('periodic procedural material fields', () => {
     'pretzel',
     'bagel',
     'croissant',
+    'butterflywing',
+    'beetlewing',
+    'spiderweb',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6583,7 +6595,13 @@ describe('periodic procedural material fields', () => {
                           ? 3
                           : kind === 'bagel'
                             ? 2
-                            : 4;
+                            : kind === 'butterflywing'
+                              ? 24
+                              : kind === 'beetlewing'
+                                ? 6
+                                : kind === 'spiderweb'
+                                  ? 2
+                                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9526,6 +9544,70 @@ describe('periodic procedural material fields', () => {
       sample(0.125, 0.125, seam);
       expect(crest.height).toBeGreaterThan(seam.height + 0.1 * relief);
       expect(crest.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('butterfly wing lifts scale tiles above the recessed veins', () => {
+    const relief = proceduralMaterialPresets.butterflywing.relief;
+    const tile: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const vein = { ...tile };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('butterflywing', seed);
+      sample(1 / 48, 1 / 32, tile);
+      sample(1 / 3, 1 / 32, vein);
+      expect(tile.height).toBeGreaterThan(vein.height + 0.1 * relief);
+      expect(tile.occlusion).toBeGreaterThan(vein.occlusion);
+    }
+  });
+
+  it('beetle wing domes elytra plates over their sutured seams', () => {
+    const relief = proceduralMaterialPresets.beetlewing.relief;
+    const plate: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const suture = { ...plate };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('beetlewing', seed);
+      sample(1 / 12, 0.5, plate);
+      sample(1 / 6, 0.5, suture);
+      expect(plate.height).toBeGreaterThan(suture.height + 0.1 * relief);
+      expect(plate.occlusion).toBeGreaterThan(suture.occlusion);
+    }
+  });
+
+  it('spider web raises silk threads above the open cells', () => {
+    const relief = proceduralMaterialPresets.spiderweb.relief;
+    const ring: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const spoke = { ...ring };
+    const gap = { ...ring };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('spiderweb', seed);
+      sample(0.536084, 0.520833, ring);
+      sample(0.5, 0.5833333333333334, spoke);
+      sample(0.64896, 0.586, gap);
+      expect(ring.height).toBeGreaterThan(gap.height + 0.05 * relief);
+      expect(spoke.height).toBeGreaterThan(gap.height + 0.05 * relief);
+      expect(ring.occlusion).toBeGreaterThan(gap.occlusion);
+      expect(spoke.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

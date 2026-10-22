@@ -2568,6 +2568,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .52,
 		relief: .0048
 	}),
+	butterflywing: Object.freeze({
+		dark: [
+			92,
+			38,
+			88
+		],
+		light: [
+			232,
+			148,
+			212
+		],
+		roughness: .42,
+		relief: .0028
+	}),
+	beetlewing: Object.freeze({
+		dark: [
+			22,
+			62,
+			42
+		],
+		light: [
+			112,
+			212,
+			148
+		],
+		roughness: .32,
+		relief: .003
+	}),
+	spiderweb: Object.freeze({
+		dark: [
+			82,
+			88,
+			96
+		],
+		light: [
+			222,
+			228,
+			236
+		],
+		roughness: .42,
+		relief: .0022
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -3606,6 +3648,9 @@ var proceduralTileMeters = Object.freeze({
 	pretzel: .2,
 	bagel: .24,
 	croissant: .24,
+	butterflywing: .12,
+	beetlewing: .16,
+	spiderweb: .3,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

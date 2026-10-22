@@ -7536,6 +7536,70 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - layer) - 0.1 * seam;
         break;
       }
+      case 'butterflywing': {
+        // Overlapping scale tiles sit in the cells between raised wing veins.
+        const tile =
+          smooth(clamp((0.28 - Math.abs(fract(u * 24) - 0.5)) / 0.12)) *
+          smooth(clamp((0.28 - Math.abs(fract(v * 16) - 0.5)) / 0.12));
+        const vein = smooth(
+          clamp((0.06 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
+        );
+        const patch = noise(u, v, 6, 6, seed ^ 0x71c3);
+        const grain = noise(u, v, 48, 48, seed ^ 0x2a55);
+        color = 0.42 + 0.3 * tile - 0.1 * vein + 0.12 * patch + 0.06 * grain;
+        height = 0.44 + 0.22 * tile - 0.14 * vein + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * tile + 0.12 * vein;
+        occlusion = 1 - 0.3 * (1 - tile) - 0.24 * vein;
+        break;
+      }
+      case 'beetlewing': {
+        // Elytra plates dome above their sutured seams and fine punctures.
+        const plate = smooth(
+          clamp((0.32 - Math.abs(fract(u * 6) - 0.5)) / 0.14),
+        );
+        const suture = smooth(
+          clamp((0.12 - Math.min(fract(u * 6), 1 - fract(u * 6))) / 0.03),
+        );
+        const puncture = smooth(
+          clamp((noise(u, v, 24, 24, seed ^ 0x55aa) - 0.8) / 0.05),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x39f1);
+        color =
+          0.42 + 0.32 * plate - 0.12 * suture - 0.1 * puncture + 0.06 * grain;
+        height =
+          0.44 + 0.26 * plate - 0.1 * suture - 0.06 * puncture + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * plate + 0.1 * suture;
+        occlusion = 1 - 0.3 * suture - 0.14 * (1 - plate) - 0.18 * puncture;
+        break;
+      }
+      case 'spiderweb': {
+        // Radial spokes and concentric silk rings frame the open cells, beaded with dew.
+        const spokeU = smooth(clamp((0.012 - Math.abs(u - 0.5)) / 0.008));
+        const spokeV = smooth(clamp((0.012 - Math.abs(v - 0.5)) / 0.008));
+        const d1 = Math.abs(u - v),
+          d2 = Math.abs(u + v - 1);
+        const spokeA = smooth(clamp((0.012 - Math.min(d1, 1 - d1)) / 0.008));
+        const spokeB = smooth(clamp((0.012 - Math.min(d2, 1 - d2)) / 0.008));
+        const spoke =
+          1 - (1 - spokeU) * (1 - spokeV) * (1 - spokeA) * (1 - spokeB);
+        const rad =
+          Math.hypot(
+            Math.sin(Math.PI * (u - 0.5)),
+            Math.sin(Math.PI * (v - 0.5)),
+          ) *
+          (2 / Math.PI);
+        const ring = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 6) - 0.5));
+        const silk = 1 - (1 - spoke) * (1 - ring);
+        const dew = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x7d21) - 0.82) / 0.08),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x1b64);
+        color = 0.4 + 0.3 * silk + 0.12 * dew + 0.08 * grain;
+        height = 0.42 + 0.2 * silk + 0.05 * dew + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.16 * silk - 0.1 * dew;
+        occlusion = 1 - 0.34 * (1 - silk);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

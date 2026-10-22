@@ -2082,6 +2082,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .34 * t - .14 * n + .08 * i, Z = .44 + .28 * t - .06 * n + .03 * i, Q += .06 * (i - .5) - .12 * t + .1 * n, $ = 1 - .34 * (1 - t) - .1 * n;
 				break;
 			}
+			case `butterflywing`: {
+				let e = smooth(clamp((.28 - Math.abs(fract(o * 24) - .5)) / .12)) * smooth(clamp((.28 - Math.abs(fract(A * 16) - .5)) / .12)), t = smooth(clamp((.06 - Math.min(fract(o * 3), 1 - fract(o * 3))) / .025)), n = noise(o, A, 6, 6, r ^ 29123), i = noise(o, A, 48, 48, r ^ 10837);
+				H = .42 + .3 * e - .1 * t + .12 * n + .06 * i, Z = .44 + .22 * e - .14 * t + .02 * i, Q += .06 * (i - .5) - .1 * e + .12 * t, $ = 1 - .3 * (1 - e) - .24 * t;
+				break;
+			}
+			case `beetlewing`: {
+				let e = smooth(clamp((.32 - Math.abs(fract(o * 6) - .5)) / .14)), t = smooth(clamp((.12 - Math.min(fract(o * 6), 1 - fract(o * 6))) / .03)), n = smooth(clamp((noise(o, A, 24, 24, r ^ 21930) - .8) / .05)), i = noise(o, A, 32, 32, r ^ 14833);
+				H = .42 + .32 * e - .12 * t - .1 * n + .06 * i, Z = .44 + .26 * e - .1 * t - .06 * n + .02 * i, Q += .06 * (i - .5) - .12 * e + .1 * t, $ = 1 - .3 * t - .14 * (1 - e) - .18 * n;
+				break;
+			}
+			case `spiderweb`: {
+				let e = smooth(clamp((.012 - Math.abs(o - .5)) / .008)), t = smooth(clamp((.012 - Math.abs(A - .5)) / .008)), n = Math.abs(o - A), i = Math.abs(o + A - 1), a = smooth(clamp((.012 - Math.min(n, 1 - n)) / .008)), s = smooth(clamp((.012 - Math.min(i, 1 - i)) / .008)), c = 1 - (1 - e) * (1 - t) * (1 - a) * (1 - s), l = Math.hypot(Math.sin(Math.PI * (o - .5)), Math.sin(Math.PI * (A - .5))) * (2 / Math.PI), u = .5 + .5 * Math.cos(Math.PI * 2 * (fract(l * 6) - .5)), d = 1 - (1 - c) * (1 - u), f = smooth(clamp((noise(o, A, 20, 20, r ^ 32033) - .82) / .08)), p = noise(o, A, 32, 32, r ^ 7012);
+				H = .4 + .3 * d + .12 * f + .08 * p, Z = .42 + .2 * d + .05 * f + .02 * p, Q += .06 * (p - .5) - .16 * d - .1 * f, $ = 1 - .34 * (1 - d);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

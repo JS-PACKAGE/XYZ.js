@@ -190,6 +190,9 @@ export type ProceduralMaterialKind =
   | 'pretzel'
   | 'bagel'
   | 'croissant'
+  | 'butterflywing'
+  | 'beetlewing'
+  | 'spiderweb'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -462,6 +465,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pretzel',
   'bagel',
   'croissant',
+  'butterflywing',
+  'beetlewing',
+  'spiderweb',
   'basketball',
   'tennisball',
   'golfball',
