@@ -3660,6 +3660,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .38,
 		relief: .0018
 	}),
+	flowerbed: Object.freeze({
+		dark: [
+			42,
+			66,
+			30
+		],
+		light: [
+			232,
+			148,
+			176
+		],
+		roughness: .78,
+		relief: .0028
+	}),
+	grassstripe: Object.freeze({
+		dark: [
+			46,
+			82,
+			36
+		],
+		light: [
+			122,
+			172,
+			78
+		],
+		roughness: .84,
+		relief: .0022
+	}),
+	topiary: Object.freeze({
+		dark: [
+			28,
+			52,
+			26
+		],
+		light: [
+			96,
+			138,
+			62
+		],
+		roughness: .8,
+		relief: .0026
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4776,6 +4818,9 @@ var proceduralTileMeters = Object.freeze({
 	cargomat: .3,
 	dashboardgrain: .24,
 	licenseplate: .3,
+	flowerbed: .3,
+	grassstripe: .4,
+	topiary: .28,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

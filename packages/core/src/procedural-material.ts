@@ -268,6 +268,9 @@ export type ProceduralMaterialKind =
   | 'cargomat'
   | 'dashboardgrain'
   | 'licenseplate'
+  | 'flowerbed'
+  | 'grassstripe'
+  | 'topiary'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -618,6 +621,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cargomat',
   'dashboardgrain',
   'licenseplate',
+  'flowerbed',
+  'grassstripe',
+  'topiary',
   'basketball',
   'tennisball',
   'golfball',

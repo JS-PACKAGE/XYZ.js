@@ -8685,6 +8685,52 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - border) * (1 - bar);
         break;
       }
+      case 'flowerbed': {
+        // Rosettes with four-fold petals dome above the soil.
+        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const petal =
+          0.72 +
+          0.28 *
+            (Math.cos(Math.PI * 2 * 3 * (u + v)) *
+              Math.cos(Math.PI * 2 * 3 * (u - v)));
+        const dome = smooth(clamp((0.5 - d) / 0.3)) * petal;
+        const soil = noise(u, v, 32, 32, seed ^ 0x8b9c);
+        color = 0.3 + 0.32 * dome + 0.1 * soil;
+        height = 0.3 + 0.5 * dome + 0.03 * soil;
+        roughness += 0.08 * (soil - 0.5) - 0.1 * dome;
+        occlusion = 1 - 0.5 * (1 - dome);
+        break;
+      }
+      case 'grassstripe': {
+        // Mowed bands gloss over the fine blade texture.
+        const stripe = (1 + Math.cos(Math.PI * 2 * (fract(v * 2) - 0.5))) / 2;
+        const blade = noise(u, v, 48, 8, seed ^ 0x9cad),
+          soil = noise(u, v, 16, 16, seed ^ 0xadbe);
+        color = 0.34 + 0.36 * stripe + 0.12 * blade + 0.06 * soil;
+        height = 0.3 + 0.42 * stripe + 0.08 * blade + 0.03 * soil;
+        roughness += 0.08 * (soil - 0.5) + 0.06 * (1 - stripe);
+        occlusion = 1 - 0.42 * (1 - stripe);
+        break;
+      }
+      case 'topiary': {
+        // Clipped leaf clusters dome above the trimmed gaps.
+        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const w1 = noise(u, v, 3, 3, seed ^ 0xbecf) - 0.5,
+          w2 = noise(u, v, 3, 3, seed ^ 0xcfd0) - 0.5;
+        const mod =
+          1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
+        const cluster = smooth(clamp((0.52 - d * mod) / 0.3));
+        const leaf = noise(u, v, 32, 32, seed ^ 0xd0e1);
+        color = 0.28 + 0.3 * cluster + 0.1 * leaf;
+        height = 0.3 + 0.48 * cluster + 0.04 * leaf;
+        roughness += 0.08 * (leaf - 0.5) - 0.08 * cluster;
+        occlusion = 1 - 0.48 * (1 - cluster);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

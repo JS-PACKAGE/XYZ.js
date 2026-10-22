@@ -1572,6 +1572,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.38;
         relief: 0.0018;
     }>;
+    flowerbed: Readonly<{
+        dark: readonly [42, 66, 30];
+        light: readonly [232, 148, 176];
+        roughness: 0.78;
+        relief: 0.0028;
+    }>;
+    grassstripe: Readonly<{
+        dark: readonly [46, 82, 36];
+        light: readonly [122, 172, 78];
+        roughness: 0.84;
+        relief: 0.0022;
+    }>;
+    topiary: Readonly<{
+        dark: readonly [28, 52, 26];
+        light: readonly [96, 138, 62];
+        roughness: 0.8;
+        relief: 0.0026;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2233,6 +2251,9 @@ export declare const proceduralTileMeters: Readonly<{
     cargomat: 0.3;
     dashboardgrain: 0.24;
     licenseplate: 0.3;
+    flowerbed: 0.3;
+    grassstripe: 0.4;
+    topiary: 0.28;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

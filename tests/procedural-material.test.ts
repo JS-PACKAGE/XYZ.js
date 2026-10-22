@@ -286,6 +286,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cargomat',
   'dashboardgrain',
   'licenseplate',
+  'flowerbed',
+  'grassstripe',
+  'topiary',
   'basketball',
   'tennisball',
   'golfball',
@@ -5118,6 +5121,9 @@ describe('periodic procedural material fields', () => {
     ['cargomat', [2, 4, 32, 64]],
     ['dashboardgrain', [2, 10, 32, 64]],
     ['licenseplate', [4, 32, 64]],
+    ['flowerbed', [3, 32, 64]],
+    ['grassstripe', [2, 32, 64]],
+    ['topiary', [3, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5410,6 +5416,9 @@ describe('periodic procedural material fields', () => {
     ['cargomat', 4],
     ['dashboardgrain', 10],
     ['licenseplate', 4],
+    ['flowerbed', 3],
+    ['grassstripe', 2],
+    ['topiary', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6856,6 +6865,9 @@ describe('periodic procedural material fields', () => {
     'cargomat',
     'dashboardgrain',
     'licenseplate',
+    'flowerbed',
+    'grassstripe',
+    'topiary',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7114,7 +7126,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                       : kind ===
                                                                                                                                                                                           'licenseplate'
                                                                                                                                                                                         ? 4
-                                                                                                                                                                                        : 4;
+                                                                                                                                                                                        : kind ===
+                                                                                                                                                                                            'flowerbed'
+                                                                                                                                                                                          ? 3
+                                                                                                                                                                                          : kind ===
+                                                                                                                                                                                              'grassstripe'
+                                                                                                                                                                                            ? 2
+                                                                                                                                                                                            : kind ===
+                                                                                                                                                                                                'topiary'
+                                                                                                                                                                                              ? 3
+                                                                                                                                                                                              : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11824,6 +11845,66 @@ describe('periodic procedural material fields', () => {
       expect(border.height).toBeGreaterThan(bar.height + 0.1 * relief);
       expect(bar.height).toBeGreaterThan(inset.height + 0.1 * relief);
       expect(bar.occlusion).toBeGreaterThan(inset.occlusion);
+    }
+  });
+
+  it('flower bed rosettes dome above the soil', () => {
+    const relief = proceduralMaterialPresets.flowerbed.relief;
+    const flower: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const soil = { ...flower };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('flowerbed', seed);
+      sample(1 / 6, 1 / 6, flower);
+      sample(0, 0, soil);
+      expect(flower.height).toBeGreaterThan(soil.height + 0.1 * relief);
+      expect(flower.occlusion).toBeGreaterThan(soil.occlusion);
+    }
+  });
+
+  it('grass stripes gloss above the mowed troughs', () => {
+    const relief = proceduralMaterialPresets.grassstripe.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('grassstripe', seed);
+      sample(0, 1 / 4, crest);
+      sample(0, 0, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('topiary clusters rise above the trimmed gaps', () => {
+    const relief = proceduralMaterialPresets.topiary.relief;
+    const cluster: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...cluster };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('topiary', seed);
+      sample(1 / 6, 1 / 6, cluster);
+      sample(0, 0, gap);
+      expect(cluster.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(cluster.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

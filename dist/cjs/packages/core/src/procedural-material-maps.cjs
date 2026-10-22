@@ -2472,6 +2472,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .2 * a + .12 * l + .05 * c, Z = .3 + .4 * a + .22 * l + .02 * c, Q += .06 * (c - .5) - .1 * a, $ = 1 - .3 * (1 - a) * (1 - s);
 				break;
 			}
+			case `flowerbed`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 3) - .5)), n = Math.hypot(e, t), i = .72 + .28 * (Math.cos(Math.PI * 2 * 3 * (o + A)) * Math.cos(Math.PI * 2 * 3 * (o - A))), a = smooth(clamp((.5 - n) / .3)) * i, s = noise(o, A, 32, 32, r ^ 35740);
+				H = .3 + .32 * a + .1 * s, Z = .3 + .5 * a + .03 * s, Q += .08 * (s - .5) - .1 * a, $ = 1 - .5 * (1 - a);
+				break;
+			}
+			case `grassstripe`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract(A * 2) - .5))) / 2, t = noise(o, A, 48, 8, r ^ 40109), n = noise(o, A, 16, 16, r ^ 44478);
+				H = .34 + .36 * e + .12 * t + .06 * n, Z = .3 + .42 * e + .08 * t + .03 * n, Q += .08 * (n - .5) + .06 * (1 - e), $ = 1 - .42 * (1 - e);
+				break;
+			}
+			case `topiary`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 3) - .5)), n = Math.hypot(e, t), i = noise(o, A, 3, 3, r ^ 48847) - .5, a = noise(o, A, 3, 3, r ^ 53200) - .5, c = smooth(clamp((.52 - n * (1 + .16 * (i * (2 * e * e - 1) + a * (2 * t * t - 1)))) / .3)), l = noise(o, A, 32, 32, r ^ 53473);
+				H = .28 + .3 * c + .1 * l, Z = .3 + .48 * c + .04 * l, Q += .08 * (l - .5) - .08 * c, $ = 1 - .48 * (1 - c);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {
