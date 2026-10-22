@@ -97,7 +97,7 @@ function wrappedFeature(
 export function createSurfaceSampler(
   kind: ProceduralMaterialKind,
   seed: number,
-) {
+): (u: number, v: number, out: SurfaceSample) => void {
   const preset = proceduralMaterialPresets[kind];
   const phase = hash(0, 0, seed) * TAU;
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
@@ -1210,11 +1210,8606 @@ export function createSurfaceSampler(
     kind === 'sandstone' ||
     kind === 'travertine' ||
     kind === 'pumice';
-  return (u: number, v: number, out: SurfaceSample): void => {
-    u = fract(u);
-    v = fract(v);
-    const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
-    const detail =
+  let u = 0,
+    v = 0,
+    broad = 0,
+    detail = 0,
+    fine = 0,
+    color = 0,
+    height = 0,
+    roughness = 0,
+    occlusion = 1,
+    mortar = 0,
+    metallic = 0;
+  // Constant for the sampler: only the kind decides it.
+  const metallicBase =
+    kind === 'metal' ||
+    kind === 'diamondplate' ||
+    kind === 'hammeredmetal' ||
+    kind === 'galvanized' ||
+    kind === 'corrugatedmetal' ||
+    kind === 'perforatedmetal' ||
+    kind === 'expandedmetal' ||
+    kind === 'wiremesh' ||
+    kind === 'pyrite' ||
+    kind === 'knurledmetal' ||
+    kind === 'engineturned' ||
+    kind === 'goldleaf' ||
+    kind === 'rivetedmetal' ||
+    kind === 'weldedmetal'
+      ? 1
+      : 0;
+  /**
+   * One closure per preset. A single sampler holding every preset's code stayed too large for V8
+   * to optimize well, and each preset first run deoptimized it again; a closure per preset warms
+   * up on its own. Add a preset as `case 'name': return () => { ... };` reading the shared
+   * `u`, `v`, `broad`, `detail`, `fine` and writing `color`, `height`, `roughness`,
+   * `occlusion`, `mortar`, `metallic`; return (not break) to finish.
+   */
+  const pick = (): (() => void) => {
+    switch (kind) {
+      case 'pineapple':
+        return () => {
+          const p = proceduralMaterialPresets.pineapple,
+            x = fract(u + v) * p.cells,
+            y = fract(v - u) * p.cells,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            dx = x - column - 0.5,
+            dy = y - row - 0.5,
+            grain = rindGrain!(u, v),
+            variation = rindCells![row * p.cells + column],
+            polygon =
+              smooth(clamp((0.5 - dx) / p.shoulder)) *
+              smooth(clamp((0.5 + dx) / p.shoulder)) *
+              smooth(clamp((0.5 - dy) / p.shoulder)) *
+              smooth(clamp((0.5 + dy) / p.shoulder)),
+            q = (dx * dx + dy * dy) / (p.eyeRadius * p.eyeRadius),
+            eye = 1 - smooth(clamp(q)),
+            crown = smooth(clamp(q)) * (1 - smooth(clamp((q - 1) / 3)));
+          // Disjoint diamond cells: all owner-dependent terms vanish with
+          // zero slope at their edges. Raw H [.14,.665], C [.10,.755].
+          height =
+            0.14 +
+            polygon *
+              (0.34 +
+                0.13 * crown -
+                0.22 * eye +
+                0.05 * variation +
+                0.005 * grain);
+          color =
+            0.1 +
+            polygon * (0.49 + 0.12 * variation + 0.045 * grain - 0.2 * eye);
+          occlusion = 0.55 + polygon * (0.42 - 0.2 * eye);
+          roughness =
+            preset.roughness + 0.04 * (1 - polygon) - 0.025 * crown * polygon;
+          return;
+        };
+      case 'strawberry':
+      case 'lychee':
+        return () => {
+          const x = u * rindColumns,
+            y = v * rindRows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = rindGrain!(u, v);
+          let pocket = 0,
+            core = 0,
+            coverage = 0,
+            crown = 0;
+          // Strawberry supports fit radius .34. Centers in [.42,.58],
+          // so omitted 3x3 rows are >=1.42 away, columns >=.92 with stagger.
+          // Pairwise center distance >=.84 > 2*.34: supports are disjoint.
+          // Lychee planes imply |dx|<=.495, |dy|<=.66; omitted
+          // centers are >=1 (x) or 1.5 (y). Adjacent plane sums <=.99
+          // versus center separation 1, so polygons are disjoint too.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                wx = ((cx % rindColumns) + rindColumns) % rindColumns,
+                wy = ((cy % rindRows) + rindRows) % rindRows,
+                offset = (wy * rindColumns + wx) * rindStride,
+                stagger = (wy % 2) * 0.5;
+              if (kind === 'strawberry') {
+                const p = proceduralMaterialPresets.strawberry,
+                  dx = x - cx - stagger - rindCells![offset],
+                  dy = y - cy - rindCells![offset + 1],
+                  a =
+                    (dx * rindCells![offset + 2] +
+                      dy * rindCells![offset + 3]) /
+                    p.width,
+                  b =
+                    (dy * rindCells![offset + 2] -
+                      dx * rindCells![offset + 3]) /
+                    p.length,
+                  q = a * a + b * b;
+                if (q >= 1) continue;
+                pocket += 1 - smooth(clamp((q - p.core) / (1 - p.core)));
+                core += 1 - smooth(clamp(q / p.core));
+              } else {
+                const p = proceduralMaterialPresets.lychee,
+                  dx = x - cx - stagger - 0.5,
+                  dy = y - cy - 0.5;
+                if (dx >= rindCells![offset] || -dx >= rindCells![offset + 1])
+                  continue;
+                let polygon = 1;
+                for (let side = 0; side < 6; side++) {
+                  const plane =
+                    side === 0
+                      ? dx
+                      : side === 1
+                        ? -dx
+                        : side === 2
+                          ? 0.5 * dx + 0.75 * dy
+                          : side === 3
+                            ? -0.5 * dx - 0.75 * dy
+                            : side === 4
+                              ? -0.5 * dx + 0.75 * dy
+                              : 0.5 * dx - 0.75 * dy;
+                  polygon *= smooth(
+                    clamp((rindCells![offset + side] - plane) / p.shoulder),
+                  );
+                  if (polygon === 0) break;
+                }
+                if (polygon === 0) continue;
+                const a = dx - rindCells![offset + 6],
+                  b = dy - rindCells![offset + 7];
+                coverage += polygon;
+                crown += polygon / (1 + 18 * (a * a + b * b));
+              }
+            }
+          if (kind === 'strawberry') {
+            // Disjoint supports: P,S in [0,1]. Raw H [.32,.714],
+            // C [.12,.912], AO [.68,1], roughness [.41,.47].
+            height = 0.62 + 0.004 * grain - 0.3 * pocket + 0.09 * core;
+            color = 0.12 + 0.012 * grain + 0.78 * core;
+            occlusion = 1 - 0.32 * pocket + 0.12 * core;
+            roughness = preset.roughness + 0.04 * pocket - 0.06 * core;
+          } else {
+            // Disjoint polygons: coverage,crown in [0,1].
+            // Raw H [.16,.594], C [.12,.762], AO [.55,.97].
+            height = 0.16 + 0.28 * coverage + 0.15 * crown + 0.004 * grain;
+            color = 0.12 + 0.55 * coverage + 0.08 * crown + 0.012 * grain;
+            occlusion = 0.55 + 0.42 * coverage;
+            roughness = preset.roughness + 0.04 * (1 - coverage) - 0.03 * crown;
+          }
+          return;
+        };
+      case 'sandpaper':
+        return () => {
+          // Grit domes stay on a fixed staggered lattice; seed only sizes them.
+          const nx = 10,
+            ny = 12;
+          const cy = Math.floor(v * ny),
+            stagger = (cy & 1) * 0.5;
+          const cx = Math.floor(u * nx + stagger);
+          // Radius hashes wrap with the lattice periods so the seam stays continuous.
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx + stagger) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d = Math.hypot(fx, fy);
+          const r = 0.38 + 0.1 * hash(cellX, cellY, seed ^ 0x2f1a);
+          const dome = smooth(clamp((r - d) / (r * 0.55)));
+          // Shedding pits gather where smooth noise stays high and never reach the domes.
+          const pit =
+            smooth(clamp((noise(u, v, 6, 6, seed ^ 0x77c3) - 0.72) / 0.18)) *
+            (1 - dome);
+          const grain = noise(u, v, 48, 48, seed ^ 0x55a1);
+          color = 0.4 + 0.3 * dome - 0.14 * pit + 0.08 * grain;
+          height = 0.3 + 0.34 * dome - 0.12 * pit;
+          roughness += 0.06 * (grain - 0.5) + 0.04 * (1 - dome);
+          occlusion = 1 - 0.44 * (1 - dome) - 0.12 * pit;
+          return;
+        };
+      case 'steelwool':
+        return () => {
+          // Tangled strand ridges run along three wrapped diagonal families.
+          const f1 = Math.sin(Math.PI * (fract(3 * (u + v)) - 0.5)),
+            f2 = Math.sin(Math.PI * (fract(3 * (u - v)) - 0.5)),
+            f3 = Math.sin(Math.PI * (fract(2 * u + v) - 0.5));
+          const e1 = smooth(clamp((0.22 - Math.abs(f1)) / 0.14)),
+            e2 = smooth(clamp((0.22 - Math.abs(f2)) / 0.14)),
+            e3 = smooth(clamp((0.22 - Math.abs(f3)) / 0.14));
+          const i1 = ((Math.floor(3 * (u + v)) % 3) + 3) % 3,
+            i2 = ((Math.floor(3 * (u - v)) % 3) + 3) % 3;
+          // The third family keeps a constant amplitude: its strand index cannot
+          // be labeled periodically, so hashing it would break the wrapped seam.
+          const a1 = e1 * (0.85 + 0.15 * hash(i1, 0, seed ^ 0x1d51)),
+            a2 = e2 * (0.85 + 0.15 * hash(i2, 1, seed ^ 0x4c2b)),
+            a3 = e3 * 0.92;
+          // OR of the three envelopes keeps crossing slopes continuous; the
+          // pair OR stays bounded so packed crossings cannot leave the unit range.
+          const strand = 1 - (1 - a1) * (1 - a2) * (1 - a3);
+          const cross = 1 - (1 - a1 * a2) * (1 - a2 * a3) * (1 - a3 * a1);
+          const grain = noise(u, v, 32, 32, seed ^ 0x2e07);
+          color = 0.44 + 0.34 * strand + 0.1 * cross + 0.08 * grain;
+          height = 0.3 + 0.3 * strand + 0.08 * cross;
+          roughness += 0.1 * (grain - 0.5) + 0.08 * (1 - strand);
+          occlusion = 1 - 0.44 * (1 - strand);
+          return;
+        };
+      case 'wirebrush':
+        return () => {
+          // Dense parallel bristles lean together and flick only in amplitude.
+          // Hash keys wrap with the bristle period so the seam stays continuous.
+          const x = u * 24 + 0.3 * Math.sin(TAU * v);
+          const ix = Math.floor(x);
+          const cell = ((ix % 24) + 24) % 24;
+          const fx = fract(x) - 0.5;
+          const ridge = smooth(clamp((0.32 - Math.abs(fx)) / 0.12));
+          const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x3c71);
+          const flick =
+            0.9 + 0.1 * Math.sin(TAU * (2 * v + hash(cell, 1, seed ^ 0x61d2)));
+          const grain = noise(u, v, 32, 32, seed ^ 0x1b2f);
+          color = 0.38 + 0.3 * ridge * amp * flick + 0.08 * grain;
+          height = 0.3 + 0.44 * ridge * amp * flick;
+          roughness += 0.1 * (grain - 0.5) - 0.06 * ridge;
+          occlusion = 1 - 0.44 * (1 - ridge);
+          return;
+        };
+      case 'cheesegrater':
+        return () => {
+          // Punched holes sink below a raised rim ring on a fixed lattice.
+          const nx = 6,
+            ny = 8;
+          const cx = Math.floor(u * nx),
+            cy = Math.floor(v * ny);
+          // Rim amplitude hashes wrap with the lattice periods at the seam.
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d = Math.hypot(fx, fy);
+          const hole = smooth(clamp((0.22 - d) / 0.1));
+          const rim =
+            smooth(clamp((d - 0.22) / 0.06)) * smooth(clamp((0.42 - d) / 0.08));
+          const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x5c21);
+          const plane = (1 - rim) * (1 - hole);
+          const grain = noise(u, v, 32, 32, seed ^ 0x3a77);
+          color = 0.44 + 0.26 * rim - 0.3 * hole + 0.08 * grain;
+          height = 0.3 + 0.24 * rim * lift - 0.26 * hole;
+          roughness += 0.08 * (grain - 0.5) - 0.06 * rim + 0.1 * hole;
+          occlusion = 1 - 0.44 * hole - 0.12 * plane;
+          return;
+        };
+      case 'ovenrack':
+        return () => {
+          // Round rods run along u with thin crossbars along v; crossings lift.
+          const rv = fract(v * 8) - 0.5,
+            cu = fract(u * 4) - 0.5;
+          const rod = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
+          const bar = smooth(clamp((0.16 - Math.abs(cu)) / 0.08));
+          const cell = ((Math.floor(v * 8) % 8) + 8) % 8;
+          const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x2b4d);
+          const grain = noise(u, v, 24, 24, seed ^ 0x6e13);
+          color =
+            0.4 + 0.28 * rod + 0.16 * bar + 0.05 * rod * bar + 0.08 * grain;
+          height = 0.3 + 0.36 * rod * amp + 0.16 * bar + 0.06 * rod * bar;
+          roughness += 0.08 * (grain - 0.5) - 0.08 * rod;
+          occlusion = 1 - 0.44 * (1 - rod) * (1 - bar) - 0.12 * (1 - rod) * bar;
+          return;
+        };
+      case 'muffintin':
+        return () => {
+          // Cup recesses sit under a raised rim ring on a coarse lattice.
+          const nx = 4,
+            ny = 4;
+          const cx = Math.floor(u * nx),
+            cy = Math.floor(v * ny);
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d = Math.hypot(fx, fy);
+          const cup = smooth(clamp((0.34 - d) / 0.12));
+          const rim =
+            smooth(clamp((d - 0.32) / 0.06)) * smooth(clamp((0.48 - d) / 0.06));
+          const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x71b5);
+          const grain = noise(u, v, 24, 24, seed ^ 0x1f8a);
+          color = 0.42 + 0.24 * rim - 0.28 * cup + 0.08 * grain;
+          height = 0.3 + 0.2 * rim * lift - 0.28 * cup;
+          roughness += 0.08 * (grain - 0.5) - 0.05 * rim + 0.08 * cup;
+          occlusion = 1 - 0.44 * cup - 0.12 * (1 - rim) * (1 - cup);
+          return;
+        };
+      case 'gauze':
+        return () => {
+          // Warp and weft threads undulate over and under; the gaps stay open.
+          const n = 12;
+          const wx = fract(u * n) - 0.5,
+            wy = fract(v * n) - 0.5;
+          const warpEnv = smooth(clamp((0.26 - Math.abs(wy)) / 0.14));
+          const weftEnv = smooth(clamp((0.26 - Math.abs(wx)) / 0.14));
+          // The wave alternates which thread sits above at every crossing.
+          const wave = Math.cos(Math.PI * n * (u + v));
+          const a1 = warpEnv * (0.72 + 0.28 * wave),
+            a2 = weftEnv * (0.72 - 0.28 * wave);
+          const over = 1 - (1 - a1) * (1 - a2);
+          const grain = noise(u, v, 32, 32, seed ^ 0x4d19);
+          color = 0.7 + 0.16 * over + 0.05 * (a1 - a2) + 0.06 * grain;
+          height = 0.3 + 0.26 * over + 0.05 * (a1 - a2);
+          roughness += 0.08 * (grain - 0.5);
+          occlusion = 1 - 0.44 * (1 - over);
+          return;
+        };
+      case 'elasticbandage':
+        return () => {
+          // Diagonal stretch ribs cross recessed selvedge grooves.
+          const rv = fract(4 * (u - v)) - 0.5;
+          const rib = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
+          const groove = smooth(
+            clamp(
+              (0.16 - Math.abs(Math.sin(Math.PI * fract(2 * (u + v))))) / 0.1,
+            ),
+          );
+          const cell = ((Math.floor(4 * (u - v)) % 4) + 4) % 4;
+          const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x1c47);
+          const grain = noise(u, v, 28, 28, seed ^ 0x55ab);
+          color = 0.52 + 0.3 * rib * amp + 0.08 * grain - 0.18 * groove;
+          height = 0.3 + 0.26 * rib * amp - 0.16 * groove;
+          roughness += 0.08 * (grain - 0.5) - 0.06 * rib;
+          occlusion = 1 - 0.44 * groove;
+          return;
+        };
+      case 'icepack':
+        return () => {
+          // Squircle quilted cells bulge above their recessed seam grid.
+          const nx = 4,
+            ny = 4;
+          const cx = Math.floor(u * nx),
+            cy = Math.floor(v * ny);
+          const cellX = ((cx % nx) + nx) % nx,
+            cellY = ((cy % ny) + ny) % ny;
+          const fx = fract(u * nx) - 0.5,
+            fy = fract(v * ny) - 0.5;
+          const d4 = Math.pow(
+            Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+            0.25,
+          );
+          const quilt = smooth(clamp((0.42 - d4) / 0.12));
+          const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x6b3c);
+          const grain = noise(u, v, 24, 24, seed ^ 0x2f81);
+          color =
+            0.42 + 0.34 * quilt * lift + 0.08 * grain - 0.12 * (1 - quilt);
+          height = 0.3 + 0.24 * quilt * lift - 0.16 * (1 - quilt);
+          roughness += 0.08 * (grain - 0.5) - 0.05 * quilt;
+          occlusion = 1 - 0.44 * (1 - quilt);
+          return;
+        };
+      case 'morel':
+        return () => {
+          const p = morelPreset,
+            x = u * p.columns,
+            y = v * p.rows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = fungalGrain!(u, v);
+          let total = 0,
+            squared = 0;
+          for (let oy = -2; oy <= 2; oy++)
+            for (let ox = -2; ox <= 2; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset =
+                  (((cy + p.rows) % p.rows) * p.columns +
+                    ((cx + p.columns) % p.columns)) *
+                  5,
+                dx = x - cx - morelChambers![offset],
+                dy = y - cy - morelChambers![offset + 1],
+                a =
+                  dx * morelChambers![offset + 2] +
+                  dy * morelChambers![offset + 4],
+                b = dy * morelChambers![offset + 3],
+                q = a * a + b * b;
+              if (q >= 1) continue;
+              const weight = (1 - q) ** p.weightPower;
+              total += weight;
+              squared += weight * weight;
+            }
+          // Smooth competition, not a nearest-feature min: equal owners and
+          // triple junctions retain common derivatives. Compact weights vanish
+          // to order 12 at their real supports; the denominator stays positive.
+          const dominance = squared / (total * total),
+            bowl = smooth(clamp((dominance - 0.48) / 0.48));
+          color = 0.8 - 0.6 * bowl + 0.025 * grain;
+          height = 0.64 - 0.48 * bowl + 0.006 * grain;
+          occlusion = 0.98 - 0.4 * bowl;
+          roughness += 0.035 * bowl + 0.012 * (grain - 0.5);
+          return;
+        };
+      case 'mushroomgills':
+      case 'bracketfungus':
+        return () => {
+          const x = u * fanPreset.cells,
+            y = v * fanPreset.cells,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = fungalGrain!(u, v);
+          color = 0.3 + 0.025 * grain;
+          height = 0.13 + 0.004 * grain;
+          occlusion = 0.66;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset =
+                  (((cy + fanPreset.cells) % fanPreset.cells) *
+                    fanPreset.cells +
+                    ((cx + fanPreset.cells) % fanPreset.cells)) *
+                  7,
+                dx = x - cx - fungalFans![offset],
+                dy = y - cy - fungalFans![offset + 1],
+                cosine = fungalFans![offset + 2],
+                sine = fungalFans![offset + 3],
+                a = dx * cosine + dy * sine,
+                b = dy * cosine - dx * sine + 0.55,
+                q = a * a + b * b;
+              if (q <= 0.025 || q >= 2.21 || b <= 0 || b * b <= 0.04 * q)
+                continue;
+              const radius = Math.sqrt(q),
+                angle = Math.atan2(a, b),
+                p = fungalFans![offset + 4],
+                attachment = smooth(clamp((q - 0.025) / 0.065)),
+                fan = smooth(clamp((b / radius - 0.2) / 0.25));
+              let coverage: number,
+                relief: number,
+                pigment: number,
+                exposure: number,
+                finish: number;
+              if (kind === 'mushroomgills') {
+                const g = proceduralMaterialPresets.mushroomgills,
+                  wave =
+                    0.5 +
+                    0.5 *
+                      Math.cos(
+                        g.blades * angle + 0.5 * Math.sin(5 * radius + p),
+                      ),
+                  long = wave ** g.bladePower,
+                  short =
+                    (1 - wave) ** g.bladePower *
+                    smooth(
+                      clamp(
+                        (radius - g.shortStart) / (g.shortEnd - g.shortStart),
+                      ),
+                    ),
+                  blades = (long + short) * fungalFans![offset + 6],
+                  rim = 1 - smooth(clamp((radius - 1.22) / 0.2));
+                coverage = attachment * fan * rim;
+                relief = 0.2 + 0.22 * blades + 0.005 * grain;
+                pigment = 0.25 + 0.51 * blades + 0.08 * fungalFans![offset + 5];
+                exposure = 0.63 + 0.33 * blades;
+                finish =
+                  preset.roughness - 0.035 * blades + 0.012 * (grain - 0.5);
+              } else {
+                const f = proceduralMaterialPresets.bracketfungus,
+                  front =
+                    radius *
+                    (1 +
+                      f.lobe * Math.cos(5 * angle + p) +
+                      0.035 * Math.cos(9 * angle - p));
+                if (front >= 1.35) continue;
+                const edge = 1 - smooth(clamp((front - 1.27) / 0.08)),
+                  margin = smooth(
+                    clamp(
+                      (front - f.marginStart) / (f.marginEnd - f.marginStart),
+                    ),
+                  ),
+                  zones =
+                    0.5 +
+                    0.5 *
+                      Math.cos(
+                        TAU * f.zones * front + p + 0.2 * Math.sin(3 * angle),
+                      ),
+                  tone = fungalFans![offset + 5],
+                  velvet = (grain - 0.5) * fungalFans![offset + 6];
+                coverage = attachment * fan * edge;
+                relief = 0.47 - 0.045 * front + 0.009 * velvet;
+                pigment =
+                  (0.22 + 0.48 * zones + 0.12 * tone) * (1 - margin) +
+                  0.94 * margin +
+                  0.018 * velvet;
+                exposure = 0.97;
+                finish = preset.roughness + 0.025 * velvet - 0.045 * margin;
+              }
+              // An opaque face replaces every lower channel, including the
+              // previous rim's shadow. Stable unwrapped row order only changes
+              // when a zero-support neighbor enters/leaves the lookup.
+              color += coverage * (pigment - color);
+              height += coverage * (relief - height);
+              occlusion += coverage * (exposure - occlusion);
+              roughness += coverage * (finish - roughness);
+            }
+          return;
+        };
+      case 'tactilepaving':
+        return () => {
+          const p = proceduralMaterialPresets.tactilepaving,
+            grain = municipalGrain!(u, v),
+            tone = pavingTone!(u, v),
+            tx = Math.abs(fract(u * p.tiles) - 0.5),
+            ty = Math.abs(fract(v * p.tiles) - 0.5),
+            tile =
+              (1 -
+                smooth(
+                  clamp((tx - p.jointInner) / (p.jointOuter - p.jointInner)),
+                )) *
+              (1 -
+                smooth(
+                  clamp((ty - p.jointInner) / (p.jointOuter - p.jointInner)),
+                )),
+            dx = fract(u * p.domes) - 0.5,
+            dy = fract(v * p.domes) - 0.5,
+            dome =
+              1 -
+              smooth(
+                clamp(
+                  (dx * dx + dy * dy - p.domeInner * p.domeInner) /
+                    (p.domeOuter * p.domeOuter - p.domeInner * p.domeInner),
+                ),
+              );
+          // Radius .34 < .5: the one owner cell contains the full dome support.
+          // Squared radius is smooth at its center; tile joins lie in flat gaps.
+          color =
+            0.22 + 0.4 * tile + 0.08 * tile * dome + 0.06 * grain + 0.05 * tone;
+          height = 0.12 + tile * (0.12 + 0.56 * dome) + 0.008 * grain;
+          roughness = p.roughness + 0.06 * (grain - 0.5) - 0.025 * dome * tile;
+          occlusion = 0.72 + 0.22 * tile + 0.06 * tile * dome;
+          return;
+        };
+      case 'roadmarking':
+        return () => {
+          const p = proceduralMaterialPresets.roadmarking,
+            grain = municipalGrain!(u, v),
+            distance = Math.abs(fract(u * p.bands) - 0.5),
+            band =
+              1 -
+              smooth(
+                clamp((distance - p.bandInner) / (p.bandOuter - p.bandInner)),
+              ),
+            survival = smooth(
+              clamp(
+                (paintWear!(u, v) - p.wearInner) / (p.wearOuter - p.wearInner),
+              ),
+            ),
+            paint = band * survival,
+            substrateColor = 0.04 + 0.12 * grain,
+            substrateHeight = 0.17 + 0.07 * grain;
+          // Convex opaque ownership removes buried asphalt relief on intact paint.
+          color =
+            substrateColor + paint * (0.82 + 0.1 * grain - substrateColor);
+          height =
+            substrateHeight + paint * (0.32 + 0.008 * grain - substrateHeight);
+          roughness = p.roughness - 0.25 * paint + 0.04 * (grain - 0.5);
+          occlusion = 0.91 + 0.09 * paint;
+          return;
+        };
+      case 'draincover':
+        return () => {
+          const p = proceduralMaterialPresets.draincover,
+            grain = municipalGrain!(u, v),
+            x = Math.abs(u - 0.5),
+            y = Math.abs(v - 0.5),
+            cover =
+              (1 -
+                smooth(
+                  clamp((x - p.frameInnerX) / (p.frameOuterX - p.frameInnerX)),
+                )) *
+              (1 -
+                smooth(
+                  clamp((y - p.frameInnerY) / (p.frameOuterY - p.frameInnerY)),
+                )),
+            brace =
+              1 -
+              smooth(clamp((y - p.braceInner) / (p.braceOuter - p.braceInner))),
+            end = Math.max(0, y - p.slotHalfLength);
+          let slots = 0;
+          // Enumerate all six disjoint capsules (.084 width < .14 spacing).
+          // Their full supports fit inside the frame; no lookup truncates an end.
+          for (let i = 0; i < p.slots; i++) {
+            const dx = u - p.slotStart - i * p.slotSpacing;
+            slots +=
+              1 -
+              smooth(
+                clamp(
+                  (dx * dx + end * end - p.slotInner * p.slotInner) /
+                    (p.slotOuter * p.slotOuter - p.slotInner * p.slotInner),
+                ),
+              );
+          }
+          // The squared positive part is C1 where straight sides meet end caps.
+          // Brace ownership suppresses lower slot shading on the upper iron face.
+          const face = cover * (1 - slots * (1 - brace));
+          color = 0.035 + 0.045 * grain + face * (0.52 + 0.08 * grain);
+          height = 0.1 + 0.012 * grain + 0.72 * face;
+          roughness = p.roughness + 0.2 * (1 - face) + 0.06 * (grain - 0.5);
+          occlusion = 0.25 + 0.75 * face;
+          metallic = face;
+          return;
+        };
+      case 'birchbark':
+      case 'palmtrunk':
+      case 'sycamorebark':
+        return () => {
+          const grain = treeGrain!(u, v),
+            cloud = treeCloud ? treeCloud(u, v) : 0;
+          if (kind === 'palmtrunk') {
+            const fibers = palmFibers!(u, v),
+              row = Math.floor(v * 9);
+            let scars = 0,
+              shoulders = 0;
+            for (let i = row - 1; i <= row; i++) {
+              const offset = ((i + 9) % 9) * 4,
+                center =
+                  palmScars![offset] +
+                  0.006 * Math.sin(TAU * u + palmScars![offset + 2]) +
+                  0.003 * Math.sin(3 * TAU * u + palmScars![offset + 2]),
+                dy = fract(v - center + 0.5) - 0.5,
+                q = dy / palmScars![offset + 1],
+                lip = (dy - 0.018) / 0.013,
+                recess = Math.max(0, 1 - q * q),
+                shoulder = Math.max(0, 1 - lip * lip);
+              scars += recess * recess * palmScars![offset + 3];
+              shoulders += shoulder * shoulder * palmScars![offset + 3];
+            }
+            color =
+              0.49 +
+              0.17 * cloud +
+              0.12 * fibers -
+              0.32 * scars +
+              0.08 * shoulders;
+            height =
+              0.36 +
+              0.035 * fibers +
+              0.012 * grain -
+              0.15 * scars +
+              0.12 * shoulders;
+            roughness += 0.025 * (grain - 0.5) - 0.03 * scars;
+            occlusion = 1 - 0.22 * scars;
+          } else {
+            const x = u * barkColumns,
+              y = v * barkRows,
+              ix = Math.floor(x),
+              iy = Math.floor(y),
+              birch = kind === 'birchbark';
+            let marks = 0,
+              tone = 0.54,
+              layer = 0.32,
+              edges = 0;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const cx = ix + ox,
+                  cy = iy + oy,
+                  wx = (cx + barkColumns) % barkColumns,
+                  wy = (cy + barkRows) % barkRows,
+                  offset = (wy * barkColumns + wx) * barkStride,
+                  dx = x - cx - barkMarks![offset],
+                  dy = y - cy - barkMarks![offset + 1],
+                  a = dx / barkMarks![offset + 2],
+                  b = dy / barkMarks![offset + 3],
+                  quadratic = a * a + b * b,
+                  q = birch
+                    ? quadratic
+                    : quadratic *
+                      (1 +
+                        0.16 *
+                          Math.sin(5 * dx + barkMarks![offset + 4]) *
+                          Math.sin(6 * dy - barkMarks![offset + 4]));
+                if (q >= 1) continue;
+                const face = smooth(clamp((1 - q) / (birch ? 0.75 : 0.24)));
+                if (birch) {
+                  marks += (1 - marks) * face * barkMarks![offset + 4];
+                } else {
+                  // Layered compact lobes, not nearest-cell grout or one noise
+                  // threshold. A new layer replaces tone and shallow plate height.
+                  tone += (barkMarks![offset + 5] - tone) * face;
+                  layer +=
+                    (0.29 + 0.055 * barkMarks![offset + 5] - layer) * face;
+                  // A covering lobe hides the earlier layer's peel rim.
+                  edges = (edges + face) * (1 - face);
+                }
+              }
+            if (birch) {
+              const seamWave = Math.sin(TAU * (13 * v + 0.12 * cloud)),
+                seam = ((1 + seamWave) * 0.5) ** 24;
+              color = 0.91 + 0.035 * cloud - 0.79 * marks - 0.035 * seam;
+              height = 0.34 + 0.007 * grain - 0.065 * marks - 0.012 * seam;
+              roughness += 0.04 * marks + 0.02 * (grain - 0.5);
+              occlusion = 1 - 0.2 * marks - 0.025 * seam;
+            } else {
+              color = tone + 0.025 * (grain - 0.5);
+              height = layer + 0.008 * edges + 0.005 * (grain - 0.5);
+              roughness += 0.035 * (1 - tone) + 0.015 * (grain - 0.5);
+              occlusion = 1 - 0.055 * edges;
+            }
+          }
+          return;
+        };
+      case 'rosepetal':
+      case 'lilypetal':
+        return () => {
+          const rose = kind === 'rosepetal',
+            wander = rose ? petalWander!(u, v) : 0,
+            grain = petalGrain!(u, v),
+            fold = Math.sin(TAU * (3 * u + 0.22 * Math.sin(TAU * v + phase))),
+            rib = rose
+              ? 0
+              : Math.sin(TAU * (32 * u + 0.16 * Math.sin(TAU * 2 * v + phase))),
+            x = petalColumns * u,
+            y = petalRows * v,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let marks = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset =
+                  (((cy + petalRows) % petalRows) * petalColumns +
+                    ((cx + petalColumns) % petalColumns)) *
+                  8,
+                dx = x - cx - petalMarks![offset],
+                dy = y - cy - petalMarks![offset + 1],
+                across =
+                  (dx * petalMarks![offset + 2] +
+                    dy * petalMarks![offset + 3]) *
+                  petalMarks![offset + 4],
+                along =
+                  (dy * petalMarks![offset + 2] -
+                    dx * petalMarks![offset + 3]) *
+                  petalMarks![offset + 5],
+                radius = rose
+                  ? across * across + along * along
+                  : across *
+                      across *
+                      (1 + petalMarks![offset + 7] * Math.sin(3 * along)) +
+                    along * along,
+                support = clamp(1 - radius),
+                mark = support * support * support * petalMarks![offset + 6];
+              marks += rose ? mark : (1 - marks) * mark;
+            }
+          if (rose) {
+            color = 0.48 + 0.16 * fold + 0.08 * wander;
+            height = 0.3 + 0.1 * fold + 0.055 * marks;
+            roughness += 0.025 * marks + 0.02 * (grain - 0.5);
+            occlusion = 0.98;
+          } else {
+            // Pigment has no relief or AO contribution: dark speckles are not pits.
+            color = 0.94 - 0.82 * marks;
+            height = 0.3 + 0.025 * fold + 0.012 * rib;
+            roughness += 0.025 * marks + 0.012 * (grain - 0.5);
+            occlusion = 0.99;
+          }
+          return;
+        };
+      case 'fritillarypetal':
+        return () => {
+          const wander = petalWander!(u, v),
+            grain = petalGrain!(u, v),
+            across =
+              3 * u + 0.085 * Math.sin(TAU * 2 * v + phase) + 0.12 * wander,
+            along =
+              4 * v + 0.065 * Math.sin(TAU * 2 * u - phase) + 0.1 * wander,
+            pigment =
+              0.5 +
+              0.5 *
+                Math.tanh(7 * Math.sin(TAU * across) * Math.sin(TAU * along)),
+            rib = Math.sin(TAU * (40 * u + 0.12 * Math.sin(TAU * v + phase)));
+          color = 0.12 + 0.8 * pigment;
+          // Checker ownership never enters height, roughness or occlusion.
+          height =
+            0.3 +
+            0.014 * rib +
+            0.02 * Math.sin(TAU * (2 * u + 0.1 * Math.sin(TAU * v + phase)));
+          roughness += 0.014 * (grain - 0.5);
+          occlusion = 0.99;
+          return;
+        };
+      case 'cantaloupe':
+        return () => {
+          const warp = rindWarp!(u, v),
+            x = 7 * u + 0.38 * Math.sin(TAU * 3 * v + phase),
+            y = 7 * v + 0.34 * Math.sin(TAU * 2 * u - phase),
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            grain = fruitGrain!(u, v);
+          let interior = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 26,
+                dx = x - cx - rindIslands![offset],
+                dy = y - cy - rindIslands![offset + 1];
+              let mask =
+                smooth(clamp((1.21 - dx * dx) * 5)) *
+                smooth(clamp((1.21 - dy * dy) * 5));
+              for (let edge = 0; edge < 8; edge++) {
+                const plane = offset + 2 + edge * 3,
+                  inset =
+                    rindIslands![plane + 2] -
+                    dx * rindIslands![plane] -
+                    dy * rindIslands![plane + 1];
+                mask *= smooth(clamp((inset - 0.035) * 6));
+              }
+              interior += mask;
+            }
+          const net = 1 - interior;
+          color = 0.14 + 0.12 * warp + net * (0.66 + 0.06 * grain);
+          height = 0.12 + 0.012 * grain + net * (0.5 + 0.06 * grain);
+          roughness += 0.1 * net - 0.03 * interior;
+          occlusion = 0.9 + 0.1 * net;
+          return;
+        };
+      case 'dragonfruit':
+        return () => {
+          const x = 4 * u,
+            y = 6 * v,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            grain = fruitGrain!(u, v);
+          let face = 0,
+            tips = 0,
+            lifted = 0,
+            underlap = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = (((cy + 6) % 6) * 4 + ((cx + 4) % 4)) * 5,
+                dx = x - cx - bracts![offset],
+                dy = y - cy - bracts![offset + 1],
+                a =
+                  (dx * bracts![offset + 2] - dy * bracts![offset + 3]) *
+                  bractWidthInverse,
+                b =
+                  (dy * bracts![offset + 2] + dx * bracts![offset + 3]) *
+                  bractLengthInverse,
+                radius = a * a * (1 + 0.65 * b + 0.2 * b * b) + b * b,
+                body = smooth(clamp(1 - radius)),
+                pigment = smooth(clamp((1 - radius) * 5)),
+                tip = smooth(clamp((b - 0.05) * 2.5)),
+                lip = body * smooth(clamp((b + 0.35) * 1.5)),
+                shade = (pigment - body) * (1 - tip);
+              face += body;
+              tips += (1 - tips) * pigment * tip * bracts![offset + 4];
+              lifted += lip;
+              underlap += shade;
+            }
+          color = 0.045 + 0.025 * grain + 0.86 * tips;
+          height =
+            0.16 +
+            0.008 * grain +
+            0.11 * face +
+            0.48 * lifted -
+            0.07 * underlap;
+          roughness += 0.1 * tips + 0.04 * underlap;
+          occlusion = 1 - 0.19 * underlap;
+          return;
+        };
+      case 'kiwiskin':
+        return () => {
+          const x = 36 * u,
+            y = 36 * v,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            grain = fruitGrain!(u, v);
+          let hairs = 0,
+            pits = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = (((cy + 36) % 36) * 36 + ((cx + 36) % 36)) * 5,
+                dx = x - cx - kiwiHairs![offset],
+                dy = y - cy - kiwiHairs![offset + 1],
+                along =
+                  dx * kiwiHairs![offset + 2] + dy * kiwiHairs![offset + 3],
+                across =
+                  dy * kiwiHairs![offset + 2] - dx * kiwiHairs![offset + 3],
+                hair = smooth(
+                  clamp(
+                    1 -
+                      along * along * hairLengthSquaredInverse -
+                      across * across * hairWidthSquaredInverse,
+                  ),
+                ),
+                root = along + 0.43,
+                pit = smooth(
+                  clamp(
+                    1 -
+                      (root * root + across * across) * follicleSquaredInverse,
+                  ),
+                );
+              hairs += (1 - hairs) * hair * kiwiHairs![offset + 4];
+              pits += (1 - pits) * pit;
+            }
+          color = 0.34 + 0.13 * grain + 0.38 * hairs - 0.19 * pits;
+          height = 0.15 + 0.016 * grain + 0.23 * hairs - 0.085 * pits;
+          roughness += 0.055 * hairs - 0.025 * pits;
+          occlusion = 1 - 0.23 * pits;
+          return;
+        };
+      case 'walnutshell':
+        return () => {
+          // Flowing longitudinal ridges and missing cross-links avoid a lattice.
+          const x = u * 7 + 0.8 * (nutWarp!(u, v) - 0.5),
+            y = v * 7,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let ridges = 0;
+          for (let oy = -2; oy <= 2; oy++)
+            for (let ox = -2; ox <= 2; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                cell = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 24;
+              for (let branch = 0; branch < 3; branch++) {
+                const offset = cell + branch * 8;
+                if (!walnutRidges![offset + 7]) continue;
+                const dx = x - cx - walnutRidges![offset],
+                  dy = y - cy - walnutRidges![offset + 1],
+                  cosine = walnutRidges![offset + 2],
+                  sine = walnutRidges![offset + 3],
+                  a = (dx * cosine + dy * sine) * walnutRidges![offset + 4];
+                if (a * a >= 1) continue;
+                const across =
+                    dy * cosine -
+                    dx * sine -
+                    walnutRidges![offset + 6] * (1 - a * a),
+                  b = across * walnutRidges![offset + 5],
+                  ridge =
+                    smooth(clamp((1 - a * a) / 0.4)) * smooth(clamp(1 - b * b));
+                ridges += ridge;
+              }
+            }
+          const crest = ridges / (0.65 + ridges),
+            grain = nutGrain!(u, v);
+          color = 0.13 + 0.74 * crest + 0.055 * grain;
+          height = 0.13 + 0.75 * crest + 0.012 * grain;
+          occlusion = 0.45 + 0.53 * crest;
+          roughness += 0.035 * (1 - crest) + 0.012 * (grain - 0.5);
+          return;
+        };
+      case 'peanutshell':
+        return () => {
+          const x =
+              u * 10 +
+              0.28 * Math.sin(TAU * v + phase) +
+              0.3 * (nutWarp!(u, v) - 0.5),
+            y = v * 5,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            rib = smooth(clamp((Math.cos(TAU * x) - 0.6) / 0.4));
+          let links = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset = (((cy + 5) % 5) * 10 + ((cx + 10) % 10)) * 3,
+                dx = x - cx - 0.5,
+                dy = y - cy - peanutLinks![offset],
+                a = dx / 0.65,
+                b =
+                  (dy - peanutLinks![offset + 2] * dx) *
+                  peanutLinks![offset + 1],
+                q = a * a + b * b;
+              if (q < 1) links += smooth(1 - q);
+            }
+          const cross = links / (0.5 + links),
+            grain = nutGrain!(u, v);
+          color = 0.5 + 0.22 * rib + 0.12 * cross + 0.045 * grain;
+          height = 0.25 + 0.38 * rib + 0.17 * cross + 0.008 * grain;
+          occlusion = 0.72 + 0.19 * rib + 0.075 * cross;
+          roughness += 0.025 * (1 - rib) + 0.012 * (grain - 0.5);
+          return;
+        };
+      case 'almondshell':
+        return () => {
+          const x = u * 16,
+            y = v * 12,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let pores = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset = (((cy + 12) % 12) * 16 + ((cx + 16) % 16)) * 7;
+              if (!almondPores![offset + 6]) continue;
+              const dx = x - cx - almondPores![offset],
+                dy = y - cy - almondPores![offset + 1],
+                cosine = almondPores![offset + 2],
+                sine = almondPores![offset + 3],
+                a = (dx * cosine + dy * sine) * almondPores![offset + 4],
+                b = (dy * cosine - dx * sine) * almondPores![offset + 5],
+                q = a * a + b * b;
+              if (q < 1) pores += smooth(1 - q);
+            }
+          const grain = nutGrain!(u, v),
+            fiber =
+              0.5 +
+              0.5 * Math.cos(TAU * 43 * u + 0.35 * Math.sin(TAU * v + phase));
+          color = 0.76 - 0.45 * pores + 0.035 * grain + 0.018 * fiber;
+          height = 0.62 - 0.33 * pores + 0.006 * grain + 0.004 * fiber;
+          occlusion = 0.98 - 0.38 * pores;
+          roughness += 0.035 * pores + 0.012 * (grain - 0.5);
+          return;
+        };
+      case 'scallopshell':
+      case 'oystershell':
+      case 'nautilusshell':
+        return () => {
+          const x = u * shellCells,
+            y = v * shellCells,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = shellGrain!(u, v);
+          color = 0.28 + 0.035 * grain;
+          height = 0.12 + 0.004 * grain;
+          occlusion = 0.76;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset =
+                  (((cy + shellCells) % shellCells) * shellCells +
+                    ((cx + shellCells) % shellCells)) *
+                  8,
+                dx = x - cx - shellFaces![offset],
+                dy = y - cy - shellFaces![offset + 1],
+                cosine = shellFaces![offset + 2],
+                sine = shellFaces![offset + 3],
+                a = (dx * cosine + dy * sine) * shellFaces![offset + 4],
+                b = (dy * cosine - dx * sine) * shellFaces![offset + 5],
+                p = shellFaces![offset + 6];
+              let face: number,
+                relief: number,
+                pigment: number,
+                exposure: number,
+                polish: number;
+              if (kind === 'scallopshell') {
+                const along = b + 0.6,
+                  q = a * a + along * along;
+                if (q <= 0.015 || q >= 1.8225 || along <= 0) continue;
+                const radius = Math.sqrt(q),
+                  angle = Math.atan2(a, along),
+                  // The hinge has an open zero neighborhood: no directional
+                  // limit survives there, even on atan2's branch cut.
+                  hinge = smooth(clamp((q - 0.015) * 16)),
+                  fan = smooth(clamp((Math.cos(angle) - 0.55) * 5)),
+                  rim = 1 - smooth(clamp((radius - 1.15) * 5)),
+                  rib = 0.5 + 0.5 * Math.cos(18 * angle),
+                  growth = 0.5 + 0.5 * Math.cos(44 * radius + p);
+                face = hinge * fan * rim;
+                relief = 0.29 + 0.25 * rib + 0.025 * growth;
+                pigment = 0.48 + 0.25 * rib + 0.065 * growth;
+                exposure = 0.8 + 0.17 * rib;
+                polish = -0.05 * rib;
+              } else if (kind === 'oystershell') {
+                // Off-center, Cartesian lobing deforms nested growth fronts.
+                // Each lamina has a lifted inner lip and a shadowed outer recess,
+                // not a symmetric sinusoidal corrugation or rectangular strip.
+                const warped = a + 0.16 * b * b,
+                  q =
+                    (warped * warped + b * b) *
+                    (1 + 0.13 * Math.sin(5 * a + p) * Math.sin(4 * b - p));
+                if (q >= 1) continue;
+                face = 1 - smooth(clamp((q - 0.78) * (1 / 0.22)));
+                relief = 0.25;
+                pigment = shellFaces![offset + 7];
+                exposure = 0.96;
+                for (let layer = 0; layer < 5; layer++) {
+                  const front = 0.9 - layer * 0.155,
+                    distance = q - front,
+                    terrace = 1 - smooth(clamp((distance + 0.025) * 20)),
+                    lip = Math.exp(-1800 * (distance + 0.045) ** 2),
+                    recess = Math.exp(-1800 * (distance - 0.035) ** 2);
+                  relief += 0.065 * terrace + 0.075 * lip - 0.035 * recess;
+                  pigment += 0.035 * terrace + 0.1 * lip - 0.14 * recess;
+                  exposure -= 0.12 * recess;
+                }
+                relief += 0.018 * (grain - 0.5);
+                pigment += 0.12 * (grain - 0.5);
+                polish = 0.045 * (grain - 0.5);
+              } else {
+                const q = a * a + b * b;
+                if (q >= 1) continue;
+                const radius = Math.sqrt(q),
+                  angle = Math.atan2(b, a),
+                  center = smooth(clamp((q - 0.01) * 12)),
+                  // Integer angular harmonics make both sides of atan2's cut
+                  // identical. Radial phase winds the coil and bends chambers.
+                  coil = 0.5 + 0.5 * Math.cos(6 * Math.PI * radius - angle + p),
+                  chamber = 0.5 + 0.5 * Math.cos(18 * angle - 13 * radius + p),
+                  stripe = chamber ** 4;
+                face = 1 - smooth(clamp((q - 0.75) * 4));
+                relief = 0.35 + center * (0.15 * coil + 0.025 * chamber);
+                pigment = 0.87 - center * (0.52 * stripe + 0.13 * (1 - coil));
+                exposure = 0.97 - 0.15 * center * (1 - coil);
+                polish = -0.045 * center * coil;
+              }
+              height += face * (relief - height);
+              color += face * (pigment - color);
+              occlusion += face * (exposure - occlusion);
+              roughness += face * (preset.roughness + polish - roughness);
+            }
+          return;
+        };
+      case 'zebrafur':
+      case 'leopardfur':
+      case 'giraffefur':
+        return () => {
+          const warp = furWarp!(u, v),
+            grain = furGrain!(u, v),
+            fx = u * 40,
+            fy = v * 32,
+            column = Math.floor(fx),
+            row = Math.floor(fy);
+          let fibers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset = (((cy + 32) % 32) * 40 + ((cx + 40) % 40)) * 4,
+                dx = fx - cx - furFibers![offset],
+                dy = fy - cy - furFibers![offset + 1],
+                along =
+                  (dx * furFibers![offset + 2] + dy * furFibers![offset + 3]) /
+                  0.58,
+                across =
+                  (dy * furFibers![offset + 2] - dx * furFibers![offset + 3]) /
+                  0.13,
+                hair = smooth(clamp(1 - along * along - across * across));
+              fibers += (1 - fibers) * hair;
+            }
+          if (kind === 'zebrafur') {
+            const bend =
+                0.42 * Math.sin(TAU * 2 * v + phase) + 0.75 * (warp - 0.5),
+              carrier = TAU * (8 * u + bend),
+              // A subharmonic crossing unit amplitude changes the number of
+              // stripes: paired bands genuinely join, rather than just waving.
+              branching = 1.65 * Math.sin(TAU * 2 * v - phase),
+              pigment =
+                Math.cos(carrier) +
+                branching *
+                  Math.cos(carrier * 0.5 + 0.3 * Math.sin(TAU * v + phase));
+            color =
+              0.025 +
+              0.94 *
+                smooth(clamp((pigment + 0.13 + 0.16 * (warp - 0.5)) / 0.26));
+          } else if (kind === 'leopardfur') {
+            const x = 5 * u + 0.12 * Math.sin(TAU * 3 * v + phase),
+              y = 5 * v + 0.12 * Math.sin(TAU * 2 * u - phase),
+              ix = Math.floor(x),
+              iy = Math.floor(y);
+            let rings = 0,
+              centers = 0;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const cx = ix + ox,
+                  cy = iy + oy,
+                  offset = (((cy + 5) % 5) * 5 + ((cx + 5) % 5)) * 7,
+                  dx = x - cx - rosettes![offset],
+                  dy = y - cy - rosettes![offset + 1],
+                  a =
+                    (dx * rosettes![offset + 2] + dy * rosettes![offset + 3]) *
+                    rosettes![offset + 4],
+                  b =
+                    (dy * rosettes![offset + 2] - dx * rosettes![offset + 3]) *
+                    rosettes![offset + 5],
+                  // Bounded Cartesian lobing stays regular at the center and
+                  // keeps the entire support within 0.53 cell units.
+                  squared = a * a + b * b,
+                  radius =
+                    squared * (1 + (0.18 * a * b + 0.16 * a) / (1 + squared)),
+                  outer = 1 - smooth(clamp((radius - 0.72) / 0.28)),
+                  inner = smooth(clamp((radius - 0.25) / 0.2)),
+                  gap =
+                    smooth(clamp((a - 0.35) / 0.28)) *
+                    (1 - smooth(clamp((b * b - 0.025) / 0.12))),
+                  secondGap =
+                    smooth(clamp((-b - 0.48) / 0.25)) *
+                    (1 - smooth(clamp((a * a - 0.015) / 0.065))),
+                  ring = outer * inner * (1 - gap) * (1 - secondGap),
+                  center = (1 - inner) * (0.65 + 0.25 * rosettes![offset + 6]);
+                rings += (1 - rings) * ring;
+                centers += (1 - centers) * center * outer;
+              }
+            color =
+              (0.88 - 0.22 * centers + 0.055 * (warp - 0.5)) *
+              (1 - 0.96 * rings);
+          } else {
+            const x = 6 * u + 0.13 * Math.sin(TAU * 2 * v + phase),
+              y = 6 * v + 0.13 * Math.sin(TAU * 3 * u - phase),
+              ix = Math.floor(x),
+              iy = Math.floor(y);
+            color = 0.95;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const cx = ix + ox,
+                  cy = iy + oy,
+                  offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 27,
+                  dx = x - cx - furPatches![offset],
+                  dy = y - cy - furPatches![offset + 1];
+                // Explicit compact support also makes lookup entry/exit C1.
+                let mask =
+                  smooth(clamp((1.21 - dx * dx) / 0.21)) *
+                  smooth(clamp((1.21 - dy * dy) / 0.21));
+                for (let edge = 0; edge < 8; edge++) {
+                  const plane = offset + 3 + edge * 3,
+                    inset =
+                      furPatches![plane + 2] -
+                      dx * furPatches![plane] -
+                      dy * furPatches![plane + 1];
+                  mask *= smooth(clamp((inset - 0.045) / 0.055));
+                }
+                color +=
+                  mask *
+                  (0.12 + 0.2 * furPatches![offset + 2] + 0.055 * warp - color);
+              }
+          }
+          color += 0.018 * (fibers - 0.5) + 0.012 * (grain - 0.5);
+          height = 0.28 + 0.24 * fibers + 0.035 * grain;
+          roughness += 0.07 * (fibers - 0.5) + 0.025 * (grain - 0.5);
+          occlusion = 0.985 + 0.012 * fibers;
+          return;
+        };
+      case 'braincoral':
+        return () => {
+          const x = TAU * u + 0.17 * Math.sin(TAU * v + phase),
+            y = TAU * v + 0.17 * Math.sin(TAU * u - phase),
+            grain = marineGrain!(u, v);
+          let field = 0;
+          for (let i = 0; i < 6; i++) {
+            const offset = i * 4;
+            field +=
+              brainModes![offset + 3] *
+              Math.sin(
+                brainModes![offset] * x +
+                  brainModes![offset + 1] * y +
+                  brainModes![offset + 2],
+              );
+          }
+          const ridge = Math.exp(-24 * field * field),
+            shoulder = Math.exp(-6 * field * field);
+          color = 0.13 + 0.55 * ridge + 0.11 * shoulder + 0.04 * grain;
+          height = 0.16 + 0.43 * ridge + 0.12 * shoulder + 0.009 * grain;
+          roughness += 0.06 * (1 - ridge) + 0.015 * (grain - 0.5);
+          occlusion = 0.57 + 0.39 * shoulder;
+          return;
+        };
+      case 'starcoral':
+        return () => {
+          const x = u * 6,
+            y = v * 6,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = marineGrain!(u, v);
+          color = 0.2 + 0.025 * grain;
+          height = 0.16 + 0.006 * grain;
+          occlusion = 0.72;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 31,
+                dx = x - cx - corallites![offset],
+                dy = y - cy - corallites![offset + 1],
+                cosine = corallites![offset + 2],
+                sine = corallites![offset + 3],
+                a = (dx * cosine + dy * sine) * corallites![offset + 4],
+                b = (dy * cosine - dx * sine) * corallites![offset + 5],
+                q = a * a + b * b;
+              if (q >= 1) continue;
+              const face = smooth(clamp((1 - q) / 0.25)),
+                mouth = Math.exp(-40 * q),
+                wall = Math.exp(-45 * (q - 0.65) * (q - 0.65));
+              let septa = 0;
+              // Cartesian rays start outside the recessed mouth. Neither angular
+              // division nor a directional limit occurs at the corallite center.
+              for (let ray = 0; ray < 12; ray++) {
+                const rx = corallites![offset + 7 + ray * 2],
+                  ry = corallites![offset + 8 + ray * 2],
+                  along = a * rx + b * ry,
+                  across = b * rx - a * ry,
+                  rib =
+                    smooth(clamp((along - 0.16) / 0.12)) *
+                    Math.exp(-700 * across * across);
+                septa += (1 - septa) * rib;
+              }
+              const pigment =
+                  0.43 +
+                  0.12 * corallites![offset + 6] +
+                  0.19 * wall +
+                  0.15 * septa -
+                  0.27 * mouth,
+                relief = 0.29 + 0.18 * wall + 0.16 * septa - 0.19 * mouth;
+              color += face * (pigment - color);
+              height += face * (relief - height);
+              roughness +=
+                face * (preset.roughness + 0.055 * mouth - roughness);
+              occlusion +=
+                face * (0.88 + 0.07 * wall - 0.42 * mouth - occlusion);
+            }
+          return;
+        };
+      case 'seasponge':
+        return () => {
+          // Periodic shears bend the connected skeleton without opening joins or
+          // changing its compact-support lookup.
+          const warpedU = u + 0.07 * Math.sin(TAU * 3 * v + phase),
+            warpedV = v + 0.06 * Math.sin(TAU * 2 * warpedU - phase),
+            x = fract(warpedU) * 7,
+            y = fract(warpedV) * 7,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          let skeleton = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                cell = ((cy + 7) % 7) * 7 + ((cx + 7) % 7);
+              for (let branch = 0; branch < 4; branch++) {
+                const offset = (cell * 4 + branch) * 7;
+                if (spongeStruts![offset + 6] === 0) continue;
+                const dx = x - cx - spongeStruts![offset],
+                  dy = y - cy - spongeStruts![offset + 1],
+                  cosine = spongeStruts![offset + 2],
+                  sine = spongeStruts![offset + 3],
+                  a = (dx * cosine + dy * sine) * spongeStruts![offset + 4],
+                  b = (dy * cosine - dx * sine) * spongeStruts![offset + 5],
+                  q = a * a + b * b;
+                if (q >= 1) continue;
+                const strut = smooth(clamp((1 - q) / 0.8));
+                skeleton += (1 - skeleton) * strut;
+              }
+            }
+          const channelField = spongeChannels!(u, v) - 0.5,
+            channels = Math.exp(-110 * channelField * channelField),
+            grain = marineGrain!(u, v),
+            body = skeleton * (1 - 0.42 * channels);
+          color = 0.12 + 0.63 * body + 0.055 * grain;
+          height = 0.12 + 0.57 * body + 0.012 * grain * skeleton;
+          roughness += 0.035 * (1 - body) + 0.01 * (grain - 0.5);
+          occlusion = 0.48 + 0.48 * body;
+          return;
+        };
+      case 'lotusleaf':
+      case 'bananaleaf':
+      case 'fernleaf':
+        return () => {
+          const x = u * 3,
+            y = v * 3,
+            column = Math.floor(x),
+            row = Math.floor(y);
+          color = 0.12;
+          height = 0.08;
+          occlusion = 0.68;
+          // Every support fits strictly within the 3x3 neighborhood. Ordered
+          // convex layers retain C1 ownership at overlaps and wrapped cell edges.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                offset = (((cy + 3) % 3) * 3 + ((cx + 3) % 3)) * leafStride,
+                dx = x - cx - leafSites![offset],
+                dy = y - cy - leafSites![offset + 1],
+                cosine = leafSites![offset + 2],
+                sine = leafSites![offset + 3],
+                a = (dx * cosine + dy * sine) * leafSites![offset + 4],
+                b = (dy * cosine - dx * sine) * leafSites![offset + 5],
+                variation = leafSites![offset + 6];
+              let face: number,
+                veins = 0,
+                crown: number;
+              if (kind === 'fernleaf') {
+                if (a * a + b * b > 1.5) continue;
+                face = smooth(
+                  clamp((1 - (a * a) / 0.81 - (b * b) / 0.0016) / 0.35),
+                );
+                veins = face;
+                for (let i = 0; i < 14; i++) {
+                  const side = pinnae![i * 3 + 1],
+                    t = b * side * pinnae![i * 3 + 2],
+                    across = (a - pinnae![i * 3] - 0.3 * b * side) / 0.043,
+                    q = (2 * t - 1) * (2 * t - 1) + across * across;
+                  if (q >= 1) continue;
+                  const pinna = smooth(clamp((1 - q) / 0.35)),
+                    midrib = Math.exp(-10 * across * across),
+                    fine = Math.pow(
+                      0.5 + 0.5 * Math.cos(42 * t - 7 * across),
+                      8,
+                    ),
+                    vein = pinna * (0.78 * midrib + 0.22 * fine);
+                  face += (1 - face) * pinna;
+                  veins += (1 - veins) * vein;
+                }
+                crown = face;
+              } else {
+                const q =
+                  a * a +
+                  b * b * (kind === 'bananaleaf' ? 1 + 0.45 * a * a : 1);
+                if (q >= 1) continue;
+                face = smooth(clamp((1 - q) / 0.24));
+                crown = (1 - q) * (1 - q);
+                if (kind === 'lotusleaf') {
+                  // Cartesian rays fade before meeting the attachment: no angle,
+                  // radius division or directional limit exists at the center.
+                  for (let ray = 0; ray < 12; ray++) {
+                    const rx = leafSites![offset + 7 + ray * 2],
+                      ry = leafSites![offset + 8 + ray * 2],
+                      along = a * rx + b * ry,
+                      across = b * rx - a * ry,
+                      shaft = smooth(clamp((along - 0.03) / 0.1)),
+                      vein = shaft * Math.exp(-900 * across * across);
+                    veins += (1 - veins) * vein;
+                  }
+                  const attachment = Math.exp(-110 * q);
+                  veins += (1 - veins) * attachment;
+                } else {
+                  const midrib = Math.exp(-180 * b * b),
+                    // Rounded transverse distance joins oblique parallel side
+                    // veins smoothly to both sides of the strong midrib.
+                    carrier = Math.cos(
+                      TAU * (9 * a - 2.4 * Math.sqrt(b * b + 0.0004)),
+                    ),
+                    branches =
+                      ((b * b) / (b * b + 0.006)) *
+                      Math.pow(0.5 + 0.5 * carrier, 8);
+                  veins = midrib + (1 - midrib) * 0.7 * branches;
+                }
+              }
+              color += face * (0.5 + 0.18 * variation + 0.12 * veins - color);
+              height += face * (0.26 + 0.13 * crown + 0.14 * veins - height);
+              roughness +=
+                face * (preset.roughness + 0.035 * (1 - veins) - roughness);
+              occlusion += face * (0.9 + 0.08 * crown - occlusion);
+            }
+          return;
+        };
+      case 'rice':
+      case 'sesame':
+      case 'coffeebeans':
+        return () => {
+          const x = u * grainCells,
+            y = v * grainCells,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = roastGrain ? roastGrain(u, v) : 0;
+          color = kind === 'rice' ? 0.26 : kind === 'sesame' ? 0.19 : 0.12;
+          height = 0.08;
+          occlusion = 0.57;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                wx = (cx + grainCells) % grainCells,
+                wy = (cy + grainCells) % grainCells,
+                offset = (wy * grainCells + wx) * 7,
+                dx = x - cx - grainSites![offset],
+                dy = y - cy - grainSites![offset + 1],
+                cosine = grainSites![offset + 2],
+                sine = grainSites![offset + 3],
+                a = (dx * cosine + dy * sine) * grainSites![offset + 4],
+                b = (dy * cosine - dx * sine) * grainSites![offset + 5],
+                variation = grainSites![offset + 6];
+              let q: number;
+              if (kind === 'rice') q = a * a + b * b * (1 + 0.8 * a * a);
+              else if (kind === 'sesame') {
+                const taper = 1 + 0.65 * a;
+                q = a * a + b * b * taper * taper;
+              } else q = a * a + b * b * (1 + 0.12 * a);
+              if (q >= 1) continue;
+              // Polynomial coordinates have no singular radial center. The
+              // compact face and every owned detail vanish with zero edge slope.
+              const face = smooth(clamp((1 - q) / 0.32)),
+                crown = (1 - q) * (1 - q);
+              let pigment: number,
+                relief: number,
+                finish: number,
+                shade: number;
+              if (kind === 'rice') {
+                const striation = 0.5 + 0.5 * Math.cos(14 * b + 0.7 * a * a);
+                pigment = 0.75 + 0.16 * variation + 0.035 * striation;
+                relief = 0.28 + 0.32 * crown + 0.025 * crown * striation;
+                finish = preset.roughness + 0.04 * (1 - crown);
+                shade = 0.87 + 0.1 * crown;
+              } else if (kind === 'sesame') {
+                const keel = Math.exp(-12 * b * b) * crown,
+                  fleck =
+                    0.5 + 0.5 * Math.sin(17 * a + 5 * b + variation * TAU);
+                pigment = 0.58 + 0.2 * variation + 0.07 * keel + 0.025 * fleck;
+                relief = 0.24 + 0.2 * crown + 0.23 * keel;
+                finish = preset.roughness + 0.05 * (1 - keel);
+                shade = 0.86 + 0.11 * crown;
+              } else {
+                // A curved recessed split cuts the broad crown, not an absolute
+                // distance crease; its squared profile stays smooth at the floor.
+                const curve = b - 0.16 * Math.sin(2.8 * a + variation - 0.5),
+                  split = Math.exp((-curve * curve) / 0.012) * crown,
+                  roast = 0.55 * grain + 0.45 * variation;
+                pigment = 0.4 + 0.3 * roast + 0.1 * crown - 0.26 * split;
+                relief =
+                  0.28 + 0.4 * crown - 0.3 * split + 0.018 * grain * crown;
+                finish = preset.roughness + 0.11 * roast + 0.1 * split;
+                shade = 0.89 + 0.08 * crown - 0.32 * split;
+              }
+              // Convex layering preserves distinct seed ownership without hard
+              // nearest-site changes or saturation kinks where silhouettes overlap.
+              color += face * (pigment - color);
+              height += face * (relief - height);
+              roughness += face * (finish - roughness);
+              occlusion += face * (shade - occlusion);
+            }
+          return;
+        };
+      case 'malachite':
+      case 'agate':
+        return () => {
+          const columns = kind === 'malachite' ? 3 : 1,
+            rows = 3,
+            a = TAU * columns * u + mineralPhaseU,
+            b = TAU * rows * v + mineralPhaseV,
+            x = a + 0.28 * Math.sin(b),
+            y = b + 0.18 * Math.sin(a),
+            // Analytic contour ownership blends through saddles rather than
+            // selecting a nearest growth center. No radial origin is singular.
+            // Agate's second harmonic adds growth basins, not only a stretched recolor.
+            growth =
+              1 -
+              0.5 * (Math.cos(x) + Math.cos(y)) +
+              (kind === 'agate' ? 0.22 * (1 - Math.cos(2 * x - y)) : 0),
+            bands =
+              0.5 +
+              0.5 *
+                Math.cos(TAU * (3 * growth + 0.1 * Math.sin(x) * Math.sin(y))),
+            grain = mineralGrain!(u, v);
+          color = 0.12 + 0.8 * bands + 0.035 * grain;
+          height = 0.48 + 0.07 * bands + 0.002 * grain;
+          roughness += 0.045 * (1 - bands) + 0.012 * grain;
+          occlusion = 0.985 + 0.015 * bands;
+          return;
+        };
+      case 'lapislazuli':
+        return () => {
+          const a =
+              Math.sin(TAU * (u + v) + mineralPhaseU) +
+              0.22 * Math.sin(TAU * 3 * v + mineralPhaseV),
+            b =
+              Math.sin(TAU * (2 * u - v) + mineralPhaseV) +
+              0.18 * Math.sin(TAU * 2 * v + mineralPhaseU),
+            veinA = smooth(clamp(1 - (a / 0.1) ** 2)),
+            veinB = smooth(clamp(1 - (b / 0.065) ** 2)),
+            inclusion = smooth(clamp((calciteGrain!(u, v) - 0.64) / 0.22)),
+            // Smooth complement union retains calcite ownership at crossings
+            // and fades inclusions into the granular blue dielectric matrix.
+            calcite = 1 - (1 - veinA) * (1 - veinB) * (1 - 0.8 * inclusion),
+            grain = mineralGrain!(u, v);
+          color = 0.1 + 0.12 * grain + 0.76 * calcite;
+          height = 0.5 + 0.009 * grain + 0.045 * calcite;
+          roughness += 0.04 * grain + 0.13 * calcite;
+          occlusion = 0.988 + 0.012 * calcite;
+          return;
+        };
+      case 'basalt':
+        return () => {
+          const x = u * 6,
+            y = v * 8,
+            row = Math.floor(y),
+            grain = volcanicGrain!(u, v);
+          color = 0.08 + 0.035 * grain;
+          height = 0.1 + 0.008 * grain;
+          occlusion = 0.59;
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy,
+              wy = (cy + 8) % 8,
+              stagger = (wy % 2) * 0.5,
+              column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = (cx + 6) % 6,
+                offset = (wy * 6 + wx) * 4,
+                dx = x - cx - stagger - 0.5,
+                dy = y - cy - 0.5,
+                a = volcanicCells![offset],
+                b = volcanicCells![offset + 1],
+                c = volcanicCells![offset + 2],
+                variation = volcanicCells![offset + 3];
+              // Six smooth half-planes multiply through diagonal corners; no
+              // nearest-edge selection can introduce a bisector slope cusp.
+              const face =
+                  smooth(clamp((a - dx) / 0.065)) *
+                  smooth(clamp((a + dx) / 0.065)) *
+                  smooth(clamp((b - 0.5 * dx - 0.75 * dy) / 0.065)) *
+                  smooth(clamp((b + 0.5 * dx + 0.75 * dy) / 0.065)) *
+                  smooth(clamp((c + 0.5 * dx - 0.75 * dy) / 0.065)) *
+                  smooth(clamp((c - 0.5 * dx + 0.75 * dy) / 0.065)),
+                crown = 1 - 0.6 * dx * dx - 0.6 * dy * dy;
+              color += face * (0.28 + 0.18 * variation + 0.06 * grain);
+              height += face * (0.52 + 0.08 * variation + 0.07 * crown);
+              occlusion += 0.4 * face;
+            }
+          }
+          roughness += 0.08 * (1 - occlusion) + 0.025 * (grain - 0.5);
+          return;
+        };
+      case 'scoria':
+      case 'obsidian':
+        return () => {
+          const columns = volcanicColumns,
+            x = u * columns,
+            y = v * volcanicRows,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            grain = volcanicGrain!(u, v);
+          let depression = 0,
+            edge = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                wx = (cx + columns) % columns,
+                wy = (cy + volcanicRows) % volcanicRows,
+                offset = (wy * columns + wx) * 7,
+                dx = x - cx - volcanicCells![offset],
+                dy = y - cy - volcanicCells![offset + 1],
+                cosine = volcanicCells![offset + 4],
+                sine = volcanicCells![offset + 5],
+                lx = (cosine * dx + sine * dy) / volcanicCells![offset + 2],
+                ly = (-sine * dx + cosine * dy) / volcanicCells![offset + 3],
+                q = lx * lx + ly * ly;
+              if (q >= 1) continue;
+              let bowl: number, lip: number;
+              if (kind === 'scoria') {
+                bowl = smooth(clamp((0.7 - q) / 0.7));
+                lip =
+                  smooth(clamp((q - 0.42) / 0.18)) *
+                  smooth(clamp((1 - q) / 0.2));
+              } else {
+                bowl = smooth(1 - q);
+                // A parabolic fracture front inside a compact elliptical flake:
+                // polynomial coordinates avoid angular and radial origin cusps.
+                const curve = (lx + 0.36 - 1.2 * ly * ly) / 0.08;
+                lip =
+                  smooth(clamp(1 - curve * curve)) *
+                  smooth(clamp((1 - q) / 0.25));
+              }
+              // Complement products are bounded smooth unions, even where gas
+              // pits or flake scars overlap; hard saturation would kink normals.
+              depression += (1 - depression) * bowl;
+              edge += (1 - edge) * lip;
+              pigment += (1 - pigment) * bowl * volcanicCells![offset + 6];
+            }
+          if (kind === 'scoria') {
+            color =
+              0.36 +
+              0.09 * grain -
+              0.23 * depression +
+              0.16 * edge +
+              0.04 * pigment;
+            height = 0.48 + 0.012 * grain - 0.32 * depression + 0.15 * edge;
+            roughness +=
+              0.045 * depression - 0.035 * edge + 0.015 * (grain - 0.5);
+            occlusion = 0.98 - 0.36 * depression + 0.015 * edge;
+          } else {
+            color =
+              0.15 +
+              0.035 * grain +
+              0.14 * depression +
+              0.28 * edge +
+              0.035 * pigment;
+            height = 0.5 + 0.003 * grain - 0.2 * depression + 0.1 * edge;
+            roughness += 0.08 * depression + 0.1 * edge + 0.012 * grain;
+            occlusion = 1 - 0.13 * depression;
+          }
+          return;
+        };
+      case 'corrugatedcardboard':
+      case 'creasedpaper':
+      case 'layeredpaper':
+        return () => {
+          const grain = pulpGrain!(u * 8, v * 8),
+            x = u * 24,
+            y = v * 32,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let fibers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = ((((cy % 4) + 4) % 4) * 3 + (((cx % 3) + 3) % 3)) * 5,
+                dx = x - cx - pulpFibers![offset],
+                dy = y - cy - pulpFibers![offset + 1],
+                along =
+                  dx * pulpFibers![offset + 2] + dy * pulpFibers![offset + 3],
+                across =
+                  dy * pulpFibers![offset + 2] - dx * pulpFibers![offset + 3],
+                support = clamp(
+                  1 -
+                    (along / pulpFibers![offset + 4]) ** 2 -
+                    (across / 0.065) ** 2,
+                );
+              // Add compact fibers, rather than switching nearest-fiber ownership.
+              fibers += support * support;
+            }
+          const pulp = 0.018 * grain + 0.014 * fibers;
+          if (kind === 'corrugatedcardboard') {
+            const flute = 0.5 + 0.5 * Math.cos(TAU * u * 4);
+            color = 0.38 + 0.27 * flute + 0.09 * grain - 0.055 * fibers;
+            height = 0.18 + 0.58 * flute + pulp;
+            roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
+            occlusion = 0.68 + 0.3 * flute - 0.025 * fibers;
+          } else if (kind === 'creasedpaper') {
+            const dx = Math.abs(fract(u * 2 + 0.5) - 0.5),
+              dy = Math.abs(fract(v * 2 + 0.5) - 0.5),
+              rx = clamp(1 - (dx / 0.14) ** 2) ** 2,
+              ry = clamp(1 - (dy / 0.14) ** 2) ** 2,
+              sx = clamp(1 - ((dx - 0.25) / 0.1) ** 2) ** 2,
+              sy = clamp(1 - ((dy - 0.25) / 0.1) ** 2) ** 2,
+              ridge = 1 - (1 - rx) * (1 - ry),
+              shoulder = (1 - (1 - sx) * (1 - sy)) * (1 - ridge);
+            // Product unions bound fold intersections without max/min corner cusps.
+            color =
+              0.7 +
+              0.1 * ridge -
+              0.14 * shoulder +
+              0.07 * grain -
+              0.04 * fibers;
+            height = 0.4 + 0.3 * ridge - 0.16 * shoulder + pulp;
+            roughness +=
+              0.025 * (grain - 0.5) - 0.035 * ridge + 0.025 * shoulder;
+            occlusion = 0.98 - 0.19 * shoulder - 0.02 * fibers;
+          } else {
+            color = 0.5;
+            height = 0.2;
+            occlusion = 0.98;
+            for (let i = 0; i < 8; i++) {
+              const cx = 0.25 + (i % 2) * 0.5,
+                cy = (Math.floor(i / 2) + 0.5) / 4,
+                dx = fract(u - cx + 0.5) - 0.5,
+                dy = fract(v - cy + 0.5) - 0.5,
+                phase = paperLayers![i * 3 + 2],
+                torn =
+                  0.008 * Math.sin(TAU * dx * 12 + phase) +
+                  0.004 * Math.sin(TAU * dx * 28 - phase),
+                mx = smooth(clamp((0.34 - Math.abs(dx)) / 0.025)),
+                my = smooth(clamp((0.18 + torn - Math.abs(dy)) / 0.025)),
+                mask = mx * my,
+                ledge = 4 * my * (1 - my),
+                corner = 4 * mx * (1 - mx),
+                undercut = ledge * mx + corner * my * (1 - ledge);
+              // Fixed ordered alpha ownership is periodic even when a strip wraps.
+              height += mask * (paperLayers![i * 3] - height);
+              color += mask * (paperLayers![i * 3 + 1] - color);
+              occlusion += mask * (0.98 - occlusion);
+              height -= 0.035 * undercut;
+              color -= 0.075 * undercut;
+              occlusion -= 0.18 * undercut;
+            }
+            height += pulp;
+            color += 0.07 * grain - 0.045 * fibers;
+            roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
+            occlusion -= 0.02 * fibers;
+          }
+          return;
+        };
+      case 'cactus':
+        return () => {
+          const x = u * 8,
+            y = v * 8,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            rib = 0.5 - 0.5 * Math.cos(TAU * x),
+            grain = botanicalGrain!(u, v);
+          let areoles = 0,
+            impressions = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                cy = row + oy,
+                wx = (cx + 8) % 8,
+                wy = (cy + 8) % 8,
+                offset = (wy * 8 + wx) * 18,
+                dx = x - cx - 0.5,
+                dy = y - cy - 0.5 - botanicalCells![offset + 1];
+              if (dx * dx + dy * dy > 0.14) continue;
+              const cap = clamp(1 - (dx * dx) / 0.0196 - (dy * dy) / 0.0169),
+                length = botanicalCells![offset];
+              areoles += cap * cap;
+              for (let ray = 0; ray < 8; ray++) {
+                const rx = botanicalCells![offset + 2 + ray * 2],
+                  ry = botanicalCells![offset + 3 + ray * 2],
+                  along = dx * rx + dy * ry,
+                  across = dy * rx - dx * ry,
+                  shaft =
+                    smooth(clamp((along - 0.09) / 0.055)) *
+                    smooth(clamp((length - along) / 0.085)),
+                  width = clamp(1 - (across * across) / 0.000225);
+                impressions += shaft * width * width;
+              }
+            }
+          // Fine radial marks are recessed shading only, never needle geometry.
+          color =
+            0.2 +
+            0.47 * rib +
+            0.045 * grain +
+            0.18 * areoles -
+            0.08 * impressions;
+          height =
+            0.18 +
+            0.49 * rib +
+            0.065 * areoles -
+            0.025 * impressions +
+            0.004 * grain;
+          roughness +=
+            0.12 * areoles + 0.055 * impressions + 0.025 * (grain - 0.5);
+          occlusion = 0.83 + 0.16 * rib - 0.08 * areoles - 0.035 * impressions;
+          return;
+        };
+      case 'pinecone':
+        return () => {
+          const x = u * 8,
+            y = v * 8,
+            row = Math.floor(y),
+            grain = botanicalGrain!(u, v);
+          color = 0.08 + 0.025 * grain;
+          height = 0.12;
+          occlusion = 0.58;
+          // Upper rows cover the roots of lower rows. Four multiplied half-plane
+          // shoulders form angular woody faces without min-axis corner cusps.
+          for (let oy = 1; oy >= -1; oy--) {
+            const cy = row + oy,
+              wy = (cy + 8) % 8,
+              stagger = (wy % 2) * 0.5,
+              column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = (cx + 8) % 8,
+                variation = botanicalCells![wy * 8 + wx],
+                dx = x - cx - stagger - 0.5,
+                dy = y - cy - 0.5,
+                left = smooth(clamp((0.68 + dx - 0.55 * dy) / 0.1)),
+                right = smooth(clamp((0.68 - dx - 0.55 * dy) / 0.1)),
+                root = smooth(clamp((dy + 0.78) / 0.12)),
+                end = smooth(clamp((0.86 - dy) / 0.12)),
+                cover = left * right * root * end;
+              if (cover === 0) continue;
+              const tip = smooth(clamp((dy + 0.05) / 0.76)),
+                ridge = smooth(clamp(1 - (dx * dx) / 0.36)),
+                fibers = Math.cos(TAU * (19 * dx + 1.8 * dy * dy + variation)),
+                relief =
+                  0.28 +
+                  0.27 * tip +
+                  0.075 * ridge +
+                  0.018 * variation +
+                  0.006 * fibers,
+                pigment =
+                  0.28 +
+                  0.22 * variation +
+                  0.18 * tip +
+                  0.045 * fibers +
+                  0.025 * grain;
+              color += cover * (pigment - color);
+              height += cover * (relief - height);
+              occlusion += cover * (0.97 - occlusion);
+            }
+          }
+          roughness += 0.06 * (1 - occlusion) + 0.025 * (grain - 0.5);
+          return;
+        };
+      case 'corncob':
+        return () => {
+          const x = u * 12,
+            y = v * 8,
+            column = Math.floor(x),
+            row = Math.floor(y),
+            variation = botanicalCells![row * 12 + column],
+            dx = (fract(x) - 0.5) / (0.445 + 0.015 * variation),
+            dy = (fract(y) - 0.5) / (0.46 + 0.015 * variation),
+            cap = clamp(1 - dx * dx * dx * dx - dy * dy),
+            face = smooth(clamp(cap / 0.28)),
+            crown = smooth(cap),
+            grain = botanicalGrain!(u, v);
+          // Rounded oblong kernels bulge throughout their faces, not flat bricks.
+          color =
+            0.13 +
+            face * (0.36 + 0.15 * variation + 0.21 * crown + 0.025 * grain);
+          height = 0.09 + face * (0.24 + 0.4 * crown + 0.025 * variation);
+          roughness +=
+            0.14 * (1 - face) - 0.055 * crown + 0.015 * (grain - 0.5);
+          occlusion = 0.55 + 0.44 * face;
+          return;
+        };
+      case 'wood':
+        return () => {
+          const warp = noise(u, v, 4, 2, seed ^ 71);
+          const grain =
+            0.5 + 0.5 * Math.sin(TAU * (12 * u + 0.65 * warp) + phase);
+          const pores = Math.pow(
+            0.5 + 0.5 * Math.sin(TAU * (40 * u + warp) + phase),
+            12,
+          );
+          color = clamp(0.22 + 0.6 * grain + 0.16 * detail - 0.2 * pores);
+          height = 0.65 * grain + 0.15 * detail - 0.18 * pores;
+          roughness += 0.15 * pores + 0.08 * (detail - 0.5);
+          occlusion = 1 - 0.15 * pores;
+          return;
+        };
+      case 'brick':
+        return () => {
+          const row = Math.floor(v * 8);
+          const x = fract(u * 4 + (row % 2) * 0.5),
+            y = fract(v * 8);
+          const edge = Math.min(x, 1 - x, y * 0.5, (1 - y) * 0.5);
+          const face = smooth(clamp((edge - 0.014) / 0.045));
+          const variation = hash(
+            Math.floor(u * 4 + (row % 2) * 0.5) % 4,
+            row,
+            seed,
+          );
+          color = 0.25 + 0.42 * variation + 0.2 * detail;
+          height = face * (0.75 + 0.15 * detail + 0.1 * fine);
+          mortar = 1 - face;
+          roughness += 0.09 * mortar + 0.05 * (detail - 0.5);
+          occlusion = 0.65 + 0.35 * face;
+          return;
+        };
+      case 'stone':
+        return () => {
+          const strata = noise(u + 0.12 * broad, v, 8, 8, seed ^ 131);
+          color = clamp(0.1 + 0.65 * strata + 0.3 * detail);
+          height = 0.65 * strata + 0.25 * detail + 0.1 * fine;
+          roughness += 0.1 * (detail - 0.5);
+          occlusion = 0.8 + 0.2 * smooth(height);
+          return;
+        };
+      case 'metal':
+        return () => {
+          const brush = noise(u, v, 4, 64, seed ^ 313);
+          const scratch = Math.pow(
+            0.5 + 0.5 * Math.sin(TAU * v * 48 + phase),
+            16,
+          );
+          color = 0.4 + 0.38 * brush + 0.12 * broad - 0.1 * scratch;
+          height = 0.7 * brush - 0.15 * scratch;
+          roughness += 0.18 * brush + 0.08 * scratch;
+          occlusion = 1 - 0.04 * scratch;
+          return;
+        };
+      case 'fabric':
+        return () => {
+          const x = u * 12,
+            y = v * 12;
+          const warp = Math.pow(Math.sin(Math.PI * fract(x)), 2);
+          const weft = Math.pow(Math.sin(Math.PI * fract(y)), 2);
+          const over = (Math.floor(x) + Math.floor(y)) % 2 === 0;
+          const thread = over
+            ? warp * (0.6 + 0.4 * weft)
+            : weft * (0.6 + 0.4 * warp);
+          const fiber = 0.5 + 0.5 * Math.sin(TAU * (over ? u : v) * 48 + phase);
+          color = 0.22 + 0.48 * thread + 0.14 * detail + 0.08 * fiber;
+          height = 0.8 * thread + 0.06 * fiber + 0.08 * detail;
+          roughness += 0.04 * (detail - 0.5);
+          occlusion = 0.68 + 0.32 * thread;
+          return;
+        };
+      case 'marble':
+        return () => {
+          const warp = noise(u, v, 4, 4, seed ^ 997);
+          const vein = Math.exp(
+            -Math.abs(Math.sin(TAU * (3 * u + 2 * v + 0.8 * warp) + phase)) *
+              16,
+          );
+          color = clamp(0.9 + 0.1 * broad - 0.85 * vein);
+          height = 0.3 * broad - 0.2 * vein + 0.05 * detail;
+          roughness += 0.1 * vein + 0.04 * (detail - 0.5);
+          occlusion = 1 - 0.06 * vein;
+          return;
+        };
+      case 'concrete':
+        return () => {
+          const x = fract(u * 3),
+            y = fract(v * 3);
+          const edge = Math.min(x, 1 - x, y, 1 - y);
+          const seam = 1 - smooth(clamp((edge - 0.02) / 0.035));
+          const speckle = hash(
+            Math.floor(fract(u) * 40),
+            Math.floor(fract(v) * 40),
+            seed,
+          );
+          color = 0.28 + 0.5 * speckle * (1 - seam) + 0.12 * detail;
+          height = (1 - seam) * (0.65 + 0.25 * speckle) + 0.05 * detail;
+          roughness += 0.14 * seam + 0.06 * (speckle - 0.5);
+          occlusion = 0.62 + 0.38 * (1 - seam);
+          return;
+        };
+      case 'tiles':
+        return () => {
+          const n = 5;
+          const x = fract(u * n),
+            y = fract(v * n);
+          const edge = Math.min(x, 1 - x, y, 1 - y);
+          const face = smooth(clamp((edge - 0.018) / 0.028));
+          const variation = hash(
+            Math.floor(u * n) % n,
+            Math.floor(v * n) % n,
+            seed,
+          );
+          color = 0.42 + 0.4 * variation + 0.08 * detail;
+          height = face * (0.82 + 0.1 * detail);
+          mortar = 1 - face;
+          roughness += 0.42 * mortar + 0.04 * (detail - 0.5);
+          occlusion = 0.58 + 0.42 * face;
+          return;
+        };
+      case 'elephanthide':
+        return () => {
+          const warp = hideWarp!(u, v),
+            grain = skinGrain!(u, v),
+            a =
+              0.5 +
+              0.5 *
+                Math.cos(
+                  TAU *
+                    (5 * u + 0.65 * Math.sin(TAU * 2 * v + phase) + 1.1 * warp),
+                ),
+            b =
+              0.5 +
+              0.5 *
+                Math.cos(
+                  TAU *
+                    (4 * v + 0.5 * Math.sin(TAU * 3 * u - phase) - 0.8 * warp),
+                ),
+            ca = a ** 22,
+            cb = b ** 24,
+            crease = 1 - (1 - ca) * (1 - cb),
+            shoulder = (a ** 7 - ca + b ** 8 - cb) * 0.5,
+            fold =
+              (0.5 +
+                0.5 * Math.cos(TAU * (21 * u + 13 * v + 1.8 * warp) + phase)) **
+              16;
+          // Negative broad wrinkles, modest rounded shoulders, and subordinate
+          // fine folds leave wide flat skin regions instead of raised pebble nets.
+          color = 0.65 - 0.4 * crease - 0.055 * fold + 0.035 * grain;
+          height =
+            0.63 -
+            0.39 * crease +
+            0.055 * shoulder -
+            0.035 * fold +
+            0.008 * grain;
+          roughness += 0.035 * crease + 0.025 * (grain - 0.5);
+          occlusion = 0.98 - 0.23 * crease - 0.025 * fold;
+          return;
+        };
+      case 'ostrichleather':
+        return () => {
+          const x = u * 6,
+            y = v * 6,
+            cx = Math.floor(x),
+            cy = Math.floor(y),
+            offset = (cy * 6 + cx) * 3,
+            dx = (x - cx - follicles![offset]) * follicles![offset + 2],
+            dy = (y - cy - follicles![offset + 1]) * follicles![offset + 2],
+            q = dx * dx + dy * dy,
+            support = smooth(clamp((1 - q) / 0.2)),
+            dimple = smooth(clamp(1 - q / 0.12)),
+            // Cartesian three-lobed modulation is regular at the center.
+            rosette = 1 + 0.18 * (dx * dx * dx - 3 * dx * dy * dy),
+            collar =
+              q < 1
+                ? support *
+                  q *
+                  Math.exp(-(((q - 0.43) / 0.22) ** 2)) *
+                  2 *
+                  rosette
+                : 0,
+            grain = skinGrain!(u, v);
+          color = 0.57 + 0.075 * grain + 0.12 * collar - 0.19 * dimple;
+          height = 0.43 + 0.018 * grain + 0.18 * collar - 0.13 * dimple;
+          roughness += 0.035 * (grain - 0.5) - 0.035 * collar + 0.04 * dimple;
+          occlusion = 0.985 - 0.17 * dimple - 0.035 * collar;
+          return;
+        };
+      case 'sharkskin':
+        return () => {
+          const x = u * 18,
+            y = v * 24,
+            row = Math.floor(y),
+            grain = skinGrain!(u, v);
+          color = 0.3 + 0.025 * grain;
+          height = 0.26 + 0.008 * grain;
+          occlusion = 0.79;
+          // |dy| < .78, width <= .43 * 1.45 < .624. Omitted rows/
+          // columns are >= 1.5 away: wrapped 3x3 support is complete.
+          // Ascending unwrapped rows preserve back-to-front order at the seam.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy,
+              wy = ((cy % 24) + 24) % 24,
+              shift = (wy % 2) * 0.5,
+              column = Math.floor(x - shift);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = ((cx % 18) + 18) % 18,
+                variation = denticles![wy * 18 + wx],
+                dy = y - cy - 0.5,
+                t = dy / 0.78;
+              if (t <= -1 || t >= 1) continue;
+              const width = (0.39 + 0.04 * variation) * (1 - 0.45 * t),
+                across = (x - cx - shift - 0.5) / width,
+                q = across * across + t * t,
+                cover = smooth(clamp((1 - q) / 0.22));
+              if (cover === 0) continue;
+              const dome = smooth(clamp(1 - q)),
+                keels =
+                  Math.exp(-(((across + 0.48) / 0.075) ** 2)) +
+                  Math.exp(-((across / 0.075) ** 2)) +
+                  Math.exp(-(((across - 0.48) / 0.075) ** 2)),
+                rim = smooth(clamp((q - 0.56) / 0.2));
+              // Composite the complete opaque face, including its AO and rim;
+              // covered lower rims cannot bleed through an upper denticle.
+              color +=
+                cover *
+                (0.52 +
+                  0.1 * variation +
+                  0.045 * keels * dome -
+                  0.055 * rim -
+                  color);
+              height +=
+                cover *
+                (0.4 +
+                  0.065 * dome +
+                  0.055 * keels * dome -
+                  0.025 * rim -
+                  height);
+              occlusion += cover * (0.98 - 0.07 * rim - occlusion);
+            }
+          }
+          roughness += 0.025 * (grain - 0.5) + 0.035 * (1 - occlusion);
+          return;
+        };
+      case 'leather':
+        return () => {
+          const pores = wrappedFeature(u, v, 14, seed ^ 0x51);
+          const pebble = smooth(clamp(1 - pores * 1.55));
+          color = 0.24 + 0.52 * pebble + 0.12 * detail;
+          height = 0.12 + 0.72 * pebble + 0.06 * detail;
+          roughness += 0.16 * (1 - pebble) + 0.04 * (detail - 0.5);
+          occlusion = 0.55 + 0.45 * pebble;
+          return;
+        };
+      case 'suede':
+        return () => {
+          const brush = noise(u, v, 5, 7, seed ^ 0x3d17);
+          const nap = noise(
+            u + 0.012 * brush,
+            v + 0.004 * brush,
+            96,
+            24,
+            seed ^ 0x5e31,
+          );
+          const pores = smooth(
+            clamp((noise(u, v, 80, 80, seed ^ 0x7a63) - 0.57) / 0.35),
+          );
+          // Short directional pile is a continuous brushed field, not isolated
+          // long felt fibers or the coarse raised pebbles of leather.
+          color =
+            0.23 + 0.36 * brush + 0.25 * nap + 0.1 * detail - 0.08 * pores;
+          height = 0.35 + 0.075 * nap + 0.025 * brush - 0.045 * pores;
+          roughness += 0.075 * (nap - 0.5) + 0.035 * (brush - 0.5);
+          occlusion = 0.985 - 0.035 * pores + 0.01 * nap;
+          return;
+        };
+      case 'snakeskin':
+        return () => {
+          const x = u * 10,
+            y = v * 12;
+          const row = Math.floor(y);
+          let scales = 0,
+            crowns = 0,
+            keels = 0,
+            pigment = 0;
+          // Rounded pointed diamonds have compact, disjoint support. Even rows
+          // wrap the stagger; owner pigment and keel vanish at each folded rim.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy;
+            const stagger = (((cy % 2) + 2) % 2) * 0.5;
+            const column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox;
+              const wx = ((cx % 10) + 10) % 10,
+                wy = ((cy % 12) + 12) % 12;
+              const variation = hideCells![wy * 10 + wx];
+              const dx = x - cx - stagger - 0.5,
+                dy = y - cy - 0.5;
+              if (Math.abs(dx) >= 0.48 || Math.abs(dy) >= 0.64) continue;
+              const distance =
+                Math.sqrt(dx * dx + 0.0016) / (0.46 + 0.02 * variation) +
+                Math.sqrt(dy * dy + 0.0016) / (0.61 + 0.03 * variation);
+              const cap = clamp(1 - distance);
+              if (cap === 0) continue;
+              const face = smooth(clamp(cap / 0.18));
+              const crown = cap * cap;
+              const keel = crown * Math.exp(-dx * dx * 180);
+              scales += face;
+              crowns += crown;
+              keels += keel;
+              pigment += face * variation;
+            }
+          }
+          color =
+            0.13 + 0.4 * scales + 0.2 * pigment + 0.1 * crowns + 0.04 * detail;
+          height =
+            0.04 +
+            0.64 * scales +
+            0.2 * crowns +
+            0.065 * keels +
+            0.012 * detail;
+          roughness +=
+            0.12 * (1 - scales) - 0.045 * crowns + 0.045 * (detail - 0.5);
+          occlusion = 0.57 + 0.41 * scales + 0.015 * crowns;
+          return;
+        };
+      case 'crocodile':
+        return () => {
+          const x = u * 4,
+            y = v * 6;
+          const column = Math.floor(x),
+            row = Math.floor(y);
+          const variation = hideCells![row * 4 + column];
+          const dx = (fract(x) - 0.5) / (0.445 + 0.025 * variation),
+            dy = (fract(y) - 0.5) / (0.445 + 0.02 * variation);
+          const cap = clamp(1 - dx * dx * dx * dx - dy * dy * dy * dy);
+          const face = smooth(clamp(cap / 0.36));
+          const warp = noise(u, v, 9, 11, seed ^ 0x2f53);
+          const fold = Math.pow(
+            0.5 + 0.5 * Math.sin(TAU * (19 * u + 13 * v + 1.7 * warp) + phase),
+            12,
+          );
+          // Superelliptic scutes have rounded corners and domed embossed faces.
+          // Irregular fine wrinkles cross them, unlike running-bond brick joints.
+          color =
+            0.12 +
+            face * (0.37 + 0.22 * variation + 0.1 * detail - 0.12 * fold);
+          height =
+            0.035 +
+            face * (0.64 + 0.17 * cap * cap + 0.035 * variation - 0.065 * fold);
+          roughness +=
+            0.13 * (1 - face) + face * (0.055 * fold + 0.04 * (detail - 0.5));
+          occlusion = 0.53 + face * (0.46 - 0.055 * fold);
+          return;
+        };
+      case 'fishscales':
+      case 'feathers':
+        return () => {
+          const x = u * armorColumns,
+            y = v * armorRows,
+            row = Math.floor(y);
+          color = 0.12 + 0.045 * detail;
+          height = 0.23;
+          occlusion = 0.76;
+          // Back-to-front rows retain the same local order across the periodic
+          // seam. Every entering/leaving owner has zero value and slope.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy,
+              wy = ((cy % armorRows) + armorRows) % armorRows,
+              stagger = (wy % 2) * 0.5,
+              column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = ((cx % armorColumns) + armorColumns) % armorColumns,
+                offset = (wy * armorColumns + wx) * 2,
+                variation = armorCells![offset],
+                dy = y - cy - 0.5,
+                dx = x - cx - stagger - 0.5 - armorCells![offset + 1] * dy;
+              let cover: number, pigment: number, relief: number;
+              if (kind === 'fishscales') {
+                const q = (dx * dx) / 0.4356 + (dy * dy) / 0.6724;
+                cover = smooth(clamp((1 - q) / 0.18));
+                if (cover === 0) continue;
+                const dome = smooth(clamp(1 - q));
+                const lip =
+                  smooth(clamp((q - 0.48) / 0.2)) *
+                  smooth(clamp((1 - q) / 0.15)) *
+                  smooth(clamp((dy + 0.12) / 0.4));
+                const growth = Math.cos(TAU * (6 * q + 0.15 * variation));
+                pigment =
+                  0.39 +
+                  0.2 * variation +
+                  0.13 * dome +
+                  0.1 * lip +
+                  0.045 * growth;
+                relief =
+                  0.37 + 0.12 * dome + 0.11 * lip + 0.012 * growth * dome;
+              } else {
+                const t = dy / 1.08;
+                if (t <= -1 || t >= 1) continue;
+                const width = 1 - t * t;
+                const edge = width * width - (dx * dx) / 0.2304;
+                cover = smooth(clamp(edge / 0.16));
+                if (cover === 0) continue;
+                const vane = smooth(clamp(edge));
+                const shaft = smooth(clamp(1 - (dx * dx) / 0.0025));
+                const barbs = Math.cos(
+                  TAU * (18 * dy - 14 * Math.sqrt(dx * dx + 0.0004)),
+                );
+                const tip = smooth(clamp((t + 0.45) / 1.1));
+                pigment =
+                  0.36 +
+                  0.22 * variation +
+                  0.1 * vane -
+                  0.12 * tip +
+                  0.08 * shaft +
+                  0.065 * barbs;
+                relief =
+                  0.35 + 0.1 * vane + 0.075 * shaft + 0.013 * barbs * vane;
+              }
+              color += cover * (pigment - color);
+              height += cover * (relief - height);
+              occlusion += cover * (0.98 - occlusion);
+            }
+          }
+          roughness += 0.045 * (1 - occlusion) + 0.025 * (detail - 0.5);
+          return;
+        };
+      case 'tortoiseshell':
+        return () => {
+          const x = u * 6,
+            y = v * 6,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          const mottling = noise(u, v, 19, 23, seed ^ 0x49e7);
+          color = 0.045 + 0.025 * detail;
+          height = 0.22;
+          occlusion = 0.72;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                wx = (cx + 6) % 6,
+                wy = (cy + 6) % 6,
+                offset = (wy * 6 + wx) * 27,
+                dx = x - cx - scutes![offset],
+                dy = y - cy - scutes![offset + 1];
+              let cover = 1,
+                dome = 1;
+              for (let edge = 0; edge < 8; edge++) {
+                const plane = offset + 3 + edge * 3,
+                  distance = scutes![plane + 2],
+                  inset =
+                    distance - dx * scutes![plane] - dy * scutes![plane + 1];
+                cover *= smooth(clamp((inset - 0.018) / 0.085));
+                dome *= smooth(clamp(inset / distance));
+                if (cover === 0) break;
+              }
+              if (cover === 0) continue;
+              const variation = scutes![offset + 2];
+              const growth = Math.cos(TAU * (5 * dome + 0.12 * variation));
+              const pigment =
+                0.28 +
+                0.25 * variation +
+                0.22 * mottling +
+                0.09 * dome +
+                0.045 * growth;
+              color += cover * (pigment - color);
+              height +=
+                cover * (0.37 + 0.2 * dome + 0.012 * growth * dome - height);
+              occlusion += cover * (0.98 - occlusion);
+            }
+          roughness += 0.06 * (1 - occlusion) + 0.025 * (detail - 0.5);
+          return;
+        };
+      case 'sand':
+        return () => {
+          const warp = noise(u, v, 3, 3, seed ^ 17);
+          const ripple =
+            0.5 + 0.5 * Math.sin(TAU * (v * 7 + 0.35 * warp) + phase);
+          const grain = noise(u, v, 48, 48, seed ^ 0x51ed);
+          color = 0.3 + 0.48 * ripple + 0.18 * grain;
+          height = 0.72 * ripple + 0.22 * grain;
+          roughness += 0.06 * (grain - 0.5);
+          occlusion = 0.82 + 0.18 * ripple;
+          return;
+        };
+      case 'rust':
+        return () => {
+          const pit = noise(u, v, 6, 6, seed ^ 211);
+          const flake = noise(u, v, 18, 18, seed ^ 419);
+          const corrosion = smooth(
+            clamp((pit * 0.7 + flake * 0.3 - 0.32) / 0.28),
+          );
+          color = corrosion;
+          height =
+            0.25 + 0.45 * (1 - corrosion) * flake - 0.2 * corrosion * pit;
+          roughness += 0.22 * corrosion + 0.05 * (flake - 0.5);
+          occlusion = 0.7 + 0.3 * (1 - corrosion);
+          metallic = 1 - corrosion;
+          return;
+        };
+      case 'snow':
+        return () => {
+          const drift = noise(u, v, 3, 3, seed ^ 17);
+          const spark = Math.pow(
+            hash(Math.floor(fract(u) * 48), Math.floor(fract(v) * 48), seed),
+            8,
+          );
+          color = clamp(0.22 + 0.68 * drift + 0.1 * spark);
+          height = 0.7 * drift + 0.2 * spark;
+          roughness += 0.22 * spark - 0.06 * drift;
+          occlusion = 0.88 + 0.12 * drift;
+          return;
+        };
+      case 'asphalt':
+      case 'gravel':
+        return () => {
+          const asphalt = kind === 'asphalt';
+          const cells = asphalt ? 40 : 12;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let coverage = 0,
+            pigment = 0,
+            weight = 0,
+            relief = 0;
+          // Compact, softly edged caps blend continuously, including across wrapped cells.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const variation = hash(wx, wy, seed ^ 0x74b1);
+              const angle = hash(wx, wy, seed ^ 0x6a09) * TAU;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+                dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x9e37);
+              const radius = asphalt
+                ? 0.22 + 0.21 * variation
+                : 0.46 + 0.17 * variation;
+              const aspect = 0.7 + 0.3 * hash(wx, wy, seed ^ 0x51ed);
+              const rx = (dx * cos + dy * sin) / aspect,
+                ry = dy * cos - dx * sin;
+              const distance =
+                Math.sqrt(rx * rx + ry * ry) +
+                (detail - 0.5) * (asphalt ? 0.08 : 0.16);
+              const cap = smooth(clamp((radius - distance) / 0.16));
+              const dome = clamp(1 - distance / radius);
+              coverage = Math.max(coverage, cap);
+              relief = Math.max(relief, cap * (0.65 + 0.35 * dome));
+              pigment += cap * (0.35 + 0.65 * variation);
+              weight += cap;
+            }
+          const aggregate = pigment / Math.max(1, weight);
+          if (asphalt) {
+            color = 0.06 + 0.58 * aggregate + 0.1 * detail + 0.06 * fine;
+            height = 0.58 * relief + 0.18 * detail + 0.24 * fine;
+            roughness += 0.08 * (1 - coverage) + 0.1 * (fine - 0.5);
+            occlusion = 0.8 + 0.2 * coverage;
+          } else {
+            color = 0.04 + 0.8 * aggregate + 0.08 * fine;
+            height = relief * (0.84 + 0.16 * detail) + 0.025 * fine;
+            roughness += 0.13 * (1 - coverage) + 0.1 * (fine - 0.5);
+            occlusion = 0.42 + 0.58 * coverage;
+          }
+          return;
+        };
+      case 'cobblestone':
+        return () => {
+          const wu = u + 0.012 * noise(u, v, 6, 8, seed ^ 0x231);
+          const wv = v + 0.009 * noise(u, v, 6, 8, seed ^ 0x913);
+          const row = Math.floor(fract(wv) * 8);
+          const column = wu * 6 + (row % 2) * 0.5;
+          const x = fract(column),
+            y = fract(wv * 8);
+          const dx = Math.abs(x - 0.5),
+            dy = Math.abs(y - 0.5) * 0.75;
+          const cornerX = Math.max(0, dx - 0.38),
+            cornerY = Math.max(0, dy - 0.255);
+          const edge = 0.12 - Math.sqrt(cornerX * cornerX + cornerY * cornerY);
+          const face = smooth(clamp((edge - 0.018) / 0.085));
+          const variation = hash(((Math.floor(column) % 6) + 6) % 6, row, seed);
+          const crown = 1 - 0.65 * (dx * dx + dy * dy);
+          // Stone-specific variation vanishes in the joints to keep staggered row edges continuous.
+          color =
+            0.05 +
+            face * (0.25 + 0.48 * variation + 0.12 * detail) +
+            0.05 * fine;
+          height = face * (0.76 * crown + 0.16 * detail + 0.08 * fine);
+          roughness += 0.17 * (1 - face) + 0.1 * (fine - 0.5);
+          occlusion = 0.45 + 0.55 * face;
+          return;
+        };
+      case 'bark':
+        return () => {
+          const warp = noise(u, v, 4, 6, seed ^ 0x3b17);
+          const ridge = noise(u + 0.035 * warp, v, 18, 3, seed ^ 0x8421);
+          const split = noise(u, v, 6, 18, seed ^ 0x5193);
+          // Anisotropic islands break across the trunk instead of repeating wood-grain waves.
+          const face =
+            smooth(clamp((ridge - 0.26) / 0.38)) *
+            smooth(clamp((split - 0.18) / 0.22));
+          const flake = noise(u, v, 48, 12, seed ^ 0x217b);
+          color = 0.05 + face * (0.43 + 0.33 * flake + 0.13 * fine);
+          height = face * (0.58 + 0.3 * flake + 0.12 * detail);
+          roughness += 0.08 * (1 - face) + 0.1 * (fine - 0.5);
+          occlusion = 0.42 + 0.58 * face;
+          return;
+        };
+      case 'moss':
+        return () => {
+          const warp = noise(u, v, 4, 4, seed ^ 0x1b67);
+          const distance = wrappedFeature(
+            fract(u + 0.025 * warp),
+            fract(v + 0.018 * warp),
+            9,
+            seed ^ 0x63af,
+          );
+          const cushion = smooth(clamp(1 - distance / 0.95));
+          const growth = noise(u, v, 18, 18, seed ^ 0x9327);
+          const tips = smooth(clamp((fine - 0.25) / 0.5));
+          color = 0.09 + 0.46 * cushion + 0.24 * growth + 0.19 * tips;
+          height =
+            0.65 * cushion + (0.09 + 0.14 * cushion) * tips + 0.12 * detail;
+          roughness += 0.06 * (tips - 0.5) - 0.08 * (1 - cushion);
+          occlusion = 0.52 + 0.36 * cushion + 0.12 * tips;
+          return;
+        };
+      case 'mud':
+        return () => {
+          const cells = 7;
+          const warp = noise(u, v, 4, 4, seed ^ 0x7153);
+          const x = (u + 0.025 * warp) * cells,
+            y = (v + 0.025 * noise(u, v, 4, 4, seed ^ 0x1f39)) * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let nearest = 4,
+            second = 4;
+          // Constrained jitter keeps the two closest sites inside this wrapped neighborhood.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+                dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+              const distance = dx * dx + dy * dy;
+              if (distance < nearest) {
+                second = nearest;
+                nearest = distance;
+              } else if (distance < second) second = distance;
+            }
+          const margin = Math.sqrt(second) - Math.sqrt(nearest);
+          const clod = smooth(clamp((margin - 0.025) / 0.13));
+          const damp = smooth(
+            clamp((noise(u, v, 3, 3, seed ^ 0x38e1) - 0.25) / 0.5),
+          );
+          color =
+            0.04 + clod * (0.52 - 0.24 * damp + 0.17 * detail) + 0.04 * fine;
+          height =
+            clod * (0.48 + 0.16 * (1 - nearest)) +
+            (0.07 * detail + 0.03 * fine) * (1 - 0.75 * damp);
+          roughness -= 0.38 * damp;
+          roughness += 0.1 * (1 - clod) + 0.08 * (fine - 0.5) * (1 - damp);
+          occlusion = 0.48 + 0.52 * clod;
+          return;
+        };
+      case 'granite':
+        return () => {
+          const cells = 38;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let pigment = 0,
+            weight = 0,
+            nearest = 4,
+            second = 4;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+                dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+              const distance = dx * dx + dy * dy;
+              if (distance < nearest) {
+                second = nearest;
+                nearest = distance;
+              } else if (distance < second) second = distance;
+              // Compact weights vanish before a site can leave the wrapped neighborhood.
+              // Sharp normalized blends form mineral facets without discontinuous cell colors.
+              const cap = Math.pow(clamp(1 - distance / 1.44), 10);
+              const mineral = hash(wx, wy, seed ^ 0x642b);
+              pigment +=
+                cap * (mineral < 0.24 ? 0.08 + mineral : 0.48 + 0.5 * mineral);
+              weight += cap;
+            }
+          const mineral = pigment / Math.max(weight, 1e-12);
+          const boundary =
+            1 - smooth(clamp((Math.sqrt(second) - Math.sqrt(nearest)) / 0.16));
+          color = clamp(
+            0.04 + 0.88 * mineral + 0.1 * (fine - 0.5) - 0.07 * boundary,
+          );
+          height = 0.35 * mineral + 0.17 * fine - 0.12 * boundary;
+          roughness += 0.16 * (1 - mineral) + 0.06 * (fine - 0.5);
+          occlusion = 0.97 - 0.025 * boundary + 0.03 * fine;
+          return;
+        };
+      case 'slate':
+        return () => {
+          const warp = noise(u, v, 5, 4, seed ^ 0x4167);
+          const bedding = noise(
+            u + 0.025 * warp,
+            v + 0.018 * warp,
+            3,
+            22,
+            seed ^ 0x741b,
+          );
+          const layers = bedding * 5;
+          const terrace =
+            (Math.floor(layers) + smooth(clamp((fract(layers) - 0.35) / 0.3))) /
+            5;
+          const cross = noise(u, v, 12, 5, seed ^ 0x135b);
+          const cleft =
+            Math.pow(1 - Math.abs(2 * fract(layers) - 1), 8) *
+            smooth(clamp((cross - 0.18) / 0.35));
+          // Elongated terrace steps and broken clefts, not sinusoidal marble veins.
+          color = 0.14 + 0.62 * terrace + 0.14 * fine - 0.12 * cleft;
+          height = 0.72 * terrace + 0.1 * fine - 0.18 * cleft;
+          roughness += 0.1 * cleft + 0.1 * (fine - 0.5);
+          occlusion = 0.98 - 0.15 * cleft + 0.02 * fine;
+          return;
+        };
+      case 'terrazzo':
+        return () => {
+          const cells = 9;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let coverage = 0,
+            pigment = 0,
+            weight = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const variation = hash(wx, wy, seed ^ 0x927b);
+              const angle = hash(wx, wy, seed ^ 0x341d) * TAU;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+                dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+              const rx = dx * cos + dy * sin,
+                ry = dy * cos - dx * sin;
+              const aspect = 0.75 + 0.25 * hash(wx, wy, seed ^ 0x21af);
+              // Intersect rotated half-planes for asymmetric, flat angular chips.
+              const distance = Math.max(
+                Math.abs(rx) * aspect,
+                Math.abs(ry),
+                (rx * 0.65 + ry * 0.76) * 1.1,
+                (-rx * 0.83 + ry * 0.55) * 1.15,
+              );
+              const radius = 0.26 + 0.18 * variation;
+              const chip = smooth(clamp((radius - distance) / 0.025));
+              coverage = Math.max(coverage, chip);
+              pigment += chip * (0.08 + 0.7 * hash(wx, wy, seed ^ 0x591f));
+              weight += chip;
+            }
+          const mineral = pigment / Math.max(weight, 1e-12);
+          const binder = 0.88 + 0.06 * detail;
+          color = binder * (1 - coverage) + coverage * mineral;
+          // Polished chips are nearly flush with the binder: color is not a height map.
+          height = 0.15 + 0.06 * coverage + 0.015 * detail + 0.025 * fine;
+          roughness +=
+            0.055 * (1 - coverage) -
+            0.03 * coverage * mineral +
+            0.04 * (fine - 0.5);
+          occlusion = 0.98 + 0.015 * coverage + 0.005 * fine;
+          return;
+        };
+      case 'denim':
+        return () => {
+          const x = u * 24,
+            y = v * 24;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+            weft = 0.5 + 0.5 * Math.cos(TAU * y);
+          // A narrow pale weft exposure advances diagonally through indigo warp floats.
+          // Analytic ownership avoids switching yarns abruptly at crossing/row boundaries.
+          const exposure =
+            1 -
+            smooth(
+              clamp(
+                (Math.abs(Math.sin((Math.PI * (x - y)) / 4)) - 0.24) / 0.22,
+              ),
+            );
+          const warpFiber =
+            0.5 + 0.5 * Math.sin(TAU * (96 * u + 0.12 * detail) + phase);
+          const weftFiber =
+            0.5 + 0.5 * Math.sin(TAU * (96 * v + 0.12 * detail) + phase);
+          const fiber = warpFiber * (1 - exposure) + weftFiber * exposure;
+          const thread = warp * (1 - exposure) + weft * exposure;
+          const slub = noise(u, v, 24, 4, seed ^ 0x6d31);
+          color =
+            0.12 + 0.22 * thread + 0.34 * exposure + 0.1 * fiber + 0.12 * slub;
+          height =
+            0.42 * thread + 0.24 * (1 - exposure) + 0.06 * fiber + 0.08 * slub;
+          roughness += 0.06 * (detail - 0.5) + 0.04 * (1 - thread);
+          occlusion = 0.78 + 0.18 * thread + 0.04 * fiber;
+          return;
+        };
+      case 'houndstooth':
+        return () => {
+          const x = 32 * u,
+            y = 32 * v,
+            ix = Math.floor(x) % 8,
+            iy = Math.floor(y) % 8,
+            sx = smooth(fract(x)),
+            sy = smooth(fract(y)),
+            nx = (ix + 1) % 8,
+            ny = (iy + 1) % 8;
+          const a = toothYarns![iy * 8 + ix],
+            b = toothYarns![iy * 8 + nx],
+            c = toothYarns![ny * 8 + ix],
+            d = toothYarns![ny * 8 + nx];
+          const pigment =
+            (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+          const over = 0.5 + 0.5 * Math.cos((TAU * (x - y)) / 4),
+            warp = 0.5 + 0.5 * Math.cos(TAU * x),
+            weft = 0.5 + 0.5 * Math.cos(TAU * y),
+            thread = warp * over + weft * (1 - over);
+          const fiber =
+            0.5 +
+            0.25 * Math.cos(TAU * 96 * u + phase) +
+            0.25 * Math.cos(TAU * 96 * v - phase);
+          color = 0.025 + 0.88 * pigment + 0.045 * thread + 0.03 * detail;
+          height = 0.2 + 0.19 * thread + 0.025 * fiber + 0.02 * detail;
+          roughness += 0.04 * (detail - 0.5) + 0.025 * (1 - thread);
+          occlusion = 0.86 + 0.12 * thread;
+          return;
+        };
+      case 'tartan':
+        return () => {
+          const x = 2 * u,
+            y = 2 * v;
+          const broadWarp = smooth(clamp((Math.cos(TAU * x) + 0.15) / 0.55)),
+            broadWeft = smooth(clamp((Math.cos(TAU * y) + 0.15) / 0.55)),
+            fineWarp = smooth(
+              clamp((Math.cos(TAU * (x + 0.25)) - 0.96) / 0.04),
+            ),
+            fineWeft = smooth(
+              clamp((Math.cos(TAU * (y + 0.25)) - 0.96) / 0.04),
+            ),
+            doubleWarp = smooth(clamp((Math.cos(TAU * 2 * x) - 0.9) / 0.1)),
+            doubleWeft = smooth(clamp((Math.cos(TAU * 2 * y) - 0.9) / 0.1));
+          const warpPigment =
+              0.13 + 0.35 * broadWarp + 0.36 * fineWarp + 0.1 * doubleWarp,
+            weftPigment =
+              0.13 + 0.35 * broadWeft + 0.36 * fineWeft + 0.1 * doubleWeft;
+          const over = smooth(
+              clamp(0.5 + 0.8 * Math.cos(Math.PI * 64 * (u + v))),
+            ),
+            warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
+            weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
+            thread = warp * over + weft * (1 - over);
+          // Pigment follows the upper yarn at every crossing, not rectangular tiles.
+          color =
+            warpPigment * over +
+            weftPigment * (1 - over) +
+            0.045 * thread +
+            0.025 * detail;
+          height = 0.2 + 0.16 * thread + 0.025 * detail;
+          roughness += 0.04 * (detail - 0.5) + 0.03 * (1 - thread);
+          occlusion = 0.85 + 0.13 * thread;
+          return;
+        };
+      case 'damask':
+        return () => {
+          const x = fract(2 * u + 0.5) - 0.5,
+            y = fract(2 * v + 0.5) - 0.5;
+          let backing = 1,
+            rounded = 1;
+          for (let i = 0; i < 12; i++) {
+            const offset = i * 6,
+              dx = x - damaskLobes![offset],
+              dy = y - damaskLobes![offset + 1],
+              cos = damaskLobes![offset + 2],
+              sin = damaskLobes![offset + 3],
+              along = (dx * cos + dy * sin) * damaskLobes![offset + 4],
+              across = (dy * cos - dx * sin) * damaskLobes![offset + 5],
+              cap = clamp(1 - along * along - across * across);
+            // Both silhouette and raised crown vanish with zero slope; overlapping
+            // petals blend as a smooth union, with no nearest-lobe ownership jump.
+            backing *= 1 - smooth(clamp(cap / 0.28));
+            rounded *= 1 - cap * cap;
+          }
+          const motif = 1 - backing,
+            crown = 1 - rounded,
+            warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
+            weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
+            satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase),
+            thread = (warp + weft) * 0.5;
+          color =
+            0.19 + 0.48 * motif + 0.08 * crown + 0.07 * thread + 0.025 * detail;
+          height =
+            0.18 +
+            0.3 * motif +
+            0.13 * crown +
+            0.025 * thread +
+            0.015 * motif * satin;
+          roughness +=
+            0.055 * (1 - motif) -
+            0.035 * motif * satin +
+            0.025 * (detail - 0.5);
+          occlusion = 0.88 + 0.07 * motif + 0.03 * thread;
+          return;
+        };
+      case 'herringbone':
+        return () => {
+          const x = 32 * u,
+            y = 32 * v;
+          // A rounded triangular phase reverses the twill, not rectangular
+          // patches of yarn. Its analytic turn has no cusp or ownership seam.
+          const fold = Math.acos(0.995 * Math.cos(TAU * 2 * u)) / Math.PI;
+          const exposure = smooth(
+            clamp(
+              (0.5 + 0.5 * Math.cos(TAU * (2 * fold - 8 * v) + phase) - 0.2) /
+                0.6,
+            ),
+          );
+          const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+            weft = 0.5 + 0.5 * Math.cos(TAU * y);
+          const thread = warp * (1 - exposure) + weft * exposure;
+          const fiber =
+            (0.5 + 0.5 * Math.sin(TAU * 128 * u + phase)) * (1 - exposure) +
+            (0.5 + 0.5 * Math.sin(TAU * 128 * v - phase)) * exposure;
+          const slub = noise(u, v, 16, 8, seed ^ 0x3c19);
+          color =
+            0.17 + 0.31 * exposure + 0.26 * thread + 0.1 * fiber + 0.09 * slub;
+          height =
+            0.25 +
+            0.24 * thread +
+            0.07 * exposure +
+            0.035 * fiber +
+            0.025 * slub;
+          roughness += 0.055 * (detail - 0.5) + 0.035 * (1 - thread);
+          occlusion = 0.84 + 0.12 * thread + 0.025 * fiber;
+          return;
+        };
+      case 'tweed':
+        return () => {
+          const x = 20 * u,
+            y = 20 * v;
+          const warp = smooth(clamp((Math.cos(TAU * x) + 0.45) / 1.25)),
+            weft = smooth(clamp((Math.cos(TAU * y) + 0.45) / 1.25));
+          const over = smooth(clamp(0.5 + 0.85 * Math.cos(Math.PI * (x + y))));
+          const warpTop = warp * (1 - weft + weft * over),
+            weftTop = weft * (1 - warp + warp * (1 - over));
+          const yarn = warpTop + weftTop;
+          const slub =
+            warpTop * noise(u, v, 20, 4, seed ^ 0x3b17) +
+            weftTop * noise(u, v, 4, 20, seed ^ 0x6e29);
+          const fiber =
+            warpTop *
+              (0.5 + 0.5 * Math.sin(TAU * (80 * u + 0.15 * detail) + phase)) +
+            weftTop *
+              (0.5 + 0.5 * Math.sin(TAU * (80 * v + 0.15 * detail) - phase));
+          const fx = u * 24,
+            fy = v * 24,
+            ix = Math.floor(fx),
+            iy = Math.floor(fy);
+          let flecks = 0,
+            pigment = 0.12 + 0.29 * yarn + 0.34 * slub + 0.12 * fiber;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                wx = ((cx % 24) + 24) % 24,
+                wy = ((cy % 24) + 24) % 24;
+              const variation = hash(wx, wy, seed ^ 0x2d73);
+              const dx = fx - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+                dy = fy - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x5a31);
+              const angle =
+                (variation < 0.5 ? 0 : Math.PI / 2) + (variation - 0.5) * 0.7;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const along = (dx * cos + dy * sin) / (0.18 + 0.2 * variation),
+                across = (dy * cos - dx * sin) / 0.075;
+              // Small yarn-aligned neps vanish with zero slope at their support.
+              const cap = clamp(1 - along * along - across * across);
+              const fleck = cap * cap;
+              flecks += fleck;
+              // Blend the nep's pigment into its yarn instead of subtracting
+              // color from dark gaps, which can leave the normalized range.
+              pigment +=
+                fleck * (0.18 + 0.64 * hash(wx, wy, seed ^ 0x7f19) - pigment);
+            }
+          color = pigment;
+          height =
+            0.2 +
+            0.28 * yarn +
+            0.08 * warp * weft +
+            0.05 * fiber +
+            0.055 * flecks;
+          roughness += 0.05 * (detail - 0.5) + 0.025 * flecks;
+          occlusion = 0.77 + 0.19 * yarn + 0.025 * fiber;
+          return;
+        };
+      case 'seersucker':
+        return () => {
+          const band = smooth(clamp((Math.cos(TAU * 4 * u) + 0.25) / 0.75));
+          const warp = 0.5 + 0.5 * Math.cos(TAU * 48 * u),
+            weft = 0.5 + 0.5 * Math.cos(TAU * 48 * v);
+          const over = 0.5 + 0.5 * Math.cos(Math.PI * 48 * (u + v));
+          const thread = warp * over + weft * (1 - over);
+          const fiber =
+            0.5 +
+            0.25 * Math.sin(TAU * 144 * u + phase) +
+            0.25 * Math.sin(TAU * 144 * v - phase);
+          const waviness = noise(u, v, 4, 4, seed ^ 0x4c39);
+          const wrinkle =
+            0.5 +
+            0.5 *
+              Math.sin(
+                TAU * (12 * v + 0.22 * Math.sin(TAU * 4 * u) + 0.3 * waviness) +
+                  phase,
+              );
+          // Flat cream bands retain only the fine weave; the blue bands carry
+          // low, longitudinally varying puckers rather than uniform pile wales.
+          color =
+            0.71 -
+            0.39 * band +
+            0.12 * thread +
+            0.055 * fiber +
+            0.04 * band * wrinkle;
+          height =
+            0.22 +
+            0.035 * thread +
+            0.008 * fiber +
+            band * (0.08 + 0.2 * wrinkle);
+          roughness += 0.045 * (detail - 0.5) + 0.025 * band * (1 - wrinkle);
+          occlusion = 0.96 - 0.07 * band * (1 - wrinkle) + 0.02 * thread;
+          return;
+        };
+      case 'burlap':
+        return () => {
+          const x = u * 10,
+            y = v * 10;
+          const warp = smooth(clamp((Math.cos(TAU * x) + 0.35) / 1.1)),
+            weft = smooth(clamp((Math.cos(TAU * y) + 0.35) / 1.1));
+          const over = smooth(clamp(0.5 + 0.9 * Math.cos(Math.PI * (x + y))));
+          // Blend ownership continuously; both yarns vanish into opaque recessed gaps.
+          const warpTop = warp * (1 - weft + weft * over),
+            weftTop = weft * (1 - warp + warp * (1 - over));
+          const coverage = warpTop + weftTop;
+          const warpFiber =
+            0.5 + 0.5 * Math.sin(TAU * (50 * u + 0.14 * detail) + phase);
+          const weftFiber =
+            0.5 + 0.5 * Math.sin(TAU * (50 * v + 0.14 * detail) + phase);
+          const fiber = warpTop * warpFiber + weftTop * weftFiber;
+          const crossing = warp * weft;
+          color =
+            0.04 + 0.65 * coverage + 0.14 * fiber + 0.1 * detail * coverage;
+          height =
+            0.58 * coverage + 0.2 * crossing + 0.08 * fiber + 0.04 * detail;
+          roughness += 0.05 * (detail - 0.5) + 0.025 * (1 - coverage);
+          occlusion = 0.42 + 0.54 * coverage + 0.04 * fiber;
+          return;
+        };
+      case 'carpet':
+        return () => {
+          const cells = 24;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let weight = 0,
+            pigment = 0,
+            fibers = 0,
+            crown = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+                dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
+              const distance = dx * dx + dy * dy;
+              // Compact overlapping crowns hide the backing without geometry or alpha.
+              // The support ends before any site leaves this wrapped neighborhood.
+              const cap = Math.pow(clamp(1 - distance), 3);
+              const variation = hash(wx, wy, seed ^ 0x294b);
+              const angle = hash(wx, wy, seed ^ 0x681f) * TAU;
+              const tips = Math.pow(
+                0.5 +
+                  0.5 *
+                    Math.sin(
+                      TAU * 3 * (dx * Math.cos(angle) + dy * Math.sin(angle)) +
+                        variation * TAU,
+                    ),
+                4,
+              );
+              weight += cap;
+              pigment += cap * variation;
+              fibers += cap * tips;
+              crown = Math.max(crown, cap * (0.75 + 0.25 * variation));
+            }
+          const inv = 1 / Math.max(weight, 1e-12);
+          const yarn = pigment * inv,
+            tips = fibers * inv;
+          color = 0.19 + 0.4 * yarn + 0.2 * crown + 0.13 * tips + 0.08 * detail;
+          height = 0.3 + 0.38 * crown + 0.12 * tips + 0.1 * detail;
+          roughness += 0.04 * (detail - 0.5) - 0.035 * tips;
+          occlusion = 0.7 + 0.22 * Math.sqrt(crown) + 0.06 * tips;
+          return;
+        };
+      case 'plaster':
+        return () => {
+          const sweep = noise(u, v, 3, 3, seed ^ 0x37a1);
+          const tool =
+            0.5 + 0.5 * Math.sin(TAU * (3 * u + 2 * v + 0.7 * sweep) + phase);
+          const crest = Math.pow(tool, 10);
+          const drag = noise(u, v, 18, 5, seed ^ 0x54d9);
+          const pores = smooth(clamp((0.32 - fine) / 0.23));
+          // Broad, curved trowel passes leave shallow feathered edges in gypsum.
+          color =
+            0.61 + 0.2 * sweep + 0.08 * drag + 0.07 * crest - 0.12 * pores;
+          height =
+            0.22 + 0.28 * sweep + 0.18 * crest + 0.08 * drag - 0.14 * pores;
+          roughness += 0.1 * (fine - 0.5) - 0.065 * crest + 0.045 * pores;
+          occlusion = 0.98 - 0.1 * pores - 0.025 * crest;
+          return;
+        };
+      case 'terracotta':
+        return () => {
+          const kiln = noise(u, v, 5, 5, seed ^ 0x3a17);
+          const firing = noise(u + 0.04 * kiln, v, 12, 9, seed ^ 0x7d23);
+          const pitDistance = wrappedFeature(u, v, 28, seed ^ 0x486d);
+          const pits = 1 - smooth(clamp((pitDistance - 0.04) / 0.19));
+          const scorched = smooth(clamp((kiln - 0.5) / 0.3));
+          // Firing clouds affect pigment more strongly than the unglazed clay relief.
+          color =
+            0.37 +
+            0.46 * firing +
+            0.15 * detail -
+            0.18 * scorched -
+            0.17 * pits;
+          height = 0.35 + 0.14 * detail + 0.12 * fine - 0.3 * pits;
+          roughness += 0.1 * (fine - 0.5) + 0.07 * pits - 0.04 * scorched;
+          occlusion = 0.97 - 0.22 * pits + 0.025 * fine;
+          return;
+        };
+      case 'cork':
+        return () => {
+          const cells = 14;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let weight = 0,
+            pigment = 0,
+            largest = 0,
+            grain = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+                dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
+              const angle = TAU * hash(wx, wy, seed ^ 0x4d21);
+              const rx = dx * Math.cos(angle) + dy * Math.sin(angle),
+                ry = dy * Math.cos(angle) - dx * Math.sin(angle);
+              // Compact elliptical flakes blend before leaving the wrapped neighborhood.
+              const distance = 0.9 * rx * rx + 1.3 * ry * ry;
+              const cap = Math.pow(clamp(1 - distance / 1.21), 8);
+              const variation = hash(wx, wy, seed ^ 0x172b);
+              const lenticel = Math.pow(
+                0.5 +
+                  0.5 * Math.sin(TAU * (5 * ry + 0.3 * rx) + TAU * variation),
+                12,
+              );
+              weight += cap;
+              pigment += cap * variation;
+              grain += cap * lenticel;
+              largest = Math.max(largest, cap);
+            }
+          const inv = 1 / Math.max(weight, 1e-12);
+          const flake = pigment * inv,
+            lenticel = grain * inv;
+          const boundary = 1 - smooth(clamp((largest * inv - 0.48) / 0.4));
+          color =
+            0.31 +
+            0.57 * flake +
+            0.12 * detail -
+            0.22 * boundary -
+            0.09 * lenticel;
+          height =
+            0.4 + 0.16 * flake + 0.07 * fine - 0.2 * boundary - 0.07 * lenticel;
+          roughness += 0.07 * (fine - 0.5) + 0.045 * boundary - 0.025 * flake;
+          occlusion = 0.97 - 0.18 * boundary - 0.08 * lenticel;
+          return;
+        };
+      case 'studdedrubber':
+        return () => {
+          const x = u * 6,
+            y = v * 6;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const stud = 1 - smooth(clamp((radius - 0.24) / 0.12));
+          const variation = rubberStuds![Math.floor(y) * 6 + Math.floor(x)];
+          const stipple = noise(u, v, 144, 144, seed ^ 0x49b3);
+          color = 0.24 + 0.16 * stud + 0.06 * stud * variation + 0.05 * stipple;
+          height = 0.16 + 0.66 * stud + 0.002 * stipple;
+          roughness = preset.roughness + 0.04 * (stipple - 0.5);
+          occlusion = 0.84 + 0.16 * stud;
+          return;
+        };
+      case 'groovedrubber':
+        return () => {
+          const x = u * 12;
+          const distance = Math.abs(fract(x) - 0.5);
+          const rib = 1 - smooth(clamp((distance - 0.32) / 0.13));
+          const variation = rubberRibs![Math.floor(x)];
+          const stipple = noise(u, v, 144, 144, seed ^ 0x6e21);
+          color = 0.18 + 0.29 * rib + 0.04 * rib * variation + 0.035 * stipple;
+          height = 0.15 + 0.7 * rib + 0.0015 * stipple;
+          roughness = preset.roughness + 0.035 * (stipple - 0.5);
+          occlusion = 0.7 + 0.3 * rib;
+          return;
+        };
+      case 'recycledrubber':
+        return () => {
+          const x = u * 48,
+            y = v * 48,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let coverage = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset = (((cy + 48) % 48) * 48 + ((cx + 48) % 48)) * 18;
+              const dx = x - cx - rubberGranules![offset],
+                dy = y - cy - rubberGranules![offset + 1];
+              let mask = 1;
+              for (let edge = 0; edge < 5; edge++) {
+                const plane = offset + 3 + edge * 3;
+                const inset =
+                  rubberGranules![plane + 2] -
+                  dx * rubberGranules![plane] -
+                  dy * rubberGranules![plane + 1];
+                mask *= smooth(clamp(inset / 0.14));
+              }
+              coverage += mask;
+              pigment += mask * rubberGranules![offset + 2];
+            }
+          const granule = 1 - Math.exp(-2 * coverage);
+          const speckle = noise(u, v, 144, 144, seed ^ 0x3b87);
+          color = 0.035 + 0.59 * granule + (0.22 * pigment) / (1 + coverage);
+          height = 0.25 + 0.18 * granule + 0.002 * speckle;
+          roughness = preset.roughness - 0.06 * granule + 0.02 * speckle;
+          occlusion = 0.83 + 0.17 * granule;
+          return;
+        };
+      case 'rubber':
+        return () => {
+          const distance = wrappedFeature(u, v, 44, seed ^ 0x8e53);
+          const pebble = 1 - smooth(clamp((distance - 0.08) / 0.55));
+          // Fine molded stipple, with much shallower relief than leather grain.
+          color = 0.19 + 0.38 * pebble + 0.19 * fine + 0.1 * detail;
+          height = 0.19 + 0.49 * pebble + 0.15 * fine + 0.06 * detail;
+          roughness += 0.12 * (fine - 0.5) - 0.045 * pebble;
+          occlusion = 0.9 + 0.08 * pebble + 0.02 * fine;
+          return;
+        };
+      case 'carbonfiber':
+        return () => {
+          const x = 12 * (u + v),
+            y = 12 * (v - u);
+          const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+            weft = 0.5 + 0.5 * Math.cos(TAU * y);
+          // Smooth two-over/two-under ownership of diagonal tow bundles.
+          const over = smooth(
+            clamp(0.5 + 0.9 * Math.cos((Math.PI * (x - y)) / 2)),
+          );
+          const warpFiber =
+            0.5 + 0.5 * Math.sin(TAU * (4 * x + 0.08 * detail) + phase);
+          const weftFiber =
+            0.5 + 0.5 * Math.sin(TAU * (4 * y + 0.08 * detail) + phase);
+          const tow = warp * over + weft * (1 - over);
+          const fiber = warpFiber * over + weftFiber * (1 - over);
+          color = 0.12 + 0.46 * tow + 0.2 * fiber + 0.12 * detail;
+          // Resin smooths the weave; its sheen remains dielectric, not metallic.
+          height = 0.25 + 0.37 * tow + 0.055 * fiber + 0.04 * detail;
+          roughness += 0.065 * (detail - 0.5) + 0.045 * (1 - tow);
+          occlusion = 0.88 + 0.1 * tow + 0.02 * fiber;
+          return;
+        };
+      case 'diamondplate':
+        return () => {
+          const x = u * 8,
+            y = v * 8;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const direction = (Math.floor(x) + Math.floor(y)) % 2 === 0 ? 1 : -1;
+          const along = (dx + direction * dy) * Math.SQRT1_2,
+            across = (dy - direction * dx) * Math.SQRT1_2;
+          const distance = Math.abs(along) / 0.48 + Math.abs(across) / 0.14;
+          // Each beveled lozenge ends strictly inside its cell, so alternating
+          // orientation never introduces an ownership discontinuity at cell edges.
+          const raised = smooth(clamp((1 - distance) / 0.24));
+          const rolled = noise(u, v, 4, 64, seed ^ 0x35e1);
+          color = 0.35 + 0.25 * rolled + 0.29 * raised + 0.07 * detail;
+          height = 0.08 + 0.78 * raised + 0.025 * rolled;
+          roughness += 0.14 * (rolled - 0.5) - 0.075 * raised;
+          occlusion = 0.94 + 0.05 * raised + 0.01 * detail;
+          return;
+        };
+      case 'knurledmetal':
+        return () => {
+          const across = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u + v))),
+            along = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u - v)));
+          // Intersecting cuts leave small diamond crowns, not isolated tread bars.
+          const crown = across * along;
+          color = 0.29 + 0.48 * crown + 0.16 * detail;
+          height = 0.12 + 0.72 * crown + 0.025 * detail;
+          roughness += 0.1 * (detail - 0.5) + 0.07 * (1 - crown);
+          occlusion = 0.85 + 0.14 * crown;
+          return;
+        };
+      case 'engineturned':
+        return () => {
+          const x = u * 6,
+            y = v * 6;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let total = 0,
+            scratches = 0,
+            sheen = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % 6) + 6) % 6,
+                wy = ((cy % 6) + 6) % 6;
+              const dx = x - cx - 0.25 - 0.5 * (wy % 2),
+                dy = y - cy - 0.5;
+              const radiusSquared = dx * dx + dy * dy;
+              const cap = Math.max(0, 1 - radiusSquared / 0.9025);
+              const weight = cap * cap;
+              const offset = (wy * 6 + wx) * 2;
+              const turn = turnedDisks![offset];
+              const scratch =
+                0.5 +
+                0.5 *
+                  Math.cos(TAU * (10 * radiusSquared + turn + 0.18 * dx * dy));
+              total += weight;
+              scratches += weight * scratch;
+              sheen += weight * turnedDisks![offset + 1];
+            }
+          // Compact C1 disk supports and normalized convex ownership avoid both
+          // hard nearest-disk seams and unbounded overlap sums. Coverage is total.
+          scratches /= total;
+          sheen /= total;
+          color = 0.35 + 0.34 * sheen + 0.22 * scratches + 0.04 * detail;
+          height = 0.44 + 0.07 * scratches + 0.025 * detail;
+          roughness += 0.18 * (scratches - 0.5) + 0.12 * (sheen - 0.5);
+          occlusion = 0.98 + 0.015 * scratches;
+          return;
+        };
+      case 'goldleaf':
+        return () => {
+          const warp = noise(u, v, 4, 5, seed ^ 0x4d83);
+          const patchU = u + 0.035 * Math.sin(TAU * v * 3 + phase),
+            patchV = v + 0.03 * Math.sin(TAU * u * 4 + phase);
+          const patch = noise(patchU, patchV, 4, 5, seed ^ 0x1e59);
+          const lapU = smooth(
+            clamp((Math.cos(TAU * 4 * patchU) - 0.92) / 0.08),
+          );
+          const lapV = smooth(
+            clamp((Math.cos(TAU * 5 * patchV) - 0.92) / 0.08),
+          );
+          const lap = lapU + (1 - lapU) * lapV;
+          const foldA = Math.pow(
+            0.5 + 0.5 * Math.cos(TAU * (18 * u + 7 * v + 1.7 * warp) + phase),
+            8,
+          );
+          const foldB = Math.pow(
+            0.5 + 0.5 * Math.cos(TAU * (5 * u - 21 * v + 1.3 * patch) - phase),
+            10,
+          );
+          const wrinkle = 0.6 * foldA + 0.4 * foldB;
+          // Thin overlapping sheets carry crumpled folds, not deep cracks or
+          // translucent foil; all relief remains in the four opaque surface maps.
+          color = 0.4 + 0.3 * patch + 0.19 * wrinkle - 0.1 * lap;
+          height = 0.36 + 0.34 * wrinkle + 0.065 * lap + 0.04 * detail;
+          roughness += 0.12 * (patch - 0.5) + 0.11 * wrinkle + 0.025 * lap;
+          occlusion = 0.99 - 0.065 * wrinkle - 0.025 * lap;
+          return;
+        };
+      case 'paper':
+        return () => {
+          const formation = noise(u, v, 3, 5, seed ^ 0x81b7);
+          const tooth = noise(u, v, 48, 48, seed ^ 0x57d3);
+          const cells = 24;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let fibers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+                dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x193f);
+              const angle = TAU * hash(wx, wy, seed ^ 0x72e1);
+              const along = dx * Math.cos(angle) + dy * Math.sin(angle),
+                across = dy * Math.cos(angle) - dx * Math.sin(angle);
+              const length = 0.42 + 0.28 * hash(wx, wy, seed ^ 0x5b29);
+              // Short, randomly oriented pulp fibers have compact support, so
+              // neighboring cells blend without changing ownership at their edges.
+              const distance =
+                (along * along) / (length * length) +
+                (across * across) / 0.0064;
+              const fiber = Math.pow(clamp(1 - distance), 2);
+              fibers = Math.max(fibers, fiber);
+            }
+          color = 0.62 + 0.24 * formation + 0.1 * tooth - 0.2 * fibers;
+          height = 0.22 + 0.12 * formation + 0.22 * tooth + 0.3 * fibers;
+          roughness += 0.08 * (tooth - 0.5) + 0.04 * fibers;
+          occlusion = 0.98 - 0.07 * fibers - 0.035 * (1 - tooth);
+          return;
+        };
+      case 'reedmat':
+        return () => {
+          const x = u * 16,
+            band = Math.floor(x),
+            across = (fract(x) - 0.5) / 0.46;
+          const reed = smooth(clamp(1 - across * across));
+          const variation = fiberBands![band * 2],
+            fiberPhase = fiberBands![band * 2 + 1];
+          const fiber =
+            0.5 +
+            0.5 *
+              Math.sin(TAU * x * 7 + 0.2 * Math.sin(TAU * v * 3) + fiberPhase);
+          const thread = smooth(clamp(1 - (1 - Math.cos(TAU * v * 4)) / 0.055));
+          const threadFiber = 0.5 + 0.5 * Math.cos(TAU * u * 96 + phase);
+          color =
+            0.15 +
+            reed * (0.38 + 0.14 * variation + 0.09 * fiber) +
+            thread * (0.12 + 0.04 * threadFiber);
+          height =
+            0.1 +
+            reed * (0.46 + 0.055 * variation + 0.018 * fiber) +
+            thread * (0.24 + 0.015 * threadFiber);
+          roughness +=
+            0.06 * (1 - reed) - 0.035 * reed * fiber + 0.025 * thread;
+          occlusion = 0.56 + 0.32 * reed + 0.07 * thread;
+          return;
+        };
+      case 'rope':
+        return () => {
+          const x = u * 6,
+            band = Math.floor(x),
+            local = fract(x) - 0.5;
+          const body = smooth(clamp(1 - (local / 0.48) ** 2));
+          const variation = fiberBands![band * 2],
+            twistPhase = fiberBands![band * 2 + 1];
+          const helix = TAU * (3 * local - 6 * v) + twistPhase;
+          const strand = 0.5 + 0.5 * Math.cos(helix),
+            fiber =
+              0.5 + 0.5 * Math.cos(helix * 9 + 0.15 * Math.sin(TAU * v * 2));
+          // Three diagonal constituent crowns per rope band, never crossing loops.
+          color =
+            0.13 +
+            body * (0.3 + 0.14 * variation + 0.23 * strand + 0.06 * fiber);
+          height = 0.08 + body * (0.34 + 0.32 * strand + 0.018 * fiber);
+          roughness += 0.065 * (1 - body) + body * (0.025 - 0.045 * fiber);
+          occlusion = 0.43 + body * (0.35 + 0.17 * strand);
+          return;
+        };
+      case 'straw':
+        return () => {
+          const x = u * 8,
+            y = v * 8,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          color = 0.17 + 0.07 * detail;
+          height = 0.15 + 0.015 * detail;
+          occlusion = 0.55 + 0.035 * detail;
+          for (let layer = 0; layer < 3; layer++)
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const cx = ix + ox,
+                  cy = iy + oy;
+                const offset =
+                  ((layer * 8 + (((cy % 8) + 8) % 8)) * 8 +
+                    (((cx % 8) + 8) % 8)) *
+                  9;
+                const dx = x - cx - strawStems![offset],
+                  dy = y - cy - strawStems![offset + 1];
+                const along =
+                    (dx * strawStems![offset + 2] +
+                      dy * strawStems![offset + 3]) /
+                    strawStems![offset + 4],
+                  across =
+                    (dy * strawStems![offset + 2] -
+                      dx * strawStems![offset + 3]) /
+                    strawStems![offset + 5];
+                const stem =
+                  smooth(clamp((1 - along * along) / 0.24)) *
+                  smooth(clamp(1 - across * across));
+                if (stem === 0) continue;
+                const variation = strawStems![offset + 6];
+                const fiber =
+                  0.5 + 0.5 * Math.cos(12 * across + strawStems![offset + 7]);
+                const node =
+                  strawStems![offset + 8] > 0.6
+                    ? smooth(clamp(1 - ((along - 0.2) / 0.065) ** 2))
+                    : 0;
+                // All ownership, including nodes and fibers, fades with support.
+                color =
+                  color * (1 - stem) +
+                  stem * (0.48 + 0.26 * variation + 0.07 * fiber - 0.13 * node);
+                height =
+                  height * (1 - stem) +
+                  stem *
+                    (0.51 +
+                      0.06 * layer +
+                      0.04 * variation +
+                      0.018 * fiber +
+                      0.055 * node);
+                roughness =
+                  roughness * (1 - stem) +
+                  stem * (preset.roughness - 0.04 * fiber + 0.025 * node);
+                occlusion =
+                  occlusion * (1 - stem) + stem * (0.91 + 0.045 * fiber);
+              }
+          return;
+        };
+      case 'wicker':
+        return () => {
+          const x = u * 6,
+            y = v * 6;
+          const warpCrown = 0.5 + 0.5 * Math.cos(TAU * x),
+            weftCrown = 0.5 + 0.5 * Math.cos(TAU * y);
+          const warp = smooth(clamp((Math.cos(TAU * x) + 0.92) / 0.3)),
+            weft = smooth(clamp((Math.cos(TAU * y) + 0.92) / 0.3));
+          const over = smooth(
+            clamp(0.5 + 1.4 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y)),
+          );
+          const warpTop = warp * (1 - weft + weft * over),
+            weftTop = weft * (1 - warp + warp * (1 - over));
+          const coverage = warpTop + weftTop;
+          const warpGrain = noise(u, v, 72, 4, seed ^ 0x6f31),
+            weftGrain = noise(u, v, 4, 72, seed ^ 0x2a97);
+          const grain = warpTop * warpGrain + weftTop * weftGrain;
+          const crown = warpTop * warpCrown + weftTop * weftCrown;
+          // Broad solid rattan ribbons have rolled shoulders and longitudinal
+          // grain, rather than the narrow twisted yarns of coarse burlap.
+          color = 0.08 + 0.5 * coverage + 0.16 * crown + 0.18 * grain;
+          height = 0.04 + 0.48 * coverage + 0.32 * crown + 0.045 * grain;
+          roughness +=
+            0.1 * (detail - 0.5) + 0.1 * (1 - coverage) - 0.04 * grain;
+          occlusion = 0.34 + 0.54 * coverage + 0.1 * crown;
+          return;
+        };
+      case 'bamboo':
+        return () => {
+          const grain = noise(u, v, 64, 4, seed ^ 0x4b71);
+          const wander = noise(u, v, 4, 3, seed ^ 0x691d);
+          const fiber =
+            0.5 + 0.5 * Math.sin(TAU * (48 * u + 0.22 * wander) + phase);
+          const stagger = noise(u, 0, 4, 1, seed ^ 0x28d5);
+          const ring =
+            1 -
+            Math.cos(
+              TAU * (3 * v + 0.65 * stagger + 0.07 * Math.sin(TAU * 4 * u)) +
+                phase,
+            );
+          const node = 1 - smooth(clamp(ring / 0.16));
+          const shoulder = 1 - smooth(clamp(ring / 0.42));
+          // Continuous phase staggering bends the darker node bands across the
+          // fiber field without introducing plank seams or segmented geometry.
+          color =
+            0.46 + 0.23 * grain + 0.16 * fiber + 0.08 * detail - 0.34 * node;
+          height =
+            0.3 + 0.14 * grain + 0.12 * fiber + 0.16 * shoulder - 0.1 * node;
+          roughness += 0.12 * node + 0.1 * (grain - 0.5) - 0.035 * fiber;
+          occlusion = 0.99 - 0.14 * node - 0.025 * (1 - grain);
+          return;
+        };
+      case 'hammeredmetal':
+        return () => {
+          const cells = 12;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let impressions = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+                dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x729b);
+              const radius = 0.85 + 0.25 * hash(wx, wy, seed ^ 0x193d);
+              // Rounded tool impressions overlap with zero slope at their support
+              // edges; summing them avoids nearest-site ridges in the copper.
+              const cap = clamp(1 - (dx * dx + dy * dy) / (radius * radius));
+              impressions +=
+                cap * cap * (0.7 + 0.3 * hash(wx, wy, seed ^ 0x5a17));
+            }
+          const dent = 1 - Math.exp(-1.6 * impressions);
+          const polish = noise(u, v, 4, 4, seed ^ 0x4e21);
+          color = 0.72 - 0.32 * dent + 0.14 * polish + 0.045 * detail;
+          height = 0.85 - 0.7 * dent + 0.008 * detail;
+          roughness += 0.1 * (polish - 0.5) + 0.09 * dent;
+          occlusion = 0.99 - 0.12 * dent;
+          return;
+        };
+      case 'galvanized':
+        return () => {
+          const cells = 10;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let weight = 0,
+            pigment = 0,
+            rays = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+                dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x3b79);
+              const angle = TAU * hash(wx, wy, seed ^ 0x57a3);
+              const along = dx * Math.cos(angle) + dy * Math.sin(angle),
+                across = dy * Math.cos(angle) - dx * Math.sin(angle);
+              // Compact high-power weights create flat-looking zinc spangles
+              // with feathered crystallite boundaries, not raised stone chips.
+              const cap = Math.pow(clamp(1 - (dx * dx + dy * dy) / 1.21), 8);
+              const variation = hash(wx, wy, seed ^ 0x49d1);
+              const ray =
+                0.5 +
+                0.5 * Math.cos(TAU * (3 * across + 1.5 * Math.abs(along)));
+              weight += cap;
+              pigment += cap * variation;
+              rays += cap * ray;
+            }
+          const inv = 1 / Math.max(weight, 1e-12);
+          const crystallite = pigment * inv,
+            ray = rays * inv;
+          color = 0.18 + 0.65 * crystallite + 0.12 * ray + 0.035 * detail;
+          height = 0.3 + 0.18 * crystallite + 0.035 * ray + 0.015 * detail;
+          roughness += 0.24 * (crystallite - 0.5) + 0.045 * (ray - 0.5);
+          occlusion = 0.98 + 0.02 * crystallite;
+          return;
+        };
+      case 'corrugatedmetal':
+        return () => {
+          const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
+          const rolled = noise(u, v, 64, 4, seed ^ 0x1f6b);
+          const wear = Math.pow(0.5 + 0.5 * Math.sin(TAU * 48 * u + phase), 12);
+          // A continuous rolled sheet: the large-scale flutes affect only its
+          // normal map, with faint longitudinal wear rather than panel joints.
+          color = 0.5 + 0.2 * flute + 0.16 * rolled - 0.06 * wear;
+          height = 0.1 + 0.8 * flute + 0.004 * rolled - 0.002 * wear;
+          roughness += 0.13 * (rolled - 0.5) + 0.06 * wear;
+          occlusion = 0.91 + 0.08 * flute;
+          return;
+        };
+      case 'perforatedmetal':
+        return () => {
+          const cells = 6;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Even row counts keep the staggered half-cell hole lattice periodic.
+          let recess = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const shift = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - shift,
+                dy = y - cy - 0.5;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              // Flat hole floors sink below the sheet and rise back at the rim
+              // with zero slope; supports stop before a discarded cell matters.
+              const hole = smooth(clamp((0.3 - distance) / 0.12));
+              recess += (1 - recess) * hole;
+            }
+          color = 0.62 + 0.1 * detail - 0.44 * recess;
+          height = 0.82 - 0.62 * recess + 0.03 * detail;
+          roughness += 0.07 * recess + 0.04 * (detail - 0.5);
+          occlusion = 1 - 0.78 * recess;
+          return;
+        };
+      case 'expandedmetal':
+        return () => {
+          // Two diagonal strand families join smoothly at shared nodes and
+          // leave recessed rhombic openings between their rounded shoulders.
+          const strandA = smooth(
+            clamp((Math.cos(TAU * 5 * (u + v)) - 0.1) / 0.9),
+          );
+          const strandB = smooth(
+            clamp((Math.cos(TAU * 5 * (u - v)) - 0.1) / 0.9),
+          );
+          const lattice = strandA + strandB - strandA * strandB;
+          const node = strandA * strandB;
+          const opening = 1 - lattice;
+          color = 0.7 + 0.1 * detail - 0.42 * opening;
+          height = 0.22 + 0.6 * lattice + 0.09 * node + 0.025 * detail;
+          roughness += 0.08 * opening + 0.03 * (detail - 0.5);
+          occlusion = 0.34 + 0.62 * lattice;
+          return;
+        };
+      case 'wiremesh':
+        return () => {
+          const x = u * 12,
+            y = v * 12;
+          // Squared caps round each wire crest and vanish with zero slope
+          // at the half-cell support, so the fract jumps land in flat gaps.
+          const cap = (q: number): number => {
+            const span = clamp(1 - q * q);
+            return span * span;
+          };
+          const warp = cap((fract(x) - 0.5) / 0.34),
+            weft = cap((fract(y) - 0.5) / 0.34);
+          // Over-under crimp alternates at every crossing and eases to equal
+          // tension halfway between them, so no seam opens along a float.
+          const over = 0.5 + 0.5 * Math.cos(Math.PI * (x - y));
+          const top = warp * over + weft * (1 - over),
+            under = weft * over + warp * (1 - over);
+          const exposed = under * (1 - top);
+          color = 0.3 + 0.46 * top + 0.2 * exposed + 0.08 * detail;
+          height = 0.08 + 0.78 * top + 0.34 * exposed + 0.03 * detail;
+          roughness += 0.04 * (1 - top) + 0.03 * (detail - 0.5);
+          occlusion = 0.36 + 0.56 * top + 0.18 * exposed;
+          return;
+        };
+      case 'velvet':
+        return () => {
+          // Dense upright pile stays flat while soft crush clouds shift the
+          // nap's pigment and sheen without introducing hard pile edges.
+          const crush = noise(u, v, 5, 5, seed ^ 0x7c31);
+          const drift = noise(u, v, 3, 9, seed ^ 0x2a17);
+          const nap = noise(u, v, 96, 96, seed ^ 0x5f2d);
+          color = 0.3 + 0.32 * crush + 0.12 * nap;
+          height = 0.42 + 0.06 * crush + 0.05 * nap;
+          roughness += 0.12 * (crush - 0.5) + 0.035 * (drift - 0.5);
+          occlusion = 0.92 + 0.06 * crush;
+          return;
+        };
+      case 'terrycloth':
+        return () => {
+          const columns = 10,
+            rows = 8;
+          const x = u * columns,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Even row counts keep the staggered half-cell loop lattice periodic.
+          let loops = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const shift = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - shift,
+                dy = y - cy - 0.5;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              // Rounded loop crowns rise over the ground and vanish with
+              // zero slope before a discarded cell can matter.
+              const cap = clamp(1 - (distance / 0.36) ** 2);
+              loops += (1 - loops) * cap * cap;
+            }
+          color = 0.42 + 0.3 * loops + 0.16 * detail;
+          height = 0.3 + 0.62 * loops + 0.05 * detail;
+          roughness += 0.05 * (detail - 0.5) - 0.03 * loops;
+          occlusion = 0.62 + 0.35 * loops;
+          return;
+        };
+      case 'boucle':
+        return () => {
+          const rows = 6,
+            cells = 8;
+          const x = u * cells,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Yarn courses run along u; squared caps round each course crown
+          // and meet the channel with zero slope at the half-row support.
+          const across = fract(y) - 0.5;
+          const span = clamp(1 - (across / 0.36) ** 2);
+          const yarn = span * span;
+          let rings = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % rows) + rows) % rows;
+              const dx =
+                  x - cx - 0.5 - 0.3 * (hash(wx, wy, seed ^ 0x6a2d) - 0.5),
+                dy = y - cy - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x33f1) - 0.5);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              // Annular loop crests curl over the yarn around recessed
+              // centers and vanish with zero slope at the ring support.
+              const band = clamp(1 - ((distance - 0.16) / 0.075) ** 2);
+              rings += (1 - rings) * band * band;
+            }
+          const channel = 1 - yarn;
+          color = 0.36 + 0.34 * yarn + 0.14 * rings + 0.12 * detail;
+          height = 0.16 + 0.5 * yarn + 0.26 * rings + 0.04 * detail;
+          roughness += 0.06 * channel + 0.03 * (detail - 0.5);
+          occlusion = 0.58 + 0.3 * yarn + 0.1 * rings;
+          return;
+        };
+      case 'geode':
+        return () => {
+          // Bands share a fixed tile center so one UV tile stays a full
+          // radial section, while seeded warping keeps the rings organic.
+          const dx = fract(u) - 0.5,
+            dy = fract(v) - 0.5;
+          // Sinusoidal wrap keeps the radial distance smooth across seams.
+          const sx = Math.sin(Math.PI * dx) / Math.PI,
+            sy = Math.sin(Math.PI * dy) / Math.PI;
+          const radius = Math.sqrt(sx * sx + sy * sy);
+          const warp = noise(u, v, 6, 6, seed ^ 0x3c17);
+          // The banding fades flat before the center so the radial distance
+          // leaves no cone behind at the origin.
+          const ringFade = smooth(clamp((radius - 0.1) / 0.08));
+          const band =
+            0.5 +
+            0.5 * ringFade * Math.cos(TAU * (9 * radius + 0.12 * warp) + phase);
+          // A fine crystalline druse core breaks the smooth mineral banding.
+          const core = smooth(clamp((0.17 - radius) / 0.05));
+          const facet = noise(u, v, 48, 48, seed ^ 0x5921);
+          const druse = core * facet;
+          color = 0.3 + 0.3 * band + 0.22 * druse + 0.12 * detail;
+          height = 0.3 + 0.3 * band + 0.2 * druse + 0.03 * detail;
+          roughness += 0.1 * (1 - band) + 0.08 * druse + 0.03 * (detail - 0.5);
+          occlusion = 0.72 + 0.22 * band + 0.04 * druse;
+          return;
+        };
+      case 'quartz':
+        return () => {
+          const cells = 5;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Hexagonal prism tops carry pyramidal apices; products of C1
+          // half-plane shoulders keep every facet edge differentiable.
+          let columns = 0,
+            tops = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const px = cx + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x4c21) - 0.5),
+                py = cy + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x71b3) - 0.5);
+              const dx = x - px,
+                dy = y - py;
+              let shoulder = 1;
+              for (let k = 0; k < 6; k++) {
+                const angle =
+                  (Math.PI / 3) * k +
+                  0.22 * (hash(wx, wy, seed ^ 0x5d77) - 0.5);
+                const across = Math.abs(
+                  dx * Math.cos(angle) + dy * Math.sin(angle),
+                );
+                shoulder *= smooth(clamp((0.3 - across) / 0.055));
+              }
+              const top = 0.34 + 0.42 * hash(wx, wy, seed ^ 0x2f19);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const tip = clamp(1 - (distance / 0.21) ** 2);
+              columns += (1 - columns) * shoulder;
+              tops += (1 - tops) * shoulder * (top + 0.24 * tip * tip);
+            }
+          color = 0.52 + 0.26 * tops + 0.12 * detail;
+          height = 0.16 + 0.72 * tops + 0.03 * detail;
+          roughness += 0.1 * (1 - columns) + 0.03 * (detail - 0.5);
+          occlusion = 0.5 + 0.46 * columns;
+          return;
+        };
+      case 'pyrite':
+        return () => {
+          const cells = 5;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Interlocking cube tops step at varied heights; squared shoulders
+          // stay differentiable through products of C1 half-plane caps.
+          let cubes = 0,
+            tops = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const px = cx + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x1c41) - 0.5),
+                py = cy + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x3f27) - 0.5);
+              const angle = 0.28 * (hash(wx, wy, seed ^ 0x6b5d) - 0.5);
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const dx = x - px,
+                dy = y - py;
+              const lx = Math.abs(dx * cos + dy * sin),
+                ly = Math.abs(dy * cos - dx * sin);
+              const face =
+                smooth(clamp((0.32 - lx) / 0.05)) *
+                smooth(clamp((0.32 - ly) / 0.05));
+              const top = 0.3 + 0.45 * hash(wx, wy, seed ^ 0x51af);
+              cubes += (1 - cubes) * face;
+              tops += (1 - tops) * face * top;
+            }
+          // Fine parallel striations cut across every exposed cube top.
+          const groove = 0.5 + 0.5 * Math.cos(TAU * 26 * (u + v) + phase);
+          const striation = cubes * smooth(groove);
+          color = 0.5 + 0.24 * tops + 0.1 * striation + 0.1 * detail;
+          height = 0.18 + 0.6 * tops + 0.06 * striation + 0.03 * detail;
+          roughness += 0.07 * (1 - striation) + 0.03 * (detail - 0.5);
+          occlusion = 0.52 + 0.42 * cubes;
+          return;
+        };
+      case 'shiplap':
+        return () => {
+          const rows = 5;
+          const y = v * rows,
+            iy = Math.floor(y);
+          const wy = ((iy % rows) + rows) % rows;
+          // Lap boards shadow their lower overlap while grain runs along
+          // each board; the seam fades in and out with zero slope.
+          const dist = 0.5 - Math.abs(fract(y) - 0.5);
+          const seam = smooth(clamp((0.07 - dist) / 0.05));
+          // Board tones fade into the shared seam so ownership never jumps.
+          const board = 0.5 + 0.36 * hash(wy, 0, seed ^ 0x2c61) * (1 - seam);
+          const grain = noise(u, v, 48, 6, seed ^ 0x47b9);
+          const streak = noise(u, v, 12, 2, seed ^ 0x6d23);
+          color =
+            0.24 + 0.36 * board + 0.16 * grain + 0.1 * streak - 0.18 * seam;
+          height = 0.72 - 0.5 * seam + 0.08 * grain + 0.03 * streak;
+          roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
+          occlusion = 1 - 0.55 * seam;
+          return;
+        };
+      case 'glassblock':
+        return () => {
+          const cells = 4;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded block faces rise over recessed seams; products of C1
+          // half-plane shoulders round every corner before the seam.
+          let faces = 0,
+            bubbles = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.5,
+                dy = y - cy - 0.5;
+              const face =
+                smooth(clamp((0.42 - Math.abs(dx)) / 0.05)) *
+                smooth(clamp((0.42 - Math.abs(dy)) / 0.05));
+              const bx = dx - 0.2 * (hash(wx, wy, seed ^ 0x51c7) - 0.5),
+                by = dy - 0.2 * (hash(wx, wy, seed ^ 0x78a1) - 0.5);
+              const distance = Math.sqrt(bx * bx + by * by);
+              // Tiny trapped bubbles dome inside the glass faces.
+              const cap = clamp(1 - (distance / 0.07) ** 2);
+              const bubble = cap * cap;
+              faces += (1 - faces) * face;
+              bubbles += (1 - bubbles) * face * bubble;
+            }
+          color = 0.55 + 0.2 * faces + 0.12 * bubbles + 0.1 * detail;
+          height = 0.24 + 0.6 * faces + 0.05 * bubbles + 0.02 * detail;
+          roughness += 0.12 * (1 - faces) - 0.03 * bubbles;
+          occlusion = 0.45 + 0.5 * faces;
+          return;
+        };
+      case 'thatch':
+        return () => {
+          const rows = 6;
+          const y = v * rows;
+          // Layered straw courses hang over their laps; fine streaks carry
+          // individual straws down the slope between soft course shadows.
+          const course =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU * (fract(y) - 0.25) +
+                  0.5 * noise(u, v, 3, 6, seed ^ 0x1d4b),
+              );
+          const straw = noise(u, v, 80, 6, seed ^ 0x3f8d);
+          const lap = smooth(clamp((0.14 - Math.abs(fract(y) - 0.73)) / 0.07));
+          color =
+            0.3 + 0.32 * course + 0.18 * straw + 0.1 * detail - 0.12 * lap;
+          height = 0.32 + 0.36 * course + 0.22 * straw - 0.3 * lap;
+          roughness += 0.05 * (straw - 0.5) + 0.05 * lap;
+          occlusion = 0.68 + 0.28 * course - 0.3 * lap;
+          return;
+        };
+      case 'charredwood':
+        return () => {
+          const cells = 9;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded charcoal scales lift above deep alligator cracks; caps
+          // fade with zero slope before a discarded cell can matter.
+          let plates = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx =
+                  x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4a17) - 0.5),
+                dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x73bd) - 0.5);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const cap = smooth(clamp((0.36 - distance) / 0.08));
+              plates += (1 - plates) * cap;
+            }
+          const grain = noise(u, v, 64, 64, seed ^ 0x2f51);
+          color = 0.12 + 0.24 * plates + 0.14 * grain;
+          height = 0.2 + 0.66 * plates + 0.05 * grain;
+          roughness += 0.08 * (1 - plates) + 0.03 * (grain - 0.5);
+          occlusion = 0.36 + 0.6 * plates;
+          return;
+        };
+      case 'driftwood':
+        return () => {
+          // Weathered cracks open along the grain while silvered ridges run
+          // the length of the board with zero slope at every crack wall.
+          const warp = noise(u, v, 4, 3, seed ^ 0x1c8b);
+          const grain = noise(u, v, 64, 3, seed ^ 0x55e1);
+          const streak = noise(u, v, 12, 2, seed ^ 0x39af);
+          const f = fract(v * 7 + 0.12 * warp);
+          const edge = Math.min(f, 1 - f);
+          const crack = smooth(clamp((0.1 - edge) / 0.05));
+          color = 0.42 + 0.26 * grain + 0.12 * streak - 0.24 * crack;
+          height = 0.62 + 0.18 * grain + 0.04 * streak - 0.5 * crack;
+          roughness += 0.06 * (grain - 0.5) + 0.08 * crack;
+          occlusion = 1 - 0.62 * crack;
+          return;
+        };
+      case 'peelingpaint':
+        return () => {
+          // Smooth noise opens peeled patches; the boundary rim curls up
+          // between the intact paint face and the exposed substrate.
+          const warp = noise(u, v, 5, 5, seed ^ 0x6f2d);
+          const peel = smooth(
+            clamp((noise(u, v, 3, 3, seed ^ 0x4b71) - 0.55) / 0.08),
+          );
+          const rim = 4 * peel * (1 - peel);
+          const substrate = noise(u, v, 40, 40, seed ^ 0x2ad3);
+          const paint = 1 - peel;
+          color =
+            0.66 * paint +
+            0.3 * peel +
+            0.16 * rim +
+            0.1 * substrate * peel +
+            0.12 * (0.5 + 0.5 * warp) * paint;
+          height = 0.24 + 0.42 * paint + 0.3 * rim + 0.05 * substrate;
+          roughness += 0.12 * peel + 0.05 * (substrate - 0.5);
+          occlusion = 0.52 + 0.36 * paint + 0.16 * rim;
+          return;
+        };
+      case 'tiretread':
+        return () => {
+          const rows = 6,
+            columns = 4;
+          const x = u * columns,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Staggered tread blocks step above their grooves; squared C1
+          // shoulders round every block corner before the groove floor.
+          let blocks = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const shift = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - shift,
+                dy = y - cy - 0.5;
+              const face =
+                smooth(clamp((0.34 - Math.abs(dx)) / 0.06)) *
+                smooth(clamp((0.32 - Math.abs(dy)) / 0.06));
+              blocks += (1 - blocks) * face;
+            }
+          // Fine lateral sipes cut each block into ribs.
+          const sipe = smooth(
+            clamp((Math.abs(Math.sin(TAU * 2 * (x + 0.25 * y))) - 0.12) / 0.12),
+          );
+          color = 0.18 + 0.24 * blocks - 0.08 * sipe * blocks + 0.1 * detail;
+          height = 0.22 + 0.58 * blocks - 0.12 * sipe * blocks + 0.03 * detail;
+          roughness += 0.06 * (1 - blocks) + 0.03 * (detail - 0.5);
+          occlusion = 0.42 + 0.52 * blocks - 0.1 * sipe * blocks;
+          return;
+        };
+      case 'honeycomb':
+        return () => {
+          const root3 = Math.sqrt(3);
+          const columns = 5,
+            rows = 4;
+          const x = u * columns,
+            y = v * rows;
+          // Hexagonal wax walls crest around recessed cell floors; products
+          // of C1 half-plane shoulders keep wall joints differentiable.
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let floors = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - offset,
+                dy = y - cy - 0.5;
+              const inside =
+                smooth(clamp((0.42 - Math.abs(dx)) / 0.03)) *
+                smooth(
+                  clamp((0.42 - Math.abs(dx * 0.5 + (dy * root3) / 2)) / 0.03),
+                ) *
+                smooth(
+                  clamp((0.42 - Math.abs(dx * 0.5 - (dy * root3) / 2)) / 0.03),
+                );
+              // Walls are everything the union of hexagonal floors leaves.
+              floors += (1 - floors) * inside;
+            }
+          const walls = 1 - floors;
+          const grain = noise(u, v, 48, 48, seed ^ 0x31c7);
+          color = 0.38 + 0.34 * walls + 0.12 * grain;
+          height = 0.28 + 0.56 * walls + 0.04 * grain;
+          roughness += 0.08 * (1 - walls) + 0.03 * (grain - 0.5);
+          occlusion = 0.52 + 0.42 * walls;
+          return;
+        };
+      case 'frost':
+        return () => {
+          const dx = fract(u) - 0.5,
+            dy = fract(v) - 0.5;
+          const sx = Math.sin(Math.PI * dx) / Math.PI,
+            sy = Math.sin(Math.PI * dy) / Math.PI;
+          const radius = Math.sqrt(sx * sx + sy * sy);
+          const angle = Math.atan2(sy, sx);
+          // Fern arms radiate from the tile center with feathery branchlets
+          // and fade flat before the origin keeps the angle cone hidden.
+          const fade = smooth(clamp((radius - 0.06) / 0.05));
+          // The odd sine keeps the arm phase even in the angle so seams
+          // fold back onto identical crystal arms.
+          const arm = Math.pow(
+            Math.abs(
+              Math.cos(
+                3 * angle +
+                  0.4 *
+                    (noise(u, v, 3, 3, seed ^ 0x5c21) - 0.5) *
+                    Math.sin(2 * angle),
+              ),
+            ),
+            3,
+          );
+          const branch = noise(
+            u * 6 + 2 * radius,
+            v * 6 - 2 * radius,
+            24,
+            24,
+            seed ^ 0x27ab,
+          );
+          const crystal = fade * arm * (0.55 + 0.45 * branch);
+          color = 0.42 + 0.42 * crystal + 0.12 * detail;
+          height = 0.28 + 0.58 * crystal + 0.04 * detail;
+          roughness += 0.12 * (1 - crystal) + 0.03 * (detail - 0.5);
+          occlusion = 0.6 + 0.36 * crystal;
+          return;
+        };
+      case 'stainedglass':
+        return () => {
+          const cells = 5;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Jittered bisectors cut irregular panes; squared C1 shoulders keep
+          // every came junction differentiable and energy marks the came.
+          let pane = 0,
+            energy = 0,
+            tone = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const px = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x3d17),
+                py = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x74ab);
+              let shoulder = 1;
+              for (let ny = -1; ny <= 1; ny++)
+                for (let nx = -1; nx <= 1; nx++) {
+                  if (!nx && !ny) continue;
+                  const ax = (((cx + nx) % cells) + cells) % cells,
+                    ay = (((cy + ny) % cells) + cells) % cells;
+                  const rx = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x3d17),
+                    ry = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x74ab);
+                  const dx = nx + rx - px,
+                    dy = ny + ry - py;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  const across =
+                    ((x - cx - px) * dx + (y - cy - py) * dy) / distance;
+                  shoulder *= smooth(clamp((distance / 2 - across) / 0.035));
+                }
+              const weight = (1 - pane) * shoulder;
+              pane += weight;
+              energy += weight * weight;
+              tone += weight * hash(wx, wy, seed ^ 0x5e33);
+            }
+          const lead = clamp((1 - energy) * 1.4);
+          color = (0.22 + 0.58 * tone) * (1 - 0.45 * lead) + 0.12 * detail;
+          height = 0.36 + 0.14 * (1 - lead) + 0.32 * lead + 0.03 * detail;
+          roughness += 0.06 * lead + 0.03 * (detail - 0.5);
+          occlusion = 0.86 - 0.2 * lead;
+          return;
+        };
+      case 'soapstone':
+        return () => {
+          // Soft pale veining sweeps over the dark talc ground in wide
+          // cloudy bands with fine talc streaking along the polish.
+          const smear = noise(u, v, 6, 2, seed ^ 0x2c91);
+          const vein = smooth(
+            clamp((noise(u, v, 3, 3, seed ^ 0x4c19) - 0.52) / 0.1),
+          );
+          const talc = noise(u, v, 48, 12, seed ^ 0x61af);
+          color = 0.16 + 0.52 * vein + 0.16 * smear + 0.12 * talc;
+          height = 0.45 + 0.06 * vein + 0.05 * smear + 0.04 * talc;
+          roughness += 0.1 * (1 - vein) + 0.03 * (talc - 0.5);
+          occlusion = 0.9 + 0.08 * vein;
+          return;
+        };
+      case 'butcherblock':
+        return () => {
+          const cells = 4;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // End-grain blocks alternate tones in a checker while joints sink
+          // between them and fine pores ring each block face.
+          const seamX = 0.5 - Math.abs(fract(x) - 0.5),
+            seamY = 0.5 - Math.abs(fract(y) - 0.5);
+          const seam = smooth(clamp((0.06 - Math.min(seamX, seamY)) / 0.04));
+          // Checker tones fade into the shared joint so ownership never jumps.
+          const checker = (((ix + iy) % 2) + 2) % 2;
+          const block = (checker ? 0.5 : -0.5) * (1 - seam);
+          const grain = noise(u, v, 40, 40, seed ^ 0x37c1);
+          const pore = noise(u, v, 96, 96, seed ^ 0x5ad3);
+          color = 0.46 + 0.34 * block + 0.14 * grain + 0.1 * pore - 0.12 * seam;
+          height = 0.7 - 0.42 * seam + 0.06 * grain + 0.04 * pore;
+          roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
+          occlusion = 1 - 0.5 * seam;
+          return;
+        };
+      case 'wallpaper':
+        return () => {
+          // Motif coordinates fold through squares and absolute offsets so
+          // the damask repeats with exact mirror symmetry on every axis.
+          const ax = Math.abs(fract(u * 2) - 0.5),
+            ay = Math.abs(fract(v * 2) - 0.5);
+          const q = ax * ax + ay * ay;
+          const ring = 0.5 + 0.5 * Math.cos(TAU * 3.5 * q + phase);
+          const motif = smooth(clamp((0.22 - q) / 0.08)) * ring;
+          color = 0.34 + 0.3 * motif + 0.12 * detail;
+          height = 0.34 + 0.28 * motif;
+          roughness += 0.08 * (1 - motif) + 0.03 * (detail - 0.5);
+          occlusion = 0.82 + 0.16 * motif;
+          return;
+        };
+      case 'embroidery':
+        return () => {
+          const cells = 6;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Satin stitches lie as aligned tapered caps and fade with zero
+          // slope at their support before a discarded cell can matter.
+          let stitches = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const angle = 0.6 * (hash(wx, wy, seed ^ 0x2f31) - 0.5);
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const px = cx + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x41c7) - 0.5),
+                py = cy + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x6d23) - 0.5);
+              const dx = x - px,
+                dy = y - py;
+              const along = (dx * cos + dy * sin) / 0.34,
+                across = (dy * cos - dx * sin) / 0.09;
+              const cap = clamp(1 - along * along - across * across);
+              stitches += (1 - stitches) * cap * cap;
+            }
+          color = 0.36 + 0.3 * stitches + 0.14 * detail;
+          height = 0.3 + 0.56 * stitches + 0.04 * detail;
+          roughness += 0.06 * (detail - 0.5) - 0.03 * stitches;
+          occlusion = 0.62 + 0.34 * stitches;
+          return;
+        };
+      case 'macrame':
+        return () => {
+          const rows = 4,
+            columns = 4;
+          const x = u * columns,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded knots step between twisted crossing cords; even rows
+          // keep the staggered knot lattice periodic.
+          let knots = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const shift = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - shift,
+                dy = y - cy - 0.5;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const cap = smooth(clamp((0.3 - distance) / 0.1));
+              knots += (1 - knots) * cap;
+            }
+          const twist = 0.5 + 0.5 * Math.cos(TAU * 12 * (x + y) + phase);
+          const cord = 0.5 + 0.5 * Math.cos(TAU * 6 * (x - y) + phase);
+          color = 0.34 + 0.3 * knots + 0.12 * twist * cord + 0.12 * detail;
+          height =
+            0.28 +
+            0.52 * knots +
+            0.14 * (1 - knots) * twist * cord +
+            0.04 * detail;
+          roughness += 0.06 * (detail - 0.5);
+          occlusion = 0.6 + 0.36 * knots;
+          return;
+        };
+      case 'brickpaving':
+        return () => {
+          const rows = 4,
+            columns = 3;
+          const x = u * columns,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Running-bond pavers step above sandy joints; squared C1
+          // shoulders round every paver corner before the joint floor.
+          let pavers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const shift = (((cy % 2) + 2) % 2) * 0.5;
+              const dx = x - cx - 0.5 - shift,
+                dy = y - cy - 0.5;
+              const face =
+                smooth(clamp((0.44 - Math.abs(dx)) / 0.05)) *
+                smooth(clamp((0.38 - Math.abs(dy)) / 0.05));
+              pavers += (1 - pavers) * face;
+            }
+          const sand = noise(u, v, 64, 64, seed ^ 0x3c17);
+          const wear = noise(u, v, 24, 24, seed ^ 0x51af);
+          color =
+            0.36 +
+            0.28 * pavers +
+            0.12 * wear +
+            0.1 * sand -
+            0.1 * (1 - pavers);
+          height = 0.26 + 0.56 * pavers + 0.06 * wear + 0.03 * sand;
+          roughness += 0.06 * (1 - pavers) + 0.04 * (sand - 0.5);
+          occlusion = 0.5 + 0.46 * pavers;
+          return;
+        };
+      case 'steppingstone':
+        return () => {
+          const cells = 3;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded flagstone pads sit over gritty ground and fade with
+          // zero slope before a discarded cell can matter.
+          let pads = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx =
+                  x - cx - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x42b1) - 0.5),
+                dy = y - cy - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x6c77) - 0.5);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const cap = smooth(clamp((0.4 - distance) / 0.1));
+              pads += (1 - pads) * cap;
+            }
+          const grit = noise(u, v, 72, 72, seed ^ 0x2d5b);
+          const mottle = noise(u, v, 12, 12, seed ^ 0x58c3);
+          color = 0.32 + 0.3 * pads + 0.14 * mottle + 0.12 * grit;
+          height = 0.24 + 0.58 * pads + 0.06 * mottle + 0.03 * grit;
+          roughness += 0.08 * (1 - pads) + 0.04 * (grit - 0.5);
+          occlusion = 0.54 + 0.42 * pads;
+          return;
+        };
+      case 'woodendeck':
+        return () => {
+          const rows = 5,
+            columns = 3;
+          const x = u * columns,
+            y = v * rows;
+          const iy = Math.floor(y);
+          const wy = ((iy % rows) + rows) % rows;
+          const dist = 0.5 - Math.abs(fract(y) - 0.5);
+          const gap = smooth(clamp((0.05 - dist) / 0.035));
+          // Board tones fade into the shared gap so ownership never jumps.
+          const board = 0.5 + 0.3 * hash(wy, 0, seed ^ 0x1b7d) * (1 - gap);
+          const grain = noise(u, v, 48, 8, seed ^ 0x39e1);
+          let heads = 0,
+            slots = 0;
+          for (let k = 0; k < 3; k++) {
+            const dx = x - (k + 0.5),
+              dy = y - iy - 0.5;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // Domed screw heads sit proud of the board over recessed slots.
+            const dome = smooth(clamp((0.16 - distance) / 0.05));
+            const slot =
+              dome *
+              smooth(
+                clamp((0.035 - Math.min(Math.abs(dx), Math.abs(dy))) / 0.02),
+              );
+            heads += (1 - heads) * dome;
+            slots += (1 - slots) * slot;
+          }
+          color =
+            0.42 + 0.24 * board + 0.12 * grain + 0.1 * heads - 0.08 * slots;
+          height =
+            0.68 - 0.44 * gap + 0.05 * heads - 0.12 * slots + 0.05 * grain;
+          roughness += 0.05 * (grain - 0.5) + 0.08 * gap - 0.04 * heads;
+          occlusion = 1 - 0.52 * gap - 0.12 * slots;
+          return;
+        };
+      case 'cheese':
+        return () => {
+          const cells = 6;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded eyes of two sizes sink into the paste with smooth walls
+          // and zero slope before a discarded cell can matter.
+          let eyes = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx =
+                  x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4e17) - 0.5),
+                dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x72ab) - 0.5);
+              const radius =
+                0.14 + 0.18 * Math.floor(hash(wx, wy, seed ^ 0x35cf) * 2);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const bowl = smooth(clamp((radius - distance) / (0.35 * radius)));
+              eyes += (1 - eyes) * bowl;
+            }
+          const knife = noise(u, v, 40, 4, seed ^ 0x2b7d);
+          const paste = noise(u, v, 24, 24, seed ^ 0x61c3);
+          color = 0.56 + 0.26 * paste + 0.1 * knife - 0.3 * eyes;
+          height = 0.72 - 0.5 * eyes + 0.04 * paste - 0.03 * knife;
+          roughness += 0.06 * (1 - eyes) + 0.03 * (paste - 0.5);
+          occlusion = 0.94 - 0.6 * eyes;
+          return;
+        };
+      case 'sugarfrosting':
+        return () => {
+          const cells = 5;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Piped rosette peaks swell over smooth icing between them.
+          let peaks = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx =
+                  x - cx - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x1f8b) - 0.5),
+                dy = y - cy - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x4a2d) - 0.5);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const cap = clamp(1 - (distance / 0.34) ** 2);
+              peaks += (1 - peaks) * cap * cap;
+            }
+          const swirl = noise(u, v, 32, 32, seed ^ 0x7c41);
+          color = 0.58 + 0.2 * peaks + 0.1 * swirl + 0.1 * detail;
+          height = 0.34 + 0.5 * peaks + 0.06 * swirl + 0.03 * detail;
+          roughness += 0.06 * (1 - peaks) + 0.03 * (detail - 0.5);
+          occlusion = 0.66 + 0.3 * peaks;
+          return;
+        };
+      case 'candleswax':
+        return () => {
+          const columns = 6,
+            rows = 2;
+          const x = u * columns,
+            y = v * rows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          // Rounded drips run down the wax with bulging noses; squared caps
+          // fade with zero slope at their support.
+          let drips = 0,
+            noses = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % columns) + columns) % columns,
+                wy = ((cy % rows) + rows) % rows;
+              const px = cx + 0.5 + 0.3 * (hash(wx, wy, seed ^ 0x24b1) - 0.5),
+                py = cy + 0.5;
+              const dx = x - px,
+                dy = y - py;
+              const along = dy / 0.42,
+                across = dx / 0.14;
+              const cap = clamp(1 - along * along - across * across);
+              const drip = cap * cap;
+              const nose =
+                clamp(1 - ((dy - 0.22) / 0.14) ** 2 - (dx / 0.17) ** 2) ** 2;
+              drips += (1 - drips) * drip;
+              noses += (1 - noses) * drip * nose;
+            }
+          const sheen = noise(u, v, 48, 16, seed ^ 0x5d23);
+          color = 0.5 + 0.26 * drips + 0.12 * noses + 0.1 * sheen;
+          height = 0.3 + 0.42 * drips + 0.16 * noses + 0.05 * sheen;
+          roughness += 0.05 * (sheen - 0.5) + 0.05 * (1 - drips);
+          occlusion = 0.62 + 0.34 * drips;
+          return;
+        };
+      case 'vinylrecord':
+        return () => {
+          const dx = fract(u) - 0.5,
+            dy = fract(v) - 0.5;
+          // Sinusoidal wrap keeps the radial groove field smooth across seams.
+          const sx = Math.sin(Math.PI * dx) / Math.PI,
+            sy = Math.sin(Math.PI * dy) / Math.PI;
+          const radius = Math.sqrt(sx * sx + sy * sy);
+          // Fine concentric grooves ring a smooth label disc; the fade keeps
+          // the radial distance from leaving a cone at the origin.
+          const ringFade = smooth(clamp((radius - 0.18) / 0.06));
+          const groove = 0.5 + 0.5 * Math.cos(TAU * 52 * radius + phase);
+          const sparkle = noise(u, v, 64, 64, seed ^ 0x31c7);
+          color = 0.14 + 0.1 * groove * ringFade + 0.08 * sparkle;
+          height = 0.42 + 0.24 * groove * ringFade + 0.02 * sparkle;
+          roughness += 0.06 * (1 - groove * ringFade) + 0.03 * (sparkle - 0.5);
+          occlusion = 0.88 + 0.1 * groove * ringFade;
+          return;
+        };
+      case 'graphpaper':
+        return () => {
+          // Minor rules print every twelfth, majors every third; each line
+          // sinks slightly into the paper and fades with zero slope.
+          const fu = fract(u * 12),
+            fv = fract(v * 12);
+          const du = Math.min(fu, 1 - fu),
+            dv = Math.min(fv, 1 - fv);
+          const minor = smooth(clamp((0.05 - Math.min(du, dv)) / 0.03));
+          const gu = fract(u * 3),
+            gv = fract(v * 3);
+          const eu = Math.min(gu, 1 - gu),
+            ev = Math.min(gv, 1 - gv);
+          const major = smooth(clamp((0.06 - Math.min(eu, ev)) / 0.035));
+          const fiber = noise(u, v, 64, 64, seed ^ 0x5b2d);
+          color = 0.9 - 0.28 * minor - 0.34 * major + 0.06 * fiber;
+          height = 0.8 - 0.22 * minor - 0.36 * major + 0.03 * fiber;
+          roughness += 0.04 * (fiber - 0.5) + 0.03 * minor;
+          occlusion = 1 - 0.12 * minor - 0.2 * major;
+          return;
+        };
+      case 'notebookpaper':
+        return () => {
+          const fy = fract(v * 8);
+          const rule = smooth(clamp((0.05 - Math.min(fy, 1 - fy)) / 0.03));
+          const margin = smooth(
+            clamp((0.012 - Math.abs(fract(u) - 0.25)) / 0.008),
+          );
+          // Punch holes sink deepest beside the ruled margin line.
+          let holes = 0;
+          for (let k = 0; k < 3; k++) {
+            const dx = fract(u) - 0.12,
+              dy = fract(v) - (k + 1) / 4;
+            const distance = Math.sqrt(dx * dx + 4 * dy * dy);
+            const bowl = smooth(clamp((0.06 - distance) / 0.03));
+            holes += (1 - holes) * bowl;
+          }
+          const fiber = noise(u, v, 48, 48, seed ^ 0x27ab);
+          color = 0.9 - 0.3 * rule - 0.26 * margin - 0.5 * holes + 0.06 * fiber;
+          height =
+            0.82 - 0.2 * rule - 0.22 * margin - 0.5 * holes + 0.03 * fiber;
+          roughness += 0.04 * (fiber - 0.5) + 0.03 * rule;
+          occlusion = 1 - 0.1 * rule - 0.12 * margin - 0.4 * holes;
+          return;
+        };
+      case 'lace':
+        return () => {
+          // Two diagonal thread families cross above the diamond voids.
+          const a = fract((u + v) * 6),
+            b = fract((u - v) * 6);
+          const threadA = smooth(clamp((0.14 - Math.min(a, 1 - a)) / 0.07));
+          const threadB = smooth(clamp((0.14 - Math.min(b, 1 - b)) / 0.07));
+          const net = threadA + threadB - threadA * threadB;
+          const crossings = threadA * threadB;
+          const fiber = noise(u, v, 48, 48, seed ^ 0x1c3f);
+          color = 0.58 + 0.32 * net + 0.05 * fiber;
+          height = 0.5 + 0.32 * net + 0.12 * crossings + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * net;
+          occlusion = 1 - 0.5 * (1 - net) - 0.14 * (1 - crossings);
+          return;
+        };
+      case 'crochet':
+        return () => {
+          // Plush loops sit on half-cell-offset rows above the recessed gaps.
+          const row = Math.floor(v * 6);
+          const offset = (row % 2) * 0.5;
+          const du = fract(u * 8 + offset) - 0.5,
+            dv = fract(v * 6) - 0.5;
+          const radius = Math.sqrt(du * du + 1.4 * dv * dv);
+          const loop = smooth(clamp((0.44 - radius) / 0.12));
+          const fiber = noise(u, v, 40, 40, seed ^ 0x5a17);
+          color = 0.58 + 0.34 * loop + 0.05 * fiber;
+          height = 0.45 + 0.4 * loop + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.05 * loop;
+          occlusion = 1 - 0.55 * (1 - loop);
+          return;
+        };
+      case 'basketweave':
+        return () => {
+          // Strips change direction per block; block borders fade to gaps.
+          const bu = fract(u * 4),
+            bv = fract(v * 4);
+          const fadeU = smooth(clamp((Math.min(bu, 1 - bu) - 0.06) / 0.1));
+          const fadeV = smooth(clamp((Math.min(bv, 1 - bv) - 0.06) / 0.1));
+          const fade = fadeU * fadeV;
+          const blockParity = (Math.floor(u * 4) + Math.floor(v * 4)) % 2;
+          const across = blockParity ? fract(u * 8) : fract(v * 8);
+          const strip = smooth(
+            clamp((Math.min(across, 1 - across) - 0.06) / 0.1),
+          );
+          const ridge = smooth(clamp((0.14 - Math.abs(across - 0.5)) / 0.07));
+          const fiber = noise(u, v, 32, 32, seed ^ 0x66de);
+          color = 0.5 + fade * (0.28 * strip + 0.12 * ridge) + 0.06 * fiber;
+          height = 0.42 + fade * (0.36 * strip + 0.14 * ridge) + 0.02 * fiber;
+          roughness += 0.06 * (fiber - 0.5) - 0.05 * fade * ridge;
+          occlusion = 1 - 0.55 * (1 - fade * strip) - 0.16 * (1 - fade * ridge);
+          return;
+        };
+      case 'zipper':
+        return () => {
+          // Offset tooth rows meet over a recessed seam beside woven tape.
+          const vLeft = fract(v * 12) - 0.5,
+            vRight = fract(v * 12 + 0.5) - 0.5;
+          const toothLeft =
+            smooth(clamp((0.34 - Math.abs(vLeft)) / 0.08)) *
+            smooth(clamp((0.09 - Math.abs(u - 0.42)) / 0.035));
+          const toothRight =
+            smooth(clamp((0.34 - Math.abs(vRight)) / 0.08)) *
+            smooth(clamp((0.09 - Math.abs(u - 0.58)) / 0.035));
+          const teeth = toothLeft + toothRight - toothLeft * toothRight;
+          const tape =
+            smooth(clamp((0.2 - Math.abs(u - 0.25)) / 0.06)) +
+            smooth(clamp((0.2 - Math.abs(u - 0.75)) / 0.06));
+          const seam =
+            smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03)) * (1 - teeth);
+          const weave = 0.5 + 0.5 * Math.cos(TAU * 24 * v);
+          const fiber = noise(u, v, 40, 40, seed ^ 0x3d92);
+          const cover = teeth + 0.7 * tape - teeth * 0.7 * tape;
+          color =
+            0.42 +
+            0.24 * teeth +
+            0.2 * tape * (0.85 + 0.15 * weave) +
+            0.05 * fiber;
+          height =
+            0.4 +
+            0.34 * teeth +
+            0.16 * tape * (0.85 + 0.15 * weave) -
+            0.12 * seam +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * teeth;
+          occlusion = 1 - 0.42 * (1 - cover) - 0.3 * seam;
+          return;
+        };
+      case 'velcro':
+        return () => {
+          // Staggered hook pins ring above their dimpled cores and backing.
+          const row = Math.floor(v * 12);
+          const offset = (row % 2) * 0.5;
+          const du = fract(u * 12 + offset) - 0.5,
+            dv = fract(v * 12) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const ring =
+            smooth(clamp((0.34 - radius) / 0.07)) *
+            smooth(clamp((radius - 0.16) / 0.07));
+          const core = smooth(clamp((0.18 - radius) / 0.08));
+          const fiber = noise(u, v, 36, 36, seed ^ 0x77b1);
+          const pin = ring + core - ring * core;
+          color = 0.46 + 0.3 * ring + 0.16 * core + 0.05 * fiber;
+          height = 0.42 + 0.3 * ring + 0.15 * core + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.06 * ring;
+          occlusion = 1 - 0.5 * (1 - pin) - 0.14 * ring;
+          return;
+        };
+      case 'button':
+        return () => {
+          // Raised buttons ring above their stitched faces and hole pits.
+          const du = fract(u * 4) - 0.5,
+            dv = fract(v * 4) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const face = smooth(clamp((0.34 - radius) / 0.08));
+          const rim =
+            smooth(clamp((0.34 - radius) / 0.05)) *
+            smooth(clamp((radius - 0.2) / 0.05));
+          let holes = 0;
+          for (let k = 0; k < 4; k++) {
+            const hx = du - (k % 2 ? 0.07 : -0.07),
+              hy = dv - (k > 1 ? 0.07 : -0.07);
+            const distance = Math.sqrt(hx * hx + hy * hy);
+            const pit = smooth(clamp((0.05 - distance) / 0.03));
+            holes += (1 - holes) * pit;
+          }
+          const fiber = noise(u, v, 32, 32, seed ^ 0x4c2d);
+          color = 0.55 + 0.26 * face + 0.12 * rim - 0.3 * holes + 0.05 * fiber;
+          height = 0.4 + 0.22 * face + 0.24 * rim - 0.34 * holes + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
+          occlusion = 1 - 0.4 * (1 - face) - 0.42 * holes;
+          return;
+        };
+      case 'traintracks':
+        return () => {
+          // Rails crest above sleepers laid across the ballast grain.
+          const sleeper = smooth(
+            clamp((0.18 - Math.min(fract(v * 6), 1 - fract(v * 6))) / 0.08),
+          );
+          const rail =
+            smooth(clamp((0.06 - Math.abs(u - 0.35)) / 0.025)) +
+            smooth(clamp((0.06 - Math.abs(u - 0.65)) / 0.025));
+          const grain = noise(u, v, 48, 48, seed ^ 0x2f61);
+          const bed = sleeper + rail - sleeper * rail;
+          color = 0.32 + 0.28 * sleeper + 0.3 * rail + 0.08 * grain;
+          height = 0.36 + 0.16 * sleeper + 0.34 * rail + 0.03 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * rail;
+          occlusion = 1 - 0.45 * (1 - bed) - 0.12 * (1 - grain);
+          return;
+        };
+      case 'manholecover':
+        return () => {
+          // The frame ring crowns a radially and concentrically ribbed panel.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const frame =
+            smooth(clamp((0.46 - radius) / 0.03)) *
+            smooth(clamp((radius - 0.38) / 0.03));
+          const panel = smooth(clamp((0.36 - radius) / 0.04));
+          const angle = Math.atan2(dy, dx);
+          const ribs = 0.5 + 0.5 * Math.cos(16 * angle);
+          const rings = 0.5 + 0.5 * Math.cos(TAU * 6 * radius);
+          const ribbed = ribs * smooth(clamp((radius - 0.06) / 0.05)) * panel;
+          const ringed = rings * panel;
+          const fiber = noise(u, v, 40, 40, seed ^ 0x18ce);
+          color =
+            0.4 + 0.3 * frame + 0.14 * ribbed + 0.1 * ringed + 0.05 * fiber;
+          height =
+            0.38 + 0.3 * frame + 0.14 * ribbed + 0.12 * ringed + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * frame;
+          occlusion = 1 - 0.4 * (1 - frame) - 0.2 * (1 - ribbed) * (1 - ringed);
+          return;
+        };
+      case 'speedbump':
+        return () => {
+          // Rounded bumps rise above their feet and the recessed seams.
+          const wrapped = fract(v * 2),
+            d = Math.abs(wrapped - 0.5);
+          const bump = smooth(clamp((0.34 - d) / 0.14));
+          const seam = smooth(
+            clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.03),
+          );
+          const stripe = smooth(
+            clamp((0.28 - Math.abs(fract(u * 4) - 0.5)) / 0.1),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x51af);
+          color = 0.42 + 0.4 * stripe * (0.3 + 0.7 * bump) + 0.06 * grain;
+          height = 0.38 + 0.4 * bump - 0.1 * seam + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.06 * bump;
+          occlusion = 1 - 0.45 * (1 - bump) - 0.3 * seam;
+          return;
+        };
+      case 'circuitboard':
+        return () => {
+          // Pads crest over traces routed above the substrate, with via pits.
+          const row = Math.floor(v * 8),
+            col = Math.floor(u * 8);
+          const pu = fract(u * 8) - 0.5,
+            pv = fract(v * 8) - 0.5;
+          const radius = Math.sqrt(pu * pu + pv * pv);
+          const hTrace =
+            row % 2 === 0 ? smooth(clamp((0.12 - Math.abs(pv)) / 0.05)) : 0;
+          const vTrace =
+            col % 2 === 1 ? smooth(clamp((0.12 - Math.abs(pu)) / 0.05)) : 0;
+          const crossing =
+            row % 2 === 0 && col % 2 === 1
+              ? smooth(clamp((0.22 - radius) / 0.06))
+              : 0;
+          const via =
+            row % 2 === 1 && col % 2 === 0
+              ? smooth(clamp((0.1 - radius) / 0.04))
+              : 0;
+          const fiber = noise(u, v, 32, 32, seed ^ 0x6b02);
+          const routed = 1 - (1 - hTrace) * (1 - vTrace) * (1 - crossing);
+          color = 0.3 + 0.3 * routed + 0.26 * crossing + 0.06 * fiber;
+          height =
+            0.4 +
+            0.12 * hTrace +
+            0.12 * vTrace +
+            0.22 * crossing -
+            0.3 * via +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.1 * routed;
+          occlusion = 1 - 0.35 * (1 - routed) - 0.35 * via;
+          return;
+        };
+      case 'solarpanel':
+        return () => {
+          // Cell faces rise out of their gaps under busbars and fingers.
+          const cu = fract(u * 2),
+            cv = fract(v * 2);
+          const face =
+            smooth(clamp((Math.min(cu, 1 - cu) - 0.06) / 0.1)) *
+            smooth(clamp((Math.min(cv, 1 - cv) - 0.06) / 0.1));
+          const bar = smooth(
+            clamp(
+              (0.05 - Math.min(Math.abs(cu - 0.3), Math.abs(cu - 0.7))) / 0.025,
+            ),
+          );
+          const finger = smooth(
+            clamp((0.04 - Math.min(fract(v * 8), 1 - fract(v * 8))) / 0.02),
+          );
+          const fiber = noise(u, v, 40, 40, seed ^ 0x31f7);
+          color =
+            0.34 +
+            0.3 * face +
+            0.2 * bar * face +
+            0.1 * finger * face +
+            0.05 * fiber;
+          height =
+            0.4 +
+            0.3 * face +
+            0.12 * bar * face +
+            0.05 * finger * face +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.1 * bar * face;
+          occlusion = 1 - 0.5 * (1 - face) - 0.12 * (1 - bar * face);
+          return;
+        };
+      case 'heattile':
+        return () => {
+          // Rounded tile faces rise above their recessed seams.
+          const tu = fract(u * 3),
+            tv = fract(v * 3);
+          const tile =
+            smooth(clamp((Math.min(tu, 1 - tu) - 0.08) / 0.12)) *
+            smooth(clamp((Math.min(tv, 1 - tv) - 0.08) / 0.12));
+          const grain = noise(u, v, 48, 48, seed ^ 0x7a41);
+          color = 0.52 + 0.32 * tile + 0.08 * grain;
+          height = 0.42 + 0.34 * tile + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.04 * tile;
+          occlusion = 1 - 0.5 * (1 - tile);
+          return;
+        };
+      case 'pianokeys':
+        return () => {
+          // Black keys rise over white faces split by recessed seams.
+          const wrapped = fract(u * 7),
+            seam = smooth(
+              clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.025),
+            );
+          let black = 0;
+          for (let k = 0; k < 7; k++) {
+            if (k === 0 || k === 3) continue;
+            const du = Math.abs(fract(u) - k / 7);
+            const dv = Math.abs(fract(v) - 0.275);
+            const key =
+              smooth(clamp((0.045 - du) / 0.018)) *
+              smooth(clamp((0.175 - dv) / 0.06));
+            black += (1 - black) * key;
+          }
+          const fiber = noise(u, v, 40, 40, seed ^ 0x4f88);
+          const face = 1 - seam * (1 - black);
+          color = 0.48 + 0.32 * face + 0.14 * black + 0.05 * fiber;
+          height = 0.42 + 0.2 * face + 0.26 * black + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.1 * black;
+          occlusion = 1 - 0.32 * seam * (1 - black);
+          return;
+        };
+      case 'drumskin':
+        return () => {
+          // Lugs crown the rim above the taut creased membrane.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+          const rim =
+            smooth(clamp((0.46 - radius) / 0.03)) *
+            smooth(clamp((radius - 0.38) / 0.03));
+          const lug = Math.pow(0.5 + 0.5 * Math.cos(8 * angle), 4) * rim;
+          const membrane = smooth(clamp((0.38 - radius) / 0.06));
+          const crease =
+            (0.5 - 0.5 * Math.cos(16 * angle)) *
+            smooth(clamp((radius - 0.08) / 0.06)) *
+            membrane;
+          const fiber = noise(u, v, 36, 36, seed ^ 0x2c5a);
+          color =
+            0.42 +
+            0.28 * rim +
+            0.14 * lug +
+            0.1 * membrane -
+            0.1 * crease +
+            0.05 * fiber;
+          height =
+            0.42 +
+            0.28 * rim +
+            0.16 * lug +
+            0.1 * membrane -
+            0.06 * crease +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
+          occlusion = 1 - 0.3 * (1 - membrane) - 0.12 * crease - 0.1 * lug;
+          return;
+        };
+      case 'gongsurface':
+        return () => {
+          // Hammered rings ripple around the raised center boss.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+          const warp = noise(u, v, 6, 6, seed ^ 0x60af) - 0.5;
+          const rings =
+            0.5 + 0.5 * Math.cos(TAU * 10 * (radius + 0.012 * warp));
+          const lathe = 0.5 + 0.5 * Math.cos(24 * angle);
+          const boss = smooth(clamp((0.1 - radius) / 0.05));
+          const fade = smooth(clamp((radius - 0.06) / 0.05));
+          const outer = smooth(clamp((0.44 - radius) / 0.06));
+          const fiber = noise(u, v, 32, 32, seed ^ 0x59c1);
+          color =
+            0.46 +
+            0.26 * rings * outer +
+            0.12 * lathe * fade * outer +
+            0.1 * boss +
+            0.05 * fiber;
+          height =
+            0.42 +
+            0.22 * rings * outer +
+            0.06 * lathe * fade * outer +
+            0.2 * boss +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * rings * outer;
+          occlusion =
+            1 - 0.24 * (1 - rings * outer) - 0.1 * (1 - lathe * fade * outer);
+          return;
+        };
+      case 'lensarray':
+        return () => {
+          // Microlens domes rise out of the fine supporting web.
+          const du = fract(u * 16) - 0.5,
+            dv = fract(v * 16) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const dome = smooth(clamp((0.42 - radius) / 0.12));
+          const fiber = noise(u, v, 48, 48, seed ^ 0x6f3c);
+          color = 0.42 + 0.4 * dome + 0.06 * fiber;
+          height = 0.42 + 0.36 * dome + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
+          occlusion = 1 - 0.42 * (1 - dome);
+          return;
+        };
+      case 'prismtape':
+        return () => {
+          // Diagonal prism ridges crest over their feet and the tape base.
+          const p = fract((u - v) * 8),
+            d = Math.abs(p - 0.5);
+          const ridge = smooth(clamp((0.34 - d) / 0.16));
+          const fiber = noise(u, v, 40, 40, seed ^ 0x1b7e);
+          color = 0.4 + 0.42 * ridge + 0.06 * fiber;
+          height = 0.4 + 0.4 * ridge + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.1 * ridge;
+          occlusion = 1 - 0.45 * (1 - ridge);
+          return;
+        };
+      case 'fresnel':
+        return () => {
+          // Concentric saw rings descend outward around the center boss.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const phase = fract(radius * 10);
+          const outer = smooth(clamp((0.46 - radius) / 0.05));
+          const step = smooth(clamp((0.75 - phase) / 0.25)) * outer;
+          const boss = smooth(clamp((0.1 - radius) / 0.05));
+          const fiber = noise(u, v, 40, 40, seed ^ 0x37a9);
+          color = 0.38 + 0.32 * step + 0.2 * boss + 0.05 * fiber;
+          height = 0.42 + 0.22 * step + 0.3 * boss + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.1 * step;
+          occlusion = 1 - 0.36 * (1 - step) - 0.12 * (1 - boss);
+          return;
+        };
+      case 'bandage':
+        return () => {
+          // A rounded pad cushions over the woven gauze backing.
+          const pad =
+            smooth(clamp((0.28 - Math.abs(u - 0.5)) / 0.06)) *
+            smooth(clamp((0.28 - Math.abs(v - 0.5)) / 0.06));
+          const warp = smooth(
+            clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
+          );
+          const weft = smooth(
+            clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
+          );
+          const weave = warp + weft - warp * weft;
+          const fiber = noise(u, v, 48, 48, seed ^ 0x5d21);
+          color = 0.5 + 0.3 * pad + 0.12 * weave + 0.06 * fiber;
+          height = 0.44 + 0.3 * pad + 0.08 * weave + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * pad;
+          occlusion = 1 - 0.32 * (1 - weave) - 0.12 * (1 - pad);
+          return;
+        };
+      case 'pillblister':
+        return () => {
+          // Blister domes swell over scored foil between their cells.
+          const du = fract(u * 3) - 0.5,
+            dv = fract(v * 3) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const dome = smooth(clamp((0.36 - radius) / 0.1));
+          const score =
+            smooth(
+              clamp((0.03 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.02),
+            ) +
+            smooth(
+              clamp((0.03 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.02),
+            );
+          const fiber = noise(u, v, 40, 40, seed ^ 0x27bd);
+          color = 0.52 + 0.34 * dome - 0.14 * score + 0.06 * fiber;
+          height = 0.46 + 0.36 * dome - 0.14 * score + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
+          occlusion = 1 - 0.42 * (1 - dome) - 0.2 * score;
+          return;
+        };
+      case 'sutures':
+        return () => {
+          // Stitch cords bridge the incision above pits and bare skin.
+          const band = smooth(
+            clamp((0.09 - Math.abs(fract(v * 10) - 0.5)) / 0.03),
+          );
+          const span = smooth(clamp((0.22 - Math.abs(u - 0.5)) / 0.06));
+          const cord = band * span;
+          const incision = smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03));
+          const pit =
+            smooth(clamp((0.045 - Math.abs(u - 0.16)) / 0.025)) * band +
+            smooth(clamp((0.045 - Math.abs(u - 0.84)) / 0.025)) * band;
+          const fiber = noise(u, v, 40, 40, seed ^ 0x63de);
+          color =
+            0.56 +
+            0.26 * cord -
+            0.22 * incision * (1 - cord) -
+            0.18 * pit +
+            0.05 * fiber;
+          height =
+            0.5 +
+            0.28 * cord -
+            0.3 * incision * (1 - cord) -
+            0.2 * pit * (1 - cord) +
+            0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * cord;
+          occlusion =
+            1 - 0.3 * incision * (1 - cord) - 0.28 * pit - 0.12 * (1 - cord);
+          return;
+        };
+      case 'trellis':
+        return () => {
+          // Slats cross over the open grid, knotted at their joins.
+          const vSlat = smooth(
+            clamp((0.16 - Math.abs(fract(u * 2) - 0.5)) / 0.08),
+          );
+          const hSlat = smooth(
+            clamp((0.16 - Math.abs(fract(v * 2) - 0.5)) / 0.08),
+          );
+          const cover = vSlat + hSlat - vSlat * hSlat;
+          const knot =
+            smooth(
+              clamp(
+                (0.14 -
+                  Math.sqrt(
+                    (fract(u * 2) - 0.5) ** 2 + (fract(v * 2) - 0.5) ** 2,
+                  )) /
+                  0.06,
+              ),
+            ) * cover;
+          const grain = noise(u, v, 32, 32, seed ^ 0x41c7);
+          color = 0.42 + 0.3 * cover + 0.14 * knot + 0.06 * grain;
+          height = 0.4 + 0.24 * cover + 0.1 * knot + 0.03 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * cover;
+          occlusion = 1 - 0.5 * (1 - cover) - 0.12 * (1 - knot) * cover;
+          return;
+        };
+      case 'terracottapot':
+        return () => {
+          // A proud rim band rides over the pot's thrown wall ribs.
+          const rib = smooth(
+            clamp((0.18 - Math.abs(fract(v * 8) - 0.5)) / 0.08),
+          );
+          const rim = smooth(clamp((0.1 - Math.abs(fract(v) - 0.1)) / 0.04));
+          const grain = noise(u, v, 32, 32, seed ^ 0x5e0b);
+          color = 0.46 + 0.24 * rib + 0.22 * rim + 0.06 * grain;
+          height = 0.42 + 0.18 * rib + 0.26 * rim + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.06 * rim;
+          occlusion = 1 - 0.34 * (1 - rib) - 0.12 * (1 - rim);
+          return;
+        };
+      case 'hedgerow':
+        return () => {
+          // Leafy clumps swell over the shadowed branch gaps.
+          const row = Math.floor(v * 4);
+          const offset = (row % 2) * 0.5;
+          const du = fract(u * 4 + offset) - 0.5,
+            dv = fract(v * 4) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const warp = noise(u, v, 8, 8, seed ^ 0x33af) - 0.5;
+          const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
+          const leaves = noise(u, v, 48, 48, seed ^ 0x72d4);
+          color = 0.36 + 0.36 * clump + 0.12 * leaves + 0.05 * clump * leaves;
+          height = 0.42 + 0.34 * clump + 0.04 * leaves;
+          roughness += 0.05 * (leaves - 0.5) - 0.06 * clump;
+          occlusion = 1 - 0.5 * (1 - clump);
+          return;
+        };
+      case 'collar':
+        return () => {
+          // A buckle rises over stitched webbing above bare backing.
+          const band = smooth(clamp((0.2 - Math.abs(fract(v) - 0.5)) / 0.05));
+          const stitch = smooth(
+            clamp((0.02 - Math.abs(Math.abs(fract(v) - 0.5) - 0.17)) / 0.012),
+          );
+          const buckle =
+            smooth(clamp((0.12 - Math.abs(fract(u) - 0.3)) / 0.04)) *
+            smooth(clamp((0.14 - Math.abs(fract(v) - 0.5)) / 0.05));
+          const weave = noise(u, v, 48, 48, seed ^ 0x4c19);
+          color = 0.42 + 0.26 * band + 0.22 * buckle + 0.06 * weave;
+          height =
+            0.44 +
+            0.2 * band +
+            0.28 * buckle -
+            0.1 * stitch * band +
+            0.03 * weave;
+          roughness += 0.05 * (weave - 0.5) - 0.1 * buckle;
+          occlusion = 1 - 0.32 * (1 - band) - 0.14 * stitch - 0.12 * buckle;
+          return;
+        };
+      case 'petbed':
+        return () => {
+          // A bolster ring surrounds the dished cushion and base weave.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const bolster =
+            smooth(clamp((0.44 - radius) / 0.06)) *
+            smooth(clamp((radius - 0.3) / 0.08));
+          const cushion = smooth(clamp((0.28 - radius) / 0.1));
+          const fabric =
+            (0.5 + 0.5 * Math.cos(TAU * 20 * u)) *
+            (0.5 + 0.5 * Math.cos(TAU * 20 * v));
+          const fiber = noise(u, v, 40, 40, seed ^ 0x51c3);
+          color =
+            0.44 +
+            0.3 * bolster +
+            0.14 * cushion +
+            0.05 * fabric +
+            0.05 * fiber;
+          height =
+            0.44 +
+            0.34 * bolster +
+            0.12 * cushion +
+            0.03 * fabric +
+            0.03 * fiber;
+          roughness +=
+            0.05 * (fiber - 0.5) + 0.02 * (fabric - 0.5) - 0.08 * bolster;
+          occlusion = 1 - 0.36 * (1 - bolster) - 0.12 * (1 - cushion);
+          return;
+        };
+      case 'scratchpost':
+        return () => {
+          // Rope wraps the post in rounded ridges above the tight grooves.
+          const rope = smooth(
+            clamp((0.2 - Math.abs(fract(v * 8) - 0.5)) / 0.08),
+          );
+          const twist = 0.5 + 0.5 * Math.cos(TAU * (12 * u + 2 * v));
+          const fiber = noise(u, v, 40, 40, seed ^ 0x2ad6);
+          color = 0.46 + 0.32 * rope + 0.08 * twist * rope + 0.06 * fiber;
+          height = 0.44 + 0.36 * rope + 0.05 * twist * rope + 0.03 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.08 * rope;
+          occlusion = 1 - 0.5 * (1 - rope) - 0.1 * (1 - twist) * rope;
+          return;
+        };
+      case 'runningtrack':
+        return () => {
+          // Lane lines ride the granular surface above the drainage seam.
+          const line =
+            smooth(clamp((0.03 - Math.abs(fract(v) - 0.25)) / 0.015)) +
+            smooth(clamp((0.03 - Math.abs(fract(v) - 0.75)) / 0.015));
+          const seam = smooth(
+            clamp((0.02 - Math.min(fract(v), 1 - fract(v))) / 0.012),
+          );
+          const grain = noise(u, v, 64, 64, seed ^ 0x3f58);
+          color = 0.42 + 0.4 * line + 0.1 * grain;
+          height = 0.46 + 0.12 * line + 0.02 * grain - 0.16 * seam;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * line;
+          occlusion = 1 - 0.3 * seam - 0.12 * (1 - line);
+          return;
+        };
+      case 'bouldermat':
+        return () => {
+          // Quilted diamonds puff inside the raised border band.
+          const d1 = Math.abs(fract((u + v) * 4) - 0.5),
+            d2 = Math.abs(fract((u - v) * 4) - 0.5);
+          const quilt =
+            smooth(clamp((0.3 - d1) / 0.1)) * smooth(clamp((0.3 - d2) / 0.1));
+          const bu = smooth(
+            clamp((0.08 - Math.min(fract(u), 1 - fract(u))) / 0.04),
+          );
+          const bv = smooth(
+            clamp((0.08 - Math.min(fract(v), 1 - fract(v))) / 0.04),
+          );
+          const border = 1 - (1 - bu) * (1 - bv);
+          const grain = noise(u, v, 40, 40, seed ^ 0x64b2);
+          color = 0.42 + 0.3 * quilt + 0.16 * border + 0.06 * grain;
+          height = 0.44 + 0.28 * quilt + 0.18 * border + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.06 * quilt;
+          occlusion = 1 - 0.42 * (1 - quilt) - 0.12 * (1 - border);
+          return;
+        };
+      case 'pooltile':
+        return () => {
+          // Tile faces meet recessed grout under broad caustic light bands.
+          const gu = Math.min(fract(u * 8), 1 - fract(u * 8)),
+            gv = Math.min(fract(v * 8), 1 - fract(v * 8));
+          const face =
+            smooth(clamp((gu - 0.04) / 0.06)) *
+            smooth(clamp((gv - 0.04) / 0.06));
+          const caustic = 0.5 + 0.5 * Math.cos(TAU * 2 * (u + v));
+          const grain = noise(u, v, 32, 32, seed ^ 0x18fa);
+          color = 0.4 + 0.3 * face + 0.14 * caustic + 0.06 * grain;
+          height = 0.44 + 0.2 * face + 0.1 * caustic + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.12 * face;
+          occlusion = 1 - 0.42 * (1 - face) - 0.1 * (1 - caustic);
+          return;
+        };
+      case 'envelope':
+        return () => {
+          // Crosshatch ridges frame the recessed flap seam.
+          const d1 = Math.abs(fract((u + v) * 10) - 0.5),
+            d2 = Math.abs(fract((u - v) * 10) - 0.5);
+          const hatchA = smooth(clamp((0.14 - d1) / 0.07));
+          const hatchB = smooth(clamp((0.14 - d2) / 0.07));
+          const cover = hatchA + hatchB - hatchA * hatchB;
+          const seam =
+            smooth(clamp((0.03 - Math.abs(u - 0.5)) / 0.02)) * (1 - cover);
+          const fiber = noise(u, v, 48, 48, seed ^ 0x2e4c);
+          color = 0.5 + 0.24 * cover + 0.06 * fiber;
+          height = 0.46 + 0.12 * cover - 0.14 * seam + 0.02 * fiber;
+          roughness += 0.05 * (fiber - 0.5) - 0.06 * cover;
+          occlusion = 1 - 0.28 * (1 - cover) - 0.3 * seam;
+          return;
+        };
+      case 'chalkboard':
+        return () => {
+          // A frame band surrounds streaked slate between clean passes.
+          const edgeU = 0.5 - Math.abs(fract(u) - 0.5),
+            edgeV = 0.5 - Math.abs(fract(v) - 0.5);
+          const frame =
+            1 -
+            (1 - smooth(clamp((0.08 - edgeU) / 0.04))) *
+              (1 - smooth(clamp((0.08 - edgeV) / 0.04)));
+          const warp = noise(u, v, 6, 6, seed ^ 0x55ea) - 0.5;
+          const streak = 0.5 + 0.5 * Math.cos(TAU * 3 * (v + 0.02 * warp));
+          const grain = noise(u, v, 32, 32, seed ^ 0x1c08);
+          color = 0.34 + 0.3 * frame + 0.12 * streak + 0.06 * grain;
+          height = 0.44 + 0.24 * frame + 0.04 * streak + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.08 * frame;
+          occlusion = 1 - 0.3 * (1 - frame) - 0.08 * (1 - streak);
+          return;
+        };
+      case 'corkboard':
+        return () => {
+          // Cork granules rise over the board with deep pin holes.
+          const row = Math.floor(v * 8);
+          const offset = (row % 2) * 0.5;
+          const du = fract(u * 8 + offset) - 0.5,
+            dv = fract(v * 8) - 0.5;
+          const radius = Math.sqrt(du * du + dv * dv);
+          const warp = noise(u, v, 8, 8, seed ^ 0x6b37) - 0.5;
+          const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
+          const pu = fract(u * 4) - 0.5,
+            pv = fract(v * 4) - 0.5;
+          const pit = smooth(
+            clamp((0.07 - Math.sqrt(pu * pu + pv * pv)) / 0.03),
+          );
+          const grain = noise(u, v, 48, 48, seed ^ 0x3a52);
+          color = 0.42 + 0.26 * clump - 0.2 * pit + 0.08 * grain;
+          height = 0.44 + 0.2 * clump - 0.26 * pit + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.06 * clump;
+          occlusion = 1 - 0.3 * (1 - clump) - 0.45 * pit;
+          return;
+        };
+      case 'snowdrift':
+        return () => {
+          // Wind ripples ride the drift over the fine snow grain.
+          const warp = noise(u, v, 4, 4, seed ^ 0x4e77) - 0.5;
+          const drift = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 0.35 * warp));
+          const grain = noise(u, v, 48, 48, seed ^ 0x2b15);
+          color = 0.52 + 0.34 * drift + 0.06 * grain;
+          height = 0.46 + 0.32 * drift + 0.05 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.12 * drift;
+          occlusion = 1 - 0.3 * (1 - drift);
+          return;
+        };
+      case 'icicle':
+        return () => {
+          // Rounded icicle columns hang over the shadowed gaps.
+          const du = Math.abs(fract(u * 6) - 0.5);
+          const column = smooth(clamp((0.28 - du) / 0.1));
+          const striation = 0.5 + 0.5 * Math.cos(TAU * 24 * u);
+          const grain = noise(u, v, 32, 32, seed ^ 0x7c41);
+          color =
+            0.46 + 0.36 * column + 0.08 * striation * column + 0.06 * grain;
+          height =
+            0.42 + 0.42 * column + 0.04 * striation * column + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.14 * column;
+          occlusion = 1 - 0.52 * (1 - column);
+          return;
+        };
+      case 'dewdrops':
+        return () => {
+          // Two drop sizes bead over the faint leaf veins.
+          const bu = fract(u * 12) - 0.5,
+            bv = fract(v * 12) - 0.5;
+          const big = smooth(
+            clamp((0.22 - Math.sqrt(bu * bu + bv * bv)) / 0.08),
+          );
+          const su = fract(u * 24) - 0.5,
+            sv = fract(v * 24) - 0.5;
+          const small = smooth(
+            clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
+          );
+          const veins = 0.5 + 0.5 * Math.cos(TAU * 8 * (u + 0.25 * v));
+          const grain = noise(u, v, 40, 40, seed ^ 0x58ce);
+          color = 0.34 + 0.28 * big + 0.18 * small + 0.1 * veins + 0.05 * grain;
+          height =
+            0.42 + 0.28 * big + 0.16 * small + 0.04 * veins + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.16 * big;
+          occlusion = 1 - 0.3 * (1 - big) - 0.12 * (1 - small) * (1 - big);
+          return;
+        };
+      case 'mooncrater':
+        return () => {
+          // Crater rims rise over the surface around their sunken bowls.
+          const bu = fract(u * 3) - 0.5,
+            bv = fract(v * 3) - 0.5;
+          const big = Math.sqrt(bu * bu + bv * bv);
+          const bigRim =
+            smooth(clamp((0.3 - big) / 0.06)) *
+            smooth(clamp((big - 0.2) / 0.06));
+          const bigBowl = smooth(clamp((0.2 - big) / 0.08));
+          const su = fract(u * 6) - 0.5,
+            sv = fract(v * 6) - 0.5;
+          const small = Math.sqrt(su * su + sv * sv);
+          const smallRim =
+            smooth(clamp((0.16 - small) / 0.04)) *
+            smooth(clamp((small - 0.1) / 0.04));
+          const smallBowl = smooth(clamp((0.1 - small) / 0.05));
+          const grain = noise(u, v, 32, 32, seed ^ 0x61c8);
+          color =
+            0.5 +
+            0.24 * bigRim +
+            0.12 * smallRim -
+            0.16 * bigBowl -
+            0.1 * smallBowl +
+            0.08 * grain;
+          height =
+            0.46 +
+            0.24 * bigRim +
+            0.12 * smallRim -
+            0.2 * bigBowl -
+            0.1 * smallBowl +
+            0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) + 0.08 * bigBowl;
+          occlusion =
+            1 -
+            0.3 * bigBowl -
+            0.16 * smallBowl -
+            0.12 * (1 - bigRim - smallRim + bigRim * smallRim);
+          return;
+        };
+      case 'starfield':
+        return () => {
+          // Bright stars and dust points twinkle over the nebula base.
+          const bu = fract(u * 12) - 0.5,
+            bv = fract(v * 12) - 0.5;
+          const star = smooth(
+            clamp((0.08 - Math.sqrt(bu * bu + bv * bv)) / 0.035),
+          );
+          const su = fract(u * 24) - 0.5,
+            sv = fract(v * 24) - 0.5;
+          const dust = smooth(
+            clamp((0.05 - Math.sqrt(su * su + sv * sv)) / 0.025),
+          );
+          const haze = noise(u, v, 3, 3, seed ^ 0x17f2);
+          const grain = noise(u, v, 40, 40, seed ^ 0x4d3a);
+          color = 0.26 + 0.38 * star + 0.18 * dust + 0.07 * haze + 0.05 * grain;
+          height = 0.42 + 0.3 * star + 0.16 * dust + 0.06 * haze + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.18 * star;
+          occlusion = 1 - 0.2 * (1 - star) * (1 - dust);
+          return;
+        };
+      case 'nebula':
+        return () => {
+          // Bright swirl bands flow around the dark dust lanes.
+          const warp = noise(u, v, 3, 3, seed ^ 0x5a2d) - 0.5;
+          const band = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 3 * v + 1.2 * warp));
+          const detail = noise(u, v, 12, 12, seed ^ 0x36e4);
+          const grain = noise(u, v, 32, 32, seed ^ 0x2fb1);
+          color = 0.42 + 0.34 * band + 0.1 * detail + 0.06 * grain;
+          height = 0.44 + 0.28 * band + 0.05 * detail + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * band;
+          occlusion = 1 - 0.24 * (1 - band);
+          return;
+        };
+      case 'pleats':
+        return () => {
+          // Accordion folds crest over the valleys with a fine fabric grain.
+          const fold = smooth(
+            clamp((0.34 - Math.abs(fract(u * 4) - 0.5)) / 0.16),
+          );
+          const grain = noise(u, v, 40, 40, seed ^ 0x63a1);
+          color = 0.46 + 0.32 * fold + 0.08 * grain;
+          height = 0.46 + 0.32 * fold + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * fold;
+          occlusion = 1 - 0.4 * (1 - fold);
+          return;
+        };
+      case 'shoelace':
+        return () => {
+          // Woven cords cross over the base above the punched eyelets.
+          const d1 = Math.abs(fract((u + v) * 8) - 0.5),
+            d2 = Math.abs(fract((u - v) * 8) - 0.5);
+          const cordA = smooth(clamp((0.18 - d1) / 0.09));
+          const cordB = smooth(clamp((0.18 - d2) / 0.09));
+          const cover = cordA + cordB - cordA * cordB;
+          const pu = fract(u * 4) - 0.5,
+            pv = fract(v * 4) - 0.5;
+          const eyelet = smooth(
+            clamp((0.09 - Math.sqrt(pu * pu + pv * pv)) / 0.04),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x4f16);
+          color = 0.46 + 0.3 * cover - 0.22 * eyelet + 0.06 * grain;
+          height = 0.46 + 0.22 * cover - 0.28 * eyelet + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
+          occlusion = 1 - 0.3 * (1 - cover) - 0.45 * eyelet;
+          return;
+        };
+      case 'tassel':
+        return () => {
+          // Hanging strands fall from the raised binding ring.
+          const strand = smooth(
+            clamp((0.16 - Math.abs(fract(u * 10) - 0.5)) / 0.08),
+          );
+          const ring = smooth(clamp((0.08 - Math.abs(fract(v) - 0.1)) / 0.04));
+          const grain = noise(u, v, 32, 32, seed ^ 0x28bd);
+          color = 0.38 + 0.26 * strand + 0.28 * ring + 0.06 * grain;
+          height = 0.42 + 0.22 * strand + 0.3 * ring + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.06 * strand;
+          occlusion = 1 - 0.38 * (1 - strand) - 0.12 * (1 - ring);
+          return;
+        };
+      case 'woksurface':
+        return () => {
+          // Hammered dimples rise over scratched steel with an oil sheen.
+          const du = fract(u * 10) - 0.5,
+            dv = fract(v * 10) - 0.5;
+          const dimple = smooth(
+            clamp((0.28 - Math.sqrt(du * du + dv * dv)) / 0.1),
+          );
+          const scratch = smooth(
+            clamp((0.02 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.01),
+          );
+          const sheen = noise(u, v, 3, 3, seed ^ 0x44d2);
+          const grain = noise(u, v, 40, 40, seed ^ 0x21be);
+          color =
+            0.4 + 0.22 * dimple - 0.1 * scratch + 0.16 * sheen + 0.06 * grain;
+          height = 0.44 + 0.16 * dimple - 0.12 * scratch + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.14 * sheen;
+          occlusion = 1 - 0.3 * scratch - 0.12 * (1 - dimple);
+          return;
+        };
+      case 'cutlery':
+        return () => {
+          // Beaded borders frame the finely brushed handle face.
+          const edge = Math.min(fract(v), 1 - fract(v));
+          const border = smooth(clamp((0.08 - edge) / 0.04));
+          const bead = border * (0.5 + 0.5 * Math.cos(TAU * 16 * u));
+          const brush = 0.5 + 0.5 * Math.cos(TAU * 20 * v);
+          const grain = noise(u, v, 32, 32, seed ^ 0x7724);
+          color =
+            0.46 + 0.26 * border + 0.16 * bead + 0.06 * brush + 0.05 * grain;
+          height =
+            0.46 + 0.24 * border + 0.12 * bead + 0.03 * brush + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.12 * bead;
+          occlusion = 1 - 0.2 * (1 - border) - 0.12 * (1 - bead) * border;
+          return;
+        };
+      case 'choppingboard':
+        return () => {
+          // End-grain blocks hold knife scars above the recessed border.
+          const gu = Math.min(fract(u * 4), 1 - fract(u * 4)),
+            gv = Math.min(fract(v * 4), 1 - fract(v * 4));
+          const block =
+            smooth(clamp((gu - 0.08) / 0.06)) *
+            smooth(clamp((gv - 0.08) / 0.06));
+          const s1 = smooth(
+            clamp((0.03 - Math.abs(fract((u + v) * 5) - 0.5)) / 0.015),
+          );
+          const s2 = smooth(
+            clamp((0.03 - Math.abs(fract((u - v) * 5) - 0.5)) / 0.015),
+          );
+          const scar = s1 + s2 - s1 * s2;
+          const edgeU = Math.min(fract(u), 1 - fract(u)),
+            edgeV = Math.min(fract(v), 1 - fract(v));
+          const border =
+            1 -
+            (1 - smooth(clamp((0.05 - edgeU) / 0.03))) *
+              (1 - smooth(clamp((0.05 - edgeV) / 0.03)));
+          const grain = noise(u, v, 32, 32, seed ^ 0x51c8);
+          color =
+            0.5 +
+            0.24 * block -
+            0.14 * scar * block -
+            0.14 * border +
+            0.06 * grain;
+          height =
+            0.48 +
+            0.14 * block -
+            0.1 * scar * block -
+            0.12 * border +
+            0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.08 * block;
+          occlusion =
+            1 - 0.3 * scar * block - 0.24 * border - 0.12 * (1 - block);
+          return;
+        };
+      case 'faucet':
+        return () => {
+          // A polished dome rises over its base plate with scale spots.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const dome = smooth(clamp((0.4 - radius) / 0.12));
+          const plate =
+            smooth(clamp((0.5 - radius) / 0.05)) *
+            smooth(clamp((radius - 0.4) / 0.05));
+          const su = fract(u * 8) - 0.5,
+            sv = fract(v * 8) - 0.5;
+          const spot = smooth(
+            clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x6a17);
+          color = 0.4 + 0.3 * dome + 0.16 * plate + 0.07 * spot + 0.05 * grain;
+          height = 0.4 + 0.3 * dome + 0.14 * plate + 0.05 * spot + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.14 * dome;
+          occlusion = 1 - 0.18 * (1 - dome) - 0.1 * spot;
+          return;
+        };
+      case 'showerhead':
+        return () => {
+          // Spray holes sink into the grooved panel face.
+          const dx = u - 0.5,
+            dy = v - 0.5;
+          const radius = Math.sqrt(dx * dx + dy * dy);
+          const panel = smooth(clamp((0.42 - radius) / 0.06));
+          const groove = smooth(
+            clamp((0.03 - Math.abs(fract(12 * radius) - 0.5)) / 0.015),
+          );
+          const hu = fract(u * 10) - 0.5,
+            hv = fract(v * 10) - 0.5;
+          const hole = smooth(
+            clamp((0.12 - Math.sqrt(hu * hu + hv * hv)) / 0.05),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x31f8);
+          color =
+            0.46 +
+            0.3 * panel -
+            0.12 * groove * panel -
+            0.2 * hole * panel +
+            0.06 * grain;
+          height =
+            0.44 +
+            0.22 * panel -
+            0.1 * groove * panel -
+            0.22 * hole * panel +
+            0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * panel;
+          occlusion =
+            1 - 0.3 * hole * panel - 0.12 * groove * panel - 0.2 * (1 - panel);
+          return;
+        };
+      case 'bathmat':
+        return () => {
+          // Suction cups dome over the striped woven backing.
+          const row = Math.floor(v * 8);
+          const offset = (row % 2) * 0.5;
+          const du = fract(u * 8 + offset) - 0.5,
+            dv = fract(v * 8) - 0.5;
+          const cup = smooth(clamp((0.3 - Math.sqrt(du * du + dv * dv)) / 0.1));
+          const weave = 0.5 + 0.5 * Math.cos(TAU * 12 * v);
+          const grain = noise(u, v, 32, 32, seed ^ 0x24cb);
+          color = 0.42 + 0.32 * cup + 0.12 * weave + 0.06 * grain;
+          height = 0.44 + 0.28 * cup + 0.06 * weave + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * cup;
+          occlusion = 1 - 0.34 * (1 - cup) - 0.08 * (1 - weave);
+          return;
+        };
+      case 'blinds':
+        return () => {
+          // Tilted slat faces rise over the shadowed gaps between them.
+          const slat = smooth(
+            clamp((0.34 - Math.abs(fract(v * 4) - 0.5)) / 0.16),
+          );
+          const tilt = smooth(
+            clamp((0.02 - Math.abs(fract(v * 4) - 0.5)) / 0.012),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x5f27);
+          color = 0.48 + 0.32 * slat - 0.1 * tilt + 0.06 * grain;
+          height = 0.46 + 0.3 * slat - 0.08 * tilt + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.1 * slat;
+          occlusion = 1 - 0.42 * (1 - slat) - 0.1 * tilt;
+          return;
+        };
+      case 'curtain':
+        return () => {
+          // Draped folds ripple over the fabric with a woven grain.
+          const warp = noise(u, v, 4, 4, seed ^ 0x3c81) - 0.5;
+          const fold = smooth(
+            clamp((0.34 - Math.abs(fract(5 * (u + 0.1 * warp)) - 0.5)) / 0.16),
+          );
+          const grain = noise(u, v, 40, 40, seed ^ 0x6e42);
+          color = 0.46 + 0.34 * fold + 0.08 * grain;
+          height = 0.46 + 0.3 * fold + 0.03 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.08 * fold;
+          occlusion = 1 - 0.36 * (1 - fold);
+          return;
+        };
+      case 'shadecloth':
+        return () => {
+          // Woven threads cross over the open half-shadowed gaps.
+          const warp = smooth(
+            clamp((0.12 - Math.abs(fract(u * 16) - 0.5)) / 0.06),
+          );
+          const weft = smooth(
+            clamp((0.12 - Math.abs(fract(v * 16) - 0.5)) / 0.06),
+          );
+          const cover = warp + weft - warp * weft;
+          const grain = noise(u, v, 32, 32, seed ^ 0x27d5);
+          color = 0.42 + 0.3 * cover + 0.08 * grain;
+          height = 0.46 + 0.2 * cover + 0.02 * grain;
+          roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
+          occlusion = 1 - 0.42 * (1 - cover);
+          return;
+        };
+      case 'sandstone':
+        return () => {
+          const warp = noise(u, v, 3, 5, seed ^ 0x693d);
+          const bedding = v + 0.055 * (warp - 0.5);
+          const strata = 0.5 + 0.5 * Math.sin(TAU * (8 * bedding) + phase);
+          const lamina = Math.pow(
+            0.5 + 0.5 * Math.sin(TAU * (19 * bedding) + phase),
+            6,
+          );
+          const sediment = noise(u, v, 8, 3, seed ^ 0x4d17);
+          const grit = smooth(clamp((fine - 0.28) / 0.48));
+          const mineral = Math.pow(1 - fine, 5);
+          // Unequal warped sediment bands carry small cemented grains, not dunes.
+          color =
+            0.22 + 0.35 * strata + 0.2 * sediment + 0.18 * grit - 0.2 * lamina;
+          height =
+            0.32 + 0.16 * strata - 0.09 * lamina + 0.24 * grit - 0.1 * mineral;
+          roughness += 0.12 * (grit - 0.5) + 0.05 * lamina;
+          occlusion = 0.97 - 0.12 * lamina - 0.13 * mineral + 0.025 * grit;
+          return;
+        };
+      case 'travertine':
+        return () => {
+          const nx = 12,
+            ny = 18;
+          const x = u * nx,
+            y = v * ny;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let cavities = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % nx) + nx) % nx,
+                wy = ((cy % ny) + ny) % ny;
+              const variation = hash(wx, wy, seed ^ 0x5e93);
+              const angle = (hash(wx, wy, seed ^ 0x23d1) - 0.5) * 0.36;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+                dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x7b19);
+              const rx = dx * cos + dy * sin,
+                ry = dy * cos - dx * sin;
+              const width = 0.42 + 0.36 * variation,
+                depth = 0.11 + 0.13 * hash(wx, wy, seed ^ 0x8f31);
+              const distance =
+                (rx * rx) / (width * width) +
+                (ry * ry) / (depth * depth) +
+                0.12 * Math.sin(9 * rx + variation * TAU) * Math.sin(13 * ry);
+              // Irregular elongated bowls have compact support inside this neighborhood.
+              const cap = smooth(clamp((1 - distance) / 0.65));
+              cavities += cap * (0.65 + 0.35 * variation);
+            }
+          const vugs = 1 - Math.exp(-1.8 * cavities);
+          const warp = noise(u, v, 3, 3, seed ^ 0x41d7);
+          const band =
+            0.5 + 0.5 * Math.sin(TAU * (6 * v + 0.18 * warp) + phase);
+          color = 0.65 + 0.12 * band + 0.09 * fine - 0.48 * vugs;
+          height = 0.62 + 0.05 * band + 0.04 * fine - 0.3 * vugs;
+          roughness += 0.15 * vugs + 0.08 * (fine - 0.5);
+          occlusion = 0.98 - 0.42 * vugs;
+          return;
+        };
+      case 'pumice':
+        return () => {
+          const cells = 26;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let vesicles = 0,
+            rims = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.15 - 0.7 * hash(wx, wy, seed),
+                dy = y - cy - 0.15 - 0.7 * hash(wx, wy, seed ^ 0x631f);
+              const radius = 0.24 + 0.2 * hash(wx, wy, seed ^ 0x38b9);
+              const distance = (dx * dx + dy * dy) / (radius * radius);
+              // Rounded gas pockets recess into a continuous matrix with softly raised lips.
+              const cap = clamp(1 - distance);
+              const bowl = cap * cap;
+              vesicles = Math.max(vesicles, bowl);
+              rims = Math.max(rims, 6 * distance * bowl);
+            }
+          const matrix = noise(u, v, 5, 5, seed ^ 0x9c47);
+          color =
+            0.65 + 0.12 * matrix + 0.08 * fine - 0.57 * vesicles + 0.05 * rims;
+          height = 0.72 - 0.58 * vesicles + 0.08 * rims + 0.03 * fine;
+          roughness += 0.07 * vesicles + 0.07 * (fine - 0.5);
+          occlusion = 0.98 - 0.52 * vesicles + 0.01 * detail;
+          return;
+        };
+      case 'parquet':
+        return () => {
+          const x = u * 4,
+            y = v * 4;
+          const bx = Math.floor(x),
+            by = Math.floor(y);
+          const horizontal = (bx + by) % 2 === 0;
+          const along = horizontal ? fract(x) : fract(y),
+            across = horizontal ? fract(y) : fract(x);
+          const slat = Math.floor(across * 3);
+          const edge = Math.min(
+            along,
+            1 - along,
+            fract(across * 3) / 3,
+            (1 - fract(across * 3)) / 3,
+          );
+          const face = smooth(clamp((edge - 0.006) / 0.016));
+          const variation = hash(bx * 3 + slat, by, seed);
+          const warp = noise(u, v, 8, 8, seed ^ 0x3719);
+          const grain =
+            0.5 +
+            0.5 *
+              Math.sin(
+                TAU *
+                  (across * 38 + 0.28 * Math.sin(TAU * along) + 0.18 * warp) +
+                  variation * TAU,
+              );
+          // All slat-owned grain and finish vanish into a common dark joint.
+          color =
+            0.06 +
+            face * (0.25 + 0.32 * variation + 0.22 * grain + 0.06 * detail);
+          height = face * (0.76 + 0.045 * grain + 0.025 * detail);
+          roughness =
+            0.78 +
+            face * (preset.roughness - 0.78 + 0.09 * grain + 0.04 * variation);
+          occlusion = 0.52 + 0.46 * face;
+          return;
+        };
+      case 'mosaic':
+        return () => {
+          const cells = 16;
+          const x = u * cells,
+            y = v * cells;
+          const fx = fract(x),
+            fy = fract(y);
+          const edge = Math.min(fx, 1 - fx, fy, 1 - fy);
+          const face = smooth(clamp((edge - 0.018) / 0.042));
+          const variation = hash(Math.floor(x), Math.floor(y), seed);
+          color = 0.2 + face * (0.08 + 0.56 * variation + 0.1 * detail);
+          height = face * (0.78 + 0.08 * variation + 0.025 * detail);
+          roughness =
+            0.76 +
+            face * (preset.roughness - 0.76 + 0.11 * variation + 0.04 * detail);
+          occlusion = 0.6 + 0.39 * face;
+          mortar = 1 - face;
+          return;
+        };
+      case 'hexagontiles':
+        return () => {
+          const root3 = Math.sqrt(3);
+          const columns = 5,
+            rows = 6;
+          const x = u * columns,
+            y = (v * rows * root3) / 2;
+          const row = Math.floor(y / (root3 / 2));
+          let best = Infinity,
+            dx = 0,
+            dy = 0,
+            ownerX = 0,
+            ownerY = 0;
+          // Even row count makes this staggered triangular lattice wrap in a
+          // rectangle. Its Voronoi faces are six genuine straight hexagon edges.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy;
+            const offset = (((cy % 2) + 2) % 2) * 0.5;
+            const column = Math.round(x - offset);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox;
+              const px = x - cx - offset,
+                py = y - (cy * root3) / 2;
+              const distance = px * px + py * py;
+              if (distance < best) {
+                best = distance;
+                dx = px;
+                dy = py;
+                ownerX = ((cx % columns) + columns) % columns;
+                ownerY = ((cy % rows) + rows) % rows;
+              }
+            }
+          }
+          const edge =
+            0.5 -
+            Math.max(
+              Math.abs(dx),
+              Math.abs(dx * 0.5 + (dy * root3) / 2),
+              Math.abs(dx * 0.5 - (dy * root3) / 2),
+            );
+          const face = smooth(clamp((edge - 0.012) / 0.034));
+          const variation = hash(ownerX, ownerY, seed);
+          // A flat grout bottom removes ownership jumps on diagonal edges too.
+          color = 0.2 + face * (0.28 + 0.35 * variation + 0.07 * detail);
+          height = face * (0.8 + 0.045 * variation + 0.02 * detail);
+          roughness =
+            0.74 +
+            face * (preset.roughness - 0.74 + 0.1 * variation + 0.04 * detail);
+          occlusion = 0.6 + 0.39 * face;
+          mortar = 1 - face;
+          return;
+        };
+      case 'knit':
+        return () => {
+          const x = u * 8,
+            y = v * 8;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let yarn = 0;
+          // Rounded finite yarn arms overlap at the point of each stockinette V.
+          // Their smooth support vanishes before the stitch cell edges.
+          for (let side = -1; side <= 1; side += 2) {
+            const dx = x - ix - 0.5,
+              dy = y - iy - 0.84;
+            const sx = side * 0.34,
+              sy = -0.68;
+            const t = clamp((dx * sx + dy * sy) / (sx * sx + sy * sy));
+            const px = dx - t * sx,
+              py = dy - t * sy;
+            const cap = clamp(1 - (px * px + py * py) / 0.0169);
+            const arm = smooth(cap);
+            yarn += (1 - yarn) * arm;
+          }
+          const twist =
+            0.5 +
+            0.25 * Math.sin(TAU * (48 * u + 24 * v) + phase) +
+            0.25 * Math.sin(TAU * (48 * u - 24 * v) - phase);
+          color = 0.12 + 0.64 * yarn + 0.1 * detail + 0.07 * yarn * twist;
+          height = 0.08 + yarn * (0.76 + 0.045 * twist) + 0.025 * detail;
+          roughness += 0.065 * (detail - 0.5) + 0.035 * (1 - yarn);
+          occlusion = 0.58 + 0.41 * yarn;
+          return;
+        };
+      case 'corduroy':
+        return () => {
+          const wale = Math.pow(0.5 + 0.5 * Math.cos(TAU * u * 12), 0.65);
+          const pile = noise(u, v, 96, 96, seed ^ 0x2b71);
+          const nap = noise(u, v, 12, 48, seed ^ 0x7ca3);
+          color = 0.12 + 0.57 * wale + 0.16 * pile + 0.08 * nap;
+          height = 0.07 + 0.79 * wale + 0.035 * pile + 0.025 * nap;
+          roughness += 0.08 * (pile - 0.5) + 0.035 * (1 - wale);
+          occlusion = 0.57 + 0.42 * wale;
+          return;
+        };
+      case 'felt':
+        return () => {
+          const cells = 20;
+          const x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let fibers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+                dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0xa375);
+              const angle = hash(wx, wy, seed ^ 0x6b17) * TAU;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const along = (dx * cos + dy * sin) / 0.6,
+                across = (dy * cos - dx * sin) / 0.055;
+              // Tapered, randomly oriented fibers vanish with zero slope at their
+              // elliptical support; none reaches a discarded neighborhood cell.
+              const cap = clamp(1 - along * along - across * across);
+              fibers += (1 - fibers) * cap * cap;
+            }
+          color = 0.28 + 0.28 * detail + 0.3 * fibers;
+          height = 0.18 + 0.035 * detail + 0.065 * fibers;
+          roughness += 0.065 * (detail - 0.5) + 0.025 * fibers;
+          occlusion = 0.96 + 0.025 * fibers + 0.01 * detail;
+          return;
+        };
+      case 'wafflecloth':
+        return () => {
+          const warp = smooth(clamp((Math.cos(TAU * u * 8) - 0.35) / 0.65)),
+            weft = smooth(clamp((Math.cos(TAU * v * 8) - 0.35) / 0.65));
+          const rim = warp + weft - warp * weft;
+          const yarn =
+            0.5 +
+            0.25 * Math.cos(TAU * u * 96 + phase) +
+            0.25 * Math.cos(TAU * v * 96 - phase);
+          const cotton = noise(u, v, 24, 24, seed ^ 0x4a73);
+          color = 0.22 + 0.48 * rim + 0.12 * yarn + 0.08 * cotton;
+          height = 0.12 + 0.66 * rim + 0.035 * yarn + 0.025 * cotton;
+          roughness += 0.04 * (cotton - 0.5) + 0.025 * (1 - rim);
+          occlusion = 0.65 + 0.32 * rim + 0.02 * yarn;
+          return;
+        };
+      case 'cableknit':
+        return () => {
+          const x = fract(u * 4),
+            y = v * 4;
+          const sweep = 0.22 * Math.sin(TAU * y),
+            crossing = 0.5 + 0.5 * Math.cos(TAU * y);
+          const left = (x - 0.5 - sweep) / 0.115,
+            right = (x - 0.5 + sweep) / 0.115;
+          // Both strands retain their identity through the crossing. Each
+          // compact profile and its owned lift fade with zero support slope.
+          const a = smooth(clamp(1 - left * left)),
+            b = smooth(clamp(1 - right * right));
+          const braid = a + b - a * b;
+          const liftA = a * (0.38 + 0.38 * crossing),
+            liftB = b * (0.76 - 0.38 * crossing);
+          const lift = liftA + liftB - liftA * liftB;
+          const rib = smooth(clamp((Math.cos(TAU * x) - 0.5) / 0.5));
+          const loops =
+            0.5 + 0.5 * Math.cos(TAU * (v * 32 + 0.35 * Math.cos(TAU * x)));
+          const wool = noise(u, v, 64, 64, seed ^ 0x37a9);
+          const twist = 0.5 + 0.5 * Math.sin(TAU * (u * 96 + v * 48) + phase);
+          color =
+            0.13 +
+            0.55 * lift +
+            0.13 * rib +
+            0.09 * wool +
+            0.04 * braid * twist;
+          height =
+            0.07 +
+            lift +
+            0.17 * rib * (0.65 + 0.35 * loops) +
+            0.02 * wool +
+            0.015 * braid * twist;
+          roughness += 0.035 * (wool - 0.5) + 0.025 * (1 - braid);
+          occlusion = 0.57 + 0.35 * braid + 0.055 * rib + 0.015 * wool;
+          return;
+        };
+      case 'quilting':
+        return () => {
+          const diagonalA = (u + v) * 6,
+            diagonalB = (u - v) * 6;
+          const a = 0.5 - 0.5 * Math.cos(TAU * diagonalA),
+            b = 0.5 - 0.5 * Math.cos(TAU * diagonalB);
+          const padded = a * b;
+          const seamA = smooth(clamp(1 - a / 0.055)),
+            seamB = smooth(clamp(1 - b / 0.055));
+          const seam = seamA + seamB - seamA * seamB;
+          const dashA = smooth(
+              clamp((Math.cos(TAU * diagonalB * 8) - 0.2) / 0.8),
+            ),
+            dashB = smooth(clamp((Math.cos(TAU * diagonalA * 8) - 0.2) / 0.8));
+          const stitch =
+            seamA * dashA + seamB * dashB - seamA * dashA * seamB * dashB;
+          const weave =
+            0.5 +
+            0.25 * Math.cos(TAU * u * 96 + phase) +
+            0.25 * Math.cos(TAU * v * 96 - phase);
+          const cloth = noise(u, v, 24, 24, seed ^ 0x6b31);
+          color =
+            0.3 +
+            0.32 * padded -
+            0.15 * seam +
+            0.12 * stitch +
+            0.08 * cloth +
+            0.06 * weave;
+          height =
+            0.13 +
+            0.67 * padded -
+            0.065 * seam +
+            0.035 * stitch +
+            0.02 * weave +
+            0.015 * cloth;
+          roughness += 0.045 * (cloth - 0.5) + 0.025 * seam;
+          occlusion = 0.88 + 0.1 * padded - 0.18 * seam + 0.025 * stitch;
+          return;
+        };
+      case 'roofshingles':
+        return () => {
+          const row = Math.floor(v * 6),
+            y = fract(v * 6);
+          const shifted = u * 4 + (row % 2) * 0.5,
+            x = fract(shifted);
+          const course = smooth(clamp(Math.min(y, 1 - y) / 0.12));
+          const tab = smooth(clamp(Math.min(x, 1 - x) / 0.055));
+          const notch = (1 - tab) * smooth(clamp((y - 0.32) / 0.16)) * course;
+          // Tab-owned pigment disappears before either staggered course changes
+          // owner; all seams retain the same continuous mineral-granule field.
+          const ownership = course * tab;
+          const variation = hash(Math.floor(shifted) % 4, row, seed ^ 0x63b7);
+          const grit = smooth(
+            clamp((noise(u, v, 64, 64, seed ^ 0x4d35) - 0.2) / 0.6),
+          );
+          const lap = 1 - course;
+          color =
+            0.24 +
+            0.32 * grit +
+            0.2 * ownership * variation -
+            0.15 * lap -
+            0.14 * notch;
+          height =
+            0.2 +
+            0.38 * course -
+            0.2 * notch +
+            0.13 * grit +
+            0.05 * ownership * variation;
+          roughness += 0.12 * (grit - 0.5) + 0.04 * lap + 0.03 * notch;
+          occlusion = 0.96 - 0.24 * lap - 0.2 * notch + 0.025 * grit;
+          return;
+        };
+      case 'rooftiles':
+        return () => {
+          const x = fract(u * 6 + 0.5),
+            y = fract(v * 5);
+          const crown = 0.5 + 0.5 * Math.cos(TAU * u * 6);
+          const course = smooth(clamp(Math.min(y, 1 - y) / 0.13));
+          const side = smooth(clamp(Math.min(x, 1 - x) / 0.12));
+          const ownership = course * side;
+          const variation = hash(
+            Math.floor(u * 6 + 0.5) % 6,
+            Math.floor(v * 5),
+            seed ^ 0x7a41,
+          );
+          const clay = noise(u, v, 24, 32, seed ^ 0x5c27);
+          const lap = 1 - course;
+          // Cosine crowns meet recessed channels with zero slope, rather than
+          // resetting a semicircle at its peak or exposing a flat tile face.
+          color =
+            0.26 +
+            0.24 * crown +
+            0.23 * ownership * variation +
+            0.14 * clay -
+            0.14 * lap;
+          height =
+            0.16 +
+            0.65 * crown -
+            0.1 * lap +
+            0.035 * ownership * variation +
+            0.012 * clay;
+          roughness += 0.13 * (clay - 0.5) + 0.05 * (1 - crown) + 0.045 * lap;
+          occlusion = 0.76 + 0.22 * crown - 0.14 * lap + 0.015 * clay;
+          return;
+        };
+      case 'stucco':
+        return () => {
+          const cells = 28,
+            x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let aggregate = 0,
+            pits = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const variation = hash(wx, wy, seed ^ 0x43b9);
+              const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+                dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x17c3);
+              const radius = 0.3 + 0.25 * variation;
+              const cap = clamp(
+                1 - (dx * dx + dy * dy * (0.7 + variation)) / (radius * radius),
+              );
+              const weight = cap * cap;
+              // Compact caps and a smooth union keep both relief and slopes
+              // continuous as neighboring sprayed grains enter the support.
+              if (variation < 0.28) pits += (1 - pits) * weight;
+              else aggregate += (1 - aggregate) * weight;
+            }
+          const trowel = noise(u, v, 5, 7, seed ^ 0x537d);
+          color =
+            0.52 +
+            0.15 * trowel +
+            0.19 * aggregate -
+            0.24 * pits +
+            0.08 * detail;
+          height =
+            0.27 +
+            0.16 * trowel +
+            0.43 * aggregate -
+            0.22 * pits +
+            0.06 * detail;
+          roughness += 0.055 * aggregate + 0.065 * pits + 0.05 * (detail - 0.5);
+          occlusion = 0.96 - 0.25 * pits - 0.075 * aggregate + 0.02 * detail;
+          return;
+        };
+      case 'lichen':
+        return () => {
+          const cells = 7,
+            x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let crust = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+                dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x71b3);
+              const angle = Math.atan2(dy, dx);
+              const variation = hash(wx, wy, seed ^ 0x3c59);
+              const radius =
+                (0.38 + 0.16 * variation) *
+                (1 +
+                  0.13 * Math.cos(5 * angle + variation * TAU) +
+                  0.09 * Math.sin(3 * angle - variation * TAU));
+              // Lobes only affect the border; the center is a flat mineral crust,
+              // not a rounded moss tuft. Every colony fits the fixed neighborhood.
+              const face = smooth(
+                clamp((1 - Math.hypot(dx, dy) / radius) / 0.18),
+              );
+              crust += (1 - crust) * face;
+              pigment += face * (variation - 0.5);
+            }
+          const pits = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x6a23) - 0.58) / 0.25),
+          );
+          color =
+            0.16 +
+            0.13 * detail +
+            0.53 * crust +
+            0.07 * Math.tanh(pigment) -
+            0.18 * crust * pits;
+          height = 0.15 + 0.035 * detail + crust * (0.48 - 0.17 * pits);
+          roughness += 0.04 * (detail - 0.5) + 0.035 * crust * pits;
+          occlusion = 0.9 + 0.08 * crust - 0.15 * crust * pits;
+          return;
+        };
+      case 'leaflitter':
+        return () => {
+          const cells = 6,
+            x = u * cells,
+            y = v * cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let leaves = 0,
+            pigment = 0,
+            veins = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % cells) + cells) % cells,
+                wy = ((cy % cells) + cells) % cells;
+              const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+                dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x29b7);
+              const angle = hash(wx, wy, seed ^ 0x4f31) * TAU;
+              const cos = Math.cos(angle),
+                sin = Math.sin(angle);
+              const variation = hash(wx, wy, seed ^ 0x51a9);
+              const along = (dx * cos + dy * sin) / (0.64 + 0.1 * variation),
+                across = (dy * cos - dx * sin) / (0.26 + 0.05 * variation);
+              // A tapered oval ends in two points. Smooth compact support makes
+              // discarded neighbors contribute zero, including their pigment.
+              const face = smooth(
+                clamp(
+                  (1 - along * along - Math.sqrt(across * across + 0.0001)) /
+                    0.18,
+                ),
+              );
+              const vein = face * Math.exp(-across * across * 260);
+              leaves += (1 - leaves) * face;
+              veins += (1 - veins) * vein;
+              pigment += face * (variation - 0.5);
+            }
+          color =
+            0.07 +
+            0.09 * detail +
+            0.56 * leaves +
+            0.16 * Math.tanh(pigment) -
+            0.12 * veins;
+          height = 0.08 + 0.035 * detail + 0.61 * leaves + 0.045 * veins;
+          roughness += 0.07 * (detail - 0.5) + 0.045 * (1 - leaves);
+          occlusion = 0.53 + 0.44 * leaves;
+          return;
+        };
+      case 'endgrain':
+        return () => {
+          const dx = fract(u - endgrainCenterU + 0.5) - 0.5,
+            dy = fract(v - endgrainCenterV + 0.5) - 0.5;
+          const sx = Math.sin(Math.PI * dx) / Math.PI,
+            sy = Math.sin(Math.PI * dy) / Math.PI;
+          // Squared toroidal distances meet with zero slope at the tile's
+          // opposite sides; a small core also regularizes the pith derivative.
+          const radius = Math.sqrt(sx * sx + sy * sy + 0.0004);
+          const warp = noise(u, v, 5, 5, seed ^ 0x7c43);
+          const rings =
+            0.5 + 0.5 * Math.sin(TAU * (23 * radius + 0.23 * warp) + phase);
+          const latewood = Math.pow(rings, 6);
+          const pores = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x15e7) - 0.62) / 0.23),
+          );
+          const distance = Math.hypot(dx, dy);
+          const checkSupport =
+            smooth(clamp((distance - 0.07) / 0.08)) *
+            smooth(clamp((0.43 - distance) / 0.08));
+          const checks =
+            checkSupport *
+            Math.pow(0.5 + 0.5 * Math.cos(7 * Math.atan2(dy, dx) + phase), 48);
+          color =
+            0.76 -
+            0.37 * latewood -
+            0.2 * pores -
+            0.24 * checks +
+            0.08 * detail;
+          height =
+            0.49 -
+            0.07 * latewood -
+            0.16 * pores -
+            0.22 * checks +
+            0.025 * detail;
+          roughness += 0.13 * pores + 0.06 * latewood + 0.045 * (detail - 0.5);
+          occlusion = 0.99 - 0.17 * pores - 0.22 * checks;
+          return;
+        };
+      case 'acousticfoam':
+        return () => {
+          const x = fract(u * 4) - 0.5,
+            y = fract(v * 4) - 0.5;
+          const ax = Math.sqrt(x * x + 0.0001),
+            ay = Math.sqrt(y * y + 0.0001);
+          // A rounded maximum retains four planar faces, unlike crossed sine
+          // ridges. Its flattened foot hides the cell-owned height variation.
+          const edge = 0.5 * (ax + ay + Math.sqrt((ax - ay) ** 2 + 0.0004));
+          const t = clamp(1 - 2 * edge);
+          const pyramid =
+            t < 0.1
+              ? t * t * 5
+              : t > 0.9
+                ? 0.9 - (1 - t) * (1 - t) * 5
+                : t - 0.05;
+          const variation = hash(
+            Math.floor(u * 4),
+            Math.floor(v * 4),
+            seed ^ 0x37d1,
+          );
+          const pores = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x6b19) - 0.42) / 0.46),
+          );
+          color = 0.14 + 0.61 * pyramid + 0.13 * detail - 0.12 * pores;
+          height =
+            0.03 +
+            pyramid * (0.88 + 0.07 * variation) +
+            0.009 * detail -
+            0.008 * pores;
+          roughness += 0.065 * (detail - 0.5) + 0.025 * pores;
+          occlusion = 0.43 + 0.54 * pyramid + 0.025 * detail - 0.025 * pores;
+          return;
+        };
+      case 'closedcellfoam':
+        return () => {
+          const x = u * 28,
+            y = v * 28;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let dimples = 0,
+            membranes = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % 28) + 28) % 28,
+                wy = ((cy % 28) + 28) % 28;
+              const offset = (wy * 28 + wx) * 4;
+              const dx = x - cx - foamCells![offset],
+                dy = y - cy - foamCells![offset + 1];
+              const cap = clamp(
+                1 - (dx * dx + dy * dy) * foamCells![offset + 2],
+              );
+              // Shallow closed dimples have a gently raised membrane, not open
+              // cavities. Squared compact support meets the shared skin at C1.
+              const weight = cap * cap;
+              dimples += (1 - dimples) * weight;
+              membranes += (1 - membranes) * weight * (1 - cap) * 6.75;
+              pigment += weight * (foamCells![offset + 3] - 0.5);
+            }
+          color =
+            0.49 +
+            0.18 * detail -
+            0.13 * dimples +
+            0.08 * membranes +
+            0.1 * pigment;
+          height = 0.48 + 0.035 * detail - 0.17 * dimples + 0.055 * membranes;
+          roughness += 0.065 * (detail - 0.5) + 0.025 * dimples;
+          occlusion = 0.99 - 0.065 * dimples;
+          return;
+        };
+      case 'linoleum':
+        return () => {
+          const warp = noise(u, v, 4, 5, seed ^ 0x591b);
+          const swirl =
+            0.5 + 0.5 * Math.sin(TAU * (5 * u + 3 * v + 1.2 * warp) + phase);
+          const pigment = noise(
+            u + 0.19 * warp,
+            v + 0.08 * swirl,
+            48,
+            8,
+            seed ^ 0x2d73,
+          );
+          const flecks = smooth(clamp((pigment - 0.43) / 0.4));
+          // Pigment is marbled through a smooth sheet; it does not carve veins,
+          // stone pores or joints into the physical surface.
+          color = 0.24 + 0.25 * swirl + 0.38 * flecks + 0.08 * detail;
+          height = 0.45 + 0.025 * detail + 0.015 * pigment;
+          roughness += 0.09 * (pigment - 0.5) + 0.045 * (detail - 0.5);
+          occlusion = 0.99 + 0.008 * detail;
+          return;
+        };
+      case 'orangepeel':
+        return () => {
+          const x = u * skinColumns,
+            y = v * skinRows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let dimples = 0,
+            shoulders = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
+                wy = ((cy % skinRows) + skinRows) % skinRows;
+              const offset = (wy * skinColumns + wx) * 3;
+              const dx = x - cx - skinFeatures![offset],
+                dy = y - cy - skinFeatures![offset + 1];
+              const radius = 0.26 + 0.14 * skinFeatures![offset + 2];
+              const distance2 = dx * dx + dy * dy;
+              const pit = clamp(1 - distance2 / (radius * radius));
+              const skin = clamp(1 - distance2 / 0.36);
+              // Compact squared caps meet the shared skin with zero slope.
+              // Rounded shoulders surround depressed oil glands, not grit peaks.
+              dimples += (1 - dimples) * pit * pit;
+              shoulders += (1 - shoulders) * skin * skin * (1 - skin) * 6.75;
+            }
+          const pigment = 0.48 + 0.28 * detail;
+          color = pigment * (1 - 0.35 * dimples) + 0.34 * 0.35 * dimples;
+          const skinHeight = 0.46 + 0.025 * detail + 0.045 * shoulders;
+          height = skinHeight * (1 - dimples) + 0.22 * dimples;
+          roughness += 0.06 * (detail - 0.5) + 0.035 * dimples;
+          occlusion = 1 - 0.08 * dimples;
+          return;
+        };
+      case 'coconut':
+        return () => {
+          const x = u * skinColumns,
+            y = v * skinRows;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let fibers = 0,
+            fissures = 0,
+            pigment = 0.38 + 0.18 * detail;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
+                wy = ((cy % skinRows) + skinRows) % skinRows;
+              const offset = (wy * skinColumns + wx) * 3;
+              const dx = x - cx - skinFeatures![offset],
+                dy = y - cy - skinFeatures![offset + 1],
+                variation = skinFeatures![offset + 2];
+              const along = dy / (0.48 + 0.25 * variation),
+                across = (dx + (variation - 0.5) * 0.28 * dy) / 0.12;
+              const cap = clamp(1 - along * along - across * across);
+              const weight = cap * cap;
+              // Short longitudinal fibers and hairline fissures taper inside
+              // the neighborhood. Cell-owned pigment vanishes with its support.
+              if (variation < 0.24) {
+                fissures += (1 - fissures) * weight;
+                pigment = pigment * (1 - weight) + 0.15 * weight;
+              } else {
+                fibers += (1 - fibers) * weight;
+                pigment =
+                  pigment * (1 - weight) + (0.55 + 0.25 * variation) * weight;
+              }
+            }
+          color = pigment;
+          const husk = 0.42 + 0.055 * detail + 0.18 * fibers;
+          height = husk * (1 - fissures) + 0.3 * fissures;
+          roughness += 0.055 * (detail - 0.5) + 0.025 * fibers;
+          occlusion =
+            (0.96 + 0.025 * fibers) * (1 - fissures) + 0.86 * fissures;
+          return;
+        };
+      case 'watermelon':
+        return () => {
+          const warp = noise(u, v, 4, 5, seed ^ 0x4f17),
+            waviness = noise(u, v, 12, 8, seed ^ 0x67a3);
+          const wave =
+            0.5 +
+            0.5 *
+              Math.sin(TAU * (5 * u + 0.3 * warp + 0.12 * waviness) + phase);
+          const bands = smooth(clamp((wave - 0.24) / 0.52));
+          const speckles = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x5c39) - 0.48) / 0.4),
+          );
+          const pores = smooth(
+            clamp((noise(u, v, 80, 80, seed ^ 0x2b71) - 0.5) / 0.38),
+          );
+          const pigment = 0.12 + 0.72 * bands;
+          color = pigment * (1 - 0.2 * speckles) + 0.46 * 0.2 * speckles;
+          // Bands are pigmentation only: no longitudinal ridges in the rind.
+          height = (0.48 + 0.025 * detail) * (1 - 0.14 * pores);
+          roughness += 0.055 * (detail - 0.5) + 0.045 * pores;
+          occlusion = 1 - 0.035 * pores;
+          return;
+        };
+      case 'limestone':
+        return () => {
+          const x = u * 24,
+            y = v * 24;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          const pores = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x19d7) - 0.49) / 0.38),
+          );
+          let grains = 0;
+          color = 0.63 + 0.14 * detail - 0.16 * pores;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % 24) + 24) % 24,
+                wy = ((cy % 24) + 24) % 24;
+              const offset = (wy * 24 + wx) * 7;
+              const dx = x - cx - ooids![offset],
+                dy = y - cy - ooids![offset + 1];
+              const rx =
+                  (dx * ooids![offset + 4] + dy * ooids![offset + 5]) /
+                  ooids![offset + 2],
+                ry =
+                  (dy * ooids![offset + 4] - dx * ooids![offset + 5]) /
+                  (ooids![offset + 2] * ooids![offset + 3]);
+              const distance = rx * rx + ry * ry;
+              const weight = smooth(clamp((1 - distance) / 0.36));
+              const variation = ooids![offset + 6];
+              // Rounded carbonate grains carry faint concentric growth rings;
+              // all grain-owned color fades into the finely porous matrix.
+              const ring = 0.5 + 0.5 * Math.cos(TAU * 1.5 * distance);
+              const pigment = 0.5 + 0.24 * variation + 0.16 * ring;
+              color = color * (1 - weight) + pigment * weight;
+              grains += (1 - grains) * weight;
+            }
+          height = 0.47 + 0.08 * grains + 0.025 * detail - 0.07 * pores;
+          roughness += 0.06 * (detail - 0.5) + 0.08 * pores - 0.05 * grains;
+          occlusion = 0.98 - 0.12 * pores + 0.015 * grains;
+          return;
+        };
+      case 'breccia':
+        return () => {
+          const x = u * 6,
+            y = v * 6;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          const cement = noise(u, v, 80, 80, seed ^ 0x5d21);
+          let coverage = 0;
+          color = 0.56 + 0.16 * cement;
+          height = 0.33 + 0.035 * cement;
+          roughness += 0.08 * cement;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % 6) + 6) % 6,
+                wy = ((cy % 6) + 6) % 6;
+              const offset = (wy * 6 + wx) * 18;
+              const dx = x - cx - clasts![offset],
+                dy = y - cy - clasts![offset + 1];
+              let face = 1;
+              for (let edge = 0; edge < 5; edge++) {
+                const plane = offset + 3 + edge * 3;
+                const inward =
+                  clasts![plane + 2] -
+                  dx * clasts![plane] -
+                  dy * clasts![plane + 1];
+                face *= smooth(clamp(inward / 0.055));
+              }
+              const variation = clasts![offset + 2];
+              // Smooth half-plane products retain angular fractured outlines
+              // without a nearest-feature switch or rectangular masonry joints.
+              const pigment = 0.15 + 0.66 * variation + 0.12 * detail;
+              color = color * (1 - face) + pigment * face;
+              height =
+                height * (1 - face) +
+                (0.54 + 0.1 * variation + 0.025 * detail) * face;
+              roughness =
+                roughness * (1 - face) +
+                (preset.roughness + 0.08 * (detail - 0.5)) * face;
+              coverage += (1 - coverage) * face;
+            }
+          occlusion = 0.81 + 0.17 * coverage + 0.015 * cement;
+          return;
+        };
+      case 'gneiss':
+        return () => {
+          const warp = noise(u, v, 4, 4, seed ^ 0x6b19);
+          const folded =
+            v +
+            0.28 * Math.sin(TAU * u + 0.8 * Math.sin(TAU * v) + phase) +
+            0.06 * Math.sin(TAU * (2 * u - v) + phase);
+          const angle = TAU * 6 * folded + 1.4 * (warp - 0.5);
+          const bands = smooth(
+            clamp((0.5 + 0.5 * Math.sin(angle) - 0.18) / 0.64),
+          );
+          const lamina = 0.5 + 0.5 * Math.sin(3 * angle + 0.4 * warp);
+          const crystal = noise(u, v, 96, 96, seed ^ 0x3c75);
+          const flecks = smooth(clamp((crystal - 0.52) / 0.34));
+          const pigment = 0.12 + 0.7 * bands + 0.08 * lamina;
+          color = pigment * (1 - 0.3 * flecks) + 0.88 * 0.3 * flecks;
+          // Light and dark minerals occupy broad folded bands, not isolated
+          // marble veins; small crystalline grains add restrained surface relief.
+          height = 0.42 + 0.055 * bands + 0.07 * flecks + 0.025 * detail;
+          roughness +=
+            0.08 * (detail - 0.5) + 0.06 * (1 - bands) - 0.05 * flecks;
+          occlusion = 0.95 + 0.025 * bands + 0.015 * flecks;
+          return;
+        };
+      case 'plywood':
+        return () => {
+          const warp = noise(u, v, 4, 3, seed ^ 0x43b7);
+          // Rotary-cut growth surfaces form broad nested cathedral arches,
+          // rather than plank seams or the exposed laminate edges of a panel.
+          const growth =
+            3.2 * Math.cos(TAU * u + phase) +
+            1.8 * Math.cos(TAU * v + 0.7 * phase) +
+            0.45 * warp;
+          const grain = Math.pow(0.5 + 0.5 * Math.sin(TAU * growth), 5);
+          const fiber =
+            0.5 + 0.5 * Math.sin(TAU * (64 * u + 0.4 * warp) + phase);
+          color = 0.67 + 0.1 * detail - 0.32 * grain + 0.035 * fiber;
+          height = 0.48 + 0.025 * detail - 0.045 * grain + 0.015 * fiber;
+          roughness += 0.05 * grain + 0.04 * (detail - 0.5);
+          occlusion = 0.99 - 0.045 * grain;
+          for (let eye = 0; eye < 2; eye++) {
+            const offset = eye * 3;
+            const dx = fract(u - veneerEyes![offset] + 0.5) - 0.5,
+              dy = fract(v - veneerEyes![offset + 1] + 0.5) - 0.5;
+            const scale = veneerEyes![offset + 2];
+            const radius =
+              (dx * dx) / (0.0025 * scale * scale) +
+              (dy * dy) / (0.0169 * scale * scale);
+            const cap = Math.max(0, 1 - radius),
+              weight = cap * cap;
+            const ring = 0.5 + 0.5 * Math.cos(TAU * 2 * radius);
+            color = color * (1 - weight) + (0.25 + 0.2 * ring) * weight;
+            height = height * (1 - weight) + (0.44 + 0.025 * ring) * weight;
+            roughness =
+              roughness * (1 - weight) +
+              (preset.roughness + 0.065 * ring) * weight;
+            occlusion =
+              occlusion * (1 - weight) + (0.95 + 0.025 * ring) * weight;
+          }
+          return;
+        };
+      case 'osb':
+      case 'chipboard':
+        return () => {
+          const x = u * strandCells,
+            y = v * strandCells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let coverage = 0;
+          color = 0.24 + 0.12 * detail;
+          height = 0.35 + 0.025 * detail;
+          roughness += 0.035 * detail;
+          for (let layer = 0; layer < 2; layer++)
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const cx = ix + ox,
+                  cy = iy + oy;
+                const wx = ((cx % strandCells) + strandCells) % strandCells,
+                  wy = ((cy % strandCells) + strandCells) % strandCells;
+                const offset =
+                  ((layer * strandCells + wy) * strandCells + wx) * 26;
+                const dx = x - cx - strands![offset],
+                  dy = y - cy - strands![offset + 1];
+                const along =
+                    (dx * strands![offset + 2] + dy * strands![offset + 3]) /
+                    strands![offset + 4],
+                  across =
+                    (dy * strands![offset + 2] - dx * strands![offset + 3]) /
+                    strands![offset + 5];
+                let face = 1;
+                for (let edge = 0; edge < 6; edge++) {
+                  const plane = offset + 8 + edge * 3;
+                  face *= smooth(
+                    clamp(
+                      (strands![plane + 2] -
+                        along * strands![plane] -
+                        across * strands![plane + 1]) /
+                        0.12,
+                    ),
+                  );
+                }
+                if (face === 0) continue;
+                const variation = strands![offset + 6];
+                const fiber =
+                  0.5 +
+                  0.5 *
+                    Math.sin(
+                      18 * across +
+                        0.65 * Math.sin(3 * along) +
+                        strands![offset + 7],
+                    );
+                // Every flake-owned field fades with the same compact polygon.
+                // Convex over-compositing keeps overlapping strata bounded.
+                color =
+                  color * (1 - face) +
+                  (0.34 + 0.44 * variation + 0.1 * fiber) * face;
+                height =
+                  height * (1 - face) +
+                  (0.49 + 0.12 * variation + 0.025 * fiber) * face;
+                roughness =
+                  roughness * (1 - face) +
+                  (preset.roughness - 0.045 + 0.07 * fiber) * face;
+                coverage += (1 - coverage) * face;
+              }
+          occlusion = 0.83 + 0.15 * coverage + 0.015 * detail;
+          return;
+        };
+      case 'crackleglaze':
+        return () => {
+          const x = u * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x35ad) - 0.5),
+            y = v * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x71c3) - 0.5);
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let faces = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset =
+                ((((cy % 16) + 16) % 16) * 16 + (((cx % 16) + 16) % 16)) * 26;
+              const dx = x - cx - glazeCells![offset],
+                dy = y - cy - glazeCells![offset + 1];
+              let face = 1;
+              for (let edge = 0; edge < 8; edge++) {
+                const plane = offset + 2 + edge * 3;
+                face *= smooth(
+                  clamp(
+                    (glazeCells![plane + 2] -
+                      dx * glazeCells![plane] -
+                      dy * glazeCells![plane + 1]) /
+                      0.024,
+                  ),
+                );
+              }
+              faces += face;
+            }
+          const cracks = 1 - clamp(faces);
+          color = (0.87 + 0.035 * detail) * (1 - cracks) + 0.08 * cracks;
+          height = 0.54 - 0.12 * cracks;
+          roughness += 0.14 * cracks + 0.015 * (detail - 0.5);
+          occlusion = 1 - 0.14 * cracks;
+          return;
+        };
+      case 'flutedceramic':
+        return () => {
+          const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
+          const speckles = smooth(
+            clamp((noise(u, v, 96, 96, seed ^ 0x5f29) - 0.65) / 0.28),
+          );
+          color = 0.88 + 0.035 * detail - 0.12 * speckles;
+          height = 0.2 + 0.6 * flute;
+          roughness += 0.035 * (1 - flute) + 0.025 * speckles;
+          occlusion = 0.92 + 0.08 * flute;
+          return;
+        };
+      case 'encaustictiles':
+        return () => {
+          const x = fract(u * 4),
+            y = fract(v * 4);
+          // A product keeps both slopes smooth where the two grout bevels meet.
+          const face =
+            smooth(clamp((Math.min(x, 1 - x) - 0.02) / 0.08)) *
+            smooth(clamp((Math.min(y, 1 - y) - 0.02) / 0.08));
+          const dx = x - 0.5,
+            dy = y - 0.5;
+          const rx = dx * motifCos + dy * motifSin,
+            ry = dy * motifCos - dx * motifSin;
+          let petals = 0;
+          for (let petal = 0; petal < 4; petal++) {
+            const px = petal < 2 ? rx : ry,
+              py = petal < 2 ? ry : rx;
+            const along = (px - (petal % 2 === 0 ? 0.16 : -0.16)) / 0.19,
+              across = py / 0.085;
+            const weight = smooth(
+              clamp((1 - along * along - across * across) / 0.22),
+            );
+            petals += (1 - petals) * weight;
+          }
+          const radius2 = dx * dx + dy * dy;
+          const ring =
+            smooth(clamp((radius2 - 0.135) / 0.008)) *
+            (1 - smooth(clamp((radius2 - 0.158) / 0.008)));
+          const motif = petals + (1 - petals) * ring;
+          color = 0.94 - 0.84 * motif + 0.012 * (detail - 0.5);
+          // Inlaid pigment changes no height: only the square grout is recessed.
+          height = 0.18 + 0.4 * face;
+          mortar = 1 - face;
+          roughness += 0.12 * mortar + 0.035 * (detail - 0.5);
+          occlusion = 0.77 + 0.23 * face;
+          return;
+        };
+      case 'breadcrust':
+        return () => {
+          const x = u * 7,
+            y = v * 7,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let plates = 0,
+            puff = 0,
+            toast = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset =
+                ((((cy % 7) + 7) % 7) * 7 + (((cx % 7) + 7) % 7)) * 27;
+              const dx = x - cx - crustPlates![offset],
+                dy = y - cy - crustPlates![offset + 1];
+              let plate = 1,
+                crown = 1;
+              for (let edge = 0; edge < 8; edge++) {
+                const plane = offset + 3 + edge * 3;
+                const inset =
+                  crustPlates![plane + 2] -
+                  dx * crustPlates![plane] -
+                  dy * crustPlates![plane + 1];
+                plate *= smooth(clamp((inset - 0.025) / 0.14));
+                crown *= smooth(clamp((inset - 0.025) / 0.5));
+              }
+              plates += plate;
+              puff += crown;
+              toast += plate * crustPlates![offset + 2];
+            }
+          const baked = noise(u, v, 19, 23, seed ^ 0x47c3);
+          color = 0.06 + plates * (0.42 + 0.21 * baked) + 0.2 * toast;
+          height =
+            0.12 +
+            0.42 * plates +
+            0.26 * puff +
+            0.012 * plates * (detail - 0.5);
+          roughness += 0.08 * (1 - plates) + 0.035 * (baked - 0.5);
+          occlusion = 0.65 + 0.35 * plates;
+          return;
+        };
+      case 'wafer':
+        return () => {
+          const x = fract(u * 12),
+            y = fract(v * 12);
+          // Independent rounded walls meet as a product, not a min-edge cusp.
+          // Broad pocket floors and narrow continuous ribs have no yarn crossing.
+          const pocket =
+            smooth(clamp((Math.min(x, 1 - x) - 0.07) / 0.17)) *
+            smooth(clamp((Math.min(y, 1 - y) - 0.07) / 0.17));
+          const baked = noise(u, v, 24, 24, seed ^ 0x6d31);
+          color = 0.46 + 0.27 * pocket + 0.12 * baked + 0.035 * detail;
+          height = 0.72 - 0.5 * pocket + 0.008 * (detail - 0.5);
+          roughness += 0.06 * pocket + 0.02 * (baked - 0.5);
+          occlusion = 1 - 0.23 * pocket;
+          return;
+        };
+      case 'chocolate':
+        return () => {
+          const x = fract(u * 4),
+            y = fract(v * 4);
+          const segment =
+            smooth(clamp((Math.min(x, 1 - x) - 0.035) / 0.105)) *
+            smooth(clamp((Math.min(y, 1 - y) - 0.035) / 0.105));
+          const cocoa = noise(u, v, 4, 4, seed ^ 0x31b9);
+          color = 0.18 + 0.46 * segment + 0.065 * cocoa + 0.008 * detail;
+          // The mold's broad top stays exactly flat; only its scoring has relief.
+          height = 0.14 + 0.65 * segment;
+          roughness += 0.1 * (1 - segment) + 0.008 * (cocoa - 0.5);
+          occlusion = 0.73 + 0.27 * segment;
+          return;
+        };
+      case 'pretzel':
+        return () => {
+          // Interlaced dough ropes cross at raised knots, dusted with salt.
+          const ropeA = smooth(
+            clamp((0.18 - Math.abs(fract((u + v) * 3) - 0.5)) / 0.12),
+          );
+          const ropeB = smooth(
+            clamp((0.18 - Math.abs(fract((u - v) * 3) - 0.5)) / 0.12),
+          );
+          const twist = ropeA + ropeB - ropeA * ropeB;
+          const knot = ropeA * ropeB;
+          const salt = smooth(
+            clamp((noise(u, v, 24, 24, seed ^ 0x19af) - 0.78) / 0.06),
+          );
+          const grain = noise(u, v, 16, 16, seed ^ 0x2f31);
+          color = 0.42 + 0.28 * twist + 0.1 * knot + 0.1 * salt + 0.06 * grain;
+          height =
+            0.42 + 0.22 * twist + 0.1 * knot + 0.04 * salt + 0.015 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * knot - 0.18 * salt;
+          occlusion = 1 - 0.34 * (1 - twist) - 0.1 * (1 - knot);
+          return;
+        };
+      case 'bagel':
+        return () => {
+          // A chewy ring rises around the recessed hole, seeded with sesame.
+          const dx = Math.min(Math.abs(u - 0.5), 1 - Math.abs(u - 0.5));
+          const dy = Math.min(Math.abs(v - 0.5), 1 - Math.abs(v - 0.5));
+          const d = Math.hypot(dx, dy) * 2;
+          const ring = smooth(clamp((0.12 - Math.abs(d - 0.34)) / 0.06));
+          const hole = smooth(clamp((0.16 - d) / 0.08));
+          const sesame = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x4c1d) - 0.78) / 0.06),
+          );
+          const grain = noise(u, v, 16, 16, seed ^ 0x5b2e);
+          color =
+            0.44 + 0.3 * ring - 0.16 * hole + 0.12 * sesame + 0.06 * grain;
+          height =
+            0.46 + 0.26 * ring - 0.16 * hole + 0.05 * sesame + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * ring - 0.18 * sesame;
+          occlusion = 1 - 0.3 * hole - 0.14 * (1 - ring);
+          return;
+        };
+      case 'croissant':
+        return () => {
+          // Buttered layers stack in diagonal ridges with browned seams.
+          const turn = fract((u + v) * 4);
+          const layer = smooth(clamp((0.3 - Math.abs(turn - 0.5)) / 0.14));
+          const seam = smooth(clamp((0.12 - Math.min(turn, 1 - turn)) / 0.03));
+          const grain = noise(u, v, 16, 16, seed ^ 0x6d47);
+          color = 0.44 + 0.34 * layer - 0.14 * seam + 0.08 * grain;
+          height = 0.44 + 0.28 * layer - 0.06 * seam + 0.03 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * layer + 0.1 * seam;
+          occlusion = 1 - 0.34 * (1 - layer) - 0.1 * seam;
+          return;
+        };
+      case 'butterflywing':
+        return () => {
+          // Overlapping scale tiles sit in the cells between raised wing veins.
+          const tile =
+            smooth(clamp((0.28 - Math.abs(fract(u * 24) - 0.5)) / 0.12)) *
+            smooth(clamp((0.28 - Math.abs(fract(v * 16) - 0.5)) / 0.12));
+          const vein = smooth(
+            clamp((0.06 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
+          );
+          const patch = noise(u, v, 6, 6, seed ^ 0x71c3);
+          const grain = noise(u, v, 48, 48, seed ^ 0x2a55);
+          color = 0.42 + 0.3 * tile - 0.1 * vein + 0.12 * patch + 0.06 * grain;
+          height = 0.44 + 0.22 * tile - 0.14 * vein + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * tile + 0.12 * vein;
+          occlusion = 1 - 0.3 * (1 - tile) - 0.24 * vein;
+          return;
+        };
+      case 'beetlewing':
+        return () => {
+          // Elytra plates dome above their sutured seams and fine punctures.
+          const plate = smooth(
+            clamp((0.32 - Math.abs(fract(u * 6) - 0.5)) / 0.14),
+          );
+          const suture = smooth(
+            clamp((0.12 - Math.min(fract(u * 6), 1 - fract(u * 6))) / 0.03),
+          );
+          const puncture = smooth(
+            clamp((noise(u, v, 24, 24, seed ^ 0x55aa) - 0.8) / 0.05),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x39f1);
+          color =
+            0.42 + 0.32 * plate - 0.12 * suture - 0.1 * puncture + 0.06 * grain;
+          height =
+            0.44 + 0.26 * plate - 0.1 * suture - 0.06 * puncture + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * plate + 0.1 * suture;
+          occlusion = 1 - 0.3 * suture - 0.14 * (1 - plate) - 0.18 * puncture;
+          return;
+        };
+      case 'spiderweb':
+        return () => {
+          // Radial spokes and concentric silk rings frame the open cells, beaded with dew.
+          const spokeU = smooth(clamp((0.012 - Math.abs(u - 0.5)) / 0.008));
+          const spokeV = smooth(clamp((0.012 - Math.abs(v - 0.5)) / 0.008));
+          const d1 = Math.abs(u - v),
+            d2 = Math.abs(u + v - 1);
+          const spokeA = smooth(clamp((0.012 - Math.min(d1, 1 - d1)) / 0.008));
+          const spokeB = smooth(clamp((0.012 - Math.min(d2, 1 - d2)) / 0.008));
+          const spoke =
+            1 - (1 - spokeU) * (1 - spokeV) * (1 - spokeA) * (1 - spokeB);
+          const rad =
+            Math.hypot(
+              Math.sin(Math.PI * (u - 0.5)),
+              Math.sin(Math.PI * (v - 0.5)),
+            ) *
+            (2 / Math.PI);
+          const ring =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 6) - 0.5));
+          const silk = 1 - (1 - spoke) * (1 - ring);
+          const dew = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x7d21) - 0.82) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x1b64);
+          color = 0.4 + 0.3 * silk + 0.12 * dew + 0.08 * grain;
+          height = 0.42 + 0.2 * silk + 0.05 * dew + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.16 * silk - 0.1 * dew;
+          occlusion = 1 - 0.34 * (1 - silk);
+          return;
+        };
+      case 'cirrus':
+        return () => {
+          // Wind-combed streaks feather across the open high air.
+          const warp = noise(u, v, 3, 3, seed ^ 0x2345) - 0.5;
+          const streak = smooth(
+            clamp((0.3 - Math.abs(fract((v + 0.18 * warp) * 6) - 0.5)) / 0.16),
+          );
+          const fiber = noise(u, v, 32, 16, seed ^ 0x3456);
+          color = 0.46 + 0.34 * streak + 0.08 * fiber;
+          height = 0.46 + 0.22 * streak + 0.02 * fiber;
+          roughness += 0.06 * (fiber - 0.5) - 0.12 * streak;
+          occlusion = 1 - 0.32 * (1 - streak);
+          return;
+        };
+      case 'cumulus':
+        return () => {
+          // Puffy cauliflower domes pile above the shaded gaps between them.
+          const puff = smooth(
+            clamp((noise(u, v, 5, 5, seed ^ 0x4567) - 0.42) / 0.18),
+          );
+          const wisp = noise(u, v, 12, 12, seed ^ 0x5678);
+          color = 0.48 + 0.36 * puff + 0.08 * wisp;
+          height = 0.44 + 0.3 * puff + 0.02 * wisp;
+          roughness += 0.06 * (wisp - 0.5) - 0.1 * puff;
+          occlusion = 1 - 0.36 * (1 - puff);
+          return;
+        };
+      case 'lightning':
+        return () => {
+          // A jagged bolt core glows above the dark storm sky.
+          const warp = noise(u, v, 4, 4, seed ^ 0x6789) - 0.5;
+          const zig = fract((u + v) * 3 + 0.35 * warp);
+          const bolt = smooth(clamp((0.022 - Math.abs(zig - 0.5)) / 0.012));
+          const glow = smooth(clamp((0.16 - Math.abs(zig - 0.5)) / 0.14));
+          const grain = noise(u, v, 32, 32, seed ^ 0x789a);
+          color = 0.22 + 0.3 * glow + 0.4 * bolt + 0.06 * grain;
+          height = 0.44 + 0.16 * glow + 0.18 * bolt + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.14 * bolt;
+          occlusion = 1 - 0.36 * (1 - glow) - 0.14 * (1 - bolt);
+          return;
+        };
+      case 'kelp':
+        return () => {
+          // Broad slick blades ripple in waves above the shadowed troughs.
+          const warp = noise(u, v, 4, 4, seed ^ 0x1122) - 0.5;
+          const wave = smooth(
+            clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 4) - 0.5)) / 0.16),
+          );
+          const slick = smooth(
+            clamp((noise(u, v, 8, 8, seed ^ 0x2233) - 0.68) / 0.08),
+          );
+          const grain = noise(u, v, 24, 24, seed ^ 0x3344);
+          color = 0.44 + 0.3 * wave + 0.1 * slick + 0.08 * grain;
+          height = 0.44 + 0.28 * wave + 0.05 * slick + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) - 0.22 * slick - 0.1 * wave;
+          occlusion = 1 - 0.36 * (1 - wave) - 0.1 * (1 - slick);
+          return;
+        };
+      case 'seaweed':
+        return () => {
+          // Fine branching threads weave over the shaded gaps of the mat.
+          const warp = noise(u, v, 3, 3, seed ^ 0x4455) - 0.5;
+          const branchA = smooth(
+            clamp(
+              (0.05 - Math.abs(fract((u + v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
+            ),
+          );
+          const branchB = smooth(
+            clamp(
+              (0.05 - Math.abs(fract((u - v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
+            ),
+          );
+          const branch = branchA + branchB - branchA * branchB;
+          const grain = noise(u, v, 24, 24, seed ^ 0x5566);
+          color = 0.42 + 0.3 * branch + 0.08 * grain;
+          height = 0.44 + 0.22 * branch + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * branch;
+          occlusion = 1 - 0.34 * (1 - branch);
+          return;
+        };
+      case 'anemone':
+        return () => {
+          // Ringed tentacles rise around the recessed central mouth.
+          const rad =
+            Math.hypot(
+              Math.sin(Math.PI * (u - 0.5)),
+              Math.sin(Math.PI * (v - 0.5)),
+            ) *
+            (2 / Math.PI);
+          const fade = smooth(clamp((rad - 0.12) / 0.08));
+          const tentacle =
+            (0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 8) - 0.5))) * fade;
+          const mouth = smooth(clamp((0.12 - rad) / 0.06));
+          const grain = noise(u, v, 24, 24, seed ^ 0x6677);
+          color = 0.42 + 0.32 * tentacle - 0.12 * mouth + 0.08 * grain;
+          height = 0.44 + 0.26 * tentacle - 0.12 * mouth + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * tentacle;
+          occlusion = 1 - 0.3 * mouth - 0.12 * (1 - tentacle) * fade;
+          return;
+        };
+      case 'candy':
+        return () => {
+          // Glossy hard-candy stripes twist above their shallow seams.
+          const turn = fract((u + v) * 4);
+          const stripe = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
+          const seam = smooth(clamp((0.1 - Math.min(turn, 1 - turn)) / 0.03));
+          const gloss = noise(u, v, 16, 16, seed ^ 0x7788);
+          color = 0.42 + 0.36 * stripe - 0.12 * seam + 0.08 * gloss;
+          height = 0.44 + 0.26 * stripe - 0.06 * seam + 0.02 * gloss;
+          roughness += 0.08 * (gloss - 0.5) - 0.12 * stripe;
+          occlusion = 1 - 0.32 * (1 - stripe) - 0.12 * seam;
+          return;
+        };
+      case 'marshmallow':
+        return () => {
+          // Soft piped ridges roll over their rounded grooves, dusted with starch.
+          const roll = fract((u + v) * 5);
+          const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (roll - 0.5));
+          const starch = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x8899) - 0.7) / 0.1),
+          );
+          const grain = noise(u, v, 24, 24, seed ^ 0x99aa);
+          color = 0.5 + 0.3 * ridge + 0.1 * starch + 0.06 * grain;
+          height = 0.44 + 0.28 * ridge + 0.05 * starch + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * ridge;
+          occlusion = 1 - 0.32 * (1 - ridge);
+          return;
+        };
+      case 'nougat':
+        return () => {
+          // Nut chunks and bubble pits break the chewy sugar base.
+          const nut = smooth(
+            clamp((noise(u, v, 6, 6, seed ^ 0xaabb) - 0.55) / 0.12),
+          );
+          const pit = smooth(
+            clamp((noise(u, v, 16, 16, seed ^ 0xbbcc) - 0.72) / 0.05),
+          );
+          const grain = noise(u, v, 24, 24, seed ^ 0xccdd);
+          color = 0.44 + 0.3 * nut - 0.12 * pit + 0.08 * grain;
+          height = 0.44 + 0.24 * nut - 0.1 * pit + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) - 0.1 * nut + 0.12 * pit;
+          occlusion = 1 - 0.34 * (1 - nut) - 0.18 * pit;
+          return;
+        };
+      case 'frostedglass':
+        return () => {
+          // Fine acid-etch speckle scatters over the pane.
+          const etch = smooth(
+            clamp((noise(u, v, 32, 32, seed ^ 0xdd11) - 0.42) / 0.16),
+          );
+          const micro = noise(u, v, 64, 64, seed ^ 0xee22);
+          color = 0.5 + 0.26 * etch + 0.08 * micro;
+          height = 0.46 + 0.18 * etch + 0.02 * micro;
+          roughness += 0.08 * (micro - 0.5) - 0.1 * etch;
+          occlusion = 1 - 0.28 * (1 - etch);
+          return;
+        };
+      case 'rippledglass':
+        return () => {
+          // Vertical rolled ribs ripple across the drawn glass.
+          const rib = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 6) - 0.5));
+          const micro = noise(u, v, 32, 32, seed ^ 0xff33);
+          color = 0.48 + 0.32 * rib + 0.08 * micro;
+          height = 0.46 + 0.26 * rib + 0.02 * micro;
+          roughness += 0.08 * (micro - 0.5) - 0.12 * rib;
+          occlusion = 1 - 0.3 * (1 - rib);
+          return;
+        };
+      case 'bubbleglass':
+        return () => {
+          // Seeded round bubbles dome over the clear glass body.
+          const dx = fract(u * 8) - 0.5,
+            dy = fract(v * 8) - 0.5;
+          const r = Math.hypot(dx, dy);
+          const bubble = smooth(clamp((0.34 - r) / 0.14));
+          const micro = noise(u, v, 32, 32, seed ^ 0x1a44);
+          color = 0.48 + 0.32 * bubble + 0.08 * micro;
+          height = 0.46 + 0.24 * bubble + 0.02 * micro;
+          roughness += 0.08 * (micro - 0.5) - 0.12 * bubble;
+          occlusion = 1 - 0.3 * (1 - bubble);
+          return;
+        };
+      case 'saddlestitch':
+        return () => {
+          // Saddle stitches dash along their seam above the grained leather.
+          const se = (u - v) * 2 - 0.25;
+          const line = smooth(
+            clamp((0.05 - Math.min(fract(se), 1 - fract(se))) / 0.03),
+          );
+          const dash = smooth(
+            clamp((0.3 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.12),
+          );
+          const stitch = line * dash;
+          const grain = noise(u, v, 24, 24, seed ^ 0x2b55);
+          color = 0.42 + 0.3 * stitch + 0.08 * grain;
+          height = 0.44 + 0.24 * stitch + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * stitch;
+          occlusion = 1 - 0.32 * (1 - stitch);
+          return;
+        };
+      case 'tooledleather':
+        return () => {
+          // Tooled medallions with swirl rings emboss over the compressed ground.
+          const tx = fract(u * 4) - 0.5,
+            ty = fract(v * 4) - 0.5;
+          const r = Math.hypot(tx, ty);
+          const medallion = smooth(clamp((0.36 - r) / 0.16));
+          const swirl = smooth(clamp((0.035 - Math.abs(r - 0.18)) / 0.02));
+          const grain = noise(u, v, 24, 24, seed ^ 0x3c66);
+          color = 0.42 + 0.26 * medallion + 0.1 * swirl + 0.08 * grain;
+          height = 0.44 + 0.22 * medallion + 0.08 * swirl + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * medallion;
+          occlusion = 1 - 0.34 * (1 - medallion);
+          return;
+        };
+      case 'patentleather':
+        return () => {
+          // Mirror lacquer carries a fine orange-peel ripple.
+          const peel = smooth(
+            clamp((noise(u, v, 32, 32, seed ^ 0x4d77) - 0.42) / 0.16),
+          );
+          const sheen = noise(u, v, 6, 6, seed ^ 0x5e88);
+          color = 0.44 + 0.18 * peel + 0.16 * sheen;
+          height = 0.46 + 0.16 * peel + 0.02 * sheen;
+          roughness += 0.08 * (peel - 0.5);
+          occlusion = 1 - 0.18 * (1 - peel);
+          return;
+        };
+      case 'appleskin':
+        return () => {
+          // Blush streaks band the taut skin, freckled with lenticel dots.
+          const stripe =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 5) - 0.5));
+          const dot = smooth(
+            clamp((noise(u, v, 28, 28, seed ^ 0x6f99) - 0.8) / 0.05),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x7aaa);
+          color = 0.44 + 0.32 * stripe + 0.1 * dot + 0.06 * grain;
+          height = 0.46 + 0.2 * stripe + 0.05 * dot + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * stripe;
+          occlusion = 1 - 0.3 * (1 - stripe) - 0.1 * (1 - dot);
+          return;
+        };
+      case 'peachskin':
+        return () => {
+          // Fine fuzz covers the blush beside the recessed suture groove.
+          const suture = smooth(clamp((0.045 - Math.abs(u - 0.5)) / 0.025));
+          const fuzz = noise(u, v, 32, 32, seed ^ 0x8bbb);
+          const blush = noise(u, v, 6, 6, seed ^ 0x9ccc);
+          color = 0.46 + 0.3 * blush - 0.12 * suture + 0.08 * fuzz;
+          height = 0.46 + 0.06 * fuzz - 0.16 * suture;
+          roughness += 0.08 * (fuzz - 0.5) + 0.1 * suture;
+          occlusion = 1 - 0.4 * suture;
+          return;
+        };
+      case 'grapeskin':
+        return () => {
+          // Taut bloom patches dust the smooth stretched skin.
+          const bloom = smooth(
+            clamp((noise(u, v, 6, 6, seed ^ 0xaddd) - 0.5) / 0.16),
+          );
+          const pore = noise(u, v, 32, 32, seed ^ 0xbeee);
+          color = 0.46 + 0.28 * bloom + 0.08 * pore;
+          height = 0.46 + 0.18 * bloom + 0.02 * pore;
+          roughness += 0.12 * (bloom - 0.5) * 2 + 0.06 * (pore - 0.5);
+          occlusion = 1 - 0.3 * (1 - bloom);
+          return;
+        };
+      case 'broccoli':
+        return () => {
+          // Dense floret buds cluster above the shaded gaps of the head.
+          const floret = smooth(
+            clamp((noise(u, v, 10, 10, seed ^ 0xcf11) - 0.45) / 0.14),
+          );
+          const bud = smooth(
+            clamp((noise(u, v, 28, 28, seed ^ 0xd022) - 0.58) / 0.1),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0xe133);
+          color = 0.42 + 0.3 * floret + 0.12 * bud + 0.06 * grain;
+          height = 0.44 + 0.24 * floret + 0.08 * bud + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * floret;
+          occlusion = 1 - 0.36 * (1 - floret) - 0.1 * (1 - bud);
+          return;
+        };
+      case 'cabbage':
+        return () => {
+          // Leafy folds ripple beside the recessed veins between them.
+          const turn = fract((u + v) * 3);
+          const fold = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const vein =
+            smooth(
+              clamp((0.045 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
+            ) +
+            smooth(
+              clamp((0.045 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.025),
+            );
+          const grain = noise(u, v, 24, 24, seed ^ 0xf244);
+          color = 0.44 + 0.3 * fold - 0.12 * Math.min(vein, 1) + 0.08 * grain;
+          height = 0.44 + 0.26 * fold - 0.1 * Math.min(vein, 1) + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * fold;
+          occlusion = 1 - 0.34 * (1 - fold) - 0.12 * Math.min(vein, 1);
+          return;
+        };
+      case 'onion':
+        return () => {
+          // Concentric layer bands arc over the dry papery skin fibers.
+          const turn = fract((u + v) * 6);
+          const layer = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const fiber = smooth(
+            clamp((0.035 - Math.abs(fract((u - v) * 8) - 0.5)) / 0.02),
+          );
+          const grain = noise(u, v, 24, 24, seed ^ 0x1355);
+          color = 0.44 + 0.3 * layer + 0.1 * fiber + 0.06 * grain;
+          height = 0.44 + 0.24 * layer + 0.05 * fiber + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
+          occlusion = 1 - 0.32 * (1 - layer);
+          return;
+        };
+      case 'bedsheet':
+        return () => {
+          // Soft pressed wrinkles drift across the woven sheet.
+          const warp = noise(u, v, 4, 4, seed ^ 0x2466) - 0.5;
+          const wrinkle = smooth(
+            clamp((0.3 - Math.abs(fract((v + 0.16 * warp) * 4) - 0.5)) / 0.16),
+          );
+          const weave = noise(u, v, 32, 32, seed ^ 0x3577);
+          color = 0.5 + 0.3 * wrinkle + 0.08 * weave;
+          height = 0.46 + 0.22 * wrinkle + 0.02 * weave;
+          roughness += 0.06 * (weave - 0.5) - 0.1 * wrinkle;
+          occlusion = 1 - 0.3 * (1 - wrinkle);
+          return;
+        };
+      case 'pillow':
+        return () => {
+          // Lofty quilted puffs dome between the recessed piped seams.
+          const px = fract(u * 2) - 0.5,
+            py = fract(v * 2) - 0.5;
+          const puff = smooth(clamp((0.36 - Math.hypot(px, py)) / 0.16));
+          const seam =
+            smooth(
+              clamp((0.045 - Math.min(fract(u * 2), 1 - fract(u * 2))) / 0.025),
+            ) +
+            smooth(
+              clamp((0.045 - Math.min(fract(v * 2), 1 - fract(v * 2))) / 0.025),
+            );
+          const weave = noise(u, v, 32, 32, seed ^ 0x5799);
+          color = 0.5 + 0.3 * puff - 0.1 * Math.min(seam, 1) + 0.06 * weave;
+          height = 0.44 + 0.24 * puff - 0.12 * Math.min(seam, 1) + 0.02 * weave;
+          roughness += 0.06 * (weave - 0.5) - 0.08 * puff;
+          occlusion = 1 - 0.34 * (1 - puff) - 0.12 * Math.min(seam, 1);
+          return;
+        };
+      case 'mattress':
+        return () => {
+          // Button tufts pull dimples into the coarse woven surface.
+          const tx = fract(u * 4) - 0.5,
+            ty = fract(v * 4) - 0.5;
+          const r = Math.hypot(tx, ty);
+          const tuft = smooth(clamp((0.18 - r) / 0.08));
+          const weave = noise(u, v, 24, 24, seed ^ 0x68aa);
+          color = 0.46 + 0.3 * (1 - tuft) * 0.4 + 0.1 * weave;
+          height = 0.46 + 0.12 * weave - 0.2 * tuft;
+          roughness += 0.06 * (weave - 0.5);
+          occlusion = 1 - 0.42 * tuft;
+          return;
+        };
+      case 'tealeaf':
+        return () => {
+          // Curled leaf pieces pile over the shaded gaps of the heap.
+          const leaf = smooth(
+            clamp((noise(u, v, 6, 6, seed ^ 0x79bb) - 0.48) / 0.14),
+          );
+          const curl = smooth(
+            clamp((noise(u, v, 14, 14, seed ^ 0x8acc) - 0.62) / 0.1),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x9bdd);
+          color = 0.42 + 0.3 * leaf + 0.12 * curl + 0.06 * grain;
+          height = 0.44 + 0.22 * leaf + 0.08 * curl + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * leaf;
+          occlusion = 1 - 0.36 * (1 - leaf) - 0.1 * (1 - curl);
+          return;
+        };
+      case 'matcha':
+        return () => {
+          // Whisk streaks comb across the fine powder bed.
+          const turn = fract((u + v) * 5);
+          const streak = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const powder = noise(u, v, 32, 32, seed ^ 0xaeee);
+          color = 0.46 + 0.3 * streak + 0.08 * powder;
+          height = 0.46 + 0.2 * streak + 0.02 * powder;
+          roughness += 0.06 * (powder - 0.5) - 0.08 * streak;
+          occlusion = 1 - 0.3 * (1 - streak);
+          return;
+        };
+      case 'teabag':
+        return () => {
+          // Filter-paper mesh threads cross over the open pores and tea shadows.
+          const warp = smooth(
+            clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
+          );
+          const weft = smooth(
+            clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
+          );
+          const thread = warp + weft - warp * weft;
+          const shadow = noise(u, v, 6, 6, seed ^ 0xbfff);
+          const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+          color = 0.46 + 0.28 * thread + 0.1 * shadow + 0.06 * grain;
+          height = 0.46 + 0.2 * thread + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * thread;
+          occlusion = 1 - 0.34 * (1 - thread);
+          return;
+        };
+      case 'sanddune':
+        return () => {
+          // Wind ripples comb fine grain across the dune face.
+          const turn = fract((u + v) * 6);
+          const ripple = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const grain = noise(u, v, 32, 32, seed ^ 0xd222);
+          color = 0.46 + 0.3 * ripple + 0.08 * grain;
+          height = 0.46 + 0.2 * ripple + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * ripple;
+          occlusion = 1 - 0.3 * (1 - ripple);
+          return;
+        };
+      case 'pebblebeach':
+        return () => {
+          // Round pebbles dome over the coarse sand between them.
+          const px = fract(u * 5) - 0.5,
+            py = fract(v * 5) - 0.5;
+          const pebble = smooth(clamp((0.34 - Math.hypot(px, py)) / 0.14));
+          const grain = noise(u, v, 32, 32, seed ^ 0xe333);
+          color = 0.44 + 0.32 * pebble + 0.08 * grain;
+          height = 0.44 + 0.26 * pebble + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * pebble;
+          occlusion = 1 - 0.34 * (1 - pebble);
+          return;
+        };
+      case 'foamedge':
+        return () => {
+          // Foam clumps and bubble specks wash over the thin water film.
+          const clump = smooth(
+            clamp((noise(u, v, 8, 8, seed ^ 0xf444) - 0.46) / 0.16),
+          );
+          const bubble = smooth(
+            clamp((noise(u, v, 24, 24, seed ^ 0x1555) - 0.7) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x2666);
+          color = 0.48 + 0.3 * clump + 0.12 * bubble + 0.06 * grain;
+          height = 0.44 + 0.22 * clump + 0.06 * bubble + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * clump;
+          occlusion = 1 - 0.34 * (1 - clump) - 0.1 * (1 - bubble);
+          return;
+        };
+      case 'lavaflow':
+        return () => {
+          // Pahoehoe ropes coil above the dark cracks between them.
+          const turn = fract((u + v) * 5);
+          const rope = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const crack = smooth(clamp((0.08 - Math.min(turn, 1 - turn)) / 0.04));
+          const glow = noise(u, v, 12, 12, seed ^ 0x3777);
+          const grain = noise(u, v, 32, 32, seed ^ 0x4888);
+          color =
+            0.34 + 0.34 * rope - 0.12 * crack + 0.16 * glow + 0.06 * grain;
+          height = 0.44 + 0.26 * rope - 0.1 * crack + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * rope + 0.12 * crack;
+          occlusion = 1 - 0.32 * (1 - rope) - 0.18 * crack;
+          return;
+        };
+      case 'cooledlava':
+        return () => {
+          // Crusted blocks crack apart over the pitted cooled surface.
+          const bx = Math.min(fract(u * 4), 1 - fract(u * 4));
+          const by = Math.min(fract(v * 4), 1 - fract(v * 4));
+          const block = smooth(clamp((Math.min(bx, by) - 0.03) / 0.1));
+          const pore = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x5999) - 0.74) / 0.06),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+          color = 0.4 + 0.3 * block - 0.1 * pore + 0.08 * grain;
+          height = 0.42 + 0.24 * block - 0.08 * pore + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) + 0.1 * pore;
+          occlusion = 1 - 0.34 * (1 - block) - 0.18 * pore;
+          return;
+        };
+      case 'ashfield':
+        return () => {
+          // Fine ash drifts mound over the dusted ground.
+          const drift = smooth(
+            clamp((noise(u, v, 8, 8, seed ^ 0x7bbb) - 0.44) / 0.18),
+          );
+          const grit = noise(u, v, 32, 32, seed ^ 0x8ccc);
+          color = 0.44 + 0.28 * drift + 0.08 * grit;
+          height = 0.44 + 0.22 * drift + 0.02 * grit;
+          roughness += 0.06 * (grit - 0.5);
+          occlusion = 1 - 0.32 * (1 - drift);
+          return;
+        };
+      case 'stalactite':
+        return () => {
+          // Dripping cone tips hang over the shadowed pockets between them.
+          const cx = fract(u * 4) - 0.5,
+            cy = fract(v * 4) - 0.5;
+          const cone = smooth(clamp((0.32 - Math.hypot(cx, cy)) / 0.16));
+          const drip = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x9ddd) - 0.7) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+          color = 0.44 + 0.3 * cone + 0.1 * drip + 0.06 * grain;
+          height = 0.44 + 0.26 * cone + 0.05 * drip + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * cone;
+          occlusion = 1 - 0.36 * (1 - cone) - 0.1 * (1 - drip);
+          return;
+        };
+      case 'flowstone':
+        return () => {
+          // Terraced flow bands step over the fine drip ripples.
+          const turn = fract((u + v) * 5);
+          const terrace = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
+          const ripple = noise(u, v, 24, 24, seed ^ 0xbfff);
+          const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+          color = 0.46 + 0.3 * terrace + 0.08 * ripple + 0.06 * grain;
+          height = 0.44 + 0.26 * terrace + 0.04 * ripple + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * terrace;
+          occlusion = 1 - 0.32 * (1 - terrace);
+          return;
+        };
+      case 'cavefloor':
+        return () => {
+          // Rubble and grit break around the smooth shallow puddles.
+          const rubble = smooth(
+            clamp((noise(u, v, 8, 8, seed ^ 0xd222) - 0.46) / 0.16),
+          );
+          const puddle = smooth(
+            clamp((noise(u, v, 5, 5, seed ^ 0xe333) - 0.72) / 0.06),
+          );
+          const grit = noise(u, v, 32, 32, seed ^ 0xf444);
+          color = 0.42 + 0.28 * rubble + 0.12 * puddle + 0.08 * grit;
+          height = 0.44 + 0.2 * rubble - 0.1 * puddle + 0.02 * grit;
+          roughness += 0.06 * (grit - 0.5) + 0.2 * puddle;
+          occlusion = 1 - 0.34 * (1 - rubble) - 0.1 * puddle;
+          return;
+        };
+      case 'jam':
+        return () => {
+          // Glossy fruit chunks sit in the clear set syrup.
+          const jx = fract(u * 5) - 0.5,
+            jy = fract(v * 5) - 0.5;
+          const chunk = smooth(clamp((0.3 - Math.hypot(jx, jy)) / 0.14));
+          const syrup = noise(u, v, 16, 16, seed ^ 0x1555);
+          const grain = noise(u, v, 32, 32, seed ^ 0x2666);
+          color = 0.42 + 0.32 * chunk + 0.12 * syrup + 0.06 * grain;
+          height = 0.44 + 0.22 * chunk + 0.02 * grain;
+          roughness += 0.1 * (grain - 0.5) - 0.12 * chunk;
+          occlusion = 1 - 0.32 * (1 - chunk);
+          return;
+        };
+      case 'peanutbutter':
+        return () => {
+          // Chopped nut pieces break the smooth swirled paste.
+          const nut = smooth(
+            clamp((noise(u, v, 10, 10, seed ^ 0x3777) - 0.6) / 0.1),
+          );
+          const swirl = noise(u, v, 6, 6, seed ^ 0x4888);
+          const grain = noise(u, v, 32, 32, seed ^ 0x5999);
+          color = 0.46 + 0.28 * nut + 0.1 * swirl + 0.06 * grain;
+          height = 0.44 + 0.18 * nut + 0.04 * swirl + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * nut;
+          occlusion = 1 - 0.3 * (1 - nut);
+          return;
+        };
+      case 'sprinkles':
+        return () => {
+          // Sugar rods scatter over the frosted base.
+          const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+            sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+          const t = clamp((0.32 - Math.hypot(sx * 0.5, sy * 2)) / 0.32);
+          const rod = 0.5 - 0.5 * Math.cos(Math.PI * t);
+          const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+          color = 0.52 + 0.28 * rod + 0.08 * grain;
+          height = 0.44 + 0.22 * rod + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.12 * rod;
+          occlusion = 1 - 0.32 * (1 - rod);
+          return;
+        };
+      case 'icecream':
+        return () => {
+          // Piped cream ridges roll between the melting drip specks.
+          const turn = fract((u + v) * 5);
+          const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const drip = smooth(
+            clamp((noise(u, v, 16, 16, seed ^ 0x7bbb) - 0.72) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
+          color = 0.52 + 0.28 * ridge + 0.1 * drip + 0.06 * grain;
+          height = 0.44 + 0.24 * ridge + 0.05 * drip + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * ridge;
+          occlusion = 1 - 0.3 * (1 - ridge) - 0.1 * (1 - drip);
+          return;
+        };
+      case 'popsicle':
+        return () => {
+          // Frozen drip ridges run down the frosted ice pop.
+          const ridge =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 8) - 0.5));
+          const frost = noise(u, v, 24, 24, seed ^ 0x9ddd);
+          const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+          color = 0.46 + 0.3 * ridge + 0.1 * frost + 0.06 * grain;
+          height = 0.44 + 0.22 * ridge + 0.04 * frost + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) - 0.1 * ridge;
+          occlusion = 1 - 0.32 * (1 - ridge);
+          return;
+        };
+      case 'sorbet':
+        return () => {
+          // Scoop scrapes ridge over the fruit-flecked surface.
+          const turn = fract((u - v) * 6);
+          const scrape = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const fruit = smooth(
+            clamp((noise(u, v, 12, 12, seed ^ 0xbfff) - 0.68) / 0.1),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0xc111);
+          color = 0.46 + 0.28 * scrape + 0.12 * fruit + 0.06 * grain;
+          height = 0.44 + 0.2 * scrape + 0.06 * fruit + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * scrape;
+          occlusion = 1 - 0.3 * (1 - scrape) - 0.1 * (1 - fruit);
+          return;
+        };
+      case 'spaghetti':
+        return () => {
+          // Winding noodle strands coil over the sauce beneath.
+          const warp = noise(u, v, 4, 4, seed ^ 0xd222) - 0.5;
+          const strand = smooth(
+            clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 6) - 0.5)) / 0.16),
+          );
+          const sauce = noise(u, v, 8, 8, seed ^ 0xe333);
+          const grain = noise(u, v, 32, 32, seed ^ 0xf444);
+          color = 0.5 + 0.3 * strand + 0.1 * sauce + 0.06 * grain;
+          height = 0.46 + 0.22 * strand + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * strand;
+          occlusion = 1 - 0.32 * (1 - strand);
+          return;
+        };
+      case 'macaroni':
+        return () => {
+          // Short bent tube shells pile over the gaps between them.
+          const tx = Math.min(fract(u * 4), 1 - fract(u * 4)),
+            ty = Math.min(fract(v * 4), 1 - fract(v * 4));
+          const tube = smooth(clamp((Math.min(tx, ty) - 0.03) / 0.12));
+          const hr = Math.hypot(fract(u * 4) - 0.5, fract(v * 4) - 0.5);
+          const bore = smooth(clamp((0.12 - hr) / 0.06));
+          const grain = noise(u, v, 32, 32, seed ^ 0x1555);
+          color = 0.5 + 0.3 * tube - 0.12 * bore + 0.06 * grain;
+          height = 0.46 + 0.2 * tube - 0.14 * bore + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * tube;
+          occlusion = 1 - 0.34 * (1 - tube) - 0.2 * bore;
+          return;
+        };
+      case 'lasagna':
+        return () => {
+          // Layered pasta sheets stack over the sauce seams between them.
+          const layer =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
+          const cheese = smooth(
+            clamp((noise(u, v, 14, 14, seed ^ 0x2666) - 0.68) / 0.1),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x3777);
+          color = 0.44 + 0.32 * layer + 0.1 * cheese + 0.06 * grain;
+          height = 0.44 + 0.24 * layer + 0.05 * cheese + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
+          occlusion = 1 - 0.32 * (1 - layer);
+          return;
+        };
+      case 'origami':
+        return () => {
+          // Folded facets rise between the pressed crease lines.
+          const fa = Math.abs(fract((u + v) * 2) - 0.5),
+            fb = Math.abs(fract((u - v) * 2) - 0.5);
+          const fold =
+            smooth(clamp((0.34 - fa) / 0.16)) +
+            smooth(clamp((0.34 - fb) / 0.16)) -
+            smooth(clamp((0.34 - fa) / 0.16)) *
+              smooth(clamp((0.34 - fb) / 0.16));
+          const crease =
+            smooth(
+              clamp(
+                (0.05 - Math.min(fract((u + v) * 2), 1 - fract((u + v) * 2))) /
+                  0.025,
+              ),
+            ) +
+            smooth(
+              clamp(
+                (0.05 - Math.min(fract((u - v) * 2), 1 - fract((u - v) * 2))) /
+                  0.025,
+              ),
+            );
+          const grain = noise(u, v, 32, 32, seed ^ 0x4888);
+          color = 0.46 + 0.3 * fold - 0.1 * Math.min(crease, 1) + 0.06 * grain;
+          height =
+            0.44 + 0.24 * fold - 0.1 * Math.min(crease, 1) + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * fold;
+          occlusion = 1 - 0.3 * (1 - fold) - 0.12 * Math.min(crease, 1);
+          return;
+        };
+      case 'paperlace':
+        return () => {
+          // Die-cut lace holes sink through the pressed paper webbing.
+          const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+            sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+          const hole = smooth(clamp((0.16 - Math.hypot(sx, sy)) / 0.07));
+          const grain = noise(u, v, 32, 32, seed ^ 0x5999);
+          color = 0.52 + 0.28 * (1 - hole) + 0.06 * grain;
+          height = 0.46 + 0.2 * (1 - hole) + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) + 0.1 * hole;
+          occlusion = 1 - 0.36 * hole;
+          return;
+        };
+      case 'papercut':
+        return () => {
+          // Layered cutout shapes rise over the flat backing sheet.
+          const sx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
+            sy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
+          const shape = smooth(clamp((0.5 - Math.hypot(sx * 0.7, sy)) / 0.2));
+          const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+          color = 0.42 + 0.34 * shape + 0.08 * grain;
+          height = 0.44 + 0.24 * shape + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * shape;
+          occlusion = 1 - 0.32 * (1 - shape);
+          return;
+        };
+      case 'sunflower':
+        return () => {
+          // Seed heads pack in a domed grid across the disk.
+          const sx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
+            sy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
+          const st = clamp((0.6 - Math.hypot(sx * 0.9, sy * 1.4)) / 0.6);
+          const head = 0.5 - 0.5 * Math.cos(Math.PI * st);
+          const grain = noise(u, v, 32, 32, seed ^ 0x7bbb);
+          color = 0.44 + 0.3 * head + 0.08 * grain;
+          height = 0.44 + 0.24 * head + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * head;
+          occlusion = 1 - 0.32 * (1 - head);
+          return;
+        };
+      case 'daisy':
+        return () => {
+          // Radial petals fan around the recessed seed center.
+          const sx = Math.sin(Math.PI * (u - 0.5)),
+            sy = Math.sin(Math.PI * (v - 0.5));
+          const r = Math.hypot(sx, sy);
+          const ang = Math.atan2(sy, sx);
+          const petal =
+            (0.5 + 0.5 * Math.cos(ang * 12)) *
+            smooth(clamp((r - 0.16) / 0.1)) *
+            smooth(clamp((0.6 - r) / 0.1));
+          const center = smooth(clamp((0.16 - r) / 0.06));
+          const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
+          color = 0.46 + 0.32 * petal - 0.12 * center + 0.06 * grain;
+          height = 0.44 + 0.22 * petal - 0.1 * center + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * petal;
+          occlusion = 1 - 0.3 * (1 - petal) - 0.14 * center;
+          return;
+        };
+      case 'clover':
+        return () => {
+          // Three heart lobes spread from the stem join with fine veins.
+          const sx = Math.sin(Math.PI * (u - 0.5)),
+            sy = Math.sin(Math.PI * (v - 0.5));
+          const r = Math.hypot(sx, sy);
+          const ang = Math.atan2(sy, sx);
+          const lobe =
+            (0.5 + 0.5 * Math.cos(ang * 3)) * smooth(clamp((0.5 - r) / 0.14));
+          const vein = noise(u, v, 12, 12, seed ^ 0x9ddd);
+          const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+          color = 0.4 + 0.34 * lobe + 0.08 * vein + 0.06 * grain;
+          height = 0.42 + 0.24 * lobe + 0.03 * vein + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * lobe;
+          occlusion = 1 - 0.34 * (1 - lobe);
+          return;
+        };
+      case 'puzzletile':
+        return () => {
+          // Jigsaw pieces rise over their seams, bridged by rounded knobs.
+          const bx = Math.min(fract(u * 2), 1 - fract(u * 2)),
+            by = Math.min(fract(v * 2), 1 - fract(v * 2));
+          const piece = smooth(clamp((Math.min(bx, by) - 0.02) / 0.05));
+          const knobH = smooth(
+            clamp((0.13 - Math.hypot(bx, fract(v * 2) - 0.5)) / 0.05),
+          );
+          const knobV = smooth(
+            clamp((0.13 - Math.hypot(by, fract(u * 2) - 0.5)) / 0.05),
+          );
+          const top = 1 - (1 - piece) * (1 - knobH) * (1 - knobV);
+          const grain = noise(u, v, 32, 32, seed ^ 0xbbcc);
+          color = 0.44 + 0.3 * top + 0.08 * grain;
+          height = 0.44 + 0.24 * top + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * top;
+          occlusion = 1 - 0.34 * (1 - top);
+          return;
+        };
+      case 'legobrick':
+        return () => {
+          // Cylindrical studs dome over the smooth brick plate.
+          const sx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+            sy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+          const st = clamp((0.55 - Math.hypot(sx * 0.8, sy * 0.8)) / 0.55);
+          const stud = 0.5 - 0.5 * Math.cos(Math.PI * st);
+          const grain = noise(u, v, 32, 32, seed ^ 0xcddc);
+          color = 0.46 + 0.3 * stud + 0.06 * grain;
+          height = 0.44 + 0.24 * stud + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * stud;
+          occlusion = 1 - 0.3 * (1 - stud);
+          return;
+        };
+      case 'rubberband':
+        return () => {
+          // Crossed elastic bands stretch over the base wrap.
+          const bandU =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 3) - 0.5));
+          const bandV =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
+          const band = bandU + bandV - bandU * bandV;
+          const stretch = noise(u, v, 32, 32, seed ^ 0xddee);
+          color = 0.42 + 0.3 * band + 0.08 * stretch;
+          height = 0.44 + 0.2 * band + 0.02 * stretch;
+          roughness += 0.06 * (stretch - 0.5) - 0.1 * band;
+          occlusion = 1 - 0.32 * (1 - band);
+          return;
+        };
+      case 'haybale':
+        return () => {
+          // Combed straw streaks run beside the compressed bind bands.
+          const warp = noise(u, v, 3, 3, seed ^ 0xe444) - 0.5;
+          const straw =
+            0.5 +
+            0.5 *
+              Math.cos(
+                Math.PI * 2 * (fract((u + v + 0.008 * warp) * 10) - 0.5),
+              );
+          const bind = smooth(
+            clamp((0.08 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.04),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0xf555);
+          color = 0.46 + 0.3 * straw - 0.1 * bind + 0.08 * grain;
+          height = 0.44 + 0.22 * straw - 0.1 * bind + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * straw + 0.08 * bind;
+          occlusion = 1 - 0.32 * (1 - straw) - 0.14 * bind;
+          return;
+        };
+      case 'corncrib':
+        return () => {
+          // Slatted crib rails cross over the dark open gaps.
+          const slatH =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
+          const slatV =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
+          const slat = slatH + slatV - slatH * slatV;
+          const grain = noise(u, v, 32, 32, seed ^ 0x1666);
+          color = 0.4 + 0.32 * slat + 0.08 * grain;
+          height = 0.42 + 0.24 * slat + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * slat;
+          occlusion = 1 - 0.34 * (1 - slat);
+          return;
+        };
+      case 'fencepost':
+        return () => {
+          // Weathered vertical grain ridges split by dark checks.
+          const turn = fract(u * 6);
+          const grainridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
+          const check = smooth(
+            clamp((0.03 - Math.min(turn, 1 - turn)) / 0.015),
+          );
+          const knot = smooth(
+            clamp((noise(u, v, 10, 10, seed ^ 0x2777) - 0.72) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x3888);
+          color =
+            0.44 + 0.3 * grainridge - 0.12 * check + 0.08 * knot + 0.06 * grain;
+          height = 0.44 + 0.22 * grainridge - 0.1 * check + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.08 * grainridge + 0.1 * check;
+          occlusion = 1 - 0.32 * (1 - grainridge) - 0.16 * check;
+          return;
+        };
+      case 'poolfelt':
+        return () => {
+          // Dense felt nap holds the crisp white marking dots.
+          const fx = Math.sin(Math.PI * (fract(u * 8) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 8) - 0.5));
+          const dot = smooth(clamp((0.18 - Math.hypot(fx, fy)) / 0.08));
+          const felt = noise(u, v, 32, 32, seed ^ 0x4999);
+          color = 0.36 + 0.34 * dot + 0.1 * felt;
+          height = 0.46 + 0.16 * dot + 0.02 * felt;
+          roughness += 0.06 * (felt - 0.5) - 0.06 * dot;
+          occlusion = 1 - 0.28 * (1 - dot);
+          return;
+        };
+      case 'icesurface':
+        return () => {
+          // Zamboni sweep arcs gloss over the scratched ice with frost flecks.
+          const warp = noise(u, v, 3, 3, seed ^ 0x5aaa) - 0.5;
+          const sweep =
+            0.5 +
+            0.5 *
+              Math.cos(Math.PI * 2 * (fract((u + v + 0.008 * warp) * 7) - 0.5));
+          const frost = smooth(
+            clamp((noise(u, v, 20, 20, seed ^ 0x6bbb) - 0.72) / 0.08),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x7ccc);
+          color = 0.52 + 0.28 * sweep + 0.1 * frost + 0.08 * grain;
+          height = 0.46 + 0.18 * sweep + 0.04 * frost + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) + 0.2 * frost;
+          occlusion = 1 - 0.3 * (1 - sweep) - 0.1 * (1 - frost);
+          return;
+        };
+      case 'climbingwall':
+        return () => {
+          // Rounded climbing holds rise over the gritty wall panels.
+          const cx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            cy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+          const ht = clamp((0.5 - Math.hypot(cx * 0.8, cy)) / 0.5);
+          const hold = 0.5 - 0.5 * Math.cos(Math.PI * ht);
+          const grit = noise(u, v, 32, 32, seed ^ 0x8ddd);
+          color = 0.4 + 0.34 * hold + 0.08 * grit;
+          height = 0.42 + 0.28 * hold + 0.02 * grit;
+          roughness += 0.06 * (grit - 0.5) - 0.08 * hold;
+          occlusion = 1 - 0.36 * (1 - hold);
+          return;
+        };
+      case 'oledpanel':
+        return () => {
+          // Subpixel stripes glow inside each cell; the dark matrix masks between them.
+          const gx = fract(u * 6),
+            gy = fract(v * 6);
+          const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gx - 0.5)),
+            rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gy - 0.5));
+          const bx = smooth(clamp((rawx - 0.74) / 0.26)),
+            by = smooth(clamp((rawy - 0.74) / 0.26));
+          const cellMask = bx + by - bx * by;
+          const sx = fract(gx * 3);
+          const raws = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (sx - 0.5));
+          const sm = smooth(clamp((raws - 0.8) / 0.2));
+          const mask = cellMask + sm - cellMask * sm;
+          const glow =
+            0.55 +
+            0.45 * hash(Math.floor(gx * 3), Math.floor(v * 6), seed ^ 0x1a2b);
+          color = 0.16 + 0.84 * glow * (1 - mask);
+          height = 0.28 + 0.44 * (1 - mask);
+          roughness += 0.1 * mask - 0.04 * (1 - mask);
+          occlusion = 1 - 0.34 * mask;
+          return;
+        };
+      case 'crtscanline':
+        return () => {
+          // Bright phosphor scanlines sit above the dark line gaps with fine grain.
+          const scan =
+            0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 10) - 0.5));
+          const phosphor = noise(u, v, 32, 32, seed ^ 0x2b3c),
+            grain = noise(u, v, 64, 64, seed ^ 0x3c4d);
+          color = 0.1 + 0.72 * scan + 0.12 * phosphor + 0.06 * grain;
+          height = 0.24 + 0.5 * scan + 0.04 * phosphor;
+          roughness += 0.08 * (1 - scan) + 0.06 * (grain - 0.5);
+          occlusion = 1 - 0.36 * (1 - scan);
+          return;
+        };
+      case 'keyboardkey':
+        return () => {
+          // Sculpted rounded-square keycaps rise over the recessed gaps.
+          const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+          const d = Math.pow(
+            Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+            0.25,
+          );
+          const cap = smooth(clamp((0.86 - d) / 0.5));
+          const grain = noise(u, v, 32, 32, seed ^ 0x4d5e);
+          color = 0.34 + 0.4 * cap + 0.08 * grain;
+          height = 0.26 + 0.46 * cap + 0.04 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.06 * cap;
+          occlusion = 1 - 0.34 * (1 - cap);
+          return;
+        };
+      case 'filmstrip':
+        return () => {
+          // Perforation holes punch the film between the horizontal divider grooves.
+          const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const hole = smooth(clamp((0.3 - d) / 0.28));
+          const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
+          const grain = noise(u, v, 16, 32, seed ^ 0x5e6f);
+          color = (0.45 + 0.2 * grain) * (1 - 0.8 * hole) * (1 - 0.25 * groove);
+          height = 0.62 - 0.4 * hole - 0.2 * groove + 0.02 * grain;
+          roughness += 0.05 * grain + 0.12 * hole;
+          occlusion = 1 - 0.45 * hole - 0.18 * groove;
+          return;
+        };
+      case 'postagestamp':
+        return () => {
+          // Border perforations frame the raised medallion on stamp paper.
+          const ax = Math.sin(Math.PI * (fract(u * 8 + 0.5) - 0.5)),
+            av = Math.sin(Math.PI * v),
+            ay = Math.sin(Math.PI * (fract(v * 8 + 0.5) - 0.5)),
+            au = Math.sin(Math.PI * u);
+          const dTop = Math.hypot(ax, av),
+            dSide = Math.hypot(ay, au);
+          const hT = smooth(clamp((0.3 - dTop) / 0.28)),
+            hS = smooth(clamp((0.3 - dSide) / 0.28));
+          const hole = hT + hS - hT * hS;
+          const med = smooth(
+            clamp((0.4 - Math.hypot(u - 0.5, v - 0.5)) / 0.12),
+          );
+          const grain = noise(u, v, 32, 32, seed ^ 0x6f7a);
+          color = (0.5 + 0.28 * med + 0.1 * grain) * (1 - 0.72 * hole);
+          height = 0.5 + 0.13 * med - 0.42 * hole + 0.03 * grain;
+          roughness += 0.08 * (grain - 0.5) + 0.1 * hole;
+          occlusion = 1 - 0.5 * hole;
+          return;
+        };
+      case 'halftoneprint':
+        return () => {
+          // Tone-varying ink dots tile the paper on a rotated lattice.
+          const u1 = (u + v) * 6,
+            v1 = (u - v) * 6;
+          const fx = Math.sin(Math.PI * (fract(u1) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v1) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const tone = noise(u, v, 4, 4, seed ^ 0x7a8b),
+            grain = noise(u, v, 64, 64, seed ^ 0x8b9c);
+          const dot = smooth(clamp((0.28 + 0.42 * tone - d) / 0.22));
+          color = 0.28 + 0.55 * dot + 0.08 * grain;
+          height = 0.35 + 0.5 * dot + 0.02 * grain;
+          roughness += 0.12 * (1 - dot) + 0.05 * (grain - 0.5);
+          occlusion = 1 - 0.55 * (1 - dot);
+          return;
+        };
+      case 'radiator':
+        return () => {
+          // Round heating tubes rise from the recessed seams between them.
+          const tube = (1 + Math.cos(Math.PI * 2 * (fract(u * 5) - 0.5))) / 2;
+          const grain = noise(u, v, 32, 32, seed ^ 0x9cad);
+          color = 0.34 + 0.5 * tube + 0.08 * grain;
+          height = 0.32 + 0.6 * tube + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) - 0.06 * tube;
+          occlusion = 1 - 0.5 * (1 - tube);
+          return;
+        };
+      case 'screwhead':
+        return () => {
+          // Cross-recessed screw heads sit inside their shallow panel dimples.
+          const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const head = smooth(clamp((0.55 - d) / 0.3));
+          const slotX = 1 - smooth(clamp((Math.abs(fx) - 0.08) / 0.12)),
+            slotY = 1 - smooth(clamp((Math.abs(fy) - 0.08) / 0.12));
+          const cross = slotX + slotY - slotX * slotY;
+          const recess = cross * head;
+          const grain = noise(u, v, 32, 32, seed ^ 0xadbe);
+          color = 0.4 + 0.3 * head - 0.28 * recess + 0.06 * grain;
+          height = 0.45 + 0.28 * head - 0.42 * recess;
+          roughness += 0.08 * (grain - 0.5) + 0.1 * recess;
+          occlusion = 1 - 0.4 * recess - 0.1 * (1 - head) * (1 - recess);
+          return;
+        };
+      case 'chainlink':
+        return () => {
+          // Diamond wires twist thicker at the nodes where they cross.
+          const w1 = Math.sin(Math.PI * (fract(u + v + 0.5) - 0.5)),
+            w2 = Math.sin(Math.PI * (fract(u - v + 0.5) - 0.5));
+          const b1 = smooth(clamp((0.22 - Math.abs(w1)) / 0.18)),
+            b2 = smooth(clamp((0.22 - Math.abs(w2)) / 0.18));
+          const wire = b1 + b2 - b1 * b2,
+            node = b1 * b2;
+          const grain = noise(u, v, 32, 32, seed ^ 0xbecf);
+          color = 0.3 + 0.36 * wire + 0.1 * node + 0.08 * grain;
+          height = 0.3 + 0.44 * wire + 0.16 * node + 0.02 * grain;
+          roughness += 0.08 * (grain - 0.5) - 0.1 * wire;
+          occlusion = 1 - 0.55 * (1 - wire) - 0.12 * (1 - node);
+          return;
+        };
+      case 'friedegg':
+        return () => {
+          // A warped white blob carries the yolk dome at its center.
+          const w1 = noise(u, v, 4, 4, seed ^ 0xcfd0) - 0.5,
+            w2 = noise(u, v, 4, 4, seed ^ 0xd0e1) - 0.5,
+            w3 = noise(u, v, 4, 4, seed ^ 0xe1f2) - 0.5;
+          const r = Math.hypot(u - 0.5 + 0.06 * w1, v - 0.5 + 0.06 * w2);
+          const yolk = smooth(clamp((0.16 - r) / 0.06));
+          const white = smooth(clamp((0.34 - (r + 0.1 * w3)) / 0.1));
+          const grain = noise(u, v, 32, 32, seed ^ 0xf203);
+          color = 0.4 + 0.34 * yolk + 0.2 * white + 0.05 * grain;
+          height = 0.3 + 0.45 * yolk + 0.18 * white + 0.02 * grain;
+          roughness += 0.1 * (1 - yolk) - 0.06 * white;
+          occlusion = 0.5 + 0.5 * (yolk + white - yolk * white);
+          return;
+        };
+      case 'sushirice':
+        return () => {
+          // Rice grains dome up from the crevices, with even warp modulation.
+          const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+          const w1 = noise(u, v, 6, 6, seed ^ 0x0314) - 0.5,
+            w2 = noise(u, v, 6, 6, seed ^ 0x1425) - 0.5;
+          const mod =
+            1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
+          const d = Math.hypot(fx * 1.2, fy * 0.8) * mod;
+          const grain = smooth(clamp((0.34 - d) / 0.22));
+          const sheen = noise(u, v, 32, 32, seed ^ 0x2536);
+          color = 0.62 + 0.28 * grain + 0.06 * sheen;
+          height = 0.34 + 0.5 * grain + 0.03 * sheen;
+          roughness += 0.08 * (sheen - 0.5) - 0.08 * grain;
+          occlusion = 1 - 0.5 * (1 - grain);
+          return;
+        };
+      case 'chocolatechip':
+        return () => {
+          // Chocolate discs sink into the soft cookie crumb.
+          const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const radius =
+            0.45 +
+            0.1 * hash(Math.floor(u * 3), Math.floor(v * 3), seed ^ 0x3647);
+          const chip = smooth(clamp((radius - d) / 0.12));
+          const crumb = noise(u, v, 32, 32, seed ^ 0x4758);
+          color = 0.62 - 0.3 * chip + 0.08 * crumb;
+          height = 0.36 + 0.34 * chip + 0.03 * crumb;
+          roughness += 0.06 * (crumb - 0.5) - 0.1 * chip;
+          occlusion = 1 - 0.45 * (1 - chip);
+          return;
+        };
+      case 'cargomat':
+        return () => {
+          // Rubber ribs run into the transverse recessed grooves.
+          const rib = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
+          const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
+          const grain = noise(u, v, 32, 32, seed ^ 0x5869);
+          color =
+            (0.36 + 0.1 * grain) * (1 - 0.28 * groove) * (0.55 + 0.45 * rib);
+          height = 0.28 + 0.52 * rib - 0.22 * groove + 0.02 * grain;
+          roughness += 0.06 * grain + 0.1 * (1 - rib);
+          occlusion = 1 - 0.4 * (1 - rib) - 0.24 * groove;
+          return;
+        };
+      case 'dashboardgrain':
+        return () => {
+          // Pebbled leather grain with a recessed seam crease.
+          const fx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const bs = smooth(clamp((0.5 - d) / 0.34));
+          const gn = noise(u, v, 32, 32, seed ^ 0x697a);
+          const rawSeam = (1 + Math.cos(Math.PI * 2 * fract(u * 2))) / 2;
+          const seam = smooth(clamp((rawSeam - 0.8) / 0.2));
+          const pebble = bs * (0.7 + 0.3 * gn);
+          color = 0.42 + 0.3 * pebble + 0.06 * gn - 0.12 * seam;
+          height = 0.34 + 0.42 * pebble - 0.2 * seam + 0.02 * gn;
+          roughness += 0.06 * gn + 0.1 * seam - 0.06 * bs;
+          occlusion = 1 - 0.4 * (1 - bs) - 0.2 * seam;
+          return;
+        };
+      case 'licenseplate':
+        return () => {
+          // A raised border frames the embossed text bars over the inset.
+          const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (u - 0.5)),
+            rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (v - 0.5));
+          const bx = smooth(clamp((rawx - 0.72) / 0.24)),
+            by = smooth(clamp((rawy - 0.72) / 0.24));
+          const border = bx + by - bx * by;
+          const bar = (1 + Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5))) / 2;
+          const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
+          const raised = bar * (1 - border);
+          color = 0.44 + 0.2 * border + 0.12 * raised + 0.05 * grain;
+          height = 0.3 + 0.4 * border + 0.22 * raised + 0.02 * grain;
+          roughness += 0.06 * (grain - 0.5) - 0.1 * border;
+          occlusion = 1 - 0.3 * (1 - border) * (1 - bar);
+          return;
+        };
+      case 'flowerbed':
+        return () => {
+          // Rosettes with four-fold petals dome above the soil.
+          const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const petal =
+            0.72 +
+            0.28 *
+              (Math.cos(Math.PI * 2 * 3 * (u + v)) *
+                Math.cos(Math.PI * 2 * 3 * (u - v)));
+          const dome = smooth(clamp((0.5 - d) / 0.3)) * petal;
+          const soil = noise(u, v, 32, 32, seed ^ 0x8b9c);
+          color = 0.3 + 0.32 * dome + 0.1 * soil;
+          height = 0.3 + 0.5 * dome + 0.03 * soil;
+          roughness += 0.08 * (soil - 0.5) - 0.1 * dome;
+          occlusion = 1 - 0.5 * (1 - dome);
+          return;
+        };
+      case 'grassstripe':
+        return () => {
+          // Mowed bands gloss over the fine blade texture.
+          const stripe = (1 + Math.cos(Math.PI * 2 * (fract(v * 2) - 0.5))) / 2;
+          const blade = noise(u, v, 48, 8, seed ^ 0x9cad),
+            soil = noise(u, v, 16, 16, seed ^ 0xadbe);
+          color = 0.34 + 0.36 * stripe + 0.12 * blade + 0.06 * soil;
+          height = 0.3 + 0.42 * stripe + 0.08 * blade + 0.03 * soil;
+          roughness += 0.08 * (soil - 0.5) + 0.06 * (1 - stripe);
+          occlusion = 1 - 0.42 * (1 - stripe);
+          return;
+        };
+      case 'topiary':
+        return () => {
+          // Clipped leaf clusters dome above the trimmed gaps.
+          const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const w1 = noise(u, v, 3, 3, seed ^ 0xbecf) - 0.5,
+            w2 = noise(u, v, 3, 3, seed ^ 0xcfd0) - 0.5;
+          const mod =
+            1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
+          const cluster = smooth(clamp((0.52 - d * mod) / 0.3));
+          const leaf = noise(u, v, 32, 32, seed ^ 0xd0e1);
+          color = 0.28 + 0.3 * cluster + 0.1 * leaf;
+          height = 0.3 + 0.48 * cluster + 0.04 * leaf;
+          roughness += 0.08 * (leaf - 0.5) - 0.08 * cluster;
+          occlusion = 1 - 0.48 * (1 - cluster);
+          return;
+        };
+      case 'confetti':
+        return () => {
+          // Scattered chips with per-cell size variation over the paper.
+          const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+          const d = Math.pow(
+            Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+            0.25,
+          );
+          const radius =
+            0.52 +
+            0.16 * hash(Math.floor(u * 4), Math.floor(v * 4), seed ^ 0xe1f2);
+          const chip = smooth(clamp((radius - d) / 0.12));
+          const paper = noise(u, v, 32, 32, seed ^ 0xf203);
+          color = 0.4 + 0.3 * chip + 0.1 * paper;
+          height = 0.34 + 0.4 * chip + 0.03 * paper;
+          roughness += 0.06 * (paper - 0.5) - 0.1 * chip;
+          occlusion = 1 - 0.44 * (1 - chip);
+          return;
+        };
+      case 'ribbonstreamer':
+        return () => {
+          // Wide twisted ribbon bands sweep along the diagonal.
+          const band =
+            (1 + Math.cos(Math.PI * 2 * (fract((u + v) * 3) - 0.5))) / 2;
+          const w2 = noise(u, v, 4, 4, seed ^ 0x1425) - 0.5,
+            sheen = noise(u, v, 32, 32, seed ^ 0x2536);
+          color = 0.36 + 0.34 * band + 0.12 * sheen + 0.08 * w2;
+          height = 0.3 + 0.46 * band + 0.03 * sheen;
+          roughness += 0.08 * (sheen - 0.5) - 0.1 * band;
+          occlusion = 1 - 0.46 * (1 - band);
+          return;
+        };
+      case 'pinatafringe':
+        return () => {
+          // Dense fringe strands hang in tiers over the crepe backing.
+          const strand =
+            (1 + Math.cos(Math.PI * 2 * (fract(u * 14) - 0.5))) / 2;
+          const tier = (1 + Math.cos(Math.PI * 2 * fract(v * 3))) / 2;
+          const crepe = noise(u, v, 32, 32, seed ^ 0x3647);
+          color = 0.34 + 0.3 * strand + 0.12 * crepe - 0.14 * tier;
+          height = 0.28 + 0.44 * strand - 0.2 * tier + 0.03 * crepe;
+          roughness += 0.06 * (crepe - 0.5) + 0.1 * tier;
+          occlusion = 1 - 0.4 * (1 - strand) - 0.2 * tier;
+          return;
+        };
+      case 'xylophone':
+        return () => {
+          // Tuned wooden bars rise above the open gaps and cord holes.
+          const bar = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
+          const hole = smooth(
+            clamp(
+              (0.18 -
+                Math.hypot(
+                  Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+                  Math.sin(Math.PI * (fract(v * 2) - 0.5)),
+                )) /
+                0.12,
+            ),
+          );
+          const grain = noise(u, v, 32, 8, seed ^ 0x4758);
+          color = 0.4 + 0.32 * bar + 0.1 * grain - 0.22 * hole;
+          height = 0.3 + 0.46 * bar - 0.24 * hole + 0.03 * grain;
+          roughness += 0.06 * (grain - 0.5) + 0.12 * hole;
+          occlusion = 1 - 0.44 * (1 - bar) - 0.18 * hole;
+          return;
+        };
+      case 'tambourine':
+        return () => {
+          // Tilted jingle discs dome over the drum skin.
+          const fx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
+          const d = Math.hypot(fx * 1.35, fy * 0.85);
+          const disc = smooth(clamp((0.46 - d) / 0.16));
+          const skin = noise(u, v, 32, 32, seed ^ 0x5869);
+          color = 0.38 + 0.34 * disc + 0.1 * skin;
+          height = 0.32 + 0.42 * disc + 0.03 * skin;
+          roughness += 0.06 * (skin - 0.5) - 0.12 * disc;
+          occlusion = 1 - 0.46 * (1 - disc);
+          return;
+        };
+      case 'castanet':
+        return () => {
+          // Paired shells dimple at their centers above the felt backing.
+          const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const shell = smooth(clamp((0.56 - d) / 0.3));
+          const dimple = smooth(clamp((0.16 - d) / 0.1));
+          const grain = noise(u, v, 32, 32, seed ^ 0x697a);
+          color = 0.42 + 0.26 * shell - 0.18 * dimple + 0.08 * grain;
+          height = 0.3 + 0.42 * shell - 0.3 * dimple;
+          roughness += 0.06 * (grain - 0.5) + 0.1 * dimple;
+          occlusion = 1 - 0.44 * (1 - shell) - 0.12 * dimple;
+          return;
+        };
+      case 'pillcapsule':
+        return () => {
+          // Elongated capsule halves dome over the blister backing.
+          const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
+          const d = Math.hypot(fx * 0.72, fy * 1.25);
+          const body = smooth(clamp((0.52 - d) / 0.3));
+          const seam = 1 - smooth(clamp((Math.abs(fy) - 0.06) / 0.12));
+          const groove = seam * body;
+          const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
+          color = 0.46 + 0.28 * body - 0.2 * groove + 0.06 * grain;
+          height = 0.3 + 0.44 * body - 0.26 * groove;
+          roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
+          occlusion = 1 - 0.44 * (1 - body) - 0.12 * groove;
+          return;
+        };
+      case 'pilltablet':
+        return () => {
+          // Round tablets carry a score groove across their crowns.
+          const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+            fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+          const d = Math.hypot(fx, fy);
+          const tablet = smooth(clamp((0.62 - d) / 0.3));
+          const score = 1 - smooth(clamp((Math.abs(fx) - 0.05) / 0.1));
+          const groove = score * tablet;
+          const grain = noise(u, v, 32, 32, seed ^ 0x8b9c);
+          color = 0.5 + 0.26 * tablet - 0.2 * groove + 0.06 * grain;
+          height = 0.3 + 0.42 * tablet - 0.24 * groove;
+          roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
+          occlusion = 1 - 0.44 * (1 - tablet) - 0.12 * groove;
+          return;
+        };
+      case 'bathbomb':
+        return () => {
+          // Coarse fizz grain breaks along shallow diagonal fissures.
+          const fx = Math.sin(Math.PI * (fract((u + v) * 4) - 0.5)),
+            fy = Math.sin(Math.PI * (fract((u - v) * 4) - 0.5));
+          const crack =
+            smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) +
+            smooth(clamp((Math.abs(fy) - 0.62) / 0.2)) -
+            smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) *
+              smooth(clamp((Math.abs(fy) - 0.62) / 0.2));
+          const grain = noise(u, v, 24, 24, seed ^ 0x9cad);
+          const fizz = smooth(clamp((grain - 0.34) / 0.3));
+          color = 0.42 + 0.26 * fizz - 0.16 * crack + 0.08 * grain;
+          height = 0.34 + 0.02 * grain - 0.22 * crack;
+          roughness += 0.08 * (grain - 0.5) + 0.12 * crack;
+          occlusion = 1 - 0.4 * crack - 0.16 * (1 - fizz);
+          return;
+        };
+      case 'basketball':
+        return () => {
+          const x = u * sportCells,
+            y = v * sportCells,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let pebbles = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset =
+                ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
+                  (((cx % sportCells) + sportCells) % sportCells)) *
+                sportStride;
+              const dx = x - cx - sportFeatures![offset],
+                dy = y - cy - sportFeatures![offset + 1];
+              const pebble = smooth(
+                clamp(1 - (dx * dx + dy * dy) * sportFeatures![offset + 2]),
+              );
+              pebbles += (1 - pebbles) * pebble;
+            }
+          // Products keep both intersecting panel grooves and their slopes smooth.
+          const across = Math.abs(
+              Math.sin(TAU * (2 * u + 0.12 * Math.sin(TAU * v))),
+            ),
+            along = Math.abs(
+              Math.sin(TAU * (2 * v + 0.12 * Math.sin(TAU * u))),
+            );
+          const panel =
+            smooth(clamp((across - 0.035) / 0.105)) *
+            smooth(clamp((along - 0.035) / 0.105));
+          color = 0.025 + panel * (0.64 + 0.24 * pebbles + 0.025 * detail);
+          height = 0.12 + panel * (0.46 + 0.22 * pebbles);
+          roughness += 0.045 * pebbles - 0.08 * (1 - panel);
+          occlusion = 0.64 + 0.36 * panel;
+          return;
+        };
+      case 'tennisball':
+        return () => {
+          const x = u * sportCells,
+            y = v * sportCells,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let felt = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset =
+                ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
+                  (((cx % sportCells) + sportCells) % sportCells)) *
+                sportStride;
+              const dx = x - cx - sportFeatures![offset],
+                dy = y - cy - sportFeatures![offset + 1];
+              const along =
+                  (dx * sportFeatures![offset + 2] +
+                    dy * sportFeatures![offset + 3]) /
+                  0.48,
+                across =
+                  (-dx * sportFeatures![offset + 3] +
+                    dy * sportFeatures![offset + 2]) /
+                  0.065;
+              // Compact, randomly oriented strokes imply tangled felt, not woven yarn.
+              const fiber = smooth(clamp(1 - along * along - across * across));
+              felt += (1 - felt) * fiber;
+            }
+          const distance = Math.abs(
+            Math.sin(TAU * (v - 0.19 * Math.sin(TAU * u) - 0.25)),
+          );
+          const seam = 1 - smooth(clamp((distance - 0.025) / 0.075));
+          color =
+            (0.16 + 0.1 * detail + 0.06 * felt) * (1 - seam) + 0.97 * seam;
+          height =
+            0.54 + (1 - seam) * (0.065 * felt + 0.018 * detail) - 0.12 * seam;
+          roughness -= 0.1 * seam;
+          occlusion = 1 - 0.12 * seam;
+          return;
+        };
+      case 'golfball':
+        return () => {
+          const x = fract(u * 10 - golfOffsetU) - 0.5,
+            y = fract(v * 10 - golfOffsetV) - 0.5;
+          // Squared radius is smooth at the center; the compact bowl meets flat
+          // land with zero rim slope, before a cell can change ownership.
+          const bowl = Math.pow(clamp(1 - (x * x + y * y) / (0.41 * 0.41)), 2);
+          color = 0.96 - 0.12 * bowl;
+          height = 0.8 - 0.6 * bowl;
+          roughness += 0.04 * bowl;
+          occlusion = 1 - 0.2 * bowl;
+          return;
+        };
+      case 'boardformedconcrete':
+        return () => {
+          const row = Math.floor(v * 8),
+            y = fract(v * 8),
+            x = fract(u * 2 + (row % 2) * 0.5),
+            column = Math.floor(fract(u + (row % 2) * 0.25) * 2);
+          // Recessed timber joints own all board-local variation, including ends.
+          // Separate axis shoulders avoid diagonal nearest-edge corner cusps.
+          const face =
+            smooth(clamp(x / 0.018)) *
+            smooth(clamp((1 - x) / 0.018)) *
+            smooth(clamp(y / 0.055)) *
+            smooth(clamp((1 - y) / 0.055));
+          const variation = architecturalOwners![row * 2 + column],
+            grain = boardGrain!(
+              u,
+              v + 0.002 * Math.sin(TAU * u + variation * TAU),
+            ),
+            pores = castPores!(u, v);
+          color =
+            0.39 +
+            face * (0.12 + 0.09 * variation + 0.055 * grain) +
+            0.025 * pores;
+          height =
+            0.18 +
+            face * (0.48 + 0.025 * variation + 0.025 * grain) +
+            0.008 * pores;
+          roughness += 0.025 * grain * face + 0.025 * pores;
+          occlusion = 0.75 + 0.25 * face;
+          return;
+        };
+      case 'ribbedconcrete':
+        return () => {
+          const x = fract(u * 12),
+            owner = Math.floor(u * 12);
+          // A broad flat crown and trough meet through rounded C1 shoulders.
+          const rib =
+            smooth(clamp((x - 0.12) / 0.18)) * smooth(clamp((0.88 - x) / 0.18));
+          const pores = castPores!(u, v),
+            aggregate = castAggregate!(u, v),
+            variation = architecturalOwners![owner];
+          color =
+            0.38 +
+            0.17 * rib +
+            0.055 * aggregate +
+            0.025 * pores +
+            0.025 * variation * rib;
+          height =
+            0.15 +
+            0.65 * rib +
+            0.009 * pores +
+            0.006 * aggregate +
+            0.008 * variation * rib;
+          roughness += 0.035 * pores + 0.02 * aggregate;
+          occlusion = 0.69 + 0.31 * rib;
+          return;
+        };
+      case 'splitfaceblock':
+        return () => {
+          const row = Math.floor(v * 8),
+            y = fract(v * 8),
+            shifted = u * 4 + (row % 2) * 0.5,
+            x = fract(shifted),
+            column = Math.floor(shifted) % 4;
+          const face =
+            smooth(clamp((x - 0.04) / 0.08)) *
+            smooth(clamp((0.96 - x) / 0.08)) *
+            smooth(clamp((y - 0.06) / 0.09)) *
+            smooth(clamp((0.94 - y) / 0.09));
+          const variation = architecturalOwners![row * 4 + column],
+            aggregate = castAggregate!(u, v),
+            pores = castPores!(u, v);
+          // Broad fractured facets and smaller chips are confined to the block,
+          // leaving a smooth, flat mortar bed through staggered row transitions.
+          const fracture = smooth(clamp((aggregate - 0.22) / 0.56));
+          color =
+            0.4 +
+            face * (0.04 + 0.28 * fracture + 0.1 * variation + 0.06 * pores);
+          height =
+            0.14 +
+            face * (0.34 + 0.25 * fracture + 0.1 * variation + 0.08 * pores);
+          roughness -= 0.1 * (1 - face);
+          roughness += 0.035 * pores * face;
+          occlusion = 0.64 + face * (0.29 + 0.07 * fracture);
+          mortar = 1 - face;
+          return;
+        };
+      case 'chainmail':
+        return () => {
+          const x = u * 6,
+            y = v * 8,
+            row = Math.floor(y);
+          const grain = sheetGrain!(u, v);
+          color = 0.035 + 0.025 * grain;
+          height = 0.06 + 0.008 * grain;
+          roughness = 0.88 + 0.04 * grain;
+          occlusion = 0.59;
+          // Compact annuli are composited in row order. Their opposite tilts
+          // expose alternate shoulders where adjacent rows interleave.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy,
+              wy = (cy + 8) % 8;
+            const shift = (wy % 2) * 0.5,
+              column = Math.floor(x - shift);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = (cx + 6) % 6;
+              const dx = x - cx - shift - 0.5,
+                dy = y - cy - 0.5;
+              const radial = Math.sqrt(dx * dx + dy * dy);
+              const wire = clamp(1 - ((radial - 0.62) / 0.105) ** 2);
+              const coverage = smooth(wire);
+              const variation = fabricatedOwners![wy * 6 + wx];
+              const crown =
+                0.44 +
+                0.26 * wire +
+                (wy % 2 ? -1 : 1) * dy * (0.13 + 0.04 * variation);
+              color +=
+                coverage * (0.63 + 0.13 * variation + 0.04 * grain - color);
+              height += coverage * (crown - height);
+              roughness +=
+                coverage * (preset.roughness + 0.04 * grain - roughness);
+              occlusion += coverage * (0.88 + 0.1 * wire - occlusion);
+              metallic += coverage * (1 - metallic);
+            }
+          }
+          return;
+        };
+      case 'rivetedmetal':
+        return () => {
+          const x = fract(u * 3),
+            y = fract(v * 4);
+          const face =
+            smooth(clamp(x / 0.045)) *
+            smooth(clamp((1 - x) / 0.045)) *
+            smooth(clamp(y / 0.045)) *
+            smooth(clamp((1 - y) / 0.045));
+          const owner = Math.floor(v * 4) * 3 + Math.floor(u * 3);
+          const variation = fabricatedOwners![owner],
+            grain = sheetGrain!(u, v);
+          let rivet = 0;
+          // Four discrete heads sit inside each panel, clear of its joint.
+          for (let iy = 0; iy < 2; iy++)
+            for (let ix = 0; ix < 2; ix++) {
+              const dx = x - (ix ? 0.88 : 0.12),
+                dy = y - (iy ? 0.88 : 0.12);
+              const cap = clamp(1 - (dx * dx + dy * dy) / (0.052 * 0.052));
+              rivet += cap * cap;
+            }
+          color =
+            0.28 +
+            face * (0.19 + 0.09 * variation) +
+            0.13 * rivet +
+            0.03 * grain;
+          height =
+            0.09 +
+            face * (0.23 + 0.025 * variation) +
+            0.57 * rivet +
+            0.004 * grain;
+          roughness += 0.1 * (1 - face) - 0.09 * rivet + 0.025 * grain;
+          occlusion = 0.64 + 0.34 * face + 0.02 * rivet;
+          return;
+        };
+      case 'weldedmetal':
+        return () => {
+          const x = fract(u * 3 + 0.5) - 0.5;
+          const scallop = 0.5 + 0.5 * Math.cos(TAU * 32 * v + phase);
+          const width = 0.065 + 0.015 * scallop;
+          const bead = smooth(clamp(1 - (x / width) ** 2));
+          const halo = smooth(clamp(1 - (x / 0.15) ** 2));
+          const grain = sheetGrain!(u, v);
+          color =
+            0.52 + 0.04 * grain - 0.16 * halo + bead * (0.19 + 0.08 * scallop);
+          height = 0.2 + 0.004 * grain + bead * (0.46 + 0.15 * scallop);
+          roughness += 0.12 * halo - 0.05 * bead + 0.025 * grain;
+          occlusion = 1 - 0.15 * halo * (1 - bead);
+          return;
+        };
+    }
+    throw new Error(
+      `Procedural material ${kind} has no sampler case in createSurfaceSampler.`,
+    );
+  };
+  const body = pick();
+  return (x: number, y: number, out: SurfaceSample): void => {
+    u = fract(x);
+    v = fract(y);
+    broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
+    detail =
       architectural ||
       fabricated ||
       botanical ||
@@ -1236,8084 +9831,14 @@ export function createSurfaceSampler(
       rind
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
-    const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
-    let color = broad,
-      height = broad,
-      roughness = preset.roughness,
-      occlusion = 1,
-      mortar = 0,
-      metallic =
-        kind === 'metal' ||
-        kind === 'diamondplate' ||
-        kind === 'hammeredmetal' ||
-        kind === 'galvanized' ||
-        kind === 'corrugatedmetal' ||
-        kind === 'perforatedmetal' ||
-        kind === 'expandedmetal' ||
-        kind === 'wiremesh' ||
-        kind === 'pyrite' ||
-        kind === 'knurledmetal' ||
-        kind === 'engineturned' ||
-        kind === 'goldleaf' ||
-        kind === 'rivetedmetal' ||
-        kind === 'weldedmetal'
-          ? 1
-          : 0;
-    switch (kind) {
-      case 'pineapple': {
-        const p = proceduralMaterialPresets.pineapple,
-          x = fract(u + v) * p.cells,
-          y = fract(v - u) * p.cells,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          dx = x - column - 0.5,
-          dy = y - row - 0.5,
-          grain = rindGrain!(u, v),
-          variation = rindCells![row * p.cells + column],
-          polygon =
-            smooth(clamp((0.5 - dx) / p.shoulder)) *
-            smooth(clamp((0.5 + dx) / p.shoulder)) *
-            smooth(clamp((0.5 - dy) / p.shoulder)) *
-            smooth(clamp((0.5 + dy) / p.shoulder)),
-          q = (dx * dx + dy * dy) / (p.eyeRadius * p.eyeRadius),
-          eye = 1 - smooth(clamp(q)),
-          crown = smooth(clamp(q)) * (1 - smooth(clamp((q - 1) / 3)));
-        // Disjoint diamond cells: all owner-dependent terms vanish with
-        // zero slope at their edges. Raw H [.14,.665], C [.10,.755].
-        height =
-          0.14 +
-          polygon *
-            (0.34 +
-              0.13 * crown -
-              0.22 * eye +
-              0.05 * variation +
-              0.005 * grain);
-        color =
-          0.1 + polygon * (0.49 + 0.12 * variation + 0.045 * grain - 0.2 * eye);
-        occlusion = 0.55 + polygon * (0.42 - 0.2 * eye);
-        roughness =
-          preset.roughness + 0.04 * (1 - polygon) - 0.025 * crown * polygon;
-        break;
-      }
-      case 'strawberry':
-      case 'lychee': {
-        const x = u * rindColumns,
-          y = v * rindRows,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = rindGrain!(u, v);
-        let pocket = 0,
-          core = 0,
-          coverage = 0,
-          crown = 0;
-        // Strawberry supports fit radius .34. Centers in [.42,.58],
-        // so omitted 3x3 rows are >=1.42 away, columns >=.92 with stagger.
-        // Pairwise center distance >=.84 > 2*.34: supports are disjoint.
-        // Lychee planes imply |dx|<=.495, |dy|<=.66; omitted
-        // centers are >=1 (x) or 1.5 (y). Adjacent plane sums <=.99
-        // versus center separation 1, so polygons are disjoint too.
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              wx = ((cx % rindColumns) + rindColumns) % rindColumns,
-              wy = ((cy % rindRows) + rindRows) % rindRows,
-              offset = (wy * rindColumns + wx) * rindStride,
-              stagger = (wy % 2) * 0.5;
-            if (kind === 'strawberry') {
-              const p = proceduralMaterialPresets.strawberry,
-                dx = x - cx - stagger - rindCells![offset],
-                dy = y - cy - rindCells![offset + 1],
-                a =
-                  (dx * rindCells![offset + 2] + dy * rindCells![offset + 3]) /
-                  p.width,
-                b =
-                  (dy * rindCells![offset + 2] - dx * rindCells![offset + 3]) /
-                  p.length,
-                q = a * a + b * b;
-              if (q >= 1) continue;
-              pocket += 1 - smooth(clamp((q - p.core) / (1 - p.core)));
-              core += 1 - smooth(clamp(q / p.core));
-            } else {
-              const p = proceduralMaterialPresets.lychee,
-                dx = x - cx - stagger - 0.5,
-                dy = y - cy - 0.5;
-              if (dx >= rindCells![offset] || -dx >= rindCells![offset + 1])
-                continue;
-              let polygon = 1;
-              for (let side = 0; side < 6; side++) {
-                const plane =
-                  side === 0
-                    ? dx
-                    : side === 1
-                      ? -dx
-                      : side === 2
-                        ? 0.5 * dx + 0.75 * dy
-                        : side === 3
-                          ? -0.5 * dx - 0.75 * dy
-                          : side === 4
-                            ? -0.5 * dx + 0.75 * dy
-                            : 0.5 * dx - 0.75 * dy;
-                polygon *= smooth(
-                  clamp((rindCells![offset + side] - plane) / p.shoulder),
-                );
-                if (polygon === 0) break;
-              }
-              if (polygon === 0) continue;
-              const a = dx - rindCells![offset + 6],
-                b = dy - rindCells![offset + 7];
-              coverage += polygon;
-              crown += polygon / (1 + 18 * (a * a + b * b));
-            }
-          }
-        if (kind === 'strawberry') {
-          // Disjoint supports: P,S in [0,1]. Raw H [.32,.714],
-          // C [.12,.912], AO [.68,1], roughness [.41,.47].
-          height = 0.62 + 0.004 * grain - 0.3 * pocket + 0.09 * core;
-          color = 0.12 + 0.012 * grain + 0.78 * core;
-          occlusion = 1 - 0.32 * pocket + 0.12 * core;
-          roughness = preset.roughness + 0.04 * pocket - 0.06 * core;
-        } else {
-          // Disjoint polygons: coverage,crown in [0,1].
-          // Raw H [.16,.594], C [.12,.762], AO [.55,.97].
-          height = 0.16 + 0.28 * coverage + 0.15 * crown + 0.004 * grain;
-          color = 0.12 + 0.55 * coverage + 0.08 * crown + 0.012 * grain;
-          occlusion = 0.55 + 0.42 * coverage;
-          roughness = preset.roughness + 0.04 * (1 - coverage) - 0.03 * crown;
-        }
-        break;
-      }
-      case 'sandpaper': {
-        // Grit domes stay on a fixed staggered lattice; seed only sizes them.
-        const nx = 10,
-          ny = 12;
-        const cy = Math.floor(v * ny),
-          stagger = (cy & 1) * 0.5;
-        const cx = Math.floor(u * nx + stagger);
-        // Radius hashes wrap with the lattice periods so the seam stays continuous.
-        const cellX = ((cx % nx) + nx) % nx,
-          cellY = ((cy % ny) + ny) % ny;
-        const fx = fract(u * nx + stagger) - 0.5,
-          fy = fract(v * ny) - 0.5;
-        const d = Math.hypot(fx, fy);
-        const r = 0.38 + 0.1 * hash(cellX, cellY, seed ^ 0x2f1a);
-        const dome = smooth(clamp((r - d) / (r * 0.55)));
-        // Shedding pits gather where smooth noise stays high and never reach the domes.
-        const pit =
-          smooth(clamp((noise(u, v, 6, 6, seed ^ 0x77c3) - 0.72) / 0.18)) *
-          (1 - dome);
-        const grain = noise(u, v, 48, 48, seed ^ 0x55a1);
-        color = 0.4 + 0.3 * dome - 0.14 * pit + 0.08 * grain;
-        height = 0.3 + 0.34 * dome - 0.12 * pit;
-        roughness += 0.06 * (grain - 0.5) + 0.04 * (1 - dome);
-        occlusion = 1 - 0.44 * (1 - dome) - 0.12 * pit;
-        break;
-      }
-      case 'steelwool': {
-        // Tangled strand ridges run along three wrapped diagonal families.
-        const f1 = Math.sin(Math.PI * (fract(3 * (u + v)) - 0.5)),
-          f2 = Math.sin(Math.PI * (fract(3 * (u - v)) - 0.5)),
-          f3 = Math.sin(Math.PI * (fract(2 * u + v) - 0.5));
-        const e1 = smooth(clamp((0.22 - Math.abs(f1)) / 0.14)),
-          e2 = smooth(clamp((0.22 - Math.abs(f2)) / 0.14)),
-          e3 = smooth(clamp((0.22 - Math.abs(f3)) / 0.14));
-        const i1 = ((Math.floor(3 * (u + v)) % 3) + 3) % 3,
-          i2 = ((Math.floor(3 * (u - v)) % 3) + 3) % 3;
-        // The third family keeps a constant amplitude: its strand index cannot
-        // be labeled periodically, so hashing it would break the wrapped seam.
-        const a1 = e1 * (0.85 + 0.15 * hash(i1, 0, seed ^ 0x1d51)),
-          a2 = e2 * (0.85 + 0.15 * hash(i2, 1, seed ^ 0x4c2b)),
-          a3 = e3 * 0.92;
-        // OR of the three envelopes keeps crossing slopes continuous; the
-        // pair OR stays bounded so packed crossings cannot leave the unit range.
-        const strand = 1 - (1 - a1) * (1 - a2) * (1 - a3);
-        const cross = 1 - (1 - a1 * a2) * (1 - a2 * a3) * (1 - a3 * a1);
-        const grain = noise(u, v, 32, 32, seed ^ 0x2e07);
-        color = 0.44 + 0.34 * strand + 0.1 * cross + 0.08 * grain;
-        height = 0.3 + 0.3 * strand + 0.08 * cross;
-        roughness += 0.1 * (grain - 0.5) + 0.08 * (1 - strand);
-        occlusion = 1 - 0.44 * (1 - strand);
-        break;
-      }
-      case 'wirebrush': {
-        // Dense parallel bristles lean together and flick only in amplitude.
-        // Hash keys wrap with the bristle period so the seam stays continuous.
-        const x = u * 24 + 0.3 * Math.sin(TAU * v);
-        const ix = Math.floor(x);
-        const cell = ((ix % 24) + 24) % 24;
-        const fx = fract(x) - 0.5;
-        const ridge = smooth(clamp((0.32 - Math.abs(fx)) / 0.12));
-        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x3c71);
-        const flick =
-          0.9 + 0.1 * Math.sin(TAU * (2 * v + hash(cell, 1, seed ^ 0x61d2)));
-        const grain = noise(u, v, 32, 32, seed ^ 0x1b2f);
-        color = 0.38 + 0.3 * ridge * amp * flick + 0.08 * grain;
-        height = 0.3 + 0.44 * ridge * amp * flick;
-        roughness += 0.1 * (grain - 0.5) - 0.06 * ridge;
-        occlusion = 1 - 0.44 * (1 - ridge);
-        break;
-      }
-      case 'cheesegrater': {
-        // Punched holes sink below a raised rim ring on a fixed lattice.
-        const nx = 6,
-          ny = 8;
-        const cx = Math.floor(u * nx),
-          cy = Math.floor(v * ny);
-        // Rim amplitude hashes wrap with the lattice periods at the seam.
-        const cellX = ((cx % nx) + nx) % nx,
-          cellY = ((cy % ny) + ny) % ny;
-        const fx = fract(u * nx) - 0.5,
-          fy = fract(v * ny) - 0.5;
-        const d = Math.hypot(fx, fy);
-        const hole = smooth(clamp((0.22 - d) / 0.1));
-        const rim =
-          smooth(clamp((d - 0.22) / 0.06)) * smooth(clamp((0.42 - d) / 0.08));
-        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x5c21);
-        const plane = (1 - rim) * (1 - hole);
-        const grain = noise(u, v, 32, 32, seed ^ 0x3a77);
-        color = 0.44 + 0.26 * rim - 0.3 * hole + 0.08 * grain;
-        height = 0.3 + 0.24 * rim * lift - 0.26 * hole;
-        roughness += 0.08 * (grain - 0.5) - 0.06 * rim + 0.1 * hole;
-        occlusion = 1 - 0.44 * hole - 0.12 * plane;
-        break;
-      }
-      case 'ovenrack': {
-        // Round rods run along u with thin crossbars along v; crossings lift.
-        const rv = fract(v * 8) - 0.5,
-          cu = fract(u * 4) - 0.5;
-        const rod = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
-        const bar = smooth(clamp((0.16 - Math.abs(cu)) / 0.08));
-        const cell = ((Math.floor(v * 8) % 8) + 8) % 8;
-        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x2b4d);
-        const grain = noise(u, v, 24, 24, seed ^ 0x6e13);
-        color = 0.4 + 0.28 * rod + 0.16 * bar + 0.05 * rod * bar + 0.08 * grain;
-        height = 0.3 + 0.36 * rod * amp + 0.16 * bar + 0.06 * rod * bar;
-        roughness += 0.08 * (grain - 0.5) - 0.08 * rod;
-        occlusion = 1 - 0.44 * (1 - rod) * (1 - bar) - 0.12 * (1 - rod) * bar;
-        break;
-      }
-      case 'muffintin': {
-        // Cup recesses sit under a raised rim ring on a coarse lattice.
-        const nx = 4,
-          ny = 4;
-        const cx = Math.floor(u * nx),
-          cy = Math.floor(v * ny);
-        const cellX = ((cx % nx) + nx) % nx,
-          cellY = ((cy % ny) + ny) % ny;
-        const fx = fract(u * nx) - 0.5,
-          fy = fract(v * ny) - 0.5;
-        const d = Math.hypot(fx, fy);
-        const cup = smooth(clamp((0.34 - d) / 0.12));
-        const rim =
-          smooth(clamp((d - 0.32) / 0.06)) * smooth(clamp((0.48 - d) / 0.06));
-        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x71b5);
-        const grain = noise(u, v, 24, 24, seed ^ 0x1f8a);
-        color = 0.42 + 0.24 * rim - 0.28 * cup + 0.08 * grain;
-        height = 0.3 + 0.2 * rim * lift - 0.28 * cup;
-        roughness += 0.08 * (grain - 0.5) - 0.05 * rim + 0.08 * cup;
-        occlusion = 1 - 0.44 * cup - 0.12 * (1 - rim) * (1 - cup);
-        break;
-      }
-      case 'gauze': {
-        // Warp and weft threads undulate over and under; the gaps stay open.
-        const n = 12;
-        const wx = fract(u * n) - 0.5,
-          wy = fract(v * n) - 0.5;
-        const warpEnv = smooth(clamp((0.26 - Math.abs(wy)) / 0.14));
-        const weftEnv = smooth(clamp((0.26 - Math.abs(wx)) / 0.14));
-        // The wave alternates which thread sits above at every crossing.
-        const wave = Math.cos(Math.PI * n * (u + v));
-        const a1 = warpEnv * (0.72 + 0.28 * wave),
-          a2 = weftEnv * (0.72 - 0.28 * wave);
-        const over = 1 - (1 - a1) * (1 - a2);
-        const grain = noise(u, v, 32, 32, seed ^ 0x4d19);
-        color = 0.7 + 0.16 * over + 0.05 * (a1 - a2) + 0.06 * grain;
-        height = 0.3 + 0.26 * over + 0.05 * (a1 - a2);
-        roughness += 0.08 * (grain - 0.5);
-        occlusion = 1 - 0.44 * (1 - over);
-        break;
-      }
-      case 'elasticbandage': {
-        // Diagonal stretch ribs cross recessed selvedge grooves.
-        const rv = fract(4 * (u - v)) - 0.5;
-        const rib = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
-        const groove = smooth(
-          clamp(
-            (0.16 - Math.abs(Math.sin(Math.PI * fract(2 * (u + v))))) / 0.1,
-          ),
-        );
-        const cell = ((Math.floor(4 * (u - v)) % 4) + 4) % 4;
-        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x1c47);
-        const grain = noise(u, v, 28, 28, seed ^ 0x55ab);
-        color = 0.52 + 0.3 * rib * amp + 0.08 * grain - 0.18 * groove;
-        height = 0.3 + 0.26 * rib * amp - 0.16 * groove;
-        roughness += 0.08 * (grain - 0.5) - 0.06 * rib;
-        occlusion = 1 - 0.44 * groove;
-        break;
-      }
-      case 'icepack': {
-        // Squircle quilted cells bulge above their recessed seam grid.
-        const nx = 4,
-          ny = 4;
-        const cx = Math.floor(u * nx),
-          cy = Math.floor(v * ny);
-        const cellX = ((cx % nx) + nx) % nx,
-          cellY = ((cy % ny) + ny) % ny;
-        const fx = fract(u * nx) - 0.5,
-          fy = fract(v * ny) - 0.5;
-        const d4 = Math.pow(
-          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
-          0.25,
-        );
-        const quilt = smooth(clamp((0.42 - d4) / 0.12));
-        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x6b3c);
-        const grain = noise(u, v, 24, 24, seed ^ 0x2f81);
-        color = 0.42 + 0.34 * quilt * lift + 0.08 * grain - 0.12 * (1 - quilt);
-        height = 0.3 + 0.24 * quilt * lift - 0.16 * (1 - quilt);
-        roughness += 0.08 * (grain - 0.5) - 0.05 * quilt;
-        occlusion = 1 - 0.44 * (1 - quilt);
-        break;
-      }
-      case 'morel': {
-        const p = morelPreset,
-          x = u * p.columns,
-          y = v * p.rows,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = fungalGrain!(u, v);
-        let total = 0,
-          squared = 0;
-        for (let oy = -2; oy <= 2; oy++)
-          for (let ox = -2; ox <= 2; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset =
-                (((cy + p.rows) % p.rows) * p.columns +
-                  ((cx + p.columns) % p.columns)) *
-                5,
-              dx = x - cx - morelChambers![offset],
-              dy = y - cy - morelChambers![offset + 1],
-              a =
-                dx * morelChambers![offset + 2] +
-                dy * morelChambers![offset + 4],
-              b = dy * morelChambers![offset + 3],
-              q = a * a + b * b;
-            if (q >= 1) continue;
-            const weight = (1 - q) ** p.weightPower;
-            total += weight;
-            squared += weight * weight;
-          }
-        // Smooth competition, not a nearest-feature min: equal owners and
-        // triple junctions retain common derivatives. Compact weights vanish
-        // to order 12 at their real supports; the denominator stays positive.
-        const dominance = squared / (total * total),
-          bowl = smooth(clamp((dominance - 0.48) / 0.48));
-        color = 0.8 - 0.6 * bowl + 0.025 * grain;
-        height = 0.64 - 0.48 * bowl + 0.006 * grain;
-        occlusion = 0.98 - 0.4 * bowl;
-        roughness += 0.035 * bowl + 0.012 * (grain - 0.5);
-        break;
-      }
-      case 'mushroomgills':
-      case 'bracketfungus': {
-        const x = u * fanPreset.cells,
-          y = v * fanPreset.cells,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = fungalGrain!(u, v);
-        color = 0.3 + 0.025 * grain;
-        height = 0.13 + 0.004 * grain;
-        occlusion = 0.66;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset =
-                (((cy + fanPreset.cells) % fanPreset.cells) * fanPreset.cells +
-                  ((cx + fanPreset.cells) % fanPreset.cells)) *
-                7,
-              dx = x - cx - fungalFans![offset],
-              dy = y - cy - fungalFans![offset + 1],
-              cosine = fungalFans![offset + 2],
-              sine = fungalFans![offset + 3],
-              a = dx * cosine + dy * sine,
-              b = dy * cosine - dx * sine + 0.55,
-              q = a * a + b * b;
-            if (q <= 0.025 || q >= 2.21 || b <= 0 || b * b <= 0.04 * q)
-              continue;
-            const radius = Math.sqrt(q),
-              angle = Math.atan2(a, b),
-              p = fungalFans![offset + 4],
-              attachment = smooth(clamp((q - 0.025) / 0.065)),
-              fan = smooth(clamp((b / radius - 0.2) / 0.25));
-            let coverage: number,
-              relief: number,
-              pigment: number,
-              exposure: number,
-              finish: number;
-            if (kind === 'mushroomgills') {
-              const g = proceduralMaterialPresets.mushroomgills,
-                wave =
-                  0.5 +
-                  0.5 *
-                    Math.cos(g.blades * angle + 0.5 * Math.sin(5 * radius + p)),
-                long = wave ** g.bladePower,
-                short =
-                  (1 - wave) ** g.bladePower *
-                  smooth(
-                    clamp(
-                      (radius - g.shortStart) / (g.shortEnd - g.shortStart),
-                    ),
-                  ),
-                blades = (long + short) * fungalFans![offset + 6],
-                rim = 1 - smooth(clamp((radius - 1.22) / 0.2));
-              coverage = attachment * fan * rim;
-              relief = 0.2 + 0.22 * blades + 0.005 * grain;
-              pigment = 0.25 + 0.51 * blades + 0.08 * fungalFans![offset + 5];
-              exposure = 0.63 + 0.33 * blades;
-              finish =
-                preset.roughness - 0.035 * blades + 0.012 * (grain - 0.5);
-            } else {
-              const f = proceduralMaterialPresets.bracketfungus,
-                front =
-                  radius *
-                  (1 +
-                    f.lobe * Math.cos(5 * angle + p) +
-                    0.035 * Math.cos(9 * angle - p));
-              if (front >= 1.35) continue;
-              const edge = 1 - smooth(clamp((front - 1.27) / 0.08)),
-                margin = smooth(
-                  clamp(
-                    (front - f.marginStart) / (f.marginEnd - f.marginStart),
-                  ),
-                ),
-                zones =
-                  0.5 +
-                  0.5 *
-                    Math.cos(
-                      TAU * f.zones * front + p + 0.2 * Math.sin(3 * angle),
-                    ),
-                tone = fungalFans![offset + 5],
-                velvet = (grain - 0.5) * fungalFans![offset + 6];
-              coverage = attachment * fan * edge;
-              relief = 0.47 - 0.045 * front + 0.009 * velvet;
-              pigment =
-                (0.22 + 0.48 * zones + 0.12 * tone) * (1 - margin) +
-                0.94 * margin +
-                0.018 * velvet;
-              exposure = 0.97;
-              finish = preset.roughness + 0.025 * velvet - 0.045 * margin;
-            }
-            // An opaque face replaces every lower channel, including the
-            // previous rim's shadow. Stable unwrapped row order only changes
-            // when a zero-support neighbor enters/leaves the lookup.
-            color += coverage * (pigment - color);
-            height += coverage * (relief - height);
-            occlusion += coverage * (exposure - occlusion);
-            roughness += coverage * (finish - roughness);
-          }
-        break;
-      }
-      case 'tactilepaving': {
-        const p = proceduralMaterialPresets.tactilepaving,
-          grain = municipalGrain!(u, v),
-          tone = pavingTone!(u, v),
-          tx = Math.abs(fract(u * p.tiles) - 0.5),
-          ty = Math.abs(fract(v * p.tiles) - 0.5),
-          tile =
-            (1 -
-              smooth(
-                clamp((tx - p.jointInner) / (p.jointOuter - p.jointInner)),
-              )) *
-            (1 -
-              smooth(
-                clamp((ty - p.jointInner) / (p.jointOuter - p.jointInner)),
-              )),
-          dx = fract(u * p.domes) - 0.5,
-          dy = fract(v * p.domes) - 0.5,
-          dome =
-            1 -
-            smooth(
-              clamp(
-                (dx * dx + dy * dy - p.domeInner * p.domeInner) /
-                  (p.domeOuter * p.domeOuter - p.domeInner * p.domeInner),
-              ),
-            );
-        // Radius .34 < .5: the one owner cell contains the full dome support.
-        // Squared radius is smooth at its center; tile joins lie in flat gaps.
-        color =
-          0.22 + 0.4 * tile + 0.08 * tile * dome + 0.06 * grain + 0.05 * tone;
-        height = 0.12 + tile * (0.12 + 0.56 * dome) + 0.008 * grain;
-        roughness = p.roughness + 0.06 * (grain - 0.5) - 0.025 * dome * tile;
-        occlusion = 0.72 + 0.22 * tile + 0.06 * tile * dome;
-        break;
-      }
-      case 'roadmarking': {
-        const p = proceduralMaterialPresets.roadmarking,
-          grain = municipalGrain!(u, v),
-          distance = Math.abs(fract(u * p.bands) - 0.5),
-          band =
-            1 -
-            smooth(
-              clamp((distance - p.bandInner) / (p.bandOuter - p.bandInner)),
-            ),
-          survival = smooth(
-            clamp(
-              (paintWear!(u, v) - p.wearInner) / (p.wearOuter - p.wearInner),
-            ),
-          ),
-          paint = band * survival,
-          substrateColor = 0.04 + 0.12 * grain,
-          substrateHeight = 0.17 + 0.07 * grain;
-        // Convex opaque ownership removes buried asphalt relief on intact paint.
-        color = substrateColor + paint * (0.82 + 0.1 * grain - substrateColor);
-        height =
-          substrateHeight + paint * (0.32 + 0.008 * grain - substrateHeight);
-        roughness = p.roughness - 0.25 * paint + 0.04 * (grain - 0.5);
-        occlusion = 0.91 + 0.09 * paint;
-        break;
-      }
-      case 'draincover': {
-        const p = proceduralMaterialPresets.draincover,
-          grain = municipalGrain!(u, v),
-          x = Math.abs(u - 0.5),
-          y = Math.abs(v - 0.5),
-          cover =
-            (1 -
-              smooth(
-                clamp((x - p.frameInnerX) / (p.frameOuterX - p.frameInnerX)),
-              )) *
-            (1 -
-              smooth(
-                clamp((y - p.frameInnerY) / (p.frameOuterY - p.frameInnerY)),
-              )),
-          brace =
-            1 -
-            smooth(clamp((y - p.braceInner) / (p.braceOuter - p.braceInner))),
-          end = Math.max(0, y - p.slotHalfLength);
-        let slots = 0;
-        // Enumerate all six disjoint capsules (.084 width < .14 spacing).
-        // Their full supports fit inside the frame; no lookup truncates an end.
-        for (let i = 0; i < p.slots; i++) {
-          const dx = u - p.slotStart - i * p.slotSpacing;
-          slots +=
-            1 -
-            smooth(
-              clamp(
-                (dx * dx + end * end - p.slotInner * p.slotInner) /
-                  (p.slotOuter * p.slotOuter - p.slotInner * p.slotInner),
-              ),
-            );
-        }
-        // The squared positive part is C1 where straight sides meet end caps.
-        // Brace ownership suppresses lower slot shading on the upper iron face.
-        const face = cover * (1 - slots * (1 - brace));
-        color = 0.035 + 0.045 * grain + face * (0.52 + 0.08 * grain);
-        height = 0.1 + 0.012 * grain + 0.72 * face;
-        roughness = p.roughness + 0.2 * (1 - face) + 0.06 * (grain - 0.5);
-        occlusion = 0.25 + 0.75 * face;
-        metallic = face;
-        break;
-      }
-      case 'birchbark':
-      case 'palmtrunk':
-      case 'sycamorebark': {
-        const grain = treeGrain!(u, v),
-          cloud = treeCloud ? treeCloud(u, v) : 0;
-        if (kind === 'palmtrunk') {
-          const fibers = palmFibers!(u, v),
-            row = Math.floor(v * 9);
-          let scars = 0,
-            shoulders = 0;
-          for (let i = row - 1; i <= row; i++) {
-            const offset = ((i + 9) % 9) * 4,
-              center =
-                palmScars![offset] +
-                0.006 * Math.sin(TAU * u + palmScars![offset + 2]) +
-                0.003 * Math.sin(3 * TAU * u + palmScars![offset + 2]),
-              dy = fract(v - center + 0.5) - 0.5,
-              q = dy / palmScars![offset + 1],
-              lip = (dy - 0.018) / 0.013,
-              recess = Math.max(0, 1 - q * q),
-              shoulder = Math.max(0, 1 - lip * lip);
-            scars += recess * recess * palmScars![offset + 3];
-            shoulders += shoulder * shoulder * palmScars![offset + 3];
-          }
-          color =
-            0.49 +
-            0.17 * cloud +
-            0.12 * fibers -
-            0.32 * scars +
-            0.08 * shoulders;
-          height =
-            0.36 +
-            0.035 * fibers +
-            0.012 * grain -
-            0.15 * scars +
-            0.12 * shoulders;
-          roughness += 0.025 * (grain - 0.5) - 0.03 * scars;
-          occlusion = 1 - 0.22 * scars;
-        } else {
-          const x = u * barkColumns,
-            y = v * barkRows,
-            ix = Math.floor(x),
-            iy = Math.floor(y),
-            birch = kind === 'birchbark';
-          let marks = 0,
-            tone = 0.54,
-            layer = 0.32,
-            edges = 0;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const cx = ix + ox,
-                cy = iy + oy,
-                wx = (cx + barkColumns) % barkColumns,
-                wy = (cy + barkRows) % barkRows,
-                offset = (wy * barkColumns + wx) * barkStride,
-                dx = x - cx - barkMarks![offset],
-                dy = y - cy - barkMarks![offset + 1],
-                a = dx / barkMarks![offset + 2],
-                b = dy / barkMarks![offset + 3],
-                quadratic = a * a + b * b,
-                q = birch
-                  ? quadratic
-                  : quadratic *
-                    (1 +
-                      0.16 *
-                        Math.sin(5 * dx + barkMarks![offset + 4]) *
-                        Math.sin(6 * dy - barkMarks![offset + 4]));
-              if (q >= 1) continue;
-              const face = smooth(clamp((1 - q) / (birch ? 0.75 : 0.24)));
-              if (birch) {
-                marks += (1 - marks) * face * barkMarks![offset + 4];
-              } else {
-                // Layered compact lobes, not nearest-cell grout or one noise
-                // threshold. A new layer replaces tone and shallow plate height.
-                tone += (barkMarks![offset + 5] - tone) * face;
-                layer += (0.29 + 0.055 * barkMarks![offset + 5] - layer) * face;
-                // A covering lobe hides the earlier layer's peel rim.
-                edges = (edges + face) * (1 - face);
-              }
-            }
-          if (birch) {
-            const seamWave = Math.sin(TAU * (13 * v + 0.12 * cloud)),
-              seam = ((1 + seamWave) * 0.5) ** 24;
-            color = 0.91 + 0.035 * cloud - 0.79 * marks - 0.035 * seam;
-            height = 0.34 + 0.007 * grain - 0.065 * marks - 0.012 * seam;
-            roughness += 0.04 * marks + 0.02 * (grain - 0.5);
-            occlusion = 1 - 0.2 * marks - 0.025 * seam;
-          } else {
-            color = tone + 0.025 * (grain - 0.5);
-            height = layer + 0.008 * edges + 0.005 * (grain - 0.5);
-            roughness += 0.035 * (1 - tone) + 0.015 * (grain - 0.5);
-            occlusion = 1 - 0.055 * edges;
-          }
-        }
-        break;
-      }
-      case 'rosepetal':
-      case 'lilypetal': {
-        const rose = kind === 'rosepetal',
-          wander = rose ? petalWander!(u, v) : 0,
-          grain = petalGrain!(u, v),
-          fold = Math.sin(TAU * (3 * u + 0.22 * Math.sin(TAU * v + phase))),
-          rib = rose
-            ? 0
-            : Math.sin(TAU * (32 * u + 0.16 * Math.sin(TAU * 2 * v + phase))),
-          x = petalColumns * u,
-          y = petalRows * v,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let marks = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              offset =
-                (((cy + petalRows) % petalRows) * petalColumns +
-                  ((cx + petalColumns) % petalColumns)) *
-                8,
-              dx = x - cx - petalMarks![offset],
-              dy = y - cy - petalMarks![offset + 1],
-              across =
-                (dx * petalMarks![offset + 2] + dy * petalMarks![offset + 3]) *
-                petalMarks![offset + 4],
-              along =
-                (dy * petalMarks![offset + 2] - dx * petalMarks![offset + 3]) *
-                petalMarks![offset + 5],
-              radius = rose
-                ? across * across + along * along
-                : across *
-                    across *
-                    (1 + petalMarks![offset + 7] * Math.sin(3 * along)) +
-                  along * along,
-              support = clamp(1 - radius),
-              mark = support * support * support * petalMarks![offset + 6];
-            marks += rose ? mark : (1 - marks) * mark;
-          }
-        if (rose) {
-          color = 0.48 + 0.16 * fold + 0.08 * wander;
-          height = 0.3 + 0.1 * fold + 0.055 * marks;
-          roughness += 0.025 * marks + 0.02 * (grain - 0.5);
-          occlusion = 0.98;
-        } else {
-          // Pigment has no relief or AO contribution: dark speckles are not pits.
-          color = 0.94 - 0.82 * marks;
-          height = 0.3 + 0.025 * fold + 0.012 * rib;
-          roughness += 0.025 * marks + 0.012 * (grain - 0.5);
-          occlusion = 0.99;
-        }
-        break;
-      }
-      case 'fritillarypetal': {
-        const wander = petalWander!(u, v),
-          grain = petalGrain!(u, v),
-          across =
-            3 * u + 0.085 * Math.sin(TAU * 2 * v + phase) + 0.12 * wander,
-          along = 4 * v + 0.065 * Math.sin(TAU * 2 * u - phase) + 0.1 * wander,
-          pigment =
-            0.5 +
-            0.5 * Math.tanh(7 * Math.sin(TAU * across) * Math.sin(TAU * along)),
-          rib = Math.sin(TAU * (40 * u + 0.12 * Math.sin(TAU * v + phase)));
-        color = 0.12 + 0.8 * pigment;
-        // Checker ownership never enters height, roughness or occlusion.
-        height =
-          0.3 +
-          0.014 * rib +
-          0.02 * Math.sin(TAU * (2 * u + 0.1 * Math.sin(TAU * v + phase)));
-        roughness += 0.014 * (grain - 0.5);
-        occlusion = 0.99;
-        break;
-      }
-      case 'cantaloupe': {
-        const warp = rindWarp!(u, v),
-          x = 7 * u + 0.38 * Math.sin(TAU * 3 * v + phase),
-          y = 7 * v + 0.34 * Math.sin(TAU * 2 * u - phase),
-          ix = Math.floor(x),
-          iy = Math.floor(y),
-          grain = fruitGrain!(u, v);
-        let interior = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              offset = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 26,
-              dx = x - cx - rindIslands![offset],
-              dy = y - cy - rindIslands![offset + 1];
-            let mask =
-              smooth(clamp((1.21 - dx * dx) * 5)) *
-              smooth(clamp((1.21 - dy * dy) * 5));
-            for (let edge = 0; edge < 8; edge++) {
-              const plane = offset + 2 + edge * 3,
-                inset =
-                  rindIslands![plane + 2] -
-                  dx * rindIslands![plane] -
-                  dy * rindIslands![plane + 1];
-              mask *= smooth(clamp((inset - 0.035) * 6));
-            }
-            interior += mask;
-          }
-        const net = 1 - interior;
-        color = 0.14 + 0.12 * warp + net * (0.66 + 0.06 * grain);
-        height = 0.12 + 0.012 * grain + net * (0.5 + 0.06 * grain);
-        roughness += 0.1 * net - 0.03 * interior;
-        occlusion = 0.9 + 0.1 * net;
-        break;
-      }
-      case 'dragonfruit': {
-        const x = 4 * u,
-          y = 6 * v,
-          ix = Math.floor(x),
-          iy = Math.floor(y),
-          grain = fruitGrain!(u, v);
-        let face = 0,
-          tips = 0,
-          lifted = 0,
-          underlap = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              offset = (((cy + 6) % 6) * 4 + ((cx + 4) % 4)) * 5,
-              dx = x - cx - bracts![offset],
-              dy = y - cy - bracts![offset + 1],
-              a =
-                (dx * bracts![offset + 2] - dy * bracts![offset + 3]) *
-                bractWidthInverse,
-              b =
-                (dy * bracts![offset + 2] + dx * bracts![offset + 3]) *
-                bractLengthInverse,
-              radius = a * a * (1 + 0.65 * b + 0.2 * b * b) + b * b,
-              body = smooth(clamp(1 - radius)),
-              pigment = smooth(clamp((1 - radius) * 5)),
-              tip = smooth(clamp((b - 0.05) * 2.5)),
-              lip = body * smooth(clamp((b + 0.35) * 1.5)),
-              shade = (pigment - body) * (1 - tip);
-            face += body;
-            tips += (1 - tips) * pigment * tip * bracts![offset + 4];
-            lifted += lip;
-            underlap += shade;
-          }
-        color = 0.045 + 0.025 * grain + 0.86 * tips;
-        height =
-          0.16 + 0.008 * grain + 0.11 * face + 0.48 * lifted - 0.07 * underlap;
-        roughness += 0.1 * tips + 0.04 * underlap;
-        occlusion = 1 - 0.19 * underlap;
-        break;
-      }
-      case 'kiwiskin': {
-        const x = 36 * u,
-          y = 36 * v,
-          ix = Math.floor(x),
-          iy = Math.floor(y),
-          grain = fruitGrain!(u, v);
-        let hairs = 0,
-          pits = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              offset = (((cy + 36) % 36) * 36 + ((cx + 36) % 36)) * 5,
-              dx = x - cx - kiwiHairs![offset],
-              dy = y - cy - kiwiHairs![offset + 1],
-              along = dx * kiwiHairs![offset + 2] + dy * kiwiHairs![offset + 3],
-              across =
-                dy * kiwiHairs![offset + 2] - dx * kiwiHairs![offset + 3],
-              hair = smooth(
-                clamp(
-                  1 -
-                    along * along * hairLengthSquaredInverse -
-                    across * across * hairWidthSquaredInverse,
-                ),
-              ),
-              root = along + 0.43,
-              pit = smooth(
-                clamp(
-                  1 - (root * root + across * across) * follicleSquaredInverse,
-                ),
-              );
-            hairs += (1 - hairs) * hair * kiwiHairs![offset + 4];
-            pits += (1 - pits) * pit;
-          }
-        color = 0.34 + 0.13 * grain + 0.38 * hairs - 0.19 * pits;
-        height = 0.15 + 0.016 * grain + 0.23 * hairs - 0.085 * pits;
-        roughness += 0.055 * hairs - 0.025 * pits;
-        occlusion = 1 - 0.23 * pits;
-        break;
-      }
-      case 'walnutshell': {
-        // Flowing longitudinal ridges and missing cross-links avoid a lattice.
-        const x = u * 7 + 0.8 * (nutWarp!(u, v) - 0.5),
-          y = v * 7,
-          column = Math.floor(x),
-          row = Math.floor(y);
-        let ridges = 0;
-        for (let oy = -2; oy <= 2; oy++)
-          for (let ox = -2; ox <= 2; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              cell = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 24;
-            for (let branch = 0; branch < 3; branch++) {
-              const offset = cell + branch * 8;
-              if (!walnutRidges![offset + 7]) continue;
-              const dx = x - cx - walnutRidges![offset],
-                dy = y - cy - walnutRidges![offset + 1],
-                cosine = walnutRidges![offset + 2],
-                sine = walnutRidges![offset + 3],
-                a = (dx * cosine + dy * sine) * walnutRidges![offset + 4];
-              if (a * a >= 1) continue;
-              const across =
-                  dy * cosine -
-                  dx * sine -
-                  walnutRidges![offset + 6] * (1 - a * a),
-                b = across * walnutRidges![offset + 5],
-                ridge =
-                  smooth(clamp((1 - a * a) / 0.4)) * smooth(clamp(1 - b * b));
-              ridges += ridge;
-            }
-          }
-        const crest = ridges / (0.65 + ridges),
-          grain = nutGrain!(u, v);
-        color = 0.13 + 0.74 * crest + 0.055 * grain;
-        height = 0.13 + 0.75 * crest + 0.012 * grain;
-        occlusion = 0.45 + 0.53 * crest;
-        roughness += 0.035 * (1 - crest) + 0.012 * (grain - 0.5);
-        break;
-      }
-      case 'peanutshell': {
-        const x =
-            u * 10 +
-            0.28 * Math.sin(TAU * v + phase) +
-            0.3 * (nutWarp!(u, v) - 0.5),
-          y = v * 5,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          rib = smooth(clamp((Math.cos(TAU * x) - 0.6) / 0.4));
-        let links = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset = (((cy + 5) % 5) * 10 + ((cx + 10) % 10)) * 3,
-              dx = x - cx - 0.5,
-              dy = y - cy - peanutLinks![offset],
-              a = dx / 0.65,
-              b =
-                (dy - peanutLinks![offset + 2] * dx) * peanutLinks![offset + 1],
-              q = a * a + b * b;
-            if (q < 1) links += smooth(1 - q);
-          }
-        const cross = links / (0.5 + links),
-          grain = nutGrain!(u, v);
-        color = 0.5 + 0.22 * rib + 0.12 * cross + 0.045 * grain;
-        height = 0.25 + 0.38 * rib + 0.17 * cross + 0.008 * grain;
-        occlusion = 0.72 + 0.19 * rib + 0.075 * cross;
-        roughness += 0.025 * (1 - rib) + 0.012 * (grain - 0.5);
-        break;
-      }
-      case 'almondshell': {
-        const x = u * 16,
-          y = v * 12,
-          column = Math.floor(x),
-          row = Math.floor(y);
-        let pores = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset = (((cy + 12) % 12) * 16 + ((cx + 16) % 16)) * 7;
-            if (!almondPores![offset + 6]) continue;
-            const dx = x - cx - almondPores![offset],
-              dy = y - cy - almondPores![offset + 1],
-              cosine = almondPores![offset + 2],
-              sine = almondPores![offset + 3],
-              a = (dx * cosine + dy * sine) * almondPores![offset + 4],
-              b = (dy * cosine - dx * sine) * almondPores![offset + 5],
-              q = a * a + b * b;
-            if (q < 1) pores += smooth(1 - q);
-          }
-        const grain = nutGrain!(u, v),
-          fiber =
-            0.5 +
-            0.5 * Math.cos(TAU * 43 * u + 0.35 * Math.sin(TAU * v + phase));
-        color = 0.76 - 0.45 * pores + 0.035 * grain + 0.018 * fiber;
-        height = 0.62 - 0.33 * pores + 0.006 * grain + 0.004 * fiber;
-        occlusion = 0.98 - 0.38 * pores;
-        roughness += 0.035 * pores + 0.012 * (grain - 0.5);
-        break;
-      }
-      case 'scallopshell':
-      case 'oystershell':
-      case 'nautilusshell': {
-        const x = u * shellCells,
-          y = v * shellCells,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = shellGrain!(u, v);
-        color = 0.28 + 0.035 * grain;
-        height = 0.12 + 0.004 * grain;
-        occlusion = 0.76;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset =
-                (((cy + shellCells) % shellCells) * shellCells +
-                  ((cx + shellCells) % shellCells)) *
-                8,
-              dx = x - cx - shellFaces![offset],
-              dy = y - cy - shellFaces![offset + 1],
-              cosine = shellFaces![offset + 2],
-              sine = shellFaces![offset + 3],
-              a = (dx * cosine + dy * sine) * shellFaces![offset + 4],
-              b = (dy * cosine - dx * sine) * shellFaces![offset + 5],
-              p = shellFaces![offset + 6];
-            let face: number,
-              relief: number,
-              pigment: number,
-              exposure: number,
-              polish: number;
-            if (kind === 'scallopshell') {
-              const along = b + 0.6,
-                q = a * a + along * along;
-              if (q <= 0.015 || q >= 1.8225 || along <= 0) continue;
-              const radius = Math.sqrt(q),
-                angle = Math.atan2(a, along),
-                // The hinge has an open zero neighborhood: no directional
-                // limit survives there, even on atan2's branch cut.
-                hinge = smooth(clamp((q - 0.015) * 16)),
-                fan = smooth(clamp((Math.cos(angle) - 0.55) * 5)),
-                rim = 1 - smooth(clamp((radius - 1.15) * 5)),
-                rib = 0.5 + 0.5 * Math.cos(18 * angle),
-                growth = 0.5 + 0.5 * Math.cos(44 * radius + p);
-              face = hinge * fan * rim;
-              relief = 0.29 + 0.25 * rib + 0.025 * growth;
-              pigment = 0.48 + 0.25 * rib + 0.065 * growth;
-              exposure = 0.8 + 0.17 * rib;
-              polish = -0.05 * rib;
-            } else if (kind === 'oystershell') {
-              // Off-center, Cartesian lobing deforms nested growth fronts.
-              // Each lamina has a lifted inner lip and a shadowed outer recess,
-              // not a symmetric sinusoidal corrugation or rectangular strip.
-              const warped = a + 0.16 * b * b,
-                q =
-                  (warped * warped + b * b) *
-                  (1 + 0.13 * Math.sin(5 * a + p) * Math.sin(4 * b - p));
-              if (q >= 1) continue;
-              face = 1 - smooth(clamp((q - 0.78) * (1 / 0.22)));
-              relief = 0.25;
-              pigment = shellFaces![offset + 7];
-              exposure = 0.96;
-              for (let layer = 0; layer < 5; layer++) {
-                const front = 0.9 - layer * 0.155,
-                  distance = q - front,
-                  terrace = 1 - smooth(clamp((distance + 0.025) * 20)),
-                  lip = Math.exp(-1800 * (distance + 0.045) ** 2),
-                  recess = Math.exp(-1800 * (distance - 0.035) ** 2);
-                relief += 0.065 * terrace + 0.075 * lip - 0.035 * recess;
-                pigment += 0.035 * terrace + 0.1 * lip - 0.14 * recess;
-                exposure -= 0.12 * recess;
-              }
-              relief += 0.018 * (grain - 0.5);
-              pigment += 0.12 * (grain - 0.5);
-              polish = 0.045 * (grain - 0.5);
-            } else {
-              const q = a * a + b * b;
-              if (q >= 1) continue;
-              const radius = Math.sqrt(q),
-                angle = Math.atan2(b, a),
-                center = smooth(clamp((q - 0.01) * 12)),
-                // Integer angular harmonics make both sides of atan2's cut
-                // identical. Radial phase winds the coil and bends chambers.
-                coil = 0.5 + 0.5 * Math.cos(6 * Math.PI * radius - angle + p),
-                chamber = 0.5 + 0.5 * Math.cos(18 * angle - 13 * radius + p),
-                stripe = chamber ** 4;
-              face = 1 - smooth(clamp((q - 0.75) * 4));
-              relief = 0.35 + center * (0.15 * coil + 0.025 * chamber);
-              pigment = 0.87 - center * (0.52 * stripe + 0.13 * (1 - coil));
-              exposure = 0.97 - 0.15 * center * (1 - coil);
-              polish = -0.045 * center * coil;
-            }
-            height += face * (relief - height);
-            color += face * (pigment - color);
-            occlusion += face * (exposure - occlusion);
-            roughness += face * (preset.roughness + polish - roughness);
-          }
-        break;
-      }
-      case 'zebrafur':
-      case 'leopardfur':
-      case 'giraffefur': {
-        const warp = furWarp!(u, v),
-          grain = furGrain!(u, v),
-          fx = u * 40,
-          fy = v * 32,
-          column = Math.floor(fx),
-          row = Math.floor(fy);
-        let fibers = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset = (((cy + 32) % 32) * 40 + ((cx + 40) % 40)) * 4,
-              dx = fx - cx - furFibers![offset],
-              dy = fy - cy - furFibers![offset + 1],
-              along =
-                (dx * furFibers![offset + 2] + dy * furFibers![offset + 3]) /
-                0.58,
-              across =
-                (dy * furFibers![offset + 2] - dx * furFibers![offset + 3]) /
-                0.13,
-              hair = smooth(clamp(1 - along * along - across * across));
-            fibers += (1 - fibers) * hair;
-          }
-        if (kind === 'zebrafur') {
-          const bend =
-              0.42 * Math.sin(TAU * 2 * v + phase) + 0.75 * (warp - 0.5),
-            carrier = TAU * (8 * u + bend),
-            // A subharmonic crossing unit amplitude changes the number of
-            // stripes: paired bands genuinely join, rather than just waving.
-            branching = 1.65 * Math.sin(TAU * 2 * v - phase),
-            pigment =
-              Math.cos(carrier) +
-              branching *
-                Math.cos(carrier * 0.5 + 0.3 * Math.sin(TAU * v + phase));
-          color =
-            0.025 +
-            0.94 * smooth(clamp((pigment + 0.13 + 0.16 * (warp - 0.5)) / 0.26));
-        } else if (kind === 'leopardfur') {
-          const x = 5 * u + 0.12 * Math.sin(TAU * 3 * v + phase),
-            y = 5 * v + 0.12 * Math.sin(TAU * 2 * u - phase),
-            ix = Math.floor(x),
-            iy = Math.floor(y);
-          let rings = 0,
-            centers = 0;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const cx = ix + ox,
-                cy = iy + oy,
-                offset = (((cy + 5) % 5) * 5 + ((cx + 5) % 5)) * 7,
-                dx = x - cx - rosettes![offset],
-                dy = y - cy - rosettes![offset + 1],
-                a =
-                  (dx * rosettes![offset + 2] + dy * rosettes![offset + 3]) *
-                  rosettes![offset + 4],
-                b =
-                  (dy * rosettes![offset + 2] - dx * rosettes![offset + 3]) *
-                  rosettes![offset + 5],
-                // Bounded Cartesian lobing stays regular at the center and
-                // keeps the entire support within 0.53 cell units.
-                squared = a * a + b * b,
-                radius =
-                  squared * (1 + (0.18 * a * b + 0.16 * a) / (1 + squared)),
-                outer = 1 - smooth(clamp((radius - 0.72) / 0.28)),
-                inner = smooth(clamp((radius - 0.25) / 0.2)),
-                gap =
-                  smooth(clamp((a - 0.35) / 0.28)) *
-                  (1 - smooth(clamp((b * b - 0.025) / 0.12))),
-                secondGap =
-                  smooth(clamp((-b - 0.48) / 0.25)) *
-                  (1 - smooth(clamp((a * a - 0.015) / 0.065))),
-                ring = outer * inner * (1 - gap) * (1 - secondGap),
-                center = (1 - inner) * (0.65 + 0.25 * rosettes![offset + 6]);
-              rings += (1 - rings) * ring;
-              centers += (1 - centers) * center * outer;
-            }
-          color =
-            (0.88 - 0.22 * centers + 0.055 * (warp - 0.5)) * (1 - 0.96 * rings);
-        } else {
-          const x = 6 * u + 0.13 * Math.sin(TAU * 2 * v + phase),
-            y = 6 * v + 0.13 * Math.sin(TAU * 3 * u - phase),
-            ix = Math.floor(x),
-            iy = Math.floor(y);
-          color = 0.95;
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const cx = ix + ox,
-                cy = iy + oy,
-                offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 27,
-                dx = x - cx - furPatches![offset],
-                dy = y - cy - furPatches![offset + 1];
-              // Explicit compact support also makes lookup entry/exit C1.
-              let mask =
-                smooth(clamp((1.21 - dx * dx) / 0.21)) *
-                smooth(clamp((1.21 - dy * dy) / 0.21));
-              for (let edge = 0; edge < 8; edge++) {
-                const plane = offset + 3 + edge * 3,
-                  inset =
-                    furPatches![plane + 2] -
-                    dx * furPatches![plane] -
-                    dy * furPatches![plane + 1];
-                mask *= smooth(clamp((inset - 0.045) / 0.055));
-              }
-              color +=
-                mask *
-                (0.12 + 0.2 * furPatches![offset + 2] + 0.055 * warp - color);
-            }
-        }
-        color += 0.018 * (fibers - 0.5) + 0.012 * (grain - 0.5);
-        height = 0.28 + 0.24 * fibers + 0.035 * grain;
-        roughness += 0.07 * (fibers - 0.5) + 0.025 * (grain - 0.5);
-        occlusion = 0.985 + 0.012 * fibers;
-        break;
-      }
-      case 'braincoral': {
-        const x = TAU * u + 0.17 * Math.sin(TAU * v + phase),
-          y = TAU * v + 0.17 * Math.sin(TAU * u - phase),
-          grain = marineGrain!(u, v);
-        let field = 0;
-        for (let i = 0; i < 6; i++) {
-          const offset = i * 4;
-          field +=
-            brainModes![offset + 3] *
-            Math.sin(
-              brainModes![offset] * x +
-                brainModes![offset + 1] * y +
-                brainModes![offset + 2],
-            );
-        }
-        const ridge = Math.exp(-24 * field * field),
-          shoulder = Math.exp(-6 * field * field);
-        color = 0.13 + 0.55 * ridge + 0.11 * shoulder + 0.04 * grain;
-        height = 0.16 + 0.43 * ridge + 0.12 * shoulder + 0.009 * grain;
-        roughness += 0.06 * (1 - ridge) + 0.015 * (grain - 0.5);
-        occlusion = 0.57 + 0.39 * shoulder;
-        break;
-      }
-      case 'starcoral': {
-        const x = u * 6,
-          y = v * 6,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = marineGrain!(u, v);
-        color = 0.2 + 0.025 * grain;
-        height = 0.16 + 0.006 * grain;
-        occlusion = 0.72;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 31,
-              dx = x - cx - corallites![offset],
-              dy = y - cy - corallites![offset + 1],
-              cosine = corallites![offset + 2],
-              sine = corallites![offset + 3],
-              a = (dx * cosine + dy * sine) * corallites![offset + 4],
-              b = (dy * cosine - dx * sine) * corallites![offset + 5],
-              q = a * a + b * b;
-            if (q >= 1) continue;
-            const face = smooth(clamp((1 - q) / 0.25)),
-              mouth = Math.exp(-40 * q),
-              wall = Math.exp(-45 * (q - 0.65) * (q - 0.65));
-            let septa = 0;
-            // Cartesian rays start outside the recessed mouth. Neither angular
-            // division nor a directional limit occurs at the corallite center.
-            for (let ray = 0; ray < 12; ray++) {
-              const rx = corallites![offset + 7 + ray * 2],
-                ry = corallites![offset + 8 + ray * 2],
-                along = a * rx + b * ry,
-                across = b * rx - a * ry,
-                rib =
-                  smooth(clamp((along - 0.16) / 0.12)) *
-                  Math.exp(-700 * across * across);
-              septa += (1 - septa) * rib;
-            }
-            const pigment =
-                0.43 +
-                0.12 * corallites![offset + 6] +
-                0.19 * wall +
-                0.15 * septa -
-                0.27 * mouth,
-              relief = 0.29 + 0.18 * wall + 0.16 * septa - 0.19 * mouth;
-            color += face * (pigment - color);
-            height += face * (relief - height);
-            roughness += face * (preset.roughness + 0.055 * mouth - roughness);
-            occlusion += face * (0.88 + 0.07 * wall - 0.42 * mouth - occlusion);
-          }
-        break;
-      }
-      case 'seasponge': {
-        // Periodic shears bend the connected skeleton without opening joins or
-        // changing its compact-support lookup.
-        const warpedU = u + 0.07 * Math.sin(TAU * 3 * v + phase),
-          warpedV = v + 0.06 * Math.sin(TAU * 2 * warpedU - phase),
-          x = fract(warpedU) * 7,
-          y = fract(warpedV) * 7,
-          column = Math.floor(x),
-          row = Math.floor(y);
-        let skeleton = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              cell = ((cy + 7) % 7) * 7 + ((cx + 7) % 7);
-            for (let branch = 0; branch < 4; branch++) {
-              const offset = (cell * 4 + branch) * 7;
-              if (spongeStruts![offset + 6] === 0) continue;
-              const dx = x - cx - spongeStruts![offset],
-                dy = y - cy - spongeStruts![offset + 1],
-                cosine = spongeStruts![offset + 2],
-                sine = spongeStruts![offset + 3],
-                a = (dx * cosine + dy * sine) * spongeStruts![offset + 4],
-                b = (dy * cosine - dx * sine) * spongeStruts![offset + 5],
-                q = a * a + b * b;
-              if (q >= 1) continue;
-              const strut = smooth(clamp((1 - q) / 0.8));
-              skeleton += (1 - skeleton) * strut;
-            }
-          }
-        const channelField = spongeChannels!(u, v) - 0.5,
-          channels = Math.exp(-110 * channelField * channelField),
-          grain = marineGrain!(u, v),
-          body = skeleton * (1 - 0.42 * channels);
-        color = 0.12 + 0.63 * body + 0.055 * grain;
-        height = 0.12 + 0.57 * body + 0.012 * grain * skeleton;
-        roughness += 0.035 * (1 - body) + 0.01 * (grain - 0.5);
-        occlusion = 0.48 + 0.48 * body;
-        break;
-      }
-      case 'lotusleaf':
-      case 'bananaleaf':
-      case 'fernleaf': {
-        const x = u * 3,
-          y = v * 3,
-          column = Math.floor(x),
-          row = Math.floor(y);
-        color = 0.12;
-        height = 0.08;
-        occlusion = 0.68;
-        // Every support fits strictly within the 3x3 neighborhood. Ordered
-        // convex layers retain C1 ownership at overlaps and wrapped cell edges.
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              offset = (((cy + 3) % 3) * 3 + ((cx + 3) % 3)) * leafStride,
-              dx = x - cx - leafSites![offset],
-              dy = y - cy - leafSites![offset + 1],
-              cosine = leafSites![offset + 2],
-              sine = leafSites![offset + 3],
-              a = (dx * cosine + dy * sine) * leafSites![offset + 4],
-              b = (dy * cosine - dx * sine) * leafSites![offset + 5],
-              variation = leafSites![offset + 6];
-            let face: number,
-              veins = 0,
-              crown: number;
-            if (kind === 'fernleaf') {
-              if (a * a + b * b > 1.5) continue;
-              face = smooth(
-                clamp((1 - (a * a) / 0.81 - (b * b) / 0.0016) / 0.35),
-              );
-              veins = face;
-              for (let i = 0; i < 14; i++) {
-                const side = pinnae![i * 3 + 1],
-                  t = b * side * pinnae![i * 3 + 2],
-                  across = (a - pinnae![i * 3] - 0.3 * b * side) / 0.043,
-                  q = (2 * t - 1) * (2 * t - 1) + across * across;
-                if (q >= 1) continue;
-                const pinna = smooth(clamp((1 - q) / 0.35)),
-                  midrib = Math.exp(-10 * across * across),
-                  fine = Math.pow(0.5 + 0.5 * Math.cos(42 * t - 7 * across), 8),
-                  vein = pinna * (0.78 * midrib + 0.22 * fine);
-                face += (1 - face) * pinna;
-                veins += (1 - veins) * vein;
-              }
-              crown = face;
-            } else {
-              const q =
-                a * a + b * b * (kind === 'bananaleaf' ? 1 + 0.45 * a * a : 1);
-              if (q >= 1) continue;
-              face = smooth(clamp((1 - q) / 0.24));
-              crown = (1 - q) * (1 - q);
-              if (kind === 'lotusleaf') {
-                // Cartesian rays fade before meeting the attachment: no angle,
-                // radius division or directional limit exists at the center.
-                for (let ray = 0; ray < 12; ray++) {
-                  const rx = leafSites![offset + 7 + ray * 2],
-                    ry = leafSites![offset + 8 + ray * 2],
-                    along = a * rx + b * ry,
-                    across = b * rx - a * ry,
-                    shaft = smooth(clamp((along - 0.03) / 0.1)),
-                    vein = shaft * Math.exp(-900 * across * across);
-                  veins += (1 - veins) * vein;
-                }
-                const attachment = Math.exp(-110 * q);
-                veins += (1 - veins) * attachment;
-              } else {
-                const midrib = Math.exp(-180 * b * b),
-                  // Rounded transverse distance joins oblique parallel side
-                  // veins smoothly to both sides of the strong midrib.
-                  carrier = Math.cos(
-                    TAU * (9 * a - 2.4 * Math.sqrt(b * b + 0.0004)),
-                  ),
-                  branches =
-                    ((b * b) / (b * b + 0.006)) *
-                    Math.pow(0.5 + 0.5 * carrier, 8);
-                veins = midrib + (1 - midrib) * 0.7 * branches;
-              }
-            }
-            color += face * (0.5 + 0.18 * variation + 0.12 * veins - color);
-            height += face * (0.26 + 0.13 * crown + 0.14 * veins - height);
-            roughness +=
-              face * (preset.roughness + 0.035 * (1 - veins) - roughness);
-            occlusion += face * (0.9 + 0.08 * crown - occlusion);
-          }
-        break;
-      }
-      case 'rice':
-      case 'sesame':
-      case 'coffeebeans': {
-        const x = u * grainCells,
-          y = v * grainCells,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = roastGrain ? roastGrain(u, v) : 0;
-        color = kind === 'rice' ? 0.26 : kind === 'sesame' ? 0.19 : 0.12;
-        height = 0.08;
-        occlusion = 0.57;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              wx = (cx + grainCells) % grainCells,
-              wy = (cy + grainCells) % grainCells,
-              offset = (wy * grainCells + wx) * 7,
-              dx = x - cx - grainSites![offset],
-              dy = y - cy - grainSites![offset + 1],
-              cosine = grainSites![offset + 2],
-              sine = grainSites![offset + 3],
-              a = (dx * cosine + dy * sine) * grainSites![offset + 4],
-              b = (dy * cosine - dx * sine) * grainSites![offset + 5],
-              variation = grainSites![offset + 6];
-            let q: number;
-            if (kind === 'rice') q = a * a + b * b * (1 + 0.8 * a * a);
-            else if (kind === 'sesame') {
-              const taper = 1 + 0.65 * a;
-              q = a * a + b * b * taper * taper;
-            } else q = a * a + b * b * (1 + 0.12 * a);
-            if (q >= 1) continue;
-            // Polynomial coordinates have no singular radial center. The
-            // compact face and every owned detail vanish with zero edge slope.
-            const face = smooth(clamp((1 - q) / 0.32)),
-              crown = (1 - q) * (1 - q);
-            let pigment: number, relief: number, finish: number, shade: number;
-            if (kind === 'rice') {
-              const striation = 0.5 + 0.5 * Math.cos(14 * b + 0.7 * a * a);
-              pigment = 0.75 + 0.16 * variation + 0.035 * striation;
-              relief = 0.28 + 0.32 * crown + 0.025 * crown * striation;
-              finish = preset.roughness + 0.04 * (1 - crown);
-              shade = 0.87 + 0.1 * crown;
-            } else if (kind === 'sesame') {
-              const keel = Math.exp(-12 * b * b) * crown,
-                fleck = 0.5 + 0.5 * Math.sin(17 * a + 5 * b + variation * TAU);
-              pigment = 0.58 + 0.2 * variation + 0.07 * keel + 0.025 * fleck;
-              relief = 0.24 + 0.2 * crown + 0.23 * keel;
-              finish = preset.roughness + 0.05 * (1 - keel);
-              shade = 0.86 + 0.11 * crown;
-            } else {
-              // A curved recessed split cuts the broad crown, not an absolute
-              // distance crease; its squared profile stays smooth at the floor.
-              const curve = b - 0.16 * Math.sin(2.8 * a + variation - 0.5),
-                split = Math.exp((-curve * curve) / 0.012) * crown,
-                roast = 0.55 * grain + 0.45 * variation;
-              pigment = 0.4 + 0.3 * roast + 0.1 * crown - 0.26 * split;
-              relief = 0.28 + 0.4 * crown - 0.3 * split + 0.018 * grain * crown;
-              finish = preset.roughness + 0.11 * roast + 0.1 * split;
-              shade = 0.89 + 0.08 * crown - 0.32 * split;
-            }
-            // Convex layering preserves distinct seed ownership without hard
-            // nearest-site changes or saturation kinks where silhouettes overlap.
-            color += face * (pigment - color);
-            height += face * (relief - height);
-            roughness += face * (finish - roughness);
-            occlusion += face * (shade - occlusion);
-          }
-        break;
-      }
-      case 'malachite':
-      case 'agate': {
-        const columns = kind === 'malachite' ? 3 : 1,
-          rows = 3,
-          a = TAU * columns * u + mineralPhaseU,
-          b = TAU * rows * v + mineralPhaseV,
-          x = a + 0.28 * Math.sin(b),
-          y = b + 0.18 * Math.sin(a),
-          // Analytic contour ownership blends through saddles rather than
-          // selecting a nearest growth center. No radial origin is singular.
-          // Agate's second harmonic adds growth basins, not only a stretched recolor.
-          growth =
-            1 -
-            0.5 * (Math.cos(x) + Math.cos(y)) +
-            (kind === 'agate' ? 0.22 * (1 - Math.cos(2 * x - y)) : 0),
-          bands =
-            0.5 +
-            0.5 *
-              Math.cos(TAU * (3 * growth + 0.1 * Math.sin(x) * Math.sin(y))),
-          grain = mineralGrain!(u, v);
-        color = 0.12 + 0.8 * bands + 0.035 * grain;
-        height = 0.48 + 0.07 * bands + 0.002 * grain;
-        roughness += 0.045 * (1 - bands) + 0.012 * grain;
-        occlusion = 0.985 + 0.015 * bands;
-        break;
-      }
-      case 'lapislazuli': {
-        const a =
-            Math.sin(TAU * (u + v) + mineralPhaseU) +
-            0.22 * Math.sin(TAU * 3 * v + mineralPhaseV),
-          b =
-            Math.sin(TAU * (2 * u - v) + mineralPhaseV) +
-            0.18 * Math.sin(TAU * 2 * v + mineralPhaseU),
-          veinA = smooth(clamp(1 - (a / 0.1) ** 2)),
-          veinB = smooth(clamp(1 - (b / 0.065) ** 2)),
-          inclusion = smooth(clamp((calciteGrain!(u, v) - 0.64) / 0.22)),
-          // Smooth complement union retains calcite ownership at crossings
-          // and fades inclusions into the granular blue dielectric matrix.
-          calcite = 1 - (1 - veinA) * (1 - veinB) * (1 - 0.8 * inclusion),
-          grain = mineralGrain!(u, v);
-        color = 0.1 + 0.12 * grain + 0.76 * calcite;
-        height = 0.5 + 0.009 * grain + 0.045 * calcite;
-        roughness += 0.04 * grain + 0.13 * calcite;
-        occlusion = 0.988 + 0.012 * calcite;
-        break;
-      }
-      case 'basalt': {
-        const x = u * 6,
-          y = v * 8,
-          row = Math.floor(y),
-          grain = volcanicGrain!(u, v);
-        color = 0.08 + 0.035 * grain;
-        height = 0.1 + 0.008 * grain;
-        occlusion = 0.59;
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy,
-            wy = (cy + 8) % 8,
-            stagger = (wy % 2) * 0.5,
-            column = Math.floor(x - stagger);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              wx = (cx + 6) % 6,
-              offset = (wy * 6 + wx) * 4,
-              dx = x - cx - stagger - 0.5,
-              dy = y - cy - 0.5,
-              a = volcanicCells![offset],
-              b = volcanicCells![offset + 1],
-              c = volcanicCells![offset + 2],
-              variation = volcanicCells![offset + 3];
-            // Six smooth half-planes multiply through diagonal corners; no
-            // nearest-edge selection can introduce a bisector slope cusp.
-            const face =
-                smooth(clamp((a - dx) / 0.065)) *
-                smooth(clamp((a + dx) / 0.065)) *
-                smooth(clamp((b - 0.5 * dx - 0.75 * dy) / 0.065)) *
-                smooth(clamp((b + 0.5 * dx + 0.75 * dy) / 0.065)) *
-                smooth(clamp((c + 0.5 * dx - 0.75 * dy) / 0.065)) *
-                smooth(clamp((c - 0.5 * dx + 0.75 * dy) / 0.065)),
-              crown = 1 - 0.6 * dx * dx - 0.6 * dy * dy;
-            color += face * (0.28 + 0.18 * variation + 0.06 * grain);
-            height += face * (0.52 + 0.08 * variation + 0.07 * crown);
-            occlusion += 0.4 * face;
-          }
-        }
-        roughness += 0.08 * (1 - occlusion) + 0.025 * (grain - 0.5);
-        break;
-      }
-      case 'scoria':
-      case 'obsidian': {
-        const columns = volcanicColumns,
-          x = u * columns,
-          y = v * volcanicRows,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          grain = volcanicGrain!(u, v);
-        let depression = 0,
-          edge = 0,
-          pigment = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              wx = (cx + columns) % columns,
-              wy = (cy + volcanicRows) % volcanicRows,
-              offset = (wy * columns + wx) * 7,
-              dx = x - cx - volcanicCells![offset],
-              dy = y - cy - volcanicCells![offset + 1],
-              cosine = volcanicCells![offset + 4],
-              sine = volcanicCells![offset + 5],
-              lx = (cosine * dx + sine * dy) / volcanicCells![offset + 2],
-              ly = (-sine * dx + cosine * dy) / volcanicCells![offset + 3],
-              q = lx * lx + ly * ly;
-            if (q >= 1) continue;
-            let bowl: number, lip: number;
-            if (kind === 'scoria') {
-              bowl = smooth(clamp((0.7 - q) / 0.7));
-              lip =
-                smooth(clamp((q - 0.42) / 0.18)) * smooth(clamp((1 - q) / 0.2));
-            } else {
-              bowl = smooth(1 - q);
-              // A parabolic fracture front inside a compact elliptical flake:
-              // polynomial coordinates avoid angular and radial origin cusps.
-              const curve = (lx + 0.36 - 1.2 * ly * ly) / 0.08;
-              lip =
-                smooth(clamp(1 - curve * curve)) *
-                smooth(clamp((1 - q) / 0.25));
-            }
-            // Complement products are bounded smooth unions, even where gas
-            // pits or flake scars overlap; hard saturation would kink normals.
-            depression += (1 - depression) * bowl;
-            edge += (1 - edge) * lip;
-            pigment += (1 - pigment) * bowl * volcanicCells![offset + 6];
-          }
-        if (kind === 'scoria') {
-          color =
-            0.36 +
-            0.09 * grain -
-            0.23 * depression +
-            0.16 * edge +
-            0.04 * pigment;
-          height = 0.48 + 0.012 * grain - 0.32 * depression + 0.15 * edge;
-          roughness +=
-            0.045 * depression - 0.035 * edge + 0.015 * (grain - 0.5);
-          occlusion = 0.98 - 0.36 * depression + 0.015 * edge;
-        } else {
-          color =
-            0.15 +
-            0.035 * grain +
-            0.14 * depression +
-            0.28 * edge +
-            0.035 * pigment;
-          height = 0.5 + 0.003 * grain - 0.2 * depression + 0.1 * edge;
-          roughness += 0.08 * depression + 0.1 * edge + 0.012 * grain;
-          occlusion = 1 - 0.13 * depression;
-        }
-        break;
-      }
-      case 'corrugatedcardboard':
-      case 'creasedpaper':
-      case 'layeredpaper': {
-        const grain = pulpGrain!(u * 8, v * 8),
-          x = u * 24,
-          y = v * 32,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let fibers = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              offset = ((((cy % 4) + 4) % 4) * 3 + (((cx % 3) + 3) % 3)) * 5,
-              dx = x - cx - pulpFibers![offset],
-              dy = y - cy - pulpFibers![offset + 1],
-              along =
-                dx * pulpFibers![offset + 2] + dy * pulpFibers![offset + 3],
-              across =
-                dy * pulpFibers![offset + 2] - dx * pulpFibers![offset + 3],
-              support = clamp(
-                1 -
-                  (along / pulpFibers![offset + 4]) ** 2 -
-                  (across / 0.065) ** 2,
-              );
-            // Add compact fibers, rather than switching nearest-fiber ownership.
-            fibers += support * support;
-          }
-        const pulp = 0.018 * grain + 0.014 * fibers;
-        if (kind === 'corrugatedcardboard') {
-          const flute = 0.5 + 0.5 * Math.cos(TAU * u * 4);
-          color = 0.38 + 0.27 * flute + 0.09 * grain - 0.055 * fibers;
-          height = 0.18 + 0.58 * flute + pulp;
-          roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
-          occlusion = 0.68 + 0.3 * flute - 0.025 * fibers;
-        } else if (kind === 'creasedpaper') {
-          const dx = Math.abs(fract(u * 2 + 0.5) - 0.5),
-            dy = Math.abs(fract(v * 2 + 0.5) - 0.5),
-            rx = clamp(1 - (dx / 0.14) ** 2) ** 2,
-            ry = clamp(1 - (dy / 0.14) ** 2) ** 2,
-            sx = clamp(1 - ((dx - 0.25) / 0.1) ** 2) ** 2,
-            sy = clamp(1 - ((dy - 0.25) / 0.1) ** 2) ** 2,
-            ridge = 1 - (1 - rx) * (1 - ry),
-            shoulder = (1 - (1 - sx) * (1 - sy)) * (1 - ridge);
-          // Product unions bound fold intersections without max/min corner cusps.
-          color =
-            0.7 + 0.1 * ridge - 0.14 * shoulder + 0.07 * grain - 0.04 * fibers;
-          height = 0.4 + 0.3 * ridge - 0.16 * shoulder + pulp;
-          roughness += 0.025 * (grain - 0.5) - 0.035 * ridge + 0.025 * shoulder;
-          occlusion = 0.98 - 0.19 * shoulder - 0.02 * fibers;
-        } else {
-          color = 0.5;
-          height = 0.2;
-          occlusion = 0.98;
-          for (let i = 0; i < 8; i++) {
-            const cx = 0.25 + (i % 2) * 0.5,
-              cy = (Math.floor(i / 2) + 0.5) / 4,
-              dx = fract(u - cx + 0.5) - 0.5,
-              dy = fract(v - cy + 0.5) - 0.5,
-              phase = paperLayers![i * 3 + 2],
-              torn =
-                0.008 * Math.sin(TAU * dx * 12 + phase) +
-                0.004 * Math.sin(TAU * dx * 28 - phase),
-              mx = smooth(clamp((0.34 - Math.abs(dx)) / 0.025)),
-              my = smooth(clamp((0.18 + torn - Math.abs(dy)) / 0.025)),
-              mask = mx * my,
-              ledge = 4 * my * (1 - my),
-              corner = 4 * mx * (1 - mx),
-              undercut = ledge * mx + corner * my * (1 - ledge);
-            // Fixed ordered alpha ownership is periodic even when a strip wraps.
-            height += mask * (paperLayers![i * 3] - height);
-            color += mask * (paperLayers![i * 3 + 1] - color);
-            occlusion += mask * (0.98 - occlusion);
-            height -= 0.035 * undercut;
-            color -= 0.075 * undercut;
-            occlusion -= 0.18 * undercut;
-          }
-          height += pulp;
-          color += 0.07 * grain - 0.045 * fibers;
-          roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
-          occlusion -= 0.02 * fibers;
-        }
-        break;
-      }
-      case 'cactus': {
-        const x = u * 8,
-          y = v * 8,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          rib = 0.5 - 0.5 * Math.cos(TAU * x),
-          grain = botanicalGrain!(u, v);
-        let areoles = 0,
-          impressions = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              cy = row + oy,
-              wx = (cx + 8) % 8,
-              wy = (cy + 8) % 8,
-              offset = (wy * 8 + wx) * 18,
-              dx = x - cx - 0.5,
-              dy = y - cy - 0.5 - botanicalCells![offset + 1];
-            if (dx * dx + dy * dy > 0.14) continue;
-            const cap = clamp(1 - (dx * dx) / 0.0196 - (dy * dy) / 0.0169),
-              length = botanicalCells![offset];
-            areoles += cap * cap;
-            for (let ray = 0; ray < 8; ray++) {
-              const rx = botanicalCells![offset + 2 + ray * 2],
-                ry = botanicalCells![offset + 3 + ray * 2],
-                along = dx * rx + dy * ry,
-                across = dy * rx - dx * ry,
-                shaft =
-                  smooth(clamp((along - 0.09) / 0.055)) *
-                  smooth(clamp((length - along) / 0.085)),
-                width = clamp(1 - (across * across) / 0.000225);
-              impressions += shaft * width * width;
-            }
-          }
-        // Fine radial marks are recessed shading only, never needle geometry.
-        color =
-          0.2 +
-          0.47 * rib +
-          0.045 * grain +
-          0.18 * areoles -
-          0.08 * impressions;
-        height =
-          0.18 +
-          0.49 * rib +
-          0.065 * areoles -
-          0.025 * impressions +
-          0.004 * grain;
-        roughness +=
-          0.12 * areoles + 0.055 * impressions + 0.025 * (grain - 0.5);
-        occlusion = 0.83 + 0.16 * rib - 0.08 * areoles - 0.035 * impressions;
-        break;
-      }
-      case 'pinecone': {
-        const x = u * 8,
-          y = v * 8,
-          row = Math.floor(y),
-          grain = botanicalGrain!(u, v);
-        color = 0.08 + 0.025 * grain;
-        height = 0.12;
-        occlusion = 0.58;
-        // Upper rows cover the roots of lower rows. Four multiplied half-plane
-        // shoulders form angular woody faces without min-axis corner cusps.
-        for (let oy = 1; oy >= -1; oy--) {
-          const cy = row + oy,
-            wy = (cy + 8) % 8,
-            stagger = (wy % 2) * 0.5,
-            column = Math.floor(x - stagger);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              wx = (cx + 8) % 8,
-              variation = botanicalCells![wy * 8 + wx],
-              dx = x - cx - stagger - 0.5,
-              dy = y - cy - 0.5,
-              left = smooth(clamp((0.68 + dx - 0.55 * dy) / 0.1)),
-              right = smooth(clamp((0.68 - dx - 0.55 * dy) / 0.1)),
-              root = smooth(clamp((dy + 0.78) / 0.12)),
-              end = smooth(clamp((0.86 - dy) / 0.12)),
-              cover = left * right * root * end;
-            if (cover === 0) continue;
-            const tip = smooth(clamp((dy + 0.05) / 0.76)),
-              ridge = smooth(clamp(1 - (dx * dx) / 0.36)),
-              fibers = Math.cos(TAU * (19 * dx + 1.8 * dy * dy + variation)),
-              relief =
-                0.28 +
-                0.27 * tip +
-                0.075 * ridge +
-                0.018 * variation +
-                0.006 * fibers,
-              pigment =
-                0.28 +
-                0.22 * variation +
-                0.18 * tip +
-                0.045 * fibers +
-                0.025 * grain;
-            color += cover * (pigment - color);
-            height += cover * (relief - height);
-            occlusion += cover * (0.97 - occlusion);
-          }
-        }
-        roughness += 0.06 * (1 - occlusion) + 0.025 * (grain - 0.5);
-        break;
-      }
-      case 'corncob': {
-        const x = u * 12,
-          y = v * 8,
-          column = Math.floor(x),
-          row = Math.floor(y),
-          variation = botanicalCells![row * 12 + column],
-          dx = (fract(x) - 0.5) / (0.445 + 0.015 * variation),
-          dy = (fract(y) - 0.5) / (0.46 + 0.015 * variation),
-          cap = clamp(1 - dx * dx * dx * dx - dy * dy),
-          face = smooth(clamp(cap / 0.28)),
-          crown = smooth(cap),
-          grain = botanicalGrain!(u, v);
-        // Rounded oblong kernels bulge throughout their faces, not flat bricks.
-        color =
-          0.13 +
-          face * (0.36 + 0.15 * variation + 0.21 * crown + 0.025 * grain);
-        height = 0.09 + face * (0.24 + 0.4 * crown + 0.025 * variation);
-        roughness += 0.14 * (1 - face) - 0.055 * crown + 0.015 * (grain - 0.5);
-        occlusion = 0.55 + 0.44 * face;
-        break;
-      }
-      case 'wood': {
-        const warp = noise(u, v, 4, 2, seed ^ 71);
-        const grain =
-          0.5 + 0.5 * Math.sin(TAU * (12 * u + 0.65 * warp) + phase);
-        const pores = Math.pow(
-          0.5 + 0.5 * Math.sin(TAU * (40 * u + warp) + phase),
-          12,
-        );
-        color = clamp(0.22 + 0.6 * grain + 0.16 * detail - 0.2 * pores);
-        height = 0.65 * grain + 0.15 * detail - 0.18 * pores;
-        roughness += 0.15 * pores + 0.08 * (detail - 0.5);
-        occlusion = 1 - 0.15 * pores;
-        break;
-      }
-      case 'brick': {
-        const row = Math.floor(v * 8);
-        const x = fract(u * 4 + (row % 2) * 0.5),
-          y = fract(v * 8);
-        const edge = Math.min(x, 1 - x, y * 0.5, (1 - y) * 0.5);
-        const face = smooth(clamp((edge - 0.014) / 0.045));
-        const variation = hash(
-          Math.floor(u * 4 + (row % 2) * 0.5) % 4,
-          row,
-          seed,
-        );
-        color = 0.25 + 0.42 * variation + 0.2 * detail;
-        height = face * (0.75 + 0.15 * detail + 0.1 * fine);
-        mortar = 1 - face;
-        roughness += 0.09 * mortar + 0.05 * (detail - 0.5);
-        occlusion = 0.65 + 0.35 * face;
-        break;
-      }
-      case 'stone': {
-        const strata = noise(u + 0.12 * broad, v, 8, 8, seed ^ 131);
-        color = clamp(0.1 + 0.65 * strata + 0.3 * detail);
-        height = 0.65 * strata + 0.25 * detail + 0.1 * fine;
-        roughness += 0.1 * (detail - 0.5);
-        occlusion = 0.8 + 0.2 * smooth(height);
-        break;
-      }
-      case 'metal': {
-        const brush = noise(u, v, 4, 64, seed ^ 313);
-        const scratch = Math.pow(
-          0.5 + 0.5 * Math.sin(TAU * v * 48 + phase),
-          16,
-        );
-        color = 0.4 + 0.38 * brush + 0.12 * broad - 0.1 * scratch;
-        height = 0.7 * brush - 0.15 * scratch;
-        roughness += 0.18 * brush + 0.08 * scratch;
-        occlusion = 1 - 0.04 * scratch;
-        break;
-      }
-      case 'fabric': {
-        const x = u * 12,
-          y = v * 12;
-        const warp = Math.pow(Math.sin(Math.PI * fract(x)), 2);
-        const weft = Math.pow(Math.sin(Math.PI * fract(y)), 2);
-        const over = (Math.floor(x) + Math.floor(y)) % 2 === 0;
-        const thread = over
-          ? warp * (0.6 + 0.4 * weft)
-          : weft * (0.6 + 0.4 * warp);
-        const fiber = 0.5 + 0.5 * Math.sin(TAU * (over ? u : v) * 48 + phase);
-        color = 0.22 + 0.48 * thread + 0.14 * detail + 0.08 * fiber;
-        height = 0.8 * thread + 0.06 * fiber + 0.08 * detail;
-        roughness += 0.04 * (detail - 0.5);
-        occlusion = 0.68 + 0.32 * thread;
-        break;
-      }
-      case 'marble': {
-        const warp = noise(u, v, 4, 4, seed ^ 997);
-        const vein = Math.exp(
-          -Math.abs(Math.sin(TAU * (3 * u + 2 * v + 0.8 * warp) + phase)) * 16,
-        );
-        color = clamp(0.9 + 0.1 * broad - 0.85 * vein);
-        height = 0.3 * broad - 0.2 * vein + 0.05 * detail;
-        roughness += 0.1 * vein + 0.04 * (detail - 0.5);
-        occlusion = 1 - 0.06 * vein;
-        break;
-      }
-      case 'concrete': {
-        const x = fract(u * 3),
-          y = fract(v * 3);
-        const edge = Math.min(x, 1 - x, y, 1 - y);
-        const seam = 1 - smooth(clamp((edge - 0.02) / 0.035));
-        const speckle = hash(
-          Math.floor(fract(u) * 40),
-          Math.floor(fract(v) * 40),
-          seed,
-        );
-        color = 0.28 + 0.5 * speckle * (1 - seam) + 0.12 * detail;
-        height = (1 - seam) * (0.65 + 0.25 * speckle) + 0.05 * detail;
-        roughness += 0.14 * seam + 0.06 * (speckle - 0.5);
-        occlusion = 0.62 + 0.38 * (1 - seam);
-        break;
-      }
-      case 'tiles': {
-        const n = 5;
-        const x = fract(u * n),
-          y = fract(v * n);
-        const edge = Math.min(x, 1 - x, y, 1 - y);
-        const face = smooth(clamp((edge - 0.018) / 0.028));
-        const variation = hash(
-          Math.floor(u * n) % n,
-          Math.floor(v * n) % n,
-          seed,
-        );
-        color = 0.42 + 0.4 * variation + 0.08 * detail;
-        height = face * (0.82 + 0.1 * detail);
-        mortar = 1 - face;
-        roughness += 0.42 * mortar + 0.04 * (detail - 0.5);
-        occlusion = 0.58 + 0.42 * face;
-        break;
-      }
-      case 'elephanthide': {
-        const warp = hideWarp!(u, v),
-          grain = skinGrain!(u, v),
-          a =
-            0.5 +
-            0.5 *
-              Math.cos(
-                TAU *
-                  (5 * u + 0.65 * Math.sin(TAU * 2 * v + phase) + 1.1 * warp),
-              ),
-          b =
-            0.5 +
-            0.5 *
-              Math.cos(
-                TAU *
-                  (4 * v + 0.5 * Math.sin(TAU * 3 * u - phase) - 0.8 * warp),
-              ),
-          ca = a ** 22,
-          cb = b ** 24,
-          crease = 1 - (1 - ca) * (1 - cb),
-          shoulder = (a ** 7 - ca + b ** 8 - cb) * 0.5,
-          fold =
-            (0.5 +
-              0.5 * Math.cos(TAU * (21 * u + 13 * v + 1.8 * warp) + phase)) **
-            16;
-        // Negative broad wrinkles, modest rounded shoulders, and subordinate
-        // fine folds leave wide flat skin regions instead of raised pebble nets.
-        color = 0.65 - 0.4 * crease - 0.055 * fold + 0.035 * grain;
-        height =
-          0.63 -
-          0.39 * crease +
-          0.055 * shoulder -
-          0.035 * fold +
-          0.008 * grain;
-        roughness += 0.035 * crease + 0.025 * (grain - 0.5);
-        occlusion = 0.98 - 0.23 * crease - 0.025 * fold;
-        break;
-      }
-      case 'ostrichleather': {
-        const x = u * 6,
-          y = v * 6,
-          cx = Math.floor(x),
-          cy = Math.floor(y),
-          offset = (cy * 6 + cx) * 3,
-          dx = (x - cx - follicles![offset]) * follicles![offset + 2],
-          dy = (y - cy - follicles![offset + 1]) * follicles![offset + 2],
-          q = dx * dx + dy * dy,
-          support = smooth(clamp((1 - q) / 0.2)),
-          dimple = smooth(clamp(1 - q / 0.12)),
-          // Cartesian three-lobed modulation is regular at the center.
-          rosette = 1 + 0.18 * (dx * dx * dx - 3 * dx * dy * dy),
-          collar =
-            q < 1
-              ? support *
-                q *
-                Math.exp(-(((q - 0.43) / 0.22) ** 2)) *
-                2 *
-                rosette
-              : 0,
-          grain = skinGrain!(u, v);
-        color = 0.57 + 0.075 * grain + 0.12 * collar - 0.19 * dimple;
-        height = 0.43 + 0.018 * grain + 0.18 * collar - 0.13 * dimple;
-        roughness += 0.035 * (grain - 0.5) - 0.035 * collar + 0.04 * dimple;
-        occlusion = 0.985 - 0.17 * dimple - 0.035 * collar;
-        break;
-      }
-      case 'sharkskin': {
-        const x = u * 18,
-          y = v * 24,
-          row = Math.floor(y),
-          grain = skinGrain!(u, v);
-        color = 0.3 + 0.025 * grain;
-        height = 0.26 + 0.008 * grain;
-        occlusion = 0.79;
-        // |dy| < .78, width <= .43 * 1.45 < .624. Omitted rows/
-        // columns are >= 1.5 away: wrapped 3x3 support is complete.
-        // Ascending unwrapped rows preserve back-to-front order at the seam.
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy,
-            wy = ((cy % 24) + 24) % 24,
-            shift = (wy % 2) * 0.5,
-            column = Math.floor(x - shift);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              wx = ((cx % 18) + 18) % 18,
-              variation = denticles![wy * 18 + wx],
-              dy = y - cy - 0.5,
-              t = dy / 0.78;
-            if (t <= -1 || t >= 1) continue;
-            const width = (0.39 + 0.04 * variation) * (1 - 0.45 * t),
-              across = (x - cx - shift - 0.5) / width,
-              q = across * across + t * t,
-              cover = smooth(clamp((1 - q) / 0.22));
-            if (cover === 0) continue;
-            const dome = smooth(clamp(1 - q)),
-              keels =
-                Math.exp(-(((across + 0.48) / 0.075) ** 2)) +
-                Math.exp(-((across / 0.075) ** 2)) +
-                Math.exp(-(((across - 0.48) / 0.075) ** 2)),
-              rim = smooth(clamp((q - 0.56) / 0.2));
-            // Composite the complete opaque face, including its AO and rim;
-            // covered lower rims cannot bleed through an upper denticle.
-            color +=
-              cover *
-              (0.52 +
-                0.1 * variation +
-                0.045 * keels * dome -
-                0.055 * rim -
-                color);
-            height +=
-              cover *
-              (0.4 +
-                0.065 * dome +
-                0.055 * keels * dome -
-                0.025 * rim -
-                height);
-            occlusion += cover * (0.98 - 0.07 * rim - occlusion);
-          }
-        }
-        roughness += 0.025 * (grain - 0.5) + 0.035 * (1 - occlusion);
-        break;
-      }
-      case 'leather': {
-        const pores = wrappedFeature(u, v, 14, seed ^ 0x51);
-        const pebble = smooth(clamp(1 - pores * 1.55));
-        color = 0.24 + 0.52 * pebble + 0.12 * detail;
-        height = 0.12 + 0.72 * pebble + 0.06 * detail;
-        roughness += 0.16 * (1 - pebble) + 0.04 * (detail - 0.5);
-        occlusion = 0.55 + 0.45 * pebble;
-        break;
-      }
-      case 'suede': {
-        const brush = noise(u, v, 5, 7, seed ^ 0x3d17);
-        const nap = noise(
-          u + 0.012 * brush,
-          v + 0.004 * brush,
-          96,
-          24,
-          seed ^ 0x5e31,
-        );
-        const pores = smooth(
-          clamp((noise(u, v, 80, 80, seed ^ 0x7a63) - 0.57) / 0.35),
-        );
-        // Short directional pile is a continuous brushed field, not isolated
-        // long felt fibers or the coarse raised pebbles of leather.
-        color = 0.23 + 0.36 * brush + 0.25 * nap + 0.1 * detail - 0.08 * pores;
-        height = 0.35 + 0.075 * nap + 0.025 * brush - 0.045 * pores;
-        roughness += 0.075 * (nap - 0.5) + 0.035 * (brush - 0.5);
-        occlusion = 0.985 - 0.035 * pores + 0.01 * nap;
-        break;
-      }
-      case 'snakeskin': {
-        const x = u * 10,
-          y = v * 12;
-        const row = Math.floor(y);
-        let scales = 0,
-          crowns = 0,
-          keels = 0,
-          pigment = 0;
-        // Rounded pointed diamonds have compact, disjoint support. Even rows
-        // wrap the stagger; owner pigment and keel vanish at each folded rim.
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy;
-          const stagger = (((cy % 2) + 2) % 2) * 0.5;
-          const column = Math.floor(x - stagger);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox;
-            const wx = ((cx % 10) + 10) % 10,
-              wy = ((cy % 12) + 12) % 12;
-            const variation = hideCells![wy * 10 + wx];
-            const dx = x - cx - stagger - 0.5,
-              dy = y - cy - 0.5;
-            if (Math.abs(dx) >= 0.48 || Math.abs(dy) >= 0.64) continue;
-            const distance =
-              Math.sqrt(dx * dx + 0.0016) / (0.46 + 0.02 * variation) +
-              Math.sqrt(dy * dy + 0.0016) / (0.61 + 0.03 * variation);
-            const cap = clamp(1 - distance);
-            if (cap === 0) continue;
-            const face = smooth(clamp(cap / 0.18));
-            const crown = cap * cap;
-            const keel = crown * Math.exp(-dx * dx * 180);
-            scales += face;
-            crowns += crown;
-            keels += keel;
-            pigment += face * variation;
-          }
-        }
-        color =
-          0.13 + 0.4 * scales + 0.2 * pigment + 0.1 * crowns + 0.04 * detail;
-        height =
-          0.04 + 0.64 * scales + 0.2 * crowns + 0.065 * keels + 0.012 * detail;
-        roughness +=
-          0.12 * (1 - scales) - 0.045 * crowns + 0.045 * (detail - 0.5);
-        occlusion = 0.57 + 0.41 * scales + 0.015 * crowns;
-        break;
-      }
-      case 'crocodile': {
-        const x = u * 4,
-          y = v * 6;
-        const column = Math.floor(x),
-          row = Math.floor(y);
-        const variation = hideCells![row * 4 + column];
-        const dx = (fract(x) - 0.5) / (0.445 + 0.025 * variation),
-          dy = (fract(y) - 0.5) / (0.445 + 0.02 * variation);
-        const cap = clamp(1 - dx * dx * dx * dx - dy * dy * dy * dy);
-        const face = smooth(clamp(cap / 0.36));
-        const warp = noise(u, v, 9, 11, seed ^ 0x2f53);
-        const fold = Math.pow(
-          0.5 + 0.5 * Math.sin(TAU * (19 * u + 13 * v + 1.7 * warp) + phase),
-          12,
-        );
-        // Superelliptic scutes have rounded corners and domed embossed faces.
-        // Irregular fine wrinkles cross them, unlike running-bond brick joints.
-        color =
-          0.12 + face * (0.37 + 0.22 * variation + 0.1 * detail - 0.12 * fold);
-        height =
-          0.035 +
-          face * (0.64 + 0.17 * cap * cap + 0.035 * variation - 0.065 * fold);
-        roughness +=
-          0.13 * (1 - face) + face * (0.055 * fold + 0.04 * (detail - 0.5));
-        occlusion = 0.53 + face * (0.46 - 0.055 * fold);
-        break;
-      }
-      case 'fishscales':
-      case 'feathers': {
-        const x = u * armorColumns,
-          y = v * armorRows,
-          row = Math.floor(y);
-        color = 0.12 + 0.045 * detail;
-        height = 0.23;
-        occlusion = 0.76;
-        // Back-to-front rows retain the same local order across the periodic
-        // seam. Every entering/leaving owner has zero value and slope.
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy,
-            wy = ((cy % armorRows) + armorRows) % armorRows,
-            stagger = (wy % 2) * 0.5,
-            column = Math.floor(x - stagger);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              wx = ((cx % armorColumns) + armorColumns) % armorColumns,
-              offset = (wy * armorColumns + wx) * 2,
-              variation = armorCells![offset],
-              dy = y - cy - 0.5,
-              dx = x - cx - stagger - 0.5 - armorCells![offset + 1] * dy;
-            let cover: number, pigment: number, relief: number;
-            if (kind === 'fishscales') {
-              const q = (dx * dx) / 0.4356 + (dy * dy) / 0.6724;
-              cover = smooth(clamp((1 - q) / 0.18));
-              if (cover === 0) continue;
-              const dome = smooth(clamp(1 - q));
-              const lip =
-                smooth(clamp((q - 0.48) / 0.2)) *
-                smooth(clamp((1 - q) / 0.15)) *
-                smooth(clamp((dy + 0.12) / 0.4));
-              const growth = Math.cos(TAU * (6 * q + 0.15 * variation));
-              pigment =
-                0.39 +
-                0.2 * variation +
-                0.13 * dome +
-                0.1 * lip +
-                0.045 * growth;
-              relief = 0.37 + 0.12 * dome + 0.11 * lip + 0.012 * growth * dome;
-            } else {
-              const t = dy / 1.08;
-              if (t <= -1 || t >= 1) continue;
-              const width = 1 - t * t;
-              const edge = width * width - (dx * dx) / 0.2304;
-              cover = smooth(clamp(edge / 0.16));
-              if (cover === 0) continue;
-              const vane = smooth(clamp(edge));
-              const shaft = smooth(clamp(1 - (dx * dx) / 0.0025));
-              const barbs = Math.cos(
-                TAU * (18 * dy - 14 * Math.sqrt(dx * dx + 0.0004)),
-              );
-              const tip = smooth(clamp((t + 0.45) / 1.1));
-              pigment =
-                0.36 +
-                0.22 * variation +
-                0.1 * vane -
-                0.12 * tip +
-                0.08 * shaft +
-                0.065 * barbs;
-              relief = 0.35 + 0.1 * vane + 0.075 * shaft + 0.013 * barbs * vane;
-            }
-            color += cover * (pigment - color);
-            height += cover * (relief - height);
-            occlusion += cover * (0.98 - occlusion);
-          }
-        }
-        roughness += 0.045 * (1 - occlusion) + 0.025 * (detail - 0.5);
-        break;
-      }
-      case 'tortoiseshell': {
-        const x = u * 6,
-          y = v * 6,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        const mottling = noise(u, v, 19, 23, seed ^ 0x49e7);
-        color = 0.045 + 0.025 * detail;
-        height = 0.22;
-        occlusion = 0.72;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              wx = (cx + 6) % 6,
-              wy = (cy + 6) % 6,
-              offset = (wy * 6 + wx) * 27,
-              dx = x - cx - scutes![offset],
-              dy = y - cy - scutes![offset + 1];
-            let cover = 1,
-              dome = 1;
-            for (let edge = 0; edge < 8; edge++) {
-              const plane = offset + 3 + edge * 3,
-                distance = scutes![plane + 2],
-                inset =
-                  distance - dx * scutes![plane] - dy * scutes![plane + 1];
-              cover *= smooth(clamp((inset - 0.018) / 0.085));
-              dome *= smooth(clamp(inset / distance));
-              if (cover === 0) break;
-            }
-            if (cover === 0) continue;
-            const variation = scutes![offset + 2];
-            const growth = Math.cos(TAU * (5 * dome + 0.12 * variation));
-            const pigment =
-              0.28 +
-              0.25 * variation +
-              0.22 * mottling +
-              0.09 * dome +
-              0.045 * growth;
-            color += cover * (pigment - color);
-            height +=
-              cover * (0.37 + 0.2 * dome + 0.012 * growth * dome - height);
-            occlusion += cover * (0.98 - occlusion);
-          }
-        roughness += 0.06 * (1 - occlusion) + 0.025 * (detail - 0.5);
-        break;
-      }
-      case 'sand': {
-        const warp = noise(u, v, 3, 3, seed ^ 17);
-        const ripple =
-          0.5 + 0.5 * Math.sin(TAU * (v * 7 + 0.35 * warp) + phase);
-        const grain = noise(u, v, 48, 48, seed ^ 0x51ed);
-        color = 0.3 + 0.48 * ripple + 0.18 * grain;
-        height = 0.72 * ripple + 0.22 * grain;
-        roughness += 0.06 * (grain - 0.5);
-        occlusion = 0.82 + 0.18 * ripple;
-        break;
-      }
-      case 'rust': {
-        const pit = noise(u, v, 6, 6, seed ^ 211);
-        const flake = noise(u, v, 18, 18, seed ^ 419);
-        const corrosion = smooth(
-          clamp((pit * 0.7 + flake * 0.3 - 0.32) / 0.28),
-        );
-        color = corrosion;
-        height = 0.25 + 0.45 * (1 - corrosion) * flake - 0.2 * corrosion * pit;
-        roughness += 0.22 * corrosion + 0.05 * (flake - 0.5);
-        occlusion = 0.7 + 0.3 * (1 - corrosion);
-        metallic = 1 - corrosion;
-        break;
-      }
-      case 'snow': {
-        const drift = noise(u, v, 3, 3, seed ^ 17);
-        const spark = Math.pow(
-          hash(Math.floor(fract(u) * 48), Math.floor(fract(v) * 48), seed),
-          8,
-        );
-        color = clamp(0.22 + 0.68 * drift + 0.1 * spark);
-        height = 0.7 * drift + 0.2 * spark;
-        roughness += 0.22 * spark - 0.06 * drift;
-        occlusion = 0.88 + 0.12 * drift;
-        break;
-      }
-      case 'asphalt':
-      case 'gravel': {
-        const asphalt = kind === 'asphalt';
-        const cells = asphalt ? 40 : 12;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let coverage = 0,
-          pigment = 0,
-          weight = 0,
-          relief = 0;
-        // Compact, softly edged caps blend continuously, including across wrapped cells.
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const variation = hash(wx, wy, seed ^ 0x74b1);
-            const angle = hash(wx, wy, seed ^ 0x6a09) * TAU;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
-              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x9e37);
-            const radius = asphalt
-              ? 0.22 + 0.21 * variation
-              : 0.46 + 0.17 * variation;
-            const aspect = 0.7 + 0.3 * hash(wx, wy, seed ^ 0x51ed);
-            const rx = (dx * cos + dy * sin) / aspect,
-              ry = dy * cos - dx * sin;
-            const distance =
-              Math.sqrt(rx * rx + ry * ry) +
-              (detail - 0.5) * (asphalt ? 0.08 : 0.16);
-            const cap = smooth(clamp((radius - distance) / 0.16));
-            const dome = clamp(1 - distance / radius);
-            coverage = Math.max(coverage, cap);
-            relief = Math.max(relief, cap * (0.65 + 0.35 * dome));
-            pigment += cap * (0.35 + 0.65 * variation);
-            weight += cap;
-          }
-        const aggregate = pigment / Math.max(1, weight);
-        if (asphalt) {
-          color = 0.06 + 0.58 * aggregate + 0.1 * detail + 0.06 * fine;
-          height = 0.58 * relief + 0.18 * detail + 0.24 * fine;
-          roughness += 0.08 * (1 - coverage) + 0.1 * (fine - 0.5);
-          occlusion = 0.8 + 0.2 * coverage;
-        } else {
-          color = 0.04 + 0.8 * aggregate + 0.08 * fine;
-          height = relief * (0.84 + 0.16 * detail) + 0.025 * fine;
-          roughness += 0.13 * (1 - coverage) + 0.1 * (fine - 0.5);
-          occlusion = 0.42 + 0.58 * coverage;
-        }
-        break;
-      }
-      case 'cobblestone': {
-        const wu = u + 0.012 * noise(u, v, 6, 8, seed ^ 0x231);
-        const wv = v + 0.009 * noise(u, v, 6, 8, seed ^ 0x913);
-        const row = Math.floor(fract(wv) * 8);
-        const column = wu * 6 + (row % 2) * 0.5;
-        const x = fract(column),
-          y = fract(wv * 8);
-        const dx = Math.abs(x - 0.5),
-          dy = Math.abs(y - 0.5) * 0.75;
-        const cornerX = Math.max(0, dx - 0.38),
-          cornerY = Math.max(0, dy - 0.255);
-        const edge = 0.12 - Math.sqrt(cornerX * cornerX + cornerY * cornerY);
-        const face = smooth(clamp((edge - 0.018) / 0.085));
-        const variation = hash(((Math.floor(column) % 6) + 6) % 6, row, seed);
-        const crown = 1 - 0.65 * (dx * dx + dy * dy);
-        // Stone-specific variation vanishes in the joints to keep staggered row edges continuous.
-        color =
-          0.05 + face * (0.25 + 0.48 * variation + 0.12 * detail) + 0.05 * fine;
-        height = face * (0.76 * crown + 0.16 * detail + 0.08 * fine);
-        roughness += 0.17 * (1 - face) + 0.1 * (fine - 0.5);
-        occlusion = 0.45 + 0.55 * face;
-        break;
-      }
-      case 'bark': {
-        const warp = noise(u, v, 4, 6, seed ^ 0x3b17);
-        const ridge = noise(u + 0.035 * warp, v, 18, 3, seed ^ 0x8421);
-        const split = noise(u, v, 6, 18, seed ^ 0x5193);
-        // Anisotropic islands break across the trunk instead of repeating wood-grain waves.
-        const face =
-          smooth(clamp((ridge - 0.26) / 0.38)) *
-          smooth(clamp((split - 0.18) / 0.22));
-        const flake = noise(u, v, 48, 12, seed ^ 0x217b);
-        color = 0.05 + face * (0.43 + 0.33 * flake + 0.13 * fine);
-        height = face * (0.58 + 0.3 * flake + 0.12 * detail);
-        roughness += 0.08 * (1 - face) + 0.1 * (fine - 0.5);
-        occlusion = 0.42 + 0.58 * face;
-        break;
-      }
-      case 'moss': {
-        const warp = noise(u, v, 4, 4, seed ^ 0x1b67);
-        const distance = wrappedFeature(
-          fract(u + 0.025 * warp),
-          fract(v + 0.018 * warp),
-          9,
-          seed ^ 0x63af,
-        );
-        const cushion = smooth(clamp(1 - distance / 0.95));
-        const growth = noise(u, v, 18, 18, seed ^ 0x9327);
-        const tips = smooth(clamp((fine - 0.25) / 0.5));
-        color = 0.09 + 0.46 * cushion + 0.24 * growth + 0.19 * tips;
-        height =
-          0.65 * cushion + (0.09 + 0.14 * cushion) * tips + 0.12 * detail;
-        roughness += 0.06 * (tips - 0.5) - 0.08 * (1 - cushion);
-        occlusion = 0.52 + 0.36 * cushion + 0.12 * tips;
-        break;
-      }
-      case 'mud': {
-        const cells = 7;
-        const warp = noise(u, v, 4, 4, seed ^ 0x7153);
-        const x = (u + 0.025 * warp) * cells,
-          y = (v + 0.025 * noise(u, v, 4, 4, seed ^ 0x1f39)) * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let nearest = 4,
-          second = 4;
-        // Constrained jitter keeps the two closest sites inside this wrapped neighborhood.
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
-              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
-            const distance = dx * dx + dy * dy;
-            if (distance < nearest) {
-              second = nearest;
-              nearest = distance;
-            } else if (distance < second) second = distance;
-          }
-        const margin = Math.sqrt(second) - Math.sqrt(nearest);
-        const clod = smooth(clamp((margin - 0.025) / 0.13));
-        const damp = smooth(
-          clamp((noise(u, v, 3, 3, seed ^ 0x38e1) - 0.25) / 0.5),
-        );
-        color =
-          0.04 + clod * (0.52 - 0.24 * damp + 0.17 * detail) + 0.04 * fine;
-        height =
-          clod * (0.48 + 0.16 * (1 - nearest)) +
-          (0.07 * detail + 0.03 * fine) * (1 - 0.75 * damp);
-        roughness -= 0.38 * damp;
-        roughness += 0.1 * (1 - clod) + 0.08 * (fine - 0.5) * (1 - damp);
-        occlusion = 0.48 + 0.52 * clod;
-        break;
-      }
-      case 'granite': {
-        const cells = 38;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let pigment = 0,
-          weight = 0,
-          nearest = 4,
-          second = 4;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
-              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
-            const distance = dx * dx + dy * dy;
-            if (distance < nearest) {
-              second = nearest;
-              nearest = distance;
-            } else if (distance < second) second = distance;
-            // Compact weights vanish before a site can leave the wrapped neighborhood.
-            // Sharp normalized blends form mineral facets without discontinuous cell colors.
-            const cap = Math.pow(clamp(1 - distance / 1.44), 10);
-            const mineral = hash(wx, wy, seed ^ 0x642b);
-            pigment +=
-              cap * (mineral < 0.24 ? 0.08 + mineral : 0.48 + 0.5 * mineral);
-            weight += cap;
-          }
-        const mineral = pigment / Math.max(weight, 1e-12);
-        const boundary =
-          1 - smooth(clamp((Math.sqrt(second) - Math.sqrt(nearest)) / 0.16));
-        color = clamp(
-          0.04 + 0.88 * mineral + 0.1 * (fine - 0.5) - 0.07 * boundary,
-        );
-        height = 0.35 * mineral + 0.17 * fine - 0.12 * boundary;
-        roughness += 0.16 * (1 - mineral) + 0.06 * (fine - 0.5);
-        occlusion = 0.97 - 0.025 * boundary + 0.03 * fine;
-        break;
-      }
-      case 'slate': {
-        const warp = noise(u, v, 5, 4, seed ^ 0x4167);
-        const bedding = noise(
-          u + 0.025 * warp,
-          v + 0.018 * warp,
-          3,
-          22,
-          seed ^ 0x741b,
-        );
-        const layers = bedding * 5;
-        const terrace =
-          (Math.floor(layers) + smooth(clamp((fract(layers) - 0.35) / 0.3))) /
-          5;
-        const cross = noise(u, v, 12, 5, seed ^ 0x135b);
-        const cleft =
-          Math.pow(1 - Math.abs(2 * fract(layers) - 1), 8) *
-          smooth(clamp((cross - 0.18) / 0.35));
-        // Elongated terrace steps and broken clefts, not sinusoidal marble veins.
-        color = 0.14 + 0.62 * terrace + 0.14 * fine - 0.12 * cleft;
-        height = 0.72 * terrace + 0.1 * fine - 0.18 * cleft;
-        roughness += 0.1 * cleft + 0.1 * (fine - 0.5);
-        occlusion = 0.98 - 0.15 * cleft + 0.02 * fine;
-        break;
-      }
-      case 'terrazzo': {
-        const cells = 9;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let coverage = 0,
-          pigment = 0,
-          weight = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const variation = hash(wx, wy, seed ^ 0x927b);
-            const angle = hash(wx, wy, seed ^ 0x341d) * TAU;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
-              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
-            const rx = dx * cos + dy * sin,
-              ry = dy * cos - dx * sin;
-            const aspect = 0.75 + 0.25 * hash(wx, wy, seed ^ 0x21af);
-            // Intersect rotated half-planes for asymmetric, flat angular chips.
-            const distance = Math.max(
-              Math.abs(rx) * aspect,
-              Math.abs(ry),
-              (rx * 0.65 + ry * 0.76) * 1.1,
-              (-rx * 0.83 + ry * 0.55) * 1.15,
-            );
-            const radius = 0.26 + 0.18 * variation;
-            const chip = smooth(clamp((radius - distance) / 0.025));
-            coverage = Math.max(coverage, chip);
-            pigment += chip * (0.08 + 0.7 * hash(wx, wy, seed ^ 0x591f));
-            weight += chip;
-          }
-        const mineral = pigment / Math.max(weight, 1e-12);
-        const binder = 0.88 + 0.06 * detail;
-        color = binder * (1 - coverage) + coverage * mineral;
-        // Polished chips are nearly flush with the binder: color is not a height map.
-        height = 0.15 + 0.06 * coverage + 0.015 * detail + 0.025 * fine;
-        roughness +=
-          0.055 * (1 - coverage) -
-          0.03 * coverage * mineral +
-          0.04 * (fine - 0.5);
-        occlusion = 0.98 + 0.015 * coverage + 0.005 * fine;
-        break;
-      }
-      case 'denim': {
-        const x = u * 24,
-          y = v * 24;
-        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
-          weft = 0.5 + 0.5 * Math.cos(TAU * y);
-        // A narrow pale weft exposure advances diagonally through indigo warp floats.
-        // Analytic ownership avoids switching yarns abruptly at crossing/row boundaries.
-        const exposure =
-          1 -
-          smooth(
-            clamp((Math.abs(Math.sin((Math.PI * (x - y)) / 4)) - 0.24) / 0.22),
-          );
-        const warpFiber =
-          0.5 + 0.5 * Math.sin(TAU * (96 * u + 0.12 * detail) + phase);
-        const weftFiber =
-          0.5 + 0.5 * Math.sin(TAU * (96 * v + 0.12 * detail) + phase);
-        const fiber = warpFiber * (1 - exposure) + weftFiber * exposure;
-        const thread = warp * (1 - exposure) + weft * exposure;
-        const slub = noise(u, v, 24, 4, seed ^ 0x6d31);
-        color =
-          0.12 + 0.22 * thread + 0.34 * exposure + 0.1 * fiber + 0.12 * slub;
-        height =
-          0.42 * thread + 0.24 * (1 - exposure) + 0.06 * fiber + 0.08 * slub;
-        roughness += 0.06 * (detail - 0.5) + 0.04 * (1 - thread);
-        occlusion = 0.78 + 0.18 * thread + 0.04 * fiber;
-        break;
-      }
-      case 'houndstooth': {
-        const x = 32 * u,
-          y = 32 * v,
-          ix = Math.floor(x) % 8,
-          iy = Math.floor(y) % 8,
-          sx = smooth(fract(x)),
-          sy = smooth(fract(y)),
-          nx = (ix + 1) % 8,
-          ny = (iy + 1) % 8;
-        const a = toothYarns![iy * 8 + ix],
-          b = toothYarns![iy * 8 + nx],
-          c = toothYarns![ny * 8 + ix],
-          d = toothYarns![ny * 8 + nx];
-        const pigment = (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
-        const over = 0.5 + 0.5 * Math.cos((TAU * (x - y)) / 4),
-          warp = 0.5 + 0.5 * Math.cos(TAU * x),
-          weft = 0.5 + 0.5 * Math.cos(TAU * y),
-          thread = warp * over + weft * (1 - over);
-        const fiber =
-          0.5 +
-          0.25 * Math.cos(TAU * 96 * u + phase) +
-          0.25 * Math.cos(TAU * 96 * v - phase);
-        color = 0.025 + 0.88 * pigment + 0.045 * thread + 0.03 * detail;
-        height = 0.2 + 0.19 * thread + 0.025 * fiber + 0.02 * detail;
-        roughness += 0.04 * (detail - 0.5) + 0.025 * (1 - thread);
-        occlusion = 0.86 + 0.12 * thread;
-        break;
-      }
-      case 'tartan': {
-        const x = 2 * u,
-          y = 2 * v;
-        const broadWarp = smooth(clamp((Math.cos(TAU * x) + 0.15) / 0.55)),
-          broadWeft = smooth(clamp((Math.cos(TAU * y) + 0.15) / 0.55)),
-          fineWarp = smooth(clamp((Math.cos(TAU * (x + 0.25)) - 0.96) / 0.04)),
-          fineWeft = smooth(clamp((Math.cos(TAU * (y + 0.25)) - 0.96) / 0.04)),
-          doubleWarp = smooth(clamp((Math.cos(TAU * 2 * x) - 0.9) / 0.1)),
-          doubleWeft = smooth(clamp((Math.cos(TAU * 2 * y) - 0.9) / 0.1));
-        const warpPigment =
-            0.13 + 0.35 * broadWarp + 0.36 * fineWarp + 0.1 * doubleWarp,
-          weftPigment =
-            0.13 + 0.35 * broadWeft + 0.36 * fineWeft + 0.1 * doubleWeft;
-        const over = smooth(
-            clamp(0.5 + 0.8 * Math.cos(Math.PI * 64 * (u + v))),
-          ),
-          warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
-          weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
-          thread = warp * over + weft * (1 - over);
-        // Pigment follows the upper yarn at every crossing, not rectangular tiles.
-        color =
-          warpPigment * over +
-          weftPigment * (1 - over) +
-          0.045 * thread +
-          0.025 * detail;
-        height = 0.2 + 0.16 * thread + 0.025 * detail;
-        roughness += 0.04 * (detail - 0.5) + 0.03 * (1 - thread);
-        occlusion = 0.85 + 0.13 * thread;
-        break;
-      }
-      case 'damask': {
-        const x = fract(2 * u + 0.5) - 0.5,
-          y = fract(2 * v + 0.5) - 0.5;
-        let backing = 1,
-          rounded = 1;
-        for (let i = 0; i < 12; i++) {
-          const offset = i * 6,
-            dx = x - damaskLobes![offset],
-            dy = y - damaskLobes![offset + 1],
-            cos = damaskLobes![offset + 2],
-            sin = damaskLobes![offset + 3],
-            along = (dx * cos + dy * sin) * damaskLobes![offset + 4],
-            across = (dy * cos - dx * sin) * damaskLobes![offset + 5],
-            cap = clamp(1 - along * along - across * across);
-          // Both silhouette and raised crown vanish with zero slope; overlapping
-          // petals blend as a smooth union, with no nearest-lobe ownership jump.
-          backing *= 1 - smooth(clamp(cap / 0.28));
-          rounded *= 1 - cap * cap;
-        }
-        const motif = 1 - backing,
-          crown = 1 - rounded,
-          warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
-          weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
-          satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase),
-          thread = (warp + weft) * 0.5;
-        color =
-          0.19 + 0.48 * motif + 0.08 * crown + 0.07 * thread + 0.025 * detail;
-        height =
-          0.18 +
-          0.3 * motif +
-          0.13 * crown +
-          0.025 * thread +
-          0.015 * motif * satin;
-        roughness +=
-          0.055 * (1 - motif) - 0.035 * motif * satin + 0.025 * (detail - 0.5);
-        occlusion = 0.88 + 0.07 * motif + 0.03 * thread;
-        break;
-      }
-      case 'herringbone': {
-        const x = 32 * u,
-          y = 32 * v;
-        // A rounded triangular phase reverses the twill, not rectangular
-        // patches of yarn. Its analytic turn has no cusp or ownership seam.
-        const fold = Math.acos(0.995 * Math.cos(TAU * 2 * u)) / Math.PI;
-        const exposure = smooth(
-          clamp(
-            (0.5 + 0.5 * Math.cos(TAU * (2 * fold - 8 * v) + phase) - 0.2) /
-              0.6,
-          ),
-        );
-        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
-          weft = 0.5 + 0.5 * Math.cos(TAU * y);
-        const thread = warp * (1 - exposure) + weft * exposure;
-        const fiber =
-          (0.5 + 0.5 * Math.sin(TAU * 128 * u + phase)) * (1 - exposure) +
-          (0.5 + 0.5 * Math.sin(TAU * 128 * v - phase)) * exposure;
-        const slub = noise(u, v, 16, 8, seed ^ 0x3c19);
-        color =
-          0.17 + 0.31 * exposure + 0.26 * thread + 0.1 * fiber + 0.09 * slub;
-        height =
-          0.25 + 0.24 * thread + 0.07 * exposure + 0.035 * fiber + 0.025 * slub;
-        roughness += 0.055 * (detail - 0.5) + 0.035 * (1 - thread);
-        occlusion = 0.84 + 0.12 * thread + 0.025 * fiber;
-        break;
-      }
-      case 'tweed': {
-        const x = 20 * u,
-          y = 20 * v;
-        const warp = smooth(clamp((Math.cos(TAU * x) + 0.45) / 1.25)),
-          weft = smooth(clamp((Math.cos(TAU * y) + 0.45) / 1.25));
-        const over = smooth(clamp(0.5 + 0.85 * Math.cos(Math.PI * (x + y))));
-        const warpTop = warp * (1 - weft + weft * over),
-          weftTop = weft * (1 - warp + warp * (1 - over));
-        const yarn = warpTop + weftTop;
-        const slub =
-          warpTop * noise(u, v, 20, 4, seed ^ 0x3b17) +
-          weftTop * noise(u, v, 4, 20, seed ^ 0x6e29);
-        const fiber =
-          warpTop *
-            (0.5 + 0.5 * Math.sin(TAU * (80 * u + 0.15 * detail) + phase)) +
-          weftTop *
-            (0.5 + 0.5 * Math.sin(TAU * (80 * v + 0.15 * detail) - phase));
-        const fx = u * 24,
-          fy = v * 24,
-          ix = Math.floor(fx),
-          iy = Math.floor(fy);
-        let flecks = 0,
-          pigment = 0.12 + 0.29 * yarn + 0.34 * slub + 0.12 * fiber;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy,
-              wx = ((cx % 24) + 24) % 24,
-              wy = ((cy % 24) + 24) % 24;
-            const variation = hash(wx, wy, seed ^ 0x2d73);
-            const dx = fx - cx - 0.25 - 0.5 * hash(wx, wy, seed),
-              dy = fy - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x5a31);
-            const angle =
-              (variation < 0.5 ? 0 : Math.PI / 2) + (variation - 0.5) * 0.7;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const along = (dx * cos + dy * sin) / (0.18 + 0.2 * variation),
-              across = (dy * cos - dx * sin) / 0.075;
-            // Small yarn-aligned neps vanish with zero slope at their support.
-            const cap = clamp(1 - along * along - across * across);
-            const fleck = cap * cap;
-            flecks += fleck;
-            // Blend the nep's pigment into its yarn instead of subtracting
-            // color from dark gaps, which can leave the normalized range.
-            pigment +=
-              fleck * (0.18 + 0.64 * hash(wx, wy, seed ^ 0x7f19) - pigment);
-          }
-        color = pigment;
-        height =
-          0.2 +
-          0.28 * yarn +
-          0.08 * warp * weft +
-          0.05 * fiber +
-          0.055 * flecks;
-        roughness += 0.05 * (detail - 0.5) + 0.025 * flecks;
-        occlusion = 0.77 + 0.19 * yarn + 0.025 * fiber;
-        break;
-      }
-      case 'seersucker': {
-        const band = smooth(clamp((Math.cos(TAU * 4 * u) + 0.25) / 0.75));
-        const warp = 0.5 + 0.5 * Math.cos(TAU * 48 * u),
-          weft = 0.5 + 0.5 * Math.cos(TAU * 48 * v);
-        const over = 0.5 + 0.5 * Math.cos(Math.PI * 48 * (u + v));
-        const thread = warp * over + weft * (1 - over);
-        const fiber =
-          0.5 +
-          0.25 * Math.sin(TAU * 144 * u + phase) +
-          0.25 * Math.sin(TAU * 144 * v - phase);
-        const waviness = noise(u, v, 4, 4, seed ^ 0x4c39);
-        const wrinkle =
-          0.5 +
-          0.5 *
-            Math.sin(
-              TAU * (12 * v + 0.22 * Math.sin(TAU * 4 * u) + 0.3 * waviness) +
-                phase,
-            );
-        // Flat cream bands retain only the fine weave; the blue bands carry
-        // low, longitudinally varying puckers rather than uniform pile wales.
-        color =
-          0.71 -
-          0.39 * band +
-          0.12 * thread +
-          0.055 * fiber +
-          0.04 * band * wrinkle;
-        height =
-          0.22 + 0.035 * thread + 0.008 * fiber + band * (0.08 + 0.2 * wrinkle);
-        roughness += 0.045 * (detail - 0.5) + 0.025 * band * (1 - wrinkle);
-        occlusion = 0.96 - 0.07 * band * (1 - wrinkle) + 0.02 * thread;
-        break;
-      }
-      case 'burlap': {
-        const x = u * 10,
-          y = v * 10;
-        const warp = smooth(clamp((Math.cos(TAU * x) + 0.35) / 1.1)),
-          weft = smooth(clamp((Math.cos(TAU * y) + 0.35) / 1.1));
-        const over = smooth(clamp(0.5 + 0.9 * Math.cos(Math.PI * (x + y))));
-        // Blend ownership continuously; both yarns vanish into opaque recessed gaps.
-        const warpTop = warp * (1 - weft + weft * over),
-          weftTop = weft * (1 - warp + warp * (1 - over));
-        const coverage = warpTop + weftTop;
-        const warpFiber =
-          0.5 + 0.5 * Math.sin(TAU * (50 * u + 0.14 * detail) + phase);
-        const weftFiber =
-          0.5 + 0.5 * Math.sin(TAU * (50 * v + 0.14 * detail) + phase);
-        const fiber = warpTop * warpFiber + weftTop * weftFiber;
-        const crossing = warp * weft;
-        color = 0.04 + 0.65 * coverage + 0.14 * fiber + 0.1 * detail * coverage;
-        height =
-          0.58 * coverage + 0.2 * crossing + 0.08 * fiber + 0.04 * detail;
-        roughness += 0.05 * (detail - 0.5) + 0.025 * (1 - coverage);
-        occlusion = 0.42 + 0.54 * coverage + 0.04 * fiber;
-        break;
-      }
-      case 'carpet': {
-        const cells = 24;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let weight = 0,
-          pigment = 0,
-          fibers = 0,
-          crown = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
-              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
-            const distance = dx * dx + dy * dy;
-            // Compact overlapping crowns hide the backing without geometry or alpha.
-            // The support ends before any site leaves this wrapped neighborhood.
-            const cap = Math.pow(clamp(1 - distance), 3);
-            const variation = hash(wx, wy, seed ^ 0x294b);
-            const angle = hash(wx, wy, seed ^ 0x681f) * TAU;
-            const tips = Math.pow(
-              0.5 +
-                0.5 *
-                  Math.sin(
-                    TAU * 3 * (dx * Math.cos(angle) + dy * Math.sin(angle)) +
-                      variation * TAU,
-                  ),
-              4,
-            );
-            weight += cap;
-            pigment += cap * variation;
-            fibers += cap * tips;
-            crown = Math.max(crown, cap * (0.75 + 0.25 * variation));
-          }
-        const inv = 1 / Math.max(weight, 1e-12);
-        const yarn = pigment * inv,
-          tips = fibers * inv;
-        color = 0.19 + 0.4 * yarn + 0.2 * crown + 0.13 * tips + 0.08 * detail;
-        height = 0.3 + 0.38 * crown + 0.12 * tips + 0.1 * detail;
-        roughness += 0.04 * (detail - 0.5) - 0.035 * tips;
-        occlusion = 0.7 + 0.22 * Math.sqrt(crown) + 0.06 * tips;
-        break;
-      }
-      case 'plaster': {
-        const sweep = noise(u, v, 3, 3, seed ^ 0x37a1);
-        const tool =
-          0.5 + 0.5 * Math.sin(TAU * (3 * u + 2 * v + 0.7 * sweep) + phase);
-        const crest = Math.pow(tool, 10);
-        const drag = noise(u, v, 18, 5, seed ^ 0x54d9);
-        const pores = smooth(clamp((0.32 - fine) / 0.23));
-        // Broad, curved trowel passes leave shallow feathered edges in gypsum.
-        color = 0.61 + 0.2 * sweep + 0.08 * drag + 0.07 * crest - 0.12 * pores;
-        height =
-          0.22 + 0.28 * sweep + 0.18 * crest + 0.08 * drag - 0.14 * pores;
-        roughness += 0.1 * (fine - 0.5) - 0.065 * crest + 0.045 * pores;
-        occlusion = 0.98 - 0.1 * pores - 0.025 * crest;
-        break;
-      }
-      case 'terracotta': {
-        const kiln = noise(u, v, 5, 5, seed ^ 0x3a17);
-        const firing = noise(u + 0.04 * kiln, v, 12, 9, seed ^ 0x7d23);
-        const pitDistance = wrappedFeature(u, v, 28, seed ^ 0x486d);
-        const pits = 1 - smooth(clamp((pitDistance - 0.04) / 0.19));
-        const scorched = smooth(clamp((kiln - 0.5) / 0.3));
-        // Firing clouds affect pigment more strongly than the unglazed clay relief.
-        color =
-          0.37 + 0.46 * firing + 0.15 * detail - 0.18 * scorched - 0.17 * pits;
-        height = 0.35 + 0.14 * detail + 0.12 * fine - 0.3 * pits;
-        roughness += 0.1 * (fine - 0.5) + 0.07 * pits - 0.04 * scorched;
-        occlusion = 0.97 - 0.22 * pits + 0.025 * fine;
-        break;
-      }
-      case 'cork': {
-        const cells = 14;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let weight = 0,
-          pigment = 0,
-          largest = 0,
-          grain = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
-              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
-            const angle = TAU * hash(wx, wy, seed ^ 0x4d21);
-            const rx = dx * Math.cos(angle) + dy * Math.sin(angle),
-              ry = dy * Math.cos(angle) - dx * Math.sin(angle);
-            // Compact elliptical flakes blend before leaving the wrapped neighborhood.
-            const distance = 0.9 * rx * rx + 1.3 * ry * ry;
-            const cap = Math.pow(clamp(1 - distance / 1.21), 8);
-            const variation = hash(wx, wy, seed ^ 0x172b);
-            const lenticel = Math.pow(
-              0.5 + 0.5 * Math.sin(TAU * (5 * ry + 0.3 * rx) + TAU * variation),
-              12,
-            );
-            weight += cap;
-            pigment += cap * variation;
-            grain += cap * lenticel;
-            largest = Math.max(largest, cap);
-          }
-        const inv = 1 / Math.max(weight, 1e-12);
-        const flake = pigment * inv,
-          lenticel = grain * inv;
-        const boundary = 1 - smooth(clamp((largest * inv - 0.48) / 0.4));
-        color =
-          0.31 +
-          0.57 * flake +
-          0.12 * detail -
-          0.22 * boundary -
-          0.09 * lenticel;
-        height =
-          0.4 + 0.16 * flake + 0.07 * fine - 0.2 * boundary - 0.07 * lenticel;
-        roughness += 0.07 * (fine - 0.5) + 0.045 * boundary - 0.025 * flake;
-        occlusion = 0.97 - 0.18 * boundary - 0.08 * lenticel;
-        break;
-      }
-      case 'studdedrubber': {
-        const x = u * 6,
-          y = v * 6;
-        const dx = fract(x) - 0.5,
-          dy = fract(y) - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const stud = 1 - smooth(clamp((radius - 0.24) / 0.12));
-        const variation = rubberStuds![Math.floor(y) * 6 + Math.floor(x)];
-        const stipple = noise(u, v, 144, 144, seed ^ 0x49b3);
-        color = 0.24 + 0.16 * stud + 0.06 * stud * variation + 0.05 * stipple;
-        height = 0.16 + 0.66 * stud + 0.002 * stipple;
-        roughness = preset.roughness + 0.04 * (stipple - 0.5);
-        occlusion = 0.84 + 0.16 * stud;
-        break;
-      }
-      case 'groovedrubber': {
-        const x = u * 12;
-        const distance = Math.abs(fract(x) - 0.5);
-        const rib = 1 - smooth(clamp((distance - 0.32) / 0.13));
-        const variation = rubberRibs![Math.floor(x)];
-        const stipple = noise(u, v, 144, 144, seed ^ 0x6e21);
-        color = 0.18 + 0.29 * rib + 0.04 * rib * variation + 0.035 * stipple;
-        height = 0.15 + 0.7 * rib + 0.0015 * stipple;
-        roughness = preset.roughness + 0.035 * (stipple - 0.5);
-        occlusion = 0.7 + 0.3 * rib;
-        break;
-      }
-      case 'recycledrubber': {
-        const x = u * 48,
-          y = v * 48,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let coverage = 0,
-          pigment = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset = (((cy + 48) % 48) * 48 + ((cx + 48) % 48)) * 18;
-            const dx = x - cx - rubberGranules![offset],
-              dy = y - cy - rubberGranules![offset + 1];
-            let mask = 1;
-            for (let edge = 0; edge < 5; edge++) {
-              const plane = offset + 3 + edge * 3;
-              const inset =
-                rubberGranules![plane + 2] -
-                dx * rubberGranules![plane] -
-                dy * rubberGranules![plane + 1];
-              mask *= smooth(clamp(inset / 0.14));
-            }
-            coverage += mask;
-            pigment += mask * rubberGranules![offset + 2];
-          }
-        const granule = 1 - Math.exp(-2 * coverage);
-        const speckle = noise(u, v, 144, 144, seed ^ 0x3b87);
-        color = 0.035 + 0.59 * granule + (0.22 * pigment) / (1 + coverage);
-        height = 0.25 + 0.18 * granule + 0.002 * speckle;
-        roughness = preset.roughness - 0.06 * granule + 0.02 * speckle;
-        occlusion = 0.83 + 0.17 * granule;
-        break;
-      }
-      case 'rubber': {
-        const distance = wrappedFeature(u, v, 44, seed ^ 0x8e53);
-        const pebble = 1 - smooth(clamp((distance - 0.08) / 0.55));
-        // Fine molded stipple, with much shallower relief than leather grain.
-        color = 0.19 + 0.38 * pebble + 0.19 * fine + 0.1 * detail;
-        height = 0.19 + 0.49 * pebble + 0.15 * fine + 0.06 * detail;
-        roughness += 0.12 * (fine - 0.5) - 0.045 * pebble;
-        occlusion = 0.9 + 0.08 * pebble + 0.02 * fine;
-        break;
-      }
-      case 'carbonfiber': {
-        const x = 12 * (u + v),
-          y = 12 * (v - u);
-        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
-          weft = 0.5 + 0.5 * Math.cos(TAU * y);
-        // Smooth two-over/two-under ownership of diagonal tow bundles.
-        const over = smooth(
-          clamp(0.5 + 0.9 * Math.cos((Math.PI * (x - y)) / 2)),
-        );
-        const warpFiber =
-          0.5 + 0.5 * Math.sin(TAU * (4 * x + 0.08 * detail) + phase);
-        const weftFiber =
-          0.5 + 0.5 * Math.sin(TAU * (4 * y + 0.08 * detail) + phase);
-        const tow = warp * over + weft * (1 - over);
-        const fiber = warpFiber * over + weftFiber * (1 - over);
-        color = 0.12 + 0.46 * tow + 0.2 * fiber + 0.12 * detail;
-        // Resin smooths the weave; its sheen remains dielectric, not metallic.
-        height = 0.25 + 0.37 * tow + 0.055 * fiber + 0.04 * detail;
-        roughness += 0.065 * (detail - 0.5) + 0.045 * (1 - tow);
-        occlusion = 0.88 + 0.1 * tow + 0.02 * fiber;
-        break;
-      }
-      case 'diamondplate': {
-        const x = u * 8,
-          y = v * 8;
-        const dx = fract(x) - 0.5,
-          dy = fract(y) - 0.5;
-        const direction = (Math.floor(x) + Math.floor(y)) % 2 === 0 ? 1 : -1;
-        const along = (dx + direction * dy) * Math.SQRT1_2,
-          across = (dy - direction * dx) * Math.SQRT1_2;
-        const distance = Math.abs(along) / 0.48 + Math.abs(across) / 0.14;
-        // Each beveled lozenge ends strictly inside its cell, so alternating
-        // orientation never introduces an ownership discontinuity at cell edges.
-        const raised = smooth(clamp((1 - distance) / 0.24));
-        const rolled = noise(u, v, 4, 64, seed ^ 0x35e1);
-        color = 0.35 + 0.25 * rolled + 0.29 * raised + 0.07 * detail;
-        height = 0.08 + 0.78 * raised + 0.025 * rolled;
-        roughness += 0.14 * (rolled - 0.5) - 0.075 * raised;
-        occlusion = 0.94 + 0.05 * raised + 0.01 * detail;
-        break;
-      }
-      case 'knurledmetal': {
-        const across = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u + v))),
-          along = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u - v)));
-        // Intersecting cuts leave small diamond crowns, not isolated tread bars.
-        const crown = across * along;
-        color = 0.29 + 0.48 * crown + 0.16 * detail;
-        height = 0.12 + 0.72 * crown + 0.025 * detail;
-        roughness += 0.1 * (detail - 0.5) + 0.07 * (1 - crown);
-        occlusion = 0.85 + 0.14 * crown;
-        break;
-      }
-      case 'engineturned': {
-        const x = u * 6,
-          y = v * 6;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let total = 0,
-          scratches = 0,
-          sheen = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % 6) + 6) % 6,
-              wy = ((cy % 6) + 6) % 6;
-            const dx = x - cx - 0.25 - 0.5 * (wy % 2),
-              dy = y - cy - 0.5;
-            const radiusSquared = dx * dx + dy * dy;
-            const cap = Math.max(0, 1 - radiusSquared / 0.9025);
-            const weight = cap * cap;
-            const offset = (wy * 6 + wx) * 2;
-            const turn = turnedDisks![offset];
-            const scratch =
-              0.5 +
-              0.5 *
-                Math.cos(TAU * (10 * radiusSquared + turn + 0.18 * dx * dy));
-            total += weight;
-            scratches += weight * scratch;
-            sheen += weight * turnedDisks![offset + 1];
-          }
-        // Compact C1 disk supports and normalized convex ownership avoid both
-        // hard nearest-disk seams and unbounded overlap sums. Coverage is total.
-        scratches /= total;
-        sheen /= total;
-        color = 0.35 + 0.34 * sheen + 0.22 * scratches + 0.04 * detail;
-        height = 0.44 + 0.07 * scratches + 0.025 * detail;
-        roughness += 0.18 * (scratches - 0.5) + 0.12 * (sheen - 0.5);
-        occlusion = 0.98 + 0.015 * scratches;
-        break;
-      }
-      case 'goldleaf': {
-        const warp = noise(u, v, 4, 5, seed ^ 0x4d83);
-        const patchU = u + 0.035 * Math.sin(TAU * v * 3 + phase),
-          patchV = v + 0.03 * Math.sin(TAU * u * 4 + phase);
-        const patch = noise(patchU, patchV, 4, 5, seed ^ 0x1e59);
-        const lapU = smooth(clamp((Math.cos(TAU * 4 * patchU) - 0.92) / 0.08));
-        const lapV = smooth(clamp((Math.cos(TAU * 5 * patchV) - 0.92) / 0.08));
-        const lap = lapU + (1 - lapU) * lapV;
-        const foldA = Math.pow(
-          0.5 + 0.5 * Math.cos(TAU * (18 * u + 7 * v + 1.7 * warp) + phase),
-          8,
-        );
-        const foldB = Math.pow(
-          0.5 + 0.5 * Math.cos(TAU * (5 * u - 21 * v + 1.3 * patch) - phase),
-          10,
-        );
-        const wrinkle = 0.6 * foldA + 0.4 * foldB;
-        // Thin overlapping sheets carry crumpled folds, not deep cracks or
-        // translucent foil; all relief remains in the four opaque surface maps.
-        color = 0.4 + 0.3 * patch + 0.19 * wrinkle - 0.1 * lap;
-        height = 0.36 + 0.34 * wrinkle + 0.065 * lap + 0.04 * detail;
-        roughness += 0.12 * (patch - 0.5) + 0.11 * wrinkle + 0.025 * lap;
-        occlusion = 0.99 - 0.065 * wrinkle - 0.025 * lap;
-        break;
-      }
-      case 'paper': {
-        const formation = noise(u, v, 3, 5, seed ^ 0x81b7);
-        const tooth = noise(u, v, 48, 48, seed ^ 0x57d3);
-        const cells = 24;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let fibers = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
-              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x193f);
-            const angle = TAU * hash(wx, wy, seed ^ 0x72e1);
-            const along = dx * Math.cos(angle) + dy * Math.sin(angle),
-              across = dy * Math.cos(angle) - dx * Math.sin(angle);
-            const length = 0.42 + 0.28 * hash(wx, wy, seed ^ 0x5b29);
-            // Short, randomly oriented pulp fibers have compact support, so
-            // neighboring cells blend without changing ownership at their edges.
-            const distance =
-              (along * along) / (length * length) + (across * across) / 0.0064;
-            const fiber = Math.pow(clamp(1 - distance), 2);
-            fibers = Math.max(fibers, fiber);
-          }
-        color = 0.62 + 0.24 * formation + 0.1 * tooth - 0.2 * fibers;
-        height = 0.22 + 0.12 * formation + 0.22 * tooth + 0.3 * fibers;
-        roughness += 0.08 * (tooth - 0.5) + 0.04 * fibers;
-        occlusion = 0.98 - 0.07 * fibers - 0.035 * (1 - tooth);
-        break;
-      }
-      case 'reedmat': {
-        const x = u * 16,
-          band = Math.floor(x),
-          across = (fract(x) - 0.5) / 0.46;
-        const reed = smooth(clamp(1 - across * across));
-        const variation = fiberBands![band * 2],
-          fiberPhase = fiberBands![band * 2 + 1];
-        const fiber =
-          0.5 +
-          0.5 *
-            Math.sin(TAU * x * 7 + 0.2 * Math.sin(TAU * v * 3) + fiberPhase);
-        const thread = smooth(clamp(1 - (1 - Math.cos(TAU * v * 4)) / 0.055));
-        const threadFiber = 0.5 + 0.5 * Math.cos(TAU * u * 96 + phase);
-        color =
-          0.15 +
-          reed * (0.38 + 0.14 * variation + 0.09 * fiber) +
-          thread * (0.12 + 0.04 * threadFiber);
-        height =
-          0.1 +
-          reed * (0.46 + 0.055 * variation + 0.018 * fiber) +
-          thread * (0.24 + 0.015 * threadFiber);
-        roughness += 0.06 * (1 - reed) - 0.035 * reed * fiber + 0.025 * thread;
-        occlusion = 0.56 + 0.32 * reed + 0.07 * thread;
-        break;
-      }
-      case 'rope': {
-        const x = u * 6,
-          band = Math.floor(x),
-          local = fract(x) - 0.5;
-        const body = smooth(clamp(1 - (local / 0.48) ** 2));
-        const variation = fiberBands![band * 2],
-          twistPhase = fiberBands![band * 2 + 1];
-        const helix = TAU * (3 * local - 6 * v) + twistPhase;
-        const strand = 0.5 + 0.5 * Math.cos(helix),
-          fiber =
-            0.5 + 0.5 * Math.cos(helix * 9 + 0.15 * Math.sin(TAU * v * 2));
-        // Three diagonal constituent crowns per rope band, never crossing loops.
-        color =
-          0.13 + body * (0.3 + 0.14 * variation + 0.23 * strand + 0.06 * fiber);
-        height = 0.08 + body * (0.34 + 0.32 * strand + 0.018 * fiber);
-        roughness += 0.065 * (1 - body) + body * (0.025 - 0.045 * fiber);
-        occlusion = 0.43 + body * (0.35 + 0.17 * strand);
-        break;
-      }
-      case 'straw': {
-        const x = u * 8,
-          y = v * 8,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        color = 0.17 + 0.07 * detail;
-        height = 0.15 + 0.015 * detail;
-        occlusion = 0.55 + 0.035 * detail;
-        for (let layer = 0; layer < 3; layer++)
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const cx = ix + ox,
-                cy = iy + oy;
-              const offset =
-                ((layer * 8 + (((cy % 8) + 8) % 8)) * 8 +
-                  (((cx % 8) + 8) % 8)) *
-                9;
-              const dx = x - cx - strawStems![offset],
-                dy = y - cy - strawStems![offset + 1];
-              const along =
-                  (dx * strawStems![offset + 2] +
-                    dy * strawStems![offset + 3]) /
-                  strawStems![offset + 4],
-                across =
-                  (dy * strawStems![offset + 2] -
-                    dx * strawStems![offset + 3]) /
-                  strawStems![offset + 5];
-              const stem =
-                smooth(clamp((1 - along * along) / 0.24)) *
-                smooth(clamp(1 - across * across));
-              if (stem === 0) continue;
-              const variation = strawStems![offset + 6];
-              const fiber =
-                0.5 + 0.5 * Math.cos(12 * across + strawStems![offset + 7]);
-              const node =
-                strawStems![offset + 8] > 0.6
-                  ? smooth(clamp(1 - ((along - 0.2) / 0.065) ** 2))
-                  : 0;
-              // All ownership, including nodes and fibers, fades with support.
-              color =
-                color * (1 - stem) +
-                stem * (0.48 + 0.26 * variation + 0.07 * fiber - 0.13 * node);
-              height =
-                height * (1 - stem) +
-                stem *
-                  (0.51 +
-                    0.06 * layer +
-                    0.04 * variation +
-                    0.018 * fiber +
-                    0.055 * node);
-              roughness =
-                roughness * (1 - stem) +
-                stem * (preset.roughness - 0.04 * fiber + 0.025 * node);
-              occlusion =
-                occlusion * (1 - stem) + stem * (0.91 + 0.045 * fiber);
-            }
-        break;
-      }
-      case 'wicker': {
-        const x = u * 6,
-          y = v * 6;
-        const warpCrown = 0.5 + 0.5 * Math.cos(TAU * x),
-          weftCrown = 0.5 + 0.5 * Math.cos(TAU * y);
-        const warp = smooth(clamp((Math.cos(TAU * x) + 0.92) / 0.3)),
-          weft = smooth(clamp((Math.cos(TAU * y) + 0.92) / 0.3));
-        const over = smooth(
-          clamp(0.5 + 1.4 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y)),
-        );
-        const warpTop = warp * (1 - weft + weft * over),
-          weftTop = weft * (1 - warp + warp * (1 - over));
-        const coverage = warpTop + weftTop;
-        const warpGrain = noise(u, v, 72, 4, seed ^ 0x6f31),
-          weftGrain = noise(u, v, 4, 72, seed ^ 0x2a97);
-        const grain = warpTop * warpGrain + weftTop * weftGrain;
-        const crown = warpTop * warpCrown + weftTop * weftCrown;
-        // Broad solid rattan ribbons have rolled shoulders and longitudinal
-        // grain, rather than the narrow twisted yarns of coarse burlap.
-        color = 0.08 + 0.5 * coverage + 0.16 * crown + 0.18 * grain;
-        height = 0.04 + 0.48 * coverage + 0.32 * crown + 0.045 * grain;
-        roughness += 0.1 * (detail - 0.5) + 0.1 * (1 - coverage) - 0.04 * grain;
-        occlusion = 0.34 + 0.54 * coverage + 0.1 * crown;
-        break;
-      }
-      case 'bamboo': {
-        const grain = noise(u, v, 64, 4, seed ^ 0x4b71);
-        const wander = noise(u, v, 4, 3, seed ^ 0x691d);
-        const fiber =
-          0.5 + 0.5 * Math.sin(TAU * (48 * u + 0.22 * wander) + phase);
-        const stagger = noise(u, 0, 4, 1, seed ^ 0x28d5);
-        const ring =
-          1 -
-          Math.cos(
-            TAU * (3 * v + 0.65 * stagger + 0.07 * Math.sin(TAU * 4 * u)) +
-              phase,
-          );
-        const node = 1 - smooth(clamp(ring / 0.16));
-        const shoulder = 1 - smooth(clamp(ring / 0.42));
-        // Continuous phase staggering bends the darker node bands across the
-        // fiber field without introducing plank seams or segmented geometry.
-        color =
-          0.46 + 0.23 * grain + 0.16 * fiber + 0.08 * detail - 0.34 * node;
-        height =
-          0.3 + 0.14 * grain + 0.12 * fiber + 0.16 * shoulder - 0.1 * node;
-        roughness += 0.12 * node + 0.1 * (grain - 0.5) - 0.035 * fiber;
-        occlusion = 0.99 - 0.14 * node - 0.025 * (1 - grain);
-        break;
-      }
-      case 'hammeredmetal': {
-        const cells = 12;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let impressions = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
-              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x729b);
-            const radius = 0.85 + 0.25 * hash(wx, wy, seed ^ 0x193d);
-            // Rounded tool impressions overlap with zero slope at their support
-            // edges; summing them avoids nearest-site ridges in the copper.
-            const cap = clamp(1 - (dx * dx + dy * dy) / (radius * radius));
-            impressions +=
-              cap * cap * (0.7 + 0.3 * hash(wx, wy, seed ^ 0x5a17));
-          }
-        const dent = 1 - Math.exp(-1.6 * impressions);
-        const polish = noise(u, v, 4, 4, seed ^ 0x4e21);
-        color = 0.72 - 0.32 * dent + 0.14 * polish + 0.045 * detail;
-        height = 0.85 - 0.7 * dent + 0.008 * detail;
-        roughness += 0.1 * (polish - 0.5) + 0.09 * dent;
-        occlusion = 0.99 - 0.12 * dent;
-        break;
-      }
-      case 'galvanized': {
-        const cells = 10;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let weight = 0,
-          pigment = 0,
-          rays = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
-              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x3b79);
-            const angle = TAU * hash(wx, wy, seed ^ 0x57a3);
-            const along = dx * Math.cos(angle) + dy * Math.sin(angle),
-              across = dy * Math.cos(angle) - dx * Math.sin(angle);
-            // Compact high-power weights create flat-looking zinc spangles
-            // with feathered crystallite boundaries, not raised stone chips.
-            const cap = Math.pow(clamp(1 - (dx * dx + dy * dy) / 1.21), 8);
-            const variation = hash(wx, wy, seed ^ 0x49d1);
-            const ray =
-              0.5 + 0.5 * Math.cos(TAU * (3 * across + 1.5 * Math.abs(along)));
-            weight += cap;
-            pigment += cap * variation;
-            rays += cap * ray;
-          }
-        const inv = 1 / Math.max(weight, 1e-12);
-        const crystallite = pigment * inv,
-          ray = rays * inv;
-        color = 0.18 + 0.65 * crystallite + 0.12 * ray + 0.035 * detail;
-        height = 0.3 + 0.18 * crystallite + 0.035 * ray + 0.015 * detail;
-        roughness += 0.24 * (crystallite - 0.5) + 0.045 * (ray - 0.5);
-        occlusion = 0.98 + 0.02 * crystallite;
-        break;
-      }
-      case 'corrugatedmetal': {
-        const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
-        const rolled = noise(u, v, 64, 4, seed ^ 0x1f6b);
-        const wear = Math.pow(0.5 + 0.5 * Math.sin(TAU * 48 * u + phase), 12);
-        // A continuous rolled sheet: the large-scale flutes affect only its
-        // normal map, with faint longitudinal wear rather than panel joints.
-        color = 0.5 + 0.2 * flute + 0.16 * rolled - 0.06 * wear;
-        height = 0.1 + 0.8 * flute + 0.004 * rolled - 0.002 * wear;
-        roughness += 0.13 * (rolled - 0.5) + 0.06 * wear;
-        occlusion = 0.91 + 0.08 * flute;
-        break;
-      }
-      case 'perforatedmetal': {
-        const cells = 6;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Even row counts keep the staggered half-cell hole lattice periodic.
-        let recess = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const shift = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - shift,
-              dy = y - cy - 0.5;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            // Flat hole floors sink below the sheet and rise back at the rim
-            // with zero slope; supports stop before a discarded cell matters.
-            const hole = smooth(clamp((0.3 - distance) / 0.12));
-            recess += (1 - recess) * hole;
-          }
-        color = 0.62 + 0.1 * detail - 0.44 * recess;
-        height = 0.82 - 0.62 * recess + 0.03 * detail;
-        roughness += 0.07 * recess + 0.04 * (detail - 0.5);
-        occlusion = 1 - 0.78 * recess;
-        break;
-      }
-      case 'expandedmetal': {
-        // Two diagonal strand families join smoothly at shared nodes and
-        // leave recessed rhombic openings between their rounded shoulders.
-        const strandA = smooth(
-          clamp((Math.cos(TAU * 5 * (u + v)) - 0.1) / 0.9),
-        );
-        const strandB = smooth(
-          clamp((Math.cos(TAU * 5 * (u - v)) - 0.1) / 0.9),
-        );
-        const lattice = strandA + strandB - strandA * strandB;
-        const node = strandA * strandB;
-        const opening = 1 - lattice;
-        color = 0.7 + 0.1 * detail - 0.42 * opening;
-        height = 0.22 + 0.6 * lattice + 0.09 * node + 0.025 * detail;
-        roughness += 0.08 * opening + 0.03 * (detail - 0.5);
-        occlusion = 0.34 + 0.62 * lattice;
-        break;
-      }
-      case 'wiremesh': {
-        const x = u * 12,
-          y = v * 12;
-        // Squared caps round each wire crest and vanish with zero slope
-        // at the half-cell support, so the fract jumps land in flat gaps.
-        const cap = (q: number): number => {
-          const span = clamp(1 - q * q);
-          return span * span;
-        };
-        const warp = cap((fract(x) - 0.5) / 0.34),
-          weft = cap((fract(y) - 0.5) / 0.34);
-        // Over-under crimp alternates at every crossing and eases to equal
-        // tension halfway between them, so no seam opens along a float.
-        const over = 0.5 + 0.5 * Math.cos(Math.PI * (x - y));
-        const top = warp * over + weft * (1 - over),
-          under = weft * over + warp * (1 - over);
-        const exposed = under * (1 - top);
-        color = 0.3 + 0.46 * top + 0.2 * exposed + 0.08 * detail;
-        height = 0.08 + 0.78 * top + 0.34 * exposed + 0.03 * detail;
-        roughness += 0.04 * (1 - top) + 0.03 * (detail - 0.5);
-        occlusion = 0.36 + 0.56 * top + 0.18 * exposed;
-        break;
-      }
-      case 'velvet': {
-        // Dense upright pile stays flat while soft crush clouds shift the
-        // nap's pigment and sheen without introducing hard pile edges.
-        const crush = noise(u, v, 5, 5, seed ^ 0x7c31);
-        const drift = noise(u, v, 3, 9, seed ^ 0x2a17);
-        const nap = noise(u, v, 96, 96, seed ^ 0x5f2d);
-        color = 0.3 + 0.32 * crush + 0.12 * nap;
-        height = 0.42 + 0.06 * crush + 0.05 * nap;
-        roughness += 0.12 * (crush - 0.5) + 0.035 * (drift - 0.5);
-        occlusion = 0.92 + 0.06 * crush;
-        break;
-      }
-      case 'terrycloth': {
-        const columns = 10,
-          rows = 8;
-        const x = u * columns,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Even row counts keep the staggered half-cell loop lattice periodic.
-        let loops = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const shift = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - shift,
-              dy = y - cy - 0.5;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            // Rounded loop crowns rise over the ground and vanish with
-            // zero slope before a discarded cell can matter.
-            const cap = clamp(1 - (distance / 0.36) ** 2);
-            loops += (1 - loops) * cap * cap;
-          }
-        color = 0.42 + 0.3 * loops + 0.16 * detail;
-        height = 0.3 + 0.62 * loops + 0.05 * detail;
-        roughness += 0.05 * (detail - 0.5) - 0.03 * loops;
-        occlusion = 0.62 + 0.35 * loops;
-        break;
-      }
-      case 'boucle': {
-        const rows = 6,
-          cells = 8;
-        const x = u * cells,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Yarn courses run along u; squared caps round each course crown
-        // and meet the channel with zero slope at the half-row support.
-        const across = fract(y) - 0.5;
-        const span = clamp(1 - (across / 0.36) ** 2);
-        const yarn = span * span;
-        let rings = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % rows) + rows) % rows;
-            const dx = x - cx - 0.5 - 0.3 * (hash(wx, wy, seed ^ 0x6a2d) - 0.5),
-              dy = y - cy - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x33f1) - 0.5);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            // Annular loop crests curl over the yarn around recessed
-            // centers and vanish with zero slope at the ring support.
-            const band = clamp(1 - ((distance - 0.16) / 0.075) ** 2);
-            rings += (1 - rings) * band * band;
-          }
-        const channel = 1 - yarn;
-        color = 0.36 + 0.34 * yarn + 0.14 * rings + 0.12 * detail;
-        height = 0.16 + 0.5 * yarn + 0.26 * rings + 0.04 * detail;
-        roughness += 0.06 * channel + 0.03 * (detail - 0.5);
-        occlusion = 0.58 + 0.3 * yarn + 0.1 * rings;
-        break;
-      }
-      case 'geode': {
-        // Bands share a fixed tile center so one UV tile stays a full
-        // radial section, while seeded warping keeps the rings organic.
-        const dx = fract(u) - 0.5,
-          dy = fract(v) - 0.5;
-        // Sinusoidal wrap keeps the radial distance smooth across seams.
-        const sx = Math.sin(Math.PI * dx) / Math.PI,
-          sy = Math.sin(Math.PI * dy) / Math.PI;
-        const radius = Math.sqrt(sx * sx + sy * sy);
-        const warp = noise(u, v, 6, 6, seed ^ 0x3c17);
-        // The banding fades flat before the center so the radial distance
-        // leaves no cone behind at the origin.
-        const ringFade = smooth(clamp((radius - 0.1) / 0.08));
-        const band =
-          0.5 +
-          0.5 * ringFade * Math.cos(TAU * (9 * radius + 0.12 * warp) + phase);
-        // A fine crystalline druse core breaks the smooth mineral banding.
-        const core = smooth(clamp((0.17 - radius) / 0.05));
-        const facet = noise(u, v, 48, 48, seed ^ 0x5921);
-        const druse = core * facet;
-        color = 0.3 + 0.3 * band + 0.22 * druse + 0.12 * detail;
-        height = 0.3 + 0.3 * band + 0.2 * druse + 0.03 * detail;
-        roughness += 0.1 * (1 - band) + 0.08 * druse + 0.03 * (detail - 0.5);
-        occlusion = 0.72 + 0.22 * band + 0.04 * druse;
-        break;
-      }
-      case 'quartz': {
-        const cells = 5;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Hexagonal prism tops carry pyramidal apices; products of C1
-        // half-plane shoulders keep every facet edge differentiable.
-        let columns = 0,
-          tops = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const px = cx + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x4c21) - 0.5),
-              py = cy + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x71b3) - 0.5);
-            const dx = x - px,
-              dy = y - py;
-            let shoulder = 1;
-            for (let k = 0; k < 6; k++) {
-              const angle =
-                (Math.PI / 3) * k + 0.22 * (hash(wx, wy, seed ^ 0x5d77) - 0.5);
-              const across = Math.abs(
-                dx * Math.cos(angle) + dy * Math.sin(angle),
-              );
-              shoulder *= smooth(clamp((0.3 - across) / 0.055));
-            }
-            const top = 0.34 + 0.42 * hash(wx, wy, seed ^ 0x2f19);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const tip = clamp(1 - (distance / 0.21) ** 2);
-            columns += (1 - columns) * shoulder;
-            tops += (1 - tops) * shoulder * (top + 0.24 * tip * tip);
-          }
-        color = 0.52 + 0.26 * tops + 0.12 * detail;
-        height = 0.16 + 0.72 * tops + 0.03 * detail;
-        roughness += 0.1 * (1 - columns) + 0.03 * (detail - 0.5);
-        occlusion = 0.5 + 0.46 * columns;
-        break;
-      }
-      case 'pyrite': {
-        const cells = 5;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Interlocking cube tops step at varied heights; squared shoulders
-        // stay differentiable through products of C1 half-plane caps.
-        let cubes = 0,
-          tops = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const px = cx + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x1c41) - 0.5),
-              py = cy + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x3f27) - 0.5);
-            const angle = 0.28 * (hash(wx, wy, seed ^ 0x6b5d) - 0.5);
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const dx = x - px,
-              dy = y - py;
-            const lx = Math.abs(dx * cos + dy * sin),
-              ly = Math.abs(dy * cos - dx * sin);
-            const face =
-              smooth(clamp((0.32 - lx) / 0.05)) *
-              smooth(clamp((0.32 - ly) / 0.05));
-            const top = 0.3 + 0.45 * hash(wx, wy, seed ^ 0x51af);
-            cubes += (1 - cubes) * face;
-            tops += (1 - tops) * face * top;
-          }
-        // Fine parallel striations cut across every exposed cube top.
-        const groove = 0.5 + 0.5 * Math.cos(TAU * 26 * (u + v) + phase);
-        const striation = cubes * smooth(groove);
-        color = 0.5 + 0.24 * tops + 0.1 * striation + 0.1 * detail;
-        height = 0.18 + 0.6 * tops + 0.06 * striation + 0.03 * detail;
-        roughness += 0.07 * (1 - striation) + 0.03 * (detail - 0.5);
-        occlusion = 0.52 + 0.42 * cubes;
-        break;
-      }
-      case 'shiplap': {
-        const rows = 5;
-        const y = v * rows,
-          iy = Math.floor(y);
-        const wy = ((iy % rows) + rows) % rows;
-        // Lap boards shadow their lower overlap while grain runs along
-        // each board; the seam fades in and out with zero slope.
-        const dist = 0.5 - Math.abs(fract(y) - 0.5);
-        const seam = smooth(clamp((0.07 - dist) / 0.05));
-        // Board tones fade into the shared seam so ownership never jumps.
-        const board = 0.5 + 0.36 * hash(wy, 0, seed ^ 0x2c61) * (1 - seam);
-        const grain = noise(u, v, 48, 6, seed ^ 0x47b9);
-        const streak = noise(u, v, 12, 2, seed ^ 0x6d23);
-        color = 0.24 + 0.36 * board + 0.16 * grain + 0.1 * streak - 0.18 * seam;
-        height = 0.72 - 0.5 * seam + 0.08 * grain + 0.03 * streak;
-        roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
-        occlusion = 1 - 0.55 * seam;
-        break;
-      }
-      case 'glassblock': {
-        const cells = 4;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded block faces rise over recessed seams; products of C1
-        // half-plane shoulders round every corner before the seam.
-        let faces = 0,
-          bubbles = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.5,
-              dy = y - cy - 0.5;
-            const face =
-              smooth(clamp((0.42 - Math.abs(dx)) / 0.05)) *
-              smooth(clamp((0.42 - Math.abs(dy)) / 0.05));
-            const bx = dx - 0.2 * (hash(wx, wy, seed ^ 0x51c7) - 0.5),
-              by = dy - 0.2 * (hash(wx, wy, seed ^ 0x78a1) - 0.5);
-            const distance = Math.sqrt(bx * bx + by * by);
-            // Tiny trapped bubbles dome inside the glass faces.
-            const cap = clamp(1 - (distance / 0.07) ** 2);
-            const bubble = cap * cap;
-            faces += (1 - faces) * face;
-            bubbles += (1 - bubbles) * face * bubble;
-          }
-        color = 0.55 + 0.2 * faces + 0.12 * bubbles + 0.1 * detail;
-        height = 0.24 + 0.6 * faces + 0.05 * bubbles + 0.02 * detail;
-        roughness += 0.12 * (1 - faces) - 0.03 * bubbles;
-        occlusion = 0.45 + 0.5 * faces;
-        break;
-      }
-      case 'thatch': {
-        const rows = 6;
-        const y = v * rows;
-        // Layered straw courses hang over their laps; fine streaks carry
-        // individual straws down the slope between soft course shadows.
-        const course =
-          0.5 +
-          0.5 *
-            Math.cos(
-              TAU * (fract(y) - 0.25) + 0.5 * noise(u, v, 3, 6, seed ^ 0x1d4b),
-            );
-        const straw = noise(u, v, 80, 6, seed ^ 0x3f8d);
-        const lap = smooth(clamp((0.14 - Math.abs(fract(y) - 0.73)) / 0.07));
-        color = 0.3 + 0.32 * course + 0.18 * straw + 0.1 * detail - 0.12 * lap;
-        height = 0.32 + 0.36 * course + 0.22 * straw - 0.3 * lap;
-        roughness += 0.05 * (straw - 0.5) + 0.05 * lap;
-        occlusion = 0.68 + 0.28 * course - 0.3 * lap;
-        break;
-      }
-      case 'charredwood': {
-        const cells = 9;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded charcoal scales lift above deep alligator cracks; caps
-        // fade with zero slope before a discarded cell can matter.
-        let plates = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx =
-                x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4a17) - 0.5),
-              dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x73bd) - 0.5);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const cap = smooth(clamp((0.36 - distance) / 0.08));
-            plates += (1 - plates) * cap;
-          }
-        const grain = noise(u, v, 64, 64, seed ^ 0x2f51);
-        color = 0.12 + 0.24 * plates + 0.14 * grain;
-        height = 0.2 + 0.66 * plates + 0.05 * grain;
-        roughness += 0.08 * (1 - plates) + 0.03 * (grain - 0.5);
-        occlusion = 0.36 + 0.6 * plates;
-        break;
-      }
-      case 'driftwood': {
-        // Weathered cracks open along the grain while silvered ridges run
-        // the length of the board with zero slope at every crack wall.
-        const warp = noise(u, v, 4, 3, seed ^ 0x1c8b);
-        const grain = noise(u, v, 64, 3, seed ^ 0x55e1);
-        const streak = noise(u, v, 12, 2, seed ^ 0x39af);
-        const f = fract(v * 7 + 0.12 * warp);
-        const edge = Math.min(f, 1 - f);
-        const crack = smooth(clamp((0.1 - edge) / 0.05));
-        color = 0.42 + 0.26 * grain + 0.12 * streak - 0.24 * crack;
-        height = 0.62 + 0.18 * grain + 0.04 * streak - 0.5 * crack;
-        roughness += 0.06 * (grain - 0.5) + 0.08 * crack;
-        occlusion = 1 - 0.62 * crack;
-        break;
-      }
-      case 'peelingpaint': {
-        // Smooth noise opens peeled patches; the boundary rim curls up
-        // between the intact paint face and the exposed substrate.
-        const warp = noise(u, v, 5, 5, seed ^ 0x6f2d);
-        const peel = smooth(
-          clamp((noise(u, v, 3, 3, seed ^ 0x4b71) - 0.55) / 0.08),
-        );
-        const rim = 4 * peel * (1 - peel);
-        const substrate = noise(u, v, 40, 40, seed ^ 0x2ad3);
-        const paint = 1 - peel;
-        color =
-          0.66 * paint +
-          0.3 * peel +
-          0.16 * rim +
-          0.1 * substrate * peel +
-          0.12 * (0.5 + 0.5 * warp) * paint;
-        height = 0.24 + 0.42 * paint + 0.3 * rim + 0.05 * substrate;
-        roughness += 0.12 * peel + 0.05 * (substrate - 0.5);
-        occlusion = 0.52 + 0.36 * paint + 0.16 * rim;
-        break;
-      }
-      case 'tiretread': {
-        const rows = 6,
-          columns = 4;
-        const x = u * columns,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Staggered tread blocks step above their grooves; squared C1
-        // shoulders round every block corner before the groove floor.
-        let blocks = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const shift = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - shift,
-              dy = y - cy - 0.5;
-            const face =
-              smooth(clamp((0.34 - Math.abs(dx)) / 0.06)) *
-              smooth(clamp((0.32 - Math.abs(dy)) / 0.06));
-            blocks += (1 - blocks) * face;
-          }
-        // Fine lateral sipes cut each block into ribs.
-        const sipe = smooth(
-          clamp((Math.abs(Math.sin(TAU * 2 * (x + 0.25 * y))) - 0.12) / 0.12),
-        );
-        color = 0.18 + 0.24 * blocks - 0.08 * sipe * blocks + 0.1 * detail;
-        height = 0.22 + 0.58 * blocks - 0.12 * sipe * blocks + 0.03 * detail;
-        roughness += 0.06 * (1 - blocks) + 0.03 * (detail - 0.5);
-        occlusion = 0.42 + 0.52 * blocks - 0.1 * sipe * blocks;
-        break;
-      }
-      case 'honeycomb': {
-        const root3 = Math.sqrt(3);
-        const columns = 5,
-          rows = 4;
-        const x = u * columns,
-          y = v * rows;
-        // Hexagonal wax walls crest around recessed cell floors; products
-        // of C1 half-plane shoulders keep wall joints differentiable.
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let floors = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - offset,
-              dy = y - cy - 0.5;
-            const inside =
-              smooth(clamp((0.42 - Math.abs(dx)) / 0.03)) *
-              smooth(
-                clamp((0.42 - Math.abs(dx * 0.5 + (dy * root3) / 2)) / 0.03),
-              ) *
-              smooth(
-                clamp((0.42 - Math.abs(dx * 0.5 - (dy * root3) / 2)) / 0.03),
-              );
-            // Walls are everything the union of hexagonal floors leaves.
-            floors += (1 - floors) * inside;
-          }
-        const walls = 1 - floors;
-        const grain = noise(u, v, 48, 48, seed ^ 0x31c7);
-        color = 0.38 + 0.34 * walls + 0.12 * grain;
-        height = 0.28 + 0.56 * walls + 0.04 * grain;
-        roughness += 0.08 * (1 - walls) + 0.03 * (grain - 0.5);
-        occlusion = 0.52 + 0.42 * walls;
-        break;
-      }
-      case 'frost': {
-        const dx = fract(u) - 0.5,
-          dy = fract(v) - 0.5;
-        const sx = Math.sin(Math.PI * dx) / Math.PI,
-          sy = Math.sin(Math.PI * dy) / Math.PI;
-        const radius = Math.sqrt(sx * sx + sy * sy);
-        const angle = Math.atan2(sy, sx);
-        // Fern arms radiate from the tile center with feathery branchlets
-        // and fade flat before the origin keeps the angle cone hidden.
-        const fade = smooth(clamp((radius - 0.06) / 0.05));
-        // The odd sine keeps the arm phase even in the angle so seams
-        // fold back onto identical crystal arms.
-        const arm = Math.pow(
-          Math.abs(
-            Math.cos(
-              3 * angle +
-                0.4 *
-                  (noise(u, v, 3, 3, seed ^ 0x5c21) - 0.5) *
-                  Math.sin(2 * angle),
-            ),
-          ),
-          3,
-        );
-        const branch = noise(
-          u * 6 + 2 * radius,
-          v * 6 - 2 * radius,
-          24,
-          24,
-          seed ^ 0x27ab,
-        );
-        const crystal = fade * arm * (0.55 + 0.45 * branch);
-        color = 0.42 + 0.42 * crystal + 0.12 * detail;
-        height = 0.28 + 0.58 * crystal + 0.04 * detail;
-        roughness += 0.12 * (1 - crystal) + 0.03 * (detail - 0.5);
-        occlusion = 0.6 + 0.36 * crystal;
-        break;
-      }
-      case 'stainedglass': {
-        const cells = 5;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Jittered bisectors cut irregular panes; squared C1 shoulders keep
-        // every came junction differentiable and energy marks the came.
-        let pane = 0,
-          energy = 0,
-          tone = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const px = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x3d17),
-              py = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x74ab);
-            let shoulder = 1;
-            for (let ny = -1; ny <= 1; ny++)
-              for (let nx = -1; nx <= 1; nx++) {
-                if (!nx && !ny) continue;
-                const ax = (((cx + nx) % cells) + cells) % cells,
-                  ay = (((cy + ny) % cells) + cells) % cells;
-                const rx = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x3d17),
-                  ry = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x74ab);
-                const dx = nx + rx - px,
-                  dy = ny + ry - py;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const across =
-                  ((x - cx - px) * dx + (y - cy - py) * dy) / distance;
-                shoulder *= smooth(clamp((distance / 2 - across) / 0.035));
-              }
-            const weight = (1 - pane) * shoulder;
-            pane += weight;
-            energy += weight * weight;
-            tone += weight * hash(wx, wy, seed ^ 0x5e33);
-          }
-        const lead = clamp((1 - energy) * 1.4);
-        color = (0.22 + 0.58 * tone) * (1 - 0.45 * lead) + 0.12 * detail;
-        height = 0.36 + 0.14 * (1 - lead) + 0.32 * lead + 0.03 * detail;
-        roughness += 0.06 * lead + 0.03 * (detail - 0.5);
-        occlusion = 0.86 - 0.2 * lead;
-        break;
-      }
-      case 'soapstone': {
-        // Soft pale veining sweeps over the dark talc ground in wide
-        // cloudy bands with fine talc streaking along the polish.
-        const smear = noise(u, v, 6, 2, seed ^ 0x2c91);
-        const vein = smooth(
-          clamp((noise(u, v, 3, 3, seed ^ 0x4c19) - 0.52) / 0.1),
-        );
-        const talc = noise(u, v, 48, 12, seed ^ 0x61af);
-        color = 0.16 + 0.52 * vein + 0.16 * smear + 0.12 * talc;
-        height = 0.45 + 0.06 * vein + 0.05 * smear + 0.04 * talc;
-        roughness += 0.1 * (1 - vein) + 0.03 * (talc - 0.5);
-        occlusion = 0.9 + 0.08 * vein;
-        break;
-      }
-      case 'butcherblock': {
-        const cells = 4;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // End-grain blocks alternate tones in a checker while joints sink
-        // between them and fine pores ring each block face.
-        const seamX = 0.5 - Math.abs(fract(x) - 0.5),
-          seamY = 0.5 - Math.abs(fract(y) - 0.5);
-        const seam = smooth(clamp((0.06 - Math.min(seamX, seamY)) / 0.04));
-        // Checker tones fade into the shared joint so ownership never jumps.
-        const checker = (((ix + iy) % 2) + 2) % 2;
-        const block = (checker ? 0.5 : -0.5) * (1 - seam);
-        const grain = noise(u, v, 40, 40, seed ^ 0x37c1);
-        const pore = noise(u, v, 96, 96, seed ^ 0x5ad3);
-        color = 0.46 + 0.34 * block + 0.14 * grain + 0.1 * pore - 0.12 * seam;
-        height = 0.7 - 0.42 * seam + 0.06 * grain + 0.04 * pore;
-        roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
-        occlusion = 1 - 0.5 * seam;
-        break;
-      }
-      case 'wallpaper': {
-        // Motif coordinates fold through squares and absolute offsets so
-        // the damask repeats with exact mirror symmetry on every axis.
-        const ax = Math.abs(fract(u * 2) - 0.5),
-          ay = Math.abs(fract(v * 2) - 0.5);
-        const q = ax * ax + ay * ay;
-        const ring = 0.5 + 0.5 * Math.cos(TAU * 3.5 * q + phase);
-        const motif = smooth(clamp((0.22 - q) / 0.08)) * ring;
-        color = 0.34 + 0.3 * motif + 0.12 * detail;
-        height = 0.34 + 0.28 * motif;
-        roughness += 0.08 * (1 - motif) + 0.03 * (detail - 0.5);
-        occlusion = 0.82 + 0.16 * motif;
-        break;
-      }
-      case 'embroidery': {
-        const cells = 6;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Satin stitches lie as aligned tapered caps and fade with zero
-        // slope at their support before a discarded cell can matter.
-        let stitches = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const angle = 0.6 * (hash(wx, wy, seed ^ 0x2f31) - 0.5);
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const px = cx + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x41c7) - 0.5),
-              py = cy + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x6d23) - 0.5);
-            const dx = x - px,
-              dy = y - py;
-            const along = (dx * cos + dy * sin) / 0.34,
-              across = (dy * cos - dx * sin) / 0.09;
-            const cap = clamp(1 - along * along - across * across);
-            stitches += (1 - stitches) * cap * cap;
-          }
-        color = 0.36 + 0.3 * stitches + 0.14 * detail;
-        height = 0.3 + 0.56 * stitches + 0.04 * detail;
-        roughness += 0.06 * (detail - 0.5) - 0.03 * stitches;
-        occlusion = 0.62 + 0.34 * stitches;
-        break;
-      }
-      case 'macrame': {
-        const rows = 4,
-          columns = 4;
-        const x = u * columns,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded knots step between twisted crossing cords; even rows
-        // keep the staggered knot lattice periodic.
-        let knots = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const shift = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - shift,
-              dy = y - cy - 0.5;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const cap = smooth(clamp((0.3 - distance) / 0.1));
-            knots += (1 - knots) * cap;
-          }
-        const twist = 0.5 + 0.5 * Math.cos(TAU * 12 * (x + y) + phase);
-        const cord = 0.5 + 0.5 * Math.cos(TAU * 6 * (x - y) + phase);
-        color = 0.34 + 0.3 * knots + 0.12 * twist * cord + 0.12 * detail;
-        height =
-          0.28 +
-          0.52 * knots +
-          0.14 * (1 - knots) * twist * cord +
-          0.04 * detail;
-        roughness += 0.06 * (detail - 0.5);
-        occlusion = 0.6 + 0.36 * knots;
-        break;
-      }
-      case 'brickpaving': {
-        const rows = 4,
-          columns = 3;
-        const x = u * columns,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Running-bond pavers step above sandy joints; squared C1
-        // shoulders round every paver corner before the joint floor.
-        let pavers = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const shift = (((cy % 2) + 2) % 2) * 0.5;
-            const dx = x - cx - 0.5 - shift,
-              dy = y - cy - 0.5;
-            const face =
-              smooth(clamp((0.44 - Math.abs(dx)) / 0.05)) *
-              smooth(clamp((0.38 - Math.abs(dy)) / 0.05));
-            pavers += (1 - pavers) * face;
-          }
-        const sand = noise(u, v, 64, 64, seed ^ 0x3c17);
-        const wear = noise(u, v, 24, 24, seed ^ 0x51af);
-        color =
-          0.36 + 0.28 * pavers + 0.12 * wear + 0.1 * sand - 0.1 * (1 - pavers);
-        height = 0.26 + 0.56 * pavers + 0.06 * wear + 0.03 * sand;
-        roughness += 0.06 * (1 - pavers) + 0.04 * (sand - 0.5);
-        occlusion = 0.5 + 0.46 * pavers;
-        break;
-      }
-      case 'steppingstone': {
-        const cells = 3;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded flagstone pads sit over gritty ground and fade with
-        // zero slope before a discarded cell can matter.
-        let pads = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx =
-                x - cx - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x42b1) - 0.5),
-              dy = y - cy - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x6c77) - 0.5);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const cap = smooth(clamp((0.4 - distance) / 0.1));
-            pads += (1 - pads) * cap;
-          }
-        const grit = noise(u, v, 72, 72, seed ^ 0x2d5b);
-        const mottle = noise(u, v, 12, 12, seed ^ 0x58c3);
-        color = 0.32 + 0.3 * pads + 0.14 * mottle + 0.12 * grit;
-        height = 0.24 + 0.58 * pads + 0.06 * mottle + 0.03 * grit;
-        roughness += 0.08 * (1 - pads) + 0.04 * (grit - 0.5);
-        occlusion = 0.54 + 0.42 * pads;
-        break;
-      }
-      case 'woodendeck': {
-        const rows = 5,
-          columns = 3;
-        const x = u * columns,
-          y = v * rows;
-        const iy = Math.floor(y);
-        const wy = ((iy % rows) + rows) % rows;
-        const dist = 0.5 - Math.abs(fract(y) - 0.5);
-        const gap = smooth(clamp((0.05 - dist) / 0.035));
-        // Board tones fade into the shared gap so ownership never jumps.
-        const board = 0.5 + 0.3 * hash(wy, 0, seed ^ 0x1b7d) * (1 - gap);
-        const grain = noise(u, v, 48, 8, seed ^ 0x39e1);
-        let heads = 0,
-          slots = 0;
-        for (let k = 0; k < 3; k++) {
-          const dx = x - (k + 0.5),
-            dy = y - iy - 0.5;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          // Domed screw heads sit proud of the board over recessed slots.
-          const dome = smooth(clamp((0.16 - distance) / 0.05));
-          const slot =
-            dome *
-            smooth(
-              clamp((0.035 - Math.min(Math.abs(dx), Math.abs(dy))) / 0.02),
-            );
-          heads += (1 - heads) * dome;
-          slots += (1 - slots) * slot;
-        }
-        color = 0.42 + 0.24 * board + 0.12 * grain + 0.1 * heads - 0.08 * slots;
-        height = 0.68 - 0.44 * gap + 0.05 * heads - 0.12 * slots + 0.05 * grain;
-        roughness += 0.05 * (grain - 0.5) + 0.08 * gap - 0.04 * heads;
-        occlusion = 1 - 0.52 * gap - 0.12 * slots;
-        break;
-      }
-      case 'cheese': {
-        const cells = 6;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded eyes of two sizes sink into the paste with smooth walls
-        // and zero slope before a discarded cell can matter.
-        let eyes = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx =
-                x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4e17) - 0.5),
-              dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x72ab) - 0.5);
-            const radius =
-              0.14 + 0.18 * Math.floor(hash(wx, wy, seed ^ 0x35cf) * 2);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const bowl = smooth(clamp((radius - distance) / (0.35 * radius)));
-            eyes += (1 - eyes) * bowl;
-          }
-        const knife = noise(u, v, 40, 4, seed ^ 0x2b7d);
-        const paste = noise(u, v, 24, 24, seed ^ 0x61c3);
-        color = 0.56 + 0.26 * paste + 0.1 * knife - 0.3 * eyes;
-        height = 0.72 - 0.5 * eyes + 0.04 * paste - 0.03 * knife;
-        roughness += 0.06 * (1 - eyes) + 0.03 * (paste - 0.5);
-        occlusion = 0.94 - 0.6 * eyes;
-        break;
-      }
-      case 'sugarfrosting': {
-        const cells = 5;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Piped rosette peaks swell over smooth icing between them.
-        let peaks = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x1f8b) - 0.5),
-              dy = y - cy - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x4a2d) - 0.5);
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const cap = clamp(1 - (distance / 0.34) ** 2);
-            peaks += (1 - peaks) * cap * cap;
-          }
-        const swirl = noise(u, v, 32, 32, seed ^ 0x7c41);
-        color = 0.58 + 0.2 * peaks + 0.1 * swirl + 0.1 * detail;
-        height = 0.34 + 0.5 * peaks + 0.06 * swirl + 0.03 * detail;
-        roughness += 0.06 * (1 - peaks) + 0.03 * (detail - 0.5);
-        occlusion = 0.66 + 0.3 * peaks;
-        break;
-      }
-      case 'candleswax': {
-        const columns = 6,
-          rows = 2;
-        const x = u * columns,
-          y = v * rows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        // Rounded drips run down the wax with bulging noses; squared caps
-        // fade with zero slope at their support.
-        let drips = 0,
-          noses = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % columns) + columns) % columns,
-              wy = ((cy % rows) + rows) % rows;
-            const px = cx + 0.5 + 0.3 * (hash(wx, wy, seed ^ 0x24b1) - 0.5),
-              py = cy + 0.5;
-            const dx = x - px,
-              dy = y - py;
-            const along = dy / 0.42,
-              across = dx / 0.14;
-            const cap = clamp(1 - along * along - across * across);
-            const drip = cap * cap;
-            const nose =
-              clamp(1 - ((dy - 0.22) / 0.14) ** 2 - (dx / 0.17) ** 2) ** 2;
-            drips += (1 - drips) * drip;
-            noses += (1 - noses) * drip * nose;
-          }
-        const sheen = noise(u, v, 48, 16, seed ^ 0x5d23);
-        color = 0.5 + 0.26 * drips + 0.12 * noses + 0.1 * sheen;
-        height = 0.3 + 0.42 * drips + 0.16 * noses + 0.05 * sheen;
-        roughness += 0.05 * (sheen - 0.5) + 0.05 * (1 - drips);
-        occlusion = 0.62 + 0.34 * drips;
-        break;
-      }
-      case 'vinylrecord': {
-        const dx = fract(u) - 0.5,
-          dy = fract(v) - 0.5;
-        // Sinusoidal wrap keeps the radial groove field smooth across seams.
-        const sx = Math.sin(Math.PI * dx) / Math.PI,
-          sy = Math.sin(Math.PI * dy) / Math.PI;
-        const radius = Math.sqrt(sx * sx + sy * sy);
-        // Fine concentric grooves ring a smooth label disc; the fade keeps
-        // the radial distance from leaving a cone at the origin.
-        const ringFade = smooth(clamp((radius - 0.18) / 0.06));
-        const groove = 0.5 + 0.5 * Math.cos(TAU * 52 * radius + phase);
-        const sparkle = noise(u, v, 64, 64, seed ^ 0x31c7);
-        color = 0.14 + 0.1 * groove * ringFade + 0.08 * sparkle;
-        height = 0.42 + 0.24 * groove * ringFade + 0.02 * sparkle;
-        roughness += 0.06 * (1 - groove * ringFade) + 0.03 * (sparkle - 0.5);
-        occlusion = 0.88 + 0.1 * groove * ringFade;
-        break;
-      }
-      case 'graphpaper': {
-        // Minor rules print every twelfth, majors every third; each line
-        // sinks slightly into the paper and fades with zero slope.
-        const fu = fract(u * 12),
-          fv = fract(v * 12);
-        const du = Math.min(fu, 1 - fu),
-          dv = Math.min(fv, 1 - fv);
-        const minor = smooth(clamp((0.05 - Math.min(du, dv)) / 0.03));
-        const gu = fract(u * 3),
-          gv = fract(v * 3);
-        const eu = Math.min(gu, 1 - gu),
-          ev = Math.min(gv, 1 - gv);
-        const major = smooth(clamp((0.06 - Math.min(eu, ev)) / 0.035));
-        const fiber = noise(u, v, 64, 64, seed ^ 0x5b2d);
-        color = 0.9 - 0.28 * minor - 0.34 * major + 0.06 * fiber;
-        height = 0.8 - 0.22 * minor - 0.36 * major + 0.03 * fiber;
-        roughness += 0.04 * (fiber - 0.5) + 0.03 * minor;
-        occlusion = 1 - 0.12 * minor - 0.2 * major;
-        break;
-      }
-      case 'notebookpaper': {
-        const fy = fract(v * 8);
-        const rule = smooth(clamp((0.05 - Math.min(fy, 1 - fy)) / 0.03));
-        const margin = smooth(
-          clamp((0.012 - Math.abs(fract(u) - 0.25)) / 0.008),
-        );
-        // Punch holes sink deepest beside the ruled margin line.
-        let holes = 0;
-        for (let k = 0; k < 3; k++) {
-          const dx = fract(u) - 0.12,
-            dy = fract(v) - (k + 1) / 4;
-          const distance = Math.sqrt(dx * dx + 4 * dy * dy);
-          const bowl = smooth(clamp((0.06 - distance) / 0.03));
-          holes += (1 - holes) * bowl;
-        }
-        const fiber = noise(u, v, 48, 48, seed ^ 0x27ab);
-        color = 0.9 - 0.3 * rule - 0.26 * margin - 0.5 * holes + 0.06 * fiber;
-        height = 0.82 - 0.2 * rule - 0.22 * margin - 0.5 * holes + 0.03 * fiber;
-        roughness += 0.04 * (fiber - 0.5) + 0.03 * rule;
-        occlusion = 1 - 0.1 * rule - 0.12 * margin - 0.4 * holes;
-        break;
-      }
-      case 'lace': {
-        // Two diagonal thread families cross above the diamond voids.
-        const a = fract((u + v) * 6),
-          b = fract((u - v) * 6);
-        const threadA = smooth(clamp((0.14 - Math.min(a, 1 - a)) / 0.07));
-        const threadB = smooth(clamp((0.14 - Math.min(b, 1 - b)) / 0.07));
-        const net = threadA + threadB - threadA * threadB;
-        const crossings = threadA * threadB;
-        const fiber = noise(u, v, 48, 48, seed ^ 0x1c3f);
-        color = 0.58 + 0.32 * net + 0.05 * fiber;
-        height = 0.5 + 0.32 * net + 0.12 * crossings + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * net;
-        occlusion = 1 - 0.5 * (1 - net) - 0.14 * (1 - crossings);
-        break;
-      }
-      case 'crochet': {
-        // Plush loops sit on half-cell-offset rows above the recessed gaps.
-        const row = Math.floor(v * 6);
-        const offset = (row % 2) * 0.5;
-        const du = fract(u * 8 + offset) - 0.5,
-          dv = fract(v * 6) - 0.5;
-        const radius = Math.sqrt(du * du + 1.4 * dv * dv);
-        const loop = smooth(clamp((0.44 - radius) / 0.12));
-        const fiber = noise(u, v, 40, 40, seed ^ 0x5a17);
-        color = 0.58 + 0.34 * loop + 0.05 * fiber;
-        height = 0.45 + 0.4 * loop + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.05 * loop;
-        occlusion = 1 - 0.55 * (1 - loop);
-        break;
-      }
-      case 'basketweave': {
-        // Strips change direction per block; block borders fade to gaps.
-        const bu = fract(u * 4),
-          bv = fract(v * 4);
-        const fadeU = smooth(clamp((Math.min(bu, 1 - bu) - 0.06) / 0.1));
-        const fadeV = smooth(clamp((Math.min(bv, 1 - bv) - 0.06) / 0.1));
-        const fade = fadeU * fadeV;
-        const blockParity = (Math.floor(u * 4) + Math.floor(v * 4)) % 2;
-        const across = blockParity ? fract(u * 8) : fract(v * 8);
-        const strip = smooth(
-          clamp((Math.min(across, 1 - across) - 0.06) / 0.1),
-        );
-        const ridge = smooth(clamp((0.14 - Math.abs(across - 0.5)) / 0.07));
-        const fiber = noise(u, v, 32, 32, seed ^ 0x66de);
-        color = 0.5 + fade * (0.28 * strip + 0.12 * ridge) + 0.06 * fiber;
-        height = 0.42 + fade * (0.36 * strip + 0.14 * ridge) + 0.02 * fiber;
-        roughness += 0.06 * (fiber - 0.5) - 0.05 * fade * ridge;
-        occlusion = 1 - 0.55 * (1 - fade * strip) - 0.16 * (1 - fade * ridge);
-        break;
-      }
-      case 'zipper': {
-        // Offset tooth rows meet over a recessed seam beside woven tape.
-        const vLeft = fract(v * 12) - 0.5,
-          vRight = fract(v * 12 + 0.5) - 0.5;
-        const toothLeft =
-          smooth(clamp((0.34 - Math.abs(vLeft)) / 0.08)) *
-          smooth(clamp((0.09 - Math.abs(u - 0.42)) / 0.035));
-        const toothRight =
-          smooth(clamp((0.34 - Math.abs(vRight)) / 0.08)) *
-          smooth(clamp((0.09 - Math.abs(u - 0.58)) / 0.035));
-        const teeth = toothLeft + toothRight - toothLeft * toothRight;
-        const tape =
-          smooth(clamp((0.2 - Math.abs(u - 0.25)) / 0.06)) +
-          smooth(clamp((0.2 - Math.abs(u - 0.75)) / 0.06));
-        const seam =
-          smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03)) * (1 - teeth);
-        const weave = 0.5 + 0.5 * Math.cos(TAU * 24 * v);
-        const fiber = noise(u, v, 40, 40, seed ^ 0x3d92);
-        const cover = teeth + 0.7 * tape - teeth * 0.7 * tape;
-        color =
-          0.42 +
-          0.24 * teeth +
-          0.2 * tape * (0.85 + 0.15 * weave) +
-          0.05 * fiber;
-        height =
-          0.4 +
-          0.34 * teeth +
-          0.16 * tape * (0.85 + 0.15 * weave) -
-          0.12 * seam +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * teeth;
-        occlusion = 1 - 0.42 * (1 - cover) - 0.3 * seam;
-        break;
-      }
-      case 'velcro': {
-        // Staggered hook pins ring above their dimpled cores and backing.
-        const row = Math.floor(v * 12);
-        const offset = (row % 2) * 0.5;
-        const du = fract(u * 12 + offset) - 0.5,
-          dv = fract(v * 12) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const ring =
-          smooth(clamp((0.34 - radius) / 0.07)) *
-          smooth(clamp((radius - 0.16) / 0.07));
-        const core = smooth(clamp((0.18 - radius) / 0.08));
-        const fiber = noise(u, v, 36, 36, seed ^ 0x77b1);
-        const pin = ring + core - ring * core;
-        color = 0.46 + 0.3 * ring + 0.16 * core + 0.05 * fiber;
-        height = 0.42 + 0.3 * ring + 0.15 * core + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.06 * ring;
-        occlusion = 1 - 0.5 * (1 - pin) - 0.14 * ring;
-        break;
-      }
-      case 'button': {
-        // Raised buttons ring above their stitched faces and hole pits.
-        const du = fract(u * 4) - 0.5,
-          dv = fract(v * 4) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const face = smooth(clamp((0.34 - radius) / 0.08));
-        const rim =
-          smooth(clamp((0.34 - radius) / 0.05)) *
-          smooth(clamp((radius - 0.2) / 0.05));
-        let holes = 0;
-        for (let k = 0; k < 4; k++) {
-          const hx = du - (k % 2 ? 0.07 : -0.07),
-            hy = dv - (k > 1 ? 0.07 : -0.07);
-          const distance = Math.sqrt(hx * hx + hy * hy);
-          const pit = smooth(clamp((0.05 - distance) / 0.03));
-          holes += (1 - holes) * pit;
-        }
-        const fiber = noise(u, v, 32, 32, seed ^ 0x4c2d);
-        color = 0.55 + 0.26 * face + 0.12 * rim - 0.3 * holes + 0.05 * fiber;
-        height = 0.4 + 0.22 * face + 0.24 * rim - 0.34 * holes + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
-        occlusion = 1 - 0.4 * (1 - face) - 0.42 * holes;
-        break;
-      }
-      case 'traintracks': {
-        // Rails crest above sleepers laid across the ballast grain.
-        const sleeper = smooth(
-          clamp((0.18 - Math.min(fract(v * 6), 1 - fract(v * 6))) / 0.08),
-        );
-        const rail =
-          smooth(clamp((0.06 - Math.abs(u - 0.35)) / 0.025)) +
-          smooth(clamp((0.06 - Math.abs(u - 0.65)) / 0.025));
-        const grain = noise(u, v, 48, 48, seed ^ 0x2f61);
-        const bed = sleeper + rail - sleeper * rail;
-        color = 0.32 + 0.28 * sleeper + 0.3 * rail + 0.08 * grain;
-        height = 0.36 + 0.16 * sleeper + 0.34 * rail + 0.03 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * rail;
-        occlusion = 1 - 0.45 * (1 - bed) - 0.12 * (1 - grain);
-        break;
-      }
-      case 'manholecover': {
-        // The frame ring crowns a radially and concentrically ribbed panel.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const frame =
-          smooth(clamp((0.46 - radius) / 0.03)) *
-          smooth(clamp((radius - 0.38) / 0.03));
-        const panel = smooth(clamp((0.36 - radius) / 0.04));
-        const angle = Math.atan2(dy, dx);
-        const ribs = 0.5 + 0.5 * Math.cos(16 * angle);
-        const rings = 0.5 + 0.5 * Math.cos(TAU * 6 * radius);
-        const ribbed = ribs * smooth(clamp((radius - 0.06) / 0.05)) * panel;
-        const ringed = rings * panel;
-        const fiber = noise(u, v, 40, 40, seed ^ 0x18ce);
-        color = 0.4 + 0.3 * frame + 0.14 * ribbed + 0.1 * ringed + 0.05 * fiber;
-        height =
-          0.38 + 0.3 * frame + 0.14 * ribbed + 0.12 * ringed + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * frame;
-        occlusion = 1 - 0.4 * (1 - frame) - 0.2 * (1 - ribbed) * (1 - ringed);
-        break;
-      }
-      case 'speedbump': {
-        // Rounded bumps rise above their feet and the recessed seams.
-        const wrapped = fract(v * 2),
-          d = Math.abs(wrapped - 0.5);
-        const bump = smooth(clamp((0.34 - d) / 0.14));
-        const seam = smooth(
-          clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.03),
-        );
-        const stripe = smooth(
-          clamp((0.28 - Math.abs(fract(u * 4) - 0.5)) / 0.1),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x51af);
-        color = 0.42 + 0.4 * stripe * (0.3 + 0.7 * bump) + 0.06 * grain;
-        height = 0.38 + 0.4 * bump - 0.1 * seam + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.06 * bump;
-        occlusion = 1 - 0.45 * (1 - bump) - 0.3 * seam;
-        break;
-      }
-      case 'circuitboard': {
-        // Pads crest over traces routed above the substrate, with via pits.
-        const row = Math.floor(v * 8),
-          col = Math.floor(u * 8);
-        const pu = fract(u * 8) - 0.5,
-          pv = fract(v * 8) - 0.5;
-        const radius = Math.sqrt(pu * pu + pv * pv);
-        const hTrace =
-          row % 2 === 0 ? smooth(clamp((0.12 - Math.abs(pv)) / 0.05)) : 0;
-        const vTrace =
-          col % 2 === 1 ? smooth(clamp((0.12 - Math.abs(pu)) / 0.05)) : 0;
-        const crossing =
-          row % 2 === 0 && col % 2 === 1
-            ? smooth(clamp((0.22 - radius) / 0.06))
-            : 0;
-        const via =
-          row % 2 === 1 && col % 2 === 0
-            ? smooth(clamp((0.1 - radius) / 0.04))
-            : 0;
-        const fiber = noise(u, v, 32, 32, seed ^ 0x6b02);
-        const routed = 1 - (1 - hTrace) * (1 - vTrace) * (1 - crossing);
-        color = 0.3 + 0.3 * routed + 0.26 * crossing + 0.06 * fiber;
-        height =
-          0.4 +
-          0.12 * hTrace +
-          0.12 * vTrace +
-          0.22 * crossing -
-          0.3 * via +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.1 * routed;
-        occlusion = 1 - 0.35 * (1 - routed) - 0.35 * via;
-        break;
-      }
-      case 'solarpanel': {
-        // Cell faces rise out of their gaps under busbars and fingers.
-        const cu = fract(u * 2),
-          cv = fract(v * 2);
-        const face =
-          smooth(clamp((Math.min(cu, 1 - cu) - 0.06) / 0.1)) *
-          smooth(clamp((Math.min(cv, 1 - cv) - 0.06) / 0.1));
-        const bar = smooth(
-          clamp(
-            (0.05 - Math.min(Math.abs(cu - 0.3), Math.abs(cu - 0.7))) / 0.025,
-          ),
-        );
-        const finger = smooth(
-          clamp((0.04 - Math.min(fract(v * 8), 1 - fract(v * 8))) / 0.02),
-        );
-        const fiber = noise(u, v, 40, 40, seed ^ 0x31f7);
-        color =
-          0.34 +
-          0.3 * face +
-          0.2 * bar * face +
-          0.1 * finger * face +
-          0.05 * fiber;
-        height =
-          0.4 +
-          0.3 * face +
-          0.12 * bar * face +
-          0.05 * finger * face +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.1 * bar * face;
-        occlusion = 1 - 0.5 * (1 - face) - 0.12 * (1 - bar * face);
-        break;
-      }
-      case 'heattile': {
-        // Rounded tile faces rise above their recessed seams.
-        const tu = fract(u * 3),
-          tv = fract(v * 3);
-        const tile =
-          smooth(clamp((Math.min(tu, 1 - tu) - 0.08) / 0.12)) *
-          smooth(clamp((Math.min(tv, 1 - tv) - 0.08) / 0.12));
-        const grain = noise(u, v, 48, 48, seed ^ 0x7a41);
-        color = 0.52 + 0.32 * tile + 0.08 * grain;
-        height = 0.42 + 0.34 * tile + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.04 * tile;
-        occlusion = 1 - 0.5 * (1 - tile);
-        break;
-      }
-      case 'pianokeys': {
-        // Black keys rise over white faces split by recessed seams.
-        const wrapped = fract(u * 7),
-          seam = smooth(clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.025));
-        let black = 0;
-        for (let k = 0; k < 7; k++) {
-          if (k === 0 || k === 3) continue;
-          const du = Math.abs(fract(u) - k / 7);
-          const dv = Math.abs(fract(v) - 0.275);
-          const key =
-            smooth(clamp((0.045 - du) / 0.018)) *
-            smooth(clamp((0.175 - dv) / 0.06));
-          black += (1 - black) * key;
-        }
-        const fiber = noise(u, v, 40, 40, seed ^ 0x4f88);
-        const face = 1 - seam * (1 - black);
-        color = 0.48 + 0.32 * face + 0.14 * black + 0.05 * fiber;
-        height = 0.42 + 0.2 * face + 0.26 * black + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.1 * black;
-        occlusion = 1 - 0.32 * seam * (1 - black);
-        break;
-      }
-      case 'drumskin': {
-        // Lugs crown the rim above the taut creased membrane.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx);
-        const rim =
-          smooth(clamp((0.46 - radius) / 0.03)) *
-          smooth(clamp((radius - 0.38) / 0.03));
-        const lug = Math.pow(0.5 + 0.5 * Math.cos(8 * angle), 4) * rim;
-        const membrane = smooth(clamp((0.38 - radius) / 0.06));
-        const crease =
-          (0.5 - 0.5 * Math.cos(16 * angle)) *
-          smooth(clamp((radius - 0.08) / 0.06)) *
-          membrane;
-        const fiber = noise(u, v, 36, 36, seed ^ 0x2c5a);
-        color =
-          0.42 +
-          0.28 * rim +
-          0.14 * lug +
-          0.1 * membrane -
-          0.1 * crease +
-          0.05 * fiber;
-        height =
-          0.42 +
-          0.28 * rim +
-          0.16 * lug +
-          0.1 * membrane -
-          0.06 * crease +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
-        occlusion = 1 - 0.3 * (1 - membrane) - 0.12 * crease - 0.1 * lug;
-        break;
-      }
-      case 'gongsurface': {
-        // Hammered rings ripple around the raised center boss.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx);
-        const warp = noise(u, v, 6, 6, seed ^ 0x60af) - 0.5;
-        const rings = 0.5 + 0.5 * Math.cos(TAU * 10 * (radius + 0.012 * warp));
-        const lathe = 0.5 + 0.5 * Math.cos(24 * angle);
-        const boss = smooth(clamp((0.1 - radius) / 0.05));
-        const fade = smooth(clamp((radius - 0.06) / 0.05));
-        const outer = smooth(clamp((0.44 - radius) / 0.06));
-        const fiber = noise(u, v, 32, 32, seed ^ 0x59c1);
-        color =
-          0.46 +
-          0.26 * rings * outer +
-          0.12 * lathe * fade * outer +
-          0.1 * boss +
-          0.05 * fiber;
-        height =
-          0.42 +
-          0.22 * rings * outer +
-          0.06 * lathe * fade * outer +
-          0.2 * boss +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * rings * outer;
-        occlusion =
-          1 - 0.24 * (1 - rings * outer) - 0.1 * (1 - lathe * fade * outer);
-        break;
-      }
-      case 'lensarray': {
-        // Microlens domes rise out of the fine supporting web.
-        const du = fract(u * 16) - 0.5,
-          dv = fract(v * 16) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const dome = smooth(clamp((0.42 - radius) / 0.12));
-        const fiber = noise(u, v, 48, 48, seed ^ 0x6f3c);
-        color = 0.42 + 0.4 * dome + 0.06 * fiber;
-        height = 0.42 + 0.36 * dome + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
-        occlusion = 1 - 0.42 * (1 - dome);
-        break;
-      }
-      case 'prismtape': {
-        // Diagonal prism ridges crest over their feet and the tape base.
-        const p = fract((u - v) * 8),
-          d = Math.abs(p - 0.5);
-        const ridge = smooth(clamp((0.34 - d) / 0.16));
-        const fiber = noise(u, v, 40, 40, seed ^ 0x1b7e);
-        color = 0.4 + 0.42 * ridge + 0.06 * fiber;
-        height = 0.4 + 0.4 * ridge + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.1 * ridge;
-        occlusion = 1 - 0.45 * (1 - ridge);
-        break;
-      }
-      case 'fresnel': {
-        // Concentric saw rings descend outward around the center boss.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const phase = fract(radius * 10);
-        const outer = smooth(clamp((0.46 - radius) / 0.05));
-        const step = smooth(clamp((0.75 - phase) / 0.25)) * outer;
-        const boss = smooth(clamp((0.1 - radius) / 0.05));
-        const fiber = noise(u, v, 40, 40, seed ^ 0x37a9);
-        color = 0.38 + 0.32 * step + 0.2 * boss + 0.05 * fiber;
-        height = 0.42 + 0.22 * step + 0.3 * boss + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.1 * step;
-        occlusion = 1 - 0.36 * (1 - step) - 0.12 * (1 - boss);
-        break;
-      }
-      case 'bandage': {
-        // A rounded pad cushions over the woven gauze backing.
-        const pad =
-          smooth(clamp((0.28 - Math.abs(u - 0.5)) / 0.06)) *
-          smooth(clamp((0.28 - Math.abs(v - 0.5)) / 0.06));
-        const warp = smooth(
-          clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
-        );
-        const weft = smooth(
-          clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
-        );
-        const weave = warp + weft - warp * weft;
-        const fiber = noise(u, v, 48, 48, seed ^ 0x5d21);
-        color = 0.5 + 0.3 * pad + 0.12 * weave + 0.06 * fiber;
-        height = 0.44 + 0.3 * pad + 0.08 * weave + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * pad;
-        occlusion = 1 - 0.32 * (1 - weave) - 0.12 * (1 - pad);
-        break;
-      }
-      case 'pillblister': {
-        // Blister domes swell over scored foil between their cells.
-        const du = fract(u * 3) - 0.5,
-          dv = fract(v * 3) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const dome = smooth(clamp((0.36 - radius) / 0.1));
-        const score =
-          smooth(
-            clamp((0.03 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.02),
-          ) +
-          smooth(
-            clamp((0.03 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.02),
-          );
-        const fiber = noise(u, v, 40, 40, seed ^ 0x27bd);
-        color = 0.52 + 0.34 * dome - 0.14 * score + 0.06 * fiber;
-        height = 0.46 + 0.36 * dome - 0.14 * score + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
-        occlusion = 1 - 0.42 * (1 - dome) - 0.2 * score;
-        break;
-      }
-      case 'sutures': {
-        // Stitch cords bridge the incision above pits and bare skin.
-        const band = smooth(
-          clamp((0.09 - Math.abs(fract(v * 10) - 0.5)) / 0.03),
-        );
-        const span = smooth(clamp((0.22 - Math.abs(u - 0.5)) / 0.06));
-        const cord = band * span;
-        const incision = smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03));
-        const pit =
-          smooth(clamp((0.045 - Math.abs(u - 0.16)) / 0.025)) * band +
-          smooth(clamp((0.045 - Math.abs(u - 0.84)) / 0.025)) * band;
-        const fiber = noise(u, v, 40, 40, seed ^ 0x63de);
-        color =
-          0.56 +
-          0.26 * cord -
-          0.22 * incision * (1 - cord) -
-          0.18 * pit +
-          0.05 * fiber;
-        height =
-          0.5 +
-          0.28 * cord -
-          0.3 * incision * (1 - cord) -
-          0.2 * pit * (1 - cord) +
-          0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * cord;
-        occlusion =
-          1 - 0.3 * incision * (1 - cord) - 0.28 * pit - 0.12 * (1 - cord);
-        break;
-      }
-      case 'trellis': {
-        // Slats cross over the open grid, knotted at their joins.
-        const vSlat = smooth(
-          clamp((0.16 - Math.abs(fract(u * 2) - 0.5)) / 0.08),
-        );
-        const hSlat = smooth(
-          clamp((0.16 - Math.abs(fract(v * 2) - 0.5)) / 0.08),
-        );
-        const cover = vSlat + hSlat - vSlat * hSlat;
-        const knot =
-          smooth(
-            clamp(
-              (0.14 -
-                Math.sqrt(
-                  (fract(u * 2) - 0.5) ** 2 + (fract(v * 2) - 0.5) ** 2,
-                )) /
-                0.06,
-            ),
-          ) * cover;
-        const grain = noise(u, v, 32, 32, seed ^ 0x41c7);
-        color = 0.42 + 0.3 * cover + 0.14 * knot + 0.06 * grain;
-        height = 0.4 + 0.24 * cover + 0.1 * knot + 0.03 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * cover;
-        occlusion = 1 - 0.5 * (1 - cover) - 0.12 * (1 - knot) * cover;
-        break;
-      }
-      case 'terracottapot': {
-        // A proud rim band rides over the pot's thrown wall ribs.
-        const rib = smooth(clamp((0.18 - Math.abs(fract(v * 8) - 0.5)) / 0.08));
-        const rim = smooth(clamp((0.1 - Math.abs(fract(v) - 0.1)) / 0.04));
-        const grain = noise(u, v, 32, 32, seed ^ 0x5e0b);
-        color = 0.46 + 0.24 * rib + 0.22 * rim + 0.06 * grain;
-        height = 0.42 + 0.18 * rib + 0.26 * rim + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.06 * rim;
-        occlusion = 1 - 0.34 * (1 - rib) - 0.12 * (1 - rim);
-        break;
-      }
-      case 'hedgerow': {
-        // Leafy clumps swell over the shadowed branch gaps.
-        const row = Math.floor(v * 4);
-        const offset = (row % 2) * 0.5;
-        const du = fract(u * 4 + offset) - 0.5,
-          dv = fract(v * 4) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const warp = noise(u, v, 8, 8, seed ^ 0x33af) - 0.5;
-        const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
-        const leaves = noise(u, v, 48, 48, seed ^ 0x72d4);
-        color = 0.36 + 0.36 * clump + 0.12 * leaves + 0.05 * clump * leaves;
-        height = 0.42 + 0.34 * clump + 0.04 * leaves;
-        roughness += 0.05 * (leaves - 0.5) - 0.06 * clump;
-        occlusion = 1 - 0.5 * (1 - clump);
-        break;
-      }
-      case 'collar': {
-        // A buckle rises over stitched webbing above bare backing.
-        const band = smooth(clamp((0.2 - Math.abs(fract(v) - 0.5)) / 0.05));
-        const stitch = smooth(
-          clamp((0.02 - Math.abs(Math.abs(fract(v) - 0.5) - 0.17)) / 0.012),
-        );
-        const buckle =
-          smooth(clamp((0.12 - Math.abs(fract(u) - 0.3)) / 0.04)) *
-          smooth(clamp((0.14 - Math.abs(fract(v) - 0.5)) / 0.05));
-        const weave = noise(u, v, 48, 48, seed ^ 0x4c19);
-        color = 0.42 + 0.26 * band + 0.22 * buckle + 0.06 * weave;
-        height =
-          0.44 +
-          0.2 * band +
-          0.28 * buckle -
-          0.1 * stitch * band +
-          0.03 * weave;
-        roughness += 0.05 * (weave - 0.5) - 0.1 * buckle;
-        occlusion = 1 - 0.32 * (1 - band) - 0.14 * stitch - 0.12 * buckle;
-        break;
-      }
-      case 'petbed': {
-        // A bolster ring surrounds the dished cushion and base weave.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const bolster =
-          smooth(clamp((0.44 - radius) / 0.06)) *
-          smooth(clamp((radius - 0.3) / 0.08));
-        const cushion = smooth(clamp((0.28 - radius) / 0.1));
-        const fabric =
-          (0.5 + 0.5 * Math.cos(TAU * 20 * u)) *
-          (0.5 + 0.5 * Math.cos(TAU * 20 * v));
-        const fiber = noise(u, v, 40, 40, seed ^ 0x51c3);
-        color =
-          0.44 + 0.3 * bolster + 0.14 * cushion + 0.05 * fabric + 0.05 * fiber;
-        height =
-          0.44 + 0.34 * bolster + 0.12 * cushion + 0.03 * fabric + 0.03 * fiber;
-        roughness +=
-          0.05 * (fiber - 0.5) + 0.02 * (fabric - 0.5) - 0.08 * bolster;
-        occlusion = 1 - 0.36 * (1 - bolster) - 0.12 * (1 - cushion);
-        break;
-      }
-      case 'scratchpost': {
-        // Rope wraps the post in rounded ridges above the tight grooves.
-        const rope = smooth(clamp((0.2 - Math.abs(fract(v * 8) - 0.5)) / 0.08));
-        const twist = 0.5 + 0.5 * Math.cos(TAU * (12 * u + 2 * v));
-        const fiber = noise(u, v, 40, 40, seed ^ 0x2ad6);
-        color = 0.46 + 0.32 * rope + 0.08 * twist * rope + 0.06 * fiber;
-        height = 0.44 + 0.36 * rope + 0.05 * twist * rope + 0.03 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.08 * rope;
-        occlusion = 1 - 0.5 * (1 - rope) - 0.1 * (1 - twist) * rope;
-        break;
-      }
-      case 'runningtrack': {
-        // Lane lines ride the granular surface above the drainage seam.
-        const line =
-          smooth(clamp((0.03 - Math.abs(fract(v) - 0.25)) / 0.015)) +
-          smooth(clamp((0.03 - Math.abs(fract(v) - 0.75)) / 0.015));
-        const seam = smooth(
-          clamp((0.02 - Math.min(fract(v), 1 - fract(v))) / 0.012),
-        );
-        const grain = noise(u, v, 64, 64, seed ^ 0x3f58);
-        color = 0.42 + 0.4 * line + 0.1 * grain;
-        height = 0.46 + 0.12 * line + 0.02 * grain - 0.16 * seam;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * line;
-        occlusion = 1 - 0.3 * seam - 0.12 * (1 - line);
-        break;
-      }
-      case 'bouldermat': {
-        // Quilted diamonds puff inside the raised border band.
-        const d1 = Math.abs(fract((u + v) * 4) - 0.5),
-          d2 = Math.abs(fract((u - v) * 4) - 0.5);
-        const quilt =
-          smooth(clamp((0.3 - d1) / 0.1)) * smooth(clamp((0.3 - d2) / 0.1));
-        const bu = smooth(
-          clamp((0.08 - Math.min(fract(u), 1 - fract(u))) / 0.04),
-        );
-        const bv = smooth(
-          clamp((0.08 - Math.min(fract(v), 1 - fract(v))) / 0.04),
-        );
-        const border = 1 - (1 - bu) * (1 - bv);
-        const grain = noise(u, v, 40, 40, seed ^ 0x64b2);
-        color = 0.42 + 0.3 * quilt + 0.16 * border + 0.06 * grain;
-        height = 0.44 + 0.28 * quilt + 0.18 * border + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.06 * quilt;
-        occlusion = 1 - 0.42 * (1 - quilt) - 0.12 * (1 - border);
-        break;
-      }
-      case 'pooltile': {
-        // Tile faces meet recessed grout under broad caustic light bands.
-        const gu = Math.min(fract(u * 8), 1 - fract(u * 8)),
-          gv = Math.min(fract(v * 8), 1 - fract(v * 8));
-        const face =
-          smooth(clamp((gu - 0.04) / 0.06)) * smooth(clamp((gv - 0.04) / 0.06));
-        const caustic = 0.5 + 0.5 * Math.cos(TAU * 2 * (u + v));
-        const grain = noise(u, v, 32, 32, seed ^ 0x18fa);
-        color = 0.4 + 0.3 * face + 0.14 * caustic + 0.06 * grain;
-        height = 0.44 + 0.2 * face + 0.1 * caustic + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.12 * face;
-        occlusion = 1 - 0.42 * (1 - face) - 0.1 * (1 - caustic);
-        break;
-      }
-      case 'envelope': {
-        // Crosshatch ridges frame the recessed flap seam.
-        const d1 = Math.abs(fract((u + v) * 10) - 0.5),
-          d2 = Math.abs(fract((u - v) * 10) - 0.5);
-        const hatchA = smooth(clamp((0.14 - d1) / 0.07));
-        const hatchB = smooth(clamp((0.14 - d2) / 0.07));
-        const cover = hatchA + hatchB - hatchA * hatchB;
-        const seam =
-          smooth(clamp((0.03 - Math.abs(u - 0.5)) / 0.02)) * (1 - cover);
-        const fiber = noise(u, v, 48, 48, seed ^ 0x2e4c);
-        color = 0.5 + 0.24 * cover + 0.06 * fiber;
-        height = 0.46 + 0.12 * cover - 0.14 * seam + 0.02 * fiber;
-        roughness += 0.05 * (fiber - 0.5) - 0.06 * cover;
-        occlusion = 1 - 0.28 * (1 - cover) - 0.3 * seam;
-        break;
-      }
-      case 'chalkboard': {
-        // A frame band surrounds streaked slate between clean passes.
-        const edgeU = 0.5 - Math.abs(fract(u) - 0.5),
-          edgeV = 0.5 - Math.abs(fract(v) - 0.5);
-        const frame =
-          1 -
-          (1 - smooth(clamp((0.08 - edgeU) / 0.04))) *
-            (1 - smooth(clamp((0.08 - edgeV) / 0.04)));
-        const warp = noise(u, v, 6, 6, seed ^ 0x55ea) - 0.5;
-        const streak = 0.5 + 0.5 * Math.cos(TAU * 3 * (v + 0.02 * warp));
-        const grain = noise(u, v, 32, 32, seed ^ 0x1c08);
-        color = 0.34 + 0.3 * frame + 0.12 * streak + 0.06 * grain;
-        height = 0.44 + 0.24 * frame + 0.04 * streak + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.08 * frame;
-        occlusion = 1 - 0.3 * (1 - frame) - 0.08 * (1 - streak);
-        break;
-      }
-      case 'corkboard': {
-        // Cork granules rise over the board with deep pin holes.
-        const row = Math.floor(v * 8);
-        const offset = (row % 2) * 0.5;
-        const du = fract(u * 8 + offset) - 0.5,
-          dv = fract(v * 8) - 0.5;
-        const radius = Math.sqrt(du * du + dv * dv);
-        const warp = noise(u, v, 8, 8, seed ^ 0x6b37) - 0.5;
-        const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
-        const pu = fract(u * 4) - 0.5,
-          pv = fract(v * 4) - 0.5;
-        const pit = smooth(clamp((0.07 - Math.sqrt(pu * pu + pv * pv)) / 0.03));
-        const grain = noise(u, v, 48, 48, seed ^ 0x3a52);
-        color = 0.42 + 0.26 * clump - 0.2 * pit + 0.08 * grain;
-        height = 0.44 + 0.2 * clump - 0.26 * pit + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.06 * clump;
-        occlusion = 1 - 0.3 * (1 - clump) - 0.45 * pit;
-        break;
-      }
-      case 'snowdrift': {
-        // Wind ripples ride the drift over the fine snow grain.
-        const warp = noise(u, v, 4, 4, seed ^ 0x4e77) - 0.5;
-        const drift = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 0.35 * warp));
-        const grain = noise(u, v, 48, 48, seed ^ 0x2b15);
-        color = 0.52 + 0.34 * drift + 0.06 * grain;
-        height = 0.46 + 0.32 * drift + 0.05 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.12 * drift;
-        occlusion = 1 - 0.3 * (1 - drift);
-        break;
-      }
-      case 'icicle': {
-        // Rounded icicle columns hang over the shadowed gaps.
-        const du = Math.abs(fract(u * 6) - 0.5);
-        const column = smooth(clamp((0.28 - du) / 0.1));
-        const striation = 0.5 + 0.5 * Math.cos(TAU * 24 * u);
-        const grain = noise(u, v, 32, 32, seed ^ 0x7c41);
-        color = 0.46 + 0.36 * column + 0.08 * striation * column + 0.06 * grain;
-        height =
-          0.42 + 0.42 * column + 0.04 * striation * column + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.14 * column;
-        occlusion = 1 - 0.52 * (1 - column);
-        break;
-      }
-      case 'dewdrops': {
-        // Two drop sizes bead over the faint leaf veins.
-        const bu = fract(u * 12) - 0.5,
-          bv = fract(v * 12) - 0.5;
-        const big = smooth(clamp((0.22 - Math.sqrt(bu * bu + bv * bv)) / 0.08));
-        const su = fract(u * 24) - 0.5,
-          sv = fract(v * 24) - 0.5;
-        const small = smooth(
-          clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
-        );
-        const veins = 0.5 + 0.5 * Math.cos(TAU * 8 * (u + 0.25 * v));
-        const grain = noise(u, v, 40, 40, seed ^ 0x58ce);
-        color = 0.34 + 0.28 * big + 0.18 * small + 0.1 * veins + 0.05 * grain;
-        height = 0.42 + 0.28 * big + 0.16 * small + 0.04 * veins + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.16 * big;
-        occlusion = 1 - 0.3 * (1 - big) - 0.12 * (1 - small) * (1 - big);
-        break;
-      }
-      case 'mooncrater': {
-        // Crater rims rise over the surface around their sunken bowls.
-        const bu = fract(u * 3) - 0.5,
-          bv = fract(v * 3) - 0.5;
-        const big = Math.sqrt(bu * bu + bv * bv);
-        const bigRim =
-          smooth(clamp((0.3 - big) / 0.06)) * smooth(clamp((big - 0.2) / 0.06));
-        const bigBowl = smooth(clamp((0.2 - big) / 0.08));
-        const su = fract(u * 6) - 0.5,
-          sv = fract(v * 6) - 0.5;
-        const small = Math.sqrt(su * su + sv * sv);
-        const smallRim =
-          smooth(clamp((0.16 - small) / 0.04)) *
-          smooth(clamp((small - 0.1) / 0.04));
-        const smallBowl = smooth(clamp((0.1 - small) / 0.05));
-        const grain = noise(u, v, 32, 32, seed ^ 0x61c8);
-        color =
-          0.5 +
-          0.24 * bigRim +
-          0.12 * smallRim -
-          0.16 * bigBowl -
-          0.1 * smallBowl +
-          0.08 * grain;
-        height =
-          0.46 +
-          0.24 * bigRim +
-          0.12 * smallRim -
-          0.2 * bigBowl -
-          0.1 * smallBowl +
-          0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) + 0.08 * bigBowl;
-        occlusion =
-          1 -
-          0.3 * bigBowl -
-          0.16 * smallBowl -
-          0.12 * (1 - bigRim - smallRim + bigRim * smallRim);
-        break;
-      }
-      case 'starfield': {
-        // Bright stars and dust points twinkle over the nebula base.
-        const bu = fract(u * 12) - 0.5,
-          bv = fract(v * 12) - 0.5;
-        const star = smooth(
-          clamp((0.08 - Math.sqrt(bu * bu + bv * bv)) / 0.035),
-        );
-        const su = fract(u * 24) - 0.5,
-          sv = fract(v * 24) - 0.5;
-        const dust = smooth(
-          clamp((0.05 - Math.sqrt(su * su + sv * sv)) / 0.025),
-        );
-        const haze = noise(u, v, 3, 3, seed ^ 0x17f2);
-        const grain = noise(u, v, 40, 40, seed ^ 0x4d3a);
-        color = 0.26 + 0.38 * star + 0.18 * dust + 0.07 * haze + 0.05 * grain;
-        height = 0.42 + 0.3 * star + 0.16 * dust + 0.06 * haze + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.18 * star;
-        occlusion = 1 - 0.2 * (1 - star) * (1 - dust);
-        break;
-      }
-      case 'nebula': {
-        // Bright swirl bands flow around the dark dust lanes.
-        const warp = noise(u, v, 3, 3, seed ^ 0x5a2d) - 0.5;
-        const band = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 3 * v + 1.2 * warp));
-        const detail = noise(u, v, 12, 12, seed ^ 0x36e4);
-        const grain = noise(u, v, 32, 32, seed ^ 0x2fb1);
-        color = 0.42 + 0.34 * band + 0.1 * detail + 0.06 * grain;
-        height = 0.44 + 0.28 * band + 0.05 * detail + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * band;
-        occlusion = 1 - 0.24 * (1 - band);
-        break;
-      }
-      case 'pleats': {
-        // Accordion folds crest over the valleys with a fine fabric grain.
-        const fold = smooth(
-          clamp((0.34 - Math.abs(fract(u * 4) - 0.5)) / 0.16),
-        );
-        const grain = noise(u, v, 40, 40, seed ^ 0x63a1);
-        color = 0.46 + 0.32 * fold + 0.08 * grain;
-        height = 0.46 + 0.32 * fold + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * fold;
-        occlusion = 1 - 0.4 * (1 - fold);
-        break;
-      }
-      case 'shoelace': {
-        // Woven cords cross over the base above the punched eyelets.
-        const d1 = Math.abs(fract((u + v) * 8) - 0.5),
-          d2 = Math.abs(fract((u - v) * 8) - 0.5);
-        const cordA = smooth(clamp((0.18 - d1) / 0.09));
-        const cordB = smooth(clamp((0.18 - d2) / 0.09));
-        const cover = cordA + cordB - cordA * cordB;
-        const pu = fract(u * 4) - 0.5,
-          pv = fract(v * 4) - 0.5;
-        const eyelet = smooth(
-          clamp((0.09 - Math.sqrt(pu * pu + pv * pv)) / 0.04),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x4f16);
-        color = 0.46 + 0.3 * cover - 0.22 * eyelet + 0.06 * grain;
-        height = 0.46 + 0.22 * cover - 0.28 * eyelet + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
-        occlusion = 1 - 0.3 * (1 - cover) - 0.45 * eyelet;
-        break;
-      }
-      case 'tassel': {
-        // Hanging strands fall from the raised binding ring.
-        const strand = smooth(
-          clamp((0.16 - Math.abs(fract(u * 10) - 0.5)) / 0.08),
-        );
-        const ring = smooth(clamp((0.08 - Math.abs(fract(v) - 0.1)) / 0.04));
-        const grain = noise(u, v, 32, 32, seed ^ 0x28bd);
-        color = 0.38 + 0.26 * strand + 0.28 * ring + 0.06 * grain;
-        height = 0.42 + 0.22 * strand + 0.3 * ring + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.06 * strand;
-        occlusion = 1 - 0.38 * (1 - strand) - 0.12 * (1 - ring);
-        break;
-      }
-      case 'woksurface': {
-        // Hammered dimples rise over scratched steel with an oil sheen.
-        const du = fract(u * 10) - 0.5,
-          dv = fract(v * 10) - 0.5;
-        const dimple = smooth(
-          clamp((0.28 - Math.sqrt(du * du + dv * dv)) / 0.1),
-        );
-        const scratch = smooth(
-          clamp((0.02 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.01),
-        );
-        const sheen = noise(u, v, 3, 3, seed ^ 0x44d2);
-        const grain = noise(u, v, 40, 40, seed ^ 0x21be);
-        color =
-          0.4 + 0.22 * dimple - 0.1 * scratch + 0.16 * sheen + 0.06 * grain;
-        height = 0.44 + 0.16 * dimple - 0.12 * scratch + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.14 * sheen;
-        occlusion = 1 - 0.3 * scratch - 0.12 * (1 - dimple);
-        break;
-      }
-      case 'cutlery': {
-        // Beaded borders frame the finely brushed handle face.
-        const edge = Math.min(fract(v), 1 - fract(v));
-        const border = smooth(clamp((0.08 - edge) / 0.04));
-        const bead = border * (0.5 + 0.5 * Math.cos(TAU * 16 * u));
-        const brush = 0.5 + 0.5 * Math.cos(TAU * 20 * v);
-        const grain = noise(u, v, 32, 32, seed ^ 0x7724);
-        color =
-          0.46 + 0.26 * border + 0.16 * bead + 0.06 * brush + 0.05 * grain;
-        height =
-          0.46 + 0.24 * border + 0.12 * bead + 0.03 * brush + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.12 * bead;
-        occlusion = 1 - 0.2 * (1 - border) - 0.12 * (1 - bead) * border;
-        break;
-      }
-      case 'choppingboard': {
-        // End-grain blocks hold knife scars above the recessed border.
-        const gu = Math.min(fract(u * 4), 1 - fract(u * 4)),
-          gv = Math.min(fract(v * 4), 1 - fract(v * 4));
-        const block =
-          smooth(clamp((gu - 0.08) / 0.06)) * smooth(clamp((gv - 0.08) / 0.06));
-        const s1 = smooth(
-          clamp((0.03 - Math.abs(fract((u + v) * 5) - 0.5)) / 0.015),
-        );
-        const s2 = smooth(
-          clamp((0.03 - Math.abs(fract((u - v) * 5) - 0.5)) / 0.015),
-        );
-        const scar = s1 + s2 - s1 * s2;
-        const edgeU = Math.min(fract(u), 1 - fract(u)),
-          edgeV = Math.min(fract(v), 1 - fract(v));
-        const border =
-          1 -
-          (1 - smooth(clamp((0.05 - edgeU) / 0.03))) *
-            (1 - smooth(clamp((0.05 - edgeV) / 0.03)));
-        const grain = noise(u, v, 32, 32, seed ^ 0x51c8);
-        color =
-          0.5 +
-          0.24 * block -
-          0.14 * scar * block -
-          0.14 * border +
-          0.06 * grain;
-        height =
-          0.48 +
-          0.14 * block -
-          0.1 * scar * block -
-          0.12 * border +
-          0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.08 * block;
-        occlusion = 1 - 0.3 * scar * block - 0.24 * border - 0.12 * (1 - block);
-        break;
-      }
-      case 'faucet': {
-        // A polished dome rises over its base plate with scale spots.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const dome = smooth(clamp((0.4 - radius) / 0.12));
-        const plate =
-          smooth(clamp((0.5 - radius) / 0.05)) *
-          smooth(clamp((radius - 0.4) / 0.05));
-        const su = fract(u * 8) - 0.5,
-          sv = fract(v * 8) - 0.5;
-        const spot = smooth(
-          clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x6a17);
-        color = 0.4 + 0.3 * dome + 0.16 * plate + 0.07 * spot + 0.05 * grain;
-        height = 0.4 + 0.3 * dome + 0.14 * plate + 0.05 * spot + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.14 * dome;
-        occlusion = 1 - 0.18 * (1 - dome) - 0.1 * spot;
-        break;
-      }
-      case 'showerhead': {
-        // Spray holes sink into the grooved panel face.
-        const dx = u - 0.5,
-          dy = v - 0.5;
-        const radius = Math.sqrt(dx * dx + dy * dy);
-        const panel = smooth(clamp((0.42 - radius) / 0.06));
-        const groove = smooth(
-          clamp((0.03 - Math.abs(fract(12 * radius) - 0.5)) / 0.015),
-        );
-        const hu = fract(u * 10) - 0.5,
-          hv = fract(v * 10) - 0.5;
-        const hole = smooth(
-          clamp((0.12 - Math.sqrt(hu * hu + hv * hv)) / 0.05),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x31f8);
-        color =
-          0.46 +
-          0.3 * panel -
-          0.12 * groove * panel -
-          0.2 * hole * panel +
-          0.06 * grain;
-        height =
-          0.44 +
-          0.22 * panel -
-          0.1 * groove * panel -
-          0.22 * hole * panel +
-          0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * panel;
-        occlusion =
-          1 - 0.3 * hole * panel - 0.12 * groove * panel - 0.2 * (1 - panel);
-        break;
-      }
-      case 'bathmat': {
-        // Suction cups dome over the striped woven backing.
-        const row = Math.floor(v * 8);
-        const offset = (row % 2) * 0.5;
-        const du = fract(u * 8 + offset) - 0.5,
-          dv = fract(v * 8) - 0.5;
-        const cup = smooth(clamp((0.3 - Math.sqrt(du * du + dv * dv)) / 0.1));
-        const weave = 0.5 + 0.5 * Math.cos(TAU * 12 * v);
-        const grain = noise(u, v, 32, 32, seed ^ 0x24cb);
-        color = 0.42 + 0.32 * cup + 0.12 * weave + 0.06 * grain;
-        height = 0.44 + 0.28 * cup + 0.06 * weave + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * cup;
-        occlusion = 1 - 0.34 * (1 - cup) - 0.08 * (1 - weave);
-        break;
-      }
-      case 'blinds': {
-        // Tilted slat faces rise over the shadowed gaps between them.
-        const slat = smooth(
-          clamp((0.34 - Math.abs(fract(v * 4) - 0.5)) / 0.16),
-        );
-        const tilt = smooth(
-          clamp((0.02 - Math.abs(fract(v * 4) - 0.5)) / 0.012),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x5f27);
-        color = 0.48 + 0.32 * slat - 0.1 * tilt + 0.06 * grain;
-        height = 0.46 + 0.3 * slat - 0.08 * tilt + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.1 * slat;
-        occlusion = 1 - 0.42 * (1 - slat) - 0.1 * tilt;
-        break;
-      }
-      case 'curtain': {
-        // Draped folds ripple over the fabric with a woven grain.
-        const warp = noise(u, v, 4, 4, seed ^ 0x3c81) - 0.5;
-        const fold = smooth(
-          clamp((0.34 - Math.abs(fract(5 * (u + 0.1 * warp)) - 0.5)) / 0.16),
-        );
-        const grain = noise(u, v, 40, 40, seed ^ 0x6e42);
-        color = 0.46 + 0.34 * fold + 0.08 * grain;
-        height = 0.46 + 0.3 * fold + 0.03 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.08 * fold;
-        occlusion = 1 - 0.36 * (1 - fold);
-        break;
-      }
-      case 'shadecloth': {
-        // Woven threads cross over the open half-shadowed gaps.
-        const warp = smooth(
-          clamp((0.12 - Math.abs(fract(u * 16) - 0.5)) / 0.06),
-        );
-        const weft = smooth(
-          clamp((0.12 - Math.abs(fract(v * 16) - 0.5)) / 0.06),
-        );
-        const cover = warp + weft - warp * weft;
-        const grain = noise(u, v, 32, 32, seed ^ 0x27d5);
-        color = 0.42 + 0.3 * cover + 0.08 * grain;
-        height = 0.46 + 0.2 * cover + 0.02 * grain;
-        roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
-        occlusion = 1 - 0.42 * (1 - cover);
-        break;
-      }
-      case 'sandstone': {
-        const warp = noise(u, v, 3, 5, seed ^ 0x693d);
-        const bedding = v + 0.055 * (warp - 0.5);
-        const strata = 0.5 + 0.5 * Math.sin(TAU * (8 * bedding) + phase);
-        const lamina = Math.pow(
-          0.5 + 0.5 * Math.sin(TAU * (19 * bedding) + phase),
-          6,
-        );
-        const sediment = noise(u, v, 8, 3, seed ^ 0x4d17);
-        const grit = smooth(clamp((fine - 0.28) / 0.48));
-        const mineral = Math.pow(1 - fine, 5);
-        // Unequal warped sediment bands carry small cemented grains, not dunes.
-        color =
-          0.22 + 0.35 * strata + 0.2 * sediment + 0.18 * grit - 0.2 * lamina;
-        height =
-          0.32 + 0.16 * strata - 0.09 * lamina + 0.24 * grit - 0.1 * mineral;
-        roughness += 0.12 * (grit - 0.5) + 0.05 * lamina;
-        occlusion = 0.97 - 0.12 * lamina - 0.13 * mineral + 0.025 * grit;
-        break;
-      }
-      case 'travertine': {
-        const nx = 12,
-          ny = 18;
-        const x = u * nx,
-          y = v * ny;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let cavities = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % nx) + nx) % nx,
-              wy = ((cy % ny) + ny) % ny;
-            const variation = hash(wx, wy, seed ^ 0x5e93);
-            const angle = (hash(wx, wy, seed ^ 0x23d1) - 0.5) * 0.36;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
-              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x7b19);
-            const rx = dx * cos + dy * sin,
-              ry = dy * cos - dx * sin;
-            const width = 0.42 + 0.36 * variation,
-              depth = 0.11 + 0.13 * hash(wx, wy, seed ^ 0x8f31);
-            const distance =
-              (rx * rx) / (width * width) +
-              (ry * ry) / (depth * depth) +
-              0.12 * Math.sin(9 * rx + variation * TAU) * Math.sin(13 * ry);
-            // Irregular elongated bowls have compact support inside this neighborhood.
-            const cap = smooth(clamp((1 - distance) / 0.65));
-            cavities += cap * (0.65 + 0.35 * variation);
-          }
-        const vugs = 1 - Math.exp(-1.8 * cavities);
-        const warp = noise(u, v, 3, 3, seed ^ 0x41d7);
-        const band = 0.5 + 0.5 * Math.sin(TAU * (6 * v + 0.18 * warp) + phase);
-        color = 0.65 + 0.12 * band + 0.09 * fine - 0.48 * vugs;
-        height = 0.62 + 0.05 * band + 0.04 * fine - 0.3 * vugs;
-        roughness += 0.15 * vugs + 0.08 * (fine - 0.5);
-        occlusion = 0.98 - 0.42 * vugs;
-        break;
-      }
-      case 'pumice': {
-        const cells = 26;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let vesicles = 0,
-          rims = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.15 - 0.7 * hash(wx, wy, seed),
-              dy = y - cy - 0.15 - 0.7 * hash(wx, wy, seed ^ 0x631f);
-            const radius = 0.24 + 0.2 * hash(wx, wy, seed ^ 0x38b9);
-            const distance = (dx * dx + dy * dy) / (radius * radius);
-            // Rounded gas pockets recess into a continuous matrix with softly raised lips.
-            const cap = clamp(1 - distance);
-            const bowl = cap * cap;
-            vesicles = Math.max(vesicles, bowl);
-            rims = Math.max(rims, 6 * distance * bowl);
-          }
-        const matrix = noise(u, v, 5, 5, seed ^ 0x9c47);
-        color =
-          0.65 + 0.12 * matrix + 0.08 * fine - 0.57 * vesicles + 0.05 * rims;
-        height = 0.72 - 0.58 * vesicles + 0.08 * rims + 0.03 * fine;
-        roughness += 0.07 * vesicles + 0.07 * (fine - 0.5);
-        occlusion = 0.98 - 0.52 * vesicles + 0.01 * detail;
-        break;
-      }
-      case 'parquet': {
-        const x = u * 4,
-          y = v * 4;
-        const bx = Math.floor(x),
-          by = Math.floor(y);
-        const horizontal = (bx + by) % 2 === 0;
-        const along = horizontal ? fract(x) : fract(y),
-          across = horizontal ? fract(y) : fract(x);
-        const slat = Math.floor(across * 3);
-        const edge = Math.min(
-          along,
-          1 - along,
-          fract(across * 3) / 3,
-          (1 - fract(across * 3)) / 3,
-        );
-        const face = smooth(clamp((edge - 0.006) / 0.016));
-        const variation = hash(bx * 3 + slat, by, seed);
-        const warp = noise(u, v, 8, 8, seed ^ 0x3719);
-        const grain =
-          0.5 +
-          0.5 *
-            Math.sin(
-              TAU * (across * 38 + 0.28 * Math.sin(TAU * along) + 0.18 * warp) +
-                variation * TAU,
-            );
-        // All slat-owned grain and finish vanish into a common dark joint.
-        color =
-          0.06 +
-          face * (0.25 + 0.32 * variation + 0.22 * grain + 0.06 * detail);
-        height = face * (0.76 + 0.045 * grain + 0.025 * detail);
-        roughness =
-          0.78 +
-          face * (preset.roughness - 0.78 + 0.09 * grain + 0.04 * variation);
-        occlusion = 0.52 + 0.46 * face;
-        break;
-      }
-      case 'mosaic': {
-        const cells = 16;
-        const x = u * cells,
-          y = v * cells;
-        const fx = fract(x),
-          fy = fract(y);
-        const edge = Math.min(fx, 1 - fx, fy, 1 - fy);
-        const face = smooth(clamp((edge - 0.018) / 0.042));
-        const variation = hash(Math.floor(x), Math.floor(y), seed);
-        color = 0.2 + face * (0.08 + 0.56 * variation + 0.1 * detail);
-        height = face * (0.78 + 0.08 * variation + 0.025 * detail);
-        roughness =
-          0.76 +
-          face * (preset.roughness - 0.76 + 0.11 * variation + 0.04 * detail);
-        occlusion = 0.6 + 0.39 * face;
-        mortar = 1 - face;
-        break;
-      }
-      case 'hexagontiles': {
-        const root3 = Math.sqrt(3);
-        const columns = 5,
-          rows = 6;
-        const x = u * columns,
-          y = (v * rows * root3) / 2;
-        const row = Math.floor(y / (root3 / 2));
-        let best = Infinity,
-          dx = 0,
-          dy = 0,
-          ownerX = 0,
-          ownerY = 0;
-        // Even row count makes this staggered triangular lattice wrap in a
-        // rectangle. Its Voronoi faces are six genuine straight hexagon edges.
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy;
-          const offset = (((cy % 2) + 2) % 2) * 0.5;
-          const column = Math.round(x - offset);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox;
-            const px = x - cx - offset,
-              py = y - (cy * root3) / 2;
-            const distance = px * px + py * py;
-            if (distance < best) {
-              best = distance;
-              dx = px;
-              dy = py;
-              ownerX = ((cx % columns) + columns) % columns;
-              ownerY = ((cy % rows) + rows) % rows;
-            }
-          }
-        }
-        const edge =
-          0.5 -
-          Math.max(
-            Math.abs(dx),
-            Math.abs(dx * 0.5 + (dy * root3) / 2),
-            Math.abs(dx * 0.5 - (dy * root3) / 2),
-          );
-        const face = smooth(clamp((edge - 0.012) / 0.034));
-        const variation = hash(ownerX, ownerY, seed);
-        // A flat grout bottom removes ownership jumps on diagonal edges too.
-        color = 0.2 + face * (0.28 + 0.35 * variation + 0.07 * detail);
-        height = face * (0.8 + 0.045 * variation + 0.02 * detail);
-        roughness =
-          0.74 +
-          face * (preset.roughness - 0.74 + 0.1 * variation + 0.04 * detail);
-        occlusion = 0.6 + 0.39 * face;
-        mortar = 1 - face;
-        break;
-      }
-      case 'knit': {
-        const x = u * 8,
-          y = v * 8;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let yarn = 0;
-        // Rounded finite yarn arms overlap at the point of each stockinette V.
-        // Their smooth support vanishes before the stitch cell edges.
-        for (let side = -1; side <= 1; side += 2) {
-          const dx = x - ix - 0.5,
-            dy = y - iy - 0.84;
-          const sx = side * 0.34,
-            sy = -0.68;
-          const t = clamp((dx * sx + dy * sy) / (sx * sx + sy * sy));
-          const px = dx - t * sx,
-            py = dy - t * sy;
-          const cap = clamp(1 - (px * px + py * py) / 0.0169);
-          const arm = smooth(cap);
-          yarn += (1 - yarn) * arm;
-        }
-        const twist =
-          0.5 +
-          0.25 * Math.sin(TAU * (48 * u + 24 * v) + phase) +
-          0.25 * Math.sin(TAU * (48 * u - 24 * v) - phase);
-        color = 0.12 + 0.64 * yarn + 0.1 * detail + 0.07 * yarn * twist;
-        height = 0.08 + yarn * (0.76 + 0.045 * twist) + 0.025 * detail;
-        roughness += 0.065 * (detail - 0.5) + 0.035 * (1 - yarn);
-        occlusion = 0.58 + 0.41 * yarn;
-        break;
-      }
-      case 'corduroy': {
-        const wale = Math.pow(0.5 + 0.5 * Math.cos(TAU * u * 12), 0.65);
-        const pile = noise(u, v, 96, 96, seed ^ 0x2b71);
-        const nap = noise(u, v, 12, 48, seed ^ 0x7ca3);
-        color = 0.12 + 0.57 * wale + 0.16 * pile + 0.08 * nap;
-        height = 0.07 + 0.79 * wale + 0.035 * pile + 0.025 * nap;
-        roughness += 0.08 * (pile - 0.5) + 0.035 * (1 - wale);
-        occlusion = 0.57 + 0.42 * wale;
-        break;
-      }
-      case 'felt': {
-        const cells = 20;
-        const x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let fibers = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
-              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0xa375);
-            const angle = hash(wx, wy, seed ^ 0x6b17) * TAU;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const along = (dx * cos + dy * sin) / 0.6,
-              across = (dy * cos - dx * sin) / 0.055;
-            // Tapered, randomly oriented fibers vanish with zero slope at their
-            // elliptical support; none reaches a discarded neighborhood cell.
-            const cap = clamp(1 - along * along - across * across);
-            fibers += (1 - fibers) * cap * cap;
-          }
-        color = 0.28 + 0.28 * detail + 0.3 * fibers;
-        height = 0.18 + 0.035 * detail + 0.065 * fibers;
-        roughness += 0.065 * (detail - 0.5) + 0.025 * fibers;
-        occlusion = 0.96 + 0.025 * fibers + 0.01 * detail;
-        break;
-      }
-      case 'wafflecloth': {
-        const warp = smooth(clamp((Math.cos(TAU * u * 8) - 0.35) / 0.65)),
-          weft = smooth(clamp((Math.cos(TAU * v * 8) - 0.35) / 0.65));
-        const rim = warp + weft - warp * weft;
-        const yarn =
-          0.5 +
-          0.25 * Math.cos(TAU * u * 96 + phase) +
-          0.25 * Math.cos(TAU * v * 96 - phase);
-        const cotton = noise(u, v, 24, 24, seed ^ 0x4a73);
-        color = 0.22 + 0.48 * rim + 0.12 * yarn + 0.08 * cotton;
-        height = 0.12 + 0.66 * rim + 0.035 * yarn + 0.025 * cotton;
-        roughness += 0.04 * (cotton - 0.5) + 0.025 * (1 - rim);
-        occlusion = 0.65 + 0.32 * rim + 0.02 * yarn;
-        break;
-      }
-      case 'cableknit': {
-        const x = fract(u * 4),
-          y = v * 4;
-        const sweep = 0.22 * Math.sin(TAU * y),
-          crossing = 0.5 + 0.5 * Math.cos(TAU * y);
-        const left = (x - 0.5 - sweep) / 0.115,
-          right = (x - 0.5 + sweep) / 0.115;
-        // Both strands retain their identity through the crossing. Each
-        // compact profile and its owned lift fade with zero support slope.
-        const a = smooth(clamp(1 - left * left)),
-          b = smooth(clamp(1 - right * right));
-        const braid = a + b - a * b;
-        const liftA = a * (0.38 + 0.38 * crossing),
-          liftB = b * (0.76 - 0.38 * crossing);
-        const lift = liftA + liftB - liftA * liftB;
-        const rib = smooth(clamp((Math.cos(TAU * x) - 0.5) / 0.5));
-        const loops =
-          0.5 + 0.5 * Math.cos(TAU * (v * 32 + 0.35 * Math.cos(TAU * x)));
-        const wool = noise(u, v, 64, 64, seed ^ 0x37a9);
-        const twist = 0.5 + 0.5 * Math.sin(TAU * (u * 96 + v * 48) + phase);
-        color =
-          0.13 + 0.55 * lift + 0.13 * rib + 0.09 * wool + 0.04 * braid * twist;
-        height =
-          0.07 +
-          lift +
-          0.17 * rib * (0.65 + 0.35 * loops) +
-          0.02 * wool +
-          0.015 * braid * twist;
-        roughness += 0.035 * (wool - 0.5) + 0.025 * (1 - braid);
-        occlusion = 0.57 + 0.35 * braid + 0.055 * rib + 0.015 * wool;
-        break;
-      }
-      case 'quilting': {
-        const diagonalA = (u + v) * 6,
-          diagonalB = (u - v) * 6;
-        const a = 0.5 - 0.5 * Math.cos(TAU * diagonalA),
-          b = 0.5 - 0.5 * Math.cos(TAU * diagonalB);
-        const padded = a * b;
-        const seamA = smooth(clamp(1 - a / 0.055)),
-          seamB = smooth(clamp(1 - b / 0.055));
-        const seam = seamA + seamB - seamA * seamB;
-        const dashA = smooth(
-            clamp((Math.cos(TAU * diagonalB * 8) - 0.2) / 0.8),
-          ),
-          dashB = smooth(clamp((Math.cos(TAU * diagonalA * 8) - 0.2) / 0.8));
-        const stitch =
-          seamA * dashA + seamB * dashB - seamA * dashA * seamB * dashB;
-        const weave =
-          0.5 +
-          0.25 * Math.cos(TAU * u * 96 + phase) +
-          0.25 * Math.cos(TAU * v * 96 - phase);
-        const cloth = noise(u, v, 24, 24, seed ^ 0x6b31);
-        color =
-          0.3 +
-          0.32 * padded -
-          0.15 * seam +
-          0.12 * stitch +
-          0.08 * cloth +
-          0.06 * weave;
-        height =
-          0.13 +
-          0.67 * padded -
-          0.065 * seam +
-          0.035 * stitch +
-          0.02 * weave +
-          0.015 * cloth;
-        roughness += 0.045 * (cloth - 0.5) + 0.025 * seam;
-        occlusion = 0.88 + 0.1 * padded - 0.18 * seam + 0.025 * stitch;
-        break;
-      }
-      case 'roofshingles': {
-        const row = Math.floor(v * 6),
-          y = fract(v * 6);
-        const shifted = u * 4 + (row % 2) * 0.5,
-          x = fract(shifted);
-        const course = smooth(clamp(Math.min(y, 1 - y) / 0.12));
-        const tab = smooth(clamp(Math.min(x, 1 - x) / 0.055));
-        const notch = (1 - tab) * smooth(clamp((y - 0.32) / 0.16)) * course;
-        // Tab-owned pigment disappears before either staggered course changes
-        // owner; all seams retain the same continuous mineral-granule field.
-        const ownership = course * tab;
-        const variation = hash(Math.floor(shifted) % 4, row, seed ^ 0x63b7);
-        const grit = smooth(
-          clamp((noise(u, v, 64, 64, seed ^ 0x4d35) - 0.2) / 0.6),
-        );
-        const lap = 1 - course;
-        color =
-          0.24 +
-          0.32 * grit +
-          0.2 * ownership * variation -
-          0.15 * lap -
-          0.14 * notch;
-        height =
-          0.2 +
-          0.38 * course -
-          0.2 * notch +
-          0.13 * grit +
-          0.05 * ownership * variation;
-        roughness += 0.12 * (grit - 0.5) + 0.04 * lap + 0.03 * notch;
-        occlusion = 0.96 - 0.24 * lap - 0.2 * notch + 0.025 * grit;
-        break;
-      }
-      case 'rooftiles': {
-        const x = fract(u * 6 + 0.5),
-          y = fract(v * 5);
-        const crown = 0.5 + 0.5 * Math.cos(TAU * u * 6);
-        const course = smooth(clamp(Math.min(y, 1 - y) / 0.13));
-        const side = smooth(clamp(Math.min(x, 1 - x) / 0.12));
-        const ownership = course * side;
-        const variation = hash(
-          Math.floor(u * 6 + 0.5) % 6,
-          Math.floor(v * 5),
-          seed ^ 0x7a41,
-        );
-        const clay = noise(u, v, 24, 32, seed ^ 0x5c27);
-        const lap = 1 - course;
-        // Cosine crowns meet recessed channels with zero slope, rather than
-        // resetting a semicircle at its peak or exposing a flat tile face.
-        color =
-          0.26 +
-          0.24 * crown +
-          0.23 * ownership * variation +
-          0.14 * clay -
-          0.14 * lap;
-        height =
-          0.16 +
-          0.65 * crown -
-          0.1 * lap +
-          0.035 * ownership * variation +
-          0.012 * clay;
-        roughness += 0.13 * (clay - 0.5) + 0.05 * (1 - crown) + 0.045 * lap;
-        occlusion = 0.76 + 0.22 * crown - 0.14 * lap + 0.015 * clay;
-        break;
-      }
-      case 'stucco': {
-        const cells = 28,
-          x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let aggregate = 0,
-          pits = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const variation = hash(wx, wy, seed ^ 0x43b9);
-            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
-              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x17c3);
-            const radius = 0.3 + 0.25 * variation;
-            const cap = clamp(
-              1 - (dx * dx + dy * dy * (0.7 + variation)) / (radius * radius),
-            );
-            const weight = cap * cap;
-            // Compact caps and a smooth union keep both relief and slopes
-            // continuous as neighboring sprayed grains enter the support.
-            if (variation < 0.28) pits += (1 - pits) * weight;
-            else aggregate += (1 - aggregate) * weight;
-          }
-        const trowel = noise(u, v, 5, 7, seed ^ 0x537d);
-        color =
-          0.52 + 0.15 * trowel + 0.19 * aggregate - 0.24 * pits + 0.08 * detail;
-        height =
-          0.27 + 0.16 * trowel + 0.43 * aggregate - 0.22 * pits + 0.06 * detail;
-        roughness += 0.055 * aggregate + 0.065 * pits + 0.05 * (detail - 0.5);
-        occlusion = 0.96 - 0.25 * pits - 0.075 * aggregate + 0.02 * detail;
-        break;
-      }
-      case 'lichen': {
-        const cells = 7,
-          x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let crust = 0,
-          pigment = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
-              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x71b3);
-            const angle = Math.atan2(dy, dx);
-            const variation = hash(wx, wy, seed ^ 0x3c59);
-            const radius =
-              (0.38 + 0.16 * variation) *
-              (1 +
-                0.13 * Math.cos(5 * angle + variation * TAU) +
-                0.09 * Math.sin(3 * angle - variation * TAU));
-            // Lobes only affect the border; the center is a flat mineral crust,
-            // not a rounded moss tuft. Every colony fits the fixed neighborhood.
-            const face = smooth(
-              clamp((1 - Math.hypot(dx, dy) / radius) / 0.18),
-            );
-            crust += (1 - crust) * face;
-            pigment += face * (variation - 0.5);
-          }
-        const pits = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x6a23) - 0.58) / 0.25),
-        );
-        color =
-          0.16 +
-          0.13 * detail +
-          0.53 * crust +
-          0.07 * Math.tanh(pigment) -
-          0.18 * crust * pits;
-        height = 0.15 + 0.035 * detail + crust * (0.48 - 0.17 * pits);
-        roughness += 0.04 * (detail - 0.5) + 0.035 * crust * pits;
-        occlusion = 0.9 + 0.08 * crust - 0.15 * crust * pits;
-        break;
-      }
-      case 'leaflitter': {
-        const cells = 6,
-          x = u * cells,
-          y = v * cells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let leaves = 0,
-          pigment = 0,
-          veins = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % cells) + cells) % cells,
-              wy = ((cy % cells) + cells) % cells;
-            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
-              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x29b7);
-            const angle = hash(wx, wy, seed ^ 0x4f31) * TAU;
-            const cos = Math.cos(angle),
-              sin = Math.sin(angle);
-            const variation = hash(wx, wy, seed ^ 0x51a9);
-            const along = (dx * cos + dy * sin) / (0.64 + 0.1 * variation),
-              across = (dy * cos - dx * sin) / (0.26 + 0.05 * variation);
-            // A tapered oval ends in two points. Smooth compact support makes
-            // discarded neighbors contribute zero, including their pigment.
-            const face = smooth(
-              clamp(
-                (1 - along * along - Math.sqrt(across * across + 0.0001)) /
-                  0.18,
-              ),
-            );
-            const vein = face * Math.exp(-across * across * 260);
-            leaves += (1 - leaves) * face;
-            veins += (1 - veins) * vein;
-            pigment += face * (variation - 0.5);
-          }
-        color =
-          0.07 +
-          0.09 * detail +
-          0.56 * leaves +
-          0.16 * Math.tanh(pigment) -
-          0.12 * veins;
-        height = 0.08 + 0.035 * detail + 0.61 * leaves + 0.045 * veins;
-        roughness += 0.07 * (detail - 0.5) + 0.045 * (1 - leaves);
-        occlusion = 0.53 + 0.44 * leaves;
-        break;
-      }
-      case 'endgrain': {
-        const dx = fract(u - endgrainCenterU + 0.5) - 0.5,
-          dy = fract(v - endgrainCenterV + 0.5) - 0.5;
-        const sx = Math.sin(Math.PI * dx) / Math.PI,
-          sy = Math.sin(Math.PI * dy) / Math.PI;
-        // Squared toroidal distances meet with zero slope at the tile's
-        // opposite sides; a small core also regularizes the pith derivative.
-        const radius = Math.sqrt(sx * sx + sy * sy + 0.0004);
-        const warp = noise(u, v, 5, 5, seed ^ 0x7c43);
-        const rings =
-          0.5 + 0.5 * Math.sin(TAU * (23 * radius + 0.23 * warp) + phase);
-        const latewood = Math.pow(rings, 6);
-        const pores = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x15e7) - 0.62) / 0.23),
-        );
-        const distance = Math.hypot(dx, dy);
-        const checkSupport =
-          smooth(clamp((distance - 0.07) / 0.08)) *
-          smooth(clamp((0.43 - distance) / 0.08));
-        const checks =
-          checkSupport *
-          Math.pow(0.5 + 0.5 * Math.cos(7 * Math.atan2(dy, dx) + phase), 48);
-        color =
-          0.76 - 0.37 * latewood - 0.2 * pores - 0.24 * checks + 0.08 * detail;
-        height =
-          0.49 -
-          0.07 * latewood -
-          0.16 * pores -
-          0.22 * checks +
-          0.025 * detail;
-        roughness += 0.13 * pores + 0.06 * latewood + 0.045 * (detail - 0.5);
-        occlusion = 0.99 - 0.17 * pores - 0.22 * checks;
-        break;
-      }
-      case 'acousticfoam': {
-        const x = fract(u * 4) - 0.5,
-          y = fract(v * 4) - 0.5;
-        const ax = Math.sqrt(x * x + 0.0001),
-          ay = Math.sqrt(y * y + 0.0001);
-        // A rounded maximum retains four planar faces, unlike crossed sine
-        // ridges. Its flattened foot hides the cell-owned height variation.
-        const edge = 0.5 * (ax + ay + Math.sqrt((ax - ay) ** 2 + 0.0004));
-        const t = clamp(1 - 2 * edge);
-        const pyramid =
-          t < 0.1
-            ? t * t * 5
-            : t > 0.9
-              ? 0.9 - (1 - t) * (1 - t) * 5
-              : t - 0.05;
-        const variation = hash(
-          Math.floor(u * 4),
-          Math.floor(v * 4),
-          seed ^ 0x37d1,
-        );
-        const pores = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x6b19) - 0.42) / 0.46),
-        );
-        color = 0.14 + 0.61 * pyramid + 0.13 * detail - 0.12 * pores;
-        height =
-          0.03 +
-          pyramid * (0.88 + 0.07 * variation) +
-          0.009 * detail -
-          0.008 * pores;
-        roughness += 0.065 * (detail - 0.5) + 0.025 * pores;
-        occlusion = 0.43 + 0.54 * pyramid + 0.025 * detail - 0.025 * pores;
-        break;
-      }
-      case 'closedcellfoam': {
-        const x = u * 28,
-          y = v * 28;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let dimples = 0,
-          membranes = 0,
-          pigment = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % 28) + 28) % 28,
-              wy = ((cy % 28) + 28) % 28;
-            const offset = (wy * 28 + wx) * 4;
-            const dx = x - cx - foamCells![offset],
-              dy = y - cy - foamCells![offset + 1];
-            const cap = clamp(1 - (dx * dx + dy * dy) * foamCells![offset + 2]);
-            // Shallow closed dimples have a gently raised membrane, not open
-            // cavities. Squared compact support meets the shared skin at C1.
-            const weight = cap * cap;
-            dimples += (1 - dimples) * weight;
-            membranes += (1 - membranes) * weight * (1 - cap) * 6.75;
-            pigment += weight * (foamCells![offset + 3] - 0.5);
-          }
-        color =
-          0.49 +
-          0.18 * detail -
-          0.13 * dimples +
-          0.08 * membranes +
-          0.1 * pigment;
-        height = 0.48 + 0.035 * detail - 0.17 * dimples + 0.055 * membranes;
-        roughness += 0.065 * (detail - 0.5) + 0.025 * dimples;
-        occlusion = 0.99 - 0.065 * dimples;
-        break;
-      }
-      case 'linoleum': {
-        const warp = noise(u, v, 4, 5, seed ^ 0x591b);
-        const swirl =
-          0.5 + 0.5 * Math.sin(TAU * (5 * u + 3 * v + 1.2 * warp) + phase);
-        const pigment = noise(
-          u + 0.19 * warp,
-          v + 0.08 * swirl,
-          48,
-          8,
-          seed ^ 0x2d73,
-        );
-        const flecks = smooth(clamp((pigment - 0.43) / 0.4));
-        // Pigment is marbled through a smooth sheet; it does not carve veins,
-        // stone pores or joints into the physical surface.
-        color = 0.24 + 0.25 * swirl + 0.38 * flecks + 0.08 * detail;
-        height = 0.45 + 0.025 * detail + 0.015 * pigment;
-        roughness += 0.09 * (pigment - 0.5) + 0.045 * (detail - 0.5);
-        occlusion = 0.99 + 0.008 * detail;
-        break;
-      }
-      case 'orangepeel': {
-        const x = u * skinColumns,
-          y = v * skinRows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let dimples = 0,
-          shoulders = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
-              wy = ((cy % skinRows) + skinRows) % skinRows;
-            const offset = (wy * skinColumns + wx) * 3;
-            const dx = x - cx - skinFeatures![offset],
-              dy = y - cy - skinFeatures![offset + 1];
-            const radius = 0.26 + 0.14 * skinFeatures![offset + 2];
-            const distance2 = dx * dx + dy * dy;
-            const pit = clamp(1 - distance2 / (radius * radius));
-            const skin = clamp(1 - distance2 / 0.36);
-            // Compact squared caps meet the shared skin with zero slope.
-            // Rounded shoulders surround depressed oil glands, not grit peaks.
-            dimples += (1 - dimples) * pit * pit;
-            shoulders += (1 - shoulders) * skin * skin * (1 - skin) * 6.75;
-          }
-        const pigment = 0.48 + 0.28 * detail;
-        color = pigment * (1 - 0.35 * dimples) + 0.34 * 0.35 * dimples;
-        const skinHeight = 0.46 + 0.025 * detail + 0.045 * shoulders;
-        height = skinHeight * (1 - dimples) + 0.22 * dimples;
-        roughness += 0.06 * (detail - 0.5) + 0.035 * dimples;
-        occlusion = 1 - 0.08 * dimples;
-        break;
-      }
-      case 'coconut': {
-        const x = u * skinColumns,
-          y = v * skinRows;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let fibers = 0,
-          fissures = 0,
-          pigment = 0.38 + 0.18 * detail;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
-              wy = ((cy % skinRows) + skinRows) % skinRows;
-            const offset = (wy * skinColumns + wx) * 3;
-            const dx = x - cx - skinFeatures![offset],
-              dy = y - cy - skinFeatures![offset + 1],
-              variation = skinFeatures![offset + 2];
-            const along = dy / (0.48 + 0.25 * variation),
-              across = (dx + (variation - 0.5) * 0.28 * dy) / 0.12;
-            const cap = clamp(1 - along * along - across * across);
-            const weight = cap * cap;
-            // Short longitudinal fibers and hairline fissures taper inside
-            // the neighborhood. Cell-owned pigment vanishes with its support.
-            if (variation < 0.24) {
-              fissures += (1 - fissures) * weight;
-              pigment = pigment * (1 - weight) + 0.15 * weight;
-            } else {
-              fibers += (1 - fibers) * weight;
-              pigment =
-                pigment * (1 - weight) + (0.55 + 0.25 * variation) * weight;
-            }
-          }
-        color = pigment;
-        const husk = 0.42 + 0.055 * detail + 0.18 * fibers;
-        height = husk * (1 - fissures) + 0.3 * fissures;
-        roughness += 0.055 * (detail - 0.5) + 0.025 * fibers;
-        occlusion = (0.96 + 0.025 * fibers) * (1 - fissures) + 0.86 * fissures;
-        break;
-      }
-      case 'watermelon': {
-        const warp = noise(u, v, 4, 5, seed ^ 0x4f17),
-          waviness = noise(u, v, 12, 8, seed ^ 0x67a3);
-        const wave =
-          0.5 +
-          0.5 * Math.sin(TAU * (5 * u + 0.3 * warp + 0.12 * waviness) + phase);
-        const bands = smooth(clamp((wave - 0.24) / 0.52));
-        const speckles = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x5c39) - 0.48) / 0.4),
-        );
-        const pores = smooth(
-          clamp((noise(u, v, 80, 80, seed ^ 0x2b71) - 0.5) / 0.38),
-        );
-        const pigment = 0.12 + 0.72 * bands;
-        color = pigment * (1 - 0.2 * speckles) + 0.46 * 0.2 * speckles;
-        // Bands are pigmentation only: no longitudinal ridges in the rind.
-        height = (0.48 + 0.025 * detail) * (1 - 0.14 * pores);
-        roughness += 0.055 * (detail - 0.5) + 0.045 * pores;
-        occlusion = 1 - 0.035 * pores;
-        break;
-      }
-      case 'limestone': {
-        const x = u * 24,
-          y = v * 24;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        const pores = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x19d7) - 0.49) / 0.38),
-        );
-        let grains = 0;
-        color = 0.63 + 0.14 * detail - 0.16 * pores;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % 24) + 24) % 24,
-              wy = ((cy % 24) + 24) % 24;
-            const offset = (wy * 24 + wx) * 7;
-            const dx = x - cx - ooids![offset],
-              dy = y - cy - ooids![offset + 1];
-            const rx =
-                (dx * ooids![offset + 4] + dy * ooids![offset + 5]) /
-                ooids![offset + 2],
-              ry =
-                (dy * ooids![offset + 4] - dx * ooids![offset + 5]) /
-                (ooids![offset + 2] * ooids![offset + 3]);
-            const distance = rx * rx + ry * ry;
-            const weight = smooth(clamp((1 - distance) / 0.36));
-            const variation = ooids![offset + 6];
-            // Rounded carbonate grains carry faint concentric growth rings;
-            // all grain-owned color fades into the finely porous matrix.
-            const ring = 0.5 + 0.5 * Math.cos(TAU * 1.5 * distance);
-            const pigment = 0.5 + 0.24 * variation + 0.16 * ring;
-            color = color * (1 - weight) + pigment * weight;
-            grains += (1 - grains) * weight;
-          }
-        height = 0.47 + 0.08 * grains + 0.025 * detail - 0.07 * pores;
-        roughness += 0.06 * (detail - 0.5) + 0.08 * pores - 0.05 * grains;
-        occlusion = 0.98 - 0.12 * pores + 0.015 * grains;
-        break;
-      }
-      case 'breccia': {
-        const x = u * 6,
-          y = v * 6;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        const cement = noise(u, v, 80, 80, seed ^ 0x5d21);
-        let coverage = 0;
-        color = 0.56 + 0.16 * cement;
-        height = 0.33 + 0.035 * cement;
-        roughness += 0.08 * cement;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const wx = ((cx % 6) + 6) % 6,
-              wy = ((cy % 6) + 6) % 6;
-            const offset = (wy * 6 + wx) * 18;
-            const dx = x - cx - clasts![offset],
-              dy = y - cy - clasts![offset + 1];
-            let face = 1;
-            for (let edge = 0; edge < 5; edge++) {
-              const plane = offset + 3 + edge * 3;
-              const inward =
-                clasts![plane + 2] -
-                dx * clasts![plane] -
-                dy * clasts![plane + 1];
-              face *= smooth(clamp(inward / 0.055));
-            }
-            const variation = clasts![offset + 2];
-            // Smooth half-plane products retain angular fractured outlines
-            // without a nearest-feature switch or rectangular masonry joints.
-            const pigment = 0.15 + 0.66 * variation + 0.12 * detail;
-            color = color * (1 - face) + pigment * face;
-            height =
-              height * (1 - face) +
-              (0.54 + 0.1 * variation + 0.025 * detail) * face;
-            roughness =
-              roughness * (1 - face) +
-              (preset.roughness + 0.08 * (detail - 0.5)) * face;
-            coverage += (1 - coverage) * face;
-          }
-        occlusion = 0.81 + 0.17 * coverage + 0.015 * cement;
-        break;
-      }
-      case 'gneiss': {
-        const warp = noise(u, v, 4, 4, seed ^ 0x6b19);
-        const folded =
-          v +
-          0.28 * Math.sin(TAU * u + 0.8 * Math.sin(TAU * v) + phase) +
-          0.06 * Math.sin(TAU * (2 * u - v) + phase);
-        const angle = TAU * 6 * folded + 1.4 * (warp - 0.5);
-        const bands = smooth(
-          clamp((0.5 + 0.5 * Math.sin(angle) - 0.18) / 0.64),
-        );
-        const lamina = 0.5 + 0.5 * Math.sin(3 * angle + 0.4 * warp);
-        const crystal = noise(u, v, 96, 96, seed ^ 0x3c75);
-        const flecks = smooth(clamp((crystal - 0.52) / 0.34));
-        const pigment = 0.12 + 0.7 * bands + 0.08 * lamina;
-        color = pigment * (1 - 0.3 * flecks) + 0.88 * 0.3 * flecks;
-        // Light and dark minerals occupy broad folded bands, not isolated
-        // marble veins; small crystalline grains add restrained surface relief.
-        height = 0.42 + 0.055 * bands + 0.07 * flecks + 0.025 * detail;
-        roughness += 0.08 * (detail - 0.5) + 0.06 * (1 - bands) - 0.05 * flecks;
-        occlusion = 0.95 + 0.025 * bands + 0.015 * flecks;
-        break;
-      }
-      case 'plywood': {
-        const warp = noise(u, v, 4, 3, seed ^ 0x43b7);
-        // Rotary-cut growth surfaces form broad nested cathedral arches,
-        // rather than plank seams or the exposed laminate edges of a panel.
-        const growth =
-          3.2 * Math.cos(TAU * u + phase) +
-          1.8 * Math.cos(TAU * v + 0.7 * phase) +
-          0.45 * warp;
-        const grain = Math.pow(0.5 + 0.5 * Math.sin(TAU * growth), 5);
-        const fiber = 0.5 + 0.5 * Math.sin(TAU * (64 * u + 0.4 * warp) + phase);
-        color = 0.67 + 0.1 * detail - 0.32 * grain + 0.035 * fiber;
-        height = 0.48 + 0.025 * detail - 0.045 * grain + 0.015 * fiber;
-        roughness += 0.05 * grain + 0.04 * (detail - 0.5);
-        occlusion = 0.99 - 0.045 * grain;
-        for (let eye = 0; eye < 2; eye++) {
-          const offset = eye * 3;
-          const dx = fract(u - veneerEyes![offset] + 0.5) - 0.5,
-            dy = fract(v - veneerEyes![offset + 1] + 0.5) - 0.5;
-          const scale = veneerEyes![offset + 2];
-          const radius =
-            (dx * dx) / (0.0025 * scale * scale) +
-            (dy * dy) / (0.0169 * scale * scale);
-          const cap = Math.max(0, 1 - radius),
-            weight = cap * cap;
-          const ring = 0.5 + 0.5 * Math.cos(TAU * 2 * radius);
-          color = color * (1 - weight) + (0.25 + 0.2 * ring) * weight;
-          height = height * (1 - weight) + (0.44 + 0.025 * ring) * weight;
-          roughness =
-            roughness * (1 - weight) +
-            (preset.roughness + 0.065 * ring) * weight;
-          occlusion = occlusion * (1 - weight) + (0.95 + 0.025 * ring) * weight;
-        }
-        break;
-      }
-      case 'osb':
-      case 'chipboard': {
-        const x = u * strandCells,
-          y = v * strandCells;
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let coverage = 0;
-        color = 0.24 + 0.12 * detail;
-        height = 0.35 + 0.025 * detail;
-        roughness += 0.035 * detail;
-        for (let layer = 0; layer < 2; layer++)
-          for (let oy = -1; oy <= 1; oy++)
-            for (let ox = -1; ox <= 1; ox++) {
-              const cx = ix + ox,
-                cy = iy + oy;
-              const wx = ((cx % strandCells) + strandCells) % strandCells,
-                wy = ((cy % strandCells) + strandCells) % strandCells;
-              const offset =
-                ((layer * strandCells + wy) * strandCells + wx) * 26;
-              const dx = x - cx - strands![offset],
-                dy = y - cy - strands![offset + 1];
-              const along =
-                  (dx * strands![offset + 2] + dy * strands![offset + 3]) /
-                  strands![offset + 4],
-                across =
-                  (dy * strands![offset + 2] - dx * strands![offset + 3]) /
-                  strands![offset + 5];
-              let face = 1;
-              for (let edge = 0; edge < 6; edge++) {
-                const plane = offset + 8 + edge * 3;
-                face *= smooth(
-                  clamp(
-                    (strands![plane + 2] -
-                      along * strands![plane] -
-                      across * strands![plane + 1]) /
-                      0.12,
-                  ),
-                );
-              }
-              if (face === 0) continue;
-              const variation = strands![offset + 6];
-              const fiber =
-                0.5 +
-                0.5 *
-                  Math.sin(
-                    18 * across +
-                      0.65 * Math.sin(3 * along) +
-                      strands![offset + 7],
-                  );
-              // Every flake-owned field fades with the same compact polygon.
-              // Convex over-compositing keeps overlapping strata bounded.
-              color =
-                color * (1 - face) +
-                (0.34 + 0.44 * variation + 0.1 * fiber) * face;
-              height =
-                height * (1 - face) +
-                (0.49 + 0.12 * variation + 0.025 * fiber) * face;
-              roughness =
-                roughness * (1 - face) +
-                (preset.roughness - 0.045 + 0.07 * fiber) * face;
-              coverage += (1 - coverage) * face;
-            }
-        occlusion = 0.83 + 0.15 * coverage + 0.015 * detail;
-        break;
-      }
-      case 'crackleglaze': {
-        const x = u * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x35ad) - 0.5),
-          y = v * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x71c3) - 0.5);
-        const ix = Math.floor(x),
-          iy = Math.floor(y);
-        let faces = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset =
-              ((((cy % 16) + 16) % 16) * 16 + (((cx % 16) + 16) % 16)) * 26;
-            const dx = x - cx - glazeCells![offset],
-              dy = y - cy - glazeCells![offset + 1];
-            let face = 1;
-            for (let edge = 0; edge < 8; edge++) {
-              const plane = offset + 2 + edge * 3;
-              face *= smooth(
-                clamp(
-                  (glazeCells![plane + 2] -
-                    dx * glazeCells![plane] -
-                    dy * glazeCells![plane + 1]) /
-                    0.024,
-                ),
-              );
-            }
-            faces += face;
-          }
-        const cracks = 1 - clamp(faces);
-        color = (0.87 + 0.035 * detail) * (1 - cracks) + 0.08 * cracks;
-        height = 0.54 - 0.12 * cracks;
-        roughness += 0.14 * cracks + 0.015 * (detail - 0.5);
-        occlusion = 1 - 0.14 * cracks;
-        break;
-      }
-      case 'flutedceramic': {
-        const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
-        const speckles = smooth(
-          clamp((noise(u, v, 96, 96, seed ^ 0x5f29) - 0.65) / 0.28),
-        );
-        color = 0.88 + 0.035 * detail - 0.12 * speckles;
-        height = 0.2 + 0.6 * flute;
-        roughness += 0.035 * (1 - flute) + 0.025 * speckles;
-        occlusion = 0.92 + 0.08 * flute;
-        break;
-      }
-      case 'encaustictiles': {
-        const x = fract(u * 4),
-          y = fract(v * 4);
-        // A product keeps both slopes smooth where the two grout bevels meet.
-        const face =
-          smooth(clamp((Math.min(x, 1 - x) - 0.02) / 0.08)) *
-          smooth(clamp((Math.min(y, 1 - y) - 0.02) / 0.08));
-        const dx = x - 0.5,
-          dy = y - 0.5;
-        const rx = dx * motifCos + dy * motifSin,
-          ry = dy * motifCos - dx * motifSin;
-        let petals = 0;
-        for (let petal = 0; petal < 4; petal++) {
-          const px = petal < 2 ? rx : ry,
-            py = petal < 2 ? ry : rx;
-          const along = (px - (petal % 2 === 0 ? 0.16 : -0.16)) / 0.19,
-            across = py / 0.085;
-          const weight = smooth(
-            clamp((1 - along * along - across * across) / 0.22),
-          );
-          petals += (1 - petals) * weight;
-        }
-        const radius2 = dx * dx + dy * dy;
-        const ring =
-          smooth(clamp((radius2 - 0.135) / 0.008)) *
-          (1 - smooth(clamp((radius2 - 0.158) / 0.008)));
-        const motif = petals + (1 - petals) * ring;
-        color = 0.94 - 0.84 * motif + 0.012 * (detail - 0.5);
-        // Inlaid pigment changes no height: only the square grout is recessed.
-        height = 0.18 + 0.4 * face;
-        mortar = 1 - face;
-        roughness += 0.12 * mortar + 0.035 * (detail - 0.5);
-        occlusion = 0.77 + 0.23 * face;
-        break;
-      }
-      case 'breadcrust': {
-        const x = u * 7,
-          y = v * 7,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let plates = 0,
-          puff = 0,
-          toast = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset =
-              ((((cy % 7) + 7) % 7) * 7 + (((cx % 7) + 7) % 7)) * 27;
-            const dx = x - cx - crustPlates![offset],
-              dy = y - cy - crustPlates![offset + 1];
-            let plate = 1,
-              crown = 1;
-            for (let edge = 0; edge < 8; edge++) {
-              const plane = offset + 3 + edge * 3;
-              const inset =
-                crustPlates![plane + 2] -
-                dx * crustPlates![plane] -
-                dy * crustPlates![plane + 1];
-              plate *= smooth(clamp((inset - 0.025) / 0.14));
-              crown *= smooth(clamp((inset - 0.025) / 0.5));
-            }
-            plates += plate;
-            puff += crown;
-            toast += plate * crustPlates![offset + 2];
-          }
-        const baked = noise(u, v, 19, 23, seed ^ 0x47c3);
-        color = 0.06 + plates * (0.42 + 0.21 * baked) + 0.2 * toast;
-        height =
-          0.12 + 0.42 * plates + 0.26 * puff + 0.012 * plates * (detail - 0.5);
-        roughness += 0.08 * (1 - plates) + 0.035 * (baked - 0.5);
-        occlusion = 0.65 + 0.35 * plates;
-        break;
-      }
-      case 'wafer': {
-        const x = fract(u * 12),
-          y = fract(v * 12);
-        // Independent rounded walls meet as a product, not a min-edge cusp.
-        // Broad pocket floors and narrow continuous ribs have no yarn crossing.
-        const pocket =
-          smooth(clamp((Math.min(x, 1 - x) - 0.07) / 0.17)) *
-          smooth(clamp((Math.min(y, 1 - y) - 0.07) / 0.17));
-        const baked = noise(u, v, 24, 24, seed ^ 0x6d31);
-        color = 0.46 + 0.27 * pocket + 0.12 * baked + 0.035 * detail;
-        height = 0.72 - 0.5 * pocket + 0.008 * (detail - 0.5);
-        roughness += 0.06 * pocket + 0.02 * (baked - 0.5);
-        occlusion = 1 - 0.23 * pocket;
-        break;
-      }
-      case 'chocolate': {
-        const x = fract(u * 4),
-          y = fract(v * 4);
-        const segment =
-          smooth(clamp((Math.min(x, 1 - x) - 0.035) / 0.105)) *
-          smooth(clamp((Math.min(y, 1 - y) - 0.035) / 0.105));
-        const cocoa = noise(u, v, 4, 4, seed ^ 0x31b9);
-        color = 0.18 + 0.46 * segment + 0.065 * cocoa + 0.008 * detail;
-        // The mold's broad top stays exactly flat; only its scoring has relief.
-        height = 0.14 + 0.65 * segment;
-        roughness += 0.1 * (1 - segment) + 0.008 * (cocoa - 0.5);
-        occlusion = 0.73 + 0.27 * segment;
-        break;
-      }
-      case 'pretzel': {
-        // Interlaced dough ropes cross at raised knots, dusted with salt.
-        const ropeA = smooth(
-          clamp((0.18 - Math.abs(fract((u + v) * 3) - 0.5)) / 0.12),
-        );
-        const ropeB = smooth(
-          clamp((0.18 - Math.abs(fract((u - v) * 3) - 0.5)) / 0.12),
-        );
-        const twist = ropeA + ropeB - ropeA * ropeB;
-        const knot = ropeA * ropeB;
-        const salt = smooth(
-          clamp((noise(u, v, 24, 24, seed ^ 0x19af) - 0.78) / 0.06),
-        );
-        const grain = noise(u, v, 16, 16, seed ^ 0x2f31);
-        color = 0.42 + 0.28 * twist + 0.1 * knot + 0.1 * salt + 0.06 * grain;
-        height = 0.42 + 0.22 * twist + 0.1 * knot + 0.04 * salt + 0.015 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * knot - 0.18 * salt;
-        occlusion = 1 - 0.34 * (1 - twist) - 0.1 * (1 - knot);
-        break;
-      }
-      case 'bagel': {
-        // A chewy ring rises around the recessed hole, seeded with sesame.
-        const dx = Math.min(Math.abs(u - 0.5), 1 - Math.abs(u - 0.5));
-        const dy = Math.min(Math.abs(v - 0.5), 1 - Math.abs(v - 0.5));
-        const d = Math.hypot(dx, dy) * 2;
-        const ring = smooth(clamp((0.12 - Math.abs(d - 0.34)) / 0.06));
-        const hole = smooth(clamp((0.16 - d) / 0.08));
-        const sesame = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x4c1d) - 0.78) / 0.06),
-        );
-        const grain = noise(u, v, 16, 16, seed ^ 0x5b2e);
-        color = 0.44 + 0.3 * ring - 0.16 * hole + 0.12 * sesame + 0.06 * grain;
-        height =
-          0.46 + 0.26 * ring - 0.16 * hole + 0.05 * sesame + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * ring - 0.18 * sesame;
-        occlusion = 1 - 0.3 * hole - 0.14 * (1 - ring);
-        break;
-      }
-      case 'croissant': {
-        // Buttered layers stack in diagonal ridges with browned seams.
-        const turn = fract((u + v) * 4);
-        const layer = smooth(clamp((0.3 - Math.abs(turn - 0.5)) / 0.14));
-        const seam = smooth(clamp((0.12 - Math.min(turn, 1 - turn)) / 0.03));
-        const grain = noise(u, v, 16, 16, seed ^ 0x6d47);
-        color = 0.44 + 0.34 * layer - 0.14 * seam + 0.08 * grain;
-        height = 0.44 + 0.28 * layer - 0.06 * seam + 0.03 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * layer + 0.1 * seam;
-        occlusion = 1 - 0.34 * (1 - layer) - 0.1 * seam;
-        break;
-      }
-      case 'butterflywing': {
-        // Overlapping scale tiles sit in the cells between raised wing veins.
-        const tile =
-          smooth(clamp((0.28 - Math.abs(fract(u * 24) - 0.5)) / 0.12)) *
-          smooth(clamp((0.28 - Math.abs(fract(v * 16) - 0.5)) / 0.12));
-        const vein = smooth(
-          clamp((0.06 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
-        );
-        const patch = noise(u, v, 6, 6, seed ^ 0x71c3);
-        const grain = noise(u, v, 48, 48, seed ^ 0x2a55);
-        color = 0.42 + 0.3 * tile - 0.1 * vein + 0.12 * patch + 0.06 * grain;
-        height = 0.44 + 0.22 * tile - 0.14 * vein + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * tile + 0.12 * vein;
-        occlusion = 1 - 0.3 * (1 - tile) - 0.24 * vein;
-        break;
-      }
-      case 'beetlewing': {
-        // Elytra plates dome above their sutured seams and fine punctures.
-        const plate = smooth(
-          clamp((0.32 - Math.abs(fract(u * 6) - 0.5)) / 0.14),
-        );
-        const suture = smooth(
-          clamp((0.12 - Math.min(fract(u * 6), 1 - fract(u * 6))) / 0.03),
-        );
-        const puncture = smooth(
-          clamp((noise(u, v, 24, 24, seed ^ 0x55aa) - 0.8) / 0.05),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x39f1);
-        color =
-          0.42 + 0.32 * plate - 0.12 * suture - 0.1 * puncture + 0.06 * grain;
-        height =
-          0.44 + 0.26 * plate - 0.1 * suture - 0.06 * puncture + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * plate + 0.1 * suture;
-        occlusion = 1 - 0.3 * suture - 0.14 * (1 - plate) - 0.18 * puncture;
-        break;
-      }
-      case 'spiderweb': {
-        // Radial spokes and concentric silk rings frame the open cells, beaded with dew.
-        const spokeU = smooth(clamp((0.012 - Math.abs(u - 0.5)) / 0.008));
-        const spokeV = smooth(clamp((0.012 - Math.abs(v - 0.5)) / 0.008));
-        const d1 = Math.abs(u - v),
-          d2 = Math.abs(u + v - 1);
-        const spokeA = smooth(clamp((0.012 - Math.min(d1, 1 - d1)) / 0.008));
-        const spokeB = smooth(clamp((0.012 - Math.min(d2, 1 - d2)) / 0.008));
-        const spoke =
-          1 - (1 - spokeU) * (1 - spokeV) * (1 - spokeA) * (1 - spokeB);
-        const rad =
-          Math.hypot(
-            Math.sin(Math.PI * (u - 0.5)),
-            Math.sin(Math.PI * (v - 0.5)),
-          ) *
-          (2 / Math.PI);
-        const ring = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 6) - 0.5));
-        const silk = 1 - (1 - spoke) * (1 - ring);
-        const dew = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x7d21) - 0.82) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x1b64);
-        color = 0.4 + 0.3 * silk + 0.12 * dew + 0.08 * grain;
-        height = 0.42 + 0.2 * silk + 0.05 * dew + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.16 * silk - 0.1 * dew;
-        occlusion = 1 - 0.34 * (1 - silk);
-        break;
-      }
-      case 'cirrus': {
-        // Wind-combed streaks feather across the open high air.
-        const warp = noise(u, v, 3, 3, seed ^ 0x2345) - 0.5;
-        const streak = smooth(
-          clamp((0.3 - Math.abs(fract((v + 0.18 * warp) * 6) - 0.5)) / 0.16),
-        );
-        const fiber = noise(u, v, 32, 16, seed ^ 0x3456);
-        color = 0.46 + 0.34 * streak + 0.08 * fiber;
-        height = 0.46 + 0.22 * streak + 0.02 * fiber;
-        roughness += 0.06 * (fiber - 0.5) - 0.12 * streak;
-        occlusion = 1 - 0.32 * (1 - streak);
-        break;
-      }
-      case 'cumulus': {
-        // Puffy cauliflower domes pile above the shaded gaps between them.
-        const puff = smooth(
-          clamp((noise(u, v, 5, 5, seed ^ 0x4567) - 0.42) / 0.18),
-        );
-        const wisp = noise(u, v, 12, 12, seed ^ 0x5678);
-        color = 0.48 + 0.36 * puff + 0.08 * wisp;
-        height = 0.44 + 0.3 * puff + 0.02 * wisp;
-        roughness += 0.06 * (wisp - 0.5) - 0.1 * puff;
-        occlusion = 1 - 0.36 * (1 - puff);
-        break;
-      }
-      case 'lightning': {
-        // A jagged bolt core glows above the dark storm sky.
-        const warp = noise(u, v, 4, 4, seed ^ 0x6789) - 0.5;
-        const zig = fract((u + v) * 3 + 0.35 * warp);
-        const bolt = smooth(clamp((0.022 - Math.abs(zig - 0.5)) / 0.012));
-        const glow = smooth(clamp((0.16 - Math.abs(zig - 0.5)) / 0.14));
-        const grain = noise(u, v, 32, 32, seed ^ 0x789a);
-        color = 0.22 + 0.3 * glow + 0.4 * bolt + 0.06 * grain;
-        height = 0.44 + 0.16 * glow + 0.18 * bolt + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.14 * bolt;
-        occlusion = 1 - 0.36 * (1 - glow) - 0.14 * (1 - bolt);
-        break;
-      }
-      case 'kelp': {
-        // Broad slick blades ripple in waves above the shadowed troughs.
-        const warp = noise(u, v, 4, 4, seed ^ 0x1122) - 0.5;
-        const wave = smooth(
-          clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 4) - 0.5)) / 0.16),
-        );
-        const slick = smooth(
-          clamp((noise(u, v, 8, 8, seed ^ 0x2233) - 0.68) / 0.08),
-        );
-        const grain = noise(u, v, 24, 24, seed ^ 0x3344);
-        color = 0.44 + 0.3 * wave + 0.1 * slick + 0.08 * grain;
-        height = 0.44 + 0.28 * wave + 0.05 * slick + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) - 0.22 * slick - 0.1 * wave;
-        occlusion = 1 - 0.36 * (1 - wave) - 0.1 * (1 - slick);
-        break;
-      }
-      case 'seaweed': {
-        // Fine branching threads weave over the shaded gaps of the mat.
-        const warp = noise(u, v, 3, 3, seed ^ 0x4455) - 0.5;
-        const branchA = smooth(
-          clamp(
-            (0.05 - Math.abs(fract((u + v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
-          ),
-        );
-        const branchB = smooth(
-          clamp(
-            (0.05 - Math.abs(fract((u - v) * 3 + 0.3 * warp) - 0.5)) / 0.03,
-          ),
-        );
-        const branch = branchA + branchB - branchA * branchB;
-        const grain = noise(u, v, 24, 24, seed ^ 0x5566);
-        color = 0.42 + 0.3 * branch + 0.08 * grain;
-        height = 0.44 + 0.22 * branch + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * branch;
-        occlusion = 1 - 0.34 * (1 - branch);
-        break;
-      }
-      case 'anemone': {
-        // Ringed tentacles rise around the recessed central mouth.
-        const rad =
-          Math.hypot(
-            Math.sin(Math.PI * (u - 0.5)),
-            Math.sin(Math.PI * (v - 0.5)),
-          ) *
-          (2 / Math.PI);
-        const fade = smooth(clamp((rad - 0.12) / 0.08));
-        const tentacle =
-          (0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(rad * 8) - 0.5))) * fade;
-        const mouth = smooth(clamp((0.12 - rad) / 0.06));
-        const grain = noise(u, v, 24, 24, seed ^ 0x6677);
-        color = 0.42 + 0.32 * tentacle - 0.12 * mouth + 0.08 * grain;
-        height = 0.44 + 0.26 * tentacle - 0.12 * mouth + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * tentacle;
-        occlusion = 1 - 0.3 * mouth - 0.12 * (1 - tentacle) * fade;
-        break;
-      }
-      case 'candy': {
-        // Glossy hard-candy stripes twist above their shallow seams.
-        const turn = fract((u + v) * 4);
-        const stripe = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
-        const seam = smooth(clamp((0.1 - Math.min(turn, 1 - turn)) / 0.03));
-        const gloss = noise(u, v, 16, 16, seed ^ 0x7788);
-        color = 0.42 + 0.36 * stripe - 0.12 * seam + 0.08 * gloss;
-        height = 0.44 + 0.26 * stripe - 0.06 * seam + 0.02 * gloss;
-        roughness += 0.08 * (gloss - 0.5) - 0.12 * stripe;
-        occlusion = 1 - 0.32 * (1 - stripe) - 0.12 * seam;
-        break;
-      }
-      case 'marshmallow': {
-        // Soft piped ridges roll over their rounded grooves, dusted with starch.
-        const roll = fract((u + v) * 5);
-        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (roll - 0.5));
-        const starch = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x8899) - 0.7) / 0.1),
-        );
-        const grain = noise(u, v, 24, 24, seed ^ 0x99aa);
-        color = 0.5 + 0.3 * ridge + 0.1 * starch + 0.06 * grain;
-        height = 0.44 + 0.28 * ridge + 0.05 * starch + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * ridge;
-        occlusion = 1 - 0.32 * (1 - ridge);
-        break;
-      }
-      case 'nougat': {
-        // Nut chunks and bubble pits break the chewy sugar base.
-        const nut = smooth(
-          clamp((noise(u, v, 6, 6, seed ^ 0xaabb) - 0.55) / 0.12),
-        );
-        const pit = smooth(
-          clamp((noise(u, v, 16, 16, seed ^ 0xbbcc) - 0.72) / 0.05),
-        );
-        const grain = noise(u, v, 24, 24, seed ^ 0xccdd);
-        color = 0.44 + 0.3 * nut - 0.12 * pit + 0.08 * grain;
-        height = 0.44 + 0.24 * nut - 0.1 * pit + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) - 0.1 * nut + 0.12 * pit;
-        occlusion = 1 - 0.34 * (1 - nut) - 0.18 * pit;
-        break;
-      }
-      case 'frostedglass': {
-        // Fine acid-etch speckle scatters over the pane.
-        const etch = smooth(
-          clamp((noise(u, v, 32, 32, seed ^ 0xdd11) - 0.42) / 0.16),
-        );
-        const micro = noise(u, v, 64, 64, seed ^ 0xee22);
-        color = 0.5 + 0.26 * etch + 0.08 * micro;
-        height = 0.46 + 0.18 * etch + 0.02 * micro;
-        roughness += 0.08 * (micro - 0.5) - 0.1 * etch;
-        occlusion = 1 - 0.28 * (1 - etch);
-        break;
-      }
-      case 'rippledglass': {
-        // Vertical rolled ribs ripple across the drawn glass.
-        const rib = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 6) - 0.5));
-        const micro = noise(u, v, 32, 32, seed ^ 0xff33);
-        color = 0.48 + 0.32 * rib + 0.08 * micro;
-        height = 0.46 + 0.26 * rib + 0.02 * micro;
-        roughness += 0.08 * (micro - 0.5) - 0.12 * rib;
-        occlusion = 1 - 0.3 * (1 - rib);
-        break;
-      }
-      case 'bubbleglass': {
-        // Seeded round bubbles dome over the clear glass body.
-        const dx = fract(u * 8) - 0.5,
-          dy = fract(v * 8) - 0.5;
-        const r = Math.hypot(dx, dy);
-        const bubble = smooth(clamp((0.34 - r) / 0.14));
-        const micro = noise(u, v, 32, 32, seed ^ 0x1a44);
-        color = 0.48 + 0.32 * bubble + 0.08 * micro;
-        height = 0.46 + 0.24 * bubble + 0.02 * micro;
-        roughness += 0.08 * (micro - 0.5) - 0.12 * bubble;
-        occlusion = 1 - 0.3 * (1 - bubble);
-        break;
-      }
-      case 'saddlestitch': {
-        // Saddle stitches dash along their seam above the grained leather.
-        const se = (u - v) * 2 - 0.25;
-        const line = smooth(
-          clamp((0.05 - Math.min(fract(se), 1 - fract(se))) / 0.03),
-        );
-        const dash = smooth(
-          clamp((0.3 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.12),
-        );
-        const stitch = line * dash;
-        const grain = noise(u, v, 24, 24, seed ^ 0x2b55);
-        color = 0.42 + 0.3 * stitch + 0.08 * grain;
-        height = 0.44 + 0.24 * stitch + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * stitch;
-        occlusion = 1 - 0.32 * (1 - stitch);
-        break;
-      }
-      case 'tooledleather': {
-        // Tooled medallions with swirl rings emboss over the compressed ground.
-        const tx = fract(u * 4) - 0.5,
-          ty = fract(v * 4) - 0.5;
-        const r = Math.hypot(tx, ty);
-        const medallion = smooth(clamp((0.36 - r) / 0.16));
-        const swirl = smooth(clamp((0.035 - Math.abs(r - 0.18)) / 0.02));
-        const grain = noise(u, v, 24, 24, seed ^ 0x3c66);
-        color = 0.42 + 0.26 * medallion + 0.1 * swirl + 0.08 * grain;
-        height = 0.44 + 0.22 * medallion + 0.08 * swirl + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * medallion;
-        occlusion = 1 - 0.34 * (1 - medallion);
-        break;
-      }
-      case 'patentleather': {
-        // Mirror lacquer carries a fine orange-peel ripple.
-        const peel = smooth(
-          clamp((noise(u, v, 32, 32, seed ^ 0x4d77) - 0.42) / 0.16),
-        );
-        const sheen = noise(u, v, 6, 6, seed ^ 0x5e88);
-        color = 0.44 + 0.18 * peel + 0.16 * sheen;
-        height = 0.46 + 0.16 * peel + 0.02 * sheen;
-        roughness += 0.08 * (peel - 0.5);
-        occlusion = 1 - 0.18 * (1 - peel);
-        break;
-      }
-      case 'appleskin': {
-        // Blush streaks band the taut skin, freckled with lenticel dots.
-        const stripe = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 5) - 0.5));
-        const dot = smooth(
-          clamp((noise(u, v, 28, 28, seed ^ 0x6f99) - 0.8) / 0.05),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x7aaa);
-        color = 0.44 + 0.32 * stripe + 0.1 * dot + 0.06 * grain;
-        height = 0.46 + 0.2 * stripe + 0.05 * dot + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * stripe;
-        occlusion = 1 - 0.3 * (1 - stripe) - 0.1 * (1 - dot);
-        break;
-      }
-      case 'peachskin': {
-        // Fine fuzz covers the blush beside the recessed suture groove.
-        const suture = smooth(clamp((0.045 - Math.abs(u - 0.5)) / 0.025));
-        const fuzz = noise(u, v, 32, 32, seed ^ 0x8bbb);
-        const blush = noise(u, v, 6, 6, seed ^ 0x9ccc);
-        color = 0.46 + 0.3 * blush - 0.12 * suture + 0.08 * fuzz;
-        height = 0.46 + 0.06 * fuzz - 0.16 * suture;
-        roughness += 0.08 * (fuzz - 0.5) + 0.1 * suture;
-        occlusion = 1 - 0.4 * suture;
-        break;
-      }
-      case 'grapeskin': {
-        // Taut bloom patches dust the smooth stretched skin.
-        const bloom = smooth(
-          clamp((noise(u, v, 6, 6, seed ^ 0xaddd) - 0.5) / 0.16),
-        );
-        const pore = noise(u, v, 32, 32, seed ^ 0xbeee);
-        color = 0.46 + 0.28 * bloom + 0.08 * pore;
-        height = 0.46 + 0.18 * bloom + 0.02 * pore;
-        roughness += 0.12 * (bloom - 0.5) * 2 + 0.06 * (pore - 0.5);
-        occlusion = 1 - 0.3 * (1 - bloom);
-        break;
-      }
-      case 'broccoli': {
-        // Dense floret buds cluster above the shaded gaps of the head.
-        const floret = smooth(
-          clamp((noise(u, v, 10, 10, seed ^ 0xcf11) - 0.45) / 0.14),
-        );
-        const bud = smooth(
-          clamp((noise(u, v, 28, 28, seed ^ 0xd022) - 0.58) / 0.1),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0xe133);
-        color = 0.42 + 0.3 * floret + 0.12 * bud + 0.06 * grain;
-        height = 0.44 + 0.24 * floret + 0.08 * bud + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * floret;
-        occlusion = 1 - 0.36 * (1 - floret) - 0.1 * (1 - bud);
-        break;
-      }
-      case 'cabbage': {
-        // Leafy folds ripple beside the recessed veins between them.
-        const turn = fract((u + v) * 3);
-        const fold = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const vein =
-          smooth(
-            clamp((0.045 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.025),
-          ) +
-          smooth(
-            clamp((0.045 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.025),
-          );
-        const grain = noise(u, v, 24, 24, seed ^ 0xf244);
-        color = 0.44 + 0.3 * fold - 0.12 * Math.min(vein, 1) + 0.08 * grain;
-        height = 0.44 + 0.26 * fold - 0.1 * Math.min(vein, 1) + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * fold;
-        occlusion = 1 - 0.34 * (1 - fold) - 0.12 * Math.min(vein, 1);
-        break;
-      }
-      case 'onion': {
-        // Concentric layer bands arc over the dry papery skin fibers.
-        const turn = fract((u + v) * 6);
-        const layer = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const fiber = smooth(
-          clamp((0.035 - Math.abs(fract((u - v) * 8) - 0.5)) / 0.02),
-        );
-        const grain = noise(u, v, 24, 24, seed ^ 0x1355);
-        color = 0.44 + 0.3 * layer + 0.1 * fiber + 0.06 * grain;
-        height = 0.44 + 0.24 * layer + 0.05 * fiber + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
-        occlusion = 1 - 0.32 * (1 - layer);
-        break;
-      }
-      case 'bedsheet': {
-        // Soft pressed wrinkles drift across the woven sheet.
-        const warp = noise(u, v, 4, 4, seed ^ 0x2466) - 0.5;
-        const wrinkle = smooth(
-          clamp((0.3 - Math.abs(fract((v + 0.16 * warp) * 4) - 0.5)) / 0.16),
-        );
-        const weave = noise(u, v, 32, 32, seed ^ 0x3577);
-        color = 0.5 + 0.3 * wrinkle + 0.08 * weave;
-        height = 0.46 + 0.22 * wrinkle + 0.02 * weave;
-        roughness += 0.06 * (weave - 0.5) - 0.1 * wrinkle;
-        occlusion = 1 - 0.3 * (1 - wrinkle);
-        break;
-      }
-      case 'pillow': {
-        // Lofty quilted puffs dome between the recessed piped seams.
-        const px = fract(u * 2) - 0.5,
-          py = fract(v * 2) - 0.5;
-        const puff = smooth(clamp((0.36 - Math.hypot(px, py)) / 0.16));
-        const seam =
-          smooth(
-            clamp((0.045 - Math.min(fract(u * 2), 1 - fract(u * 2))) / 0.025),
-          ) +
-          smooth(
-            clamp((0.045 - Math.min(fract(v * 2), 1 - fract(v * 2))) / 0.025),
-          );
-        const weave = noise(u, v, 32, 32, seed ^ 0x5799);
-        color = 0.5 + 0.3 * puff - 0.1 * Math.min(seam, 1) + 0.06 * weave;
-        height = 0.44 + 0.24 * puff - 0.12 * Math.min(seam, 1) + 0.02 * weave;
-        roughness += 0.06 * (weave - 0.5) - 0.08 * puff;
-        occlusion = 1 - 0.34 * (1 - puff) - 0.12 * Math.min(seam, 1);
-        break;
-      }
-      case 'mattress': {
-        // Button tufts pull dimples into the coarse woven surface.
-        const tx = fract(u * 4) - 0.5,
-          ty = fract(v * 4) - 0.5;
-        const r = Math.hypot(tx, ty);
-        const tuft = smooth(clamp((0.18 - r) / 0.08));
-        const weave = noise(u, v, 24, 24, seed ^ 0x68aa);
-        color = 0.46 + 0.3 * (1 - tuft) * 0.4 + 0.1 * weave;
-        height = 0.46 + 0.12 * weave - 0.2 * tuft;
-        roughness += 0.06 * (weave - 0.5);
-        occlusion = 1 - 0.42 * tuft;
-        break;
-      }
-      case 'tealeaf': {
-        // Curled leaf pieces pile over the shaded gaps of the heap.
-        const leaf = smooth(
-          clamp((noise(u, v, 6, 6, seed ^ 0x79bb) - 0.48) / 0.14),
-        );
-        const curl = smooth(
-          clamp((noise(u, v, 14, 14, seed ^ 0x8acc) - 0.62) / 0.1),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x9bdd);
-        color = 0.42 + 0.3 * leaf + 0.12 * curl + 0.06 * grain;
-        height = 0.44 + 0.22 * leaf + 0.08 * curl + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * leaf;
-        occlusion = 1 - 0.36 * (1 - leaf) - 0.1 * (1 - curl);
-        break;
-      }
-      case 'matcha': {
-        // Whisk streaks comb across the fine powder bed.
-        const turn = fract((u + v) * 5);
-        const streak = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const powder = noise(u, v, 32, 32, seed ^ 0xaeee);
-        color = 0.46 + 0.3 * streak + 0.08 * powder;
-        height = 0.46 + 0.2 * streak + 0.02 * powder;
-        roughness += 0.06 * (powder - 0.5) - 0.08 * streak;
-        occlusion = 1 - 0.3 * (1 - streak);
-        break;
-      }
-      case 'teabag': {
-        // Filter-paper mesh threads cross over the open pores and tea shadows.
-        const warp = smooth(
-          clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
-        );
-        const weft = smooth(
-          clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
-        );
-        const thread = warp + weft - warp * weft;
-        const shadow = noise(u, v, 6, 6, seed ^ 0xbfff);
-        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
-        color = 0.46 + 0.28 * thread + 0.1 * shadow + 0.06 * grain;
-        height = 0.46 + 0.2 * thread + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * thread;
-        occlusion = 1 - 0.34 * (1 - thread);
-        break;
-      }
-      case 'sanddune': {
-        // Wind ripples comb fine grain across the dune face.
-        const turn = fract((u + v) * 6);
-        const ripple = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const grain = noise(u, v, 32, 32, seed ^ 0xd222);
-        color = 0.46 + 0.3 * ripple + 0.08 * grain;
-        height = 0.46 + 0.2 * ripple + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * ripple;
-        occlusion = 1 - 0.3 * (1 - ripple);
-        break;
-      }
-      case 'pebblebeach': {
-        // Round pebbles dome over the coarse sand between them.
-        const px = fract(u * 5) - 0.5,
-          py = fract(v * 5) - 0.5;
-        const pebble = smooth(clamp((0.34 - Math.hypot(px, py)) / 0.14));
-        const grain = noise(u, v, 32, 32, seed ^ 0xe333);
-        color = 0.44 + 0.32 * pebble + 0.08 * grain;
-        height = 0.44 + 0.26 * pebble + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * pebble;
-        occlusion = 1 - 0.34 * (1 - pebble);
-        break;
-      }
-      case 'foamedge': {
-        // Foam clumps and bubble specks wash over the thin water film.
-        const clump = smooth(
-          clamp((noise(u, v, 8, 8, seed ^ 0xf444) - 0.46) / 0.16),
-        );
-        const bubble = smooth(
-          clamp((noise(u, v, 24, 24, seed ^ 0x1555) - 0.7) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x2666);
-        color = 0.48 + 0.3 * clump + 0.12 * bubble + 0.06 * grain;
-        height = 0.44 + 0.22 * clump + 0.06 * bubble + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * clump;
-        occlusion = 1 - 0.34 * (1 - clump) - 0.1 * (1 - bubble);
-        break;
-      }
-      case 'lavaflow': {
-        // Pahoehoe ropes coil above the dark cracks between them.
-        const turn = fract((u + v) * 5);
-        const rope = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const crack = smooth(clamp((0.08 - Math.min(turn, 1 - turn)) / 0.04));
-        const glow = noise(u, v, 12, 12, seed ^ 0x3777);
-        const grain = noise(u, v, 32, 32, seed ^ 0x4888);
-        color = 0.34 + 0.34 * rope - 0.12 * crack + 0.16 * glow + 0.06 * grain;
-        height = 0.44 + 0.26 * rope - 0.1 * crack + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * rope + 0.12 * crack;
-        occlusion = 1 - 0.32 * (1 - rope) - 0.18 * crack;
-        break;
-      }
-      case 'cooledlava': {
-        // Crusted blocks crack apart over the pitted cooled surface.
-        const bx = Math.min(fract(u * 4), 1 - fract(u * 4));
-        const by = Math.min(fract(v * 4), 1 - fract(v * 4));
-        const block = smooth(clamp((Math.min(bx, by) - 0.03) / 0.1));
-        const pore = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x5999) - 0.74) / 0.06),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
-        color = 0.4 + 0.3 * block - 0.1 * pore + 0.08 * grain;
-        height = 0.42 + 0.24 * block - 0.08 * pore + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) + 0.1 * pore;
-        occlusion = 1 - 0.34 * (1 - block) - 0.18 * pore;
-        break;
-      }
-      case 'ashfield': {
-        // Fine ash drifts mound over the dusted ground.
-        const drift = smooth(
-          clamp((noise(u, v, 8, 8, seed ^ 0x7bbb) - 0.44) / 0.18),
-        );
-        const grit = noise(u, v, 32, 32, seed ^ 0x8ccc);
-        color = 0.44 + 0.28 * drift + 0.08 * grit;
-        height = 0.44 + 0.22 * drift + 0.02 * grit;
-        roughness += 0.06 * (grit - 0.5);
-        occlusion = 1 - 0.32 * (1 - drift);
-        break;
-      }
-      case 'stalactite': {
-        // Dripping cone tips hang over the shadowed pockets between them.
-        const cx = fract(u * 4) - 0.5,
-          cy = fract(v * 4) - 0.5;
-        const cone = smooth(clamp((0.32 - Math.hypot(cx, cy)) / 0.16));
-        const drip = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x9ddd) - 0.7) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
-        color = 0.44 + 0.3 * cone + 0.1 * drip + 0.06 * grain;
-        height = 0.44 + 0.26 * cone + 0.05 * drip + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * cone;
-        occlusion = 1 - 0.36 * (1 - cone) - 0.1 * (1 - drip);
-        break;
-      }
-      case 'flowstone': {
-        // Terraced flow bands step over the fine drip ripples.
-        const turn = fract((u + v) * 5);
-        const terrace = smooth(clamp((0.34 - Math.abs(turn - 0.5)) / 0.12));
-        const ripple = noise(u, v, 24, 24, seed ^ 0xbfff);
-        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
-        color = 0.46 + 0.3 * terrace + 0.08 * ripple + 0.06 * grain;
-        height = 0.44 + 0.26 * terrace + 0.04 * ripple + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * terrace;
-        occlusion = 1 - 0.32 * (1 - terrace);
-        break;
-      }
-      case 'cavefloor': {
-        // Rubble and grit break around the smooth shallow puddles.
-        const rubble = smooth(
-          clamp((noise(u, v, 8, 8, seed ^ 0xd222) - 0.46) / 0.16),
-        );
-        const puddle = smooth(
-          clamp((noise(u, v, 5, 5, seed ^ 0xe333) - 0.72) / 0.06),
-        );
-        const grit = noise(u, v, 32, 32, seed ^ 0xf444);
-        color = 0.42 + 0.28 * rubble + 0.12 * puddle + 0.08 * grit;
-        height = 0.44 + 0.2 * rubble - 0.1 * puddle + 0.02 * grit;
-        roughness += 0.06 * (grit - 0.5) + 0.2 * puddle;
-        occlusion = 1 - 0.34 * (1 - rubble) - 0.1 * puddle;
-        break;
-      }
-      case 'jam': {
-        // Glossy fruit chunks sit in the clear set syrup.
-        const jx = fract(u * 5) - 0.5,
-          jy = fract(v * 5) - 0.5;
-        const chunk = smooth(clamp((0.3 - Math.hypot(jx, jy)) / 0.14));
-        const syrup = noise(u, v, 16, 16, seed ^ 0x1555);
-        const grain = noise(u, v, 32, 32, seed ^ 0x2666);
-        color = 0.42 + 0.32 * chunk + 0.12 * syrup + 0.06 * grain;
-        height = 0.44 + 0.22 * chunk + 0.02 * grain;
-        roughness += 0.1 * (grain - 0.5) - 0.12 * chunk;
-        occlusion = 1 - 0.32 * (1 - chunk);
-        break;
-      }
-      case 'peanutbutter': {
-        // Chopped nut pieces break the smooth swirled paste.
-        const nut = smooth(
-          clamp((noise(u, v, 10, 10, seed ^ 0x3777) - 0.6) / 0.1),
-        );
-        const swirl = noise(u, v, 6, 6, seed ^ 0x4888);
-        const grain = noise(u, v, 32, 32, seed ^ 0x5999);
-        color = 0.46 + 0.28 * nut + 0.1 * swirl + 0.06 * grain;
-        height = 0.44 + 0.18 * nut + 0.04 * swirl + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * nut;
-        occlusion = 1 - 0.3 * (1 - nut);
-        break;
-      }
-      case 'sprinkles': {
-        // Sugar rods scatter over the frosted base.
-        const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
-          sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-        const t = clamp((0.32 - Math.hypot(sx * 0.5, sy * 2)) / 0.32);
-        const rod = 0.5 - 0.5 * Math.cos(Math.PI * t);
-        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
-        color = 0.52 + 0.28 * rod + 0.08 * grain;
-        height = 0.44 + 0.22 * rod + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.12 * rod;
-        occlusion = 1 - 0.32 * (1 - rod);
-        break;
-      }
-      case 'icecream': {
-        // Piped cream ridges roll between the melting drip specks.
-        const turn = fract((u + v) * 5);
-        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const drip = smooth(
-          clamp((noise(u, v, 16, 16, seed ^ 0x7bbb) - 0.72) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
-        color = 0.52 + 0.28 * ridge + 0.1 * drip + 0.06 * grain;
-        height = 0.44 + 0.24 * ridge + 0.05 * drip + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * ridge;
-        occlusion = 1 - 0.3 * (1 - ridge) - 0.1 * (1 - drip);
-        break;
-      }
-      case 'popsicle': {
-        // Frozen drip ridges run down the frosted ice pop.
-        const ridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 8) - 0.5));
-        const frost = noise(u, v, 24, 24, seed ^ 0x9ddd);
-        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
-        color = 0.46 + 0.3 * ridge + 0.1 * frost + 0.06 * grain;
-        height = 0.44 + 0.22 * ridge + 0.04 * frost + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) - 0.1 * ridge;
-        occlusion = 1 - 0.32 * (1 - ridge);
-        break;
-      }
-      case 'sorbet': {
-        // Scoop scrapes ridge over the fruit-flecked surface.
-        const turn = fract((u - v) * 6);
-        const scrape = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const fruit = smooth(
-          clamp((noise(u, v, 12, 12, seed ^ 0xbfff) - 0.68) / 0.1),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0xc111);
-        color = 0.46 + 0.28 * scrape + 0.12 * fruit + 0.06 * grain;
-        height = 0.44 + 0.2 * scrape + 0.06 * fruit + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * scrape;
-        occlusion = 1 - 0.3 * (1 - scrape) - 0.1 * (1 - fruit);
-        break;
-      }
-      case 'spaghetti': {
-        // Winding noodle strands coil over the sauce beneath.
-        const warp = noise(u, v, 4, 4, seed ^ 0xd222) - 0.5;
-        const strand = smooth(
-          clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 6) - 0.5)) / 0.16),
-        );
-        const sauce = noise(u, v, 8, 8, seed ^ 0xe333);
-        const grain = noise(u, v, 32, 32, seed ^ 0xf444);
-        color = 0.5 + 0.3 * strand + 0.1 * sauce + 0.06 * grain;
-        height = 0.46 + 0.22 * strand + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * strand;
-        occlusion = 1 - 0.32 * (1 - strand);
-        break;
-      }
-      case 'macaroni': {
-        // Short bent tube shells pile over the gaps between them.
-        const tx = Math.min(fract(u * 4), 1 - fract(u * 4)),
-          ty = Math.min(fract(v * 4), 1 - fract(v * 4));
-        const tube = smooth(clamp((Math.min(tx, ty) - 0.03) / 0.12));
-        const hr = Math.hypot(fract(u * 4) - 0.5, fract(v * 4) - 0.5);
-        const bore = smooth(clamp((0.12 - hr) / 0.06));
-        const grain = noise(u, v, 32, 32, seed ^ 0x1555);
-        color = 0.5 + 0.3 * tube - 0.12 * bore + 0.06 * grain;
-        height = 0.46 + 0.2 * tube - 0.14 * bore + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * tube;
-        occlusion = 1 - 0.34 * (1 - tube) - 0.2 * bore;
-        break;
-      }
-      case 'lasagna': {
-        // Layered pasta sheets stack over the sauce seams between them.
-        const layer = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
-        const cheese = smooth(
-          clamp((noise(u, v, 14, 14, seed ^ 0x2666) - 0.68) / 0.1),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x3777);
-        color = 0.44 + 0.32 * layer + 0.1 * cheese + 0.06 * grain;
-        height = 0.44 + 0.24 * layer + 0.05 * cheese + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
-        occlusion = 1 - 0.32 * (1 - layer);
-        break;
-      }
-      case 'origami': {
-        // Folded facets rise between the pressed crease lines.
-        const fa = Math.abs(fract((u + v) * 2) - 0.5),
-          fb = Math.abs(fract((u - v) * 2) - 0.5);
-        const fold =
-          smooth(clamp((0.34 - fa) / 0.16)) +
-          smooth(clamp((0.34 - fb) / 0.16)) -
-          smooth(clamp((0.34 - fa) / 0.16)) * smooth(clamp((0.34 - fb) / 0.16));
-        const crease =
-          smooth(
-            clamp(
-              (0.05 - Math.min(fract((u + v) * 2), 1 - fract((u + v) * 2))) /
-                0.025,
-            ),
-          ) +
-          smooth(
-            clamp(
-              (0.05 - Math.min(fract((u - v) * 2), 1 - fract((u - v) * 2))) /
-                0.025,
-            ),
-          );
-        const grain = noise(u, v, 32, 32, seed ^ 0x4888);
-        color = 0.46 + 0.3 * fold - 0.1 * Math.min(crease, 1) + 0.06 * grain;
-        height = 0.44 + 0.24 * fold - 0.1 * Math.min(crease, 1) + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * fold;
-        occlusion = 1 - 0.3 * (1 - fold) - 0.12 * Math.min(crease, 1);
-        break;
-      }
-      case 'paperlace': {
-        // Die-cut lace holes sink through the pressed paper webbing.
-        const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
-          sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-        const hole = smooth(clamp((0.16 - Math.hypot(sx, sy)) / 0.07));
-        const grain = noise(u, v, 32, 32, seed ^ 0x5999);
-        color = 0.52 + 0.28 * (1 - hole) + 0.06 * grain;
-        height = 0.46 + 0.2 * (1 - hole) + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) + 0.1 * hole;
-        occlusion = 1 - 0.36 * hole;
-        break;
-      }
-      case 'papercut': {
-        // Layered cutout shapes rise over the flat backing sheet.
-        const sx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
-          sy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
-        const shape = smooth(clamp((0.5 - Math.hypot(sx * 0.7, sy)) / 0.2));
-        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
-        color = 0.42 + 0.34 * shape + 0.08 * grain;
-        height = 0.44 + 0.24 * shape + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * shape;
-        occlusion = 1 - 0.32 * (1 - shape);
-        break;
-      }
-      case 'sunflower': {
-        // Seed heads pack in a domed grid across the disk.
-        const sx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
-          sy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
-        const st = clamp((0.6 - Math.hypot(sx * 0.9, sy * 1.4)) / 0.6);
-        const head = 0.5 - 0.5 * Math.cos(Math.PI * st);
-        const grain = noise(u, v, 32, 32, seed ^ 0x7bbb);
-        color = 0.44 + 0.3 * head + 0.08 * grain;
-        height = 0.44 + 0.24 * head + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * head;
-        occlusion = 1 - 0.32 * (1 - head);
-        break;
-      }
-      case 'daisy': {
-        // Radial petals fan around the recessed seed center.
-        const sx = Math.sin(Math.PI * (u - 0.5)),
-          sy = Math.sin(Math.PI * (v - 0.5));
-        const r = Math.hypot(sx, sy);
-        const ang = Math.atan2(sy, sx);
-        const petal =
-          (0.5 + 0.5 * Math.cos(ang * 12)) *
-          smooth(clamp((r - 0.16) / 0.1)) *
-          smooth(clamp((0.6 - r) / 0.1));
-        const center = smooth(clamp((0.16 - r) / 0.06));
-        const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
-        color = 0.46 + 0.32 * petal - 0.12 * center + 0.06 * grain;
-        height = 0.44 + 0.22 * petal - 0.1 * center + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * petal;
-        occlusion = 1 - 0.3 * (1 - petal) - 0.14 * center;
-        break;
-      }
-      case 'clover': {
-        // Three heart lobes spread from the stem join with fine veins.
-        const sx = Math.sin(Math.PI * (u - 0.5)),
-          sy = Math.sin(Math.PI * (v - 0.5));
-        const r = Math.hypot(sx, sy);
-        const ang = Math.atan2(sy, sx);
-        const lobe =
-          (0.5 + 0.5 * Math.cos(ang * 3)) * smooth(clamp((0.5 - r) / 0.14));
-        const vein = noise(u, v, 12, 12, seed ^ 0x9ddd);
-        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
-        color = 0.4 + 0.34 * lobe + 0.08 * vein + 0.06 * grain;
-        height = 0.42 + 0.24 * lobe + 0.03 * vein + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * lobe;
-        occlusion = 1 - 0.34 * (1 - lobe);
-        break;
-      }
-      case 'puzzletile': {
-        // Jigsaw pieces rise over their seams, bridged by rounded knobs.
-        const bx = Math.min(fract(u * 2), 1 - fract(u * 2)),
-          by = Math.min(fract(v * 2), 1 - fract(v * 2));
-        const piece = smooth(clamp((Math.min(bx, by) - 0.02) / 0.05));
-        const knobH = smooth(
-          clamp((0.13 - Math.hypot(bx, fract(v * 2) - 0.5)) / 0.05),
-        );
-        const knobV = smooth(
-          clamp((0.13 - Math.hypot(by, fract(u * 2) - 0.5)) / 0.05),
-        );
-        const top = 1 - (1 - piece) * (1 - knobH) * (1 - knobV);
-        const grain = noise(u, v, 32, 32, seed ^ 0xbbcc);
-        color = 0.44 + 0.3 * top + 0.08 * grain;
-        height = 0.44 + 0.24 * top + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * top;
-        occlusion = 1 - 0.34 * (1 - top);
-        break;
-      }
-      case 'legobrick': {
-        // Cylindrical studs dome over the smooth brick plate.
-        const sx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-          sy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-        const st = clamp((0.55 - Math.hypot(sx * 0.8, sy * 0.8)) / 0.55);
-        const stud = 0.5 - 0.5 * Math.cos(Math.PI * st);
-        const grain = noise(u, v, 32, 32, seed ^ 0xcddc);
-        color = 0.46 + 0.3 * stud + 0.06 * grain;
-        height = 0.44 + 0.24 * stud + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * stud;
-        occlusion = 1 - 0.3 * (1 - stud);
-        break;
-      }
-      case 'rubberband': {
-        // Crossed elastic bands stretch over the base wrap.
-        const bandU = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 3) - 0.5));
-        const bandV = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
-        const band = bandU + bandV - bandU * bandV;
-        const stretch = noise(u, v, 32, 32, seed ^ 0xddee);
-        color = 0.42 + 0.3 * band + 0.08 * stretch;
-        height = 0.44 + 0.2 * band + 0.02 * stretch;
-        roughness += 0.06 * (stretch - 0.5) - 0.1 * band;
-        occlusion = 1 - 0.32 * (1 - band);
-        break;
-      }
-      case 'haybale': {
-        // Combed straw streaks run beside the compressed bind bands.
-        const warp = noise(u, v, 3, 3, seed ^ 0xe444) - 0.5;
-        const straw =
-          0.5 +
-          0.5 *
-            Math.cos(Math.PI * 2 * (fract((u + v + 0.008 * warp) * 10) - 0.5));
-        const bind = smooth(
-          clamp((0.08 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.04),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0xf555);
-        color = 0.46 + 0.3 * straw - 0.1 * bind + 0.08 * grain;
-        height = 0.44 + 0.22 * straw - 0.1 * bind + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * straw + 0.08 * bind;
-        occlusion = 1 - 0.32 * (1 - straw) - 0.14 * bind;
-        break;
-      }
-      case 'corncrib': {
-        // Slatted crib rails cross over the dark open gaps.
-        const slatH = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
-        const slatV = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(u * 3) - 0.5));
-        const slat = slatH + slatV - slatH * slatV;
-        const grain = noise(u, v, 32, 32, seed ^ 0x1666);
-        color = 0.4 + 0.32 * slat + 0.08 * grain;
-        height = 0.42 + 0.24 * slat + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * slat;
-        occlusion = 1 - 0.34 * (1 - slat);
-        break;
-      }
-      case 'fencepost': {
-        // Weathered vertical grain ridges split by dark checks.
-        const turn = fract(u * 6);
-        const grainridge = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (turn - 0.5));
-        const check = smooth(clamp((0.03 - Math.min(turn, 1 - turn)) / 0.015));
-        const knot = smooth(
-          clamp((noise(u, v, 10, 10, seed ^ 0x2777) - 0.72) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x3888);
-        color =
-          0.44 + 0.3 * grainridge - 0.12 * check + 0.08 * knot + 0.06 * grain;
-        height = 0.44 + 0.22 * grainridge - 0.1 * check + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.08 * grainridge + 0.1 * check;
-        occlusion = 1 - 0.32 * (1 - grainridge) - 0.16 * check;
-        break;
-      }
-      case 'poolfelt': {
-        // Dense felt nap holds the crisp white marking dots.
-        const fx = Math.sin(Math.PI * (fract(u * 8) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 8) - 0.5));
-        const dot = smooth(clamp((0.18 - Math.hypot(fx, fy)) / 0.08));
-        const felt = noise(u, v, 32, 32, seed ^ 0x4999);
-        color = 0.36 + 0.34 * dot + 0.1 * felt;
-        height = 0.46 + 0.16 * dot + 0.02 * felt;
-        roughness += 0.06 * (felt - 0.5) - 0.06 * dot;
-        occlusion = 1 - 0.28 * (1 - dot);
-        break;
-      }
-      case 'icesurface': {
-        // Zamboni sweep arcs gloss over the scratched ice with frost flecks.
-        const warp = noise(u, v, 3, 3, seed ^ 0x5aaa) - 0.5;
-        const sweep =
-          0.5 +
-          0.5 *
-            Math.cos(Math.PI * 2 * (fract((u + v + 0.008 * warp) * 7) - 0.5));
-        const frost = smooth(
-          clamp((noise(u, v, 20, 20, seed ^ 0x6bbb) - 0.72) / 0.08),
-        );
-        const grain = noise(u, v, 32, 32, seed ^ 0x7ccc);
-        color = 0.52 + 0.28 * sweep + 0.1 * frost + 0.08 * grain;
-        height = 0.46 + 0.18 * sweep + 0.04 * frost + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) + 0.2 * frost;
-        occlusion = 1 - 0.3 * (1 - sweep) - 0.1 * (1 - frost);
-        break;
-      }
-      case 'climbingwall': {
-        // Rounded climbing holds rise over the gritty wall panels.
-        const cx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          cy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-        const ht = clamp((0.5 - Math.hypot(cx * 0.8, cy)) / 0.5);
-        const hold = 0.5 - 0.5 * Math.cos(Math.PI * ht);
-        const grit = noise(u, v, 32, 32, seed ^ 0x8ddd);
-        color = 0.4 + 0.34 * hold + 0.08 * grit;
-        height = 0.42 + 0.28 * hold + 0.02 * grit;
-        roughness += 0.06 * (grit - 0.5) - 0.08 * hold;
-        occlusion = 1 - 0.36 * (1 - hold);
-        break;
-      }
-      case 'oledpanel': {
-        // Subpixel stripes glow inside each cell; the dark matrix masks between them.
-        const gx = fract(u * 6),
-          gy = fract(v * 6);
-        const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gx - 0.5)),
-          rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gy - 0.5));
-        const bx = smooth(clamp((rawx - 0.74) / 0.26)),
-          by = smooth(clamp((rawy - 0.74) / 0.26));
-        const cellMask = bx + by - bx * by;
-        const sx = fract(gx * 3);
-        const raws = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (sx - 0.5));
-        const sm = smooth(clamp((raws - 0.8) / 0.2));
-        const mask = cellMask + sm - cellMask * sm;
-        const glow =
-          0.55 +
-          0.45 * hash(Math.floor(gx * 3), Math.floor(v * 6), seed ^ 0x1a2b);
-        color = 0.16 + 0.84 * glow * (1 - mask);
-        height = 0.28 + 0.44 * (1 - mask);
-        roughness += 0.1 * mask - 0.04 * (1 - mask);
-        occlusion = 1 - 0.34 * mask;
-        break;
-      }
-      case 'crtscanline': {
-        // Bright phosphor scanlines sit above the dark line gaps with fine grain.
-        const scan = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 10) - 0.5));
-        const phosphor = noise(u, v, 32, 32, seed ^ 0x2b3c),
-          grain = noise(u, v, 64, 64, seed ^ 0x3c4d);
-        color = 0.1 + 0.72 * scan + 0.12 * phosphor + 0.06 * grain;
-        height = 0.24 + 0.5 * scan + 0.04 * phosphor;
-        roughness += 0.08 * (1 - scan) + 0.06 * (grain - 0.5);
-        occlusion = 1 - 0.36 * (1 - scan);
-        break;
-      }
-      case 'keyboardkey': {
-        // Sculpted rounded-square keycaps rise over the recessed gaps.
-        const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-        const d = Math.pow(
-          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
-          0.25,
-        );
-        const cap = smooth(clamp((0.86 - d) / 0.5));
-        const grain = noise(u, v, 32, 32, seed ^ 0x4d5e);
-        color = 0.34 + 0.4 * cap + 0.08 * grain;
-        height = 0.26 + 0.46 * cap + 0.04 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.06 * cap;
-        occlusion = 1 - 0.34 * (1 - cap);
-        break;
-      }
-      case 'filmstrip': {
-        // Perforation holes punch the film between the horizontal divider grooves.
-        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const hole = smooth(clamp((0.3 - d) / 0.28));
-        const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
-        const grain = noise(u, v, 16, 32, seed ^ 0x5e6f);
-        color = (0.45 + 0.2 * grain) * (1 - 0.8 * hole) * (1 - 0.25 * groove);
-        height = 0.62 - 0.4 * hole - 0.2 * groove + 0.02 * grain;
-        roughness += 0.05 * grain + 0.12 * hole;
-        occlusion = 1 - 0.45 * hole - 0.18 * groove;
-        break;
-      }
-      case 'postagestamp': {
-        // Border perforations frame the raised medallion on stamp paper.
-        const ax = Math.sin(Math.PI * (fract(u * 8 + 0.5) - 0.5)),
-          av = Math.sin(Math.PI * v),
-          ay = Math.sin(Math.PI * (fract(v * 8 + 0.5) - 0.5)),
-          au = Math.sin(Math.PI * u);
-        const dTop = Math.hypot(ax, av),
-          dSide = Math.hypot(ay, au);
-        const hT = smooth(clamp((0.3 - dTop) / 0.28)),
-          hS = smooth(clamp((0.3 - dSide) / 0.28));
-        const hole = hT + hS - hT * hS;
-        const med = smooth(clamp((0.4 - Math.hypot(u - 0.5, v - 0.5)) / 0.12));
-        const grain = noise(u, v, 32, 32, seed ^ 0x6f7a);
-        color = (0.5 + 0.28 * med + 0.1 * grain) * (1 - 0.72 * hole);
-        height = 0.5 + 0.13 * med - 0.42 * hole + 0.03 * grain;
-        roughness += 0.08 * (grain - 0.5) + 0.1 * hole;
-        occlusion = 1 - 0.5 * hole;
-        break;
-      }
-      case 'halftoneprint': {
-        // Tone-varying ink dots tile the paper on a rotated lattice.
-        const u1 = (u + v) * 6,
-          v1 = (u - v) * 6;
-        const fx = Math.sin(Math.PI * (fract(u1) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v1) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const tone = noise(u, v, 4, 4, seed ^ 0x7a8b),
-          grain = noise(u, v, 64, 64, seed ^ 0x8b9c);
-        const dot = smooth(clamp((0.28 + 0.42 * tone - d) / 0.22));
-        color = 0.28 + 0.55 * dot + 0.08 * grain;
-        height = 0.35 + 0.5 * dot + 0.02 * grain;
-        roughness += 0.12 * (1 - dot) + 0.05 * (grain - 0.5);
-        occlusion = 1 - 0.55 * (1 - dot);
-        break;
-      }
-      case 'radiator': {
-        // Round heating tubes rise from the recessed seams between them.
-        const tube = (1 + Math.cos(Math.PI * 2 * (fract(u * 5) - 0.5))) / 2;
-        const grain = noise(u, v, 32, 32, seed ^ 0x9cad);
-        color = 0.34 + 0.5 * tube + 0.08 * grain;
-        height = 0.32 + 0.6 * tube + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) - 0.06 * tube;
-        occlusion = 1 - 0.5 * (1 - tube);
-        break;
-      }
-      case 'screwhead': {
-        // Cross-recessed screw heads sit inside their shallow panel dimples.
-        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const head = smooth(clamp((0.55 - d) / 0.3));
-        const slotX = 1 - smooth(clamp((Math.abs(fx) - 0.08) / 0.12)),
-          slotY = 1 - smooth(clamp((Math.abs(fy) - 0.08) / 0.12));
-        const cross = slotX + slotY - slotX * slotY;
-        const recess = cross * head;
-        const grain = noise(u, v, 32, 32, seed ^ 0xadbe);
-        color = 0.4 + 0.3 * head - 0.28 * recess + 0.06 * grain;
-        height = 0.45 + 0.28 * head - 0.42 * recess;
-        roughness += 0.08 * (grain - 0.5) + 0.1 * recess;
-        occlusion = 1 - 0.4 * recess - 0.1 * (1 - head) * (1 - recess);
-        break;
-      }
-      case 'chainlink': {
-        // Diamond wires twist thicker at the nodes where they cross.
-        const w1 = Math.sin(Math.PI * (fract(u + v + 0.5) - 0.5)),
-          w2 = Math.sin(Math.PI * (fract(u - v + 0.5) - 0.5));
-        const b1 = smooth(clamp((0.22 - Math.abs(w1)) / 0.18)),
-          b2 = smooth(clamp((0.22 - Math.abs(w2)) / 0.18));
-        const wire = b1 + b2 - b1 * b2,
-          node = b1 * b2;
-        const grain = noise(u, v, 32, 32, seed ^ 0xbecf);
-        color = 0.3 + 0.36 * wire + 0.1 * node + 0.08 * grain;
-        height = 0.3 + 0.44 * wire + 0.16 * node + 0.02 * grain;
-        roughness += 0.08 * (grain - 0.5) - 0.1 * wire;
-        occlusion = 1 - 0.55 * (1 - wire) - 0.12 * (1 - node);
-        break;
-      }
-      case 'friedegg': {
-        // A warped white blob carries the yolk dome at its center.
-        const w1 = noise(u, v, 4, 4, seed ^ 0xcfd0) - 0.5,
-          w2 = noise(u, v, 4, 4, seed ^ 0xd0e1) - 0.5,
-          w3 = noise(u, v, 4, 4, seed ^ 0xe1f2) - 0.5;
-        const r = Math.hypot(u - 0.5 + 0.06 * w1, v - 0.5 + 0.06 * w2);
-        const yolk = smooth(clamp((0.16 - r) / 0.06));
-        const white = smooth(clamp((0.34 - (r + 0.1 * w3)) / 0.1));
-        const grain = noise(u, v, 32, 32, seed ^ 0xf203);
-        color = 0.4 + 0.34 * yolk + 0.2 * white + 0.05 * grain;
-        height = 0.3 + 0.45 * yolk + 0.18 * white + 0.02 * grain;
-        roughness += 0.1 * (1 - yolk) - 0.06 * white;
-        occlusion = 0.5 + 0.5 * (yolk + white - yolk * white);
-        break;
-      }
-      case 'sushirice': {
-        // Rice grains dome up from the crevices, with even warp modulation.
-        const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
-        const w1 = noise(u, v, 6, 6, seed ^ 0x0314) - 0.5,
-          w2 = noise(u, v, 6, 6, seed ^ 0x1425) - 0.5;
-        const mod =
-          1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
-        const d = Math.hypot(fx * 1.2, fy * 0.8) * mod;
-        const grain = smooth(clamp((0.34 - d) / 0.22));
-        const sheen = noise(u, v, 32, 32, seed ^ 0x2536);
-        color = 0.62 + 0.28 * grain + 0.06 * sheen;
-        height = 0.34 + 0.5 * grain + 0.03 * sheen;
-        roughness += 0.08 * (sheen - 0.5) - 0.08 * grain;
-        occlusion = 1 - 0.5 * (1 - grain);
-        break;
-      }
-      case 'chocolatechip': {
-        // Chocolate discs sink into the soft cookie crumb.
-        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const radius =
-          0.45 +
-          0.1 * hash(Math.floor(u * 3), Math.floor(v * 3), seed ^ 0x3647);
-        const chip = smooth(clamp((radius - d) / 0.12));
-        const crumb = noise(u, v, 32, 32, seed ^ 0x4758);
-        color = 0.62 - 0.3 * chip + 0.08 * crumb;
-        height = 0.36 + 0.34 * chip + 0.03 * crumb;
-        roughness += 0.06 * (crumb - 0.5) - 0.1 * chip;
-        occlusion = 1 - 0.45 * (1 - chip);
-        break;
-      }
-      case 'cargomat': {
-        // Rubber ribs run into the transverse recessed grooves.
-        const rib = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
-        const groove = (1 + Math.cos(Math.PI * 2 * fract(v * 2))) / 2;
-        const grain = noise(u, v, 32, 32, seed ^ 0x5869);
-        color =
-          (0.36 + 0.1 * grain) * (1 - 0.28 * groove) * (0.55 + 0.45 * rib);
-        height = 0.28 + 0.52 * rib - 0.22 * groove + 0.02 * grain;
-        roughness += 0.06 * grain + 0.1 * (1 - rib);
-        occlusion = 1 - 0.4 * (1 - rib) - 0.24 * groove;
-        break;
-      }
-      case 'dashboardgrain': {
-        // Pebbled leather grain with a recessed seam crease.
-        const fx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const bs = smooth(clamp((0.5 - d) / 0.34));
-        const gn = noise(u, v, 32, 32, seed ^ 0x697a);
-        const rawSeam = (1 + Math.cos(Math.PI * 2 * fract(u * 2))) / 2;
-        const seam = smooth(clamp((rawSeam - 0.8) / 0.2));
-        const pebble = bs * (0.7 + 0.3 * gn);
-        color = 0.42 + 0.3 * pebble + 0.06 * gn - 0.12 * seam;
-        height = 0.34 + 0.42 * pebble - 0.2 * seam + 0.02 * gn;
-        roughness += 0.06 * gn + 0.1 * seam - 0.06 * bs;
-        occlusion = 1 - 0.4 * (1 - bs) - 0.2 * seam;
-        break;
-      }
-      case 'licenseplate': {
-        // A raised border frames the embossed text bars over the inset.
-        const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (u - 0.5)),
-          rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (v - 0.5));
-        const bx = smooth(clamp((rawx - 0.72) / 0.24)),
-          by = smooth(clamp((rawy - 0.72) / 0.24));
-        const border = bx + by - bx * by;
-        const bar = (1 + Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5))) / 2;
-        const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
-        const raised = bar * (1 - border);
-        color = 0.44 + 0.2 * border + 0.12 * raised + 0.05 * grain;
-        height = 0.3 + 0.4 * border + 0.22 * raised + 0.02 * grain;
-        roughness += 0.06 * (grain - 0.5) - 0.1 * border;
-        occlusion = 1 - 0.3 * (1 - border) * (1 - bar);
-        break;
-      }
-      case 'flowerbed': {
-        // Rosettes with four-fold petals dome above the soil.
-        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const petal =
-          0.72 +
-          0.28 *
-            (Math.cos(Math.PI * 2 * 3 * (u + v)) *
-              Math.cos(Math.PI * 2 * 3 * (u - v)));
-        const dome = smooth(clamp((0.5 - d) / 0.3)) * petal;
-        const soil = noise(u, v, 32, 32, seed ^ 0x8b9c);
-        color = 0.3 + 0.32 * dome + 0.1 * soil;
-        height = 0.3 + 0.5 * dome + 0.03 * soil;
-        roughness += 0.08 * (soil - 0.5) - 0.1 * dome;
-        occlusion = 1 - 0.5 * (1 - dome);
-        break;
-      }
-      case 'grassstripe': {
-        // Mowed bands gloss over the fine blade texture.
-        const stripe = (1 + Math.cos(Math.PI * 2 * (fract(v * 2) - 0.5))) / 2;
-        const blade = noise(u, v, 48, 8, seed ^ 0x9cad),
-          soil = noise(u, v, 16, 16, seed ^ 0xadbe);
-        color = 0.34 + 0.36 * stripe + 0.12 * blade + 0.06 * soil;
-        height = 0.3 + 0.42 * stripe + 0.08 * blade + 0.03 * soil;
-        roughness += 0.08 * (soil - 0.5) + 0.06 * (1 - stripe);
-        occlusion = 1 - 0.42 * (1 - stripe);
-        break;
-      }
-      case 'topiary': {
-        // Clipped leaf clusters dome above the trimmed gaps.
-        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const w1 = noise(u, v, 3, 3, seed ^ 0xbecf) - 0.5,
-          w2 = noise(u, v, 3, 3, seed ^ 0xcfd0) - 0.5;
-        const mod =
-          1 + 0.16 * (w1 * (2 * fx * fx - 1) + w2 * (2 * fy * fy - 1));
-        const cluster = smooth(clamp((0.52 - d * mod) / 0.3));
-        const leaf = noise(u, v, 32, 32, seed ^ 0xd0e1);
-        color = 0.28 + 0.3 * cluster + 0.1 * leaf;
-        height = 0.3 + 0.48 * cluster + 0.04 * leaf;
-        roughness += 0.08 * (leaf - 0.5) - 0.08 * cluster;
-        occlusion = 1 - 0.48 * (1 - cluster);
-        break;
-      }
-      case 'confetti': {
-        // Scattered chips with per-cell size variation over the paper.
-        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-        const d = Math.pow(
-          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
-          0.25,
-        );
-        const radius =
-          0.52 +
-          0.16 * hash(Math.floor(u * 4), Math.floor(v * 4), seed ^ 0xe1f2);
-        const chip = smooth(clamp((radius - d) / 0.12));
-        const paper = noise(u, v, 32, 32, seed ^ 0xf203);
-        color = 0.4 + 0.3 * chip + 0.1 * paper;
-        height = 0.34 + 0.4 * chip + 0.03 * paper;
-        roughness += 0.06 * (paper - 0.5) - 0.1 * chip;
-        occlusion = 1 - 0.44 * (1 - chip);
-        break;
-      }
-      case 'ribbonstreamer': {
-        // Wide twisted ribbon bands sweep along the diagonal.
-        const band =
-          (1 + Math.cos(Math.PI * 2 * (fract((u + v) * 3) - 0.5))) / 2;
-        const w2 = noise(u, v, 4, 4, seed ^ 0x1425) - 0.5,
-          sheen = noise(u, v, 32, 32, seed ^ 0x2536);
-        color = 0.36 + 0.34 * band + 0.12 * sheen + 0.08 * w2;
-        height = 0.3 + 0.46 * band + 0.03 * sheen;
-        roughness += 0.08 * (sheen - 0.5) - 0.1 * band;
-        occlusion = 1 - 0.46 * (1 - band);
-        break;
-      }
-      case 'pinatafringe': {
-        // Dense fringe strands hang in tiers over the crepe backing.
-        const strand = (1 + Math.cos(Math.PI * 2 * (fract(u * 14) - 0.5))) / 2;
-        const tier = (1 + Math.cos(Math.PI * 2 * fract(v * 3))) / 2;
-        const crepe = noise(u, v, 32, 32, seed ^ 0x3647);
-        color = 0.34 + 0.3 * strand + 0.12 * crepe - 0.14 * tier;
-        height = 0.28 + 0.44 * strand - 0.2 * tier + 0.03 * crepe;
-        roughness += 0.06 * (crepe - 0.5) + 0.1 * tier;
-        occlusion = 1 - 0.4 * (1 - strand) - 0.2 * tier;
-        break;
-      }
-      case 'xylophone': {
-        // Tuned wooden bars rise above the open gaps and cord holes.
-        const bar = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
-        const hole = smooth(
-          clamp(
-            (0.18 -
-              Math.hypot(
-                Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-                Math.sin(Math.PI * (fract(v * 2) - 0.5)),
-              )) /
-              0.12,
-          ),
-        );
-        const grain = noise(u, v, 32, 8, seed ^ 0x4758);
-        color = 0.4 + 0.32 * bar + 0.1 * grain - 0.22 * hole;
-        height = 0.3 + 0.46 * bar - 0.24 * hole + 0.03 * grain;
-        roughness += 0.06 * (grain - 0.5) + 0.12 * hole;
-        occlusion = 1 - 0.44 * (1 - bar) - 0.18 * hole;
-        break;
-      }
-      case 'tambourine': {
-        // Tilted jingle discs dome over the drum skin.
-        const fx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
-        const d = Math.hypot(fx * 1.35, fy * 0.85);
-        const disc = smooth(clamp((0.46 - d) / 0.16));
-        const skin = noise(u, v, 32, 32, seed ^ 0x5869);
-        color = 0.38 + 0.34 * disc + 0.1 * skin;
-        height = 0.32 + 0.42 * disc + 0.03 * skin;
-        roughness += 0.06 * (skin - 0.5) - 0.12 * disc;
-        occlusion = 1 - 0.46 * (1 - disc);
-        break;
-      }
-      case 'castanet': {
-        // Paired shells dimple at their centers above the felt backing.
-        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const shell = smooth(clamp((0.56 - d) / 0.3));
-        const dimple = smooth(clamp((0.16 - d) / 0.1));
-        const grain = noise(u, v, 32, 32, seed ^ 0x697a);
-        color = 0.42 + 0.26 * shell - 0.18 * dimple + 0.08 * grain;
-        height = 0.3 + 0.42 * shell - 0.3 * dimple;
-        roughness += 0.06 * (grain - 0.5) + 0.1 * dimple;
-        occlusion = 1 - 0.44 * (1 - shell) - 0.12 * dimple;
-        break;
-      }
-      case 'pillcapsule': {
-        // Elongated capsule halves dome over the blister backing.
-        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 2) - 0.5));
-        const d = Math.hypot(fx * 0.72, fy * 1.25);
-        const body = smooth(clamp((0.52 - d) / 0.3));
-        const seam = 1 - smooth(clamp((Math.abs(fy) - 0.06) / 0.12));
-        const groove = seam * body;
-        const grain = noise(u, v, 32, 32, seed ^ 0x7a8b);
-        color = 0.46 + 0.28 * body - 0.2 * groove + 0.06 * grain;
-        height = 0.3 + 0.44 * body - 0.26 * groove;
-        roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
-        occlusion = 1 - 0.44 * (1 - body) - 0.12 * groove;
-        break;
-      }
-      case 'pilltablet': {
-        // Round tablets carry a score groove across their crowns.
-        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
-          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
-        const d = Math.hypot(fx, fy);
-        const tablet = smooth(clamp((0.62 - d) / 0.3));
-        const score = 1 - smooth(clamp((Math.abs(fx) - 0.05) / 0.1));
-        const groove = score * tablet;
-        const grain = noise(u, v, 32, 32, seed ^ 0x8b9c);
-        color = 0.5 + 0.26 * tablet - 0.2 * groove + 0.06 * grain;
-        height = 0.3 + 0.42 * tablet - 0.24 * groove;
-        roughness += 0.06 * (grain - 0.5) + 0.12 * groove;
-        occlusion = 1 - 0.44 * (1 - tablet) - 0.12 * groove;
-        break;
-      }
-      case 'bathbomb': {
-        // Coarse fizz grain breaks along shallow diagonal fissures.
-        const fx = Math.sin(Math.PI * (fract((u + v) * 4) - 0.5)),
-          fy = Math.sin(Math.PI * (fract((u - v) * 4) - 0.5));
-        const crack =
-          smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) +
-          smooth(clamp((Math.abs(fy) - 0.62) / 0.2)) -
-          smooth(clamp((Math.abs(fx) - 0.62) / 0.2)) *
-            smooth(clamp((Math.abs(fy) - 0.62) / 0.2));
-        const grain = noise(u, v, 24, 24, seed ^ 0x9cad);
-        const fizz = smooth(clamp((grain - 0.34) / 0.3));
-        color = 0.42 + 0.26 * fizz - 0.16 * crack + 0.08 * grain;
-        height = 0.34 + 0.02 * grain - 0.22 * crack;
-        roughness += 0.08 * (grain - 0.5) + 0.12 * crack;
-        occlusion = 1 - 0.4 * crack - 0.16 * (1 - fizz);
-        break;
-      }
-      case 'basketball': {
-        const x = u * sportCells,
-          y = v * sportCells,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let pebbles = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset =
-              ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
-                (((cx % sportCells) + sportCells) % sportCells)) *
-              sportStride;
-            const dx = x - cx - sportFeatures![offset],
-              dy = y - cy - sportFeatures![offset + 1];
-            const pebble = smooth(
-              clamp(1 - (dx * dx + dy * dy) * sportFeatures![offset + 2]),
-            );
-            pebbles += (1 - pebbles) * pebble;
-          }
-        // Products keep both intersecting panel grooves and their slopes smooth.
-        const across = Math.abs(
-            Math.sin(TAU * (2 * u + 0.12 * Math.sin(TAU * v))),
-          ),
-          along = Math.abs(Math.sin(TAU * (2 * v + 0.12 * Math.sin(TAU * u))));
-        const panel =
-          smooth(clamp((across - 0.035) / 0.105)) *
-          smooth(clamp((along - 0.035) / 0.105));
-        color = 0.025 + panel * (0.64 + 0.24 * pebbles + 0.025 * detail);
-        height = 0.12 + panel * (0.46 + 0.22 * pebbles);
-        roughness += 0.045 * pebbles - 0.08 * (1 - panel);
-        occlusion = 0.64 + 0.36 * panel;
-        break;
-      }
-      case 'tennisball': {
-        const x = u * sportCells,
-          y = v * sportCells,
-          ix = Math.floor(x),
-          iy = Math.floor(y);
-        let felt = 0;
-        for (let oy = -1; oy <= 1; oy++)
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = ix + ox,
-              cy = iy + oy;
-            const offset =
-              ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
-                (((cx % sportCells) + sportCells) % sportCells)) *
-              sportStride;
-            const dx = x - cx - sportFeatures![offset],
-              dy = y - cy - sportFeatures![offset + 1];
-            const along =
-                (dx * sportFeatures![offset + 2] +
-                  dy * sportFeatures![offset + 3]) /
-                0.48,
-              across =
-                (-dx * sportFeatures![offset + 3] +
-                  dy * sportFeatures![offset + 2]) /
-                0.065;
-            // Compact, randomly oriented strokes imply tangled felt, not woven yarn.
-            const fiber = smooth(clamp(1 - along * along - across * across));
-            felt += (1 - felt) * fiber;
-          }
-        const distance = Math.abs(
-          Math.sin(TAU * (v - 0.19 * Math.sin(TAU * u) - 0.25)),
-        );
-        const seam = 1 - smooth(clamp((distance - 0.025) / 0.075));
-        color = (0.16 + 0.1 * detail + 0.06 * felt) * (1 - seam) + 0.97 * seam;
-        height =
-          0.54 + (1 - seam) * (0.065 * felt + 0.018 * detail) - 0.12 * seam;
-        roughness -= 0.1 * seam;
-        occlusion = 1 - 0.12 * seam;
-        break;
-      }
-      case 'golfball': {
-        const x = fract(u * 10 - golfOffsetU) - 0.5,
-          y = fract(v * 10 - golfOffsetV) - 0.5;
-        // Squared radius is smooth at the center; the compact bowl meets flat
-        // land with zero rim slope, before a cell can change ownership.
-        const bowl = Math.pow(clamp(1 - (x * x + y * y) / (0.41 * 0.41)), 2);
-        color = 0.96 - 0.12 * bowl;
-        height = 0.8 - 0.6 * bowl;
-        roughness += 0.04 * bowl;
-        occlusion = 1 - 0.2 * bowl;
-        break;
-      }
-      case 'boardformedconcrete': {
-        const row = Math.floor(v * 8),
-          y = fract(v * 8),
-          x = fract(u * 2 + (row % 2) * 0.5),
-          column = Math.floor(fract(u + (row % 2) * 0.25) * 2);
-        // Recessed timber joints own all board-local variation, including ends.
-        // Separate axis shoulders avoid diagonal nearest-edge corner cusps.
-        const face =
-          smooth(clamp(x / 0.018)) *
-          smooth(clamp((1 - x) / 0.018)) *
-          smooth(clamp(y / 0.055)) *
-          smooth(clamp((1 - y) / 0.055));
-        const variation = architecturalOwners![row * 2 + column],
-          grain = boardGrain!(
-            u,
-            v + 0.002 * Math.sin(TAU * u + variation * TAU),
-          ),
-          pores = castPores!(u, v);
-        color =
-          0.39 +
-          face * (0.12 + 0.09 * variation + 0.055 * grain) +
-          0.025 * pores;
-        height =
-          0.18 +
-          face * (0.48 + 0.025 * variation + 0.025 * grain) +
-          0.008 * pores;
-        roughness += 0.025 * grain * face + 0.025 * pores;
-        occlusion = 0.75 + 0.25 * face;
-        break;
-      }
-      case 'ribbedconcrete': {
-        const x = fract(u * 12),
-          owner = Math.floor(u * 12);
-        // A broad flat crown and trough meet through rounded C1 shoulders.
-        const rib =
-          smooth(clamp((x - 0.12) / 0.18)) * smooth(clamp((0.88 - x) / 0.18));
-        const pores = castPores!(u, v),
-          aggregate = castAggregate!(u, v),
-          variation = architecturalOwners![owner];
-        color =
-          0.38 +
-          0.17 * rib +
-          0.055 * aggregate +
-          0.025 * pores +
-          0.025 * variation * rib;
-        height =
-          0.15 +
-          0.65 * rib +
-          0.009 * pores +
-          0.006 * aggregate +
-          0.008 * variation * rib;
-        roughness += 0.035 * pores + 0.02 * aggregate;
-        occlusion = 0.69 + 0.31 * rib;
-        break;
-      }
-      case 'splitfaceblock': {
-        const row = Math.floor(v * 8),
-          y = fract(v * 8),
-          shifted = u * 4 + (row % 2) * 0.5,
-          x = fract(shifted),
-          column = Math.floor(shifted) % 4;
-        const face =
-          smooth(clamp((x - 0.04) / 0.08)) *
-          smooth(clamp((0.96 - x) / 0.08)) *
-          smooth(clamp((y - 0.06) / 0.09)) *
-          smooth(clamp((0.94 - y) / 0.09));
-        const variation = architecturalOwners![row * 4 + column],
-          aggregate = castAggregate!(u, v),
-          pores = castPores!(u, v);
-        // Broad fractured facets and smaller chips are confined to the block,
-        // leaving a smooth, flat mortar bed through staggered row transitions.
-        const fracture = smooth(clamp((aggregate - 0.22) / 0.56));
-        color =
-          0.4 +
-          face * (0.04 + 0.28 * fracture + 0.1 * variation + 0.06 * pores);
-        height =
-          0.14 +
-          face * (0.34 + 0.25 * fracture + 0.1 * variation + 0.08 * pores);
-        roughness -= 0.1 * (1 - face);
-        roughness += 0.035 * pores * face;
-        occlusion = 0.64 + face * (0.29 + 0.07 * fracture);
-        mortar = 1 - face;
-        break;
-      }
-      case 'chainmail': {
-        const x = u * 6,
-          y = v * 8,
-          row = Math.floor(y);
-        const grain = sheetGrain!(u, v);
-        color = 0.035 + 0.025 * grain;
-        height = 0.06 + 0.008 * grain;
-        roughness = 0.88 + 0.04 * grain;
-        occlusion = 0.59;
-        // Compact annuli are composited in row order. Their opposite tilts
-        // expose alternate shoulders where adjacent rows interleave.
-        for (let oy = -1; oy <= 1; oy++) {
-          const cy = row + oy,
-            wy = (cy + 8) % 8;
-          const shift = (wy % 2) * 0.5,
-            column = Math.floor(x - shift);
-          for (let ox = -1; ox <= 1; ox++) {
-            const cx = column + ox,
-              wx = (cx + 6) % 6;
-            const dx = x - cx - shift - 0.5,
-              dy = y - cy - 0.5;
-            const radial = Math.sqrt(dx * dx + dy * dy);
-            const wire = clamp(1 - ((radial - 0.62) / 0.105) ** 2);
-            const coverage = smooth(wire);
-            const variation = fabricatedOwners![wy * 6 + wx];
-            const crown =
-              0.44 +
-              0.26 * wire +
-              (wy % 2 ? -1 : 1) * dy * (0.13 + 0.04 * variation);
-            color +=
-              coverage * (0.63 + 0.13 * variation + 0.04 * grain - color);
-            height += coverage * (crown - height);
-            roughness +=
-              coverage * (preset.roughness + 0.04 * grain - roughness);
-            occlusion += coverage * (0.88 + 0.1 * wire - occlusion);
-            metallic += coverage * (1 - metallic);
-          }
-        }
-        break;
-      }
-      case 'rivetedmetal': {
-        const x = fract(u * 3),
-          y = fract(v * 4);
-        const face =
-          smooth(clamp(x / 0.045)) *
-          smooth(clamp((1 - x) / 0.045)) *
-          smooth(clamp(y / 0.045)) *
-          smooth(clamp((1 - y) / 0.045));
-        const owner = Math.floor(v * 4) * 3 + Math.floor(u * 3);
-        const variation = fabricatedOwners![owner],
-          grain = sheetGrain!(u, v);
-        let rivet = 0;
-        // Four discrete heads sit inside each panel, clear of its joint.
-        for (let iy = 0; iy < 2; iy++)
-          for (let ix = 0; ix < 2; ix++) {
-            const dx = x - (ix ? 0.88 : 0.12),
-              dy = y - (iy ? 0.88 : 0.12);
-            const cap = clamp(1 - (dx * dx + dy * dy) / (0.052 * 0.052));
-            rivet += cap * cap;
-          }
-        color =
-          0.28 + face * (0.19 + 0.09 * variation) + 0.13 * rivet + 0.03 * grain;
-        height =
-          0.09 +
-          face * (0.23 + 0.025 * variation) +
-          0.57 * rivet +
-          0.004 * grain;
-        roughness += 0.1 * (1 - face) - 0.09 * rivet + 0.025 * grain;
-        occlusion = 0.64 + 0.34 * face + 0.02 * rivet;
-        break;
-      }
-      case 'weldedmetal': {
-        const x = fract(u * 3 + 0.5) - 0.5;
-        const scallop = 0.5 + 0.5 * Math.cos(TAU * 32 * v + phase);
-        const width = 0.065 + 0.015 * scallop;
-        const bead = smooth(clamp(1 - (x / width) ** 2));
-        const halo = smooth(clamp(1 - (x / 0.15) ** 2));
-        const grain = sheetGrain!(u, v);
-        color =
-          0.52 + 0.04 * grain - 0.16 * halo + bead * (0.19 + 0.08 * scallop);
-        height = 0.2 + 0.004 * grain + bead * (0.46 + 0.15 * scallop);
-        roughness += 0.12 * halo - 0.05 * bead + 0.025 * grain;
-        occlusion = 1 - 0.15 * halo * (1 - bead);
-        break;
-      }
-    }
+    fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
+    color = broad;
+    height = broad;
+    roughness = preset.roughness;
+    occlusion = 1;
+    mortar = 0;
+    metallic = metallicBase;
+    body();
     out.color = color;
     out.height = height * preset.relief;
     out.roughness = clamp(roughness);
