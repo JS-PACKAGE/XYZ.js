@@ -241,6 +241,9 @@ export type ProceduralMaterialKind =
   | 'origami'
   | 'paperlace'
   | 'papercut'
+  | 'sunflower'
+  | 'daisy'
+  | 'clover'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -564,6 +567,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'origami',
   'paperlace',
   'papercut',
+  'sunflower',
+  'daisy',
+  'clover',
   'basketball',
   'tennisball',
   'golfball',

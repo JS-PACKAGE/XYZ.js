@@ -1410,6 +1410,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.68;
         relief: 0.0026;
     }>;
+    sunflower: Readonly<{
+        dark: readonly [72, 52, 22];
+        light: readonly [232, 192, 62];
+        roughness: 0.62;
+        relief: 0.003;
+    }>;
+    daisy: Readonly<{
+        dark: readonly [182, 172, 62];
+        light: readonly [252, 252, 242];
+        roughness: 0.58;
+        relief: 0.0026;
+    }>;
+    clover: Readonly<{
+        dark: readonly [42, 88, 42];
+        light: readonly [122, 192, 92];
+        roughness: 0.68;
+        relief: 0.0028;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2044,6 +2062,9 @@ export declare const proceduralTileMeters: Readonly<{
     origami: 0.2;
     paperlace: 0.12;
     papercut: 0.18;
+    sunflower: 0.24;
+    daisy: 0.2;
+    clover: 0.24;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

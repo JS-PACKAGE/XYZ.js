@@ -3282,6 +3282,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .68,
 		relief: .0026
 	}),
+	sunflower: Object.freeze({
+		dark: [
+			72,
+			52,
+			22
+		],
+		light: [
+			232,
+			192,
+			62
+		],
+		roughness: .62,
+		relief: .003
+	}),
+	daisy: Object.freeze({
+		dark: [
+			182,
+			172,
+			62
+		],
+		light: [
+			252,
+			252,
+			242
+		],
+		roughness: .58,
+		relief: .0026
+	}),
+	clover: Object.freeze({
+		dark: [
+			42,
+			88,
+			42
+		],
+		light: [
+			122,
+			192,
+			92
+		],
+		roughness: .68,
+		relief: .0028
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4371,6 +4413,9 @@ var proceduralTileMeters = Object.freeze({
 	origami: .2,
 	paperlace: .12,
 	papercut: .18,
+	sunflower: .24,
+	daisy: .2,
+	clover: .24,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

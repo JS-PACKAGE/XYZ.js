@@ -259,6 +259,9 @@ const kinds: ProceduralMaterialKind[] = [
   'origami',
   'paperlace',
   'papercut',
+  'sunflower',
+  'daisy',
+  'clover',
   'basketball',
   'tennisball',
   'golfball',
@@ -5064,6 +5067,9 @@ describe('periodic procedural material fields', () => {
     ['origami', [2, 4, 32, 64]],
     ['paperlace', [6, 32, 48, 64]],
     ['papercut', [5, 32, 48, 64]],
+    ['sunflower', [8, 16, 32, 64]],
+    ['daisy', [4, 32, 48, 64]],
+    ['clover', [3, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5329,6 +5335,9 @@ describe('periodic procedural material fields', () => {
     ['origami', 2],
     ['paperlace', 6],
     ['papercut', 5],
+    ['sunflower', 8],
+    ['daisy', 4],
+    ['clover', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6748,6 +6757,9 @@ describe('periodic procedural material fields', () => {
     'origami',
     'paperlace',
     'papercut',
+    'sunflower',
+    'daisy',
+    'clover',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6925,7 +6937,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                 : kind ===
                                                                                                                                     'papercut'
                                                                                                                                   ? 5
-                                                                                                                                  : 4;
+                                                                                                                                  : kind ===
+                                                                                                                                      'sunflower'
+                                                                                                                                    ? 8
+                                                                                                                                    : kind ===
+                                                                                                                                        'daisy'
+                                                                                                                                      ? 4
+                                                                                                                                      : kind ===
+                                                                                                                                          'clover'
+                                                                                                                                        ? 3
+                                                                                                                                        : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11050,6 +11071,69 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, backing);
       expect(shape.height).toBeGreaterThan(backing.height + 0.1 * relief);
       expect(shape.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('sunflower domes seed heads above the disk base', () => {
+    const relief = proceduralMaterialPresets.sunflower.relief;
+    const head: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...head };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sunflower', seed);
+      sample(0.05, 0.05, head);
+      sample(0, 0, base);
+      expect(head.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(head.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('daisy fans petals above the gaps and the recessed center', () => {
+    const relief = proceduralMaterialPresets.daisy.relief;
+    const petal: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...petal };
+    const center = { ...petal };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('daisy', seed);
+      sample(0.59549, 0.5, petal);
+      sample(0.5923, 0.5247, gap);
+      sample(0.5, 0.5, center);
+      expect(petal.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(petal.height).toBeGreaterThan(center.height + 0.1 * relief);
+      expect(petal.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('clover spreads heart lobes above the gaps between them', () => {
+    const relief = proceduralMaterialPresets.clover.relief;
+    const lobe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...lobe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('clover', seed);
+      sample(0.55, 0.5, lobe);
+      sample(0.525, 0.5433, gap);
+      expect(lobe.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(lobe.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

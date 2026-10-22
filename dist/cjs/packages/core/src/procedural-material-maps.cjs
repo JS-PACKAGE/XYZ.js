@@ -2337,6 +2337,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .34 * n + .08 * i, Z = .44 + .24 * n + .02 * i, Q += .06 * (i - .5) - .08 * n, $ = 1 - .32 * (1 - n);
 				break;
 			}
+			case `sunflower`: {
+				let e = Math.sin(Math.PI * (fract(o * 10) - .5)), t = Math.sin(Math.PI * (fract(A * 10) - .5)), n = clamp((.6 - Math.hypot(e * .9, t * 1.4)) / .6), i = .5 - .5 * Math.cos(Math.PI * n), a = noise(o, A, 32, 32, r ^ 31675);
+				H = .44 + .3 * i + .08 * a, Z = .44 + .24 * i + .02 * a, Q += .06 * (a - .5) - .1 * i, $ = 1 - .32 * (1 - i);
+				break;
+			}
+			case `daisy`: {
+				let e = Math.sin(Math.PI * (o - .5)), t = Math.sin(Math.PI * (A - .5)), n = Math.hypot(e, t), i = (.5 + .5 * Math.cos(Math.atan2(t, e) * 12)) * smooth(clamp((n - .16) / .1)) * smooth(clamp((.6 - n) / .1)), a = smooth(clamp((.16 - n) / .06)), s = noise(o, A, 32, 32, r ^ 36044);
+				H = .46 + .32 * i - .12 * a + .06 * s, Z = .44 + .22 * i - .1 * a + .02 * s, Q += .06 * (s - .5) - .08 * i, $ = 1 - .3 * (1 - i) - .14 * a;
+				break;
+			}
+			case `clover`: {
+				let e = Math.sin(Math.PI * (o - .5)), t = Math.sin(Math.PI * (A - .5)), n = Math.hypot(e, t), i = (.5 + .5 * Math.cos(Math.atan2(t, e) * 3)) * smooth(clamp((.5 - n) / .14)), a = noise(o, A, 12, 12, r ^ 40413), s = noise(o, A, 32, 32, r ^ 44782);
+				H = .4 + .34 * i + .08 * a + .06 * s, Z = .42 + .24 * i + .03 * a + .02 * s, Q += .06 * (s - .5) - .08 * i, $ = 1 - .34 * (1 - i);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

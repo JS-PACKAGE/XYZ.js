@@ -8275,6 +8275,53 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - shape);
         break;
       }
+      case 'sunflower': {
+        // Seed heads pack in a domed grid across the disk.
+        const sx = Math.sin(Math.PI * (fract(u * 10) - 0.5)),
+          sy = Math.sin(Math.PI * (fract(v * 10) - 0.5));
+        const st = clamp((0.6 - Math.hypot(sx * 0.9, sy * 1.4)) / 0.6);
+        const head = 0.5 - 0.5 * Math.cos(Math.PI * st);
+        const grain = noise(u, v, 32, 32, seed ^ 0x7bbb);
+        color = 0.44 + 0.3 * head + 0.08 * grain;
+        height = 0.44 + 0.24 * head + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * head;
+        occlusion = 1 - 0.32 * (1 - head);
+        break;
+      }
+      case 'daisy': {
+        // Radial petals fan around the recessed seed center.
+        const sx = Math.sin(Math.PI * (u - 0.5)),
+          sy = Math.sin(Math.PI * (v - 0.5));
+        const r = Math.hypot(sx, sy);
+        const ang = Math.atan2(sy, sx);
+        const petal =
+          (0.5 + 0.5 * Math.cos(ang * 12)) *
+          smooth(clamp((r - 0.16) / 0.1)) *
+          smooth(clamp((0.6 - r) / 0.1));
+        const center = smooth(clamp((0.16 - r) / 0.06));
+        const grain = noise(u, v, 32, 32, seed ^ 0x8ccc);
+        color = 0.46 + 0.32 * petal - 0.12 * center + 0.06 * grain;
+        height = 0.44 + 0.22 * petal - 0.1 * center + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * petal;
+        occlusion = 1 - 0.3 * (1 - petal) - 0.14 * center;
+        break;
+      }
+      case 'clover': {
+        // Three heart lobes spread from the stem join with fine veins.
+        const sx = Math.sin(Math.PI * (u - 0.5)),
+          sy = Math.sin(Math.PI * (v - 0.5));
+        const r = Math.hypot(sx, sy);
+        const ang = Math.atan2(sy, sx);
+        const lobe =
+          (0.5 + 0.5 * Math.cos(ang * 3)) * smooth(clamp((0.5 - r) / 0.14));
+        const vein = noise(u, v, 12, 12, seed ^ 0x9ddd);
+        const grain = noise(u, v, 32, 32, seed ^ 0xaeee);
+        color = 0.4 + 0.34 * lobe + 0.08 * vein + 0.06 * grain;
+        height = 0.42 + 0.24 * lobe + 0.03 * vein + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * lobe;
+        occlusion = 1 - 0.34 * (1 - lobe);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
