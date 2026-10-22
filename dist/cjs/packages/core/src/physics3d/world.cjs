@@ -543,7 +543,10 @@ var PhysicsWorld3D = class {
 				t.x -= s.x * o * i, t.y -= s.y * o * i, t.z -= s.z * o * i;
 			}
 		}
-		for (let t of this.ordered) this.valid(t) && (t.object.sealPhysicsPose(), t.body?.updateSleep(e));
+		for (let t of this.ordered) {
+			let n = t.body;
+			n && this.valid(t) && (t.object.sealPhysicsPose(), n.updateSleep(e));
+		}
 	}
 	velocityAt(e, t, n) {
 		if (!e || !e.owner) {

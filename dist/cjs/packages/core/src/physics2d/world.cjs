@@ -546,7 +546,7 @@ var PhysicsWorld2D = class {
 		}
 		this.breakJoints();
 		for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
-		for (let e of this.owners.values()) this.alive(e) && e.owner.sealPhysicsPose();
+		for (let e of this.owners.values()) e.body && this.alive(e) && e.owner.sealPhysicsPose();
 		for (let t of this.owners.values()) {
 			let n = t.body;
 			if (!n) continue;

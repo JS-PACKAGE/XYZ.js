@@ -1202,8 +1202,10 @@ export class PhysicsWorld2D {
       if (contact.active) this.emit(contact, 'postcollision');
       if (!this.continuation()) return;
     }
+    // Only bodies capture a presentation pose (and changing the body drops it), so sealing
+    // a bodiless owner's (a tile's) does nothing.
     for (const proxy of this.owners.values())
-      if (this.alive(proxy)) proxy.owner.sealPhysicsPose();
+      if (proxy.body && this.alive(proxy)) proxy.owner.sealPhysicsPose();
     for (const proxy of this.owners.values()) {
       // Only islands read the flag, and they hold only proxies with mass: a bodiless one
       // (a tile) would just store `false` again.

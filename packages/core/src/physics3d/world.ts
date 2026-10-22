@@ -1205,10 +1205,13 @@ export class PhysicsWorld3D {
         p.z -= n.z * correction * mb;
       }
     }
+    // Only bodies capture a presentation pose (and changing the body drops it), so a
+    // bodiless entry has neither a pose to seal nor sleep to update.
     for (const e of this.ordered) {
-      if (!this.valid(e)) continue;
+      const body = e.body;
+      if (!body || !this.valid(e)) continue;
       e.object.sealPhysicsPose();
-      e.body?.updateSleep(dt);
+      body.updateSleep(dt);
     }
   }
   private velocityAt(
