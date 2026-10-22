@@ -82,8 +82,10 @@ export class CrowdSolver {
   private readonly agents = new Map<number, Agent>();
   private readonly obstacles = new Map<number, Disc>();
   private readonly ordered: Agent[] = [];
-  private readonly grid = new Map<string, (Agent | Disc)[]>();
+  /** Neighbor cells by column then row: numeric keys, where `${x},${z}` strings allocated. */
+  private readonly grid = new Map<number, Map<number, (Agent | Disc)[]>>();
   private readonly buckets: (Agent | Disc)[][] = [];
+  private readonly rows: Map<number, (Agent | Disc)[]>[] = [];
   private readonly neighbors: (Agent | Disc)[] = [];
   private readonly lines: Line[];
   private readonly displacement = new Vector3();
@@ -321,9 +323,13 @@ export class CrowdSolver {
         this.ordered.push(agent);
       }
       this.ordered.sort((a, b) => a.id - b.id);
-      for (const bucket of this.grid.values()) {
-        bucket.length = 0;
-        this.buckets.push(bucket);
+      for (const row of this.grid.values()) {
+        for (const bucket of row.values()) {
+          bucket.length = 0;
+          this.buckets.push(bucket);
+        }
+        row.clear();
+        this.rows.push(row);
       }
       this.grid.clear();
       for (const disc of this.ordered) this.insertDisc(disc);
@@ -367,44 +373,78 @@ export class CrowdSolver {
       this.epoch = epoch;
     } finally {
       this.updating = false;
+      // Drop the last neighborhoods so removed agents are not kept alive between updates.
+      this.neighbors.length = 0;
     }
   }
 
   private insertDisc(disc: Agent | Disc): void {
-    const key = `${Math.floor(disc.x / this.neighborDistance)},${Math.floor(disc.z / this.neighborDistance)}`;
-    let bucket = this.grid.get(key);
+    // Equal cells are equal keys exactly as the strings were: integers, with -0 matching 0.
+    const x = Math.floor(disc.x / this.neighborDistance),
+      z = Math.floor(disc.z / this.neighborDistance);
+    let row = this.grid.get(x);
+    if (!row) {
+      row = this.rows.pop() ?? new Map();
+      this.grid.set(x, row);
+    }
+    let bucket = row.get(z);
     if (!bucket) {
       bucket = this.buckets.pop() ?? [];
-      this.grid.set(key, bucket);
+      row.set(z, bucket);
     }
     bucket.push(disc);
   }
 
   private solve(agent: Agent, delta: number): void {
-    this.neighbors.length = 0;
+    // Overwritten by count rather than emptied: truncating dropped the array's storage, which
+    // then regrew for every agent, and Array#sort copied it into a fresh work array.
+    const neighbors = this.neighbors;
+    let found = 0;
+    // hypot2 decides only near the boundary: a squared distance this far from the squared
+    // range (relative margin far above its rounding) gets the same answer, and skipping the
+    // call avoids boxing its double result. Outside normal magnitudes, every pair asks hypot2.
+    const range = this.neighborDistance,
+      rangeSquared = range * range,
+      normal = rangeSquared > 1e-290 && rangeSquared < Infinity,
+      within = normal ? rangeSquared * (1 - 1e-9) : -Infinity,
+      beyond = normal ? rangeSquared * (1 + 1e-9) : Infinity;
     const cx = Math.floor(agent.x / this.neighborDistance),
       cz = Math.floor(agent.z / this.neighborDistance);
-    for (let x = cx - 1; x <= cx + 1; x++)
+    for (let x = cx - 1; x <= cx + 1; x++) {
+      const row = this.grid.get(x);
+      if (!row) continue;
       for (let z = cz - 1; z <= cz + 1; z++) {
-        const bucket = this.grid.get(`${x},${z}`);
+        const bucket = row.get(z);
         if (!bucket) continue;
         for (const other of bucket) {
-          if (
-            other === agent ||
-            hypot2(other.x - agent.x, other.z - agent.z) > this.neighborDistance
-          )
+          if (other === agent) continue;
+          const dx = other.x - agent.x,
+            dz = other.z - agent.z,
+            squared = dx * dx + dz * dz;
+          if (squared > beyond || (squared >= within && hypot2(dx, dz) > range))
             continue;
-          this.neighbors.push(other);
-          if (this.neighbors.length > this.maxNeighbors) {
+          neighbors[found++] = other;
+          if (found > this.maxNeighbors) {
             agent.next.set(0, 0, 0);
             agent.state = 'budget-exceeded';
             return;
           }
         }
       }
-    this.neighbors.sort((a, b) => a.id - b.id);
+    }
+    // Insertion sort by ID: IDs are unique, so this is the same order Array#sort gave.
+    for (let i = 1; i < found; i++) {
+      const item = neighbors[i]!;
+      let j = i - 1;
+      while (j >= 0 && neighbors[j]!.id > item.id) {
+        neighbors[j + 1] = neighbors[j]!;
+        j--;
+      }
+      neighbors[j + 1] = item;
+    }
     let count = 0;
-    for (const other of this.neighbors) {
+    for (let n = 0; n < found; n++) {
+      const other = neighbors[n]!;
       const dynamic = 'velocity' in other;
       const px = other.x - agent.x,
         pz = other.z - agent.z;

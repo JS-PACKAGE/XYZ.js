@@ -23,6 +23,7 @@ var CrowdSolver = class {
 	ordered = [];
 	grid = /* @__PURE__ */ new Map();
 	buckets = [];
+	rows = [];
 	neighbors = [];
 	lines;
 	displacement = new require_math3d.Vector3();
@@ -124,7 +125,10 @@ var CrowdSolver = class {
 					o > t.maxSpeed && (t.preferred.x *= t.maxSpeed / o, t.preferred.y *= t.maxSpeed / o, t.preferred.z *= t.maxSpeed / o), this.ordered.push(t);
 				}
 				this.ordered.sort((e, t) => e.id - t.id);
-				for (let e of this.grid.values()) e.length = 0, this.buckets.push(e);
+				for (let e of this.grid.values()) {
+					for (let t of e.values()) t.length = 0, this.buckets.push(t);
+					e.clear(), this.rows.push(e);
+				}
 				this.grid.clear();
 				for (let e of this.ordered) this.insertDisc(e);
 				for (let e of this.obstacles.values()) this.insertDisc(e);
@@ -140,52 +144,62 @@ var CrowdSolver = class {
 				}
 				this.epoch = t;
 			} finally {
-				this.updating = !1;
+				this.updating = !1, this.neighbors.length = 0;
 			}
 		}
 	}
 	insertDisc(e) {
-		let t = `${Math.floor(e.x / this.neighborDistance)},${Math.floor(e.z / this.neighborDistance)}`, n = this.grid.get(t);
-		n || (n = this.buckets.pop() ?? [], this.grid.set(t, n)), n.push(e);
+		let t = Math.floor(e.x / this.neighborDistance), n = Math.floor(e.z / this.neighborDistance), r = this.grid.get(t);
+		r || (r = this.rows.pop() ?? /* @__PURE__ */ new Map(), this.grid.set(t, r));
+		let i = r.get(n);
+		i || (i = this.buckets.pop() ?? [], r.set(n, i)), i.push(e);
 	}
 	solve(e, t) {
-		this.neighbors.length = 0;
-		let r = Math.floor(e.x / this.neighborDistance), o = Math.floor(e.z / this.neighborDistance);
-		for (let t = r - 1; t <= r + 1; t++) for (let n = o - 1; n <= o + 1; n++) {
-			let r = this.grid.get(`${t},${n}`);
-			if (r) {
-				for (let t of r) if (!(t === e || require_hypot.hypot2(t.x - e.x, t.z - e.z) > this.neighborDistance) && (this.neighbors.push(t), this.neighbors.length > this.maxNeighbors)) {
-					e.next.set(0, 0, 0), e.state = `budget-exceeded`;
-					return;
+		let r = this.neighbors, o = 0, s = this.neighborDistance, c = s * s, l = c > 1e-290 && c < 1 / 0, u = l ? c * (1 - 1e-9) : -1 / 0, d = l ? c * (1 + 1e-9) : 1 / 0, f = Math.floor(e.x / this.neighborDistance), p = Math.floor(e.z / this.neighborDistance);
+		for (let t = f - 1; t <= f + 1; t++) {
+			let n = this.grid.get(t);
+			if (n) for (let t = p - 1; t <= p + 1; t++) {
+				let a = n.get(t);
+				if (a) for (let t of a) {
+					if (t === e) continue;
+					let n = t.x - e.x, a = t.z - e.z, c = n * n + a * a;
+					if (!(c > d || c >= u && require_hypot.hypot2(n, a) > s) && (r[o++] = t, o > this.maxNeighbors)) {
+						e.next.set(0, 0, 0), e.state = `budget-exceeded`;
+						return;
+					}
 				}
 			}
 		}
-		this.neighbors.sort((e, t) => e.id - t.id);
-		let s = 0;
-		for (let r of this.neighbors) {
-			let i = `velocity` in r, a = r.x - e.x, o = r.z - e.z, c = e.velocity.x - (i ? r.velocity.x : 0), l = e.velocity.z - (i ? r.velocity.z : 0), u = e.radius + r.radius + .002, d = a * a + o * o, f = u * u, p, m, h, g, _ = 1 / (d > f ? this.timeHorizon : t), v = c - a * _, y = l - o * _, b = v * v + y * y, x = v * a + y * o;
-			if (d <= f || x < 0 && x * x > f * b) {
-				let t = Math.sqrt(b), i = t > require_crowd.crowdLimits.epsilon ? v / t : e.id < r.id ? -1 : 1, a = t > require_crowd.crowdLimits.epsilon ? y / t : 0;
-				p = a, m = -i, h = (u * _ - t) * i, g = (u * _ - t) * a;
-			} else {
-				let e = Math.sqrt(Math.max(0, d - f));
-				a * y - o * v > 0 ? (p = (a * e - o * u) / d, m = (a * u + o * e) / d) : (p = -(a * e + o * u) / d, m = -(-a * u + o * e) / d);
-				let t = c * p + l * m;
-				h = t * p - c, g = t * m - l;
-			}
-			let S = this.lines[s++];
-			S.nx = -m, S.nz = p;
-			let C = i ? .5 : 1;
-			S.b = S.nx * (e.velocity.x + C * h) + S.nz * (e.velocity.z + C * g);
+		for (let e = 1; e < o; e++) {
+			let t = r[e], n = e - 1;
+			for (; n >= 0 && r[n].id > t.id;) r[n + 1] = r[n], n--;
+			r[n + 1] = t;
 		}
-		let c = s > 0 ? .05 : 0, l = e.preferred.x - e.preferred.z * c, u = e.preferred.z + e.preferred.x * c, d = Math.sqrt(Math.max(0, e.maxSpeed ** 2 - e.preferred.y ** 2)), f = require_hypot.hypot2(l, u);
-		f > d && (l *= d / f, u *= d / f);
-		let p = this.candidateScratch;
-		p.best = 1 / 0, p.x = p.z = 0, p.count = s, p.px = l, p.pz = u, p.speed = d, this.candidate(l, u), this.candidate(0, 0);
-		for (let e = 0; e < s; e++) {
-			let t = this.lines[e], r = t.b - t.nx * l - t.nz * u;
-			this.candidate(l + r * t.nx, u + r * t.nz);
-			let i = d * d - t.b * t.b;
+		let m = 0;
+		for (let i = 0; i < o; i++) {
+			let a = r[i], o = `velocity` in a, s = a.x - e.x, c = a.z - e.z, l = e.velocity.x - (o ? a.velocity.x : 0), u = e.velocity.z - (o ? a.velocity.z : 0), d = e.radius + a.radius + .002, f = s * s + c * c, p = d * d, h, g, _, v, y = 1 / (f > p ? this.timeHorizon : t), b = l - s * y, x = u - c * y, S = b * b + x * x, C = b * s + x * c;
+			if (f <= p || C < 0 && C * C > p * S) {
+				let t = Math.sqrt(S), r = t > require_crowd.crowdLimits.epsilon ? b / t : e.id < a.id ? -1 : 1, i = t > require_crowd.crowdLimits.epsilon ? x / t : 0;
+				h = i, g = -r, _ = (d * y - t) * r, v = (d * y - t) * i;
+			} else {
+				let e = Math.sqrt(Math.max(0, f - p));
+				s * x - c * b > 0 ? (h = (s * e - c * d) / f, g = (s * d + c * e) / f) : (h = -(s * e + c * d) / f, g = -(-s * d + c * e) / f);
+				let t = l * h + u * g;
+				_ = t * h - l, v = t * g - u;
+			}
+			let w = this.lines[m++];
+			w.nx = -g, w.nz = h;
+			let T = o ? .5 : 1;
+			w.b = w.nx * (e.velocity.x + T * _) + w.nz * (e.velocity.z + T * v);
+		}
+		let h = m > 0 ? .05 : 0, g = e.preferred.x - e.preferred.z * h, _ = e.preferred.z + e.preferred.x * h, v = Math.sqrt(Math.max(0, e.maxSpeed ** 2 - e.preferred.y ** 2)), y = require_hypot.hypot2(g, _);
+		y > v && (g *= v / y, _ *= v / y);
+		let b = this.candidateScratch;
+		b.best = 1 / 0, b.x = b.z = 0, b.count = m, b.px = g, b.pz = _, b.speed = v, this.candidate(g, _), this.candidate(0, 0);
+		for (let e = 0; e < m; e++) {
+			let t = this.lines[e], r = t.b - t.nx * g - t.nz * _;
+			this.candidate(g + r * t.nx, _ + r * t.nz);
+			let i = v * v - t.b * t.b;
 			if (i >= 0) {
 				let e = Math.sqrt(i);
 				this.candidate(t.nx * t.b - t.nz * e, t.nz * t.b + t.nx * e), this.candidate(t.nx * t.b + t.nz * e, t.nz * t.b - t.nx * e);
@@ -195,7 +209,7 @@ var CrowdSolver = class {
 				Math.abs(i) > require_crowd.crowdLimits.epsilon && this.candidate((t.b * e.nz - t.nz * e.b) / i, (t.nx * e.b - t.b * e.nx) / i);
 			}
 		}
-		e.next.set(p.x, 0, p.z), e.state = p.best === 1 / 0 ? `blocked` : require_hypot.hypot3(p.x, e.preferred.y, p.z) < 1e-6 ? require_hypot.hypot2(l, u) > 1e-6 ? `blocked` : `idle` : `moving`;
+		e.next.set(b.x, 0, b.z), e.state = b.best === 1 / 0 ? `blocked` : require_hypot.hypot3(b.x, e.preferred.y, b.z) < 1e-6 ? require_hypot.hypot2(g, _) > 1e-6 ? `blocked` : `idle` : `moving`;
 	}
 	candidate(e, t) {
 		let r = this.candidateScratch;

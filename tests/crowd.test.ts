@@ -243,6 +243,35 @@ describe('bounded reciprocal crowd and steering', () => {
       scene.destroy();
     }
   });
+  it('counts neighbors exactly at the neighbor distance and none beyond it', () => {
+    const scene = new CrowdSmokeScene();
+    const walker = scene.addWalker(1, new Vector3(), new Vector3(5, 0, 0));
+    const crowd = new CrowdSolver({ maxNeighbors: 1, neighborDistance: 12 });
+    walker.registration.remove();
+    const registration = crowd.register3D(walker.controller, {
+      id: 1,
+      radius: 0.3,
+      maxSpeed: 1,
+      follower: walker.follower,
+    });
+    const x = walker.object.position.x,
+      z = walker.object.position.z;
+    try {
+      // Two obstacles exactly 12 away overflow a budget of one.
+      const removeA = crowd.addObstacle(2, new Vector3(x + 12, 0, z), 0.3);
+      const removeB = crowd.addObstacle(3, new Vector3(x, 0, z - 12), 0.3);
+      crowd.update(1 / 120, 0);
+      expect(registration.state).toBe('budget-exceeded');
+      removeB();
+      crowd.addObstacle(4, new Vector3(x, 0, z - 12 - 1e-9), 0.3);
+      crowd.update(1 / 120, 1);
+      expect(registration.state).not.toBe('budget-exceeded');
+      removeA();
+    } finally {
+      crowd.destroy();
+      scene.destroy();
+    }
+  });
   it('produces seek/flee/arrive speeds and deterministic time-partitioned wander', () => {
     const out = new Vector3();
     expect(

@@ -40,8 +40,10 @@ export declare class CrowdSolver {
     private readonly agents;
     private readonly obstacles;
     private readonly ordered;
+    /** Neighbor cells by column then row: numeric keys, where `${x},${z}` strings allocated. */
     private readonly grid;
     private readonly buckets;
+    private readonly rows;
     private readonly neighbors;
     private readonly lines;
     private readonly displacement;
