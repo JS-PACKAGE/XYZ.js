@@ -38,8 +38,12 @@ const texture = new Texture({ width: 1, height: 1, close() {} } as ImageBitmap);
 
 type ShaderLanguage = 'glsl' | 'wgsl';
 
-function shaderFunctionDefinitions(
-  source: string,
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+}
+
+function definitionsIn(
+  uncommented: string,
   language: ShaderLanguage,
 ): Set<string> {
   const pattern =
@@ -47,11 +51,15 @@ function shaderFunctionDefinitions(
       ? /(?:^|[;{}])\s*(?:(?:lowp|mediump|highp)\s+)?(?!else\b)[A-Za-z_]\w*\s+([A-Za-z_]\w*)\s*\([^{};]*\)\s*\{/g
       : /\bfn\s+([A-Za-z_]\w*)\s*\([^{};]*\)\s*(?:->[^{};]+)?\s*\{/g;
   return new Set(
-    Array.from(
-      source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '').matchAll(pattern),
-      (match) => match[1]!,
-    ),
+    Array.from(uncommented.matchAll(pattern), (match) => match[1]!),
   );
+}
+
+function shaderFunctionDefinitions(
+  source: string,
+  language: ShaderLanguage,
+): Set<string> {
+  return definitionsIn(withoutComments(source), language);
 }
 
 function missingEngineDefinitions(
@@ -59,12 +67,11 @@ function missingEngineDefinitions(
   language: ShaderLanguage,
   engineFunctions: ReadonlySet<string>,
 ): string[] {
-  const definitions = shaderFunctionDefinitions(source, language);
+  const uncommented = withoutComments(source);
+  const definitions = definitionsIn(uncommented, language);
   const references = new Set(
     Array.from(
-      source
-        .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
-        .matchAll(/\b([A-Za-z_]\w*)\s*\(/g),
+      uncommented.matchAll(/\b([A-Za-z_]\w*)\s*\(/g),
       (match) => match[1]!,
     ),
   );
@@ -216,6 +223,8 @@ describe('mesh shader source variants', () => {
     ).toEqual([]);
   });
 
+  // Thousands of full shader builds take seconds alone, past the 5 s default beside the
+  // heavier suites, and the matrix grows quadratically with feature switches.
   it('defines every referenced engine function across feature pairs and single-bit changes', () => {
     const glslFunctions = new Set([
       ...shaderFunctionDefinitions(meshVertex, 'glsl'),
@@ -228,10 +237,14 @@ describe('mesh shader source variants', () => {
     expect(variants).toHaveLength(
       2 * 2 * 2 * (1 + switches + (switches * (switches - 1)) / 2),
     );
+    // The vertex stage takes no features: one check covers every variant.
+    expect(
+      missingEngineDefinitions(buildMeshVertex(), 'glsl', glslFunctions),
+      'GLSL vertex',
+    ).toEqual([]);
     for (const features of variants) {
       const key = meshShaderVariantKey(features);
       for (const [stage, source, language, functions] of [
-        ['GLSL vertex', buildMeshVertex(), 'glsl', glslFunctions],
         ['GLSL fragment', buildMeshFragment(features), 'glsl', glslFunctions],
         ['WGSL', buildWebGPUMeshShader(features), 'wgsl', wgslFunctions],
       ] as const) {
@@ -241,7 +254,7 @@ describe('mesh shader source variants', () => {
         ).toEqual([]);
       }
     }
-  });
+  }, 30_000);
 
   it('composes engine physical hooks onto every physical variant without dropping engine code', () => {
     const water = new Water3D({ texture, width: 1, depth: 1, segments: 1 });
