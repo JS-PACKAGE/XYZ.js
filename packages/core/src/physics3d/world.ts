@@ -1306,14 +1306,25 @@ export class PhysicsWorld3D {
     if (snapshot && this.snapshotMovers.length === 0) return;
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
     let changed = this.indexDirty;
-    for (const e of snapshot ? this.snapshotMovers : this.ordered) {
-      ++this.counters.poseChecks;
-      if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
-      if (e.indexedRevision !== e.shape.revision) {
-        changed = true;
-        if (!this.indexDirty) this.counters.refits += this.index.update(e);
-        e.indexedRevision = e.shape.revision;
+    // Nothing in this loop moves an object, so a shared parent composes its world matrix once
+    // rather than once per child collider.
+    let pass: Object3D['scene'];
+    try {
+      for (const e of snapshot ? this.snapshotMovers : this.ordered) {
+        if (!pass) {
+          const scene = e.object.scene;
+          if (scene?.beginMatrixPass()) pass = scene;
+        }
+        ++this.counters.poseChecks;
+        if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
+        if (e.indexedRevision !== e.shape.revision) {
+          changed = true;
+          if (!this.indexDirty) this.counters.refits += this.index.update(e);
+          e.indexedRevision = e.shape.revision;
+        }
       }
+    } finally {
+      pass?.endMatrixPass();
     }
     if (this.indexDirty) {
       this.index.rebuild(this.ordered);

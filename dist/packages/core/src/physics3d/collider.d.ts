@@ -108,6 +108,11 @@ export declare class Shape3D {
     private readonly poseMatrix;
     /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
     private readonly poseInputs;
+    /**
+     * A child's parent world matrix then its position, rotation and scale, as `poseInputs` is
+     * for a root. Each form invalidates the other when it refreshes.
+     */
+    private readonly childInputs;
     /** @internal Changes only after shape geometry/bounds are refreshed. */
     revision: number;
     /** @internal Translation does not invalidate angular inertia. */
@@ -117,6 +122,8 @@ export declare class Shape3D {
     /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
     forgetPose(): void;
     refresh(object: Object3D): boolean;
+    private childUnchanged;
+    private recordChild;
     refreshMatrix(matrix: Matrix4): boolean;
     /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */
     validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void;

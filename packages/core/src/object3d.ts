@@ -214,6 +214,19 @@ export class Object3D extends SceneObject {
       !this.scene?.presentingPhysics
     );
   }
+  /**
+   * @internal The parent, when it and this child use the base composition outside
+   * interpolated presentation: this world matrix is then the parent's times this transform.
+   */
+  get baseComposedParent(): Object3D | undefined {
+    const parent = this.parent;
+    return parent &&
+      this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix &&
+      parent.updateWorldMatrix === Object3D.prototype.updateWorldMatrix &&
+      !this.scene?.presentingPhysics
+      ? parent
+      : undefined;
+  }
   /** Recompose mutable local transforms, including every ancestor, without allocations. */
   updateWorldMatrix(): Matrix4 {
     const scene = this.scene;

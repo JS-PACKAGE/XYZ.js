@@ -576,8 +576,18 @@ var PhysicsWorld3D = class {
 	refreshIndex() {
 		let e = this.poseSnapshot && !this.indexDirty;
 		if (e && this.snapshotMovers.length === 0) return;
-		let t = this.indexDirty;
-		for (let n of e ? this.snapshotMovers : this.ordered) ++this.counters.poseChecks, n.shape.refresh(n.object) && ++this.counters.refreshedLeaves, n.indexedRevision !== n.shape.revision && (t = !0, this.indexDirty || (this.counters.refits += this.index.update(n)), n.indexedRevision = n.shape.revision);
+		let t = this.indexDirty, n;
+		try {
+			for (let r of e ? this.snapshotMovers : this.ordered) {
+				if (!n) {
+					let e = r.object.scene;
+					e?.beginMatrixPass() && (n = e);
+				}
+				++this.counters.poseChecks, r.shape.refresh(r.object) && ++this.counters.refreshedLeaves, r.indexedRevision !== r.shape.revision && (t = !0, this.indexDirty || (this.counters.refits += this.index.update(r)), r.indexedRevision = r.shape.revision);
+			}
+		} finally {
+			n?.endMatrixPass();
+		}
 		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), t && ++this.counters.indexGeneration;
 	}
 	candidates(e) {

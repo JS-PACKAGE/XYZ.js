@@ -134,6 +134,7 @@ var Shape3D = class Shape3D {
 	radius = 0;
 	poseMatrix = (/* @__PURE__ */ new Float64Array(16)).fill(NaN);
 	poseInputs = (/* @__PURE__ */ new Float64Array(10)).fill(NaN);
+	childInputs = (/* @__PURE__ */ new Float64Array(26)).fill(NaN);
 	revision = 0;
 	inertiaRevision = 0;
 	worldScale = new require_math3d.Vector3();
@@ -145,16 +146,28 @@ var Shape3D = class Shape3D {
 		if (e instanceof CompoundCollider3D && (this.childWorld = new require_math3d.Matrix4()), e instanceof CompoundCollider3D) for (let t of e.children) this.children.push(new Shape3D(t.collider, !0)), this.childLocal.push(new require_math3d.Matrix4().compose(t.position, t.rotation, t.scale));
 	}
 	forgetPose() {
-		this.poseInputs[0] = NaN, this.poseMatrix[0] = NaN;
+		this.poseInputs[0] = NaN, this.childInputs[0] = NaN, this.poseMatrix[0] = NaN;
 	}
 	refresh(e) {
 		let t = e.transform, n = t.position, r = t.rotation, i = t.scale, a = this.poseInputs, o = e.composesFromTransform;
 		if (o && a[0] === n.x && a[1] === n.y && a[2] === n.z && a[3] === r.x && a[4] === r.y && a[5] === r.z && a[6] === r.w && a[7] === i.x && a[8] === i.y && a[9] === i.z) return !1;
-		let s = this.refreshMatrix(e.updateWorldMatrix());
-		return o && (a[0] = n.x, a[1] = n.y, a[2] = n.z, a[3] = r.x, a[4] = r.y, a[5] = r.z, a[6] = r.w, a[7] = i.x, a[8] = i.y, a[9] = i.z), s;
+		let s = o ? void 0 : e.baseComposedParent;
+		if (s && this.childUnchanged(s, t)) return !1;
+		let c = this.refreshMatrix(e.updateWorldMatrix());
+		return s ? this.recordChild(s, t) : o && (a[0] = n.x, a[1] = n.y, a[2] = n.z, a[3] = r.x, a[4] = r.y, a[5] = r.z, a[6] = r.w, a[7] = i.x, a[8] = i.y, a[9] = i.z), c;
+	}
+	childUnchanged(e, t) {
+		let n = e.updateWorldMatrix().elements, r = this.childInputs, i = t.position, a = t.rotation, o = t.scale;
+		for (let e = 0; e < 16; e++) if (r[e] !== n[e]) return !1;
+		return r[16] === i.x && r[17] === i.y && r[18] === i.z && r[19] === a.x && r[20] === a.y && r[21] === a.z && r[22] === a.w && r[23] === o.x && r[24] === o.y && r[25] === o.z;
+	}
+	recordChild(e, t) {
+		let n = e.updateWorldMatrix().elements, r = this.childInputs, i = t.position, a = t.rotation, o = t.scale;
+		for (let e = 0; e < 16; e++) r[e] = n[e];
+		r[16] = i.x, r[17] = i.y, r[18] = i.z, r[19] = a.x, r[20] = a.y, r[21] = a.z, r[22] = a.w, r[23] = o.x, r[24] = o.y, r[25] = o.z;
 	}
 	refreshMatrix(e) {
-		this.poseInputs[0] = NaN;
+		this.poseInputs[0] = NaN, this.childInputs[0] = NaN;
 		let t = e.elements, n = !1, r = !1;
 		for (let e = 0; e < 16; e++) this.poseMatrix[e] !== t[e] && (n = !0, e < 12 && (r = !0));
 		if (!n) return !1;

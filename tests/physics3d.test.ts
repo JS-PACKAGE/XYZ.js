@@ -414,6 +414,29 @@ describe('3D shape queries and ownership', () => {
     world.destroy();
   });
 
+  it('follows a child collider through its own transform, its parent and reparenting', () => {
+    const world = new PhysicsWorld3D();
+    const parent = new Object3D();
+    const child = parent.add(object(new BoxCollider3D(new Vector3(1, 1, 1))));
+    child.position.set(10, 0, 0);
+    world.register(child);
+    const probe = object(new SphereCollider3D(0.25));
+    const touched = (x: number): boolean => {
+      probe.position.set(x, 0, 0);
+      return world.overlap(probe.collider!, probe).length > 0;
+    };
+    expect([touched(10), touched(20)]).toEqual([true, false]);
+    child.position.x = 20;
+    expect([touched(10), touched(20)]).toEqual([false, true]);
+    parent.position.x = 5;
+    expect([touched(20), touched(25)]).toEqual([false, true]);
+    parent.remove(child);
+    expect([touched(20), touched(25)]).toEqual([true, false]);
+    parent.add(child);
+    expect([touched(20), touched(25)]).toEqual([false, true]);
+    world.destroy();
+  });
+
   it('raycasts capsule cylinder and hemispheres, including transformed orientation', () => {
     const world = new PhysicsWorld3D();
     const capsule = object(new CapsuleCollider3D(0.5, 1));

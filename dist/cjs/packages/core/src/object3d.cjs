@@ -125,6 +125,10 @@ var Object3D = class Object3D extends require_scene_object.SceneObject {
 	get composesFromTransform() {
 		return !this.parent && this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix && !this.scene?.presentingPhysics;
 	}
+	get baseComposedParent() {
+		let e = this.parent;
+		return e && this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix && e.updateWorldMatrix === Object3D.prototype.updateWorldMatrix && !this.scene?.presentingPhysics ? e : void 0;
+	}
 	updateWorldMatrix() {
 		let e = this.scene, t = e?.presentationPass ?? 0;
 		if (t !== 0 && this.matrixPass === t) return this.worldMatrix;

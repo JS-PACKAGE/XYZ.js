@@ -44,6 +44,11 @@ export declare class Object3D extends SceneObject {
      * a root using the base composition outside interpolated physics presentation.
      */
     get composesFromTransform(): boolean;
+    /**
+     * @internal The parent, when it and this child use the base composition outside
+     * interpolated presentation: this world matrix is then the parent's times this transform.
+     */
+    get baseComposedParent(): Object3D | undefined;
     /** Recompose mutable local transforms, including every ancestor, without allocations. */
     updateWorldMatrix(): Matrix4;
     destroy(): void;

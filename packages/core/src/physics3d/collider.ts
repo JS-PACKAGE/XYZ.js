@@ -1,4 +1,9 @@
-import { Vector3, Quaternion, Matrix4 } from '../../../math/src/index.js';
+import {
+  Vector3,
+  Quaternion,
+  Matrix4,
+  type Transform3D,
+} from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
@@ -280,6 +285,11 @@ export class Shape3D {
   private readonly poseMatrix = new Float64Array(16).fill(NaN);
   /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
   private readonly poseInputs = new Float64Array(10).fill(NaN);
+  /**
+   * A child's parent world matrix then its position, rotation and scale, as `poseInputs` is
+   * for a root. Each form invalidates the other when it refreshes.
+   */
+  private readonly childInputs = new Float64Array(26).fill(NaN);
   /** @internal Changes only after shape geometry/bounds are refreshed. */
   revision = 0;
   /** @internal Translation does not invalidate angular inertia. */
@@ -310,6 +320,7 @@ export class Shape3D {
   /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
   forgetPose(): void {
     this.poseInputs[0] = NaN;
+    this.childInputs[0] = NaN;
     this.poseMatrix[0] = NaN;
   }
   refresh(object: Object3D): boolean {
@@ -335,8 +346,13 @@ export class Shape3D {
       k[9] === s.z
     )
       return false;
+    // A child's matrix is its parent's times its transform, so the parent's matrix stands in
+    // for every ancestor input.
+    const parent = direct ? undefined : object.baseComposedParent;
+    if (parent && this.childUnchanged(parent, t)) return false;
     const changed = this.refreshMatrix(object.updateWorldMatrix());
-    if (direct) {
+    if (parent) this.recordChild(parent, t);
+    else if (direct) {
       k[0] = p.x;
       k[1] = p.y;
       k[2] = p.z;
@@ -350,9 +366,48 @@ export class Shape3D {
     }
     return changed;
   }
+  private childUnchanged(parent: Object3D, t: Transform3D): boolean {
+    const e = parent.updateWorldMatrix().elements,
+      c = this.childInputs,
+      p = t.position,
+      q = t.rotation,
+      s = t.scale;
+    for (let i = 0; i < 16; i++) if (c[i] !== e[i]) return false;
+    return (
+      c[16] === p.x &&
+      c[17] === p.y &&
+      c[18] === p.z &&
+      c[19] === q.x &&
+      c[20] === q.y &&
+      c[21] === q.z &&
+      c[22] === q.w &&
+      c[23] === s.x &&
+      c[24] === s.y &&
+      c[25] === s.z
+    );
+  }
+  private recordChild(parent: Object3D, t: Transform3D): void {
+    const e = parent.updateWorldMatrix().elements,
+      c = this.childInputs,
+      p = t.position,
+      q = t.rotation,
+      s = t.scale;
+    for (let i = 0; i < 16; i++) c[i] = e[i]!;
+    c[16] = p.x;
+    c[17] = p.y;
+    c[18] = p.z;
+    c[19] = q.x;
+    c[20] = q.y;
+    c[21] = q.z;
+    c[22] = q.w;
+    c[23] = s.x;
+    c[24] = s.y;
+    c[25] = s.z;
+  }
   refreshMatrix(matrix: Matrix4): boolean {
-    // Direct callers bypass `refresh`, so its input snapshot no longer describes the pose.
+    // Direct callers bypass `refresh`, so its input snapshots no longer describe the pose.
     this.poseInputs[0] = NaN;
+    this.childInputs[0] = NaN;
     const e = matrix.elements;
     let changed = false,
       linearChanged = false;
