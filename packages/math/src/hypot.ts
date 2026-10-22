@@ -4,6 +4,9 @@
  * largest magnitude, ignoring NaN; Infinity wins over NaN; then a compensated sum of
  * squares scaled by that magnitude), so on V8 they return the identical double.
  */
+// `Number.NaN`, not the global `NaN`: in Chrome, returning the global made every
+// non-inlined call of these allocate (the sampling heap profiler showed ~200 bytes per
+// hypot2 call from a physics refresh); the property read yields the same NaN value.
 export function hypot2(a: number, b: number): number {
   a = Math.abs(a);
   b = Math.abs(b);
@@ -11,7 +14,7 @@ export function hypot2(a: number, b: number): number {
   if (a > max) max = a;
   if (b > max) max = b;
   if (max === Infinity) return Infinity;
-  if (a !== a || b !== b) return NaN;
+  if (a !== a || b !== b) return Number.NaN;
   if (max === 0) return 0;
   let sum = 0,
     compensation = 0,
@@ -38,7 +41,7 @@ export function hypot3(a: number, b: number, c: number): number {
   if (b > max) max = b;
   if (c > max) max = c;
   if (max === Infinity) return Infinity;
-  if (a !== a || b !== b || c !== c) return NaN;
+  if (a !== a || b !== b || c !== c) return Number.NaN;
   if (max === 0) return 0;
   let sum = 0,
     compensation = 0,
@@ -73,7 +76,7 @@ export function hypot4(a: number, b: number, c: number, d: number): number {
   if (c > max) max = c;
   if (d > max) max = d;
   if (max === Infinity) return Infinity;
-  if (a !== a || b !== b || c !== c || d !== d) return NaN;
+  if (a !== a || b !== b || c !== c || d !== d) return Number.NaN;
   if (max === 0) return 0;
   let sum = 0,
     compensation = 0,
