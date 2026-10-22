@@ -58,6 +58,11 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 	fraction = 0;
 	spriteWidth = 1;
 	spriteHeight = 1;
+	sizeTexture;
+	sizeView;
+	sizeSource;
+	sizeWidth = 1;
+	sizeHeight = 1;
 	randomState;
 	rate;
 	lifetime;
@@ -284,6 +289,7 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		return !0;
 	}
 	refreshSpriteSize() {
+		this.sizeTexture = void 0;
 		let e = this.birthOptions;
 		this.spriteWidth = e.view?.width ?? e.source?.width ?? (e.texture.kind === `render` ? e.texture.logicalWidth : e.texture.width), this.spriteHeight = e.view?.height ?? e.source?.height ?? (e.texture.kind === `render` ? e.texture.logicalHeight : e.texture.height);
 	}
@@ -304,9 +310,16 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		this.writeTargetAppearance(e, t, this.state[e * 8 + 0], this.state[e * 8 + 1], n.liveSlot(r)), n.setLiveAppearance(r, this.particleTransform, this.particleTint);
 	}
 	writeTargetAppearance(e, t, n, r, i) {
-		let a = i.view?.width ?? i.source?.width ?? (i.texture.kind === `render` ? i.texture.logicalWidth : i.texture.width), o = i.view?.height ?? i.source?.height ?? (i.texture.kind === `render` ? i.texture.logicalHeight : i.texture.height), s = (this.startSize[0] + (this.endSize[0] - this.startSize[0]) * t) / a, c = (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * t) / o, l = this.particleTransform, u = e * 4;
-		l.a = this.simulationSpace === `world` ? this.birthAxes[u] * s : s, l.b = this.simulationSpace === `world` ? this.birthAxes[u + 1] * s : 0, l.c = this.simulationSpace === `world` ? this.birthAxes[u + 2] * c : 0, l.d = this.simulationSpace === `world` ? this.birthAxes[u + 3] * c : c, l.tx = n, l.ty = r, l.space = this.simulationSpace;
-		for (let e = 0; e < 4; e++) this.particleTint[e] = this.startColor[e] + (this.endColor[e] - this.startColor[e]) * t;
+		let a = i.texture, o = i.view, s = i.source;
+		(a !== this.sizeTexture || o !== this.sizeView || s !== this.sizeSource) && (this.sizeWidth = o?.width ?? s?.width ?? (a.kind === `render` ? a.logicalWidth : a.width), this.sizeHeight = o?.height ?? s?.height ?? (a.kind === `render` ? a.logicalHeight : a.height), this.sizeTexture = a, this.sizeView = o, this.sizeSource = s);
+		let c = this.startSize, l = this.endSize, u = (c[0] + (l[0] - c[0]) * t) / this.sizeWidth, d = (c[1] + (l[1] - c[1]) * t) / this.sizeHeight, f = this.particleTransform;
+		if (this.simulationSpace === `world`) {
+			let t = e * 4, n = this.birthAxes;
+			f.a = n[t] * u, f.b = n[t + 1] * u, f.c = n[t + 2] * d, f.d = n[t + 3] * d, f.space = `world`;
+		} else f.a = u, f.b = 0, f.c = 0, f.d = d, f.space = `local`;
+		f.tx = n, f.ty = r;
+		let p = this.startColor, m = this.endColor, h = this.particleTint;
+		h[0] = p[0] + (m[0] - p[0]) * t, h[1] = p[1] + (m[1] - p[1]) * t, h[2] = p[2] + (m[2] - p[2]) * t, h[3] = p[3] + (m[3] - p[3]) * t;
 	}
 	retire(e) {
 		let t = this.active[e];

@@ -133,6 +133,33 @@ describe('pooled CPU particles', () => {
     emitter.emit(1);
     expect(live(emitter)[1].scale.x).toBeCloseTo(8 / 40);
   });
+  it('divides target layer sizes by the source dimensions of the current tick', () => {
+    const layer = new ParticleLayer2D({ capacity: 8 });
+    const texture = new Texture({
+      width: 20,
+      height: 10,
+      close: vi.fn(),
+    } as unknown as ImageBitmap);
+    const emitter = new ParticleEmitter(
+      options({
+        texture,
+        target: layer,
+        startSize: [8, 4],
+        endSize: [8, 4],
+        lifetime: [4, 4],
+      }),
+    );
+    emitter.emit(1);
+    const slot = () => layer.getSlot(layer.activeSlotAt(0));
+    emitter.updateSimulation(0.5);
+    expect([slot().a, slot().d]).toEqual([8 / 20, 4 / 10]);
+    // A redrawn canvas texture keeps its identity and changes size in place.
+    Object.assign(texture, { width: 40, height: 5 });
+    emitter.updateSimulation(0.5);
+    expect([slot().a, slot().d]).toEqual([8 / 40, 4 / 5]);
+    emitter.destroy();
+    layer.destroy();
+  });
   it('writes the same interpolated transform and tint into a target layer slot every update', () => {
     const layer = new ParticleLayer2D({ capacity: 8 });
     const emitter = new ParticleEmitter(

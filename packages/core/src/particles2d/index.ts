@@ -163,6 +163,12 @@ export class ParticleEmitter extends Group2D {
   private fraction = 0;
   private spriteWidth = 1;
   private spriteHeight = 1;
+  /** The source `writeTargetAppearance` last measured and its size; cleared every tick. */
+  private sizeTexture: Texture2DSource | undefined;
+  private sizeView: ParticleSource2D['view'];
+  private sizeSource: ParticleSource2D['source'];
+  private sizeWidth = 1;
+  private sizeHeight = 1;
   private randomState: number;
   private readonly rate: number;
   private readonly lifetime: [number, number];
@@ -608,6 +614,8 @@ export class ParticleEmitter extends Group2D {
 
   /** Every pool Sprite borrows the emitter's own source, so its size is one per-tick value. */
   private refreshSpriteSize(): void {
+    // Sizes may change between ticks, so the per-slot size memo never outlives one.
+    this.sizeTexture = undefined;
     const particle = this.birthOptions;
     this.spriteWidth =
       particle.view?.width ??
@@ -671,40 +679,58 @@ export class ParticleEmitter extends Group2D {
     y: number,
     particle: ParticleSource2D & { texture: Texture2DSource },
   ): void {
-    const width =
-      particle.view?.width ??
-      particle.source?.width ??
-      (particle.texture.kind === 'render'
-        ? particle.texture.logicalWidth
-        : particle.texture.width);
-    const height =
-      particle.view?.height ??
-      particle.source?.height ??
-      (particle.texture.kind === 'render'
-        ? particle.texture.logicalHeight
-        : particle.texture.height);
+    // Particles of a tick nearly always share one source, so its size is read once.
+    const texture = particle.texture,
+      view = particle.view,
+      source = particle.source;
+    if (
+      texture !== this.sizeTexture ||
+      view !== this.sizeView ||
+      source !== this.sizeSource
+    ) {
+      this.sizeWidth =
+        view?.width ??
+        source?.width ??
+        (texture.kind === 'render' ? texture.logicalWidth : texture.width);
+      this.sizeHeight =
+        view?.height ??
+        source?.height ??
+        (texture.kind === 'render' ? texture.logicalHeight : texture.height);
+      this.sizeTexture = texture;
+      this.sizeView = view;
+      this.sizeSource = source;
+    }
+    const startSize = this.startSize,
+      endSize = this.endSize;
     const sx =
-      (this.startSize[0] + (this.endSize[0] - this.startSize[0]) * progress) /
-      width;
+      (startSize[0] + (endSize[0] - startSize[0]) * progress) / this.sizeWidth;
     const sy =
-      (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * progress) /
-      height;
+      (startSize[1] + (endSize[1] - startSize[1]) * progress) / this.sizeHeight;
     const transform = this.particleTransform;
-    const axis = slot * 4;
-    transform.a =
-      this.simulationSpace === 'world' ? this.birthAxes[axis] * sx : sx;
-    transform.b =
-      this.simulationSpace === 'world' ? this.birthAxes[axis + 1] * sx : 0;
-    transform.c =
-      this.simulationSpace === 'world' ? this.birthAxes[axis + 2] * sy : 0;
-    transform.d =
-      this.simulationSpace === 'world' ? this.birthAxes[axis + 3] * sy : sy;
+    if (this.simulationSpace === 'world') {
+      const axis = slot * 4,
+        axes = this.birthAxes;
+      transform.a = axes[axis] * sx;
+      transform.b = axes[axis + 1] * sx;
+      transform.c = axes[axis + 2] * sy;
+      transform.d = axes[axis + 3] * sy;
+      transform.space = 'world';
+    } else {
+      transform.a = sx;
+      transform.b = 0;
+      transform.c = 0;
+      transform.d = sy;
+      transform.space = 'local';
+    }
     transform.tx = x;
     transform.ty = y;
-    transform.space = this.simulationSpace;
-    for (let i = 0; i < 4; i++)
-      this.particleTint[i] =
-        this.startColor[i] + (this.endColor[i] - this.startColor[i]) * progress;
+    const start = this.startColor,
+      end = this.endColor,
+      tint = this.particleTint;
+    tint[0] = start[0] + (end[0] - start[0]) * progress;
+    tint[1] = start[1] + (end[1] - start[1]) * progress;
+    tint[2] = start[2] + (end[2] - start[2]) * progress;
+    tint[3] = start[3] + (end[3] - start[3]) * progress;
   }
 
   private retire(index: number): void {

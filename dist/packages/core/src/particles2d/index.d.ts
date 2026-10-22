@@ -49,6 +49,12 @@ export declare class ParticleEmitter extends Group2D {
     private fraction;
     private spriteWidth;
     private spriteHeight;
+    /** The source `writeTargetAppearance` last measured and its size; cleared every tick. */
+    private sizeTexture;
+    private sizeView;
+    private sizeSource;
+    private sizeWidth;
+    private sizeHeight;
     private randomState;
     private readonly rate;
     private readonly lifetime;
