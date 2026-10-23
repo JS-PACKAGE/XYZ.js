@@ -373,7 +373,8 @@ export type ProceduralMaterialKind =
   | 'birdseyemaple'
   | 'breezeblock'
   | 'basketweavepavers'
-  | 'ripstop';
+  | 'ripstop'
+  | 'octagondot';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -773,6 +774,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'breezeblock',
   'basketweavepavers',
   'ripstop',
+  'octagondot',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

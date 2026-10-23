@@ -275,6 +275,8 @@
 
 同輪追加 `ripstop`（雙線補強防撕裂尼龍布），實際目錄 366→367 種：細織紋與成對補強線構成不同尺度的格紋，0.04 m tile 有四乘四補強格。四圖 opaque dielectric／metallic 0，只描述表面外觀、不新增抗撕裂物理；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `octagondot`（八角菱形拼磚），實際目錄 367→368 種：白色八角主磚與深色菱形嵌磚等高，配有倒角及連續粗糙填縫。0.8 m tile 含四乘四主磚；四圖 opaque dielectric／metallic 0，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

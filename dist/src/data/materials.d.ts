@@ -2299,6 +2299,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         reinforcementOffset: 0.0625;
         reinforcementWidth: 0.025;
     }>;
+    octagondot: Readonly<{
+        dark: readonly [34, 43, 51];
+        light: readonly [235, 230, 214];
+        roughness: 0.32;
+        relief: 0.014;
+        cells: 4;
+        grout: 0.012;
+        shoulder: 0.025;
+        clippedCorner: 0.82;
+        dotRadius: 0.15;
+        dotShoulder: 0.006;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2669,4 +2681,5 @@ export declare const proceduralTileMeters: Readonly<{
     breezeblock: 0.8;
     basketweavepavers: 0.8;
     ripstop: 0.04;
+    octagondot: 0.8;
 }>;

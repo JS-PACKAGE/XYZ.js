@@ -283,6 +283,8 @@
 
 `ripstop` 以連續餘弦場交織細經緯紋，四乘四補強格的每條格線各有兩道 compact smooth ridge，交叉處採平滑聯集而非硬切 max。補強高度、色彩及粗糙度與細織紋分開驅動，seeded 顆粒場預先儲存；0.04 m tile、四圖 opaque dielectric／metallic 0、既有 ownership 不變，目錄增為 367 種。
 
+`octagondot` 以軸向與斜向平滑帶的乘積裁出八角主磚，交點另以兩條平方斜向帶生成菱形嵌磚，避免菱形軸線上的法線尖折。兩者共享等高平面但色彩分離，填縫保留較高粗糙度與較低 AO；0.8 m tile、四乘四主磚、四圖 opaque dielectric／metallic 0、既有 ownership 不變，目錄增為 368 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

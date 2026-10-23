@@ -5710,3 +5710,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現橄欖綠格紋與淺表面起伏，狀態列為 367 presets，無 page errors。首次 WebGL2 管理分頁遇 detached Frame 工具錯誤，關閉並另開新分頁後完成驗證。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.04 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5284 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：八角菱形拼磚（octagondot）
+
+- 新增白色八角主磚與等高深色菱形嵌磚、平滑倒角及粗糙凹填縫，目錄 367→368 種；0.8 m tile 含四乘四主磚。四圖 opaque dielectric、metallic 0；不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的主磚／嵌磚色彩分離及等高性、斜縫與軸向縫隔離，以及八角肩部／菱形交點／wrap 一階連續性。初次連續性測試因窄倒角的有限斜率超過固定差值界限而失敗，將差分取樣距離由 1e-6 縮至 1e-7 後通過，保留原差值與斜率殘差門檻、未修改材質。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 367 種四圖 SHA256 全相同，新增恰為 octagondot。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現白色切角磚、深色交點嵌磚與填縫，狀態列為 368 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5289 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

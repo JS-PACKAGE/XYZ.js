@@ -1248,6 +1248,35 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'octagondot': {
+        const p = proceduralMaterialPresets.octagondot;
+        const grainField = cachedNoise(32, 32, seed ^ 0x7ce3);
+        const dotSquared = p.dotRadius * p.dotRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const octagon =
+            smooth(clamp((0.5 - Math.abs(x) - p.grout) / p.shoulder)) *
+            smooth(clamp((0.5 - Math.abs(y) - p.grout) / p.shoulder)) *
+            smooth(clamp((p.clippedCorner - Math.abs(x + y)) / p.shoulder)) *
+            smooth(clamp((p.clippedCorner - Math.abs(x - y)) / p.shoulder));
+          const dx = fract(u * p.cells + 0.5) - 0.5;
+          const dy = fract(v * p.cells + 0.5) - 0.5;
+          // Diagonal bands keep diamond corners smooth, including the wrap axes.
+          const dot =
+            smooth(clamp((dotSquared - (dx + dy) ** 2) / p.dotShoulder)) *
+            smooth(clamp((dotSquared - (dx - dy) ** 2) / p.dotShoulder));
+          const grain = grainField(u, v);
+          const tile = octagon + dot;
+          color =
+            0.2 + (0.72 + 0.04 * grain) * octagon - (0.13 - 0.02 * grain) * dot;
+          height = (0.65 + 0.005 * grain) * tile;
+          roughness += 0.35 * (1 - tile) + 0.015 * grain * tile;
+          occlusion = 0.45 + 0.55 * tile;
+          mortar = 1 - tile;
+          return;
+        };
+      }
       case 'ripstop': {
         const p = proceduralMaterialPresets.ripstop;
         const grainField = cachedNoise(32, 32, seed ^ 0x71e9);
@@ -10594,6 +10623,7 @@ export function createSurfaceSampler(
     kind === 'breezeblock' ||
     kind === 'basketweavepavers' ||
     kind === 'ripstop' ||
+    kind === 'octagondot' ||
     fabricated ||
     botanical ||
     packaging ||

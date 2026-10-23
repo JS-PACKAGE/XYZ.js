@@ -392,7 +392,97 @@ const kinds: ProceduralMaterialKind[] = [
   'breezeblock',
   'basketweavepavers',
   'ripstop',
+  'octagondot',
 ];
+
+describe('octagon and diamond inset tiles', () => {
+  const p = proceduralMaterialPresets.octagondot;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('octagondot', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains light clipped octagons and equally raised dark diamonds separated by grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const face = at(col + 0.5, row + 0.5);
+          const dot = at(col, row);
+          const diagonalSeam = at(col + 0.0825, row + 0.0825);
+          const edgeSeam = at(col, row + 0.5);
+          expect(face.color - dot.color).toBeGreaterThan(0.8);
+          expect(Math.abs(face.height - dot.height)).toBeLessThan(0.006);
+          for (const seam of [diagonalSeam, edgeSeam]) {
+            expect(dot.height - seam.height).toBeGreaterThan(0.64);
+            expect(dot.occlusion - seam.occlusion).toBeGreaterThan(0.5);
+            expect(seam.roughness - dot.roughness).toBeGreaterThan(0.3);
+            expect(seam.mortar).toBe(1);
+          }
+          expect(face.mortar).toBe(0);
+          expect(dot.mortar).toBe(0);
+        }
+      }
+    },
+  );
+
+  it('keeps octagon bevels, diamond shoulders and shared corner wraps C1 continuous', () => {
+    // Narrow diamond bevels have steep but finite slopes; probe below their scale.
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (x: number, y: number): void => {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      };
+      for (let i = 0; i <= 32; i++) {
+        const t = i / 32;
+        for (const edge of [0, p.grout, p.grout + p.shoulder, p.cells]) {
+          check(edge, t);
+          check(t, edge);
+        }
+        for (const edge of [p.clippedCorner, p.clippedCorner - p.shoulder]) {
+          check(0.5 + edge * t, 0.5 + edge * (1 - t));
+        }
+        for (const edge of [
+          p.dotRadius,
+          Math.sqrt(p.dotRadius ** 2 - p.dotShoulder),
+        ]) {
+          check(edge * t, edge * (1 - t));
+          check(-edge * t, edge * (1 - t));
+        }
+      }
+    }
+  });
+});
 
 describe('double-thread ripstop nylon', () => {
   const p = proceduralMaterialPresets.ripstop;
