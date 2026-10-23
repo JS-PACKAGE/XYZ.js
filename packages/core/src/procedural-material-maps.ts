@@ -1256,6 +1256,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'rakedgravel': {
+        const p = proceduralMaterialPresets.rakedgravel;
+        const stones = new Float64Array(p.cells * p.cells * 4);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 4;
+            stones[index] = 0.4 + 0.2 * hash(col, row, seed ^ 0x3157);
+            stones[index + 1] = 0.4 + 0.2 * hash(col, row, seed ^ 0x4269);
+            stones[index + 2] =
+              p.radiusMin + p.radiusRange * hash(col, row, seed ^ 0x537b);
+            stones[index + 3] = 0.6 + 0.4 * hash(col, row, seed ^ 0x648d);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x759f);
+        return () => {
+          const distance = Math.abs(fract(u * p.furrows) - 0.5);
+          const ridge = smooth(clamp((distance - p.bottom) / p.shoulder));
+          const x = u * p.cells,
+            y = v * p.cells;
+          const index = (Math.floor(y) * p.cells + Math.floor(x)) * 4;
+          const dx = (fract(x) - stones[index]) / stones[index + 2],
+            dy = (fract(y) - stones[index + 1]) / stones[index + 2];
+          const pebble = smooth(clamp(1 - dx * dx - dy * dy));
+          const grain = grainField(u, v);
+          // Rake teeth leave flat-bottomed channels and rounded shoulders;
+          // the same compact stone caps remain on both bed and raised banks.
+          color =
+            0.44 +
+            0.14 * ridge +
+            0.22 * pebble * stones[index + 3] +
+            0.05 * grain;
+          height = 0.16 + 0.5 * ridge + 0.12 * pebble + 0.015 * grain;
+          roughness += 0.1 * (1 - pebble) - 0.03 * ridge;
+          occlusion = 0.6 + 0.3 * ridge + 0.08 * pebble;
+        };
+      }
       case 'sunburstveneer': {
         const p = proceduralMaterialPresets.sunburstveneer;
         const phases = new Float64Array(p.cells * p.cells);
@@ -13118,6 +13153,7 @@ export function createSurfaceSampler(
     kind === 'crystallineglaze' ||
     kind === 'shirring' ||
     kind === 'sunburstveneer' ||
+    kind === 'rakedgravel' ||
     fabricated ||
     botanical ||
     packaging ||

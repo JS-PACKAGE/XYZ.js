@@ -397,6 +397,8 @@
 
 `sunburstveneer` 快取四組拼花的 seeded 相位及各扇片軸向／色調，以 normalized 側邊距離控制等寬拼縫，內外圓邊 compact shoulder 在 ownership 切換前歸零。各片低頻縱向／高頻橫向 noise 在局部木紋座標取樣；中央木塞覆蓋 polar 奇點。木片、木塞與外板保持嵌平，窄縫才降低高度／AO 並提高粗糙度。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 424 種。
 
+`rakedgravel` 以 compact smooth shoulder 連接平底耙溝與平頂溝岸，獨立三十二乘三十二 seeded 石粒快取中心／半徑／色調；石粒在所屬 cell 邊界前完整歸零，並以相同細凸面疊在溝底和岸面。高度將粗尺度耙紋與細尺度石粒分離，AO 保留溝底陰影及顆粒間隙。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 425 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

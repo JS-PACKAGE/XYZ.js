@@ -2903,6 +2903,18 @@ export const proceduralMaterialPresets = Object.freeze({
     gap: 0.003,
     bevel: 0.008,
   }),
+  rakedgravel: Object.freeze({
+    dark: [89, 88, 82] as const,
+    light: [237, 235, 218] as const,
+    roughness: 0.86,
+    relief: 0.03,
+    furrows: 8,
+    bottom: 0.12,
+    shoulder: 0.18,
+    cells: 32,
+    radiusMin: 0.28,
+    radiusRange: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3331,4 +3343,5 @@ export const proceduralTileMeters = Object.freeze({
   crystallineglaze: 0.16,
   shirring: 0.12,
   sunburstveneer: 0.8,
+  rakedgravel: 0.8,
 });

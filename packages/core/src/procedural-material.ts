@@ -430,7 +430,8 @@ export type ProceduralMaterialKind =
   | 'seaurchintest'
   | 'crystallineglaze'
   | 'shirring'
-  | 'sunburstveneer';
+  | 'sunburstveneer'
+  | 'rakedgravel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -887,6 +888,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'crystallineglaze',
   'shirring',
   'sunburstveneer',
+  'rakedgravel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

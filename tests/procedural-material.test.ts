@@ -449,7 +449,94 @@ const kinds: ProceduralMaterialKind[] = [
   'crystallineglaze',
   'shirring',
   'sunburstveneer',
+  'rakedgravel',
 ];
+
+describe('Raked garden gravel', () => {
+  const p = proceduralMaterialPresets.rakedgravel;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('rakedgravel', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains individual stones on flat-bottomed rake channels and raised banks for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let furrow = 0; furrow < p.furrows; furrow++)
+        for (let n = 0; n < 32; n++) {
+          const v = (n + 0.37) / 32;
+          const floor = sample((furrow + 0.5) / p.furrows, v),
+            bank = sample(furrow / p.furrows, v),
+            shoulder = sample((furrow + 0.71) / p.furrows, v);
+          expect(bank.height - floor.height).toBeGreaterThan(0.01);
+          expect(shoulder.height - floor.height).toBeGreaterThan(0.003);
+          expect(bank.height - shoulder.height).toBeGreaterThan(0.003);
+          expect(bank.occlusion - floor.occlusion).toBeGreaterThan(0.21);
+          // Both probes stay on the flat rake bed; differences are stone-scale.
+          const bottomEdge = sample((furrow + 0.58) / p.furrows, v);
+          expect(Math.abs(bottomEdge.height - floor.height)).toBeLessThan(
+            0.0041,
+          );
+        }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = 0.4 + 0.2 * hash(col, row, seed ^ 0x3157),
+            cy = 0.4 + 0.2 * hash(col, row, seed ^ 0x4269);
+          const u = (col + cx) / p.cells;
+          const stone = sample(u, (row + cy) / p.cells),
+            gap = sample(u, (row + cy + 0.34) / p.cells);
+          expect(stone.height - gap.height).toBeGreaterThan(0.003);
+          expect(stone.color - gap.color).toBeGreaterThan(0.07);
+          expect(stone.occlusion - gap.occlusion).toBeGreaterThan(0.079);
+          expect(gap.roughness - stone.roughness).toBeGreaterThan(0.099);
+          expect(stone.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps rake shoulders, channel floors, stone caps and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Sunburst veneer marquetry', () => {
   const p = proceduralMaterialPresets.sunburstveneer;
