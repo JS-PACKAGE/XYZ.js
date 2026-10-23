@@ -3050,6 +3050,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.006;
         bevel: 0.012;
     }>;
+    snowflaketiles: Readonly<{
+        dark: readonly [21, 53, 91];
+        light: readonly [230, 241, 246];
+        roughness: 0.24;
+        relief: 0.02;
+        cells: 4;
+        arms: 6;
+        radius: 0.34;
+        lineWidth: 0.014;
+        branchPositions: readonly [0.13, 0.24];
+        branchLength: 0.09;
+        grout: 0.02;
+        bevel: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3490,4 +3504,5 @@ export declare const proceduralTileMeters: Readonly<{
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;
+    snowflaketiles: 0.8;
 }>;

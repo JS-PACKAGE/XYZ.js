@@ -462,7 +462,133 @@ const kinds: ProceduralMaterialKind[] = [
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
+  'snowflaketiles',
 ];
+
+describe('Snowflake ceramic tiles', () => {
+  const p = proceduralMaterialPresets.snowflaketiles;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('snowflaketiles', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'prints six branched arms flush with blue glaze above recessed joints for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4e57);
+          const local = (x: number, y: number, angle: number) =>
+            sample(
+              (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+              (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+            );
+          const center = local(0, 0, phase);
+          for (let arm = 0; arm < 6; arm++) {
+            const angle = phase + (arm * Math.PI) / 3;
+            const bare = local(0.33, 0, angle + Math.PI / 6);
+            const probes = [local(0.32, 0, angle)];
+            for (const position of p.branchPositions)
+              for (const side of [-1, 1])
+                probes.push(
+                  local(
+                    position + p.branchLength * 0.25,
+                    side * p.branchLength * Math.sqrt(3) * 0.25,
+                    angle,
+                  ),
+                );
+            for (const printed of [center, ...probes]) {
+              expect(printed.color - bare.color).toBeGreaterThan(0.8);
+              expect(printed.roughness - bare.roughness).toBeGreaterThan(0.02);
+              expect(Math.abs(printed.height - bare.height)).toBeLessThan(
+                0.00013,
+              );
+              expect(printed.occlusion).toBe(bare.occlusion);
+              expect(printed.mortar).toBe(0);
+              expect(printed.metallic).toBe(0);
+            }
+          }
+          const joint = sample(col / p.cells, (row + 0.5) / p.cells);
+          expect(center.height - joint.height).toBeGreaterThan(0.011);
+          expect(center.occlusion - joint.occlusion).toBeGreaterThan(0.28);
+          expect(joint.roughness - center.roughness).toBeGreaterThan(0.43);
+          expect(joint.mortar).toBe(1);
+        }
+    },
+  );
+  it('keeps stroke caps, branch junctions, grout shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4e57);
+          for (let arm = 0; arm < p.arms; arm++) {
+            const angle = phase + (arm * Math.PI) / 3;
+            const add = (x: number, y: number) =>
+              points.push([
+                (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) /
+                  p.cells,
+                (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) /
+                  p.cells,
+              ]);
+            for (const x of [0, p.radius, p.radius + p.lineWidth]) add(x, 0);
+            add(p.radius, p.lineWidth);
+            for (const position of p.branchPositions)
+              for (const side of [-1, 1]) {
+                add(position, 0);
+                add(
+                  position + p.branchLength / 2,
+                  (side * p.branchLength * Math.sqrt(3)) / 2,
+                );
+              }
+          }
+          for (const d of [0, p.grout, p.grout + p.bevel]) {
+            points.push([(col + d) / p.cells, (row + 0.5) / p.cells]);
+            points.push([(col + 0.5) / p.cells, (row + d) / p.cells]);
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Concentric circular paving', () => {
   const p = proceduralMaterialPresets.circularpavers;

@@ -1258,6 +1258,74 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'snowflaketiles': {
+        const p = proceduralMaterialPresets.snowflaketiles;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const angle = TAU * hash(col, row, seed ^ 0x4e57);
+            const i = (row * p.cells + col) * 2;
+            rotations[i] = Math.cos(angle);
+            rotations[i + 1] = Math.sin(angle);
+          }
+        const segments = new Float64Array(
+          p.arms * (1 + p.branchPositions.length * 2) * 5,
+        );
+        let offset = 0;
+        const add = (x: number, y: number, dx: number, dy: number): void => {
+          segments[offset++] = x;
+          segments[offset++] = y;
+          segments[offset++] = dx;
+          segments[offset++] = dy;
+          segments[offset++] = 1 / (dx * dx + dy * dy);
+        };
+        for (let arm = 0; arm < p.arms; arm++) {
+          const angle = (TAU * arm) / p.arms,
+            c = Math.cos(angle),
+            s = Math.sin(angle);
+          add(0, 0, p.radius * c, p.radius * s);
+          for (const position of p.branchPositions)
+            for (const side of [-1, 1]) {
+              const dx = p.branchLength * 0.5,
+                dy = side * p.branchLength * Math.sqrt(3) * 0.5;
+              add(position * c, position * s, dx * c - dy * s, dx * s + dy * c);
+            }
+        }
+        const inverseWidth2 = 1 / (p.lineWidth * p.lineWidth);
+        const grainField = cachedNoise(96, 96, seed ^ 0x5f69);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const rx = x * rotations[i] + y * rotations[i + 1],
+            ry = y * rotations[i] - x * rotations[i + 1];
+          let unprinted = 1;
+          for (let j = 0; j < segments.length; j += 5) {
+            const px = rx - segments[j],
+              py = ry - segments[j + 1],
+              dx = segments[j + 2],
+              dy = segments[j + 3];
+            const t = clamp((px * dx + py * dy) * segments[j + 4]);
+            const ex = px - t * dx,
+              ey = py - t * dy;
+            unprinted *=
+              1 - smooth(clamp(1 - (ex * ex + ey * ey) * inverseWidth2));
+          }
+          const motif = 1 - unprinted;
+          const face =
+            smooth(clamp((0.5 - Math.abs(x) - p.grout) / p.bevel)) *
+            smooth(clamp((0.5 - Math.abs(y) - p.grout) / p.bevel));
+          const grain = grainField(u, v);
+          mortar = 1 - face;
+          color = 0.1 + 0.84 * motif + 0.02 * grain;
+          // Glazed pigment stays flush; only the square tile joints affect relief.
+          height = 0.15 + face * (0.6 + 0.006 * grain);
+          roughness += 0.02 * grain + 0.5 * mortar + 0.04 * motif * face;
+          occlusion = 0.7 + 0.29 * face;
+        };
+      }
       case 'circularpavers': {
         const p = proceduralMaterialPresets.circularpavers;
         const count = 1 + (p.sectors * p.courses * (p.courses + 1)) / 2;
@@ -13759,6 +13827,7 @@ export function createSurfaceSampler(
     kind === 'orbicularjasper' ||
     kind === 'acornbarnacles' ||
     kind === 'circularpavers' ||
+    kind === 'snowflaketiles' ||
     fabricated ||
     botanical ||
     packaging ||

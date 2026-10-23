@@ -443,7 +443,8 @@ export type ProceduralMaterialKind =
   | 'hexnuts'
   | 'orbicularjasper'
   | 'acornbarnacles'
-  | 'circularpavers';
+  | 'circularpavers'
+  | 'snowflaketiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -913,6 +914,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
+  'snowflaketiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
