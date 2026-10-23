@@ -1259,6 +1259,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cucumberslices': {
+        const p = proceduralMaterialPresets.cucumberslices;
+        const axes = new Float64Array(p.cells * p.cells * p.chambers * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x2e51);
+            for (let chamber = 0; chamber < p.chambers; chamber++) {
+              const i = ((row * p.cells + col) * p.chambers + chamber) * 2;
+              const angle = phase + (TAU * chamber) / p.chambers;
+              axes[i] = Math.cos(angle);
+              axes[i + 1] = Math.sin(angle);
+            }
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x3f63);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i =
+            (Math.floor(vCell) * p.cells + Math.floor(uCell)) * p.chambers * 2;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5,
+            radius = Math.hypot(x, y);
+          const face = smooth(clamp((p.radius - radius) / p.edge));
+          const rind = smooth(clamp((radius - p.rindStart) / p.rindWidth));
+          let chambers = 0,
+            seeds = 0;
+          for (let chamber = 0; chamber < p.chambers; chamber++) {
+            const j = i + chamber * 2;
+            const along = x * axes[j] + y * axes[j + 1],
+              across = y * axes[j] - x * axes[j + 1];
+            const gel = smooth(
+              clamp(
+                (1 -
+                  ((along - p.chamberCenter) / p.chamberLength) ** 2 -
+                  (across / p.chamberWidth) ** 2) /
+                  p.shoulder,
+              ),
+            );
+            chambers += gel;
+            if (gel > 0)
+              for (const position of p.seedPositions)
+                seeds += smooth(
+                  clamp(
+                    (1 -
+                      ((along - position) / p.seedLength) ** 2 -
+                      (across / p.seedWidth) ** 2) /
+                      p.shoulder,
+                  ),
+                );
+          }
+          const grain = grainField(u, v);
+          color =
+            0.05 +
+            face *
+              (0.68 +
+                0.015 * grain -
+                0.58 * rind -
+                0.28 * chambers +
+                0.48 * seeds);
+          // Flesh, gel, seeds and rind share a flush cut face, not open air canals.
+          height = 0.05 + face * (0.55 + 0.004 * grain);
+          roughness +=
+            0.02 * grain +
+            face * (0.18 * rind - 0.08 * chambers + 0.04 * seeds);
+          occlusion = 0.3 + 0.69 * face;
+        };
+      }
       case 'polkadotfabric': {
         const p = proceduralMaterialPresets.polkadotfabric;
         const shiftU = hash(0, 0, seed ^ 0x5d47),
@@ -13964,6 +14031,7 @@ export function createSurfaceSampler(
     kind === 'sawblades' ||
     kind === 'pistachios' ||
     kind === 'polkadotfabric' ||
+    kind === 'cucumberslices' ||
     fabricated ||
     botanical ||
     packaging ||

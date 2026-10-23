@@ -431,6 +431,8 @@
 
 `polkadotfabric` 以偶數列週期與半格錯列建立三十六個圓形印花，seeded 平移在 UV wrap 後選取 cell；平方徑向 compact shoulder 保持中心與圓邊連續。底下平織沿用交替經緯優先的解析場，圓點僅改變 color／roughness，height／AO 完全不依賴印花場，避免變成凸珠或壓紋。0.12 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 441 種。
 
+`cucumberslices` 快取九片各三組 seeded 放射軸，以同向橢圓 compact supports 形成膠質種子腔及其中三顆更窄長籽，深綠皮緣由平滑環帶構成。三腔互不重疊，籽裙緣完全位於腔內，避免分支跳變；切面 height 僅含獨立微粒，AO 只反映切片外緣，保留嵌平果肉而非蓮藕式空氣孔。0.18 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 442 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

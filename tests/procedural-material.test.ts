@@ -466,7 +466,138 @@ const kinds: ProceduralMaterialKind[] = [
   'sawblades',
   'pistachios',
   'polkadotfabric',
+  'cucumberslices',
 ];
+
+describe('Cucumber slices', () => {
+  const p = proceduralMaterialPresets.cucumberslices;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cucumberslices', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three gel chambers, nine elongated seeds and dark rind flush with the cut face for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2e51);
+          const at = (x: number, y: number, angle: number) =>
+            sample(
+              (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+              (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+            );
+          const flesh = at(0.36, 0, phase + Math.PI / 3),
+            rind = at(0.43, 0, phase),
+            outside = at(0.48, 0, phase);
+          expect(flesh.color - rind.color).toBeGreaterThan(0.56);
+          expect(rind.roughness - flesh.roughness).toBeGreaterThan(0.16);
+          expect(flesh.height - outside.height).toBeGreaterThan(0.008);
+          expect(flesh.occlusion - outside.occlusion).toBeGreaterThan(0.68);
+          for (let chamber = 0; chamber < 3; chamber++) {
+            const angle = phase + (chamber * 2 * Math.PI) / 3;
+            for (const position of p.seedPositions) {
+              const seedFace = at(position, 0, angle),
+                gel = at(position, 0.04, angle),
+                longTip = at(position + 0.02, 0, angle),
+                shortOutside = at(position, 0.02, angle);
+              expect(seedFace.color - gel.color).toBeGreaterThan(0.46);
+              expect(flesh.color - gel.color).toBeGreaterThan(0.26);
+              expect(longTip.color - shortOutside.color).toBeGreaterThan(0.46);
+              expect(flesh.roughness - gel.roughness).toBeGreaterThan(0.06);
+              for (const cut of [seedFace, gel, longTip, rind]) {
+                expect(Math.abs(cut.height - flesh.height)).toBeLessThan(
+                  0.000061,
+                );
+                expect(cut.occlusion).toBe(flesh.occlusion);
+                expect(cut.metallic).toBe(0);
+              }
+            }
+          }
+        }
+    },
+  );
+  it('keeps locule and seed skirts, rind bands, slice edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2e51);
+          for (let chamber = 0; chamber < 3; chamber++) {
+            const angle = phase + (chamber * 2 * Math.PI) / 3;
+            const add = (x: number, y: number) =>
+              points.push([
+                (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) /
+                  p.cells,
+                (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) /
+                  p.cells,
+              ]);
+            for (const r of [
+              p.rindStart,
+              p.rindStart + p.rindWidth,
+              p.radius - p.edge,
+              p.radius,
+            ])
+              add(r, 0);
+            for (const [center, length, width] of [
+              [p.chamberCenter, p.chamberLength, p.chamberWidth],
+              ...p.seedPositions.map((position) => [
+                position,
+                p.seedLength,
+                p.seedWidth,
+              ]),
+            ])
+              for (const r of [1, Math.sqrt(1 - p.shoulder)])
+                for (let ray = 0; ray < 16; ray++) {
+                  const theta = (ray * Math.PI) / 8;
+                  add(
+                    center + r * length * Math.cos(theta),
+                    r * width * Math.sin(theta),
+                  );
+                }
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Polka dot woven fabric', () => {
   const p = proceduralMaterialPresets.polkadotfabric;
