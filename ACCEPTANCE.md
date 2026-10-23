@@ -6219,3 +6219,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證所有球紋八個徑向方向的多層環色差／粗糙度、暗核心與綠基質的區隔、拋光微幅高度及無假 AO 凹洞；另在球紋中心、compact rims、owner 切換與 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5636 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：綠色基質與獨立淺色礦物環、近乎平坦 normal／全白 AO 及四圖可見，status 為 435 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 434 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：橡實藤壺殼（acornbarnacles）
+
+- 目錄 435→436 種。0.12 m tile、四乘四 seeded 旋轉殼體、六片放射殼板與四十八條細肋，殼壁由寬底向內收高，菱形凹口低於殼緣。不同於海膽的五列雙孔或珊瑚的圓形隔板孔；孔底與殼外保持低暗底面。四圖 opaque、metallic 0、既有 ownership 不變，不新增藤壺 geometry／alpha holes／生物動畫。
+- 定向 4 tests 通過：三 seeds 驗證十六殼的菱形開口四方向、深孔與高殼緣、全部六板縫的高度／色差／AO／粗糙度、由上向下殼壁坡度及細肋起伏；另在菱口肩部、角向細肋 supports、殼緣／坡面界線及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5641 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：米白殼面、中央角形暗孔、放射板縫 AO 與殼壁 normal 四圖可見，status 為 436 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 435 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

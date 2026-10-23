@@ -1258,6 +1258,69 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'acornbarnacles': {
+        const p = proceduralMaterialPresets.acornbarnacles;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x5b47);
+            const i = (row * p.cells + col) * 2;
+            rotations[i] = Math.cos(phase);
+            rotations[i + 1] = Math.sin(phase);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6c59);
+        const rounding = p.apertureRound * p.apertureRound;
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * rotations[i] + dy * rotations[i + 1],
+            y = dy * rotations[i] - dx * rotations[i + 1];
+          const radius = Math.hypot(x, y);
+          const face = smooth(clamp((p.radius - radius) / p.edge));
+          const crown =
+            1 - smooth(clamp((radius - p.crownStart) / p.crownWidth));
+          const diamond =
+            Math.sqrt(x * x + rounding) + Math.sqrt(y * y + rounding);
+          const aperture =
+            1 - smooth(clamp((diamond - p.apertureInner) / p.apertureShoulder));
+          let seam = 0,
+            ribs = 0;
+          if (radius > p.ribStart && face > 0) {
+            const angle = Math.atan2(y, x);
+            const fade = smooth(clamp((radius - p.ribStart) / p.ribShoulder));
+            seam = fade * smooth(clamp((Math.cos(6 * angle) - 0.88) / 0.12));
+            ribs = fade * (0.5 + 0.5 * Math.cos(p.striae * angle));
+          }
+          const grain = grainField(u, v);
+          // Six wall plates converge on a diamond aperture with opaque backing.
+          // Angular striae vanish before the center, keeping its limit unique.
+          color =
+            0.08 +
+            face *
+              (0.55 +
+                0.2 * crown -
+                0.75 * aperture -
+                0.12 * seam +
+                0.03 * ribs +
+                0.03 * grain);
+          height =
+            0.05 +
+            face *
+              (0.25 +
+                0.5 * crown -
+                0.75 * aperture -
+                0.065 * seam +
+                0.018 * ribs +
+                0.008 * grain);
+          roughness +=
+            0.03 * grain +
+            face * (0.08 * seam + 0.12 * aperture - 0.08 * crown);
+          occlusion = 0.3 + face * (0.68 - 0.6 * aperture - 0.12 * seam);
+        };
+      }
       case 'orbicularjasper': {
         const p = proceduralMaterialPresets.orbicularjasper;
         const orbs = new Float64Array(p.cells * p.cells * 4);
@@ -13632,6 +13695,7 @@ export function createSurfaceSampler(
     kind === 'cardboardedge' ||
     kind === 'hexnuts' ||
     kind === 'orbicularjasper' ||
+    kind === 'acornbarnacles' ||
     fabricated ||
     botanical ||
     packaging ||

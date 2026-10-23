@@ -419,6 +419,8 @@
 
 `orbicularjasper` 快取二十五個 seeded 中心、倒平方半徑及三／四環數，以平方徑向場產生同心色帶，避免中心的徑向尖點；compact orbicle skirts 在 cell 邊界前歸零，保留獨立球紋與可見綠色基質。礦物環只影響 color／roughness，height 僅有獨立微粒，AO 維持 1，不將拋光包裹體誤作凸環或孔洞。0.12 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 435 種。
 
+`acornbarnacles` 快取十六個 seeded 旋轉，以平滑圓裙緣與向內升高殼壁構成橡實形殼體；六條板縫及四十八條細肋在中央前淡出，避免角度場奇點。正則化 L1 場形成菱形凹口與圓滑尖角，深孔低於殼緣；板縫同步降低高度／AO 並提高粗糙度，殼外仍為 opaque 底面。0.12 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 436 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -411,6 +411,8 @@
 
 同輪追加 `orbicularjasper`（球紋碧玉），實際目錄 434→435 種：綠色基質中二十五個獨立球紋，seed 決定中心偏移、半徑及三／四層淺色礦物環。各球紋嵌於拋光平面，只改變色調與細微粗糙度，不產生環狀凸起或晶洞陰影。0.12 m tile、四圖 opaque dielectric、metallic 0；與連通礦物色帶／晶簇不同，不新增礦石 geometry，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `acornbarnacles`（橡實藤壺殼），實際目錄 435→436 種：四乘四 seeded 旋轉殼體、六片放射殼板與細密縱肋，殼壁向中央收高，菱形開口低於殼緣；不是海膽的五列雙孔或珊瑚圓形隔板孔。0.12 m tile、四圖 opaque dielectric、metallic 0；孔底與殼外為低暗底面，不新增藤壺 geometry／alpha holes／生物動畫，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -460,7 +460,139 @@ const kinds: ProceduralMaterialKind[] = [
   'cardboardedge',
   'hexnuts',
   'orbicularjasper',
+  'acornbarnacles',
 ];
+
+describe('Acorn barnacle shells', () => {
+  const p = proceduralMaterialPresets.acornbarnacles;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('acornbarnacles', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises six radially seamed shell plates around a deep diamond aperture for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x5b47);
+          const at = (radius: number, angle: number) =>
+            sample(
+              (col + 0.5 + radius * Math.cos(angle + phase)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle + phase)) / p.cells,
+            );
+          const cavity = at(0, 0),
+            rim = at(0.14, 0),
+            outside = at(0.48, 0);
+          expect(rim.height - cavity.height).toBeGreaterThan(0.027);
+          expect(rim.color - cavity.color).toBeGreaterThan(0.65);
+          expect(rim.occlusion - cavity.occlusion).toBeGreaterThan(0.59);
+          expect(Math.abs(cavity.height - outside.height)).toBeLessThan(
+            0.00035,
+          );
+          expect(rim.metallic).toBe(0);
+          for (let corner = 0; corner < 4; corner++) {
+            const angle = (corner * Math.PI) / 2;
+            const opening = at(0.1, angle),
+              diagonalWall = at(0.1, angle + Math.PI / 4);
+            expect(diagonalWall.height - opening.height).toBeGreaterThan(0.022);
+          }
+          for (let plate = 0; plate < 6; plate++) {
+            const angle = (plate * Math.PI) / 3;
+            const seam = at(0.28, angle),
+              wall = at(0.28, angle + Math.PI / 12);
+            expect(wall.height - seam.height).toBeGreaterThan(0.002);
+            expect(wall.color - seam.color).toBeGreaterThan(0.09);
+            expect(wall.occlusion - seam.occlusion).toBeGreaterThan(0.1);
+            expect(seam.roughness - wall.roughness).toBeGreaterThan(0.05);
+            const upper = at(0.18, angle + Math.PI / 12),
+              foot = at(0.38, angle + Math.PI / 12),
+              betweenRibs = at(0.28, angle + Math.PI / 12 + Math.PI / 48);
+            expect(upper.height - wall.height).toBeGreaterThan(0.007);
+            expect(wall.height - foot.height).toBeGreaterThan(0.006);
+            expect(wall.height - betweenRibs.height).toBeGreaterThan(0.00035);
+          }
+        }
+    },
+  );
+  it('keeps diamond corners, radial striae supports, shell skirts and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x5b47);
+          for (let ray = 0; ray < 24; ray++) {
+            const angle = phase + (ray * Math.PI) / 12;
+            for (const radius of [
+              p.radius,
+              p.radius - p.edge,
+              p.crownStart,
+              p.crownStart + p.crownWidth,
+              p.ribStart,
+              p.ribStart + p.ribShoulder,
+            ])
+              points.push([
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              ]);
+          }
+          for (const bound of [
+            p.apertureInner,
+            p.apertureInner + p.apertureShoulder,
+          ]) {
+            const radius = Math.sqrt(
+              (bound - p.apertureRound) ** 2 - p.apertureRound ** 2,
+            );
+            for (let ray = 0; ray < 4; ray++) {
+              const angle = phase + (ray * Math.PI) / 2;
+              points.push([
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              ]);
+            }
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Polished orbicular jasper', () => {
   const p = proceduralMaterialPresets.orbicularjasper;
