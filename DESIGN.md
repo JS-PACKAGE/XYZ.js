@@ -413,6 +413,8 @@
 
 `lotusroot` 快取九個切面、各八條氣孔的方向與橢圓倒平方半徑，避免逐像素重算 seeded 三角函數。氣孔沿徑向拉長，compact shoulders 形成低平孔底與平滑壁面，中央孔同樣沒有種子或凸起領圈；孔間肉質與薄褐皮共用嵌平高度，外圓裙緣在 cell 邊界前歸零。色差與 AO 區分淺肉質／薄皮／深氣孔，低暗底面仍為 opaque。0.24 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 432 種。
 
+`cardboardedge` 快取六層 seeded 相位，四週期正弦芯紙以切線斜率修正垂直距離，避免陡側紙壁過薄；上下 liner 以 compact shoulders 形成直紙邊，與芯紙用 product union 接合，交點不疊高。所有紙邊共用切面高度與細微紙漿／纖維起伏，空腔保持低暗 opaque 底面；各層紙邊在 row 邊界前歸零，不因相位切換產生接縫。0.024 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 433 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

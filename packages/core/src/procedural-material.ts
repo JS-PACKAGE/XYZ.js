@@ -438,7 +438,8 @@ export type ProceduralMaterialKind =
   | 'splitlockwashers'
   | 'flemishbond'
   | 'satinweave'
-  | 'lotusroot';
+  | 'lotusroot'
+  | 'cardboardedge';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -903,6 +904,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flemishbond',
   'satinweave',
   'lotusroot',
+  'cardboardedge',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -457,7 +457,125 @@ const kinds: ProceduralMaterialKind[] = [
   'flemishbond',
   'satinweave',
   'lotusroot',
+  'cardboardedge',
 ];
+
+describe('Corrugated cardboard cut edge', () => {
+  const p = proceduralMaterialPresets.cardboardedge;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cardboardedge', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins sinusoidal medium to paired flat liners above hollow cavities for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const phase = hash(0, row, seed ^ 0x3a57);
+        for (let col = 0; col < p.columns; col++)
+          for (let step = 0; step < 16; step++) {
+            const turn = step / 16;
+            const u = (col + turn - phase) / p.columns;
+            const at = (y: number) => sample(u, (row + 0.5 + y) / p.rows);
+            const wave = p.amplitude * Math.cos(2 * Math.PI * turn);
+            const medium = at(wave);
+            const cavity = at(wave >= 0 ? -0.2 : 0.2);
+            const upper = at(p.linerCenter),
+              lower = at(-p.linerCenter);
+            for (const paper of [medium, upper, lower]) {
+              expect(paper.height - cavity.height).toBeGreaterThan(0.013);
+              expect(paper.color - cavity.color).toBeGreaterThan(0.58);
+              expect(paper.occlusion - cavity.occlusion).toBeGreaterThan(0.7);
+              expect(cavity.roughness - paper.roughness).toBeGreaterThan(0.045);
+              expect(paper.metallic).toBe(0);
+            }
+            expect(Math.abs(medium.height - upper.height)).toBeLessThan(0.0005);
+            expect(Math.abs(lower.height - upper.height)).toBeLessThan(0.0005);
+            if (step === 0 || step === 8) {
+              const side = step === 0 ? 1 : -1;
+              // The medium must meet its liner, rather than ending in a dark gap.
+              for (let i = 0; i <= 8; i++) {
+                const contact = at(
+                  side *
+                    (p.amplitude + ((p.linerCenter - p.amplitude) * i) / 8),
+                );
+                expect(contact.height - cavity.height).toBeGreaterThan(0.007);
+                expect(contact.occlusion - cavity.occlusion).toBeGreaterThan(
+                  0.38,
+                );
+              }
+            }
+          }
+      }
+    },
+  );
+  it('keeps paper skirts, liner contacts, row ownership and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.rows; row++) {
+        const phase = hash(0, row, seed ^ 0x3a57);
+        for (let step = 0; step < 16; step++) {
+          const turn = step / 16,
+            angle = 2 * Math.PI * turn,
+            u = (turn - phase) / p.columns;
+          const wave = p.amplitude * Math.cos(angle);
+          const slope =
+            ((p.amplitude * 2 * Math.PI * p.columns) / p.rows) *
+            Math.sin(angle);
+          for (const side of [-1, 1]) {
+            const y =
+              wave + side * p.mediumHalfWidth * Math.sqrt(1 + slope * slope);
+            points.push([u, (row + 0.5 + y) / p.rows]);
+            for (const edge of [-1, 1])
+              points.push([
+                u,
+                (row + 0.5 + side * (p.linerCenter + edge * p.linerHalfWidth)) /
+                  p.rows,
+              ]);
+          }
+        }
+      }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Lotus root air canals', () => {
   const p = proceduralMaterialPresets.lotusroot;

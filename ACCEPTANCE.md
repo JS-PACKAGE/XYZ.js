@@ -6198,3 +6198,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證九片的中央孔、全部七十二條氣孔的徑向長軸／切向短軸、孔間肉質高度／色差／AO、平齊薄皮與低暗底面；另在精確氣孔壁肩、薄皮／外圓裙緣、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5620 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：淺色圓切面、放射狀長氣孔／中央孔、薄褐皮、孔壁 normal 與深孔 AO 及四圖可見，status 為 432 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切面，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 431 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：瓦楞紙板切邊（cardboardedge）
+
+- 目錄 432→433 種。0.024 m tile、六層紙板切面，每層四週期波浪芯紙與上下平面 liner 相接，seed 控制各層相位與紙漿／纖維細紋。紙邊嵌平、接點不疊高，腔內保持低暗 opaque 底面；與既有 `corrugatedcardboard` 正面起伏不同。四圖、metallic 0、既有 ownership 不變，不新增紙板 geometry／透明孔洞。
+- 定向 4 tests 通過：三 seeds 驗證二十四個芯紙週期各十六個相位的波形紙邊、上下 liner、低暗腔高度／色差／AO／粗糙度、波峰波谷與 liner 連續接合；另在精確芯紙／liner skirts、層 owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5625 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：棕色直紙層、逐層錯相波浪芯紙、暗腔、紙邊 normal／AO 及四圖可見，status 為 433 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切邊，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.024 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 432 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

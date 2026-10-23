@@ -2985,6 +2985,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         centralRadius: 0.055;
         wallShoulder: 0.35;
     }>;
+    cardboardedge: Readonly<{
+        dark: readonly [47, 30, 17];
+        light: readonly [209, 168, 111];
+        roughness: 0.86;
+        relief: 0.02;
+        columns: 4;
+        rows: 6;
+        amplitude: 0.4;
+        linerCenter: 0.445;
+        linerHalfWidth: 0.045;
+        mediumHalfWidth: 0.035;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3420,4 +3432,5 @@ export declare const proceduralTileMeters: Readonly<{
     flemishbond: 1.2;
     satinweave: 0.02;
     lotusroot: 0.24;
+    cardboardedge: 0.024;
 }>;

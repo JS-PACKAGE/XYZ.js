@@ -1257,6 +1257,36 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cardboardedge': {
+        const p = proceduralMaterialPresets.cardboardedge;
+        const phases = new Float64Array(p.rows);
+        for (let row = 0; row < p.rows; row++)
+          phases[row] = TAU * hash(0, row, seed ^ 0x3a57);
+        const grainField = cachedNoise(128, 128, seed ^ 0x4b69);
+        const fiberField = cachedNoise(192, 24, seed ^ 0x5c7b);
+        const slopeScale = (p.amplitude * TAU * p.columns) / p.rows;
+        return () => {
+          const vCell = v * p.rows,
+            y = fract(vCell) - 0.5;
+          const angle = TAU * p.columns * u + phases[Math.floor(vCell)];
+          const wave = p.amplitude * Math.cos(angle);
+          const slope = slopeScale * Math.sin(angle);
+          const distance = (y - wave) / Math.sqrt(1 + slope * slope);
+          const medium = smooth(clamp(1 - (distance / p.mediumHalfWidth) ** 2));
+          const liner = smooth(
+            clamp(1 - ((Math.abs(y) - p.linerCenter) / p.linerHalfWidth) ** 2),
+          );
+          const paper = 1 - (1 - medium) * (1 - liner);
+          const grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          // This is the cut edge: flute and liner faces are flush, cavities lower.
+          // Slope correction avoids thinning the medium on steep wave flanks.
+          color = 0.06 + paper * (0.6 + 0.08 * grain + 0.04 * fiber);
+          height = 0.04 + paper * (0.68 + 0.015 * grain + 0.008 * fiber);
+          roughness += 0.08 * (1 - paper) + 0.03 * grain;
+          occlusion = 0.25 + 0.73 * paper;
+        };
+      }
       case 'lotusroot': {
         const p = proceduralMaterialPresets.lotusroot;
         const grainField = cachedNoise(96, 96, seed ^ 0x5f83);
@@ -13513,6 +13543,7 @@ export function createSurfaceSampler(
     kind === 'flemishbond' ||
     kind === 'satinweave' ||
     kind === 'lotusroot' ||
+    kind === 'cardboardedge' ||
     fabricated ||
     botanical ||
     packaging ||
