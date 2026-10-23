@@ -303,6 +303,8 @@
 
 `perforatedleather` 以偶數列週期的半格偏移排列圓孔，平方徑向距離經 smooth 過渡形成平底孔與圓潤孔壁，孔域在換主前消失。預先快取的雙尺度 seeded 細粒場只影響完整皮面；深色粗糙內襯固定在皮面下，並非透明穿孔或 raised 毛囊。0.04 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 377 種。
 
+`argyle` 在兩個斜向週期座標中，以平滑符號乘積形成連續交錯菱形，半格偏移的細線以 smooth union 覆蓋色塊。印花只驅動 color；height、roughness 與 AO 由獨立經緯紗線和 seeded 細粒場決定，避免做成菱形磁磚或浮雕。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 378 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

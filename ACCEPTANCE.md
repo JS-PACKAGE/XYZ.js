@@ -5791,3 +5791,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現棕褐皮面與規則錯列深色圓孔，狀態列為 377 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.04 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5338 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：Argyle 菱格布（argyle）
+
+- 新增交替酒紅／玫瑰菱形與穿越菱形中心的細斜線，平織紗線與 seeded 細粒獨立形成淺起伏，印花不形成浮雕或填縫；目錄 377→378 種。0.16 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的菱形交錯、兩斜向細線、印花獨立於高度、紗冠與凹隙關係，以及菱形尖角、線肩與 wrap 一階連續性。以上一功能 dist 為基準，size 64／seed 7 的既有 377 種四圖 SHA256 全相同，新增恰為 argyle。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現酒紅／玫瑰菱格與淺色斜線，normal 未沿印花形成浮雕，狀態列為 378 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.16 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5343 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。

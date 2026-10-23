@@ -402,7 +402,103 @@ const kinds: ProceduralMaterialKind[] = [
   'linen',
   'chippedenamel',
   'perforatedleather',
+  'argyle',
 ];
+
+describe('argyle diamond cloth', () => {
+  const p = proceduralMaterialPresets.argyle;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('argyle', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates diamonds beneath fine crossing lines without embossing the pigment for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const diamondAt = (x: number, y: number) => at((x + y) / 4, (x - y) / 4);
+      for (let row = 0; row < 2; row++) {
+        for (let col = 0; col < 2; col++) {
+          const x = col + 0.25,
+            y = row + 0.25;
+          const current = diamondAt(x, y);
+          const adjacent = diamondAt(x + 1, y);
+          const across = diamondAt(x + 1, y + 1);
+          expect(Math.abs(current.color - adjacent.color)).toBeGreaterThan(
+            0.47,
+          );
+          expect(Math.abs(current.color - across.color)).toBeLessThan(0.021);
+          for (const line of [
+            diamondAt(col + 0.5, y),
+            diamondAt(x, row + 0.5),
+          ]) {
+            expect(
+              line.color - Math.max(current.color, adjacent.color),
+            ).toBeGreaterThan(0.27);
+            expect(Math.abs(line.height - current.height)).toBeLessThan(
+              0.021 * p.relief,
+            );
+          }
+          expect(Math.abs(current.height - adjacent.height)).toBeLessThan(
+            0.021 * p.relief,
+          );
+          expect(current.metallic).toBe(0);
+        }
+      }
+      const crown = at(0, 0),
+        gap = at(0.5 / p.threads, 0.5 / p.threads);
+      expect(crown.height - gap.height).toBeGreaterThan(0.001);
+      expect(crown.occlusion - gap.occlusion).toBeGreaterThan(0.09);
+    },
+  );
+  it('keeps diamond tips, crossing-line shoulders and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let i = 0; i <= 64; i++) {
+        points.push([0, i / 64], [i / 64, 0]);
+        for (const x of [
+          0,
+          1,
+          Math.acos(p.lineInner) / Math.PI,
+          Math.acos(p.lineOuter) / Math.PI,
+        ]) {
+          const y = i / 32;
+          points.push([(x + y) / 4, (x - y) / 4]);
+        }
+      }
+      for (const [x, y] of points) {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('perforated seat leather', () => {
   const p = proceduralMaterialPresets.perforatedleather;

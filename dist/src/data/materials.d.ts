@@ -2405,6 +2405,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         coreRadius: 0.13;
         outerRadius: 0.24;
     }>;
+    argyle: Readonly<{
+        dark: readonly [55, 12, 26];
+        light: readonly [239, 207, 194];
+        roughness: 0.8;
+        relief: 0.008;
+        diamonds: 2;
+        threads: 48;
+        colorEdge: 0.08;
+        lineOuter: 0.12;
+        lineInner: 0.08;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2785,4 +2796,5 @@ export declare const proceduralTileMeters: Readonly<{
     linen: 0.04;
     chippedenamel: 0.25;
     perforatedleather: 0.04;
+    argyle: 0.16;
 }>;

@@ -295,6 +295,8 @@
 
 同輪追加 `perforatedleather`（透氣孔座椅皮革），實際目錄 376→377 種：棕褐細粒皮面與 8×8 錯列圓孔，圓潤孔壁降至深色粗糙不透明內襯，沒有鴕鳥皮毛囊的隆起環。0.04 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `argyle`（Argyle 菱格布），實際目錄 377→378 種：交替酒紅／玫瑰菱形色塊與穿越菱形中心的細斜線，獨立平織紗線肌理不隨印花隆起。0.16 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

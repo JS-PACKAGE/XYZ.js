@@ -1251,6 +1251,45 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'argyle': {
+        const p = proceduralMaterialPresets.argyle;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3e57);
+        return () => {
+          const x = Math.PI * p.diamonds * (u + v);
+          const y = Math.PI * p.diamonds * (u - v);
+          const a = 2 * smooth(clamp(0.5 + Math.sin(x) / p.colorEdge)) - 1;
+          const b = 2 * smooth(clamp(0.5 + Math.sin(y) / p.colorEdge)) - 1;
+          const diamond = 0.5 + 0.5 * a * b;
+          const lineA = smooth(
+            clamp(
+              (p.lineOuter - Math.abs(Math.cos(x))) /
+                (p.lineOuter - p.lineInner),
+            ),
+          );
+          const lineB = smooth(
+            clamp(
+              (p.lineOuter - Math.abs(Math.cos(y))) /
+                (p.lineOuter - p.lineInner),
+            ),
+          );
+          const line = 1 - (1 - lineA) * (1 - lineB);
+          const warp = 0.5 + 0.5 * Math.cos(TAU * p.threads * u);
+          const weft = 0.5 + 0.5 * Math.cos(TAU * p.threads * v);
+          const over = 0.5 + 0.5 * Math.cos(Math.PI * p.threads * (u + v));
+          const thread = warp * over + weft * (1 - over);
+          const grain = grainField(u, v);
+          color =
+            (0.12 + 0.5 * diamond) * (1 - line) +
+            0.92 * line +
+            0.035 * thread +
+            0.02 * grain;
+          // Diamonds and crossing lines are pigment, not embossed tile boundaries.
+          height = 0.24 + 0.16 * thread + 0.02 * grain;
+          roughness += 0.03 * grain + 0.025 * (1 - thread);
+          occlusion = 0.88 + 0.1 * thread;
+          return;
+        };
+      }
       case 'perforatedleather': {
         const p = proceduralMaterialPresets.perforatedleather;
         const grainField = cachedNoise(64, 64, seed ^ 0x4e17);
@@ -10970,6 +11009,7 @@ export function createSurfaceSampler(
     kind === 'linen' ||
     kind === 'chippedenamel' ||
     kind === 'perforatedleather' ||
+    kind === 'argyle' ||
     fabricated ||
     botanical ||
     packaging ||
