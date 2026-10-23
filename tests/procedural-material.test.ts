@@ -23,6 +23,13 @@ import {
 import { Mesh } from '../packages/core/src/mesh.js';
 import { Geometry } from '../packages/core/src/geometry.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
+import { trustedProceduralMapsJob } from '../packages/core/src/procedural-material-worker-job.js';
+import { NativeWorkerPool } from '../packages/assets/src/worker-jobs.js';
+import {
+  installWorkerJobs,
+  type WorkerJobHost,
+} from '../packages/assets/src/worker-job-runtime.js';
+import type { WorkerJobResponse } from '../packages/assets/src/worker-job-protocol.js';
 
 // The C1 sweeps sample ~660k points each: ~1.3 s on a dev machine but 6-7 s on the
 // slower CI runners, which exceeds Vitest's default 5 s.
@@ -24128,4 +24135,82 @@ describe('procedural preset acquisition and ownership', () => {
       external.destroy();
     },
   );
+
+  it('generates byte-identical maps on a borrowed worker pool and rejects malformed responses', async () => {
+    /** In-process transport running the real trusted job behind the worker protocol. */
+    class BridgedWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      onmessageerror: (() => void) | null = null;
+      readonly host: WorkerJobHost = {
+        onmessage: null,
+        postMessage: (message, transfer) => {
+          const data = tamper(structuredClone(message, { transfer }));
+          queueMicrotask(() =>
+            this.onmessage?.(new MessageEvent('message', { data })),
+          );
+        },
+      };
+      constructor() {
+        installWorkerJobs(
+          { 'procedural.maps': trustedProceduralMapsJob },
+          this.host,
+        );
+      }
+      postMessage(message: unknown, transfer: Transferable[]): void {
+        const data = structuredClone(message, { transfer });
+        queueMicrotask(() =>
+          this.host.onmessage?.(new MessageEvent('message', { data })),
+        );
+      }
+      terminate(): void {}
+    }
+    let tamper = (message: WorkerJobResponse) => message;
+    const pool = new NativeWorkerPool({
+      moduleURL: new URL('https://example.test/procedural.worker.js'),
+      workers: 1,
+      workerFactory: () => new BridgedWorker() as unknown as Worker,
+    });
+    try {
+      const options = { size: 32, seed: 9, tint: [1.2, 1, 0.8] } as const;
+      const pooled = await ProceduralMaterial.create('tiles', {
+        ...options,
+        workerPool: pool,
+      });
+      const pooledPixels = decoded.map((bitmap) => bitmap.pixels);
+      const local = generateProceduralMaps('tiles', 32, 9, {
+        tint: [1.2, 1, 0.8],
+      });
+      expect(pooledPixels).toEqual([
+        local.baseColor,
+        local.normal,
+        local.metallicRoughness,
+        local.occlusion,
+      ]);
+      expect(pool.stats.completed).toBe(1);
+      pooled.destroy();
+      decoded.length = 0;
+      tamper = (message) =>
+        message.type === 'result'
+          ? {
+              ...message,
+              value: {
+                ...(message.value as object),
+                normal: new Uint8ClampedArray(4),
+              },
+            }
+          : message;
+      await expect(
+        ProceduralMaterial.create('tiles', { size: 32, workerPool: pool }),
+      ).rejects.toThrow();
+      expect(decoded).toHaveLength(0);
+      await expect(
+        ProceduralMaterial.create('tiles', {
+          workerPool: {} as NativeWorkerPool,
+        }),
+      ).rejects.toThrow(TypeError);
+    } finally {
+      pool.destroy();
+    }
+  });
 });

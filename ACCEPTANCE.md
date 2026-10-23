@@ -6404,3 +6404,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增 `ProceduralMaterialOptions.tint`(三個 0–4 的逐通道倍率),只乘上原設計 sRGB 顏料色;灰縫色調與 normal/metallic-roughness/occlusion maps 不變。省略時以提交前 dist 為基準比對 459 種 size 64/seed 7 四圖 SHA256,changed 0。
 - 新增測試:`[1,1,1]` 與省略相同、`[0,0,0]` 時每像素只剩灰縫色且其他三圖不變、單通道倍率方向正確、長度/範圍/NaN/Infinity/非數值的 tint 拒絕。build、typecheck、lint、format:check、完整 Vitest(178 檔/5761 項)、check:api-compatibility 通過。
 - managed headless Chromium 的 `/examples/pbr3d/` 分別強制 WebGPU 與 WebGL2 透過公開 API 建立 brick:`tint [1.6,0.6,0.6]` 使 baseColor 平均 R 154→224、G 91→68;無效 tint 為 RangeError;兩者 destroy 後狀態正確,頁面無錯誤。gallery 未加 tint 控制項。不擴大 Canvas2D 3D、Safari、實機或效能認證範圍;未 push。
+
+## 2026-10-24 程序材質:Worker 生成
+
+- 新增 `ProceduralMaterialOptions.workerPool`、`createProceduralWorkerPool()`、`proceduralWorkerURL()`、`proceduralMapsJob` 與 worker 端 `trustedProceduralMapsJob`(發佈檔 `workers/procedural-material.worker.js`),沿用既有 NativeWorkerPool/trusted worker 協定;主端驗證完整選項後送出,回傳四個 buffer 以 transfer 傳回並驗證長度與 size。未傳 `workerPool` 時維持同步,459 種 size 64/seed 7 四圖 SHA256 changed 0。
+- 測試以 in-process 協定橋接執行真正的 trusted job:pool 結果與同步生成逐位元組相同、壞掉的回應被拒絕且不建立貼圖、非 pool 物件為 TypeError。build、typecheck、lint、format:check、完整 Vitest(178 檔/5765 項)、check:distribution、`pnpm pack` + `check-package-hygiene --archive`(新 worker 檔皆在 archive 內)通過。check:api-compatibility 第一次與第二次執行回報與本變更無關的 `Object3D.add` 泛型比較失敗,之後同一 build 連續三次 PASS,判定為該檢查的不穩定行為,未修改。
+- managed headless Chromium 以真正的 module Worker 載入 dist:size 1024 `cairotiles` 同步生成時最長 RAF 間隔 206 ms,經 `workerPool` 為 19 ms(總耗時約 205 ms 不變),兩者 normal map 取樣相同,pool completed 1/failed 0,頁面無錯誤。只在 WebGL2 頁面量測;不代表其他瀏覽器、手機或效能認證;未 push。

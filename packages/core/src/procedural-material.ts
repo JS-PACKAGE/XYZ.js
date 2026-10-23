@@ -3,8 +3,17 @@ import {
   proceduralMaterialLimits,
   proceduralTileMeters,
 } from '../../../src/data/materials.js';
+import {
+  NativeWorkerPool,
+  WorkerJobError,
+  type NativeWorkerPoolOptions,
+  type WorkerJobDefinition,
+} from '../../assets/src/worker-jobs.js';
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
-import { generateProceduralMaps } from './procedural-material-maps.js';
+import {
+  generateProceduralMaps,
+  type ProceduralMaps,
+} from './procedural-material-maps.js';
 
 export type ProceduralMaterialKind =
   | 'wood'
@@ -481,6 +490,83 @@ export interface ProceduralMaterialOptions {
    * within 0..4. Omitted keeps the authored colors byte-identical.
    */
   tint?: readonly [number, number, number];
+  /**
+   * Generates the maps on this caller-owned pool instead of the calling thread,
+   * using `createProceduralWorkerPool()` or an equivalent trusted module.
+   * Output is byte-identical to synchronous generation; the pool is borrowed.
+   */
+  workerPool?: NativeWorkerPool;
+}
+
+/** Validated generation inputs sent to a trusted procedural worker. */
+export interface ProceduralMapsRequest {
+  readonly kind: ProceduralMaterialKind;
+  readonly size: number;
+  readonly seed: number;
+  readonly contrast: number;
+  readonly roughnessBias: number;
+  readonly tint?: readonly [number, number, number];
+}
+
+function decodeProceduralMaps(value: unknown): ProceduralMaps {
+  if (!value || typeof value !== 'object')
+    throw new TypeError('A procedural maps response is required.');
+  const maps = value as ProceduralMaps;
+  const length = (maps.baseColor as unknown as Uint8ClampedArray | undefined)
+    ?.length;
+  const side = Math.sqrt((length ?? 0) / 4);
+  if (
+    !Number.isInteger(side) ||
+    side < proceduralMaterialLimits.minSize ||
+    side > proceduralMaterialLimits.maxSize ||
+    ![
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+    ].every(
+      (stream) =>
+        stream instanceof Uint8ClampedArray && stream.length === length,
+    )
+  )
+    throw new RangeError('Worker procedural maps do not match their size.');
+  return maps;
+}
+
+export const proceduralMapsJob: WorkerJobDefinition<
+  ProceduralMapsRequest,
+  ProceduralMaps
+> = {
+  type: 'procedural.maps',
+  decode: decodeProceduralMaps,
+  release() {
+    // Responses own only ArrayBuffers; dropping the reference reclaims them.
+  },
+};
+
+/** Resolves to a real emitted .js module in the published dist tree. */
+export function proceduralWorkerURL(): URL {
+  return new URL('./workers/procedural-material.worker.js', import.meta.url);
+}
+
+/** Static native Worker construction is visible to bundlers. */
+export function createProceduralWorkerPool(
+  options: Omit<NativeWorkerPoolOptions, 'moduleURL' | 'workerFactory'> = {},
+): NativeWorkerPool {
+  if (typeof Worker === 'undefined')
+    throw new WorkerJobError(
+      'unsupported',
+      'Native module Workers are unavailable.',
+    );
+  return new NativeWorkerPool({
+    ...options,
+    moduleURL: proceduralWorkerURL(),
+    workerFactory: () =>
+      new Worker(
+        new URL('./workers/procedural-material.worker.js', import.meta.url),
+        { type: 'module' },
+      ),
+  });
 }
 
 /** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
@@ -1044,11 +1130,32 @@ export class ProceduralMaterial {
       throw new RangeError(
         'Procedural tint must be three finite multipliers within 0..4.',
       );
-    const maps = generateProceduralMaps(kind, size, seed, {
-      contrast,
-      roughnessBias,
-      tint,
-    });
+    const pool = options.workerPool;
+    if (pool !== undefined && !(pool instanceof NativeWorkerPool))
+      throw new TypeError('Procedural workerPool must be a NativeWorkerPool.');
+    let maps: ProceduralMaps;
+    if (pool === undefined) {
+      maps = generateProceduralMaps(kind, size, seed, {
+        contrast,
+        roughnessBias,
+        tint,
+      });
+    } else {
+      const request: ProceduralMapsRequest = {
+        kind,
+        size,
+        seed,
+        contrast,
+        roughnessBias,
+        ...(tint === undefined ? {} : { tint: [tint[0], tint[1], tint[2]] }),
+      };
+      maps = (
+        await pool.submit(proceduralMapsJob, request, { requestBytes: 0 })
+          .promise
+      ).value;
+      if (maps.baseColor.length !== size * size * 4)
+        throw new RangeError('Worker procedural maps do not match their size.');
+    }
     const acquired: Texture[] = [];
     // Sequential acquisition keeps cleanup deterministic even when decoding a later map fails.
     try {

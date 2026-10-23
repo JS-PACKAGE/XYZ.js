@@ -148,11 +148,17 @@ export type {
 export {
   ProceduralMaterial,
   proceduralRepeats,
+  proceduralMapsJob,
+  proceduralWorkerURL,
+  createProceduralWorkerPool,
 } from './procedural-material.js';
 export type {
   ProceduralMaterialKind,
   ProceduralMaterialOptions,
+  ProceduralMapsRequest,
 } from './procedural-material.js';
+export type { ProceduralMaps } from './procedural-material-maps.js';
+export { trustedProceduralMapsJob } from './procedural-material-worker-job.js';
 export { PointLight, SpotLight } from './lights.js';
 export {
   ShadowSettings,
