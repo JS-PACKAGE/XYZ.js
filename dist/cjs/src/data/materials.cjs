@@ -6377,6 +6377,26 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 32,
 		radiusMin: .28,
 		radiusRange: .04
+	}),
+	flintwall: Object.freeze({
+		dark: [
+			35,
+			40,
+			44
+		],
+		light: [
+			222,
+			220,
+			200
+		],
+		roughness: .78,
+		relief: .03,
+		cells: 6,
+		edges: 6,
+		radiusMin: .32,
+		radiusRange: .05,
+		cortex: .05,
+		bevel: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6804,7 +6824,8 @@ var proceduralTileMeters = Object.freeze({
 	crystallineglaze: .16,
 	shirring: .12,
 	sunburstveneer: .8,
-	rakedgravel: .8
+	rakedgravel: .8,
+	flintwall: 1.2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

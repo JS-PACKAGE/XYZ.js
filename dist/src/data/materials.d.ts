@@ -2891,6 +2891,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         radiusMin: 0.28;
         radiusRange: 0.04;
     }>;
+    flintwall: Readonly<{
+        dark: readonly [35, 40, 44];
+        light: readonly [222, 220, 200];
+        roughness: 0.78;
+        relief: 0.03;
+        cells: 6;
+        edges: 6;
+        radiusMin: 0.32;
+        radiusRange: 0.05;
+        cortex: 0.05;
+        bevel: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3319,4 +3331,5 @@ export declare const proceduralTileMeters: Readonly<{
     shirring: 0.12;
     sunburstveneer: 0.8;
     rakedgravel: 0.8;
+    flintwall: 1.2;
 }>;

@@ -391,6 +391,8 @@
 
 同輪追加 `rakedgravel`（枯山水耙紋礫石），實際目錄 424→425 種：八道平行耙溝具有平底、圓滑溝肩與隆起溝岸，溝底及岸面都保留 seeded 細礫石的獨立凸面與暗隙。0.8 m tile、四圖 opaque dielectric、metallic 0；不是細砂正弦波紋，不新增石粒 geometry 或耙動模擬，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `flintwall`（燧石砌牆），實際目錄 425→426 種：六乘六交錯排列的 seeded 角狀燧石，深灰敲裂石心帶有淺弧形斷口紋，外圈保留較粗糙的淺色白堊皮，灰漿縫低於石面。1.2 m tile、四圖 opaque dielectric、metallic 0；不是圓頂鵝卵石或均勻礦物角礫，不新增砌石 geometry，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -1256,6 +1256,64 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'flintwall': {
+        const p = proceduralMaterialPresets.flintwall;
+        const stride = 2 + p.edges * 3;
+        const stones = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * stride;
+            const phase = TAU * hash(col, row, seed ^ 0x3651);
+            stones[index] = phase;
+            stones[index + 1] = hash(col, row, seed ^ 0x4763);
+            for (let edge = 0; edge < p.edges; edge++) {
+              const offset = index + 2 + edge * 3;
+              const angle = phase + (TAU * edge) / p.edges;
+              stones[offset] = Math.cos(angle);
+              stones[offset + 1] = Math.sin(angle);
+              stones[offset + 2] =
+                p.radiusMin +
+                p.radiusRange * hash(col * p.edges + edge, row, seed ^ 0x5875);
+            }
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6987);
+        return () => {
+          const row = Math.floor(v * p.cells);
+          const uCell = fract(u - (0.5 * (row % 2)) / p.cells) * p.cells;
+          const col = Math.floor(uCell) % p.cells,
+            index = (row * p.cells + col) * stride;
+          const x = fract(uCell) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          let face = 1,
+            core = 1;
+          for (let edge = 0; edge < p.edges; edge++) {
+            const offset = index + 2 + edge * 3;
+            const inward =
+              stones[offset + 2] - x * stones[offset] - y * stones[offset + 1];
+            face *= smooth(clamp(inward / p.bevel));
+            core *= smooth(clamp((inward - p.cortex) / p.bevel));
+          }
+          const cortex = face - core;
+          const ripple =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU * 10 * ((x + 0.13) * (x + 0.13) + (y - 0.07) * (y - 0.07)) +
+                  stones[index],
+              );
+          const grain = grainField(u, v);
+          // Pale chalk cortex surrounds the darker, smoother knapped flint.
+          // Broad mortar gaps remain below both exposed stone surfaces.
+          mortar = 1 - face;
+          color =
+            0.62 * mortar +
+            0.86 * cortex +
+            core * (0.15 + 0.1 * stones[index + 1] + 0.05 * ripple);
+          height = 0.15 + face * (0.5 + 0.015 * grain) + 0.025 * core * ripple;
+          roughness += 0.12 * mortar + core * (-0.36 + 0.06 * ripple);
+          occlusion = 0.65 + 0.32 * face;
+        };
+      }
       case 'rakedgravel': {
         const p = proceduralMaterialPresets.rakedgravel;
         const stones = new Float64Array(p.cells * p.cells * 4);
@@ -13154,6 +13212,7 @@ export function createSurfaceSampler(
     kind === 'shirring' ||
     kind === 'sunburstveneer' ||
     kind === 'rakedgravel' ||
+    kind === 'flintwall' ||
     fabricated ||
     botanical ||
     packaging ||
