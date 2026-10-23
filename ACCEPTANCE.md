@@ -6064,3 +6064,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證四面斜坡的單調／近似線性下降、中央尖頂高於平框、平框平整且高於灰縫、對角稜線與 AO；另驗證尖頂／稜線／平框／倒角交點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5523 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：暖灰石材、四面尖頂 normal、平框與灰縫、四圖及 25 球可見，status 為 413 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.6 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 412 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：Bargello 火焰針繡（bargello）
+
+- 目錄 413→414 種。0.064 m tile、三十二欄長直針腳逐欄錯開四分之一針長，四階紫色紗線組成階梯上升／下降的火焰色帶。圓冠、縱向細纖維與 seeded 細粒構成針面，端部／側邊平滑降至暗底；色階不另外改變針腳高度。四圖 opaque、metallic 0、既有 ownership 不變；不是線材 geometry。
+- 定向 4 tests 通過：三 seeds 驗證長直針圓冠高於端部／側隙、長軸高度保持、深淺紗線高度不受色階影響、四階週期與逐欄四分之一錯位；另驗證針腳側邊／錯位端點／火焰轉折／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5528 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：紫色階梯火焰帶、長直針腳與錯位針端、針冠 normal／側隙 AO、四圖及 25 球可見，status 為 414 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.064 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 413 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

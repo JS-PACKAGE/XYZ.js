@@ -1255,6 +1255,33 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'bargello': {
+        const p = proceduralMaterialPresets.bargello;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5e39);
+        return () => {
+          const uCell = u * p.columns,
+            col = Math.floor(uCell);
+          const zig = col % 16,
+            step = Math.min(zig, 15 - zig);
+          const vCell = v * p.rows - 0.25 * step;
+          const row = ((Math.floor(vCell) % p.rows) + p.rows) % p.rows;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          // Each neighboring stitch shifts by one canvas unit while spanning
+          // four units; compact yarn supports hide the stepped ownership seam.
+          const across = smooth(clamp(1 - (x / p.halfWidth) ** 2));
+          const along = smooth(clamp((0.47 - Math.abs(y)) / 0.08));
+          const face = across * along;
+          const fiber = 0.5 + 0.5 * Math.cos(TAU * 3 * x);
+          const grain = grainField(u, v);
+          color =
+            face * (p.tones[row % 4]! + 0.025 * grain) + 0.025 * (1 - face);
+          height = 0.04 + face * (0.55 + 0.015 * fiber + 0.01 * grain);
+          roughness +=
+            0.15 * (1 - face) + face * (0.02 * grain + 0.015 * fiber);
+          occlusion = 0.5 + 0.48 * face;
+        };
+      }
       case 'diamondrustication': {
         const p = proceduralMaterialPresets.diamondrustication;
         const grainField = cachedNoise(96, 96, seed ^ 0x6d31);
@@ -12602,6 +12629,7 @@ export function createSurfaceSampler(
     kind === 'rebar' ||
     kind === 'starfruit' ||
     kind === 'diamondrustication' ||
+    kind === 'bargello' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -367,6 +367,8 @@
 
 同輪追加 `diamondrustication`（鑽尖石砌飾面），實際目錄 412→413 種：十六塊石材各有四面斜坡、中央尖頂與對角稜線，斜坡底部平滑落到平整石框，再經倒角下降到灰縫。seeded 色差與細粒不掩蓋三層高度。1.6 m tile、四圖 opaque dielectric、metallic 0，不新增石砌 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `bargello`（Bargello 火焰針繡），實際目錄 413→414 種：三十二欄長直針腳逐欄錯開四分之一針長，階梯上升／下降形成紫色深淺火焰色帶。每針有圓冠、縱向纖維及低於針面的兩端／側隙；色帶不另外改變針腳高度。0.064 m tile、四圖 opaque dielectric、metallic 0，不新增線材 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

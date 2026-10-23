@@ -438,7 +438,92 @@ const kinds: ProceduralMaterialKind[] = [
   'rebar',
   'starfruit',
   'diamondrustication',
+  'bargello',
 ];
+
+describe('Bargello flame needlepoint', () => {
+  const p = proceduralMaterialPresets.bargello;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('bargello', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves long raised stitches, quarter-step flame seams and color-independent yarn relief for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let col = 0; col < p.columns; col++) {
+        const zig = col % 16,
+          step = Math.min(zig, 15 - zig);
+        const u = (col + 0.5) / p.columns;
+        const point = (row: number, x = 0, y = 0) =>
+          at(u + x / p.columns, (row + 0.5 + step * 0.25 + y) / p.rows);
+        for (let row = 0; row < p.rows; row++) {
+          const crown = point(row),
+            end = point(row, 0, 0.49),
+            side = point(row, 0.45);
+          expect(crown.height - end.height).toBeGreaterThan(0.0065);
+          expect(crown.height - side.height).toBeGreaterThan(0.0065);
+          expect(crown.occlusion - end.occlusion).toBeGreaterThan(0.47);
+          expect(
+            Math.abs(crown.height - point(row, 0, 0.3).height),
+          ).toBeLessThan(0.00015);
+          expect(
+            Math.abs(crown.height - point(row, 0, -0.3).height),
+          ).toBeLessThan(0.00015);
+        }
+        const dark = point(0),
+          pale = point(3),
+          repeated = point(4);
+        expect(pale.color - dark.color).toBeGreaterThan(0.75);
+        expect(Math.abs(pale.height - dark.height)).toBeLessThan(0.00015);
+        expect(Math.abs(repeated.color - dark.color)).toBeLessThan(0.026);
+        if (zig !== 7 && zig !== 15) {
+          const seam = (step * 0.25) / p.rows;
+          expect(
+            at((col + 1.5) / p.columns, seam).height - at(u, seam).height,
+          ).toBeGreaterThan(0.0065);
+        }
+      }
+    },
+  );
+  it('keeps yarn sides, stepped stitch ends, flame reversals and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('diamond-point stone rustication', () => {
   const p = proceduralMaterialPresets.diamondrustication;
