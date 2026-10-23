@@ -1248,6 +1248,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'basketweavepavers': {
+        const p = proceduralMaterialPresets.basketweavepavers;
+        const grainField = cachedNoise(64, 64, seed ^ 0x6a53);
+        const tones = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let brick = 0; brick < 2; brick++)
+              tones[(row * p.cells + col) * 2 + brick] = hash(
+                col * 2 + brick,
+                row,
+                seed ^ 0x43ab,
+              );
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const x = fract(u * p.cells),
+            y = fract(v * p.cells);
+          const vertical = (col + row) % 2 !== 0;
+          const along = vertical ? y : x,
+            cross = vertical ? x : y;
+          const brick = Math.floor(cross * 2);
+          const across = cross - brick * 0.5;
+          const face =
+            smooth(clamp((Math.min(along, 1 - along) - p.grout) / p.shoulder)) *
+            smooth(
+              clamp((Math.min(across, 0.5 - across) - p.grout) / p.shoulder),
+            );
+          const grain = grainField(u, v);
+          // Per-brick tone disappears inside shared grout before the owner changes.
+          const tone = tones[(row * p.cells + col) * 2 + brick]!;
+          color = 0.3 + face * (0.25 + 0.2 * tone + 0.08 * grain);
+          height = face * (0.65 + 0.025 * grain);
+          roughness += face * (0.05 * grain - 0.03);
+          occlusion = 0.45 + 0.55 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'breezeblock': {
         const p = proceduralMaterialPresets.breezeblock;
         const grainField = cachedNoise(64, 64, seed ^ 0x3b75);
@@ -10521,6 +10559,7 @@ export function createSurfaceSampler(
     kind === 'copperpatina' ||
     kind === 'birdseyemaple' ||
     kind === 'breezeblock' ||
+    kind === 'basketweavepavers' ||
     fabricated ||
     botanical ||
     packaging ||

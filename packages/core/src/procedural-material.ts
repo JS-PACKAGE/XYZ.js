@@ -371,7 +371,8 @@ export type ProceduralMaterialKind =
   | 'rammedearth'
   | 'copperpatina'
   | 'birdseyemaple'
-  | 'breezeblock';
+  | 'breezeblock'
+  | 'basketweavepavers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -769,6 +770,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'copperpatina',
   'birdseyemaple',
   'breezeblock',
+  'basketweavepavers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

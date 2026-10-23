@@ -2281,6 +2281,15 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.012,
     edgeShoulder: 0.03,
   }),
+  basketweavepavers: Object.freeze({
+    dark: [83, 42, 29] as const,
+    light: [211, 135, 91] as const,
+    roughness: 0.86,
+    relief: 0.018,
+    cells: 4,
+    grout: 0.018,
+    shoulder: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2650,4 +2659,5 @@ export const proceduralTileMeters = Object.freeze({
   copperpatina: 0.5,
   birdseyemaple: 0.24,
   breezeblock: 0.8,
+  basketweavepavers: 0.8,
 });

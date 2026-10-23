@@ -2280,6 +2280,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.012;
         edgeShoulder: 0.03;
     }>;
+    basketweavepavers: Readonly<{
+        dark: readonly [83, 42, 29];
+        light: readonly [211, 135, 91];
+        roughness: 0.86;
+        relief: 0.018;
+        cells: 4;
+        grout: 0.018;
+        shoulder: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2648,4 +2657,5 @@ export declare const proceduralTileMeters: Readonly<{
     copperpatina: 0.5;
     birdseyemaple: 0.24;
     breezeblock: 0.8;
+    basketweavepavers: 0.8;
 }>;

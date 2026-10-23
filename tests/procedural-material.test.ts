@@ -390,7 +390,97 @@ const kinds: ProceduralMaterialKind[] = [
   'copperpatina',
   'birdseyemaple',
   'breezeblock',
+  'basketweavepavers',
 ];
+
+describe('basket weave clay pavers', () => {
+  const p = proceduralMaterialPresets.basketweavepavers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('basketweavepavers', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'alternates paired long bricks and recessed grout without splitting each brick for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const vertical = (col + row) % 2 !== 0;
+          const face = at(
+            col + (vertical ? 0.25 : 0.5),
+            row + (vertical ? 0.5 : 0.25),
+          );
+          const seam = at(
+            col + (vertical ? 0.5 : 0.25),
+            row + (vertical ? 0.25 : 0.5),
+          );
+          expect(face.height - seam.height).toBeGreaterThan(0.64);
+          expect(face.color - seam.color).toBeGreaterThan(0.25);
+          expect(face.occlusion - seam.occlusion).toBeGreaterThan(0.5);
+          expect(face.mortar).toBe(0);
+          expect(seam.mortar).toBe(1);
+          expect(at(col, row + 0.25).mortar).toBe(1);
+          expect(at(col + 0.25, row).mortar).toBe(1);
+        }
+      }
+    },
+  );
+
+  it('keeps orientation changes, paired seams, bevel shoulders and wraps C1 continuous', () => {
+    const h = 1e-6;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          for (const line of [0, 0.5, 1]) {
+            for (const offset of [
+              0,
+              p.grout,
+              -p.grout,
+              p.grout + p.shoulder,
+              -p.grout - p.shoulder,
+            ]) {
+              for (const cross of [0, 0.25, 0.5, 0.75, 1]) {
+                for (const axis of [0, 1]) {
+                  const x = col + (axis ? cross : line + offset);
+                  const y = row + (axis ? line + offset : cross);
+                  const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+                  const b = at(x, y);
+                  const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+                  for (const key of [
+                    'color',
+                    'height',
+                    'roughness',
+                    'occlusion',
+                    'mortar',
+                  ] as const) {
+                    expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                    expect(
+                      Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                    ).toBeLessThan(0.02);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('quatrefoil breeze blocks', () => {
   const p = proceduralMaterialPresets.breezeblock;

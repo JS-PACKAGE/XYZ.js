@@ -360,6 +360,14 @@ function createSurfaceSampler(t, r) {
 	}
 	let Wt = t === `stone` || t === `metal` || t === `marble`, Gt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, G = 0, K = 0, Kt = 0, q = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 1, $ = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `basketweavepavers`: {
+				let t = require_materials.proceduralMaterialPresets.basketweavepavers, n = cachedNoise(64, 64, r ^ 27219), i = new Float64Array(t.cells * t.cells * 2);
+				for (let e = 0; e < t.cells; e++) for (let n = 0; n < t.cells; n++) for (let a = 0; a < 2; a++) i[(e * t.cells + n) * 2 + a] = hash(n * 2 + a, e, r ^ 17323);
+				return () => {
+					let e = Math.floor(G * t.cells), r = Math.floor(K * t.cells), a = fract(G * t.cells), o = fract(K * t.cells), s = (e + r) % 2 != 0, c = s ? o : a, l = s ? a : o, u = Math.floor(l * 2), d = l - u * .5, f = smooth(clamp((Math.min(c, 1 - c) - t.grout) / t.shoulder)) * smooth(clamp((Math.min(d, .5 - d) - t.grout) / t.shoulder)), p = n(G, K);
+					Y = .3 + f * (.25 + .2 * i[(r * t.cells + e) * 2 + u] + .08 * p), X = f * (.65 + .025 * p), Z += f * (.05 * p - .03), Q = .45 + .55 * f, $ = 1 - f;
+				};
+			}
 			case `breezeblock`: {
 				let t = require_materials.proceduralMaterialPresets.breezeblock, n = cachedNoise(64, 64, r ^ 15221), i = t.lobeRadius * t.lobeRadius, lobe = (e, n) => smooth(clamp((i - e * e - n * n) / t.lobeShoulder));
 				return () => {
@@ -2484,7 +2492,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || at || ct || pt || _t || St || Dt || At || Nt || Se || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || at || ct || pt || _t || St || Dt || At || Nt || Se || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), Kt = Wt ? noise(G, K, 4, 4, r) : 0, q = Xt ? noise(G, K, 32, 32, Zt) : 0, J = Gt ? noise(G, K, 64, 64, Qt) : 0, Y = Kt, X = Kt, Z = i.roughness, Q = 1, $ = 0, qt = Jt, Yt(), n.color = Y, n.height = X * i.relief, n.roughness = clamp(Z), n.occlusion = Q, n.mortar = $, n.metallic = qt;
 	};
