@@ -331,6 +331,8 @@
 
 `fossillimestone` 以每格預存的旋轉、橢圓尺度及相位構成 compact 化石切面，整數角諧波與徑向相位形成螺旋壁、細隔板及暗色腔室，中心常數鄰域移除 atan2 奇點，外緣平滑回到石灰岩基質。色彩及局部粗糙度描述拋光礦物截面，高度只由獨立細石粒噪聲決定，AO 不沿化石輪廓或螺旋凹下，避免誤製成立體完整鸚鵡螺殼。0.6 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 391 種。
 
+`seigaihatiles` 預存四欄八交錯列的藍釉色差，以 compact 圓盤依列由後向前覆印多重同心弧，形成交錯青海波；圓心以常數鄰域消除徑向導數奇點，圓盤外緣平滑淡出，因此 row／column 候選更換不產生接縫。波弧只改色彩，獨立二乘二方磚遮罩控制倒角、灰縫、AO 及釉面粗糙度。0.6 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 392 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

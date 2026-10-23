@@ -1252,6 +1252,63 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'seigaihatiles': {
+        const p = proceduralMaterialPresets.seigaihatiles;
+        const grainField = cachedNoise(48, 48, seed ^ 0x39b7);
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] =
+              0.06 + 0.04 * hash(col, row, seed ^ 0x71c3);
+        const outer = p.radius * p.radius;
+        const inner = (p.radius - 0.02) ** 2;
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * 0.5;
+          const row = Math.floor(y * 2);
+          let pigment = 0.08;
+          // Paint back rows before front rows. Compact disc edges keep owner
+          // changes smooth while hiding lower arcs behind the staggered row.
+          for (let oy = -1; oy <= 2; oy++) {
+            const cy = row + oy;
+            const wy = ((cy % p.rows) + p.rows) % p.rows;
+            const shift = 0.5 + (wy % 2) * 0.5;
+            const col = Math.floor(x - shift);
+            const dy = y - cy * 0.5;
+            for (let ox = 0; ox <= 1; ox++) {
+              const cx = col + ox;
+              const dx = x - cx - shift;
+              const q = dx * dx + dy * dy;
+              if (q >= outer) continue;
+              const wx = ((cx % p.columns) + p.columns) % p.columns;
+              const face = 1 - smooth(clamp((q - inner) / (outer - inner)));
+              const center = smooth(clamp((q - 0.0025) / 0.02));
+              const arc =
+                center *
+                (0.5 +
+                  0.5 *
+                    Math.cos(
+                      (TAU * (Math.sqrt(q) - p.arcStart)) / p.arcSpacing,
+                    )) **
+                  10;
+              pigment +=
+                face * (tones[wy * p.columns + wx] + 0.82 * arc - pigment);
+            }
+          }
+          const tx = fract(u * p.tiles),
+            ty = fract(v * p.tiles);
+          const face =
+            smooth(clamp((Math.min(tx, 1 - tx) - p.grout) / p.shoulder)) *
+            smooth(clamp((Math.min(ty, 1 - ty) - p.grout) / p.shoulder));
+          const grain = grainField(u, v);
+          color = 0.3 + face * (pigment - 0.3 + 0.015 * grain);
+          // Glazed wave pigment is coplanar; only the tile bevel has macro relief.
+          height = (0.65 + 0.004 * grain) * face;
+          roughness += 0.4 * (1 - face) + 0.015 * grain * face;
+          occlusion = 0.5 + 0.5 * face;
+          mortar = 1 - face;
+        };
+      }
       case 'fossillimestone': {
         const p = proceduralMaterialPresets.fossillimestone;
         const grainField = cachedNoise(80, 80, seed ^ 0x2f39);
@@ -11612,6 +11669,7 @@ export function createSurfaceSampler(
     kind === 'oakleaf' ||
     kind === 'rhombille' ||
     kind === 'fossillimestone' ||
+    kind === 'seigaihatiles' ||
     fabricated ||
     botanical ||
     packaging ||

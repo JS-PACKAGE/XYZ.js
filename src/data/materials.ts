@@ -2564,6 +2564,20 @@ export const proceduralMaterialPresets = Object.freeze({
     turns: 4,
     septa: 18,
   }),
+  seigaihatiles: Object.freeze({
+    dark: [18, 48, 79] as const,
+    light: [228, 234, 223] as const,
+    roughness: 0.28,
+    relief: 0.018,
+    columns: 4,
+    rows: 8,
+    tiles: 2,
+    grout: 0.025,
+    shoulder: 0.035,
+    radius: 0.7,
+    arcStart: 0.12,
+    arcSpacing: 0.14,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2959,4 +2973,5 @@ export const proceduralTileMeters = Object.freeze({
   oakleaf: 0.3,
   rhombille: 0.9,
   fossillimestone: 0.6,
+  seigaihatiles: 0.6,
 });

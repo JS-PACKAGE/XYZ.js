@@ -323,6 +323,8 @@
 
 同輪追加 `fossillimestone`（螺旋化石石灰岩），實際目錄 390→391 種：米褐色拋光石材內的 seeded 橢圓化石切面、淺色螺旋壁與隔板、深色礦物填充腔室；化石與基質共面，不是隆起的完整貝殼。0.6 m tile、四圖 opaque dielectric，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `seigaihatiles`（藍白青海波花磚），實際目錄 391→392 種：交錯多重象牙白波弧、藍色釉面與 seeded 色差，前列遮蔽後列下方弧線；獨立方磚倒角及中性灰縫，印花不隆起。0.6 m tile、四圖 opaque dielectric，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

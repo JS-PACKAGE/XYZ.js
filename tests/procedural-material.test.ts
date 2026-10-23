@@ -416,7 +416,91 @@ const kinds: ProceduralMaterialKind[] = [
   'oakleaf',
   'rhombille',
   'fossillimestone',
+  'seigaihatiles',
 ];
+
+describe('blue seigaiha wave tiles', () => {
+  const p = proceduralMaterialPresets.seigaihatiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('seigaihatiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'prints nested ivory arcs on blue coplanar glaze with recessed gray joints for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const point = (radius: number, angle: number) =>
+        at(
+          (1 + radius * Math.sin(angle)) / p.columns,
+          (1.5 - radius * Math.cos(angle)) / (p.rows * 0.5),
+        );
+      for (const angle of [-0.3, 0, 0.3])
+        for (const radius of [0.26, 0.4, 0.54]) {
+          const ivory = point(radius, angle),
+            blue = point(radius + 0.07, angle);
+          expect(ivory.color).toBeGreaterThan(0.85);
+          expect(blue.color).toBeLessThan(0.14);
+          expect(Math.abs(ivory.height - blue.height)).toBeLessThan(0.00008);
+          expect(ivory.height).toBeGreaterThan(0.011);
+          expect(ivory.occlusion).toBe(1);
+          expect(blue.occlusion).toBe(1);
+          expect(ivory.mortar).toBe(0);
+          expect(ivory.roughness).toBeLessThan(0.3);
+        }
+      for (const [u, v] of [
+        [0, 0.2],
+        [0.5, 0.7],
+        [0.2, 0],
+        [0.7, 0.5],
+        [0.5, 0.5],
+      ]) {
+        const joint = at(u, v);
+        expect(joint.height).toBe(0);
+        expect(joint.mortar).toBe(1);
+        expect(joint.roughness).toBeGreaterThan(0.65);
+        expect(joint.occlusion).toBe(0.5);
+      }
+    },
+  );
+  it('keeps staggered paint overlaps, disc nuclei, tile corners and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('spiral fossil limestone', () => {
   const p = proceduralMaterialPresets.fossillimestone;

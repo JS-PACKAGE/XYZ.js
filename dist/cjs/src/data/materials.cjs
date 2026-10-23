@@ -5749,6 +5749,28 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 3,
 		turns: 4,
 		septa: 18
+	}),
+	seigaihatiles: Object.freeze({
+		dark: [
+			18,
+			48,
+			79
+		],
+		light: [
+			228,
+			234,
+			223
+		],
+		roughness: .28,
+		relief: .018,
+		columns: 4,
+		rows: 8,
+		tiles: 2,
+		grout: .025,
+		shoulder: .035,
+		radius: .7,
+		arcStart: .12,
+		arcSpacing: .14
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6142,7 +6164,8 @@ var proceduralTileMeters = Object.freeze({
 	moire: .08,
 	oakleaf: .3,
 	rhombille: .9,
-	fossillimestone: .6
+	fossillimestone: .6,
+	seigaihatiles: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
