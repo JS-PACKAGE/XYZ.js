@@ -2486,6 +2486,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         radiusRange: 0.06;
         jitter: 0.025;
     }>;
+    gingham: Readonly<{
+        dark: readonly [16, 45, 95];
+        light: readonly [235, 235, 224];
+        roughness: 0.82;
+        relief: 0.012;
+        checks: 4;
+        threads: 64;
+        colorEdge: 0.12;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2873,4 +2882,5 @@ export declare const proceduralTileMeters: Readonly<{
     sashiko: 0.064;
     ashlar: 1.2;
     gabion: 0.4;
+    gingham: 0.08;
 }>;

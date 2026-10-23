@@ -309,6 +309,8 @@
 
 同輪追加 `gabion`（鋼網石籠），實際目錄 383→384 種：方格鋼線網覆蓋 seeded 朝向、大小及色差的圓石，鋼線位於石冠前方，網內為非金屬石材及不透明深色底層。0.4 m tile、四圖 opaque、metallic map 分區且預設 factor 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `gingham`（藍白織紋格布），實際目錄 384→385 種：等寬藍白經緯色帶以平織交替露出上層紗，形成亮、深及混色三類方格；色塊不另抬升為方磚。0.08 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

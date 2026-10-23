@@ -5624,6 +5624,23 @@ var proceduralMaterialPresets = Object.freeze({
 		radiusMin: .4,
 		radiusRange: .06,
 		jitter: .025
+	}),
+	gingham: Object.freeze({
+		dark: [
+			16,
+			45,
+			95
+		],
+		light: [
+			235,
+			235,
+			224
+		],
+		roughness: .82,
+		relief: .012,
+		checks: 4,
+		threads: 64,
+		colorEdge: .12
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6010,7 +6027,8 @@ var proceduralTileMeters = Object.freeze({
 	pressedtin: .6,
 	sashiko: .064,
 	ashlar: 1.2,
-	gabion: .4
+	gabion: .4,
+	gingham: .08
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

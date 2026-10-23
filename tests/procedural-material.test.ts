@@ -409,7 +409,97 @@ const kinds: ProceduralMaterialKind[] = [
   'sashiko',
   'ashlar',
   'gabion',
+  'gingham',
 ];
+
+describe('blue and white gingham', () => {
+  const p = proceduralMaterialPresets.gingham;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('gingham', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'weaves light, dark and mixed checks without raising printed squares for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const mean = (cx: number, cy: number) => {
+        let color = 0,
+          height = 0;
+        for (let y = 0; y < 16; y++)
+          for (let x = 0; x < 16; x++) {
+            const s = at(
+              cx + ((x + 0.5) / 16 - 0.5) / 16,
+              cy + ((y + 0.5) / 16 - 0.5) / 16,
+            );
+            color += s.color;
+            height += s.height;
+          }
+        return { color: color / 256, height: height / 256 };
+      };
+      const white = mean(0.25, 0.25),
+        blue = mean(0.125, 0.125),
+        mixed = mean(0.125, 0.25);
+      expect(white.color - mixed.color).toBeGreaterThan(0.35);
+      expect(mixed.color - blue.color).toBeGreaterThan(0.35);
+      expect(
+        Math.abs(mixed.color - (white.color + blue.color) / 2),
+      ).toBeLessThan(0.025);
+      expect(Math.abs(white.height - blue.height)).toBeLessThan(0.00013);
+      expect(Math.abs(mixed.height - blue.height)).toBeLessThan(0.00013);
+      const dyed = at(0.125, 0.25),
+        undyed = at(0.125 + 1 / p.threads, 0.25);
+      expect(undyed.color - dyed.color).toBeGreaterThan(0.75);
+      expect(Math.abs(undyed.height - dyed.height)).toBeLessThan(0.00013);
+      expect(
+        at(0.125, 0.125).height -
+          at(0.125 + 0.5 / p.threads, 0.125 + 0.5 / p.threads).height,
+      ).toBeGreaterThan(0.0015);
+    },
+  );
+  it('keeps yarn crossings, color transitions and wrap C1 continuous', () => {
+    const h = 1e-8;
+    const lines = [0, 1, 0.125, 0.25, 0.125 + 0.5 / p.threads];
+    for (let i = 0; i < p.checks; i++)
+      for (const edge of [-p.colorEdge, p.colorEdge]) {
+        const t = Math.acos(edge) / (2 * Math.PI);
+        lines.push((i + t) / p.checks, (i + 1 - t) / p.checks);
+      }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (const line of lines)
+        for (let i = 0; i <= 64; i++)
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 64 : line,
+              y = axis ? line : i / 64;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+              b = at(x, y),
+              c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('steel mesh stone gabion', () => {
   const p = proceduralMaterialPresets.gabion;

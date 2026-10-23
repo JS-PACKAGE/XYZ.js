@@ -1252,6 +1252,42 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'gingham': {
+        const p = proceduralMaterialPresets.gingham;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6d31);
+        return () => {
+          const warpWhite = smooth(
+            clamp(
+              (Math.cos(TAU * u * p.checks) + p.colorEdge) / (2 * p.colorEdge),
+            ),
+          );
+          const weftWhite = smooth(
+            clamp(
+              (Math.cos(TAU * v * p.checks) + p.colorEdge) / (2 * p.colorEdge),
+            ),
+          );
+          const x = u * p.threads,
+            y = v * p.threads;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+            weft = 0.5 + 0.5 * Math.cos(TAU * y);
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          const grain = grainField(u, v);
+          // Mixed checks expose alternating dyed/undyed yarns, not a flat printed intermediate tone.
+          color =
+            0.1 +
+            0.8 * (warpWhite * over + weftWhite * (1 - over)) +
+            0.025 * grain;
+          height = 0.12 + 0.22 * weave + 0.01 * grain;
+          roughness += 0.025 * grain + 0.02 * (1 - weave);
+          occlusion = 0.82 + 0.16 * weave;
+          return;
+        };
+      }
       case 'gabion': {
         const p = proceduralMaterialPresets.gabion;
         const grainField = cachedNoise(64, 64, seed ^ 0x4c71);
@@ -11295,6 +11331,7 @@ export function createSurfaceSampler(
     kind === 'sashiko' ||
     kind === 'ashlar' ||
     kind === 'gabion' ||
+    kind === 'gingham' ||
     fabricated ||
     botanical ||
     packaging ||
