@@ -1251,6 +1251,46 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'linen': {
+        const p = proceduralMaterialPresets.linen;
+        const warpSlubs = cachedNoise(p.threads, 4, seed ^ 0x3c19);
+        const weftSlubs = cachedNoise(p.threads, 4, seed ^ 0x6b43);
+        return () => {
+          const x = u * p.threads,
+            y = v * p.threads;
+          const col = Math.floor(x + 0.5) % p.threads,
+            row = Math.floor(y + 0.5) % p.threads;
+          const warpSlub = warpSlubs(col / p.threads, v),
+            weftSlub = weftSlubs(row / p.threads, u);
+          const dx =
+            (fract(x + 0.5) - 0.5) / (p.halfWidth + p.slubWidth * warpSlub);
+          const dy =
+            (fract(y + 0.5) - 0.5) / (p.halfWidth + p.slubWidth * weftSlub);
+          // Variable-width yarns vanish inside gaps before their owners change.
+          const warp = smooth(clamp(1 - dx * dx)),
+            weft = smooth(clamp(1 - dy * dy));
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y);
+          const warpTop = warp * (1 - weft + weft * over),
+            weftTop = weft * (1 - warp + warp * (1 - over));
+          const coverage = warpTop + weftTop,
+            crossing = warp * weft;
+          const bulge = warpTop * warpSlub + weftTop * weftSlub;
+          const fiber =
+            warpTop * (0.5 + 0.5 * Math.sin(TAU * 96 * u + phase)) +
+            weftTop * (0.5 + 0.5 * Math.sin(TAU * 96 * v + phase));
+          color = 0.15 + 0.55 * coverage + 0.08 * fiber + 0.08 * bulge;
+          height =
+            0.12 +
+            0.5 * coverage +
+            0.18 * crossing +
+            0.06 * bulge +
+            0.03 * fiber;
+          roughness -= 0.03 * coverage;
+          occlusion = 0.62 + 0.37 * coverage;
+          return;
+        };
+      }
       case 'porphyry': {
         const p = proceduralMaterialPresets.porphyry;
         const grainField = cachedNoise(96, 96, seed ^ 0x6c21);
@@ -10856,6 +10896,7 @@ export function createSurfaceSampler(
     kind === 'windmillpavers' ||
     kind === 'castiron' ||
     kind === 'porphyry' ||
+    kind === 'linen' ||
     fabricated ||
     botanical ||
     packaging ||

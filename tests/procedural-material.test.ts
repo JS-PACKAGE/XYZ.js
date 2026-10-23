@@ -399,7 +399,97 @@ const kinds: ProceduralMaterialKind[] = [
   'windmillpavers',
   'castiron',
   'porphyry',
+  'linen',
 ];
+
+describe('natural slub linen', () => {
+  const p = proceduralMaterialPresets.linen;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('linen', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'varies yarn width along both directions while crossings stay above opaque gaps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const axis of [0, 1]) {
+        let minWidth = Infinity,
+          maxWidth = -Infinity;
+        for (let thread = 0; thread < p.threads; thread++) {
+          for (let cut = 0; cut < p.threads; cut++) {
+            let width = 0;
+            for (let i = 0; i <= 100; i++) {
+              const across = (thread + i * 0.0045) / p.threads,
+                along = (cut + 0.5) / p.threads;
+              if (
+                at(axis ? along : across, axis ? across : along).occlusion >
+                0.68
+              )
+                width = i * 0.0045;
+            }
+            minWidth = Math.min(minWidth, width);
+            maxWidth = Math.max(maxWidth, width);
+          }
+        }
+        expect(maxWidth - minWidth).toBeGreaterThan(0.1);
+        expect(minWidth).toBeGreaterThan(0.12);
+        expect(maxWidth).toBeLessThan(0.45);
+      }
+      for (let row = 0; row < p.threads; row++) {
+        for (let col = 0; col < p.threads; col++) {
+          const crossing = at(col / p.threads, row / p.threads);
+          const gap = at((col + 0.5) / p.threads, (row + 0.5) / p.threads);
+          expect(crossing.height - gap.height).toBeGreaterThan(0.02);
+          expect(crossing.color - gap.color).toBeGreaterThan(0.5);
+          expect(crossing.occlusion - gap.occlusion).toBeGreaterThan(0.3);
+          expect(crossing.metallic).toBe(0);
+          expect(gap.roughness).toBeGreaterThan(crossing.roughness);
+        }
+      }
+    },
+  );
+  it('keeps yarn-owner gaps and tile wraps C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let edge = 0; edge <= p.threads; edge++) {
+        for (const offset of [0, 0.5]) {
+          for (let i = 0; i <= 64; i++) {
+            for (const axis of [0, 1]) {
+              const x = axis ? i / 64 : (edge + offset) / p.threads,
+                y = axis ? (edge + offset) / p.threads : i / 64;
+              const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+                b = at(x, y),
+                c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+              for (const key of [
+                'color',
+                'height',
+                'roughness',
+                'occlusion',
+              ] as const) {
+                expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                expect(
+                  Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                ).toBeLessThan(0.005);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('polished red porphyry', () => {
   const p = proceduralMaterialPresets.porphyry;

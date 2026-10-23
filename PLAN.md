@@ -289,6 +289,8 @@
 
 同輪追加 `porphyry`（拋光斑岩），實際目錄 373→374 種：紫紅細粒基質與 seeded 淺色長石斑晶，斑晶具旋轉長矩形外形、較低粗糙度並與基面齊平，並非凸起碎石。0.3 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `linen`（竹節亞麻布），實際目錄 374→375 種：經緯紗線沿長度自然變粗變細，平滑交替覆蓋形成平織，交織點高於不透明紗隙。0.04 m tile 含 16×16 經緯交點，四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
