@@ -3356,6 +3356,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribBand: 0.04;
         peakRadius: 0.3;
     }>;
+    greekkey: Readonly<{
+        dark: readonly [26, 32, 54];
+        light: readonly [212, 176, 98];
+        roughness: 0.46;
+        relief: 0.026;
+        cells: 3;
+        halfWidth: 0.075;
+        coreWidth: 0.034;
+        segments: readonly [readonly [0, 0.88, 0.14, 0.88], readonly [0.14, 0.88, 0.14, 0.12], readonly [0.14, 0.12, 0.86, 0.12], readonly [0.86, 0.12, 0.86, 0.88], readonly [0.38, 0.88, 1, 0.88], readonly [0.38, 0.88, 0.38, 0.4], readonly [0.38, 0.4, 0.62, 0.4], readonly [0.62, 0.4, 0.62, 0.64]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3816,4 +3826,5 @@ export declare const proceduralTileMeters: Readonly<{
     quatrefoiltile: 0.5;
     okraslice: 0.09;
     eggcarton: 0.16;
+    greekkey: 0.45;
 }>;

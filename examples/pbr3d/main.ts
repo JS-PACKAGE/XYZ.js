@@ -536,6 +536,7 @@ try {
     'quatrefoiltile',
     'okraslice',
     'eggcarton',
+    'greekkey',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -6373,3 +6373,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）驗證 16 個蛋杯的杯底／肋環／鞍部／錐頭高度、色差與 AO；另檢查杯壁、肋環、錐尖與 tile wrap 的 C1。原設 peak 高於 saddle 至少 0.04 的 roughness 斷言，各 seed 首個失敗格僅觀察到 0.021–0.028；roughness 只是附帶的細微紙漿 grain 對比，不屬形態契約，已移除該斷言而非降低閾值，其餘斷言未放寬。新增四項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5749 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨 4×4 圓杯、杯壁肋環 normal 與杯底 AO，未更動 gallery 原始碼。status 為 457 種，兩頁錯誤列表皆空。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.16 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。球面縮圖下蛋杯對比低，近看輪廓主要靠 normal 與 AO 呈現。
 - 既有 456 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：鎏金希臘回紋（greekkey）
+
+- 目錄 457→458 種。0.45 m tile、九個方形螺旋回紋鉤刻在深藍黑陶瓷上，鉤向內捲至開放尖端，底線貫穿 cell 邊緣使回紋跨 tile 連續，每條凸線中央帶較亮細芯。四圖 opaque dielectric、metallic 0、既有 ownership 不變，不新增浮雕 geometry，也不模擬真實黃金或陶瓷。
+- 三個 seed（0／1／`0xffffffff`）於 9 個 cell 驗證 8 個凸線取樣點對 6 個凹槽取樣點（含鉤口缺口與內側開放尖端）的高度、色差、AO 與 roughness；另驗證 3×4 條 cell 邊界上的底線左右極限差小於 1e-6，以及鉤角、底線與 tile wrap 的 C1。測試一次通過，閾值取自實測值下限並留餘量；新增五項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5755 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨連續回紋鉤、凸線 normal 與凹槽 AO，未更動 gallery 原始碼。status 為 458 種，兩頁錯誤列表皆空。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.45 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 457 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

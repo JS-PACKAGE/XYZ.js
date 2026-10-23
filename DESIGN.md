@@ -463,6 +463,8 @@
 
 `eggcarton` 以週期 4×4 cell 的圓形 compact 蛋杯壓低杯底，杯壁以 r² 帶通合成單圈肋環；半格位移的第二組座標在四杯交會處放置平方 compact 圓頂，避免錐尖產生 kink。紙漿 grain 低幅疊加，不覆蓋盤形輪廓。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 457 種。
 
+`greekkey` 以資料表中的八條軸向線段描述單一回紋鉤，逐線計算平方距離（對凸集合為 C1），以乘積聯集合成凸線與較窄亮芯，避免線段接點出現折痕；底線兩端落在 cell 邊界，兩側 cell 對稱省略鄰格同一線段的貢獻，因此 tile wrap 與跨格連線都保持連續。0.45 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 458 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

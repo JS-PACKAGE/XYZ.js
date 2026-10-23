@@ -1261,6 +1261,42 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'greekkey': {
+        const p = proceduralMaterialPresets.greekkey;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3b95);
+        const widthSquared = p.halfWidth * p.halfWidth;
+        const coreSquared = p.coreWidth * p.coreWidth;
+        const lines = Float64Array.from(p.segments.flat());
+        return () => {
+          const x = fract(u * p.cells),
+            y = fract(v * p.cells);
+          let outside = 1,
+            coreOutside = 1;
+          // Squared distance to a segment is C1, so the product union has no ridge creases.
+          for (let i = 0; i < lines.length; i += 4) {
+            const ax = lines[i]!,
+              ay = lines[i + 1]!;
+            const dx = lines[i + 2]! - ax,
+              dy = lines[i + 3]! - ay;
+            const t = clamp(
+              ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy),
+            );
+            const ex = ax + t * dx - x,
+              ey = ay + t * dy - y;
+            const d2 = ex * ex + ey * ey;
+            outside *= 1 - smooth(clamp(1 - d2 / widthSquared));
+            coreOutside *= 1 - smooth(clamp(1 - d2 / coreSquared));
+          }
+          const ridge = 1 - outside,
+            core = 1 - coreOutside;
+          const grain = grainField(u, v);
+          color = 0.1 + 0.6 * ridge + 0.2 * core + 0.03 * grain;
+          height = 0.12 + 0.5 * ridge + 0.16 * core + 0.006 * grain;
+          roughness += 0.12 * (1 - ridge) + 0.02 * grain;
+          occlusion = 0.55 + 0.45 * ridge;
+          return;
+        };
+      }
       case 'eggcarton': {
         const p = proceduralMaterialPresets.eggcarton;
         const grainField = cachedNoise(96, 96, seed ^ 0x2e91);
@@ -14943,6 +14979,7 @@ export function createSurfaceSampler(
     kind === 'quatrefoiltile' ||
     kind === 'okraslice' ||
     kind === 'eggcarton' ||
+    kind === 'greekkey' ||
     fabricated ||
     botanical ||
     packaging ||

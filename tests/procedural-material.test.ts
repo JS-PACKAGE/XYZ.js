@@ -482,7 +482,100 @@ const kinds: ProceduralMaterialKind[] = [
   'quatrefoiltile',
   'okraslice',
   'eggcarton',
+  'greekkey',
 ];
+
+describe('Gilded Greek key fret', () => {
+  const p = proceduralMaterialPresets.greekkey;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('greekkey', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises the spiral hook and baseline above grooves, leaving the hook gap and inner tip open for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const ridges = [
+        [0.14, 0.5],
+        [0.5, 0.12],
+        [0.86, 0.5],
+        [0.5, 0.88],
+        [0.38, 0.64],
+        [0.5, 0.4],
+        [0.62, 0.52],
+        [0.14, 0.12],
+      ] as const;
+      const grooves = [
+        [0.26, 0.5],
+        [0.5, 0.26],
+        [0.74, 0.5],
+        [0.5, 0.64],
+        [0.26, 0.88],
+        [0.62, 0.74],
+      ] as const;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const [rx, ry] of ridges) {
+            const ridge = at(col + rx, row + ry);
+            for (const [gx, gy] of grooves) {
+              const groove = at(col + gx, row + gy);
+              expect(ridge.height - groove.height).toBeGreaterThan(0.015);
+              expect(ridge.color - groove.color).toBeGreaterThan(0.7);
+              expect(ridge.occlusion - groove.occlusion).toBeGreaterThan(0.4);
+              expect(groove.roughness - ridge.roughness).toBeGreaterThan(0.08);
+              expect(ridge.metallic).toBe(0);
+            }
+          }
+    },
+  );
+  it('chains the baseline across every tile edge without a seam', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col <= p.cells; col++) {
+          const left = at(col - 1e-9, row + 0.88),
+            right = at(col + 1e-9, row + 0.88);
+          expect(Math.abs(left.height - right.height)).toBeLessThan(1e-6);
+          expect(left.height).toBeGreaterThan(0.018);
+        }
+    }
+  });
+  it('keeps hook corners, chained baseline and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 192,
+              v = (y * p.cells) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Molded pulp egg carton', () => {
   const p = proceduralMaterialPresets.eggcarton;

@@ -3390,6 +3390,26 @@ export const proceduralMaterialPresets = Object.freeze({
     ribBand: 0.04,
     peakRadius: 0.3,
   }),
+  greekkey: Object.freeze({
+    dark: [26, 32, 54] as const,
+    light: [212, 176, 98] as const,
+    roughness: 0.46,
+    relief: 0.026,
+    cells: 3,
+    halfWidth: 0.075,
+    coreWidth: 0.034,
+    // One spiral hook per cell; the baseline reaches both cell edges so hooks chain across tiles.
+    segments: [
+      [0, 0.88, 0.14, 0.88],
+      [0.14, 0.88, 0.14, 0.12],
+      [0.14, 0.12, 0.86, 0.12],
+      [0.86, 0.12, 0.86, 0.88],
+      [0.38, 0.88, 1, 0.88],
+      [0.38, 0.88, 0.38, 0.4],
+      [0.38, 0.4, 0.62, 0.4],
+      [0.62, 0.4, 0.62, 0.64],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3851,4 +3871,5 @@ export const proceduralTileMeters = Object.freeze({
   quatrefoiltile: 0.5,
   okraslice: 0.09,
   eggcarton: 0.16,
+  greekkey: 0.45,
 });
