@@ -412,7 +412,86 @@ const kinds: ProceduralMaterialKind[] = [
   'gingham',
   'mossypavers',
   'bamboocrosscut',
+  'moire',
 ];
+
+describe('watered silk moire', () => {
+  const p = proceduralMaterialPresets.moire;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('moire', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'varies watered sheen without embossing broad bands for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const row of [0, 7, 19, 31]) {
+        const y = row / p.weftThreads;
+        const crowns = Array.from({ length: p.warpThreads }, (_, x) =>
+          at(x / p.warpThreads, y),
+        );
+        const sorted = crowns.sort((a, b) => a.color - b.color);
+        const dark = sorted[0]!,
+          light = sorted[sorted.length - 1]!;
+        expect(light.color - dark.color).toBeGreaterThan(0.5);
+        expect(dark.roughness - light.roughness).toBeGreaterThan(0.17);
+        expect(Math.abs(light.height - dark.height)).toBeLessThan(0.000025);
+        expect(Math.abs(light.occlusion - dark.occlusion)).toBeLessThan(
+          0.000001,
+        );
+      }
+      const crown = at(0.25, 0.25);
+      const valley = at(0.25 + 0.5 / p.warpThreads, 0.25 + 0.5 / p.weftThreads);
+      expect(crown.height - valley.height).toBeGreaterThan(0.001);
+      expect(crown.occlusion - valley.occlusion).toBeGreaterThan(0.04);
+      // Curved bands shift with v instead of degenerating into straight stripes.
+      let shift = 0;
+      for (let x = 0; x < p.warpThreads; x++)
+        shift += Math.abs(
+          at(x / p.warpThreads, 0).color -
+            at(x / p.warpThreads, 7 / p.weftThreads).color,
+        );
+      expect(shift / p.warpThreads).toBeGreaterThan(0.1);
+    },
+  );
+  it('keeps broad beat bands, fine yarns and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('bamboo tube crosscut', () => {
   const p = proceduralMaterialPresets.bamboocrosscut;

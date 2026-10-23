@@ -315,6 +315,8 @@
 
 同輪追加 `bamboocrosscut`（竹筒橫切面），實際目錄 386→387 種：seeded 直徑與壁厚的環狀淡色竹壁、深色中空底層、細孔及較平滑外皮；不使用木材年輪。0.24 m tile、四圖 opaque dielectric；中空不是可穿透 geometry，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `moire`（水波紋絲緞），實際目錄 387→388 種：紫色布面的低頻水波調制色澤與 roughness，細紗決定 height／AO，不把大波紋做成浮雕。0.08 m tile、四圖 opaque dielectric；不新增繞射、視角相關變色或 anisotropic BRDF，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

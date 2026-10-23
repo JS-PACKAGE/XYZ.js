@@ -1252,6 +1252,30 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'moire': {
+        const p = proceduralMaterialPresets.moire;
+        const phaseA = TAU * hash(0, 0, seed ^ 0x6d13);
+        const phaseB = TAU * hash(0, 0, seed ^ 0x8a57);
+        const grainField = cachedNoise(96, 96, seed ^ 0x3c91);
+        return () => {
+          // Evaluate the low-frequency beat envelope directly; this is baked
+          // watered-silk shading, not view-dependent diffraction or a new BRDF.
+          const beat =
+            p.bands * u +
+            0.9 * Math.sin(TAU * 3 * v + phaseA) -
+            0.7 * Math.sin(TAU * 2 * v + phaseB) +
+            0.2 * Math.sin(TAU * 2 * u);
+          const water = 0.5 + 0.5 * Math.cos(TAU * beat);
+          const warp = 0.5 + 0.5 * Math.cos(TAU * p.warpThreads * u);
+          const weft = 0.5 + 0.5 * Math.cos(TAU * p.weftThreads * v);
+          const grain = grainField(u, v);
+          color = 0.2 + 0.55 * water + 0.025 * warp + 0.01 * grain;
+          height = 0.08 + 0.12 * warp + 0.06 * weft + 0.004 * grain;
+          roughness += -0.19 * water + 0.015 * grain + 0.01 * weft;
+          occlusion = 0.93 + 0.045 * (0.7 * warp + 0.3 * weft);
+          return;
+        };
+      }
       case 'bamboocrosscut': {
         const p = proceduralMaterialPresets.bamboocrosscut;
         const tubes = new Float64Array(p.cells * p.cells * 3);
@@ -11411,6 +11435,7 @@ export function createSurfaceSampler(
     kind === 'gingham' ||
     kind === 'mossypavers' ||
     kind === 'bamboocrosscut' ||
+    kind === 'moire' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -323,6 +323,8 @@
 
 `bamboocrosscut` 預存四乘四竹筒的外徑、內徑與色差，用內外徑的平滑遮罩乘積形成環狀切面，再以外緣遮罩分出較平滑的深綠外皮。細孔只壓暗及微凹切面；壓暗幅度受限，避免窄竹壁被整片孔隙噪音壓暗而失去淡色切面。中空及筒間是較深的 opaque 底層，不是透明孔洞，也沒有木材年輪。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 387 種。
 
+`moire` 直接計算週期 seeded 相位差的低頻 beat envelope，形成彎曲的明暗水波與對應較平滑的亮帶；不先生成兩組高頻光柵再依賴取樣混疊形成波紋。height／AO 獨立於波紋，只由細經緯紗及纖維細粒決定。這是 baked 水波紋絲緞外觀，不是繞射、視角相關變色或 anisotropic BRDF。0.08 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 388 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
