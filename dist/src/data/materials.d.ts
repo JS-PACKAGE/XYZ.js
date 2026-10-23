@@ -3344,6 +3344,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedOffset: 0.032;
         seedRadius: 0.024;
     }>;
+    eggcarton: Readonly<{
+        dark: readonly [88, 84, 76];
+        light: readonly [196, 190, 174];
+        roughness: 0.9;
+        relief: 0.03;
+        cells: 4;
+        cupRadius: 0.37;
+        cupShoulder: 0.05;
+        ribRadius: 0.23;
+        ribBand: 0.04;
+        peakRadius: 0.3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3803,4 +3815,5 @@ export declare const proceduralTileMeters: Readonly<{
     smocking: 0.12;
     quatrefoiltile: 0.5;
     okraslice: 0.09;
+    eggcarton: 0.16;
 }>;

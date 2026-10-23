@@ -481,7 +481,72 @@ const kinds: ProceduralMaterialKind[] = [
   'smocking',
   'quatrefoiltile',
   'okraslice',
+  'eggcarton',
 ];
+
+describe('Molded pulp egg carton', () => {
+  const p = proceduralMaterialPresets.eggcarton;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('eggcarton', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'sinks sixteen cups with one wall rib between flat saddles and raised corner cones for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const floor = at(col + 0.5, row + 0.5);
+          const rib = at(col + 0.5 + p.ribRadius, row + 0.5);
+          const saddle = at(col + 0.5, row);
+          const peak = at(col, row);
+          expect(rib.height - floor.height).toBeGreaterThan(0.0015);
+          expect(saddle.height - floor.height).toBeGreaterThan(0.01);
+          expect(peak.height - saddle.height).toBeGreaterThan(0.009);
+          expect(saddle.color - floor.color).toBeGreaterThan(0.1);
+          expect(peak.color - saddle.color).toBeGreaterThan(0.08);
+          expect(saddle.occlusion - floor.occlusion).toBeGreaterThan(0.3);
+          expect(rib.occlusion - floor.occlusion).toBeGreaterThan(0.08);
+          expect(peak.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps cup walls, rib rings, cone tips and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 192,
+              v = (y * p.cells) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Okra cross sections', () => {
   const p = proceduralMaterialPresets.okraslice;

@@ -461,6 +461,8 @@
 
 `okraslice` 以五倍角餘弦半徑生成五稜輪廓，外層 rind 遮罩壓暗窄皮邊；角度奇點藏於飽和 face 內部。每片 seeded 旋轉與五腔方向預計算，橢圓 compact masks 壓低腔底，每腔兩個圓形 supports 抬高淺色籽粒，保留較高中央組織與隔壁。0.09 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 456 種。
 
+`eggcarton` 以週期 4×4 cell 的圓形 compact 蛋杯壓低杯底，杯壁以 r² 帶通合成單圈肋環；半格位移的第二組座標在四杯交會處放置平方 compact 圓頂，避免錐尖產生 kink。紙漿 grain 低幅疊加，不覆蓋盤形輪廓。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 457 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

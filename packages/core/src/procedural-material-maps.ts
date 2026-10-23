@@ -1261,6 +1261,33 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'eggcarton': {
+        const p = proceduralMaterialPresets.eggcarton;
+        const grainField = cachedNoise(96, 96, seed ^ 0x2e91);
+        const cupSquared = p.cupRadius * p.cupRadius;
+        const ribSquared = p.ribRadius * p.ribRadius;
+        const peakSquared = p.peakRadius * p.peakRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const cup = smooth(
+            clamp((cupSquared - x * x - y * y) / p.cupShoulder),
+          );
+          const ring = (x * x + y * y - ribSquared) / p.ribBand;
+          const rib = smooth(clamp(1 - ring * ring)) * cup;
+          const px = fract(u * p.cells + 0.5) - 0.5,
+            py = fract(v * p.cells + 0.5) - 0.5;
+          // Squared dome keeps each cone tip C1 while the tray floor stays flat.
+          const peak =
+            smooth(clamp(1 - (px * px + py * py) / peakSquared)) ** 2;
+          const grain = grainField(u, v);
+          color = 0.5 + 0.16 * peak - 0.2 * cup + 0.05 * rib + 0.04 * grain;
+          height = 0.55 - 0.42 * cup + 0.08 * rib + 0.38 * peak + 0.006 * grain;
+          roughness += 0.04 * grain + 0.04 * peak;
+          occlusion = 0.95 - 0.36 * cup + 0.05 * peak + 0.1 * rib;
+          return;
+        };
+      }
       case 'okraslice': {
         const p = proceduralMaterialPresets.okraslice;
         const grainField = cachedNoise(96, 96, seed ^ 0x63e7);
@@ -14915,6 +14942,7 @@ export function createSurfaceSampler(
     kind === 'smocking' ||
     kind === 'quatrefoiltile' ||
     kind === 'okraslice' ||
+    kind === 'eggcarton' ||
     fabricated ||
     botanical ||
     packaging ||
