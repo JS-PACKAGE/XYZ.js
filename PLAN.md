@@ -257,6 +257,8 @@
 
 榻榻米增量追加 `tatami`，由目前實際目錄 303 種增為 304 種；既有段落 counts 保留為歷史。呈現黃綠色藺草凸脊、凹陷間隙、交替上下穿越草莖的橫向綁線與縱向纖維。沿用 seeded periodic 四圖、opaque dielectric、physical repeats 與 ownership；一張 UV tile 對應 0.16 m，不新增 geometry、透明孔洞或物理模擬。既有 303 種輸出保持不變，依本輪授權逐功能 commit、不 push；實際驗證見 ACCEPTANCE。
 
+2026-10-23 持續材質擴充追加 `flutedwood`（直槽木飾板）：圓潤縱向木條、深色凹槽與沿木紋纖維。以實際 data 目錄 358 種為基準增為 359 種；前述 counts 保留歷史。沿用 seeded periodic 四圖、opaque dielectric、0.32 m tile、既有 options／ownership，不新增 geometry 或 shader。依使用者要求逐功能驗證、獨立 commit，直到使用者停止；不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

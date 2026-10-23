@@ -2213,6 +2213,14 @@ export const proceduralMaterialPresets = Object.freeze({
     bindings: 4,
     bindingWidth: 0.09,
   }),
+  flutedwood: Object.freeze({
+    dark: [39, 20, 10] as const,
+    light: [189, 128, 65] as const,
+    roughness: 0.48,
+    relief: 0.028,
+    slats: 8,
+    halfWidth: 0.44,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2575,4 +2583,5 @@ export const proceduralTileMeters = Object.freeze({
   rhodonite: 0.2,
   tigereye: 0.18,
   tatami: 0.16,
+  flutedwood: 0.32,
 });

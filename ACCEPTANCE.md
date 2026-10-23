@@ -5629,3 +5629,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 使用者授權推送並發佈 `v1.21.2`，納入 `[Build]` 工具鏈間接依賴更新與 `[Starters]` 2D starter Vite 8.3.3 更新；上述測試與 Chromium starter smoke 證據仍適用，版本更新不新增 runtime 功能。
 - 沿既有 CI／Release workflow 封裝完整 archive 與 checksum；不做 npm publish，不移動歷史 tags。遠端發佈結果須以 workflow 與實際附件為準。
+
+## 2026-10-23 程序材質：直槽木飾板（flutedwood）
+
+- 新增圓潤木條、深色凹槽與縱向木紋／細纖維；實際 data 目錄 358→359 種。四份 seeded periodic maps 維持 opaque dielectric、metallic 0，tile 0.32 m；不新增 geometry、shader 或 runtime 依賴。
+- 專項 Vitest 1 檔／1516 項通過，包含三 seed 的冠部／肩部／底板高低、色差、roughness／occlusion 對應，以及支撐邊界與重複接縫的一階連續性。build（ESM／CJS／完整 vendor）通過。
+- 整合驗證 typecheck、lint、format:check、完整 Vitest（178 檔／5243 項）與 check:api-compatibility 通過；check:material-reference 為 pass true，未重生 golden。Vite 對既有 OPM dynamic import 的靜態分析警告仍存在，未藉此修改 audio 路徑。
+- 重建前乾淨 dist 與重建後比較 size 64／seed 7：既有 358 種的四份 maps SHA256 全相同，新增恰為 flutedwood。
+- 本機 headless Chromium 實際操作 pbr3d，WebGPU／WebGL2 切換 flutedwood 均顯示縱向圓潤木條與深色槽、四張 map 預覽；狀態列回報 359 presets，無 page errors。Canvas2D 明確回報不支援 PBR 3D，未假裝渲染。
+- 瀏覽器實際建立 size 32／seed 7 preset 與 borrowing material，兩者 metallic 皆為 0；每米 repeats 為 3.125；冪等 destroy 後四張 Texture 皆 destroyed。README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結檢查無失效路徑。
+- 依本輪授權獨立功能 commit、不 push；不擴大其他瀏覽器、實體裝置或效能認證。

@@ -383,7 +383,90 @@ const kinds: ProceduralMaterialKind[] = [
   'rhodonite',
   'tigereye',
   'tatami',
+  'flutedwood',
 ];
+
+describe('fluted wood panels', () => {
+  const p = proceduralMaterialPresets.flutedwood;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('flutedwood', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'keeps rounded wooden crowns above dark rough recessed backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let slat = 0; slat < p.slats; slat++) {
+        for (const v of [0, 0.23, 0.57, 0.91]) {
+          const center = at((slat + 0.5) / p.slats, v);
+          const shoulder = at((slat + 0.75) / p.slats, v);
+          const gap = at(slat / p.slats, v);
+          expect(center.height - shoulder.height).toBeGreaterThan(0.12);
+          expect(shoulder.height - gap.height).toBeGreaterThan(0.4);
+          expect(center.color - gap.color).toBeGreaterThan(0.4);
+          expect(center.occlusion - gap.occlusion).toBeGreaterThan(0.45);
+          expect(gap.roughness - center.roughness).toBeGreaterThan(0.2);
+        }
+      }
+    },
+  );
+
+  it('joins the backing and repeat seams without field or normal-slope jumps', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (const axis of [0, 1]) {
+        const seams =
+          axis === 0
+            ? [
+                0,
+                1,
+                ...Array.from({ length: p.slats }, (_, i) => [
+                  (i + 0.5 - p.halfWidth) / p.slats,
+                  (i + 0.5 + p.halfWidth) / p.slats,
+                ]).flat(),
+              ]
+            : [0, 1];
+        for (const seam of seams) {
+          for (let i = 0; i < 17; i++) {
+            const sample = (delta: number): SurfaceSample =>
+              at(
+                axis === 0 ? seam + delta : i / 17,
+                axis === 1 ? seam + delta : i / 17,
+              );
+            const a = sample(-h),
+              b = sample(0),
+              c = sample(h);
+            for (const key of [
+              'height',
+              'color',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('tatami rush weave', () => {
   it.each([0, 1, 0xffffffff])(

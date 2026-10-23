@@ -2212,6 +2212,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         bindings: 4;
         bindingWidth: 0.09;
     }>;
+    flutedwood: Readonly<{
+        dark: readonly [39, 20, 10];
+        light: readonly [189, 128, 65];
+        roughness: 0.48;
+        relief: 0.028;
+        slats: 8;
+        halfWidth: 0.44;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2573,4 +2581,5 @@ export declare const proceduralTileMeters: Readonly<{
     rhodonite: 0.2;
     tigereye: 0.18;
     tatami: 0.16;
+    flutedwood: 0.32;
 }>;

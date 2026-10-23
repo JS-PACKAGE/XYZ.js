@@ -360,6 +360,13 @@ function createSurfaceSampler(t, r) {
 	}
 	let Ut = t === `stone` || t === `metal` || t === `marble`, Wt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, K = 0, q = 0, Gt = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 0, $ = 1, Kt = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `flutedwood`: {
+				let t = require_materials.proceduralMaterialPresets.flutedwood, i = cachedNoise(64, 4, r ^ 18353);
+				return () => {
+					let r = smooth(clamp(1 - ((fract(K * t.slats) - .5) / t.halfWidth) ** 2)), o = i(K + .008 * Math.sin(n * 2 * q + a), q), s = .5 + .5 * Math.cos(n * (96 * K + .24 * Math.sin(n * 2 * q)) + a);
+					X = .08 + r * (.43 + .28 * o + .045 * s), Z = .08 + r * (.71 + .018 * o + .006 * s), Q += .26 * (1 - r) + .055 * o * r, $ = .52 + .47 * r;
+				};
+			}
 			case `tatami`: return () => {
 				let t = require_materials.proceduralMaterialPresets.tatami, i = .5 + .5 * Math.cos(n * t.reeds * K), o = smooth(clamp(1 - ((fract(q * t.bindings + .5) - .5) / t.bindingWidth) ** 2)), s = .5 + .5 * Math.cos(n * (t.reeds / 2) * K), c = noise(K, q, t.reeds, 4, r ^ 12631), l = .5 + .5 * Math.cos(n * t.reeds * 3 * K + .12 * Math.sin(n * 4 * q));
 				X = .31 + .26 * i + .18 * c - .14 * o, Z = .16 + .4 * i + .016 * l * i + .015 * J + o * (.24 * s - .1 * (1 - s)), Q += .035 * c - .045 * o * s, $ = .72 + .26 * i - .06 * o * (1 - s);
@@ -2425,7 +2432,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !($e || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !($e || t === `flutedwood` || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		K = fract(e), q = fract(t), Gt = Ut ? noise(K, q, 4, 4, r) : 0, J = Xt ? noise(K, q, 32, 32, Zt) : 0, Y = Wt ? noise(K, q, 64, 64, Qt) : 0, X = Gt, Z = Gt, Q = i.roughness, $ = 1, Kt = 0, qt = Jt, Yt(), n.color = X, n.height = Z * i.relief, n.roughness = clamp(Q), n.occlusion = $, n.mortar = Kt, n.metallic = qt;
 	};

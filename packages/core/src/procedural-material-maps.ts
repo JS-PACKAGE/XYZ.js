@@ -1248,6 +1248,28 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'flutedwood': {
+        const p = proceduralMaterialPresets.flutedwood;
+        const grainField = cachedNoise(64, 4, seed ^ 0x47b1);
+        return () => {
+          const x = fract(u * p.slats) - 0.5;
+          // A compact rounded crown meets the flat backing with zero slope.
+          const crown = smooth(clamp(1 - (x / p.halfWidth) ** 2));
+          const grain = grainField(
+            u + 0.008 * Math.sin(TAU * 2 * v + phase),
+            v,
+          );
+          const fiber =
+            0.5 +
+            0.5 *
+              Math.cos(TAU * (96 * u + 0.24 * Math.sin(TAU * 2 * v)) + phase);
+          color = 0.08 + crown * (0.43 + 0.28 * grain + 0.045 * fiber);
+          height = 0.08 + crown * (0.71 + 0.018 * grain + 0.006 * fiber);
+          roughness += 0.26 * (1 - crown) + 0.055 * grain * crown;
+          occlusion = 0.52 + 0.47 * crown;
+          return;
+        };
+      }
       case 'tatami':
         return () => {
           const p = proceduralMaterialPresets.tatami;
@@ -10291,6 +10313,7 @@ export function createSurfaceSampler(
   // Constant for the sampler: which noise layers the preset's own field does not replace.
   const needsDetail = !(
     architectural ||
+    kind === 'flutedwood' ||
     fabricated ||
     botanical ||
     packaging ||
