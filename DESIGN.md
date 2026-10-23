@@ -295,6 +295,8 @@
 
 `castiron` 預先儲存 96×96／48×48 細粒場與稀疏孔洞的 seeded 中心、半徑倒數；compact 凹孔在換主前平滑歸零，不產生槌紋表面的大片重疊凹印。孔洞同步降低 height／color／AO 並提高 roughness，細粒基面仍保持粗糙。0.1 m tile、四圖 opaque、metallic B 與預設 factor 均為 1，未模擬塗層或氧化膜；既有 ownership 不變，目錄增為 373 種。
 
+`porphyry` 預先儲存斑晶中心、旋轉基底、長短軸與細粒場，兩軸 smooth 覆蓋相乘形成長石形狀，整個晶體位於所屬單元內，換主時只剩共用基質。斑晶控制 color 與 roughness，但不額外改變 height，以維持拋光後的齊平表面。0.3 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 374 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

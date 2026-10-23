@@ -5345,6 +5345,27 @@ var proceduralMaterialPresets = Object.freeze({
 		poreChance: .35,
 		poreRadiusMin: .1,
 		poreRadiusRange: .12
+	}),
+	porphyry: Object.freeze({
+		dark: [
+			96,
+			36,
+			45
+		],
+		light: [
+			222,
+			180,
+			158
+		],
+		roughness: .5,
+		relief: .006,
+		cells: 8,
+		crystalChance: .8,
+		halfLengthMin: .16,
+		halfLengthRange: .12,
+		halfWidthMin: .06,
+		halfWidthRange: .07,
+		edge: .018
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5720,7 +5741,8 @@ var proceduralTileMeters = Object.freeze({
 	standingseam: 2,
 	damascus: .12,
 	windmillpavers: .9,
-	castiron: .1
+	castiron: .1,
+	porphyry: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

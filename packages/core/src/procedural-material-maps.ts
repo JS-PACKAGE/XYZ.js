@@ -1251,6 +1251,46 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'porphyry': {
+        const p = proceduralMaterialPresets.porphyry;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6c21);
+        const crystals = new Float64Array(p.cells * p.cells * 6);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6;
+            const angle = TAU * hash(col, row, seed ^ 0x3b59);
+            crystals[i] = 0.35 + 0.3 * hash(col, row, seed ^ 0x5e13);
+            crystals[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x7a31);
+            crystals[i + 2] = Math.cos(angle);
+            crystals[i + 3] = Math.sin(angle);
+            crystals[i + 4] =
+              hash(col, row, seed ^ 0x2d47) < p.crystalChance
+                ? p.halfLengthMin +
+                  p.halfLengthRange * hash(col, row, seed ^ 0x4f19)
+                : 0;
+            crystals[i + 5] =
+              p.halfWidthMin + p.halfWidthRange * hash(col, row, seed ^ 0x1c63);
+          }
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const i = (row * p.cells + col) * 6;
+          const x = fract(u * p.cells) - crystals[i]!,
+            y = fract(v * p.cells) - crystals[i + 1]!;
+          const along = x * crystals[i + 2]! + y * crystals[i + 3]!;
+          const across = -x * crystals[i + 3]! + y * crystals[i + 2]!;
+          const crystal =
+            smooth(clamp((crystals[i + 4]! - Math.abs(along)) / p.edge)) *
+            smooth(clamp((crystals[i + 5]! - Math.abs(across)) / p.edge));
+          const grain = grainField(u, v);
+          color = 0.24 + 0.12 * grain + crystal * (0.55 - 0.06 * grain);
+          // Polishing leaves feldspar inclusions flush, not raised stone fragments.
+          height = 0.4 + 0.015 * grain;
+          roughness += 0.08 * grain - 0.22 * crystal;
+          occlusion = 1 - 0.02 * grain;
+          return;
+        };
+      }
       case 'castiron': {
         const p = proceduralMaterialPresets.castiron;
         const fineField = cachedNoise(96, 96, seed ^ 0x3f21);
@@ -10815,6 +10855,7 @@ export function createSurfaceSampler(
     kind === 'damascus' ||
     kind === 'windmillpavers' ||
     kind === 'castiron' ||
+    kind === 'porphyry' ||
     fabricated ||
     botanical ||
     packaging ||

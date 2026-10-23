@@ -2363,6 +2363,19 @@ export const proceduralMaterialPresets = Object.freeze({
     poreRadiusMin: 0.1,
     poreRadiusRange: 0.12,
   }),
+  porphyry: Object.freeze({
+    dark: [96, 36, 45] as const,
+    light: [222, 180, 158] as const,
+    roughness: 0.5,
+    relief: 0.006,
+    cells: 8,
+    crystalChance: 0.8,
+    halfLengthMin: 0.16,
+    halfLengthRange: 0.12,
+    halfWidthMin: 0.06,
+    halfWidthRange: 0.07,
+    edge: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2740,4 +2753,5 @@ export const proceduralTileMeters = Object.freeze({
   damascus: 0.12,
   windmillpavers: 0.9,
   castiron: 0.1,
+  porphyry: 0.3,
 });

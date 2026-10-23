@@ -398,7 +398,120 @@ const kinds: ProceduralMaterialKind[] = [
   'damascus',
   'windmillpavers',
   'castiron',
+  'porphyry',
 ];
+
+describe('polished red porphyry', () => {
+  const p = proceduralMaterialPresets.porphyry;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('porphyry', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'embeds elongated pale crystals flush in a darker rougher matrix for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let crystals = 0,
+        aspectSum = 0,
+        brightCount = 0,
+        darkCount = 0;
+      let brightRoughness = 0,
+        darkRoughness = 0,
+        brightHeight = 0,
+        darkHeight = 0;
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          let n = 0,
+            sx = 0,
+            sy = 0,
+            xx = 0,
+            yy = 0,
+            xy = 0;
+          for (let y = 0; y < 32; y++) {
+            for (let x = 0; x < 32; x++) {
+              const s = at(
+                (col + (x + 0.5) / 32) / p.cells,
+                (row + (y + 0.5) / 32) / p.cells,
+              );
+              if (s.color > 0.7) {
+                n++;
+                sx += x;
+                sy += y;
+                xx += x * x;
+                yy += y * y;
+                xy += x * y;
+                brightCount++;
+                brightRoughness += s.roughness;
+                brightHeight += s.height;
+              } else if (s.color < 0.4) {
+                darkCount++;
+                darkRoughness += s.roughness;
+                darkHeight += s.height;
+              }
+            }
+          }
+          if (n > 8) {
+            const vx = xx / n - (sx / n) ** 2,
+              vy = yy / n - (sy / n) ** 2;
+            const cov = xy / n - (sx * sy) / (n * n);
+            const gap = Math.sqrt((vx - vy) ** 2 + 4 * cov * cov);
+            aspectSum += Math.sqrt((vx + vy + gap) / (vx + vy - gap));
+            crystals++;
+          }
+        }
+      }
+      expect(crystals).toBeGreaterThan(35);
+      expect(aspectSum / crystals).toBeGreaterThan(1.7);
+      expect(brightCount / 65536).toBeGreaterThan(0.02);
+      expect(brightCount / 65536).toBeLessThan(0.15);
+      expect(
+        darkRoughness / darkCount - brightRoughness / brightCount,
+      ).toBeGreaterThan(0.18);
+      expect(
+        Math.abs(brightHeight / brightCount - darkHeight / darkCount),
+      ).toBeLessThan(0.00001);
+    },
+  );
+  it('keeps crystal-cell ownership and wraps C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let edge = 0; edge <= p.cells; edge++) {
+        for (let i = 0; i <= 64; i++) {
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 64 : edge / p.cells,
+              y = axis ? edge / p.cells : i / 64;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+              b = at(x, y),
+              c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.005,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('rough cast iron', () => {
   const p = proceduralMaterialPresets.castiron;

@@ -379,7 +379,8 @@ export type ProceduralMaterialKind =
   | 'standingseam'
   | 'damascus'
   | 'windmillpavers'
-  | 'castiron';
+  | 'castiron'
+  | 'porphyry';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -785,6 +786,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'damascus',
   'windmillpavers',
   'castiron',
+  'porphyry',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

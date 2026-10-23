@@ -5759,3 +5759,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現灰色粗鑄表面與少量凹孔，狀態列為 373 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 1、alphaMode OPAQUE、0.1 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 metallic factor 列表同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5317 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：拋光斑岩（porphyry）
+
+- 新增紫紅細粒基質與 seeded 淺色長石斑晶，斑晶具不同朝向的長矩形外形、較低粗糙度且與基面齊平，目錄 373→374 種；0.3 m tile、四圖 opaque dielectric、metallic 0。不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的斑晶覆蓋、以二階矩量測的長短軸比、斑晶與基質粗糙度差及齊平高度，以及單元換主與 wrap 一階連續性。以上一功能 dist 為基準，size 64／seed 7 的既有 373 種四圖 SHA256 全相同，新增恰為 porphyry。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現紫紅基質與淺色長石斑晶，normal 保留拋光齊平表面，狀態列為 374 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.3 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5322 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。

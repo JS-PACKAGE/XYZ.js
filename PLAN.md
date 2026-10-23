@@ -287,6 +287,8 @@
 
 同輪追加 `castiron`（粗鑄鐵），實際目錄 372→373 種：細顆粒鑄造肌理與少量 seeded 凹孔，凹孔較暗、粗糙且低於基面，區別於大面積重疊槌印。0.1 m tile、四圖 opaque、metallic map 與 factor 均為 1，代表未上漆未氧化的粗鑄金屬；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `porphyry`（拋光斑岩），實際目錄 373→374 種：紫紅細粒基質與 seeded 淺色長石斑晶，斑晶具旋轉長矩形外形、較低粗糙度並與基面齊平，並非凸起碎石。0.3 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
