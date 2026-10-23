@@ -441,7 +441,81 @@ const kinds: ProceduralMaterialKind[] = [
   'bargello',
   'saffiano',
   'cocoamat',
+  'suminagashi',
 ];
+
+describe('Suminagashi ink-marbled paper', () => {
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('suminagashi', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains alternating ink and bare paper without engraving the ink for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let darkest = at(0, 0),
+        lightest = darkest;
+      let low = Infinity,
+        high = -Infinity,
+        ink = 0,
+        paper = 0;
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          const sample = at(x / 96, y / 96);
+          if (sample.color < darkest.color) darkest = sample;
+          if (sample.color > lightest.color) lightest = sample;
+          low = Math.min(low, sample.height);
+          high = Math.max(high, sample.height);
+          if (sample.color < 0.2) ink++;
+          if (sample.color > 0.85) paper++;
+        }
+      expect(lightest.color - darkest.color).toBeGreaterThan(0.7);
+      expect(lightest.roughness - darkest.roughness).toBeGreaterThan(0.07);
+      expect(high - low).toBeLessThan(0.00012);
+      expect(darkest.occlusion).toBe(lightest.occlusion);
+      expect(ink / 9216).toBeGreaterThan(0.025);
+      expect(ink / 9216).toBeLessThan(0.4);
+      expect(paper / 9216).toBeGreaterThan(0.35);
+    },
+  );
+  it('keeps warped ink contours, paper tooth and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Coir coconut-fiber mat', () => {
   const p = proceduralMaterialPresets.cocoamat;

@@ -6085,3 +6085,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證 256 根纖維的彎曲路徑與跨區域圓冠高度／色彩／AO／粗糙度，並驗證纖維間暗底仍占合理面積；另驗證端部／交點／鄰域切換／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5538 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：不規則棕色彎纖維、交疊 normal／暗隙 AO、四圖及 25 球可見，status 為 416 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 415 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：墨流し紋紙（suminagashi）
+
+- 目錄 416→417 種。0.24 m tile、seeded 雙軸 domain warp 與 periodic 等值色帶形成蜿蜒套疊的炭黑墨紋及暖白留紙。墨色只影響顏色／粗糙度；高度由獨立細粒／纖維決定，AO 保持平紙面，不刻成石材溝槽。四圖 opaque、metallic 0、既有 ownership 不變；不新增流體模擬或紙張 geometry。
+- 定向 4 tests 通過：三 seeds 驗證墨區與留紙的對比／覆蓋比例、墨區粗糙度差異、全紙面高度變化仍限於細微紙紋且墨色不改變 AO；另驗證 warped 墨線肩部／紙紋／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5543 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：暖白紙面與套疊黑色墨線、未隨墨色浮雕的 normal／AO、四圖及 25 球可見，status 為 417 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 416 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

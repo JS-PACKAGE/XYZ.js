@@ -1255,6 +1255,30 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'suminagashi': {
+        const p = proceduralMaterialPresets.suminagashi;
+        const warpX = cachedNoise(4, 4, seed ^ 0x2d47),
+          warpY = cachedNoise(4, 4, seed ^ 0x3e59),
+          contourField = cachedNoise(3, 3, seed ^ 0x4f61),
+          rippleField = cachedNoise(7, 7, seed ^ 0x5a73),
+          grainField = cachedNoise(96, 96, seed ^ 0x6b85),
+          fiberField = cachedNoise(192, 8, seed ^ 0x7c97);
+        return () => {
+          const x = u + p.warp * (warpX(u, v) - 0.5),
+            y = v + p.warp * (warpY(u, v) - 0.5);
+          const level = 0.9 * contourField(x, y) + 0.1 * rippleField(x, y);
+          const ink = smooth(
+            clamp((Math.cos(TAU * p.rings * level) - 0.45) / 0.5),
+          );
+          const grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          color = 0.93 - 0.82 * ink + 0.02 * grain;
+          // Floating ink stains the sheet; only paper tooth contributes relief.
+          height = 0.12 + 0.02 * grain + 0.008 * fiber;
+          roughness += 0.025 * grain - 0.1 * ink;
+          occlusion = 0.99;
+        };
+      }
       case 'cocoamat': {
         const p = proceduralMaterialPresets.cocoamat;
         const fibers = new Float64Array(p.cells * p.cells * p.fibers * 5);
@@ -12711,6 +12735,7 @@ export function createSurfaceSampler(
     kind === 'bargello' ||
     kind === 'saffiano' ||
     kind === 'cocoamat' ||
+    kind === 'suminagashi' ||
     fabricated ||
     botanical ||
     packaging ||

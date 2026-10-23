@@ -2786,6 +2786,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         halfLength: 0.68;
         radius: 0.07;
     }>;
+    suminagashi: Readonly<{
+        dark: readonly [24, 28, 31];
+        light: readonly [235, 228, 208];
+        roughness: 0.86;
+        relief: 0.004;
+        rings: 12;
+        warp: 0.18;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3205,4 +3213,5 @@ export declare const proceduralTileMeters: Readonly<{
     bargello: 0.064;
     saffiano: 0.032;
     cocoamat: 0.08;
+    suminagashi: 0.24;
 }>;

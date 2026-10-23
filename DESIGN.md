@@ -381,6 +381,8 @@
 
 `cocoamat` 快取每根有限彎纖維的位置、方向及曲率，以 3×3 wrapped 鄰域取樣並使用 smooth union 合成圓冠與交點。纖維的 compact 側邊／端部在鄰域切換前歸零，不以 hard max 製造 normal 折痕；cached 96×96 微粒保持高粗糙纖維與低暗底的差異。0.08 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 416 種。
 
+`suminagashi` 對 cached 3×3／7×7 periodic scalar fields 作雙軸 domain warp，再以平滑 cosine 色帶取等值輪廓，形成套疊墨紋。墨色與粗糙度共享 ink 欄位，但高度只由獨立 96×96 細粒／192×8 纖維形成；AO 保持平紙面，不將墨線變成刻痕。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 417 種；不包含流體模擬。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

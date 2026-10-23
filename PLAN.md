@@ -373,6 +373,8 @@
 
 同輪追加 `cocoamat`（椰纖門墊），實際目錄 415→416 種：八乘八區域各有四根 seeded 旋轉短彎纖維，跨區域交疊並平滑收束兩端；棕色粗纖維高於／亮於暗底，間隙保留粗糙陰影而非整片實心。0.08 m tile、四圖 opaque dielectric、metallic 0，不新增纖維 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `suminagashi`（墨流し紋紙），實際目錄 416→417 種：seeded domain warp 產生蜿蜒套疊的炭黑墨色輪廓，墨區與暖白紙面交替。墨色僅影響顏色與粗糙度；紙面高度來自獨立細粒／纖維，不把墨線刻成石材溝槽。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增流體模擬或紙張 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
