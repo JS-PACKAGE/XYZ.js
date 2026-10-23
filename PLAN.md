@@ -333,6 +333,8 @@
 
 同輪追加 `shibori`（靛藍絞染布），實際目錄 395→396 種：深藍底、雙層淡色防染環帶、seeded 不規則暈邊與放射綁染痕跡；染色不改高度，平織 relief 獨立。0.24 m tile、四圖 opaque dielectric，沿用既有借用及銷毀契約，逐功能驗證提交、不 push。
 
+同輪追加 `scallopedslate`（圓尾板岩屋瓦），實際目錄 396→397 種：錯列瓦片的上列圓尾搭接下列、抬高弧形下緣與凹入陰影，seeded 板岩色差、細粒及層理。1.2 m tile、四圖 opaque dielectric，搭接由貼圖表現、不增加 geometry，沿用既有借用及銷毀契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

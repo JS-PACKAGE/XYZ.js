@@ -2602,6 +2602,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         threads: 64;
         pleats: 18;
     }>;
+    scallopedslate: Readonly<{
+        dark: readonly [23, 31, 41];
+        light: readonly [117, 133, 145];
+        roughness: 0.76;
+        relief: 0.025;
+        columns: 4;
+        rows: 6;
+        halfWidth: 0.49;
+        tailStart: 0.85;
+        tailDepth: 0.55;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3001,4 +3012,5 @@ export declare const proceduralTileMeters: Readonly<{
     louveredmetal: 0.6;
     herringbonebrick: 1.2;
     shibori: 0.24;
+    scallopedslate: 1.2;
 }>;

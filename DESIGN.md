@@ -341,6 +341,8 @@
 
 `shibori` 使用 compact 雙環帶、週期角度諧波及 seeded 相位模擬絞染防染區與放射狀綁染痕跡，環帶在中心與格邊之前已歸零，避免 atan2 奇點或格線接縫。不規則淡色暈邊只影響 pigment，64-thread 平織高度與 AO 獨立於染色，細粒提供微小棉布表面起伏。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 396 種。
 
+`scallopedslate` 將三列錯半格的瓦片由下至上合成：側邊、隱藏上緣與橢圓下尾採平滑 compact 遮罩，圓尾跨列覆蓋下瓦、抬高弧形下緣並於外側衰減陰影。三列候選的進出點皆在零遮罩區，保留列切換與 wrap 的搭接連續性；cached 細粒與橫向層理、每瓦 seeded 色差獨立於輪廓。陰影不改表面 roughness。1.2 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 397 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

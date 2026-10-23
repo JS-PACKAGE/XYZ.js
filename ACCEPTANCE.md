@@ -5943,3 +5943,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 395 種四圖 SHA256 全相同，新增恰為 shibori。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor 呈現靛藍底及淡色不規則環帶，normal／AO 無環帶浮雕，狀態列為 396 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.24 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5436 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：圓尾板岩屋瓦（scallopedslate）
+
+- 新增錯列搭接的圓尾板岩，上列圓尾覆蓋下列、弧形下緣抬高且下方有凹入陰影，seeded 板岩色差、細粒及層理，目錄 396→397 種。1.2 m tile、四圖 opaque dielectric、metallic 0，搭接由貼圖表現，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項及 build 通過，涵蓋三 seed 的瓦身／抬高尾端／較低下瓦高度階序、弧形兩角退縮、下瓦露出、搭接陰影 AO 與跨列／輪廓／wrap 一階連續性。最初附帶的「陰影處一定更粗糙」斷言受不同位置的粒紋差異影響且不是材質契約；刪除此 incidental assertion 及陰影改 roughness 的不必要耦合，保留全部高度、輪廓與 AO 檢查，陰影不再改變表面粗糙度。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 396 種四圖 SHA256 全相同，新增恰為 scallopedslate。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與四圖呈現灰藍錯列圓尾、弧形搭接及邊緣陰影，狀態列為 397 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5441 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

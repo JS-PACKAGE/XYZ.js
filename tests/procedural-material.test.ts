@@ -421,7 +421,84 @@ const kinds: ProceduralMaterialKind[] = [
   'louveredmetal',
   'herringbonebrick',
   'shibori',
+  'scallopedslate',
 ];
+
+describe('overlapping scalloped slate roof', () => {
+  const p = proceduralMaterialPresets.scallopedslate;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('scallopedslate', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'overlaps staggered rows with high rounded tails and a recessed shadow below each lip for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (x: number, y: number) =>
+            at(
+              (col + 0.5 - (row % 2) * 0.5 + x) / p.columns,
+              (row + y) / p.rows,
+            );
+          const body = local(0, 0.65),
+            lip = local(0, 1.25),
+            shadow = local(0, 1.4),
+            exposed = local(0, 1.48);
+          expect(lip.height - body.height).toBeGreaterThan(0.0015);
+          expect(lip.height - shadow.height).toBeGreaterThan(0.007);
+          expect(exposed.occlusion - shadow.occlusion).toBeGreaterThan(0.25);
+          expect(lip.occlusion).toBeCloseTo(0.98, 10);
+          // The long center survives below both curved corners: a straight
+          // rectangular tab or a rounded color decal cannot satisfy this.
+          for (const x of [-0.35, 0.35]) {
+            expect(local(0, 1.3).height - local(x, 1.3).height).toBeGreaterThan(
+              0.004,
+            );
+            expect(local(x, 0.65).height).toBeGreaterThan(0.013);
+          }
+          expect(exposed.height).toBeGreaterThan(0.007);
+        }
+    },
+  );
+  it('keeps staggered ownership, rounded lips, overlap shadows and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 96;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('indigo shibori resist dyed cloth', () => {
   const p = proceduralMaterialPresets.shibori;

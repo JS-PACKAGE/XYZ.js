@@ -1253,6 +1253,53 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'scallopedslate': {
+        const p = proceduralMaterialPresets.scallopedslate;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4e31);
+        const strataField = cachedNoise(8, 64, seed ^ 0x6b17);
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x3f29);
+        return () => {
+          const y = v * p.rows,
+            baseRow = Math.floor(y);
+          const grain = grainField(u, v),
+            strata = strataField(u, v);
+          color = 0.08 + 0.025 * grain;
+          height = 0.08 + 0.01 * grain;
+          roughness = p.roughness + 0.08;
+          occlusion = 0.6;
+          // Paint lower courses first: upper rounded tails cover the next
+          // staggered row. Three rows preserve the same overlap at row wrap.
+          for (let row = baseRow + 1; row >= baseRow - 1; row--) {
+            const x = u * p.columns + (row & 1) * 0.5;
+            const tx = fract(x) - 0.5,
+              ty = y - row;
+            const top = smooth(clamp((ty + 0.75) / 0.1));
+            const side = smooth(clamp((p.halfWidth - Math.abs(tx)) / 0.035));
+            const tail = Math.max(ty - p.tailStart, 0) / p.tailDepth;
+            const q = (tx / p.halfWidth) ** 2 + tail * tail;
+            const cap = smooth(clamp((1 - q) / 0.12));
+            const face = top * side * cap;
+            const shadow =
+              top * side * (1 - cap) * smooth(clamp((1.16 - q) / 0.16));
+            const wy = (row + p.rows) % p.rows;
+            const wx = Math.floor(x) % p.columns;
+            const tone = tones[wy * p.columns + wx];
+            const pigment = 0.25 + 0.3 * tone + 0.08 * strata + 0.025 * grain;
+            const lift =
+              0.3 + 0.35 * smooth(clamp((ty + 0.75) / 2.15)) + 0.015 * grain;
+            color = color * (1 - 0.2 * shadow) * (1 - face) + pigment * face;
+            height = height * (1 - face) + lift * face;
+            roughness =
+              roughness * (1 - face) +
+              (p.roughness - 0.07 + 0.07 * grain + 0.04 * strata) * face;
+            occlusion =
+              occlusion * (1 - 0.3 * shadow) * (1 - face) + 0.98 * face;
+          }
+        };
+      }
       case 'shibori': {
         const p = proceduralMaterialPresets.shibori;
         const grainField = cachedNoise(96, 96, seed ^ 0x3b71);
@@ -11836,6 +11883,7 @@ export function createSurfaceSampler(
     kind === 'louveredmetal' ||
     kind === 'herringbonebrick' ||
     kind === 'shibori' ||
+    kind === 'scallopedslate' ||
     fabricated ||
     botanical ||
     packaging ||
