@@ -6077,6 +6077,24 @@ var proceduralMaterialPresets = Object.freeze({
 		stretcherColumns: 4,
 		grout: .025,
 		bevel: .045
+	}),
+	rebar: Object.freeze({
+		dark: [
+			22,
+			27,
+			30
+		],
+		light: [
+			160,
+			171,
+			176
+		],
+		roughness: .57,
+		relief: .025,
+		columns: 4,
+		ribs: 12,
+		radius: .36,
+		slant: .85
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6489,7 +6507,8 @@ var proceduralTileMeters = Object.freeze({
 	ikat: .16,
 	slottedwood: .8,
 	hollyleaf: .24,
-	englishbond: .8
+	englishbond: .8,
+	rebar: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

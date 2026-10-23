@@ -2727,6 +2727,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.025;
         bevel: 0.045;
     }>;
+    rebar: Readonly<{
+        dark: readonly [22, 27, 30];
+        light: readonly [160, 171, 176];
+        roughness: 0.57;
+        relief: 0.025;
+        columns: 4;
+        ribs: 12;
+        radius: 0.36;
+        slant: 0.85;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3140,4 +3150,5 @@ export declare const proceduralTileMeters: Readonly<{
     slottedwood: 0.8;
     hollyleaf: 0.24;
     englishbond: 0.8;
+    rebar: 0.12;
 }>;

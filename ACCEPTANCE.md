@@ -6043,3 +6043,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證四十八塊磚的凸面／低灰縫／AO、兩種磚寬的水平與垂直灰縫肩部一致、交替列接縫對位；另驗證 ownership 切換／倒角交點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5507 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：交替長短紅棕磚列、等寬灰縫、倒角 normal／灰縫 AO、四圖及 25 球可見，status 為 410 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 409 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：斜肋鋼筋（rebar）
+
+- 目錄 410→411 種。0.12 m tile、四支圓弧鋼筋與每支十二道隆起斜向軋肋，相鄰鋼筋肋紋方向相反；圓截面側邊在垂直切線前平滑接回暗色金屬底。四圖 opaque、metallic B 255／材質 factor 1、既有 ownership 不變；不是鋼筋 geometry 或結構模擬。
+- 定向 5 tests 通過：三 seeds 驗證圓冠高於肩部／暗底、四十八道軋肋高於肋間且較平滑、斜率方向與相鄰反向、金屬暗底／AO；另驗證輪廓／肋斜面／tile wrap C1 及 metallic factor／借用 ownership。build／typecheck／lint／format:check／全套 **178 files、5513 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：四條鋼色圓冠與暗隙、細斜肋 normal、金屬 MR、四圖及 25 球可見，status 為 411 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 410 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件（含 metallic factor 分類）同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

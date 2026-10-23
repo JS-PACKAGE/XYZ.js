@@ -416,7 +416,8 @@ export type ProceduralMaterialKind =
   | 'ikat'
   | 'slottedwood'
   | 'hollyleaf'
-  | 'englishbond';
+  | 'englishbond'
+  | 'rebar';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -859,6 +860,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'slottedwood',
   'hollyleaf',
   'englishbond',
+  'rebar',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -995,6 +997,7 @@ export class ProceduralMaterial {
         this.kind === 'pressedtin' ||
         this.kind === 'louveredmetal' ||
         this.kind === 'crowncaps' ||
+        this.kind === 'rebar' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

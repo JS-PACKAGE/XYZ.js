@@ -435,7 +435,91 @@ const kinds: ProceduralMaterialKind[] = [
   'slottedwood',
   'hollyleaf',
   'englishbond',
+  'rebar',
 ];
+
+describe('rolled steel rebar', () => {
+  const p = proceduralMaterialPresets.rebar;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('rebar', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves rounded steel shafts, raised diagonal ribs and recessed metal backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let col = 0; col < p.columns; col++) {
+        const hand = col % 2 ? -1 : 1;
+        const point = (x: number, phase: number) =>
+          at(
+            (col + 0.5 + x) / p.columns,
+            (phase - hand * p.slant * x) / p.ribs,
+          );
+        for (let rib = 0; rib < p.ribs; rib++) {
+          const center = point(0, rib),
+            shoulder = point(0.28, rib),
+            gap = point(0.42, rib);
+          expect(center.height - shoulder.height).toBeGreaterThan(0.002);
+          expect(center.height - gap.height).toBeGreaterThan(0.016);
+          expect(gap.occlusion).toBeLessThan(0.45);
+          expect(center.occlusion).toBeGreaterThan(0.9);
+          expect(center.metallic).toBe(1);
+          expect(gap.metallic).toBe(1);
+          for (const x of [-0.25, 0, 0.25]) {
+            const ridge = point(x, rib),
+              valley = point(x, rib + 0.5);
+            expect(ridge.height - valley.height).toBeGreaterThan(0.002);
+            expect(valley.roughness - ridge.roughness).toBeGreaterThan(0.02);
+          }
+          const wrongSlope = at(
+            (col + 0.75) / p.columns,
+            (rib + hand * p.slant * 0.25) / p.ribs,
+          );
+          expect(point(0.25, rib).height - wrongSlope.height).toBeGreaterThan(
+            0.002,
+          );
+        }
+      }
+    },
+  );
+  it('keeps shaft silhouettes, diagonal rib slopes and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('English-bond brick courses', () => {
   const p = proceduralMaterialPresets.englishbond;
@@ -9681,6 +9765,7 @@ describe('periodic procedural material fields', () => {
           kind === 'pressedtin' ||
           kind === 'louveredmetal' ||
           kind === 'crowncaps' ||
+          kind === 'rebar' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -18965,6 +19050,7 @@ describe('procedural preset acquisition and ownership', () => {
     'pressedtin',
     'louveredmetal',
     'crowncaps',
+    'rebar',
     'basketball',
     'tennisball',
     'golfball',
@@ -18985,7 +19071,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'castiron' ||
           kind === 'pressedtin' ||
           kind === 'louveredmetal' ||
-          kind === 'crowncaps'
+          kind === 'crowncaps' ||
+          kind === 'rebar'
           ? 1
           : 0,
       );

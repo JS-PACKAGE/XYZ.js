@@ -369,6 +369,8 @@
 
 `englishbond` 依列交替八個短端磚／四個雙寬長面磚，短端列偏移半格形成英式砌法；預先快取各磚 seeded 色差。水平與垂直接縫距離均換算為列間距單位，避免長面磚灰縫加倍，兩軸 smooth shoulder 相乘保留角落 C1。磚面細粒／骨料噪聲在灰縫歸零，跨列 ownership 切換不留下 seed 色差斷點。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 410 種。
 
+`rebar` 以圓截面平方根形成四支鋼筋冠部，在垂直切線前乘 compact smooth shoulder，讓鋼筋與軋肋在邊界平滑歸零。十二週期斜向 cosine power 形成軋肋，相鄰鋼筋交替斜向；seeded 細粒不改變冠部／肋頂／暗底層次。全表面含暗底都是金屬，B 通道 255、材質 factor 1。0.12 m tile、四圖 opaque、既有 ownership 不變，目錄增為 411 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

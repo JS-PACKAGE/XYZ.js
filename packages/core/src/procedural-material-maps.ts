@@ -1234,6 +1234,7 @@ export function createSurfaceSampler(
     kind === 'pressedtin' ||
     kind === 'louveredmetal' ||
     kind === 'crowncaps' ||
+    kind === 'rebar' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1254,6 +1255,30 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'rebar': {
+        const p = proceduralMaterialPresets.rebar;
+        const grainField = cachedNoise(96, 96, seed ^ 0x7c31);
+        return () => {
+          const col = Math.floor(u * p.columns);
+          const x = fract(u * p.columns) - 0.5;
+          const q = clamp(1 - (x / p.radius) ** 2);
+          // Taper the circular cross-section before its vertical tangent;
+          // both the shaft and its rolled ribs meet the backing smoothly.
+          const face = smooth(clamp(q / 0.18)),
+            crown = Math.sqrt(q);
+          const hand = col % 2 ? -1 : 1;
+          const rib =
+            (0.5 + 0.5 * Math.cos(TAU * (p.ribs * v + hand * p.slant * x))) **
+            12;
+          const grain = grainField(u, v);
+          color =
+            0.03 + face * (0.3 + 0.27 * crown + 0.14 * rib + 0.025 * grain);
+          height =
+            0.04 + face * (0.3 + 0.35 * crown + 0.1 * rib + 0.008 * grain);
+          roughness += 0.2 * (1 - face) + face * (0.03 * grain - 0.06 * rib);
+          occlusion = 0.4 + face * (0.57 - 0.02 * rib);
+        };
+      }
       case 'englishbond': {
         const p = proceduralMaterialPresets.englishbond;
         const grainField = cachedNoise(96, 96, seed ^ 0x5b17);
@@ -12484,6 +12509,7 @@ export function createSurfaceSampler(
     kind === 'slottedwood' ||
     kind === 'hollyleaf' ||
     kind === 'englishbond' ||
+    kind === 'rebar' ||
     fabricated ||
     botanical ||
     packaging ||
