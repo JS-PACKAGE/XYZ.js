@@ -285,6 +285,8 @@
 
 同輪追加 `windmillpavers`（風車拼鋪路磚），實際目錄 371→372 種：四片二比一長磚圍繞等高深色方磚，以平滑倒角與凹填縫構成風車排列。0.9 m tile 含四組風車、20 塊磚，四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `castiron`（粗鑄鐵），實際目錄 372→373 種：細顆粒鑄造肌理與少量 seeded 凹孔，凹孔較暗、粗糙且低於基面，區別於大面積重疊槌印。0.1 m tile、四圖 opaque、metallic map 與 factor 均為 1，代表未上漆未氧化的粗鑄金屬；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -5751,3 +5751,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現紅棕風車拼磚與深色方心，狀態列為 372 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.9 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5311 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：粗鑄鐵（castiron）
+
+- 新增細顆粒鑄造肌理與少量 seeded 凹孔，孔洞較暗、粗糙且低於基面，區別於重疊槌紋；目錄 372→373 種。0.1 m tile、四圖 opaque、metallic map 與預設 factor 均為 1，代表未上漆未氧化金屬；不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 5 項與 build 通過，涵蓋三 seed 的稀疏孔洞覆蓋、孔心與基面深度／粗糙度／色差、細粒基面起伏、metallic、孔格換主與 wrap 一階連續性，以及借用材質的獨立生命週期與外部貼圖 ownership。以上一功能 dist 為基準，size 64／seed 7 的既有 372 種四圖 SHA256 全相同，新增恰為 castiron。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現灰色粗鑄表面與少量凹孔，狀態列為 373 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 1、alphaMode OPAQUE、0.1 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 metallic factor 列表同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5317 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。

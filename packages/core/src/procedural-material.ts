@@ -378,7 +378,8 @@ export type ProceduralMaterialKind =
   | 'truchettiles'
   | 'standingseam'
   | 'damascus'
-  | 'windmillpavers';
+  | 'windmillpavers'
+  | 'castiron';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -783,6 +784,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'standingseam',
   'damascus',
   'windmillpavers',
+  'castiron',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -913,6 +915,7 @@ export class ProceduralMaterial {
         this.kind === 'corrugatedmetal' ||
         this.kind === 'standingseam' ||
         this.kind === 'damascus' ||
+        this.kind === 'castiron' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

@@ -397,7 +397,108 @@ const kinds: ProceduralMaterialKind[] = [
   'standingseam',
   'damascus',
   'windmillpavers',
+  'castiron',
 ];
+
+describe('rough cast iron', () => {
+  const p = proceduralMaterialPresets.castiron;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('castiron', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sparse dark pores below a rough granular metal surface for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let cavities = 0,
+        coreCount = 0,
+        surfaceCount = 0;
+      let coreHeight = 0,
+        surfaceHeight = 0,
+        coreRoughness = 0,
+        surfaceRoughness = 0;
+      let coreColor = 0,
+        surfaceColor = 0,
+        low = Infinity,
+        high = -Infinity;
+      let nonMetal = 0;
+      for (let y = 0; y < 256; y++) {
+        for (let x = 0; x < 256; x++) {
+          const s = at((x + 0.5) / 256, (y + 0.5) / 256);
+          if (s.metallic !== 1) nonMetal++;
+          if (s.occlusion < 0.9) cavities++;
+          if (s.occlusion < 0.685) {
+            coreCount++;
+            coreHeight += s.height;
+            coreRoughness += s.roughness;
+            coreColor += s.color;
+          } else if (s.occlusion === 1) {
+            surfaceCount++;
+            surfaceHeight += s.height;
+            surfaceRoughness += s.roughness;
+            surfaceColor += s.color;
+            low = Math.min(low, s.height);
+            high = Math.max(high, s.height);
+          }
+        }
+      }
+      expect(cavities / 65536).toBeGreaterThan(0.005);
+      expect(cavities / 65536).toBeLessThan(0.08);
+      expect(coreCount).toBeGreaterThan(30);
+      expect(
+        surfaceHeight / surfaceCount - coreHeight / coreCount,
+      ).toBeGreaterThan(0.0045);
+      expect(
+        coreRoughness / coreCount - surfaceRoughness / surfaceCount,
+      ).toBeGreaterThan(0.08);
+      expect(
+        surfaceColor / surfaceCount - coreColor / coreCount,
+      ).toBeGreaterThan(0.12);
+      expect(surfaceRoughness / surfaceCount).toBeGreaterThan(0.7);
+      expect(high - low).toBeGreaterThan(0.002);
+      expect(nonMetal).toBe(0);
+    },
+  );
+  it('keeps casting-cell ownership and wraps C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let edge = 0; edge <= p.cells; edge++) {
+        for (let i = 0; i <= 64; i++) {
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 64 : edge / p.cells,
+              y = axis ? edge / p.cells : i / 64;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+              b = at(x, y),
+              c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.005,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('windmill clay paving', () => {
   const p = proceduralMaterialPresets.windmillpavers;
@@ -6140,6 +6241,7 @@ describe('periodic procedural material fields', () => {
           kind === 'corrugatedmetal' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
+          kind === 'castiron' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -15411,6 +15513,7 @@ describe('procedural preset acquisition and ownership', () => {
     'copperpatina',
     'standingseam',
     'damascus',
+    'castiron',
     'basketball',
     'tennisball',
     'golfball',
@@ -15425,7 +15528,8 @@ describe('procedural preset acquisition and ownership', () => {
         kind === 'metal' ||
           kind === 'copperpatina' ||
           kind === 'standingseam' ||
-          kind === 'damascus'
+          kind === 'damascus' ||
+          kind === 'castiron'
           ? 1
           : 0,
       );

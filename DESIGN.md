@@ -293,6 +293,8 @@
 
 `windmillpavers` 每組以五個互不重疊矩形分割三乘三單元，四片長磚繞中央深色方磚。兩軸獨立 smooth 邊緣相乘，讓倒角角落與換主填縫均保持一階連續；預先儲存每磚 seeded 色差與細粒場，所有 owner 特徵在填縫內歸零。中央方磚與外圈等高，0.9 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 372 種。
 
+`castiron` 預先儲存 96×96／48×48 細粒場與稀疏孔洞的 seeded 中心、半徑倒數；compact 凹孔在換主前平滑歸零，不產生槌紋表面的大片重疊凹印。孔洞同步降低 height／color／AO 並提高 roughness，細粒基面仍保持粗糙。0.1 m tile、四圖 opaque、metallic B 與預設 factor 均為 1，未模擬塗層或氧化膜；既有 ownership 不變，目錄增為 373 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

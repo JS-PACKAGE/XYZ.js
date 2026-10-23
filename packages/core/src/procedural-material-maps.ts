@@ -1230,6 +1230,7 @@ export function createSurfaceSampler(
     kind === 'corrugatedmetal' ||
     kind === 'standingseam' ||
     kind === 'damascus' ||
+    kind === 'castiron' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1250,6 +1251,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'castiron': {
+        const p = proceduralMaterialPresets.castiron;
+        const fineField = cachedNoise(96, 96, seed ^ 0x3f21);
+        const coarseField = cachedNoise(48, 48, seed ^ 0x6d49);
+        const pores = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            pores[i] = 0.3 + 0.4 * hash(col, row, seed ^ 0x2c19);
+            pores[i + 1] = 0.3 + 0.4 * hash(col, row, seed ^ 0x5a73);
+            const radius =
+              p.poreRadiusMin +
+              p.poreRadiusRange * hash(col, row, seed ^ 0x7e35);
+            pores[i + 2] =
+              hash(col, row, seed ^ 0x1b47) < p.poreChance
+                ? 1 / (radius * radius)
+                : 0;
+          }
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const i = (row * p.cells + col) * 3;
+          const x = fract(u * p.cells) - pores[i]!,
+            y = fract(v * p.cells) - pores[i + 1]!;
+          const inverseRadiusSquared = pores[i + 2]!;
+          // Sparse casting pores end inside their cells, unlike broad overlapping hammer dents.
+          const pore =
+            inverseRadiusSquared === 0
+              ? 0
+              : smooth(clamp(1 - (x * x + y * y) * inverseRadiusSquared));
+          const grain = 0.7 * fineField(u, v) + 0.3 * coarseField(u, v);
+          color = 0.45 + 0.3 * grain - 0.2 * pore;
+          height = 0.4 + 0.14 * grain - 0.3 * pore;
+          roughness += 0.12 * grain + 0.12 * pore;
+          occlusion = 1 - 0.45 * pore;
+          return;
+        };
+      }
       case 'windmillpavers': {
         const p = proceduralMaterialPresets.windmillpavers;
         const grainField = cachedNoise(64, 64, seed ^ 0x3a57);
@@ -10775,6 +10814,7 @@ export function createSurfaceSampler(
     kind === 'standingseam' ||
     kind === 'damascus' ||
     kind === 'windmillpavers' ||
+    kind === 'castiron' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -2352,6 +2352,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.035;
         shoulder: 0.045;
     }>;
+    castiron: Readonly<{
+        dark: readonly [56, 59, 61];
+        light: readonly [145, 148, 150];
+        roughness: 0.68;
+        relief: 0.022;
+        cells: 10;
+        poreChance: 0.35;
+        poreRadiusMin: 0.1;
+        poreRadiusRange: 0.12;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2727,4 +2737,5 @@ export declare const proceduralTileMeters: Readonly<{
     standingseam: 2;
     damascus: 0.12;
     windmillpavers: 0.9;
+    castiron: 0.1;
 }>;
