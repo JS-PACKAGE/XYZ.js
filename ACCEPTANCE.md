@@ -6345,3 +6345,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 初版放大 swatch 呈現過圓的五瓣花形，依實際預覽改用平滑絕對值角向波收尖，追加葉尖／側翼落差斷言。三個 seed（0／1／`0xffffffff`）驗證全部九葉的五裂／葉尖／側翼／葉柄與五條放射葉脈高度、色差及 AO；另檢查極座標內部、葉脈接點、輪廓、葉柄與 tile wrap 的 C1。修正後新增四項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5729 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - 修正後 managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；球面可見秋橙色掌狀圖案，另以公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，確認收尖裂片、葉柄與放射葉脈 normal，未更動 gallery 原始碼。status 為 453 種，完成 smoke 的兩頁錯誤列表皆空。初版 WebGL2 與修正版首次 WebGPU screenshot 各遇工具 `Target closed`；皆另開 fresh tab 完成 screenshot／API smoke，修正版 WebGL2 直接成功。各 backend 最終實測 size 33／seed `0xffffffff`、roughness override 0.8、0.3 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 452 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：蜂巢抽褶布（smocking）
+
+- 目錄 453→454 種。0.12 m tile、藍紫色成對布褶在相鄰列交替收束；三十六道短橫針腳固定較低收束點，張開褶冠較高，細織紋與 seeded 纖維補足布面。四圖 opaque、metallic 0、既有 ownership 不變，不新增布料模擬、線材 geometry 或穿孔。
+- 三個 seed（0／1／`0xffffffff`）驗證全部 36 收束點的交替 pairing、張開褶冠／固定點／底布高度、針腳／周邊落差、色差及 roughness／AO；另檢查收束、褶線 support、針腳邊緣與 tile wrap 的 C1。新增四項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5734 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；球面可見藍紫色蜂巢褶紋，另以公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，確認交替成對收束與連續褶線 normal／AO，未更動 gallery 原始碼。status 為 454 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 API smoke 成功，但 screenshot 遇工具 `Target closed`；另開 fresh tab 完成 screenshot／API smoke。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 453 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

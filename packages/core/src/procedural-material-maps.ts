@@ -1261,6 +1261,43 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'smocking': {
+        const p = proceduralMaterialPresets.smocking;
+        const grainField = cachedNoise(48, 48, seed ^ 0x5e71);
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows;
+          const column = Math.floor(x);
+          const spread = 0.25 + p.spread * Math.cos(Math.PI * y);
+          let fold = 0;
+          for (let offset = -1; offset <= 1; offset++)
+            for (let side = -1; side <= 1; side += 2) {
+              const distance =
+                (x - column - offset - side * spread) / p.foldWidth;
+              const cover = smooth(clamp(1 - distance * distance));
+              fold += (1 - fold) * cover;
+            }
+          const row = Math.floor(y + 0.5);
+          const sx = fract(x + (row % 2 ? 0.5 : 0)) - 0.5;
+          const sy = y - row;
+          const stitch = smooth(
+            clamp(1 - (sx / p.stitchWidth) ** 2 - (sy / p.stitchHeight) ** 2),
+          );
+          const gather = (0.5 + 0.5 * Math.cos(TAU * y)) ** 4;
+          const weave =
+            0.5 +
+            0.25 *
+              (Math.cos(TAU * p.threads * u) + Math.cos(TAU * p.threads * v));
+          const grain = grainField(u, v);
+          // Alternating paired pleats pinch under the short horizontal stitches.
+          const lift = fold * (1 - 0.45 * gather);
+          color =
+            0.2 + 0.42 * lift + 0.18 * stitch + 0.04 * grain + 0.03 * weave;
+          height = 0.1 + 0.5 * lift + 0.09 * stitch + 0.006 * weave;
+          roughness += 0.07 * (1 - fold) - 0.06 * stitch + 0.02 * grain;
+          occlusion = 0.48 + 0.43 * fold - 0.1 * gather * fold + 0.1 * stitch;
+        };
+      }
       case 'mapleleaf': {
         const p = proceduralMaterialPresets.mapleleaf;
         const tipNorm =
@@ -14769,6 +14806,7 @@ export function createSurfaceSampler(
     kind === 'ravioli' ||
     kind === 'rollerchain' ||
     kind === 'mapleleaf' ||
+    kind === 'smocking' ||
     fabricated ||
     botanical ||
     packaging ||

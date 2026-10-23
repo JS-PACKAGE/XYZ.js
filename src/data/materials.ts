@@ -3334,6 +3334,19 @@ export const proceduralMaterialPresets = Object.freeze({
     stemLength: 0.18,
     stemWidth: 0.013,
   }),
+  smocking: Object.freeze({
+    dark: [35, 39, 65] as const,
+    light: [171, 181, 222] as const,
+    roughness: 0.86,
+    relief: 0.024,
+    columns: 6,
+    rows: 6,
+    spread: 0.23,
+    foldWidth: 0.1,
+    stitchWidth: 0.085,
+    stitchHeight: 0.023,
+    threads: 96,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3791,4 +3804,5 @@ export const proceduralTileMeters = Object.freeze({
   ravioli: 0.16,
   rollerchain: 0.24,
   mapleleaf: 0.3,
+  smocking: 0.12,
 });

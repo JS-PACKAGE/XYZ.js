@@ -447,6 +447,8 @@
 
 同輪追加 `mapleleaf`（秋色楓葉），實際目錄 452→453 種：九個 seeded 旋轉秋橙色葉片，五裂掌狀輪廓、微齒邊、五條放射葉脈與狹長葉柄；深葉裂露出暗底。0.3 m tile、四圖 opaque dielectric、metallic 0，不新增葉片 geometry／植物物種模擬，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `smocking`（蜂巢抽褶布），實際目錄 453→454 種：藍紫色成對布褶在相鄰列交替收束，三十六道短橫針腳壓住收束點，張開褶冠較高。0.12 m tile、四圖 opaque dielectric、metallic 0，不新增布料模擬／線材 geometry／穿孔，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

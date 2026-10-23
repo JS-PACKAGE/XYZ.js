@@ -478,7 +478,76 @@ const kinds: ProceduralMaterialKind[] = [
   'ravioli',
   'rollerchain',
   'mapleleaf',
+  'smocking',
 ];
+
+describe('Honeycomb smocked fabric', () => {
+  const p = proceduralMaterialPresets.smocking;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('smocking', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates gathered pairs and short stitches below open honeycomb folds for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const pinchX = col + (row % 2 ? 0 : 0.5);
+          const pinch = at(pinchX, row),
+            open = at(col + 0.25, row + 0.5);
+          const wrongPair = at(pinchX + 0.5, row),
+            hollow = at(col + 0.5, row + 0.5);
+          const belowStitch = at(pinchX, row + 0.03),
+            besideStitch = at(pinchX + 0.08, row);
+          expect(open.height - pinch.height).toBeGreaterThan(0.003);
+          expect(pinch.height - wrongPair.height).toBeGreaterThan(0.008);
+          expect(open.height - hollow.height).toBeGreaterThan(0.0119);
+          expect(pinch.height - belowStitch.height).toBeGreaterThan(0.002);
+          expect(pinch.height - besideStitch.height).toBeGreaterThan(0.002);
+          expect(pinch.occlusion - belowStitch.occlusion).toBeGreaterThan(0.09);
+          expect(belowStitch.roughness - pinch.roughness).toBeGreaterThan(0.05);
+          expect(open.color - hollow.color).toBeGreaterThan(0.35);
+          expect(pinch.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps pinches, fold supports, stitch edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 192,
+              v = (y * p.rows) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Autumn maple leaves', () => {
   const p = proceduralMaterialPresets.mapleleaf;
