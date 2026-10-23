@@ -448,7 +448,105 @@ const kinds: ProceduralMaterialKind[] = [
   'seaurchintest',
   'crystallineglaze',
   'shirring',
+  'sunburstveneer',
 ];
+
+describe('Sunburst veneer marquetry', () => {
+  const p = proceduralMaterialPresets.sunburstveneer;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('sunburstveneer', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'inlays twelve radial-grained wedges around a flush centre plug for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      let alongVariation = 0,
+        acrossVariation = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4153);
+          const at = (a: number, b: number, angle: number) =>
+            sample(
+              (col + 0.5 + a * Math.cos(angle) - b * Math.sin(angle)) / p.cells,
+              (row + 0.5 + a * Math.sin(angle) + b * Math.cos(angle)) / p.cells,
+            );
+          const plug = at(0, 0, 0),
+            board = at(0.48, 0, 0);
+          for (let wedge = 0; wedge < p.wedges; wedge++) {
+            const angle = phase + (2 * Math.PI * (wedge + 0.5)) / p.wedges;
+            const face = at(0.3, 0, angle),
+              joint = at(0.3, 0, angle - Math.PI / p.wedges),
+              outer = at(p.radius, 0, angle),
+              inner = at((p.plugRadius + p.innerRadius) / 2, 0, angle);
+            for (const recess of [joint, outer, inner]) {
+              expect(face.height - recess.height).toBeGreaterThan(0.0033);
+              expect(face.color - recess.color).toBeGreaterThan(0.3);
+              expect(recess.roughness - face.roughness).toBeGreaterThan(0.16);
+              expect(face.occlusion - recess.occlusion).toBeGreaterThan(0.34);
+            }
+            expect(Math.abs(face.height - plug.height)).toBeLessThan(0.0003);
+            expect(Math.abs(face.height - board.height)).toBeLessThan(0.0003);
+            expect(face.metallic).toBe(0);
+            for (let n = 0; n < 9; n++) {
+              const r = 0.17 + 0.02 * n,
+                base = at(r, 0, angle);
+              alongVariation += Math.abs(
+                at(r + 0.003, 0, angle).color - base.color,
+              );
+              acrossVariation += Math.abs(
+                at(r, 0.003, angle).color - base.color,
+              );
+            }
+          }
+        }
+      expect(acrossVariation).toBeGreaterThan(alongVariation * 3);
+    },
+  );
+  it('keeps wedge ownership, plug rings, outer inlays and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Shirred gathered fabric', () => {
   const p = proceduralMaterialPresets.shirring;

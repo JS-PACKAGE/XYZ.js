@@ -1256,6 +1256,69 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'sunburstveneer': {
+        const p = proceduralMaterialPresets.sunburstveneer;
+        const phases = new Float64Array(p.cells * p.cells);
+        const wedges = new Float64Array(p.cells * p.cells * p.wedges * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col;
+            phases[cell] = TAU * hash(col, row, seed ^ 0x4153);
+            for (let wedge = 0; wedge < p.wedges; wedge++) {
+              const index = (cell * p.wedges + wedge) * 3;
+              const angle = phases[cell] + (TAU * (wedge + 0.5)) / p.wedges;
+              wedges[index] = Math.cos(angle);
+              wedges[index + 1] = Math.sin(angle);
+              wedges[index + 2] = hash(
+                col * p.wedges + wedge,
+                row,
+                seed ^ 0x5265,
+              );
+            }
+          }
+        const sinHalf = Math.sin(Math.PI / p.wedges),
+          cosHalf = Math.cos(Math.PI / p.wedges);
+        const grainField = cachedNoise(8, 96, seed ^ 0x6377);
+        const fineField = cachedNoise(96, 96, seed ^ 0x7489);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const cell = Math.floor(vCell) * p.cells + Math.floor(uCell);
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const r = Math.hypot(x, y);
+          // A tiny negative turn can round its fractional part to exactly 1.
+          // Wrap the integer owner too, so the closing seam stays in this cell.
+          const wedge =
+            Math.floor(
+              fract((Math.atan2(y, x) - phases[cell]) / TAU) * p.wedges,
+            ) % p.wedges;
+          const index = (cell * p.wedges + wedge) * 3;
+          const along = x * wedges[index] + y * wedges[index + 1],
+            across = y * wedges[index] - x * wedges[index + 1];
+          const side = sinHalf * along - cosHalf * Math.abs(across);
+          const face =
+            smooth(clamp((side - p.gap) / p.bevel)) *
+            smooth(clamp((r - p.innerRadius) / p.edge)) *
+            smooth(clamp((p.radius - r) / p.edge));
+          const plug = smooth(clamp((p.plugRadius - r) / p.edge));
+          const outer = 1 - smooth(clamp((r - p.radius) / p.edge));
+          const joint = outer - face - plug;
+          const tone = wedges[index + 2];
+          const grain = grainField(along + 0.3 * tone, across + 0.7 * tone);
+          const fine = fineField(u, v);
+          color =
+            (1 - outer) * (0.18 + 0.1 * grainField(u, v)) +
+            joint * 0.08 +
+            face * (0.4 + 0.25 * tone + 0.2 * grain) +
+            plug * (0.55 + 0.15 * grainField(x + 0.5, y + 0.5));
+          // The wedges, centre plug and surrounding board are flush veneer.
+          // Only the narrow inlay joints recess; grain follows each wedge.
+          height = 0.65 + 0.01 * fine - 0.18 * joint + 0.004 * face * grain;
+          roughness += 0.2 * joint + 0.03 * face * grain;
+          occlusion = 0.99 - 0.35 * joint;
+        };
+      }
       case 'shirring': {
         const p = proceduralMaterialPresets.shirring;
         const offset = hash(0, 0, seed ^ 0x2941);
@@ -13054,6 +13117,7 @@ export function createSurfaceSampler(
     kind === 'seaurchintest' ||
     kind === 'crystallineglaze' ||
     kind === 'shirring' ||
+    kind === 'sunburstveneer' ||
     fabricated ||
     botanical ||
     packaging ||
