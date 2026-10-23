@@ -6127,3 +6127,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證十六組晶花的全部針晶／針間對比、生長色帶、核心／留釉區，並確認晶花不產生宏觀高度或 AO 浮雕；另驗證晶核／不規則邊緣／針晶／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5569 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：藍綠底色、放射晶花與未浮雕的 normal／AO、四圖可見，status 為 422 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視晶花，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.16 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 421 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：抽褶布料（shirring）
+
+- 目錄 422→423 種。0.12 m tile、粉紫色布面有二十四道細褶，由四排橫向彈性縫線收束，每排四十八段短針腳。行間褶冠隆起並稍微彎移，縫線底部壓低而針腳微凸；seeded 相位／微粒及細織紋保留布面變化。四圖 opaque、metallic 0、既有 ownership 不變；不是直褶、泡泡紗色條或菱格絎縫，不新增布料 geometry／彈性模擬。
+- 定向 4 tests 通過：三 seeds 驗證各行全部褶冠／褶谷、縫線收束、行間四分之一／四分之三位置的彎移，以及全部短針腳的高度／色彩／粗糙度／AO；另驗證褶冠／壓低縫線／針端／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5574 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：粉紫色布面、細褶 normal、橫向收束行／AO 及四圖可見，status 為 423 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視抽褶，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 422 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

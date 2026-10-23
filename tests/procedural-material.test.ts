@@ -447,7 +447,97 @@ const kinds: ProceduralMaterialKind[] = [
   'guilloche',
   'seaurchintest',
   'crystallineglaze',
+  'shirring',
 ];
+
+describe('Shirred gathered fabric', () => {
+  const p = proceduralMaterialPresets.shirring;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('shirring', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'compresses tall gathers into four stitched elastic rows for seed %s',
+    (seed) => {
+      const sample = field(seed),
+        phase = hash(0, 0, seed ^ 0x2941);
+      for (let row = 0; row < p.rows; row++) {
+        for (let n = 0; n < p.folds; n++) {
+          const u = (n - phase) / p.folds;
+          const crown = sample(u, (row + 0.5) / p.rows),
+            valley = sample(u + 0.5 / p.folds, (row + 0.5) / p.rows),
+            compressed = sample(u, row / p.rows);
+          expect(crown.height - valley.height).toBeGreaterThan(0.015);
+          expect(crown.occlusion - valley.occlusion).toBeGreaterThan(0.29);
+          expect(crown.height - compressed.height).toBeGreaterThan(0.012);
+          for (const fraction of [0.25, 0.75]) {
+            const crestU =
+              (n - phase - p.wander * Math.sin(2 * Math.PI * fraction)) /
+              p.folds;
+            const crest = sample(crestU, (row + fraction) / p.rows),
+              groove = sample(
+                crestU + 0.5 / p.folds,
+                (row + fraction) / p.rows,
+              );
+            expect(crest.height - groove.height).toBeGreaterThan(0.008);
+          }
+        }
+        for (let n = 0; n < p.stitches; n++) {
+          const thread = sample((n + 0.5) / p.stitches, row / p.rows),
+            gap = sample(n / p.stitches, row / p.rows);
+          expect(thread.height - gap.height).toBeGreaterThan(0.0005);
+          expect(thread.color - gap.color).toBeGreaterThan(0.04);
+          expect(gap.roughness - thread.roughness).toBeGreaterThan(0.02);
+          expect(thread.occlusion - gap.occlusion).toBeGreaterThan(0.09);
+          expect(thread.metallic).toBe(0);
+        }
+      }
+    },
+  );
+  it('keeps gathered crests, compressed rows, stitch ends and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Crystalline ceramic glaze', () => {
   const p = proceduralMaterialPresets.crystallineglaze;

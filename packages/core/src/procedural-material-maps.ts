@@ -1256,6 +1256,49 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'shirring': {
+        const p = proceduralMaterialPresets.shirring;
+        const offset = hash(0, 0, seed ^ 0x2941);
+        const grainField = cachedNoise(96, 96, seed ^ 0x3a53);
+        return () => {
+          const y = v * p.rows,
+            nearRow = fract(y + 0.5) - 0.5;
+          const swell = 0.5 - 0.5 * Math.cos(TAU * y);
+          const wave =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU * (u * p.folds + p.wander * Math.sin(TAU * y) + offset),
+              );
+          const fold = wave * wave;
+          const seam = 1 - smooth(clamp(Math.abs(nearRow) / p.seamWidth));
+          const across = nearRow / p.threadWidth;
+          const stitch =
+            smooth(clamp(1 - across * across)) *
+            smooth(clamp((0.4 - Math.abs(fract(u * p.stitches) - 0.5)) / 0.1));
+          const weave =
+            0.5 + 0.25 * Math.cos(TAU * 96 * u) + 0.25 * Math.cos(TAU * 96 * v);
+          const grain = grainField(u, v);
+          // Elastic stitch rows compress the gathers; between rows the same
+          // folds open into taller, slightly wandering cloth ridges.
+          color =
+            0.4 +
+            0.13 * fold +
+            0.08 * weave +
+            0.02 * grain -
+            0.12 * seam +
+            0.2 * stitch;
+          height =
+            0.15 -
+            0.04 * seam +
+            (0.03 + 0.52 * swell) * fold +
+            0.025 * weave +
+            0.01 * grain +
+            0.06 * stitch;
+          roughness += 0.05 * (1 - fold) - 0.08 * stitch;
+          occlusion = 0.65 + 0.3 * fold * swell - 0.12 * seam + 0.1 * stitch;
+        };
+      }
       case 'crystallineglaze': {
         const p = proceduralMaterialPresets.crystallineglaze;
         const crystals = new Float64Array(p.cells * p.cells * 5);
@@ -13010,6 +13053,7 @@ export function createSurfaceSampler(
     kind === 'guilloche' ||
     kind === 'seaurchintest' ||
     kind === 'crystallineglaze' ||
+    kind === 'shirring' ||
     fabricated ||
     botanical ||
     packaging ||

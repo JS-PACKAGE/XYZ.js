@@ -2853,6 +2853,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         armsMin: 18;
         armsRange: 12;
     }>;
+    shirring: Readonly<{
+        dark: readonly [89, 48, 65];
+        light: readonly [227, 177, 191];
+        roughness: 0.82;
+        relief: 0.03;
+        rows: 4;
+        folds: 24;
+        stitches: 48;
+        seamWidth: 0.07;
+        threadWidth: 0.025;
+        wander: 0.15;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3278,4 +3290,5 @@ export declare const proceduralTileMeters: Readonly<{
     guilloche: 0.1;
     seaurchintest: 0.24;
     crystallineglaze: 0.16;
+    shirring: 0.12;
 }>;

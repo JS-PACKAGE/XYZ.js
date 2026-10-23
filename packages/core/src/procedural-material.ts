@@ -428,7 +428,8 @@ export type ProceduralMaterialKind =
   | 'cairotiles'
   | 'guilloche'
   | 'seaurchintest'
-  | 'crystallineglaze';
+  | 'crystallineglaze'
+  | 'shirring';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -883,6 +884,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'guilloche',
   'seaurchintest',
   'crystallineglaze',
+  'shirring',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
