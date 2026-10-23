@@ -5987,3 +5987,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證高蓬面、低背景、七室中蓮子高於室底但低於蓬面、孔緣高於蓬面、室內 AO 降低及蓮子較光滑；另驗證種子冠、孔唇、蓬邊界與 tile wrap C1 連續。build／typecheck／lint／format:check／全套 **178 files、5466 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：九個棕色蓮蓬、凹室及孔緣 normal／AO、四圖與 25 球可見，status 為 402 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.3 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 401 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：金屬皇冠瓶蓋（crowncaps）
+
+- 目錄 402→403 種。0.112 m tile、十六個平頂瓶蓋、隆起捲邊及下降的二十一道壓褶裙邊；seeded 相位改變壓褶方向，角向調變不進入平頂中心，細粒使用 cached noise。四圖 opaque、metallic B 255、factory factor 1，暗部保留金屬底；僅 normal mapping、不新增 geometry。
+- 定向 5 tests 通過：三 seeds 驗證平頂、捲邊高於頂部、裙邊低於頂部、二十一組褶峰／谷高度差與波狀邊緣、凹槽 AO；另驗證極點／捲邊／壓褶／tile wrap C1 及金屬 ownership／override 契約。build／typecheck／lint／format:check／全套 **178 files、5472 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：銀灰瓶蓋、環狀邊緣與裙邊 normal、四圖及 25 球可見，status 為 403 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.112 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 402 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，金屬 factor 清單加入新種類，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

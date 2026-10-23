@@ -1233,6 +1233,7 @@ export function createSurfaceSampler(
     kind === 'castiron' ||
     kind === 'pressedtin' ||
     kind === 'louveredmetal' ||
+    kind === 'crowncaps' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1253,6 +1254,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'crowncaps': {
+        const p = proceduralMaterialPresets.crowncaps;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5c27);
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x7a13);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const r = Math.hypot(dx, dy);
+          const phase = phases[Math.floor(y) * p.cells + Math.floor(x)];
+          const wave =
+            0.5 + 0.5 * Math.cos(p.teeth * Math.atan2(dy, dx) + phase);
+          const face = smooth(clamp((0.42 + 0.04 * wave - r) / 0.025));
+          const top = 1 - smooth(clamp((r - 0.32) / 0.09));
+          const rim =
+            smooth(clamp((r - 0.29) / 0.025)) *
+            (1 - smooth(clamp((r - 0.34) / 0.025)));
+          const flank = smooth(clamp((r - 0.3) / 0.06)),
+            grain = grainField(u, v);
+          // Angular crimping is confined to the skirt: the crown stays flat
+          // and its pole has no angular height or color singularity.
+          color =
+            0.12 +
+            face * (0.45 + 0.12 * rim + 0.04 * grain + 0.07 * wave * flank);
+          height =
+            0.02 +
+            face *
+              (0.28 +
+                0.45 * top +
+                0.12 * rim +
+                0.07 * wave * flank +
+                0.003 * grain);
+          roughness +=
+            0.15 * (1 - face) +
+            face * (0.03 * grain + 0.08 * flank * (1 - wave));
+          occlusion = 0.35 + face * (0.63 - 0.15 * flank * (1 - wave));
+        };
+      }
       case 'lotusseedpod': {
         const p = proceduralMaterialPresets.lotusseedpod;
         const grainField = cachedNoise(96, 96, seed ^ 0x6d27);
@@ -12168,6 +12211,7 @@ export function createSurfaceSampler(
     kind === 'palmendgrain' ||
     kind === 'asanoha' ||
     kind === 'lotusseedpod' ||
+    kind === 'crowncaps' ||
     fabricated ||
     botanical ||
     packaging ||

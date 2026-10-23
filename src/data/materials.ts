@@ -2667,6 +2667,14 @@ export const proceduralMaterialPresets = Object.freeze({
     relief: 0.035,
     cells: 3,
   }),
+  crowncaps: Object.freeze({
+    dark: [70, 77, 82] as const,
+    light: [196, 205, 211] as const,
+    roughness: 0.3,
+    relief: 0.018,
+    cells: 4,
+    teeth: 21,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3073,4 +3081,5 @@ export const proceduralTileMeters = Object.freeze({
   palmendgrain: 0.024,
   asanoha: 0.12,
   lotusseedpod: 0.3,
+  crowncaps: 0.112,
 });

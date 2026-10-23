@@ -427,7 +427,94 @@ const kinds: ProceduralMaterialKind[] = [
   'palmendgrain',
   'asanoha',
   'lotusseedpod',
+  'crowncaps',
 ];
+
+describe('crimped metal crown caps', () => {
+  const p = proceduralMaterialPresets.crowncaps;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('crowncaps', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps flat crowns above twenty-one crimped skirt folds and below rolled rims for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const polar = (r: number, angle: number) =>
+            at(
+              (col + 0.5 + r * Math.cos(angle)) / p.cells,
+              (row + 0.5 + r * Math.sin(angle)) / p.cells,
+            );
+          const center = polar(0, 0),
+            phase = 2 * Math.PI * hash(col, row, seed ^ 0x7a13);
+          expect(center.height).toBeGreaterThan(0.013);
+          expect(center.metallic).toBe(1);
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const peak = (tooth * 2 * Math.PI - phase) / p.teeth,
+              valley = peak + Math.PI / p.teeth;
+            const inner = polar(0.2, peak),
+              rim = polar(0.325, peak),
+              fold = polar(0.39, peak),
+              groove = polar(0.39, valley);
+            expect(Math.abs(inner.height - center.height)).toBeLessThan(0.0001);
+            expect(rim.height - center.height).toBeGreaterThan(0.0015);
+            expect(center.height - fold.height).toBeGreaterThan(0.005);
+            expect(fold.height - groove.height).toBeGreaterThan(0.001);
+            expect(
+              polar(0.435, peak).height - polar(0.435, valley).height,
+            ).toBeGreaterThan(0.004);
+            expect(polar(0.48, peak).height).toBeLessThan(0.001);
+            expect(groove.occlusion).toBeLessThan(fold.occlusion);
+          }
+        }
+    },
+  );
+  it('keeps crown poles, rolled lips, crimp edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('dried lotus seedpod chambers', () => {
   const p = proceduralMaterialPresets.lotusseedpod;
@@ -8960,6 +9047,7 @@ describe('periodic procedural material fields', () => {
           kind === 'castiron' ||
           kind === 'pressedtin' ||
           kind === 'louveredmetal' ||
+          kind === 'crowncaps' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -18243,6 +18331,7 @@ describe('procedural preset acquisition and ownership', () => {
     'castiron',
     'pressedtin',
     'louveredmetal',
+    'crowncaps',
     'basketball',
     'tennisball',
     'golfball',
@@ -18262,7 +18351,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'damascus' ||
           kind === 'castiron' ||
           kind === 'pressedtin' ||
-          kind === 'louveredmetal'
+          kind === 'louveredmetal' ||
+          kind === 'crowncaps'
           ? 1
           : 0,
       );

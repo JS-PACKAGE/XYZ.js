@@ -408,7 +408,8 @@ export type ProceduralMaterialKind =
   | 'dogbonepavers'
   | 'palmendgrain'
   | 'asanoha'
-  | 'lotusseedpod';
+  | 'lotusseedpod'
+  | 'crowncaps';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -843,6 +844,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'palmendgrain',
   'asanoha',
   'lotusseedpod',
+  'crowncaps',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -978,6 +980,7 @@ export class ProceduralMaterial {
         this.kind === 'castiron' ||
         this.kind === 'pressedtin' ||
         this.kind === 'louveredmetal' ||
+        this.kind === 'crowncaps' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

@@ -2654,6 +2654,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         relief: 0.035;
         cells: 3;
     }>;
+    crowncaps: Readonly<{
+        dark: readonly [70, 77, 82];
+        light: readonly [196, 205, 211];
+        roughness: 0.3;
+        relief: 0.018;
+        cells: 4;
+        teeth: 21;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3059,4 +3067,5 @@ export declare const proceduralTileMeters: Readonly<{
     palmendgrain: 0.024;
     asanoha: 0.12;
     lotusseedpod: 0.3;
+    crowncaps: 0.112;
 }>;
