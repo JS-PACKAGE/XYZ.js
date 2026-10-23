@@ -6296,3 +6296,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）驗證 36 板完整面、四邊凹縫／半倒角、內部跨格無假縫、全部單位格覆蓋及橫紋變化大於順紋三倍；另檢查 ownership、平接端頭、倒角 shoulder 與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5692 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面拼木及四圖的螺旋長木條、轉向木紋、接縫 normal／AO 與 roughness 可見，status 為 446 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.2 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 445 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：沉頭孔金屬板（countersunkmetal）
+
+- 目錄 446→447 種。0.3 m tile、六乘六深圓孔，具有陡峭內壁、較寬錐形沉孔與平坦板面；錐面中段維持直線斜率，兩端平滑接合。四圖 opaque、整張 metallic B／材質 factor 皆為 1，孔內保留低金屬底面；既有 ownership 不變，不新增透明孔洞或切削 geometry。
+- 三個 seed（0／1／`0xffffffff`）逐孔沿 16 個方向驗證深孔底、內壁、錐面等距升幅與直線斜率、外板平坦度、色差、roughness／AO／metallic；另檢查內壁、錐面肩部與 tile wrap 的 C1。初次 seed 1 的細拉絲高度使錐面二階差超過門檻，將高度振幅減半後保留原測試門檻。四項形態／連續性與新增 ownership 案例共五項 targeted tests 通過；build、typecheck、lint、format:check、完整 178 檔 5698 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面金屬孔陣列及四圖的暗孔、錐面 normal、全金屬 MR 與孔緣 AO 可見，status 為 447 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.3 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 446 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件及 metallic factor 清單同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

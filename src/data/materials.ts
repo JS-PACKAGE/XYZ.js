@@ -3221,6 +3221,17 @@ export const proceduralMaterialPresets = Object.freeze({
       [0, 0, 6, 1],
     ] as const),
   }),
+  countersunkmetal: Object.freeze({
+    dark: [31, 38, 45] as const,
+    light: [213, 222, 231] as const,
+    roughness: 0.28,
+    relief: 0.02,
+    cells: 6,
+    boreRadius: 0.11,
+    boreShoulder: 0.025,
+    coneRadius: 0.3,
+    coneShoulder: 0.12,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3671,4 +3682,5 @@ export const proceduralTileMeters = Object.freeze({
   crossstitch: 0.08,
   staranise: 0.12,
   logcabinparquet: 1.2,
+  countersunkmetal: 0.3,
 });

@@ -3187,6 +3187,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         bevel: 0.035;
         boards: readonly [readonly [2, 2, 2, 2], readonly [4, 2, 1, 2], readonly [2, 4, 3, 1], readonly [1, 2, 1, 3], readonly [1, 1, 4, 1], readonly [5, 1, 1, 4], readonly [1, 5, 5, 1], readonly [0, 1, 1, 5], readonly [0, 0, 6, 1]];
     }>;
+    countersunkmetal: Readonly<{
+        dark: readonly [31, 38, 45];
+        light: readonly [213, 222, 231];
+        roughness: 0.28;
+        relief: 0.02;
+        cells: 6;
+        boreRadius: 0.11;
+        boreShoulder: 0.025;
+        coneRadius: 0.3;
+        coneShoulder: 0.12;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3636,4 +3647,5 @@ export declare const proceduralTileMeters: Readonly<{
     crossstitch: 0.08;
     staranise: 0.12;
     logcabinparquet: 1.2;
+    countersunkmetal: 0.3;
 }>;

@@ -471,7 +471,113 @@ const kinds: ProceduralMaterialKind[] = [
   'crossstitch',
   'staranise',
   'logcabinparquet',
+  'countersunkmetal',
 ];
+
+describe('Countersunk metal plate', () => {
+  const p = proceduralMaterialPresets.countersunkmetal;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('countersunkmetal', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps thirty-six deep bores, straight conical seats and flat surrounding metal for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let ray = 0; ray < 16; ray++) {
+            const angle = (ray * Math.PI) / 8;
+            const at = (r: number) =>
+              sample(
+                (col + 0.5 + r * Math.cos(angle)) / p.cells,
+                (row + 0.5 + r * Math.sin(angle)) / p.cells,
+              );
+            const floor = at(0),
+              inside = at(0.09),
+              wall = at(0.1225);
+            const a = at(0.17),
+              b = at(0.21),
+              c = at(0.25);
+            const plate = at(0.32),
+              outside = at(0.4);
+            expect(inside.height).toBe(floor.height);
+            expect(floor.occlusion).toBeCloseTo(0.3, 12);
+            expect(wall.height - floor.height).toBeGreaterThan(0.0027);
+            expect(a.height - wall.height).toBeGreaterThan(0.004);
+            expect(b.height - a.height).toBeGreaterThan(0.0024);
+            expect(c.height - b.height).toBeGreaterThan(0.0024);
+            expect(Math.abs(c.height - 2 * b.height + a.height)).toBeLessThan(
+              0.00008,
+            );
+            expect(plate.height - c.height).toBeGreaterThan(0.0024);
+            expect(Math.abs(plate.height - outside.height)).toBeLessThan(
+              0.00006,
+            );
+            expect(plate.color - floor.color).toBeGreaterThan(0.65);
+            expect(floor.roughness - plate.roughness).toBeGreaterThan(0.23);
+            expect(plate.occlusion).toBeCloseTo(0.99, 12);
+            for (const point of [floor, wall, a, b, c, plate])
+              expect(point.metallic).toBe(1);
+          }
+    },
+  );
+  it('keeps bore rims, conical slope shoulders and plate tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 96; x++) points.push([x / 96, y / 96]);
+      const start = p.boreRadius + p.boreShoulder;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const r of [
+            0,
+            p.boreRadius,
+            start,
+            start + p.coneShoulder * (p.coneRadius - start),
+            p.coneRadius - p.coneShoulder * (p.coneRadius - start),
+            p.coneRadius,
+          ])
+            for (let ray = 0; ray < 16; ray++) {
+              const angle = (ray * Math.PI) / 8;
+              points.push([
+                (col + 0.5 + r * Math.cos(angle)) / p.cells,
+                (row + 0.5 + r * Math.sin(angle)) / p.cells,
+              ]);
+            }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Log cabin spiral parquet', () => {
   const p = proceduralMaterialPresets.logcabinparquet;
@@ -13437,6 +13543,7 @@ describe('periodic procedural material fields', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'sawblades' ||
+          kind === 'countersunkmetal' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -22726,6 +22833,7 @@ describe('procedural preset acquisition and ownership', () => {
     'splitlockwashers',
     'hexnuts',
     'sawblades',
+    'countersunkmetal',
     'basketball',
     'tennisball',
     'golfball',
@@ -22751,7 +22859,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
-          kind === 'sawblades'
+          kind === 'sawblades' ||
+          kind === 'countersunkmetal'
           ? 1
           : 0,
       );

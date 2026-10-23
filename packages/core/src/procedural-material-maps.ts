@@ -1239,6 +1239,7 @@ export function createSurfaceSampler(
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
     kind === 'sawblades' ||
+    kind === 'countersunkmetal' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1259,6 +1260,33 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'countersunkmetal': {
+        const p = proceduralMaterialPresets.countersunkmetal;
+        const grainField = cachedNoise(8, 128, seed ^ 0x4e61);
+        const coneStart = p.boreRadius + p.boreShoulder;
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const radius = Math.hypot(x, y);
+          const wall = smooth(clamp((radius - p.boreRadius) / p.boreShoulder));
+          const t = clamp((radius - coneStart) / (p.coneRadius - coneStart));
+          const e = p.coneShoulder;
+          // Preserve a straight conical slope, with C1 shoulders at both ends.
+          const cone =
+            (t < e
+              ? (t * t) / (2 * e)
+              : t > 1 - e
+                ? 1 - e - ((1 - t) * (1 - t)) / (2 * e)
+                : t - e / 2) /
+            (1 - e);
+          const grain = grainField(u, v);
+          color = 0.08 + 0.35 * wall + 0.32 * cone + 0.04 * grain * wall;
+          height = 0.05 + 0.28 * wall + 0.45 * cone + 0.0015 * grain * wall;
+          roughness +=
+            0.25 * (1 - wall) + 0.06 * (1 - cone) * wall + 0.015 * grain * wall;
+          occlusion = 0.3 + 0.35 * wall + 0.34 * cone;
+        };
+      }
       case 'logcabinparquet': {
         const p = proceduralMaterialPresets.logcabinparquet;
         const owners = new Uint8Array(p.units * p.units);
@@ -14275,6 +14303,7 @@ export function createSurfaceSampler(
     kind === 'crossstitch' ||
     kind === 'staranise' ||
     kind === 'logcabinparquet' ||
+    kind === 'countersunkmetal' ||
     fabricated ||
     botanical ||
     packaging ||
