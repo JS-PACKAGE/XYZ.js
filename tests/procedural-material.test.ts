@@ -463,7 +463,122 @@ const kinds: ProceduralMaterialKind[] = [
   'acornbarnacles',
   'circularpavers',
   'snowflaketiles',
+  'sawblades',
 ];
+
+describe('Circular saw blades', () => {
+  const p = proceduralMaterialPresets.sawblades;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('sawblades', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twenty-four asymmetric teeth and a round arbor hole around each flat blade for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x6a43);
+          const at = (radius: number, turn: number) => {
+            const angle = phase + (turn * 2 * Math.PI) / p.teeth;
+            return sample(
+              (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+            );
+          };
+          const hole = at(0, 0),
+            outside = at(0.48, 0);
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const tip = at(0.425, tooth + 0.8),
+              gullet = at(0.4, tooth),
+              longFlank = at(0.4, tooth + 0.65),
+              shortFlank = at(0.4, tooth + 0.95),
+              inner = at(0.2, tooth),
+              middle = at(0.3, tooth);
+            for (const low of [hole, outside, gullet, shortFlank]) {
+              expect(tip.height - low.height).toBeGreaterThan(0.0044);
+              expect(tip.color - low.color).toBeGreaterThan(0.5);
+              expect(tip.occlusion - low.occlusion).toBeGreaterThan(0.5);
+              expect(low.roughness - tip.roughness).toBeGreaterThan(0.15);
+              expect(low.metallic).toBe(1);
+            }
+            for (const flat of [inner, middle, longFlank]) {
+              expect(Math.abs(flat.height - tip.height)).toBeLessThan(0.00007);
+              expect(flat.occlusion).toBe(tip.occlusion);
+              expect(flat.metallic).toBe(1);
+            }
+            const boreHalf = at(p.boreRadius + p.boreBevel / 2, tooth);
+            expect(boreHalf.height).toBeGreaterThan(hole.height + 0.002);
+            expect(boreHalf.height).toBeLessThan(inner.height - 0.002);
+          }
+        }
+    },
+  );
+  it('keeps tooth roots, tips, silhouette bevels, arbor edges and tile wrap C1 continuous', () => {
+    const h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x6a43);
+          for (let tooth = 0; tooth < p.teeth; tooth++)
+            for (const t of [0, 0.4, 0.8, 0.9]) {
+              const angle = phase + ((tooth + t) * 2 * Math.PI) / p.teeth;
+              const radius =
+                p.rootRadius +
+                (t === 0.8 ? p.toothDepth : t === 0 ? 0 : p.toothDepth / 2);
+              for (const r of [
+                p.boreRadius,
+                p.boreRadius + p.boreBevel,
+                radius,
+                radius - p.edgeBevel,
+              ])
+                points.push([
+                  (col + 0.5 + r * Math.cos(angle)) / p.cells,
+                  (row + 0.5 + r * Math.sin(angle)) / p.cells,
+                ]);
+            }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Snowflake ceramic tiles', () => {
   const p = proceduralMaterialPresets.snowflaketiles;
@@ -12447,6 +12562,7 @@ describe('periodic procedural material fields', () => {
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
+          kind === 'sawblades' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -21735,6 +21851,7 @@ describe('procedural preset acquisition and ownership', () => {
     'guilloche',
     'splitlockwashers',
     'hexnuts',
+    'sawblades',
     'basketball',
     'tennisball',
     'golfball',
@@ -21759,7 +21876,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rebar' ||
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
-          kind === 'hexnuts'
+          kind === 'hexnuts' ||
+          kind === 'sawblades'
           ? 1
           : 0,
       );

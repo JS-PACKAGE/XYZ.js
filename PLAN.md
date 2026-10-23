@@ -417,6 +417,8 @@
 
 同輪追加 `snowflaketiles`（雪花陶磚），實際目錄 437→438 種：四乘四藍釉方磚，各有 seeded 旋轉的六向雪花，每臂兩對斜分枝。白色釉面圖案只影響色調與粗糙度，磚面嵌平、方形灰縫凹陷。0.8 m tile、四圖 opaque dielectric、metallic 0；不新增雪晶 geometry／透明效果，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `sawblades`（圓鋸片），實際目錄 438→439 種：四乘四 seeded 旋轉薄金屬片，各有二十四枚長背／短前緣的非對稱齒、凹入齒谷與中央圓形軸孔，平整片面附細密同心加工紋。0.8 m tile、四圖 opaque、全 metallic 通道及 factory factor 1；孔底與片外為同一低金屬底板，不新增鋸片 geometry／透明孔洞／旋轉動畫，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

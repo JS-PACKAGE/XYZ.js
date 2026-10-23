@@ -1238,6 +1238,7 @@ export function createSurfaceSampler(
     kind === 'guilloche' ||
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
+    kind === 'sawblades' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1258,6 +1259,50 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'sawblades': {
+        const p = proceduralMaterialPresets.sawblades;
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x6a43);
+        const grainField = cachedNoise(96, 96, seed ^ 0x7b55);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5,
+            radius = Math.hypot(x, y);
+          const phase = phases[Math.floor(vCell) * p.cells + Math.floor(uCell)];
+          let face = 0;
+          if (radius > p.boreRadius && radius < p.rootRadius + p.toothDepth) {
+            const t = fract(((Math.atan2(y, x) - phase) * p.teeth) / TAU);
+            const tooth =
+              t < p.toothRise
+                ? smooth(t / p.toothRise)
+                : 1 - smooth((t - p.toothRise) / (1 - p.toothRise));
+            face =
+              smooth(
+                clamp(
+                  (p.rootRadius + p.toothDepth * tooth - radius) / p.edgeBevel,
+                ),
+              ) * smooth(clamp((radius - p.boreRadius) / p.boreBevel));
+          }
+          const grain = grainField(u, v);
+          const machining = 0.5 + 0.5 * Math.cos(TAU * p.machining * radius);
+          // Asymmetric teeth cut the silhouette, not the flat blade face.
+          // The arbor hole and gullets reveal the same opaque metal backing.
+          color =
+            (1 - face) * (0.12 + 0.05 * grain) +
+            face * (0.7 + 0.05 * grain + 0.04 * machining);
+          height =
+            0.06 +
+            0.003 * grain +
+            face * (0.45 + 0.003 * grain + 0.001 * machining);
+          roughness +=
+            0.02 * grain + 0.22 * (1 - face) + 0.04 * machining * face;
+          occlusion = 0.45 + 0.53 * face;
+        };
+      }
       case 'snowflaketiles': {
         const p = proceduralMaterialPresets.snowflaketiles;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -13828,6 +13873,7 @@ export function createSurfaceSampler(
     kind === 'acornbarnacles' ||
     kind === 'circularpavers' ||
     kind === 'snowflaketiles' ||
+    kind === 'sawblades' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -6240,3 +6240,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證十六磚全部六主幹／二十四分枝的色差與粗糙度、印花與藍釉相同 AO 及微幅高度、灰縫低於磚面；另在 capsule 線端、分枝接點、灰縫肩部及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5651 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：藍底白色分枝雪花、方磚縫、無雪花凸紋的 normal／AO 四圖可見，status 為 438 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 437 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：圓鋸片（sawblades）
+
+- 目錄 438→439 種。0.8 m tile、四乘四 seeded 旋轉薄金屬片，各有二十四枚長背／短前緣的非對稱齒、凹入齒谷及中央圓形軸孔。片面嵌平並有細密同心加工紋，孔底與片外露出同一低金屬底板。四圖 opaque、全 metallic 通道及 factory factor 1、既有 ownership 不變，不新增鋸片 geometry／透明孔洞／旋轉動畫。
+- 定向 5 tests 通過：三 seeds 驗證十六片全部二十四齒的齒尖／齒谷、長短前後緣、圓孔倒角、嵌平內外片面、金屬通道與高度／色差／AO／粗糙度；另在精確齒根／尖端／輪廓肩部及 tile wrap 驗證 C1，以及多 material 借用／外部 override ownership。build／typecheck／lint／format:check／全套 **178 files、5657 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：灰銀鋸齒圓片、中央圓孔、齒邊 normal、金屬 MR 與孔隙 AO 四圖可見，status 為 439 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 438 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件及 metallic factor 清單同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

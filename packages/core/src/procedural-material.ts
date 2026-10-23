@@ -444,7 +444,8 @@ export type ProceduralMaterialKind =
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
-  | 'snowflaketiles';
+  | 'snowflaketiles'
+  | 'sawblades';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -915,6 +916,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'acornbarnacles',
   'circularpavers',
   'snowflaketiles',
+  'sawblades',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1055,6 +1057,7 @@ export class ProceduralMaterial {
         this.kind === 'guilloche' ||
         this.kind === 'splitlockwashers' ||
         this.kind === 'hexnuts' ||
+        this.kind === 'sawblades' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

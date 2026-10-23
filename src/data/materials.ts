@@ -3088,6 +3088,21 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.02,
     bevel: 0.04,
   }),
+  sawblades: Object.freeze({
+    dark: [45, 51, 58] as const,
+    light: [218, 225, 232] as const,
+    roughness: 0.3,
+    relief: 0.01,
+    cells: 4,
+    teeth: 24,
+    rootRadius: 0.36,
+    toothDepth: 0.08,
+    toothRise: 0.8,
+    edgeBevel: 0.008,
+    boreRadius: 0.1,
+    boreBevel: 0.015,
+    machining: 80,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3530,4 +3545,5 @@ export const proceduralTileMeters = Object.freeze({
   acornbarnacles: 0.12,
   circularpavers: 1.6,
   snowflaketiles: 0.8,
+  sawblades: 0.8,
 });

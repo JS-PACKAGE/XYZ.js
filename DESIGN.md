@@ -425,6 +425,8 @@
 
 `snowflaketiles` 快取十六個 seeded 旋轉及六向主幹／兩對分枝的三十條線段，以平方 capsule 距離與 compact smooth union 產生白色雪花釉彩；線端及分枝接點連續，圖案在 cell 邊界前歸零。釉彩只影響 color／roughness，height 僅由方磚倒角與獨立微粒決定，AO 只反映灰縫，避免假浮雕。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 438 種。
 
+`sawblades` 快取十六個 seeded 相位，以每齒八成週期長升坡／兩成短降坡的 C1 徑向輪廓形成非對稱齒與齒谷；中央軸孔與外側倒角採獨立 compact supports，角度場不作用於軸孔中心。片面高度不跟隨齒相位，只保留微粒及細密同心加工紋，所有孔底／片外露出同一低金屬底板。0.8 m tile、四圖 opaque、全 metallic 通道及 factory factor 1、既有 ownership 不變，目錄增為 439 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
