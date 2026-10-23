@@ -5609,3 +5609,8 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 使用者要求推送並發佈 `v1.21.0`。整合本機已提交的效能優化（Rendering2D／Rendering3D／Shadows／Physics2D／Math／Accessibility／Text 等）、官方 OPM.js v1.13.0 vendor 更新，以及遠端 main 的 v1.20.0 發佈準備與 vite 8.3.3 依賴更新；合併衝突：`tests/mesh-shader-variants.test.ts` 採遠端結構、ACCEPTANCE 兩側內容並存、materials dist 由建置重新產生。
 - 發佈前修正：新增模組 `packages/core/src/mover-sequence` 未列入封裝清單（package-hygiene 在 CJS 載入時找不到模組），已補入 `package.json` files 與 `scripts/package-inventory.json`；三個測試的嚴格型別錯誤（texture surface 與 live tint 存取）已修正。
 - 本機（macOS，Node 26）於乾淨 worktree 以 `pnpm@12.6.0 install --frozen-lockfile` 後：format:check、typecheck、lint、test（5233 通過）、build、check:api-compatibility（含 negative smoke）、check:package-hygiene、check:tree-shaking、check:distribution 與 Chromium regression:browser 通過（WebXR 項目因無實體裝置照舊 SKIP）。Windows／Firefox／WebKit 矩陣、site smoke 由遠端 CI 執行，未在本機重跑。npm 仍未發佈。
+
+## v1.21.1 發佈準備
+
+- 使用者要求提交並發佈 patch `v1.21.1`：內容為 `[Materials] Add tatami rush weave preset`（程序材質 `tatami`）與版本字串更新。
+- 本機（macOS，Node 26）乾淨 worktree 以 `pnpm@12.6.0 install --frozen-lockfile` 後：format:check、typecheck、lint、test（5238 通過）、build、check:api-compatibility、check:package-hygiene、check:tree-shaking、check:distribution 通過。瀏覽器矩陣與 site smoke 由遠端 CI 執行。npm 仍未發佈。
