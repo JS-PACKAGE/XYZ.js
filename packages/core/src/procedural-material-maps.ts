@@ -1253,6 +1253,46 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'palmendgrain': {
+        const p = proceduralMaterialPresets.palmendgrain;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4a13);
+        const matrixField = cachedNoise(16, 16, seed ^ 0x7c29);
+        const bundles = new Float64Array(p.cells * p.cells * 6);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6;
+            const angle = TAU * hash(col, row, seed ^ 0x5d37);
+            bundles[i] = 0.35 + 0.3 * hash(col, row, seed ^ 0x2b19);
+            bundles[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x6e41);
+            bundles[i + 2] = Math.cos(angle);
+            bundles[i + 3] = Math.sin(angle);
+            bundles[i + 4] = 1 / (0.23 + 0.05 * hash(col, row, seed ^ 0x3c57));
+            bundles[i + 5] = 1 / (0.15 + 0.035 * hash(col, row, seed ^ 0x8a23));
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 6;
+          const dx = fract(x) - bundles[i],
+            dy = fract(y) - bundles[i + 1];
+          const rx = dx * bundles[i + 2] + dy * bundles[i + 3],
+            ry = -dx * bundles[i + 3] + dy * bundles[i + 2];
+          const q = (rx * bundles[i + 4]) ** 2 + (ry * bundles[i + 5]) ** 2;
+          const fiber = 1 - smooth(clamp((q - 0.4) / 0.6));
+          const left = clamp(1 - ((rx + 0.09) / 0.055) ** 2 - (ry / 0.05) ** 2),
+            right = clamp(1 - ((rx - 0.09) / 0.055) ** 2 - (ry / 0.05) ** 2);
+          const pores = left * left + right * right;
+          const grain = grainField(u, v),
+            matrix = matrixField(u, v);
+          // Palm bundles are flush dark fibers in pale ground tissue, not
+          // annual rings or raised knots. Only their cut vessels recess.
+          color =
+            0.8 + 0.04 * grain + 0.05 * matrix - 0.58 * fiber - 0.12 * pores;
+          height = 0.5 + 0.012 * grain - 0.28 * pores;
+          roughness += 0.04 * grain - 0.06 * fiber + 0.12 * pores;
+          occlusion = 0.99 - 0.25 * pores;
+        };
+      }
       case 'dogbonepavers': {
         const p = proceduralMaterialPresets.dogbonepavers;
         const grainField = cachedNoise(96, 96, seed ^ 0x3a91);
@@ -12008,6 +12048,7 @@ export function createSurfaceSampler(
     kind === 'scallopedslate' ||
     kind === 'saltpan' ||
     kind === 'dogbonepavers' ||
+    kind === 'palmendgrain' ||
     fabricated ||
     botanical ||
     packaging ||

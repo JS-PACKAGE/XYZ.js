@@ -5966,3 +5966,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證完整窄腰、四個寬端、肩部及端部灰縫、鄰磚寬端實際填入腰部凹口；另驗證肩部、lookup、角落與週期邊界的 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5451 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：寬端與窄腰互鎖的灰色混凝土磚、倒角 normal、粗糙度與 AO 四圖和 25 球可見，status 為 399 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 398 種 size 64／seed 7 四圖 SHA256 全數不變；相對文件連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：棕櫚木橫切面（palmendgrain）
+
+- 目錄 399→400 種。0.024 m tile、八乘八個 seeded 位移／旋轉／長短軸的深色維管束，切面與淡金棕基質平齊、成對導管孔局部下凹，沒有年輪或凸起木節。四圖 opaque、metallic 0，既有借用與銷毀契約不變。
+- 定向 4 tests 通過：三 seeds 驗證束心深色、兩個導管孔低於束心且 AO 降低、八方向周圍基質較亮而高度仍平齊；另驗證孔唇、束邊界、cell lookup 與週期邊界的 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5456 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：金棕色平切面、散布深色維管束、四圖與 25 球可見，status 為 400 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.024 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 399 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

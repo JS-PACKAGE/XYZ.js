@@ -424,7 +424,100 @@ const kinds: ProceduralMaterialKind[] = [
   'scallopedslate',
   'saltpan',
   'dogbonepavers',
+  'palmendgrain',
 ];
+
+describe('palm wood end grain vascular bundles', () => {
+  const p = proceduralMaterialPresets.palmendgrain;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('palmendgrain', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts dark flush bundles and paired recessed vessels without annual rings for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Locate the seeded bundle, without reproducing its shading.
+          const cx = col + 0.35 + 0.3 * hash(col, row, seed ^ 0x2b19),
+            cy = row + 0.35 + 0.3 * hash(col, row, seed ^ 0x6e41);
+          const angle = 2 * Math.PI * hash(col, row, seed ^ 0x5d37);
+          const local = (x: number, y: number) =>
+            at(
+              (cx + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+              (cy + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+            );
+          const fiber = local(0, 0);
+          expect(fiber.color).toBeLessThan(0.35);
+          expect(fiber.occlusion).toBe(0.99);
+          for (const x of [-0.09, 0.09]) {
+            const vessel = local(x, 0);
+            expect(fiber.height - vessel.height).toBeGreaterThan(
+              p.relief * 0.26,
+            );
+            expect(vessel.occlusion).toBeLessThan(0.75);
+            expect(vessel.color).toBeLessThan(fiber.color - 0.08);
+          }
+          for (let direction = 0; direction < 8; direction++) {
+            const a = (direction * Math.PI) / 4;
+            const matrix = at(
+              (cx + 0.32 * Math.cos(a)) / p.cells,
+              (cy + 0.32 * Math.sin(a)) / p.cells,
+            );
+            expect(matrix.color).toBeGreaterThan(0.75);
+            expect(Math.abs(matrix.height - fiber.height)).toBeLessThan(
+              p.relief * 0.013,
+            );
+            expect(matrix.occlusion).toBe(0.99);
+          }
+        }
+    },
+  );
+  it('keeps vessel lips, bundle support, cell boundaries and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('interlocking dogbone concrete pavers', () => {
   const p = proceduralMaterialPresets.dogbonepavers;

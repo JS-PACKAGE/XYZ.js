@@ -5893,6 +5893,21 @@ var proceduralMaterialPresets = Object.freeze({
 		rows: 2,
 		grout: .025,
 		shoulder: .04
+	}),
+	palmendgrain: Object.freeze({
+		dark: [
+			44,
+			21,
+			9
+		],
+		light: [
+			220,
+			173,
+			104
+		],
+		roughness: .68,
+		relief: .006,
+		cells: 8
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6294,7 +6309,8 @@ var proceduralTileMeters = Object.freeze({
 	shibori: .24,
 	scallopedslate: 1.2,
 	saltpan: 3,
-	dogbonepavers: .8
+	dogbonepavers: .8,
+	palmendgrain: .024
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

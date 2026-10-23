@@ -347,6 +347,8 @@
 
 `dogbonepavers` 以互補的平滑肩部寬度構成窄腰與寬端，相鄰欄沿長軸錯半塊磚，使寬端確實填入鄰磚凹口而非留空。三欄候選使用側邊與端部倒角遮罩，色差只在各磚內部加權，所有邊緣回到同一灰縫；cached 骨材與細粒不改互鎖輪廓。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 399 種。
 
+`palmendgrain` 預先計算八乘八個 seeded 橢圓維管束的位置、旋轉與長短軸倒數；束與兩個導管孔皆為 cell 內 compact support，無須逐像素搜尋鄰居。纖維僅降低顏色與少量粗糙度、切面維持平齊，成對導管孔才降低高度及 AO；獨立 cached 細粒與基質色場不生成木材年輪。0.024 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 400 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
