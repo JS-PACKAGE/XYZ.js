@@ -1251,6 +1251,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ginkgoleaf': {
+        const p = proceduralMaterialPresets.ginkgoleaf;
+        const fineField = cachedNoise(96, 96, seed ^ 0x5c19);
+        const leaves = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            const angle = TAU * hash(col, row, seed ^ 0x2d47);
+            leaves[i] = Math.cos(angle);
+            leaves[i + 1] = Math.sin(angle);
+            leaves[i + 2] = hash(col, row, seed ^ 0x6a31);
+          }
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const i = (row * p.cells + col) * 3;
+          const dx = fract(u * p.cells) - 0.5,
+            dy = fract(v * p.cells) - 0.5;
+          const a = dx * leaves[i]! + dy * leaves[i + 1]!;
+          const b = dy * leaves[i]! - dx * leaves[i + 1]!;
+          const r = Math.sqrt(a * a + b * b),
+            angle = Math.atan2(a, b);
+          const rim =
+            p.radius - p.notchDepth * Math.exp(-((angle / p.notchWidth) ** 2));
+          // The fan vanishes around the polar origin and angle branch cut.
+          const leaf =
+            smooth(clamp((rim - r) / p.edge)) *
+            smooth(clamp((p.halfAngle - Math.abs(angle)) / 0.12)) *
+            smooth(clamp((r - 0.035) / 0.045));
+          const stem = smooth(
+            clamp((1 - (a * a) / 0.0004 - (b + 0.05) ** 2 / 0.0121) / 0.3),
+          );
+          const face = 1 - (1 - leaf) * (1 - stem);
+          const split = smooth(clamp((r - 0.16) / 0.12));
+          const coarse = (0.5 + 0.5 * Math.cos(18 * angle)) ** 8;
+          const fine = (0.5 + 0.5 * Math.cos(36 * angle)) ** 8;
+          const veins =
+            leaf *
+            smooth(clamp((r - 0.08) / 0.08)) *
+            (coarse * (1 - split) + fine * split);
+          const grain = fineField(u, v);
+          color =
+            0.06 +
+            face * (0.55 + 0.15 * leaves[i + 2]! + 0.12 * veins + 0.02 * grain);
+          height = 0.08 + face * (0.3 + 0.06 * veins);
+          roughness =
+            0.85 + face * (p.roughness - 0.85 + 0.02 * grain - 0.04 * veins);
+          occlusion = 0.6 + 0.35 * face;
+          return;
+        };
+      }
       case 'chevronparquet': {
         const p = proceduralMaterialPresets.chevronparquet;
         const fineField = cachedNoise(64, 64, seed ^ 0x6b31);
@@ -11058,6 +11109,7 @@ export function createSurfaceSampler(
     kind === 'perforatedleather' ||
     kind === 'argyle' ||
     kind === 'chevronparquet' ||
+    kind === 'ginkgoleaf' ||
     fabricated ||
     botanical ||
     packaging ||

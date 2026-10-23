@@ -307,6 +307,8 @@
 
 `chevronparquet` 在兩個相反斜向座標中排列木板，獨立板端與板側平滑覆蓋相乘，使斜接尖角、倒角與換板位置均回到共用凹縫。木紋相位沿板寬變化，兩側長紋方向隨木板翻轉；預存逐板 seeded 色差與細粒場。0.6 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 379 種。
 
+`ginkgoleaf` 預存逐葉旋轉基底與色差，compact 扇形在所屬單元內完整消失；平滑半徑缺口區分左右葉瓣，葉柄以笛卡兒橢圓平滑併入。扇形與角度葉脈在極座標原點及 angle branch cut 前歸零，避免中心奇異與法線裂痕。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 380 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -404,7 +404,115 @@ const kinds: ProceduralMaterialKind[] = [
   'perforatedleather',
   'argyle',
   'chevronparquet',
+  'ginkgoleaf',
 ];
+
+describe('golden ginkgo leaves', () => {
+  const p = proceduralMaterialPresets.ginkgoleaf;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ginkgoleaf', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves fan lobes, central notch, petiole and radial veins across seeded orientations for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const polar = (radius: number, angle: number) =>
+            at(
+              (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+            );
+          let sx = 0,
+            sy = 0,
+            covered = 0;
+          for (let i = 0; i < 360; i++) {
+            const angle = (i * Math.PI) / 180;
+            if (polar(0.24, angle).color > 0.3) {
+              sx += Math.cos(angle);
+              sy += Math.sin(angle);
+              covered++;
+            }
+          }
+          expect(covered).toBeGreaterThan(125);
+          expect(covered).toBeLessThan(150);
+          const axis = Math.atan2(sy, sx);
+          const notch = polar(0.37, axis);
+          for (const side of [-1, 1]) {
+            const lobe = polar(0.37, axis + side * 0.45);
+            expect(lobe.height - notch.height).toBeGreaterThan(0.005);
+            expect(lobe.color - notch.color).toBeGreaterThan(0.5);
+            expect(lobe.occlusion - notch.occlusion).toBeGreaterThan(0.3);
+          }
+          const stem = polar(0.09, axis + Math.PI);
+          const outside = polar(0.35, axis + Math.PI / 2);
+          expect(stem.height - outside.height).toBeGreaterThan(0.005);
+          expect(outside.roughness - stem.roughness).toBeGreaterThan(0.2);
+          let low = Infinity,
+            high = -Infinity;
+          for (let i = 0; i <= 80; i++) {
+            const s = polar(0.22, axis - 0.8 + i * 0.02);
+            low = Math.min(low, s.height);
+            high = Math.max(high, s.height);
+          }
+          expect(high - low).toBeGreaterThan(0.0007);
+        }
+      }
+    },
+  );
+  it('keeps polar centers, compact leaf supports, cell owners and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let edge = 0; edge <= p.cells; edge++)
+        for (let i = 0; i <= 64; i++)
+          points.push([edge / p.cells, i / 64], [i / 64, edge / p.cells]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          points.push([(col + 0.5) / p.cells, (row + 0.5) / p.cells]);
+          for (const radius of [0.035, 0.08, p.radius]) {
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              points.push([
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              ]);
+            }
+          }
+        }
+      for (const [x, y] of points)
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('chevron parquet flooring', () => {
   const p = proceduralMaterialPresets.chevronparquet;

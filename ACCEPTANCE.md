@@ -5807,3 +5807,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現木板斜向接縫與 V 字拼法，狀態列為 379 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.6 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5348 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：金黃銀杏葉（ginkgoleaf）
+
+- 新增 seeded 朝向與色差的金黃扇形葉片、中央缺口、細葉柄及放射葉脈，葉間是深色不透明底層；目錄 379→380 種。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增葉片 geometry、alpha cutout、透光模型、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的扇形角度覆蓋、由取樣推定朝向後驗證雙葉瓣／中央缺口／葉柄／放射葉脈，以及極座標中心、compact 邊界、單元換主與 wrap 一階連續性。首次 continuity probe 的葉柄高曲率使 h=1e-8 的差分斜率差超出門檻；實測最差點隨 h 從 1e-7→1e-10 等比例收斂（0.34825→0.0003475），改用 h=1e-9，未放寬門檻或修改形狀。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 379 種四圖 SHA256 全相同，新增恰為 ginkgoleaf。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現不同朝向的金黃扇葉與深色底層，狀態列為 380 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.24 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5353 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。

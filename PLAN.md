@@ -299,6 +299,8 @@
 
 同輪追加 `chevronparquet`（Chevron 斜接木地板），實際目錄 378→379 種：兩列相反 45° 木板斜接形成 V 字，沿板長木紋與逐板 seeded 色差、平滑倒角和凹接縫，區別於原有籃編拼花。0.6 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `ginkgoleaf`（金黃銀杏葉），實際目錄 379→380 種：seeded 朝向與色差的金黃扇形葉片、中央缺口、細葉柄和放射葉脈，葉間為深色不透明底層。0.24 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push，不新增植被 geometry 或透光模型。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
