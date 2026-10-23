@@ -1257,6 +1257,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'lotusroot': {
+        const p = proceduralMaterialPresets.lotusroot;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5f83);
+        const canals = new Float64Array(p.cells * p.cells * p.canals * 4);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x2c59);
+            for (let canal = 0; canal < p.canals; canal++) {
+              const id = col * p.canals + canal;
+              const i = ((row * p.cells + col) * p.canals + canal) * 4;
+              const angle = phase + (TAU * canal) / p.canals;
+              const along =
+                p.canalLong +
+                p.canalLongVariation * hash(id, row, seed ^ 0x3d61);
+              const across =
+                p.canalShort +
+                p.canalShortVariation * hash(id, row, seed ^ 0x4e73);
+              canals[i] = Math.cos(angle);
+              canals[i + 1] = Math.sin(angle);
+              canals[i + 2] = 1 / (along * along);
+              canals[i + 3] = 1 / (across * across);
+            }
+          }
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i =
+            (Math.floor(vCell) * p.cells + Math.floor(uCell)) * p.canals * 4;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const radius = Math.hypot(x, y);
+          const face = smooth(clamp((p.radius - radius) / p.edge));
+          const rind = smooth(clamp((radius - p.rindStart) / p.rindWidth));
+          let holes = smooth(
+            clamp(
+              (1 - (x * x + y * y) / (p.centralRadius * p.centralRadius)) /
+                p.wallShoulder,
+            ),
+          );
+          for (let canal = 0; canal < p.canals; canal++) {
+            const j = i + canal * 4;
+            const along = x * canals[j] + y * canals[j + 1] - p.canalDistance;
+            const across = -x * canals[j + 1] + y * canals[j];
+            const q =
+              along * along * canals[j + 2] + across * across * canals[j + 3];
+            holes += smooth(clamp((1 - q) / p.wallShoulder));
+          }
+          const grain = grainField(u, v);
+          // Air canals have low opaque backing, not seeds or raised collars.
+          color =
+            0.05 + face * (0.8 + 0.04 * grain - 0.4 * rind - 0.72 * holes);
+          height = 0.05 + face * (0.6 + 0.008 * grain - 0.52 * holes);
+          roughness += 0.04 * grain + face * (0.12 * rind + 0.2 * holes);
+          occlusion = 0.25 + face * (0.73 - 0.65 * holes);
+        };
+      }
       case 'satinweave': {
         const p = proceduralMaterialPresets.satinweave;
         const phase = TAU * hash(0, 0, seed ^ 0x5d31);
@@ -13456,6 +13512,7 @@ export function createSurfaceSampler(
     kind === 'splitlockwashers' ||
     kind === 'flemishbond' ||
     kind === 'satinweave' ||
+    kind === 'lotusroot' ||
     fabricated ||
     botanical ||
     packaging ||

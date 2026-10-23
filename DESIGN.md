@@ -411,6 +411,8 @@
 
 `satinweave` 以五枚組織與兩步飛數安排孤立緯線露點，compact exposure 完全收於單一交叉點內，平滑交換經線／緯線主導的高度與纖維方向。二十五乘二十五週期的 yarn skirts 在線間暗隙歸零，四個交叉點保持經浮線、第五個由緯線覆蓋；微粒與纖維相位可重現。光澤差異仍只使用既有 roughness／normal maps，不新增方向性散射模型。0.02 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 431 種。
 
+`lotusroot` 快取九個切面、各八條氣孔的方向與橢圓倒平方半徑，避免逐像素重算 seeded 三角函數。氣孔沿徑向拉長，compact shoulders 形成低平孔底與平滑壁面，中央孔同樣沒有種子或凸起領圈；孔間肉質與薄褐皮共用嵌平高度，外圓裙緣在 cell 邊界前歸零。色差與 AO 區分淺肉質／薄皮／深氣孔，低暗底面仍為 opaque。0.24 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 432 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

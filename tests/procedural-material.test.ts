@@ -456,7 +456,135 @@ const kinds: ProceduralMaterialKind[] = [
   'splitlockwashers',
   'flemishbond',
   'satinweave',
+  'lotusroot',
 ];
+
+describe('Lotus root air canals', () => {
+  const p = proceduralMaterialPresets.lotusroot;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('lotusroot', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps eight radial elongated canals and a central hole below pale flush flesh for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const polar = (radius: number, angle: number) =>
+            at(radius * Math.cos(angle), radius * Math.sin(angle));
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2c59);
+          const center = at(0, 0),
+            flesh = polar(0.1, phase),
+            rind = polar(0.425, phase),
+            backing = at(0.49, 0.49);
+          expect(flesh.height - center.height).toBeGreaterThan(0.012);
+          expect(flesh.color - center.color).toBeGreaterThan(0.68);
+          expect(flesh.color - rind.color).toBeGreaterThan(0.35);
+          expect(Math.abs(flesh.height - rind.height)).toBeLessThan(0.00025);
+          expect(flesh.height - backing.height).toBeGreaterThan(0.014);
+          expect(center.metallic).toBe(0);
+          for (let canal = 0; canal < 8; canal++) {
+            const angle = phase + (2 * Math.PI * canal) / 8;
+            const floor = polar(p.canalDistance, angle);
+            const along = polar(p.canalDistance + 0.08, angle);
+            const across = at(
+              p.canalDistance * Math.cos(angle) - 0.08 * Math.sin(angle),
+              p.canalDistance * Math.sin(angle) + 0.08 * Math.cos(angle),
+            );
+            const bridge = polar(p.canalDistance, angle + Math.PI / 8);
+            expect(bridge.height - floor.height).toBeGreaterThan(0.012);
+            expect(bridge.color - floor.color).toBeGreaterThan(0.68);
+            expect(bridge.occlusion - floor.occlusion).toBeGreaterThan(0.6);
+            expect(floor.roughness - bridge.roughness).toBeGreaterThan(0.16);
+            expect(across.height - along.height).toBeGreaterThan(0.01);
+            expect(Math.abs(bridge.height - flesh.height)).toBeLessThan(
+              0.00025,
+            );
+            expect(Math.abs(floor.height - center.height)).toBeLessThan(
+              0.00025,
+            );
+          }
+        }
+    },
+  );
+  it('keeps canal walls, rind, slice skirts and wrapped ownership C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2c59);
+          for (const radius of [
+            p.radius,
+            p.radius - p.edge,
+            p.rindStart,
+            p.rindStart + p.rindWidth,
+            p.centralRadius,
+            p.centralRadius * Math.sqrt(1 - p.wallShoulder),
+          ])
+            points.push([
+              (col + 0.5 + radius) / p.cells,
+              (row + 0.5) / p.cells,
+            ]);
+          for (let canal = 0; canal < p.canals; canal++) {
+            const angle = phase + (2 * Math.PI * canal) / p.canals;
+            const long =
+              p.canalLong +
+              p.canalLongVariation *
+                hash(col * p.canals + canal, row, seed ^ 0x3d61);
+            for (const side of [-1, 1])
+              for (const scale of [1, Math.sqrt(1 - p.wallShoulder)]) {
+                const radius = p.canalDistance + side * scale * long;
+                points.push([
+                  (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                  (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+                ]);
+              }
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Five-harness warp satin', () => {
   const p = proceduralMaterialPresets.satinweave;

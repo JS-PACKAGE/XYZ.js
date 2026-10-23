@@ -6191,3 +6191,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證全部六百二十五個交叉點的經緯優先高度／粗糙度、每列五個分散緯線露點與線間低暗隙；另在精確露點肩部界線、yarn skirts、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5615 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：紫色長經浮線與分散交織點、細微 normal／roughness 變化、線間 AO 及四圖可見，status 為 431 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視織紋，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.02 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 430 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：蓮藕切面（lotusroot）
+
+- 目錄 431→432 種。0.24 m tile、三乘三淡色肉質圓片，薄褐皮、八條放射狀長橢圓氣孔與中央小孔，seed 控制各切面方向及氣孔長短軸。氣孔與片外空隙具有低暗 opaque 底面，孔間肉質與皮緣嵌平，沒有蓮蓬的種子或隆起孔環。四圖、metallic 0、既有 ownership 不變，不新增透明孔洞／切面 geometry。
+- 定向 4 tests 通過：三 seeds 驗證九片的中央孔、全部七十二條氣孔的徑向長軸／切向短軸、孔間肉質高度／色差／AO、平齊薄皮與低暗底面；另在精確氣孔壁肩、薄皮／外圓裙緣、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5620 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：淺色圓切面、放射狀長氣孔／中央孔、薄褐皮、孔壁 normal 與深孔 AO 及四圖可見，status 為 432 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切面，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 431 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
