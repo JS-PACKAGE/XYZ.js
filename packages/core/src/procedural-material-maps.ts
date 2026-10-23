@@ -1255,6 +1255,58 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'starfruit': {
+        const p = proceduralMaterialPresets.starfruit;
+        const grainField = cachedNoise(96, 96, seed ^ 0x8d31);
+        const slices = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            const angle = TAU * hash(col, row, seed ^ 0x4a67);
+            slices[i] = Math.cos(angle);
+            slices[i + 1] = Math.sin(angle);
+          }
+        const seedAxes = new Float64Array(10);
+        for (let j = 0; j < 5; j++) {
+          seedAxes[j * 2] = Math.cos((TAU * j) / 5);
+          seedAxes[j * 2 + 1] = Math.sin((TAU * j) / 5);
+        }
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * slices[i]! + dy * slices[i + 1]!,
+            y = dy * slices[i]! - dx * slices[i + 1]!;
+          const r = Math.hypot(x, y),
+            theta = Math.atan2(y, x);
+          const radius =
+            p.innerRadius +
+            (p.outerRadius - p.innerRadius) *
+              (0.5 + 0.5 * Math.cos(5 * theta)) ** 3;
+          const distance = radius - r;
+          const face = smooth(clamp(distance / 0.025));
+          // Angular silhouette/rind fields are constant in the whole core,
+          // so the polar coordinate has no singular effect at the center.
+          const rind = 1 - smooth(clamp((distance - 0.02) / 0.025));
+          let seeds = 0;
+          for (let j = 0; j < 5; j++) {
+            const c = seedAxes[j * 2]!,
+              s = seedAxes[j * 2 + 1]!;
+            const along = (x * c + y * s - p.seedRadius) / 0.027;
+            const across = (y * c - x * s) / 0.012;
+            seeds += smooth(clamp(1 - along * along - across * across));
+          }
+          const grain = grainField(u, v);
+          color =
+            0.025 + face * (0.85 + 0.02 * grain - 0.27 * rind - 0.75 * seeds);
+          height =
+            0.04 + face * (0.5 + 0.01 * grain + 0.03 * rind - 0.13 * seeds);
+          roughness += 0.3 * (1 - face) + face * (0.02 * grain + 0.08 * seeds);
+          occlusion = 0.35 + face * (0.63 - 0.3 * seeds);
+        };
+      }
       case 'rebar': {
         const p = proceduralMaterialPresets.rebar;
         const grainField = cachedNoise(96, 96, seed ^ 0x7c31);
@@ -12510,6 +12562,7 @@ export function createSurfaceSampler(
     kind === 'hollyleaf' ||
     kind === 'englishbond' ||
     kind === 'rebar' ||
+    kind === 'starfruit' ||
     fabricated ||
     botanical ||
     packaging ||

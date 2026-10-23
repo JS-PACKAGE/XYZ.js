@@ -6050,3 +6050,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 5 tests 通過：三 seeds 驗證圓冠高於肩部／暗底、四十八道軋肋高於肋間且較平滑、斜率方向與相鄰反向、金屬暗底／AO；另驗證輪廓／肋斜面／tile wrap C1 及 metallic factor／借用 ownership。build／typecheck／lint／format:check／全套 **178 files、5513 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：四條鋼色圓冠與暗隙、細斜肋 normal、金屬 MR、四圖及 25 球可見，status 為 411 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 410 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件（含 metallic factor 分類）同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：楊桃切片（starfruit）
+
+- 目錄 411→412 種。0.18 m tile、九片 seeded 旋轉五角切面，金黃外緣、平整淺黃果肉與五個放射狀橢圓籽腔。籽腔較暗／低／粗糙；中央輪廓與外緣欄位保持常數，避開 polar 極點。四圖 opaque、metallic 0、既有 ownership 不變；不是果肉 geometry、透明度或次表面散射。
+- 定向 4 tests 通過：三 seeds 驗證五角突出／凹缺口／輪廓外暗底、籽腔相對高度／色差／粗糙度／AO、金黃外緣與平整中央果肉；另驗證果瓣／外緣／籽腔橢圓／中央極點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5518 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：金黃五角切片、淺色果肉、暗底凹缺口與切面 normal、四圖及 25 球可見，status 為 412 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.18 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 411 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

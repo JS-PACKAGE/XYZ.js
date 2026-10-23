@@ -2737,6 +2737,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         radius: 0.36;
         slant: 0.85;
     }>;
+    starfruit: Readonly<{
+        dark: readonly [65, 42, 16];
+        light: readonly [249, 226, 115];
+        roughness: 0.35;
+        relief: 0.02;
+        cells: 3;
+        innerRadius: 0.23;
+        outerRadius: 0.43;
+        seedRadius: 0.1;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3151,4 +3161,5 @@ export declare const proceduralTileMeters: Readonly<{
     hollyleaf: 0.24;
     englishbond: 0.8;
     rebar: 0.12;
+    starfruit: 0.18;
 }>;

@@ -2750,6 +2750,16 @@ export const proceduralMaterialPresets = Object.freeze({
     radius: 0.36,
     slant: 0.85,
   }),
+  starfruit: Object.freeze({
+    dark: [65, 42, 16] as const,
+    light: [249, 226, 115] as const,
+    roughness: 0.35,
+    relief: 0.02,
+    cells: 3,
+    innerRadius: 0.23,
+    outerRadius: 0.43,
+    seedRadius: 0.1,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3165,4 +3175,5 @@ export const proceduralTileMeters = Object.freeze({
   hollyleaf: 0.24,
   englishbond: 0.8,
   rebar: 0.12,
+  starfruit: 0.18,
 });

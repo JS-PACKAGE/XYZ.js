@@ -371,6 +371,8 @@
 
 `rebar` 以圓截面平方根形成四支鋼筋冠部，在垂直切線前乘 compact smooth shoulder，讓鋼筋與軋肋在邊界平滑歸零。十二週期斜向 cosine power 形成軋肋，相鄰鋼筋交替斜向；seeded 細粒不改變冠部／肋頂／暗底層次。全表面含暗底都是金屬，B 通道 255、材質 factor 1。0.12 m tile、四圖 opaque、既有 ownership 不變，目錄增為 411 種。
 
+`starfruit` 以五週期 polar radius 與 compact smooth 邊界形成五角切片，外緣有較深金黃色窄帶，五個預先計算方向的橢圓籽腔沿半徑排列。angular 輪廓及外緣在整個中央區域為常數，不將 atan2 極點帶入高度／色彩；seeded 旋轉完整留在各格內，細粒保留平整果肉及凹籽腔。0.18 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 412 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

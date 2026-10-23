@@ -6095,6 +6095,24 @@ var proceduralMaterialPresets = Object.freeze({
 		ribs: 12,
 		radius: .36,
 		slant: .85
+	}),
+	starfruit: Object.freeze({
+		dark: [
+			65,
+			42,
+			16
+		],
+		light: [
+			249,
+			226,
+			115
+		],
+		roughness: .35,
+		relief: .02,
+		cells: 3,
+		innerRadius: .23,
+		outerRadius: .43,
+		seedRadius: .1
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6508,7 +6526,8 @@ var proceduralTileMeters = Object.freeze({
 	slottedwood: .8,
 	hollyleaf: .24,
 	englishbond: .8,
-	rebar: .12
+	rebar: .12,
+	starfruit: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

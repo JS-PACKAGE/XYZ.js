@@ -436,7 +436,95 @@ const kinds: ProceduralMaterialKind[] = [
   'hollyleaf',
   'englishbond',
   'rebar',
+  'starfruit',
 ];
+
+describe('golden starfruit slices', () => {
+  const p = proceduralMaterialPresets.starfruit;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('starfruit', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves five golden lobes, recessed seed chambers and an unbroken pale core for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const rotation = 2 * Math.PI * hash(col, row, seed ^ 0x4a67);
+          const point = (r: number, angle: number) =>
+            at(
+              (col + 0.5 + r * Math.cos(angle + rotation)) / p.cells,
+              (row + 0.5 + r * Math.sin(angle + rotation)) / p.cells,
+            );
+          const core = point(0, 0);
+          expect(core.color).toBeGreaterThan(0.85);
+          expect(core.height).toBeGreaterThan(0.01);
+          for (let j = 0; j < 5; j++) {
+            const angle = (2 * Math.PI * j) / 5;
+            const flesh = point(0.18, angle),
+              lobe = point(0.36, angle);
+            const chamber = point(p.seedRadius, angle),
+              rind = point(0.4, angle);
+            const notch = point(0.32, angle + Math.PI / 5);
+            expect(lobe.height).toBeGreaterThan(0.01);
+            expect(point(0.46, angle).height).toBeLessThan(0.001);
+            expect(notch.height).toBeLessThan(0.001);
+            expect(notch.occlusion).toBeLessThan(0.4);
+            expect(flesh.height - chamber.height).toBeGreaterThan(0.0023);
+            expect(flesh.color - chamber.color).toBeGreaterThan(0.7);
+            expect(flesh.occlusion - chamber.occlusion).toBeGreaterThan(0.29);
+            expect(chamber.roughness - flesh.roughness).toBeGreaterThan(0.05);
+            expect(flesh.color - rind.color).toBeGreaterThan(0.15);
+            expect(Math.abs(flesh.height - core.height)).toBeLessThan(0.0003);
+          }
+        }
+    },
+  );
+  it('keeps lobes, rind, seed ellipses, polar cores and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('rolled steel rebar', () => {
   const p = proceduralMaterialPresets.rebar;
