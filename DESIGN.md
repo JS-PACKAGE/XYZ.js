@@ -299,6 +299,8 @@
 
 `linen` 以獨立 seeded 經緯竹節場控制各紗線沿長度的局部寬度，compact 紗冠在換主前消失於紗隙；連續週期交織權重決定可見纖維方向，保留交點隆起與粗糙不透明凹隙，不以平織換色代替竹節結構。0.04 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 375 種。
 
+`chippedenamel` 預先儲存 seeded 缺口中心與五條半平面邊界，平滑覆蓋乘積形成不同朝向的角狀碎片缺口。共用缺口覆蓋同步驅動 color、height、roughness 與 metallic：完整釉層 metallic 0，裸露基材 metallic 1；缺口平滑降至下層而不捲起邊緣，預設 factor 1 保留 map 的金屬資訊。0.25 m tile、四圖 opaque、既有 ownership 不變，目錄增為 376 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -400,7 +400,114 @@ const kinds: ProceduralMaterialKind[] = [
   'castiron',
   'porphyry',
   'linen',
+  'chippedenamel',
 ];
+
+describe('chipped ivory enamel', () => {
+  const p = proceduralMaterialPresets.chippedenamel;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('chippedenamel', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'exposes rough dark metal beneath glossy dielectric enamel without curled edges for seed %s',
+    (seed) => {
+      const maps = generateProceduralMaps('chippedenamel', 64, seed);
+      let metalCount = 0,
+        enamelCount = 0,
+        metalRoughness = 0,
+        enamelRoughness = 0;
+      let metalColor = 0,
+        enamelColor = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        if (maps.metallicRoughness[i + 2]! > 250) {
+          metalCount++;
+          metalRoughness += maps.metallicRoughness[i + 1]!;
+          metalColor += maps.baseColor[i]!;
+        } else if (maps.metallicRoughness[i + 2] === 0) {
+          enamelCount++;
+          enamelRoughness += maps.metallicRoughness[i + 1]!;
+          enamelColor += maps.baseColor[i]!;
+        }
+      }
+      expect(metalCount / 4096).toBeGreaterThan(0.02);
+      expect(metalCount / 4096).toBeLessThan(0.25);
+      expect(enamelCount / 4096).toBeGreaterThan(0.65);
+      expect(
+        metalRoughness / metalCount - enamelRoughness / enamelCount,
+      ).toBeGreaterThan(120);
+      expect(
+        enamelColor / enamelCount - metalColor / metalCount,
+      ).toBeGreaterThan(110);
+      const at = field(seed);
+      let metalHeight = 0,
+        enamelHeight = 0,
+        metals = 0,
+        enamels = 0,
+        maximum = 0;
+      for (let y = 0; y < 128; y++) {
+        for (let x = 0; x < 128; x++) {
+          const s = at(x / 128, y / 128);
+          maximum = Math.max(maximum, s.height);
+          if (s.metallic === 1) {
+            metalHeight += s.height;
+            metals++;
+          }
+          if (s.metallic === 0) {
+            enamelHeight += s.height;
+            enamels++;
+          }
+        }
+      }
+      expect(enamelHeight / enamels - metalHeight / metals).toBeGreaterThan(
+        0.0059,
+      );
+      expect(maximum).toBeLessThanOrEqual(0.655 * p.relief);
+    },
+  );
+  it('keeps chip-cell owners and periodic detail lattices C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (const count of [p.cells, 96]) {
+        for (let edge = 0; edge <= count; edge++) {
+          for (let i = 0; i <= 16; i++) {
+            for (const axis of [0, 1]) {
+              const x = axis ? i / 16 : edge / count,
+                y = axis ? edge / count : i / 16;
+              const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+                b = at(x, y),
+                c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+              for (const key of [
+                'color',
+                'height',
+                'roughness',
+                'occlusion',
+                'metallic',
+              ] as const) {
+                expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                expect(
+                  Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                ).toBeLessThan(0.02);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('natural slub linen', () => {
   const p = proceduralMaterialPresets.linen;
@@ -6459,6 +6566,7 @@ describe('periodic procedural material fields', () => {
         else if (
           kind !== 'rust' &&
           kind !== 'copperpatina' &&
+          kind !== 'chippedenamel' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -6467,7 +6575,11 @@ describe('periodic procedural material fields', () => {
         expect(first.occlusion[p]).toBeGreaterThan(0);
         expect(first.occlusion[p + 3]).toBe(255);
       }
-      if (kind === 'rust' || kind === 'copperpatina') {
+      if (
+        kind === 'rust' ||
+        kind === 'copperpatina' ||
+        kind === 'chippedenamel'
+      ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
       }
@@ -15714,6 +15826,7 @@ describe('procedural preset acquisition and ownership', () => {
   it.each([
     'metal',
     'copperpatina',
+    'chippedenamel',
     'standingseam',
     'damascus',
     'castiron',
@@ -15730,6 +15843,7 @@ describe('procedural preset acquisition and ownership', () => {
       expect(preset.material.metallic).toBe(
         kind === 'metal' ||
           kind === 'copperpatina' ||
+          kind === 'chippedenamel' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron'

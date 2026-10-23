@@ -5775,3 +5775,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現米色竹節紗線平織與不規則紗隙，狀態列為 375 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.04 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5327 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：缺角象牙白琺瑯（chippedenamel）
+
+- 新增象牙白光滑釉層與 seeded 角狀崩落缺口，露出的深色金屬基材較低且粗糙；不產生 peelingpaint 的捲邊。目錄 375→376 種，0.25 m tile、四圖 opaque，metallic map 由釉層 0 過渡至裸材 1，預設 factor 1。不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 5 項與 build 通過，涵蓋三 seed 的混合金屬覆蓋、釉層與裸材色差／粗糙度／深度、無隆起捲邊、單元換主與 wrap 一階連續性，以及借用材質生命週期與 ownership。以上一功能 dist 為基準，size 64／seed 7 的既有 375 種四圖 SHA256 全相同，新增恰為 chippedenamel。
+- 初版實際預覽的圓形缺口不符合崩落輪廓，改成五半平面形成的角狀碎片；初版完整檢查中止，以下為修改後重新執行的結果。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現象牙白釉層與深色角狀缺口，狀態列為 376 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 1、alphaMode OPAQUE、0.25 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 metallic factor 列表同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5333 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查；既有 OPM dynamic-import Vite warning 未改。

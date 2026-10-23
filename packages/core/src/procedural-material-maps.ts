@@ -1251,6 +1251,54 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'chippedenamel': {
+        const p = proceduralMaterialPresets.chippedenamel;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6a37);
+        const stride = 3 + p.edges * 3;
+        const chips = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride;
+            chips[i] = 0.35 + 0.3 * hash(col, row, seed ^ 0x5b21);
+            chips[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x2e49);
+            chips[i + 2] =
+              hash(col, row, seed ^ 0x7c13) < p.chipChance
+                ? p.radiusMin + p.radiusRange * hash(col, row, seed ^ 0x4d61)
+                : 0;
+            const rotation = TAU * hash(col, row, seed ^ 0x3f19);
+            for (let edge = 0; edge < p.edges; edge++) {
+              const j = i + 3 + edge * 3;
+              const angle = rotation + (TAU * edge) / p.edges;
+              chips[j] = Math.cos(angle);
+              chips[j + 1] = Math.sin(angle);
+              chips[j + 2] =
+                chips[i + 2]! *
+                (0.55 + 0.3 * hash(col * p.edges + edge, row, seed ^ 0x1a53));
+            }
+          }
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const i = (row * p.cells + col) * stride;
+          const x = fract(u * p.cells) - chips[i]!,
+            y = fract(v * p.cells) - chips[i + 1]!;
+          let chip = chips[i + 2] === 0 ? 0 : 1;
+          for (let edge = 0; edge < p.edges && chip > 0; edge++) {
+            const j = i + 3 + edge * 3;
+            const inward = chips[j + 2]! - x * chips[j]! - y * chips[j + 1]!;
+            chip *= smooth(clamp(inward / p.edge));
+          }
+          const coating = 1 - chip,
+            grain = grainField(u, v);
+          // Brittle enamel breaks away without the curled lip of peeling paint.
+          color = 0.12 + 0.74 * coating + 0.03 * grain;
+          height = 0.15 + 0.5 * coating + 0.005 * grain;
+          metallic = chip;
+          roughness += 0.5 * chip + 0.04 * grain * chip;
+          occlusion = 1 - 0.12 * chip - 0.48 * chip * coating;
+          return;
+        };
+      }
       case 'linen': {
         const p = proceduralMaterialPresets.linen;
         const warpSlubs = cachedNoise(p.threads, 4, seed ^ 0x3c19);
@@ -10897,6 +10945,7 @@ export function createSurfaceSampler(
     kind === 'castiron' ||
     kind === 'porphyry' ||
     kind === 'linen' ||
+    kind === 'chippedenamel' ||
     fabricated ||
     botanical ||
     packaging ||

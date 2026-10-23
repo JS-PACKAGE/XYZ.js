@@ -381,7 +381,8 @@ export type ProceduralMaterialKind =
   | 'windmillpavers'
   | 'castiron'
   | 'porphyry'
-  | 'linen';
+  | 'linen'
+  | 'chippedenamel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -789,6 +790,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'castiron',
   'porphyry',
   'linen',
+  'chippedenamel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -913,6 +915,7 @@ export class ProceduralMaterial {
         this.kind === 'metal' ||
         this.kind === 'rust' ||
         this.kind === 'copperpatina' ||
+        this.kind === 'chippedenamel' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

@@ -291,6 +291,8 @@
 
 同輪追加 `linen`（竹節亞麻布），實際目錄 374→375 種：經緯紗線沿長度自然變粗變細，平滑交替覆蓋形成平織，交織點高於不透明紗隙。0.04 m tile 含 16×16 經緯交點，四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `chippedenamel`（缺角琺瑯），實際目錄 375→376 種：光滑象牙白非金屬釉層與缺角下較暗、粗糙的金屬基材，metallic map 同步分離覆蓋與裸露區域，脆性缺口不產生油漆捲邊。0.25 m tile、四圖 opaque、預設 metallic factor 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
