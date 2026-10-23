@@ -1248,6 +1248,52 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'canewebbing': {
+        const p = proceduralMaterialPresets.canewebbing;
+        const grainField = cachedNoise(16, 16, seed ^ 0x61c3);
+        const ribbon = (t: number, width: number): number => {
+          const distance = fract(t + 0.5) - 0.5;
+          return smooth(clamp(1 - (distance / width) ** 2));
+        };
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const warp = ribbon(x, p.ribbonWidth);
+          const weft = ribbon(y, p.ribbonWidth);
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y);
+          const warpTop = warp * (1 - weft + weft * over);
+          const weftTop = weft * (1 - warp + warp * (1 - over));
+          // Half-cell diagonal lacing clips all four corners of each square opening.
+          const rising = ribbon(x + y - 0.5, p.diagonalWidth);
+          const falling = ribbon(x - y - 0.5, p.diagonalWidth);
+          const diagonal = rising + falling - rising * falling;
+          const main = warpTop + weftTop;
+          const coverage = main * (1 - diagonal) + diagonal;
+          const grain = grainField(u, v);
+          const fiber =
+            (warpTop * Math.cos(TAU * 3 * x + phase) +
+              weftTop * Math.cos(TAU * 3 * y + phase)) *
+              (1 - diagonal) +
+            0.5 *
+              diagonal *
+              (Math.cos(TAU * 3 * (x + y) + phase) +
+                Math.cos(TAU * 3 * (x - y) + phase));
+          color = 0.04 + coverage * (0.6 + 0.1 * grain) + 0.035 * fiber;
+          height =
+            0.06 +
+            (warpTop * (0.63 + 0.04 * over) +
+              weftTop * (0.63 + 0.04 * (1 - over))) *
+              (1 - diagonal) +
+            0.72 * diagonal +
+            coverage * 0.01 * grain +
+            0.003 * fiber;
+          roughness +=
+            0.3 * (1 - coverage) + 0.04 * grain * coverage - 0.025 * fiber;
+          occlusion = 0.22 + 0.77 * coverage;
+          return;
+        };
+      }
       case 'subwaytiles': {
         const p = proceduralMaterialPresets.subwaytiles;
         const owners = new Float64Array(p.columns * p.rows);
@@ -10350,6 +10396,7 @@ export function createSurfaceSampler(
     architectural ||
     kind === 'flutedwood' ||
     kind === 'subwaytiles' ||
+    kind === 'canewebbing' ||
     fabricated ||
     botanical ||
     packaging ||

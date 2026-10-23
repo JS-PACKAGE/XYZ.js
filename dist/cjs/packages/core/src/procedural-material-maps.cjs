@@ -360,6 +360,15 @@ function createSurfaceSampler(t, r) {
 	}
 	let Ut = t === `stone` || t === `metal` || t === `marble`, Wt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, K = 0, q = 0, Gt = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 0, $ = 1, Kt = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `canewebbing`: {
+				let t = require_materials.proceduralMaterialPresets.canewebbing, i = cachedNoise(16, 16, r ^ 25027), ribbon = (e, t) => {
+					return smooth(clamp(1 - ((fract(e + .5) - .5) / t) ** 2));
+				};
+				return () => {
+					let e = K * t.cells, r = q * t.cells, o = ribbon(e, t.ribbonWidth), s = ribbon(r, t.ribbonWidth), c = .5 + .5 * Math.cos(Math.PI * e) * Math.cos(Math.PI * r), l = o * (1 - s + s * c), u = s * (1 - o + o * (1 - c)), d = ribbon(e + r - .5, t.diagonalWidth), f = ribbon(e - r - .5, t.diagonalWidth), p = d + f - d * f, m = (l + u) * (1 - p) + p, h = i(K, q), g = (l * Math.cos(n * 3 * e + a) + u * Math.cos(n * 3 * r + a)) * (1 - p) + .5 * p * (Math.cos(n * 3 * (e + r) + a) + Math.cos(n * 3 * (e - r) + a));
+					X = .04 + m * (.6 + .1 * h) + .035 * g, Z = .06 + (l * (.63 + .04 * c) + u * (.63 + .04 * (1 - c))) * (1 - p) + .72 * p + m * .01 * h + .003 * g, Q += .3 * (1 - m) + .04 * h * m - .025 * g, $ = .22 + .77 * m;
+				};
+			}
 			case `subwaytiles`: {
 				let t = require_materials.proceduralMaterialPresets.subwaytiles, n = new Float64Array(t.columns * t.rows);
 				for (let e = 0; e < t.rows; e++) for (let i = 0; i < t.columns; i++) n[e * t.columns + i] = hash(i, e, r ^ 31513);
@@ -2440,7 +2449,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !($e || t === `flutedwood` || t === `subwaytiles` || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !($e || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || it || st || ft || gt || xt || Et || kt || Mt || Se || It || zt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		K = fract(e), q = fract(t), Gt = Ut ? noise(K, q, 4, 4, r) : 0, J = Xt ? noise(K, q, 32, 32, Zt) : 0, Y = Wt ? noise(K, q, 64, 64, Qt) : 0, X = Gt, Z = Gt, Q = i.roughness, $ = 1, Kt = 0, qt = Jt, Yt(), n.color = X, n.height = Z * i.relief, n.roughness = clamp(Q), n.occlusion = $, n.mortar = Kt, n.metallic = qt;
 	};

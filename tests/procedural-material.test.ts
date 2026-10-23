@@ -385,7 +385,93 @@ const kinds: ProceduralMaterialKind[] = [
   'tatami',
   'flutedwood',
   'subwaytiles',
+  'canewebbing',
 ];
+
+describe('octagonal cane webbing', () => {
+  const p = proceduralMaterialPresets.canewebbing;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('canewebbing', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'encloses recessed octagons with cardinal and diagonal ribbons for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const hollow = at(col + 0.5, row + 0.5);
+          for (const [x, y] of [
+            [0, 0.5],
+            [1, 0.5],
+            [0.5, 0],
+            [0.5, 1],
+            [0.25, 0.25],
+            [0.75, 0.25],
+            [0.25, 0.75],
+            [0.75, 0.75],
+          ]) {
+            const edge = at(col + x!, row + y!);
+            expect(edge.height - hollow.height).toBeGreaterThan(0.6);
+            expect(edge.color - hollow.color).toBeGreaterThan(0.5);
+            expect(edge.occlusion - hollow.occlusion).toBeGreaterThan(0.7);
+            expect(hollow.roughness - edge.roughness).toBeGreaterThan(0.2);
+          }
+        }
+      }
+    },
+  );
+
+  it('keeps ribbon shoulders, diagonal crossings and wrap first derivatives continuous', () => {
+    const h = 1e-6;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let i = 0; i <= 32; i++) {
+        const t = (i * p.cells) / 32;
+        for (const edge of [
+          0,
+          p.cells,
+          p.ribbonWidth,
+          1 - p.ribbonWidth,
+          0.5 - t - p.diagonalWidth,
+          0.5 - t + p.diagonalWidth,
+          t + 0.5 - p.diagonalWidth,
+          t + 0.5 + p.diagonalWidth,
+        ]) {
+          for (const axis of [0, 1]) {
+            const a = axis === 0 ? at(edge - h, t) : at(t, edge - h);
+            const b = axis === 0 ? at(edge, t) : at(t, edge);
+            const c = axis === 0 ? at(edge + h, t) : at(t, edge + h);
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('beveled subway tiles', () => {
   const p = proceduralMaterialPresets.subwaytiles;

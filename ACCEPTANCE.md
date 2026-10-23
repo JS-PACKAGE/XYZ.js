@@ -5648,3 +5648,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 pbr3d 在 WebGPU／WebGL2 逐一選取並截圖，顯示青綠色釉面與錯縫、倒角 normal 預覽；狀態列為 360 presets，無 page errors。實際 size 33／seed 0xffffffff 建立、覆寫 borrowing roughness 0.8、0.6 m 對應 repeats 1、冪等銷毀四張 maps 與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步；相對連結無失效路徑。沿使用者授權獨立功能提交，不 push，不擴大跨瀏覽器／實機認證。
 - 完整 Vitest 178 檔／5248 項、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。文件完成後另跑八份變更 Markdown 格式檢查通過。既有 OPM dynamic-import Vite warning 保留，未改 audio。
+
+## 2026-10-23 程序材質：八角孔藤編（canewebbing）
+
+- 新增縱橫藤條、雙向斜藤與八角暗凹槽，目錄 360→361 種；0.24 m tile 含八乘八單元，四份 maps 為 opaque dielectric、metallic 0。孔隙僅為不透明暗底與 normal／AO 效果，不新增透明孔洞、geometry、shader 或 runtime 依賴。
+- 專項 Vitest 1 檔／1526 項與 build 通過。新增三 seed 的八邊藤條相對中心凹槽高度／顏色／AO／roughness 檢查，以及圓肩、斜藤支撐邊界和週期 wrap 的一階連續性檢查。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 360 種四圖 SHA256 全相同，新增恰為 canewebbing。
+- 本機 headless Chromium 的 pbr3d 在 WebGPU／WebGL2 選取並截圖，球體與 map previews 呈現藤編與深色孔隙，狀態列為 361 presets，完成驗證的頁面無 page errors。WebGL2 實際建立 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、0.24 m repeats 1；冪等銷毀四張 textures 並拒絕後續借用通過。
+- 驗證腳本初次誤讀非公開 texture property、另一次 browser frame detached；改用公開 `textures` 並在 build 完成後重新開頁，取得上述成功證據。未改引擎以規避工具錯誤。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push；不擴大瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5253 項、typecheck、lint、format:check、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

@@ -269,6 +269,8 @@
 
 `subwaytiles` 以兩欄四列錯縫矩形單元形成倒角長方磚。分離軸向平滑遮罩產生等寬填縫肩部與內縮平臺；逐磚 seed 色差在單元邊界前淡出，避免錯列換行時的色彩／法線接縫。平整釉面低 roughness、填縫高 roughness；四圖維持 opaque dielectric、0.6 m tile 與既有 ownership，目錄增為 360 種。
 
+`canewebbing` 以縱橫圓肩藤條與半格偏移的雙向斜藤形成八角孔外觀，連續交織遮罩區分經緯上下關係。藤條覆蓋率同時控制高度、AO 與 roughness；seeded 紋理僅作用在藤條上，暗凹槽維持不透明底板而非 alpha 孔洞。四張週期圖、tile 0.24 m、既有資源生命週期不變，目錄增為 361 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

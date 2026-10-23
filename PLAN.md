@@ -261,6 +261,8 @@
 
 同輪再追加 `subwaytiles`（倒角長方磚），實際目錄 359→360 種：青綠色平整釉面、錯縫排列、圓滑倒角與粗糙凹陷填縫。0.6 m tile 為兩欄四列；沿用 opaque dielectric 四圖與 caller ownership，不新增 geometry、位移或 renderer 功能。依使用者要求獨立驗證並提交，不 push。
 
+同輪追加 `canewebbing`（八角孔藤編），實際目錄 360→361 種：縱橫寬藤條與雙向斜細藤交織、八角深色凹槽及細纖維。0.24 m tile 為八乘八單元；仍為 opaque dielectric 四圖、非透明網孔或 geometry。沿用 public options／ownership；逐功能驗證、提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
