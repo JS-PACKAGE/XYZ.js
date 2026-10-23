@@ -406,7 +406,100 @@ const kinds: ProceduralMaterialKind[] = [
   'chevronparquet',
   'ginkgoleaf',
   'pressedtin',
+  'sashiko',
 ];
+
+describe('indigo sashiko cloth', () => {
+  const p = proceduralMaterialPresets.sashiko;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('sashiko', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates raised light stitches with indigo gaps along both grid axes for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const axis of [0, 1])
+        for (let row = 0; row < p.cells; row++) {
+          const along = (x: number, y: number) => (axis ? at(y, x) : at(x, y));
+          const centers = Array.from({ length: p.cells }, (_, col) =>
+            along((col + 0.5) / p.cells, row / p.cells),
+          );
+          expect(centers.filter((s) => s.color > 0.8)).toHaveLength(
+            p.cells / 2,
+          );
+          for (let col = 0; col < p.cells; col++) {
+            const here = centers[col],
+              next = centers[(col + 1) % p.cells];
+            expect(here.color > 0.8).not.toBe(next.color > 0.8);
+            if (here.color > 0.8) {
+              expect(here.height - next.height).toBeGreaterThan(0.011);
+              expect(next.roughness - here.roughness).toBeGreaterThan(0.045);
+              expect(
+                along((col + 0.5) / p.cells, (row + 0.2) / p.cells).color,
+              ).toBeLessThan(0.12);
+            } else expect(here.color).toBeLessThan(0.12);
+            expect(along(col / p.cells, row / p.cells).color).toBeLessThan(
+              0.12,
+            );
+          }
+        }
+    },
+  );
+  it('returns stitch tips and sides to the fabric without seams at owner boundaries or wrap', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          points.push(
+            [col / p.cells, row / p.cells],
+            [(col + 0.5) / p.cells, (row + 0.5) / p.cells],
+          );
+          for (let i = 0; i < 16; i++) {
+            const a = (i * Math.PI) / 8;
+            points.push([
+              (col + 0.5 + p.stitchLength * Math.cos(a)) / p.cells,
+              (row + p.stitchWidth * Math.sin(a)) / p.cells,
+            ]);
+            points.push([
+              (col + p.stitchWidth * Math.sin(a)) / p.cells,
+              (row + 0.5 + p.stitchLength * Math.cos(a)) / p.cells,
+            ]);
+          }
+        }
+      for (const [x, y] of points)
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(x, y),
+            c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('pressed tin ceiling panels', () => {
   const p = proceduralMaterialPresets.pressedtin;

@@ -1252,6 +1252,54 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'sashiko': {
+        const p = proceduralMaterialPresets.sashiko;
+        const grainField = cachedNoise(64, 64, seed ^ 0x7a31);
+        const phases = new Uint8Array(p.cells * 2);
+        for (let i = 0; i < p.cells; i++) {
+          phases[i] = hash(i, 0, seed ^ 0x1d73) < 0.5 ? 0 : 1;
+          phases[p.cells + i] = hash(i, 0, seed ^ 0x4f29) < 0.5 ? 0 : 1;
+        }
+        const alongScale = 1 / (p.stitchLength * p.stitchLength);
+        const acrossScale = 1 / (p.stitchWidth * p.stitchWidth);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const row = Math.floor(y + 0.5) % p.cells,
+            col = Math.floor(x + 0.5) % p.cells;
+          const dx = fract(x) - 0.5,
+            dy = fract(y + 0.5) - 0.5;
+          const ex = fract(x + 0.5) - 0.5,
+            ey = fract(y) - 0.5;
+          const horizontal =
+            Math.floor(x) % 2 === phases[row]
+              ? Math.max(0, 1 - dx * dx * alongScale - dy * dy * acrossScale)
+              : 0;
+          const vertical =
+            Math.floor(y) % 2 === phases[p.cells + col]
+              ? Math.max(0, 1 - ey * ey * alongScale - ex * ex * acrossScale)
+              : 0;
+          // Running stitches end before grid intersections; their supports do not overlap.
+          const stitch = horizontal * horizontal + vertical * vertical;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * u * p.threads);
+          const weft = 0.5 + 0.5 * Math.cos(TAU * v * p.threads);
+          const over =
+            0.5 +
+            0.5 *
+              Math.cos(Math.PI * u * p.threads) *
+              Math.cos(Math.PI * v * p.threads);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          const grain = grainField(u, v);
+          color = 0.04 + 0.05 * weave + 0.85 * stitch + 0.01 * grain;
+          height = 0.08 + 0.1 * weave + 0.6 * stitch + 0.005 * grain;
+          roughness += 0.03 * grain - 0.08 * stitch;
+          occlusion = 0.8 + 0.1 * weave + 0.1 * stitch;
+          return;
+        };
+      }
       case 'pressedtin': {
         const p = proceduralMaterialPresets.pressedtin;
         const fineField = cachedNoise(64, 64, seed ^ 0x5a39);
@@ -11155,6 +11203,7 @@ export function createSurfaceSampler(
     kind === 'chevronparquet' ||
     kind === 'ginkgoleaf' ||
     kind === 'pressedtin' ||
+    kind === 'sashiko' ||
     fabricated ||
     botanical ||
     packaging ||

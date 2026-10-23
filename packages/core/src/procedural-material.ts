@@ -387,7 +387,8 @@ export type ProceduralMaterialKind =
   | 'argyle'
   | 'chevronparquet'
   | 'ginkgoleaf'
-  | 'pressedtin';
+  | 'pressedtin'
+  | 'sashiko';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -801,6 +802,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chevronparquet',
   'ginkgoleaf',
   'pressedtin',
+  'sashiko',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

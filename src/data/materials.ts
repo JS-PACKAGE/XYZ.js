@@ -2455,6 +2455,16 @@ export const proceduralMaterialPresets = Object.freeze({
     petalWidth: 0.07,
     bossRadius: 0.09,
   }),
+  sashiko: Object.freeze({
+    dark: [9, 22, 48] as const,
+    light: [224, 222, 207] as const,
+    roughness: 0.78,
+    relief: 0.02,
+    cells: 8,
+    threads: 32,
+    stitchLength: 0.4,
+    stitchWidth: 0.09,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2840,4 +2850,5 @@ export const proceduralTileMeters = Object.freeze({
   chevronparquet: 0.6,
   ginkgoleaf: 0.24,
   pressedtin: 0.6,
+  sashiko: 0.064,
 });

@@ -5823,3 +5823,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 380 種四圖 SHA256 全相同，新增恰為 pressedtin。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與四圖呈現銀灰板面、方框及凸花飾，狀態列為 381 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 1、alphaMode OPAQUE、0.6 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。WebGL2 首頁截圖後的 lifecycle automation 遇 detached Frame，已回報工具問題；新建分頁完成相同 lifecycle smoke，未變更引擎。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5359 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：靛藍刺子繡布（sashiko）
+
+- 新增深靛藍平織底布上的米白凸起針腳，兩軸交替 running stitch 由 seeded 行列相位排列，格線交點與針腳間露出底布，區別於印花及連續補強線；目錄 381→382 種。0.064 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的雙軸針腳／空隙交替、針腳高度／亮度／roughness 對應，以及針腳端點、側邊、owner 邊界與 wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 381 種四圖 SHA256 全相同，新增恰為 sashiko。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現深靛藍底布與斷續亮針腳，狀態列為 382 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.064 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5364 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

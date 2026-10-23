@@ -2454,6 +2454,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         petalWidth: 0.07;
         bossRadius: 0.09;
     }>;
+    sashiko: Readonly<{
+        dark: readonly [9, 22, 48];
+        light: readonly [224, 222, 207];
+        roughness: 0.78;
+        relief: 0.02;
+        cells: 8;
+        threads: 32;
+        stitchLength: 0.4;
+        stitchWidth: 0.09;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2838,4 +2848,5 @@ export declare const proceduralTileMeters: Readonly<{
     chevronparquet: 0.6;
     ginkgoleaf: 0.24;
     pressedtin: 0.6;
+    sashiko: 0.064;
 }>;
