@@ -301,6 +301,8 @@
 
 `chippedenamel` 預先儲存 seeded 缺口中心與五條半平面邊界，平滑覆蓋乘積形成不同朝向的角狀碎片缺口。共用缺口覆蓋同步驅動 color、height、roughness 與 metallic：完整釉層 metallic 0，裸露基材 metallic 1；缺口平滑降至下層而不捲起邊緣，預設 factor 1 保留 map 的金屬資訊。0.25 m tile、四圖 opaque、既有 ownership 不變，目錄增為 376 種。
 
+`perforatedleather` 以偶數列週期的半格偏移排列圓孔，平方徑向距離經 smooth 過渡形成平底孔與圓潤孔壁，孔域在換主前消失。預先快取的雙尺度 seeded 細粒場只影響完整皮面；深色粗糙內襯固定在皮面下，並非透明穿孔或 raised 毛囊。0.04 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 377 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -401,7 +401,103 @@ const kinds: ProceduralMaterialKind[] = [
   'porphyry',
   'linen',
   'chippedenamel',
+  'perforatedleather',
 ];
+
+describe('perforated seat leather', () => {
+  const p = proceduralMaterialPresets.perforatedleather;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('perforatedleather', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps staggered round perforations darker, deeper and rougher than seeded leather for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let low = Infinity,
+        high = -Infinity;
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const x = (col + 0.5 + (row % 2) * 0.5) / p.cells;
+          const y = (row + 0.5) / p.cells;
+          const center = at(x, y);
+          const bridge = at(x + 0.5 / p.cells, y);
+          expect(bridge.height - center.height).toBeGreaterThan(0.007);
+          expect(bridge.color - center.color).toBeGreaterThan(0.5);
+          expect(center.roughness - bridge.roughness).toBeGreaterThan(0.4);
+          expect(bridge.occlusion - center.occlusion).toBeGreaterThan(0.7);
+          expect(center.metallic).toBe(0);
+          low = Math.min(low, bridge.height);
+          high = Math.max(high, bridge.height);
+          for (let angle = 0; angle < 8; angle++) {
+            const a = (angle * Math.PI) / 4;
+            const wall = at(
+              x + (0.19 * Math.cos(a)) / p.cells,
+              y + (0.19 * Math.sin(a)) / p.cells,
+            );
+            expect(wall.height).toBeGreaterThan(center.height + 0.002);
+            expect(wall.height).toBeLessThan(bridge.height - 0.002);
+          }
+        }
+      }
+      expect(high - low).toBeGreaterThan(0.0001);
+      const maps = generateProceduralMaps('perforatedleather', 64, seed);
+      for (let i = 3; i < maps.baseColor.length; i += 4) {
+        expect(maps.baseColor[i]).toBe(255);
+      }
+    },
+  );
+  it('keeps staggered row owners, hole shoulders and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let row = 0; row <= p.cells; row++) {
+        for (let i = 0; i <= 32; i++) {
+          points.push([i / 32, row / p.cells], [row / p.cells, i / 32]);
+        }
+      }
+      for (const radius of [p.coreRadius, p.outerRadius]) {
+        for (let angle = 0; angle < 32; angle++) {
+          const a = (angle * Math.PI) / 16;
+          points.push([
+            (0.5 + radius * Math.cos(a)) / p.cells,
+            (0.5 + radius * Math.sin(a)) / p.cells,
+          ]);
+        }
+      }
+      for (const [x, y] of points) {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('chipped ivory enamel', () => {
   const p = proceduralMaterialPresets.chippedenamel;

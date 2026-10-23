@@ -293,6 +293,8 @@
 
 同輪追加 `chippedenamel`（缺角琺瑯），實際目錄 375→376 種：光滑象牙白非金屬釉層與缺角下較暗、粗糙的金屬基材，metallic map 同步分離覆蓋與裸露區域，脆性缺口不產生油漆捲邊。0.25 m tile、四圖 opaque、預設 metallic factor 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `perforatedleather`（透氣孔座椅皮革），實際目錄 376→377 種：棕褐細粒皮面與 8×8 錯列圓孔，圓潤孔壁降至深色粗糙不透明內襯，沒有鴕鳥皮毛囊的隆起環。0.04 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

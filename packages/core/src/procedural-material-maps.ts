@@ -1251,6 +1251,29 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'perforatedleather': {
+        const p = proceduralMaterialPresets.perforatedleather;
+        const grainField = cachedNoise(64, 64, seed ^ 0x4e17);
+        const fineField = cachedNoise(128, 128, seed ^ 0x2b63);
+        const outerSquared = p.outerRadius * p.outerRadius;
+        const wallRange = outerSquared - p.coreRadius * p.coreRadius;
+        return () => {
+          const row = Math.floor(v * p.cells);
+          const x = fract(u * p.cells - (row % 2) * 0.5) - 0.5;
+          const y = fract(v * p.cells) - 0.5;
+          const hole = smooth(
+            clamp((outerSquared - x * x - y * y) / wallRange),
+          );
+          const face = 1 - hole;
+          const grain = 0.7 * grainField(u, v) + 0.3 * fineField(u, v);
+          // Recessed opaque backing, not alpha-cut geometry or raised quill collars.
+          color = (0.55 + 0.12 * grain) * face + 0.025 * hole;
+          height = (0.6 + 0.035 * grain) * face + 0.08 * hole;
+          roughness += 0.03 * grain * face + 0.46 * hole;
+          occlusion = 0.98 - 0.75 * hole;
+          return;
+        };
+      }
       case 'chippedenamel': {
         const p = proceduralMaterialPresets.chippedenamel;
         const grainField = cachedNoise(96, 96, seed ^ 0x6a37);
@@ -10946,6 +10969,7 @@ export function createSurfaceSampler(
     kind === 'porphyry' ||
     kind === 'linen' ||
     kind === 'chippedenamel' ||
+    kind === 'perforatedleather' ||
     fabricated ||
     botanical ||
     packaging ||
