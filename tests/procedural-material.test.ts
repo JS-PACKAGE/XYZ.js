@@ -411,7 +411,105 @@ const kinds: ProceduralMaterialKind[] = [
   'gabion',
   'gingham',
   'mossypavers',
+  'bamboocrosscut',
 ];
+
+describe('bamboo tube crosscut', () => {
+  const p = proceduralMaterialPresets.bamboocrosscut;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('bamboocrosscut', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates hollow centers, cut walls and smooth rinds for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const outerEdges: number[] = [],
+        woodColors: number[] = [];
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells; x++) {
+          const cx = (x + 0.5) / p.cells,
+            cy = (y + 0.5) / p.cells;
+          const hollow = at(cx, cy),
+            outside = at(cx + 0.49 / p.cells, cy);
+          for (const floor of [hollow, outside]) {
+            expect(floor.height).toBe(0);
+            expect(floor.color).toBeLessThan(0.04);
+            expect(floor.occlusion).toBeLessThan(0.4);
+          }
+          const profile = Array.from({ length: 201 }, (_, i) =>
+            at(cx + i / 400 / p.cells, cy),
+          );
+          const raised = profile
+            .map((s, i) => (s.height > 0.01 ? i / 400 : -1))
+            .filter((r) => r >= 0);
+          const first = raised[0]!,
+            last = raised[raised.length - 1]!;
+          expect(first).toBeGreaterThan(0.23);
+          expect(last).toBeLessThan(0.46);
+          expect(last - first).toBeGreaterThan(0.075);
+          expect(last - first).toBeLessThan(0.2);
+          outerEdges.push(last);
+          const wall = profile.reduce((a, b) => (a.color > b.color ? a : b));
+          expect(wall.color).toBeGreaterThan(0.7);
+          expect(wall.height).toBeGreaterThan(0.019);
+          expect(wall.roughness).toBeGreaterThan(0.72);
+          expect(wall.occlusion).toBeGreaterThan(0.9);
+          const rind = profile
+            .filter((s) => s.height > 0.02 && s.color < 0.3)
+            .reduce((a, b) => (a.roughness < b.roughness ? a : b));
+          expect(rind.roughness).toBeLessThan(wall.roughness - 0.18);
+          expect(rind.color).toBeLessThan(wall.color - 0.4);
+          for (const s of profile)
+            if (s.height > 0.019 && s.roughness > 0.72 && s.color > 0.5)
+              woodColors.push(s.color);
+        }
+      expect(Math.max(...outerEdges) - Math.min(...outerEdges)).toBeGreaterThan(
+        0.015,
+      );
+      expect(Math.max(...woodColors) - Math.min(...woodColors)).toBeGreaterThan(
+        0.15,
+      );
+    },
+  );
+  it('keeps radial walls, cell boundaries and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('moss-jointed stone pavers', () => {
   const p = proceduralMaterialPresets.mossypavers;

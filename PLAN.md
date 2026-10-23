@@ -313,6 +313,8 @@
 
 同輪追加 `mossypavers`（苔蘚鋪路石），實際目錄 385→386 種：灰色倒角方石與接縫內局部生長的綠色苔蘚，苔蘚冠高於裸露接縫、低於石面且更粗糙，並非把整面石材染綠。0.8 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `bamboocrosscut`（竹筒橫切面），實際目錄 386→387 種：seeded 直徑與壁厚的環狀淡色竹壁、深色中空底層、細孔及較平滑外皮；不使用木材年輪。0.24 m tile、四圖 opaque dielectric；中空不是可穿透 geometry，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

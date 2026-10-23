@@ -2504,6 +2504,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         gap: 0.035;
         bevel: 0.065;
     }>;
+    bamboocrosscut: Readonly<{
+        dark: readonly [22, 34, 11];
+        light: readonly [216, 199, 129];
+        roughness: 0.74;
+        relief: 0.03;
+        cells: 4;
+        edge: 0.025;
+        rindWidth: 0.06;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2893,4 +2902,5 @@ export declare const proceduralTileMeters: Readonly<{
     gabion: 0.4;
     gingham: 0.08;
     mossypavers: 0.8;
+    bamboocrosscut: 0.24;
 }>;

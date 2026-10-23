@@ -1252,6 +1252,49 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'bamboocrosscut': {
+        const p = proceduralMaterialPresets.bamboocrosscut;
+        const tubes = new Float64Array(p.cells * p.cells * 3);
+        for (let y = 0; y < p.cells; y++)
+          for (let x = 0; x < p.cells; x++) {
+            const i = (y * p.cells + x) * 3;
+            const radius = 0.4 + 0.055 * hash(x, y, seed ^ 0x7a31);
+            tubes[i] = radius;
+            tubes[i + 1] = radius * (0.59 + 0.1 * hash(x, y, seed ^ 0xb419));
+            tubes[i + 2] = hash(x, y, seed ^ 0x5d63);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x391b);
+        const poreField = cachedNoise(64, 64, seed ^ 0x89c7);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 3;
+          const radius = tubes[i]!,
+            inner = tubes[i + 1]!,
+            tone = tubes[i + 2]!;
+          const distance = Math.hypot(fract(x) - 0.5, fract(y) - 0.5);
+          const wall =
+            smooth(clamp((radius - distance) / p.edge)) *
+            smooth(clamp((distance - inner) / p.edge));
+          const rind = smooth(
+            clamp((distance - radius + p.rindWidth) / p.edge),
+          );
+          const grain = grainField(u, v);
+          const pores =
+            smooth(clamp((poreField(u, v) - 0.62) / 0.16)) * (1 - rind);
+          // Unlike timber endgrain, bamboo has an annular wall and no annual
+          // rings. The dark hollow remains opaque backing, not cutout geometry.
+          color =
+            0.025 +
+            0.01 * grain +
+            wall *
+              ((0.78 + 0.1 * tone - 0.1 * pores) * (1 - rind) + 0.18 * rind);
+          height = wall * (0.7 + 0.015 * grain - 0.05 * pores);
+          roughness += 0.03 * grain - 0.24 * wall * rind;
+          occlusion = 0.35 + 0.6 * wall;
+          return;
+        };
+      }
       case 'mossypavers': {
         const p = proceduralMaterialPresets.mossypavers;
         const growthField = cachedNoise(8, 8, seed ^ 0x6c39);
@@ -11367,6 +11410,7 @@ export function createSurfaceSampler(
     kind === 'gabion' ||
     kind === 'gingham' ||
     kind === 'mossypavers' ||
+    kind === 'bamboocrosscut' ||
     fabricated ||
     botanical ||
     packaging ||

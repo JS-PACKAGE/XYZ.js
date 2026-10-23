@@ -5863,3 +5863,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 385 種四圖 SHA256 全相同，新增恰為 mossypavers。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現中性方石與局部綠色凹縫，狀態列為 386 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5385 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：竹筒橫切面（bamboocrosscut）
+
+- 新增 seeded 外徑與壁厚的環狀淡色竹壁、細孔、深色中空底層與較平滑外皮，不套用木材年輪；目錄 386→387 種。0.24 m tile、四圖 opaque dielectric、metallic 0；中空不是可穿透 geometry，不新增 shader、options 或 runtime 依賴。
+- 初次專項測試發現 seed 0xffffffff 的兩個窄竹壁徑向切面被孔隙噪音整段壓暗，實際 sampler 峰值約 0.671／0.678；降低孔隙壓暗幅度、保留孔隙高度後，原測試不變，專項 4 項與 build 通過。涵蓋三 seed 的深色中空、環壁範圍、淡色切面與平滑外皮、逐筒尺寸及細孔色差，以及徑向場、cell 邊界與 wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 386 種四圖 SHA256 全相同，新增恰為 bamboocrosscut。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現深色筒心與明亮環狀切面，狀態列為 387 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.24 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5390 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
