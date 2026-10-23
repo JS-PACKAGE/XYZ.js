@@ -1240,6 +1240,7 @@ export function createSurfaceSampler(
     kind === 'hexnuts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
+    kind === 'rollerchain' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1260,6 +1261,83 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'rollerchain': {
+        const p = proceduralMaterialPresets.rollerchain;
+        const grainField = cachedNoise(16, 96, seed ^ 0x6e41);
+        return () => {
+          const row = Math.floor(v * p.rows);
+          const x = u * p.columns - (row % 2) * 0.5;
+          const y = fract(v * p.rows) - 0.5;
+          const column = Math.floor(x);
+          let face = 0,
+            raised = 0;
+          for (let offset = -1; offset <= 1; offset++) {
+            const col = column + offset,
+              dx = x - col - 0.5;
+            const left = smooth(
+              clamp(
+                (1 -
+                  ((dx + 0.5) ** 2 + y * y) / (p.headRadius * p.headRadius)) /
+                  p.bevel,
+              ),
+            );
+            const right = smooth(
+              clamp(
+                (1 -
+                  ((dx - 0.5) ** 2 + y * y) / (p.headRadius * p.headRadius)) /
+                  p.bevel,
+              ),
+            );
+            const bridge = smooth(
+              clamp(
+                (1 - (dx / p.bridgeLength) ** 8 - (y / p.waistRadius) ** 2) /
+                  p.bevel,
+              ),
+            );
+            const plate = 1 - (1 - left) * (1 - right) * (1 - bridge);
+            face += (1 - face) * plate;
+            if (col % 2 === 0) raised += (1 - raised) * plate;
+          }
+          const pinX = fract(x + 0.5) - 0.5,
+            radius = Math.hypot(pinX, y);
+          const pin = smooth(
+            clamp(
+              (p.pinRadius * p.pinRadius - radius * radius) /
+                (p.pinRadius * p.pinRadius - p.pinCore * p.pinCore),
+            ),
+          );
+          const crown = smooth(
+            clamp(1 - (radius * radius) / (p.pinRadius * p.pinRadius)),
+          );
+          const collar = smooth(
+            clamp(1 - ((radius - p.collarRadius) / p.collarWidth) ** 2),
+          );
+          const grain = grainField(u, v);
+          color =
+            0.08 +
+            0.45 * face +
+            0.12 * raised +
+            0.12 * pin -
+            0.2 * collar +
+            0.03 * grain * face;
+          // Alternate outer plates overlap inner plates at their shared hinge pins.
+          height =
+            0.05 +
+            0.4 * face +
+            0.16 * raised +
+            0.12 * pin +
+            0.03 * crown -
+            0.04 * collar +
+            0.004 * grain * face;
+          roughness +=
+            0.12 * (1 - face) -
+            0.12 * raised -
+            0.12 * pin +
+            0.2 * collar +
+            0.02 * grain * face;
+          occlusion = 0.3 + 0.65 * face - 0.2 * collar + 0.05 * pin;
+        };
+      }
       case 'ravioli': {
         const p = proceduralMaterialPresets.ravioli;
         const pillows = new Float64Array(p.cells * p.cells * 3);
@@ -14601,6 +14679,7 @@ export function createSurfaceSampler(
     kind === 'eyeletcotton' ||
     kind === 'dendriticagate' ||
     kind === 'ravioli' ||
+    kind === 'rollerchain' ||
     fabricated ||
     botanical ||
     packaging ||

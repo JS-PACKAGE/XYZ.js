@@ -457,7 +457,8 @@ export type ProceduralMaterialKind =
   | 'trilobitefossil'
   | 'eyeletcotton'
   | 'dendriticagate'
-  | 'ravioli';
+  | 'ravioli'
+  | 'rollerchain';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -941,6 +942,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'eyeletcotton',
   'dendriticagate',
   'ravioli',
+  'rollerchain',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1083,6 +1085,7 @@ export class ProceduralMaterial {
         this.kind === 'hexnuts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||
+        this.kind === 'rollerchain' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

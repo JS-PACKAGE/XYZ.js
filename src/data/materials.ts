@@ -3299,6 +3299,22 @@ export const proceduralMaterialPresets = Object.freeze({
     crimpSpan: 0.34,
     crimps: 8,
   }),
+  rollerchain: Object.freeze({
+    dark: [25, 29, 31] as const,
+    light: [195, 207, 216] as const,
+    roughness: 0.43,
+    relief: 0.025,
+    columns: 6,
+    rows: 4,
+    headRadius: 0.22,
+    waistRadius: 0.12,
+    bridgeLength: 0.55,
+    bevel: 0.25,
+    pinRadius: 0.085,
+    pinCore: 0.065,
+    collarRadius: 0.11,
+    collarWidth: 0.02,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3754,4 +3770,5 @@ export const proceduralTileMeters = Object.freeze({
   eyeletcotton: 0.06,
   dendriticagate: 0.15,
   ravioli: 0.16,
+  rollerchain: 0.24,
 });

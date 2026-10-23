@@ -476,7 +476,97 @@ const kinds: ProceduralMaterialKind[] = [
   'eyeletcotton',
   'dendriticagate',
   'ravioli',
+  'rollerchain',
 ];
+
+describe('Roller chain sideplates', () => {
+  const p = proceduralMaterialPresets.rollerchain;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('rollerchain', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps four chains with alternating dogbone plates, shared pin heads and recessed collars for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const at = (x: number, y: number) =>
+          sample((x + (row % 2) * 0.5) / p.columns, (row + 0.5 + y) / p.rows);
+        for (let col = 0; col < p.columns; col++) {
+          const plate = at(col + 0.5, 0),
+            neighbor = at(col + 1.5, 0);
+          const pin = at(col, 0),
+            collar = at(col, p.collarRadius);
+          const shoulder = at(col, 0.17),
+            waistOutside = at(col + 0.5, 0.17);
+          expect(
+            (plate.height - neighbor.height) * (col % 2 ? -1 : 1),
+          ).toBeGreaterThan(0.0038);
+          expect(pin.height - shoulder.height).toBeGreaterThan(0.0036);
+          expect(shoulder.height - collar.height).toBeGreaterThan(0.0009);
+          expect(shoulder.height - waistOutside.height).toBeGreaterThan(0.0139);
+          expect(shoulder.color - waistOutside.color).toBeGreaterThan(0.56);
+          expect(collar.roughness - shoulder.roughness).toBeGreaterThan(0.18);
+          expect(shoulder.occlusion - collar.occlusion).toBeCloseTo(0.2, 12);
+          expect(pin.occlusion).toBe(1);
+          expect(pin.metallic).toBe(1);
+          expect(waistOutside.metallic).toBe(1);
+        }
+      }
+    },
+  );
+  it('keeps overlapping plate ownership, pin shoulders, collars and row/tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 192; x++) points.push([x / 192, y / 128]);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (const radius of [
+            p.pinCore,
+            p.pinRadius,
+            p.collarRadius - p.collarWidth,
+            p.collarRadius + p.collarWidth,
+            p.headRadius,
+          ])
+            for (let ray = 0; ray < 32; ray++) {
+              const angle = (Math.PI * ray) / 16;
+              points.push([
+                (col + (row % 2) * 0.5 + radius * Math.cos(angle)) / p.columns,
+                (row + 0.5 + radius * Math.sin(angle)) / p.rows,
+              ]);
+            }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+    }
+  });
+});
 
 describe('Ravioli pasta pillows', () => {
   const p = proceduralMaterialPresets.ravioli;
@@ -14040,6 +14130,7 @@ describe('periodic procedural material fields', () => {
           kind === 'hexnuts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
+          kind === 'rollerchain' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -23330,6 +23421,7 @@ describe('procedural preset acquisition and ownership', () => {
     'hexnuts',
     'sawblades',
     'countersunkmetal',
+    'rollerchain',
     'basketball',
     'tennisball',
     'golfball',
@@ -23356,7 +23448,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'sawblades' ||
-          kind === 'countersunkmetal'
+          kind === 'countersunkmetal' ||
+          kind === 'rollerchain'
           ? 1
           : 0,
       );
