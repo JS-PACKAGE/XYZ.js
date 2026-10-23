@@ -5719,3 +5719,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現白色切角磚、深色交點嵌磚與填縫，狀態列為 368 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5289 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：Truchet 雙弧線花磚（truchettiles）
+
+- 新增 seeded 旋轉的相對角雙弧色釉、方磚倒角與凹填縫，目錄 368→369 種；0.8 m tile 含四乘四方磚，色釉不額外隆起。四圖 opaque dielectric、metallic 0；不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的相對角配對、每邊中點對接、圖案與空白等高，以及全部磚面旋轉弧帶／填縫／wrap 一階連續性。以上一功能 dist 為基準，size 64／seed 7 的既有 368 種四圖 SHA256 全相同，新增恰為 truchettiles。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現連續弧線拼圖，normal／AO 仍只顯示方磚填縫，狀態列為 369 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5294 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

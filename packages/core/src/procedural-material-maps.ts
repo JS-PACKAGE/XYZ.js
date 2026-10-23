@@ -1248,6 +1248,39 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'truchettiles': {
+        const p = proceduralMaterialPresets.truchettiles;
+        const grainField = cachedNoise(32, 32, seed ^ 0x2d75);
+        const turns = new Uint8Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            turns[row * p.cells + col] =
+              hash(col, row, seed ^ 0x4be9) < 0.5 ? 0 : 1;
+        const radiusSquared = p.arcRadius * p.arcRadius;
+        const arc = (x: number, y: number): number => {
+          const d = (x * x + y * y - radiusSquared) / p.arcWidthSquared;
+          return smooth(clamp(1 - d * d));
+        };
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const x = fract(u * p.cells),
+            y = fract(v * p.cells);
+          const face =
+            smooth(clamp((Math.min(x, 1 - x) - p.grout) / p.shoulder)) *
+            smooth(clamp((Math.min(y, 1 - y) - p.grout) / p.shoulder));
+          const ty = turns[row * p.cells + col] ? 1 - y : y;
+          const motif = arc(x, ty) + arc(1 - x, 1 - ty);
+          const grain = grainField(u, v);
+          color = 0.3 + face * (0.62 - 0.83 * motif + 0.025 * grain);
+          // Glazed pigment follows the same flat tile face, not raised tubing.
+          height = (0.65 + 0.003 * grain) * face;
+          roughness += 0.32 * (1 - face) + 0.015 * grain * face;
+          occlusion = 0.5 + 0.5 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'octagondot': {
         const p = proceduralMaterialPresets.octagondot;
         const grainField = cachedNoise(32, 32, seed ^ 0x7ce3);
@@ -10624,6 +10657,7 @@ export function createSurfaceSampler(
     kind === 'basketweavepavers' ||
     kind === 'ripstop' ||
     kind === 'octagondot' ||
+    kind === 'truchettiles' ||
     fabricated ||
     botanical ||
     packaging ||

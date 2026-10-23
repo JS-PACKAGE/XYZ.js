@@ -285,6 +285,8 @@
 
 `octagondot` 以軸向與斜向平滑帶的乘積裁出八角主磚，交點另以兩條平方斜向帶生成菱形嵌磚，避免菱形軸線上的法線尖折。兩者共享等高平面但色彩分離，填縫保留較高粗糙度與較低 AO；0.8 m tile、四乘四主磚、四圖 opaque dielectric／metallic 0、既有 ownership 不變，目錄增為 368 種。
 
+`truchettiles` 預先儲存四乘四磚面的 seeded 轉向，以平方半徑差的平滑 compact band 生成相對角雙弧，旋轉後仍在每條邊的中點對接。圖案只改釉色、不抬升高度；磚面肩部將轉向差異淡出至共同凹填縫，避免邊界法線跳變。0.8 m tile、四圖 opaque dielectric／metallic 0、既有 ownership 不變，目錄增為 369 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

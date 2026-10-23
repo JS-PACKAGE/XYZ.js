@@ -277,6 +277,8 @@
 
 同輪追加 `octagondot`（八角菱形拼磚），實際目錄 367→368 種：白色八角主磚與深色菱形嵌磚等高，配有倒角及連續粗糙填縫。0.8 m tile 含四乘四主磚；四圖 opaque dielectric／metallic 0，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `truchettiles`（Truchet 雙弧線花磚），實際目錄 368→369 種：每塊釉面方磚依 seed 旋轉兩條四分之一圓弧，邊中點對接形成曲線拼圖；色釉不額外隆起。0.8 m tile 含四乘四方磚，四圖 opaque dielectric／metallic 0；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

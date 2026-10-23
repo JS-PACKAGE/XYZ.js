@@ -393,7 +393,110 @@ const kinds: ProceduralMaterialKind[] = [
   'basketweavepavers',
   'ripstop',
   'octagondot',
+  'truchettiles',
 ];
+
+describe('Truchet double-arc glazed tiles', () => {
+  const p = proceduralMaterialPresets.truchettiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('truchettiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains paired quarter arcs, aligned edge ports and flat pigment for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const q = p.arcRadius / Math.SQRT2;
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const a = at(col + q, row + q),
+            b = at(col + q, row + 1 - q);
+          const aa = at(col + 1 - q, row + 1 - q),
+            bb = at(col + 1 - q, row + q);
+          expect(Math.abs(a.color - b.color)).toBeGreaterThan(0.8);
+          expect(Math.abs(a.color - aa.color)).toBeLessThan(0.03);
+          expect(Math.abs(b.color - bb.color)).toBeLessThan(0.03);
+          expect(Math.abs(a.height - b.height)).toBeLessThan(0.004);
+          const blank = at(col + 0.5, row + 0.5);
+          for (const [x, y] of [
+            [0.06, 0.5],
+            [0.94, 0.5],
+            [0.5, 0.06],
+            [0.5, 0.94],
+          ]) {
+            const port = at(col + x!, row + y!);
+            expect(blank.color - port.color).toBeGreaterThan(0.8);
+            expect(Math.abs(blank.height - port.height)).toBeLessThan(0.004);
+            expect(port.mortar).toBe(0);
+          }
+          expect(at(col, row + 0.5).mortar).toBe(1);
+        }
+      }
+    },
+  );
+
+  it('keeps rotated motif supports and shared grout C1 continuous', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (x: number, y: number): void => {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      };
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          for (let i = 0; i <= 16; i++) {
+            const t = i / 16;
+            for (const edge of [0, p.grout, p.grout + p.shoulder, 1]) {
+              check(col + edge, row + t);
+              check(col + t, row + edge);
+            }
+            for (const radius of [
+              Math.sqrt(p.arcRadius ** 2 - p.arcWidthSquared),
+              p.arcRadius,
+              Math.sqrt(p.arcRadius ** 2 + p.arcWidthSquared),
+            ]) {
+              const x = radius * Math.cos((t * Math.PI) / 2),
+                y = radius * Math.sin((t * Math.PI) / 2);
+              check(col + x, row + y);
+              check(col + x, row + 1 - y);
+              check(col + 1 - x, row + y);
+              check(col + 1 - x, row + 1 - y);
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('octagon and diamond inset tiles', () => {
   const p = proceduralMaterialPresets.octagondot;
