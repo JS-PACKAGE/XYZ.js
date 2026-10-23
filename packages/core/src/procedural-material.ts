@@ -367,7 +367,8 @@ export type ProceduralMaterialKind =
   | 'tatami'
   | 'flutedwood'
   | 'subwaytiles'
-  | 'canewebbing';
+  | 'canewebbing'
+  | 'rammedearth';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -761,6 +762,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flutedwood',
   'subwaytiles',
   'canewebbing',
+  'rammedearth',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

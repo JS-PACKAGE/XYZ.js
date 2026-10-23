@@ -263,6 +263,8 @@
 
 同輪追加 `canewebbing`（八角孔藤編），實際目錄 360→361 種：縱橫寬藤條與雙向斜細藤交織、八角深色凹槽及細纖維。0.24 m tile 為八乘八單元；仍為 opaque dielectric 四圖、非透明網孔或 geometry。沿用 public options／ownership；逐功能驗證、提交、不 push。
 
+同輪追加 `rammedearth`（夯土牆），實際目錄 361→362 種：寬幅土色壓實層、輕微起伏接縫、細砂粒與凹孔，非砂岩換色。每張 2 m tile 八層；四圖維持 opaque dielectric、metallic 0，不新增位移／geometry 或資源生命週期。依使用者授權逐功能驗證、提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

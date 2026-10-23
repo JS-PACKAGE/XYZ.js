@@ -271,6 +271,8 @@
 
 `canewebbing` 以縱橫圓肩藤條與半格偏移的雙向斜藤形成八角孔外觀，連續交織遮罩區分經緯上下關係。藤條覆蓋率同時控制高度、AO 與 roughness；seeded 紋理僅作用在藤條上，暗凹槽維持不透明底板而非 alpha 孔洞。四張週期圖、tile 0.24 m、既有資源生命週期不變，目錄增為 361 種。
 
+`rammedearth` 將八層 seeded 土色透過平滑過渡連接，沿水平週期波微幅彎曲；窄壓實接縫、細砂與凹孔另外控制 normal／roughness／AO，避免把色帶直接變成幾何階梯。預先快取色層與 noise lattices，sample 不配置；2 m tile、opaque dielectric 四圖與既有 ownership 不變，目錄增為 362 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

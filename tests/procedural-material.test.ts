@@ -386,7 +386,82 @@ const kinds: ProceduralMaterialKind[] = [
   'flutedwood',
   'subwaytiles',
   'canewebbing',
+  'rammedearth',
 ];
+
+describe('rammed earth walls', () => {
+  const p = proceduralMaterialPresets.rammedearth;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('rammedearth', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains alternating packed earth layers without turning color bands into raised terraces for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.layers; row += 2) {
+        let colorDifference = 0;
+        let heightDifference = 0;
+        for (let i = 0; i < 64; i++) {
+          const dark = at(i / 64, row / p.layers);
+          const light = at(i / 64, (row + 1) / p.layers);
+          colorDifference += light.color - dark.color;
+          heightDifference += light.height - dark.height;
+          expect(dark.roughness).toBeGreaterThan(0.85);
+          expect(light.roughness).toBeGreaterThan(0.85);
+        }
+        expect(colorDifference / 64).toBeGreaterThan(0.18);
+        expect(Math.abs(heightDifference / 64)).toBeLessThan(0.06);
+      }
+    },
+  );
+
+  it('keeps layer blending, compressed seams and periodic joins C1 continuous', () => {
+    const at = field(0);
+    const h = 1e-7;
+    for (const u of [0, 0.5, 1]) {
+      for (let row = 0; row <= p.layers; row++) {
+        for (const offset of [
+          0,
+          0.5 - p.transition,
+          0.5 - p.seamWidth,
+          0.5,
+          0.5 + p.seamWidth,
+          0.5 + p.transition,
+        ]) {
+          const v = (row + offset) / p.layers;
+          const a = at(u, v - h),
+            b = at(u, v),
+            c = at(u, v + h);
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('octagonal cane webbing', () => {
   const p = proceduralMaterialPresets.canewebbing;

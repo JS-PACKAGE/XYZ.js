@@ -5658,3 +5658,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 驗證腳本初次誤讀非公開 texture property、另一次 browser frame detached；改用公開 `textures` 並在 build 完成後重新開頁，取得上述成功證據。未改引擎以規避工具錯誤。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push；不擴大瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5253 項、typecheck、lint、format:check、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：夯土牆（rammedearth）
+
+- 新增八層寬幅土色壓實帶、微彎接縫、細砂與凹孔，目錄 361→362 種；tile 2 m，四圖維持 opaque dielectric、metallic 0，不新增位移、geometry、shader 或 runtime 依賴。
+- 專項 Vitest 1 檔／1531 項、build、typecheck、lint、format:check 通過。新增三 seed 的層間土色對比與高度不隨色帶變階梯、層間融合／壓實縫／週期邊界一階連續性檢查。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 361 種四圖 SHA256 全相同，新增恰為 rammedearth。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor preview 可見寬幅微彎土色層，AO 可見凹孔，狀態列為 362 presets，無 page errors。實際 size 33／seed 0xffffffff 建立、借用 roughness 0.8、metallic 0、2 m repeats 1、冪等銷毀四張 maps 與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實體裝置與效能認證。
+- 完整 Vitest 178 檔／5258 項、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

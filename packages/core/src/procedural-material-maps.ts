@@ -1248,6 +1248,37 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'rammedearth': {
+        const p = proceduralMaterialPresets.rammedearth;
+        const tones = new Float64Array(p.layers);
+        for (let i = 0; i < p.layers; i++)
+          tones[i] = 0.22 + 0.46 * (i % 2) + 0.14 * hash(i, 0, seed ^ 0x4e71);
+        const grains = cachedNoise(96, 96, seed ^ 0x2e59);
+        const pores = cachedNoise(32, 48, seed ^ 0x754b);
+        return () => {
+          const warp =
+            p.warp * Math.sin(TAU * u + phase) +
+            p.fineWarp * Math.sin(TAU * 3 * u - phase);
+          const bedding = fract(v + warp / p.layers) * p.layers;
+          const layer = Math.floor(bedding);
+          const f = fract(bedding);
+          // Blend layer owners before wrapping; packed seams do not create normal jumps.
+          const blend = smooth(
+            clamp((f - 0.5 + p.transition) / (2 * p.transition)),
+          );
+          const tone =
+            tones[layer] +
+            (tones[(layer + 1) % p.layers] - tones[layer]) * blend;
+          const seam = smooth(clamp(1 - ((f - 0.5) / p.seamWidth) ** 2));
+          const grain = grains(u, v);
+          const pit = smooth(clamp((0.38 - pores(u, v)) / 0.25));
+          color = 0.14 + 0.62 * tone + 0.13 * grain - 0.12 * seam - 0.1 * pit;
+          height = 0.42 + 0.18 * grain - 0.1 * seam - 0.12 * pit;
+          roughness += 0.07 * grain - 0.05 * seam;
+          occlusion = 0.97 - 0.12 * seam - 0.22 * pit;
+          return;
+        };
+      }
       case 'canewebbing': {
         const p = proceduralMaterialPresets.canewebbing;
         const grainField = cachedNoise(16, 16, seed ^ 0x61c3);
@@ -10397,6 +10428,7 @@ export function createSurfaceSampler(
     kind === 'flutedwood' ||
     kind === 'subwaytiles' ||
     kind === 'canewebbing' ||
+    kind === 'rammedearth' ||
     fabricated ||
     botanical ||
     packaging ||

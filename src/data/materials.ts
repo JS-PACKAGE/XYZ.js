@@ -2241,6 +2241,17 @@ export const proceduralMaterialPresets = Object.freeze({
     ribbonWidth: 0.13,
     diagonalWidth: 0.075,
   }),
+  rammedearth: Object.freeze({
+    dark: [111, 60, 34] as const,
+    light: [228, 194, 144] as const,
+    roughness: 0.86,
+    relief: 0.008,
+    layers: 8,
+    warp: 0.12,
+    fineWarp: 0.04,
+    transition: 0.1,
+    seamWidth: 0.05,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2606,4 +2617,5 @@ export const proceduralTileMeters = Object.freeze({
   flutedwood: 0.32,
   subwaytiles: 0.6,
   canewebbing: 0.24,
+  rammedearth: 2,
 });
