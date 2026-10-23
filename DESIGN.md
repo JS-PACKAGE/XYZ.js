@@ -435,6 +435,8 @@
 
 `monsteraleaf` 快取九片 seeded 旋轉，以闊橢圓葉面減去基部凹口、三對斜向閉合長孔與三對向外延伸裂口。孔／裂口各用 compact supports，在內孔與外裂口之間保留連續葉肉；側脈在中軸前平滑淡出，中肋獨立抬高。所有孔底與葉外同為 opaque 低暗底面，不依賴 alpha 裁切。0.9 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 443 種。
 
+`crossstitch` 將 cell 座標旋轉 45°，以 compact 圓滑橫截面乘有限長端部 shoulder 形成兩條對角繡線。可見下層權重為 lower × (1 − upper)，上層覆蓋交點，避免高度相加形成不合理鼓包；線纖維採各自橫向相位，底布僅在未覆蓋處顯露。0.08 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 444 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -427,6 +427,8 @@
 
 同輪追加 `monsteraleaf`（龜背芋葉），實際目錄 442→443 種：三乘三 seeded 旋轉闊葉，各有六個閉合長孔、六條通向葉緣的裂口、基部凹口、中肋與斜向側脈。內孔與外裂口之間保留葉肉橋，孔底及葉外為同一低暗底面。0.9 m tile、四圖 opaque dielectric、metallic 0；不新增透明孔洞／葉片 geometry／生長動畫，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `crossstitch`（十字繡），實際目錄 443→444 種：八乘八 X 繡針由兩條有限長斜向繡線交疊，上層固定遮住下層，交點不累加高度；保留底布織紋、細線纖維與 seeded 線色。0.08 m tile、四圖 opaque dielectric、metallic 0，不新增繡線 geometry／穿布孔洞，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -6275,3 +6275,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證九葉各六個閉合孔的八向葉肉包圍、六條裂口到外緣的低底連通、孔壁高度／色差／AO／粗糙度、中肋抬高與基部雙瓣；另在精確孔裙緣、裂口端點／肩部、基部凹口、葉外緣及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5677 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：綠色闊葉、葉內暗孔／葉緣裂口、中肋與孔緣 normal、葉形 AO 四圖可見，status 為 443 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.9 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 442 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：十字繡（crossstitch）
+
+- 目錄 443→444 種。0.08 m tile、八乘八有限長 X 繡針，上層斜線固定遮住下層，交點不累加高度；保留底布織紋、細線纖維與 seeded 線色。四圖 opaque、metallic 0、既有 ownership 不變，不新增繡線 geometry 或穿布孔洞。
+- 三個 seed（0／1／`0xffffffff`）逐一驗證 64 個交點的上下層高度、交點不鼓包、布／線色差與 roughness、端點回到底布、AO 及 metallic；另檢查線裙、收尾、交疊與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5682 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面 X 繡線及四圖的交叉線紋、normal、roughness 與斜線 AO 可見，status 為 444 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 443 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

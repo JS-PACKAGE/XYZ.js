@@ -3146,6 +3146,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         midribWidth: 0.015;
         veinWidth: 0.008;
     }>;
+    crossstitch: Readonly<{
+        dark: readonly [86, 16, 34];
+        light: readonly [238, 222, 187];
+        roughness: 0.86;
+        relief: 0.015;
+        cells: 8;
+        halfLength: 0.43;
+        halfWidth: 0.06;
+        endShoulder: 0.08;
+        threads: 64;
+        fibers: 3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3592,4 +3604,5 @@ export declare const proceduralTileMeters: Readonly<{
     polkadotfabric: 0.12;
     cucumberslices: 0.18;
     monsteraleaf: 0.9;
+    crossstitch: 0.08;
 }>;

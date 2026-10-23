@@ -522,6 +522,7 @@ try {
     'polkadotfabric',
     'cucumberslices',
     'monsteraleaf',
+    'crossstitch',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

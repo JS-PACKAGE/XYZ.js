@@ -468,7 +468,112 @@ const kinds: ProceduralMaterialKind[] = [
   'polkadotfabric',
   'cucumberslices',
   'monsteraleaf',
+  'crossstitch',
 ];
+
+describe('Raised cross-stitch embroidery', () => {
+  const p = proceduralMaterialPresets.crossstitch;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('crossstitch', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sixty-four finite crossed yarns with consistent upper-diagonal ownership for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (a: number, b: number) =>
+            sample(
+              (col + 0.5 + (a - b) * Math.SQRT1_2) / p.cells,
+              (row + 0.5 + (a + b) * Math.SQRT1_2) / p.cells,
+            );
+          const crossing = at(0, 0),
+            bare = at(0.2, 0.12);
+          for (const sign of [-1, 1]) {
+            const upper = at(sign * 0.25, 0),
+              lower = at(0, sign * 0.25);
+            expect(upper.height - lower.height).toBeGreaterThan(0.002);
+            expect(Math.abs(crossing.height - upper.height)).toBeLessThan(
+              0.00008,
+            );
+            expect(crossing.occlusion).toBe(upper.occlusion);
+            expect(crossing.occlusion - lower.occlusion).toBeGreaterThan(0.15);
+            for (const yarn of [upper, lower]) {
+              expect(yarn.height - bare.height).toBeGreaterThan(0.0055);
+              expect(bare.color - yarn.color).toBeGreaterThan(0.5);
+              expect(bare.roughness - yarn.roughness).toBeGreaterThan(0.1);
+              expect(yarn.metallic).toBe(0);
+            }
+            for (const end of [
+              at(sign * p.halfLength, 0),
+              at(0, sign * p.halfLength),
+            ]) {
+              expect(end.color).toBeGreaterThan(0.89);
+              expect(end.height).toBeLessThan(0.0013);
+              expect(end.occlusion).toBeCloseTo(0.98, 12);
+            }
+          }
+        }
+    },
+  );
+  it('keeps yarn skirts, tapered endpoints, over-under transitions and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const add = (a: number, b: number) =>
+            points.push([
+              (col + 0.5 + (a - b) * Math.SQRT1_2) / p.cells,
+              (row + 0.5 + (a + b) * Math.SQRT1_2) / p.cells,
+            ]);
+          for (const along of [
+            0,
+            p.halfWidth,
+            p.halfLength - p.endShoulder,
+            p.halfLength,
+          ])
+            for (const across of [-p.halfWidth, 0, p.halfWidth])
+              for (const sign of [-1, 1]) {
+                add(sign * along, across);
+                add(across, sign * along);
+              }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Fenestrated monstera leaves', () => {
   const p = proceduralMaterialPresets.monsteraleaf;

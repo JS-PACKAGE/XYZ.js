@@ -1259,6 +1259,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'crossstitch': {
+        const p = proceduralMaterialPresets.crossstitch;
+        const stitches = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            stitches[i] = hash(col, row, seed ^ 0x6c41);
+            stitches[i + 1] = TAU * hash(col, row, seed ^ 0x7d53);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x2e65);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const a = (x + y) * Math.SQRT1_2,
+            b = (y - x) * Math.SQRT1_2;
+          const upper =
+            smooth(clamp(1 - (b / p.halfWidth) ** 2)) *
+            smooth(clamp((p.halfLength - Math.abs(a)) / p.endShoulder));
+          const lower =
+            smooth(clamp(1 - (a / p.halfWidth) ** 2)) *
+            smooth(clamp((p.halfLength - Math.abs(b)) / p.endShoulder));
+          const visibleLower = lower * (1 - upper),
+            coverage = upper + visibleLower;
+          const upperFiber =
+              0.5 +
+              0.5 *
+                Math.cos((TAU * p.fibers * b) / p.halfWidth + stitches[i + 1]),
+            lowerFiber =
+              0.5 +
+              0.5 *
+                Math.cos((TAU * p.fibers * a) / p.halfWidth + stitches[i + 1]);
+          const fiber = upper * upperFiber + visibleLower * lowerFiber;
+          const weave =
+            0.5 +
+            0.25 *
+              (Math.cos(TAU * p.threads * u) + Math.cos(TAU * p.threads * v));
+          const grain = grainField(u, v);
+          // The upper diagonal hides the lower one instead of adding both heights.
+          color =
+            (1 - coverage) * (0.9 + 0.03 * weave) +
+            coverage * (0.2 + 0.12 * stitches[i]) +
+            0.04 * fiber;
+          height =
+            0.06 +
+            0.55 * upper +
+            0.4 * visibleLower +
+            0.012 * fiber +
+            0.02 * weave * (1 - coverage) +
+            0.005 * grain;
+          roughness += 0.02 * grain - 0.12 * coverage;
+          occlusion = 0.98 - 0.18 * coverage + 0.16 * upper;
+        };
+      }
       case 'monsteraleaf': {
         const p = proceduralMaterialPresets.monsteraleaf;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -14105,6 +14161,7 @@ export function createSurfaceSampler(
     kind === 'polkadotfabric' ||
     kind === 'cucumberslices' ||
     kind === 'monsteraleaf' ||
+    kind === 'crossstitch' ||
     fabricated ||
     botanical ||
     packaging ||

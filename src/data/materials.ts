@@ -3170,6 +3170,18 @@ export const proceduralMaterialPresets = Object.freeze({
     midribWidth: 0.015,
     veinWidth: 0.008,
   }),
+  crossstitch: Object.freeze({
+    dark: [86, 16, 34] as const,
+    light: [238, 222, 187] as const,
+    roughness: 0.86,
+    relief: 0.015,
+    cells: 8,
+    halfLength: 0.43,
+    halfWidth: 0.06,
+    endShoulder: 0.08,
+    threads: 64,
+    fibers: 3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3617,4 +3629,5 @@ export const proceduralTileMeters = Object.freeze({
   polkadotfabric: 0.12,
   cucumberslices: 0.18,
   monsteraleaf: 0.9,
+  crossstitch: 0.08,
 });
