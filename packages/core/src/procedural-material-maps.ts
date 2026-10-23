@@ -1248,6 +1248,39 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ripstop': {
+        const p = proceduralMaterialPresets.ripstop;
+        const grainField = cachedNoise(32, 32, seed ^ 0x71e9);
+        const ridge = (t: number): number => {
+          const d = (fract(t + 0.5) - 0.5) / p.reinforcementWidth;
+          return smooth(clamp(1 - d * d));
+        };
+        return () => {
+          const x = u * p.threads,
+            y = v * p.threads;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * x);
+          const weft = 0.5 + 0.5 * Math.cos(TAU * y);
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          const rx =
+            ridge(u * p.cells - p.reinforcementOffset) +
+            ridge(u * p.cells + p.reinforcementOffset);
+          const ry =
+            ridge(v * p.cells - p.reinforcementOffset) +
+            ridge(v * p.cells + p.reinforcementOffset);
+          const grid = rx + ry - rx * ry;
+          const grain = grainField(u, v);
+          color = 0.28 + 0.2 * weave + 0.25 * grid + 0.06 * grain;
+          height = 0.1 + 0.24 * weave + 0.38 * grid + 0.015 * grain;
+          roughness += 0.06 * grid + 0.03 * grain;
+          occlusion = 0.8 + 0.16 * weave + 0.04 * grid;
+          return;
+        };
+      }
       case 'basketweavepavers': {
         const p = proceduralMaterialPresets.basketweavepavers;
         const grainField = cachedNoise(64, 64, seed ^ 0x6a53);
@@ -10560,6 +10593,7 @@ export function createSurfaceSampler(
     kind === 'birdseyemaple' ||
     kind === 'breezeblock' ||
     kind === 'basketweavepavers' ||
+    kind === 'ripstop' ||
     fabricated ||
     botanical ||
     packaging ||

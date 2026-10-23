@@ -445,6 +445,7 @@ try {
     'birdseyemaple',
     'breezeblock',
     'basketweavepavers',
+    'ripstop',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

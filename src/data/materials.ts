@@ -2290,6 +2290,16 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.018,
     shoulder: 0.04,
   }),
+  ripstop: Object.freeze({
+    dark: [34, 48, 24] as const,
+    light: [142, 157, 101] as const,
+    roughness: 0.48,
+    relief: 0.002,
+    cells: 4,
+    threads: 64,
+    reinforcementOffset: 0.0625,
+    reinforcementWidth: 0.025,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2660,4 +2670,5 @@ export const proceduralTileMeters = Object.freeze({
   birdseyemaple: 0.24,
   breezeblock: 0.8,
   basketweavepavers: 0.8,
+  ripstop: 0.04,
 });

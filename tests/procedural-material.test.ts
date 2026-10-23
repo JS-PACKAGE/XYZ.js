@@ -391,7 +391,93 @@ const kinds: ProceduralMaterialKind[] = [
   'birdseyemaple',
   'breezeblock',
   'basketweavepavers',
+  'ripstop',
 ];
+
+describe('double-thread ripstop nylon', () => {
+  const p = proceduralMaterialPresets.ripstop;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ripstop', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains separate reinforcement pairs and fine weave between the grid lines for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          for (const axis of [0, 1]) {
+            const gap = at(col + (axis ? 0.5 : 0), row + (axis ? 0 : 0.5));
+            for (const side of [-1, 1]) {
+              const thread = at(
+                col + (axis ? 0.5 : side * p.reinforcementOffset),
+                row + (axis ? side * p.reinforcementOffset : 0.5),
+              );
+              expect(thread.height - gap.height).toBeGreaterThan(0.36);
+              expect(thread.color - gap.color).toBeGreaterThan(0.19);
+              expect(thread.roughness - gap.roughness).toBeGreaterThan(0.03);
+            }
+          }
+          const thread = at(col + 0.5, row + 0.5);
+          const gap = at(col + 0.53125, row + 0.53125);
+          expect(thread.height - gap.height).toBeGreaterThan(0.14);
+          expect(thread.color - gap.color).toBeGreaterThan(0.07);
+        }
+      }
+    },
+  );
+
+  it('keeps paired supports, crossings and tile wraps C1 continuous', () => {
+    const h = 1e-6;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let cell = 0; cell <= p.cells; cell++) {
+        for (const side of [-1, 1]) {
+          for (const delta of [
+            -p.reinforcementWidth,
+            0,
+            p.reinforcementWidth,
+          ]) {
+            const line = cell + side * p.reinforcementOffset + delta;
+            for (const cross of [0, p.reinforcementOffset, 0.5, 1, p.cells]) {
+              for (const axis of [0, 1]) {
+                const x = axis ? cross : line,
+                  y = axis ? line : cross;
+                const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+                const b = at(x, y);
+                const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+                for (const key of [
+                  'color',
+                  'height',
+                  'roughness',
+                  'occlusion',
+                ] as const) {
+                  expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                  expect(
+                    Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                  ).toBeLessThan(0.02);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('basket weave clay pavers', () => {
   const p = proceduralMaterialPresets.basketweavepavers;

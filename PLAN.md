@@ -273,6 +273,8 @@
 
 同輪追加 `basketweavepavers`（籃編排列鋪路磚），實際目錄 365→366 種：兩塊長方黏土磚組成方形單元，相鄰單元交替轉向，含平滑倒角、凹填縫與逐磚色差。0.8 m tile 含四乘四單元、32 塊磚；四圖 opaque dielectric／metallic 0，沿用 options、生命週期及 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `ripstop`（雙線補強防撕裂尼龍布），實際目錄 366→367 種：細織紋與成對補強線構成不同尺度的格紋，0.04 m tile 有四乘四補強格。四圖 opaque dielectric／metallic 0，只描述表面外觀、不新增抗撕裂物理；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
