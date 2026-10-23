@@ -5927,3 +5927,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 393 種四圖 SHA256 全相同，新增恰為 louveredmetal。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現分欄金屬百葉、抬高下緣與暗槽，狀態列為 394 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 1、alphaMode OPAQUE、0.6 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 metallic factor 清單同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5426 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：人字拼紅磚（herringbonebrick）
+
+- 新增 2:1 長磚沿對角帶橫直交錯的真正人字拼鋪面，T 形接點、中性灰縫、倒角與 seeded 燒製色差；長磚跨越內部格線而沒有假接縫，區別於 running-bond 或織物 herringbone，目錄 394→395 種。1.2 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項及 build 通過，涵蓋三 seed 的橫／直長磚跨格連續面、端部／側邊／角落真接縫、高度／AO／粗糙度階序及內部格線、T 形接點、倒角與 wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 394 種四圖 SHA256 全相同，新增恰為 herringbonebrick；395 種 ESM／CJS 四圖 hash 全一致。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現橫直咬合長磚、完整磚面與灰縫，狀態列為 395 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5431 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

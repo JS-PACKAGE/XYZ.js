@@ -329,6 +329,8 @@
 
 同輪追加 `louveredmetal`（沖壓百葉金屬板），實際目錄 393→394 種：兩端連接板面的傾斜葉片、較高下緣及下方暗槽，區別於普通波紋或對稱圓管；seeded 細金屬粒紋。0.6 m tile、四圖 opaque、metallic map 與 factor 均為 1，暗槽保留不透明背板，不增加 geometry 或穿孔，逐功能驗證提交、不 push。
 
+同輪追加 `herringbonebrick`（人字拼紅磚），實際目錄 394→395 種：2:1 長磚沿對角帶橫直交錯咬合，T 形接點、倒角、中性灰縫與 seeded 燒製色差；每塊長磚跨越內部格線而沒有假接縫。1.2 m tile、四圖 opaque dielectric，區別於 running-bond 鋪面及織物 herringbone，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

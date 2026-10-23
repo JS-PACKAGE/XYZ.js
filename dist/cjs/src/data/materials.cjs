@@ -5806,6 +5806,23 @@ var proceduralMaterialPresets = Object.freeze({
 		rows: 6,
 		halfWidth: .44,
 		endShoulder: .08
+	}),
+	herringbonebrick: Object.freeze({
+		dark: [
+			64,
+			22,
+			14
+		],
+		light: [
+			194,
+			99,
+			57
+		],
+		roughness: .78,
+		relief: .025,
+		cells: 8,
+		grout: .035,
+		shoulder: .06
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6202,7 +6219,8 @@ var proceduralTileMeters = Object.freeze({
 	fossillimestone: .6,
 	seigaihatiles: .6,
 	tuftedleather: .8,
-	louveredmetal: .6
+	louveredmetal: .6,
+	herringbonebrick: 1.2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

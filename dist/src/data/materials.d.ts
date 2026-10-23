@@ -2584,6 +2584,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         halfWidth: 0.44;
         endShoulder: 0.08;
     }>;
+    herringbonebrick: Readonly<{
+        dark: readonly [64, 22, 14];
+        light: readonly [194, 99, 57];
+        roughness: 0.78;
+        relief: 0.025;
+        cells: 8;
+        grout: 0.035;
+        shoulder: 0.06;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2981,4 +2990,5 @@ export declare const proceduralTileMeters: Readonly<{
     seigaihatiles: 0.6;
     tuftedleather: 0.8;
     louveredmetal: 0.6;
+    herringbonebrick: 1.2;
 }>;

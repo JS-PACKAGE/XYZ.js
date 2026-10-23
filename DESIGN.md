@@ -337,6 +337,8 @@
 
 `louveredmetal` 以獨立橫向端部遮罩及非對稱縱向葉片輪廓形成沖壓百葉，上端接回板面、下緣抬高，再平滑落到較深暗槽。端部遮罩同時限制葉片與暗槽，保留兩側連續板面；細粒 cached noise 不改機械形狀。暗槽以高度及 AO 表現不透明背板，不宣稱 alpha 穿孔或 geometry。0.6 m tile、四圖 opaque、metallic B 與預設 factor 1、既有 ownership 不變，目錄增為 394 種。
 
+`herringbonebrick` 依整數格的對角相位分配唯一 2:1 domino owner：兩個相鄰格合併成同一橫磚或直磚，相鄰對角帶旋轉 90 度，週期 wrap 後仍使用同一磚的 seeded 色差。四邊平滑倒角遮罩相乘，外緣退到中性灰縫，內部格線不產生高度或色差斷裂；細粒 cached noise 提供燒製紅磚表面。1.2 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 395 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

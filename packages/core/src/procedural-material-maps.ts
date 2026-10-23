@@ -1253,6 +1253,43 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'herringbonebrick': {
+        const p = proceduralMaterialPresets.herringbonebrick;
+        const grainField = cachedNoise(96, 96, seed ^ 0x53a7);
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x2d19);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          const diagonal = (ix + iy) % 4;
+          const horizontal = diagonal < 2;
+          // Every integer cell belongs to exactly one 2:1 domino. Adjacent
+          // diagonal bands turn the bricks by 90 degrees, not their pigment.
+          const col = ix - (diagonal === 1 ? 1 : 0);
+          const row = iy - (diagonal === 3 ? 1 : 0);
+          const width = horizontal ? 2 : 1,
+            depth = horizontal ? 1 : 2;
+          const tx = x - col,
+            ty = y - row;
+          const face =
+            smooth(clamp((Math.min(tx, width - tx) - p.grout) / p.shoulder)) *
+            smooth(clamp((Math.min(ty, depth - ty) - p.grout) / p.shoulder));
+          const wx = (col + p.cells) % p.cells,
+            wy = (row + p.cells) % p.cells;
+          const grain = grainField(u, v);
+          color =
+            0.16 +
+            face * (0.35 + 0.2 * tones[wy * p.cells + wx] + 0.09 * grain);
+          height = (0.58 + 0.04 * grain) * face;
+          roughness += 0.16 * (1 - face) + 0.02 * grain * face;
+          occlusion = 0.55 + 0.45 * face;
+          mortar = 1 - face;
+        };
+      }
       case 'louveredmetal': {
         const p = proceduralMaterialPresets.louveredmetal;
         const grainField = cachedNoise(96, 96, seed ^ 0x6d39);
@@ -11738,6 +11775,7 @@ export function createSurfaceSampler(
     kind === 'seigaihatiles' ||
     kind === 'tuftedleather' ||
     kind === 'louveredmetal' ||
+    kind === 'herringbonebrick' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -400,7 +400,8 @@ export type ProceduralMaterialKind =
   | 'fossillimestone'
   | 'seigaihatiles'
   | 'tuftedleather'
-  | 'louveredmetal';
+  | 'louveredmetal'
+  | 'herringbonebrick';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -827,6 +828,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'seigaihatiles',
   'tuftedleather',
   'louveredmetal',
+  'herringbonebrick',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

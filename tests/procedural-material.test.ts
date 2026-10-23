@@ -419,7 +419,103 @@ const kinds: ProceduralMaterialKind[] = [
   'seigaihatiles',
   'tuftedleather',
   'louveredmetal',
+  'herringbonebrick',
 ];
+
+describe('interlocking herringbone brick paving', () => {
+  const p = proceduralMaterialPresets.herringbonebrick;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('herringbonebrick', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'interlocks complete horizontal and vertical long bricks without internal cell joints for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const bricks = [
+        [0, 0, 2, 1],
+        [3, 1, 2, 1],
+        [2, 2, 2, 1],
+        [1, 3, 2, 1],
+        [2, 0, 1, 2],
+        [1, 1, 1, 2],
+        [0, 2, 1, 2],
+        [3, 3, 1, 2],
+      ] as const;
+      for (const oy of [0, 4])
+        for (const ox of [0, 4])
+          for (const [x, y, width, depth] of bricks) {
+            const local = (a: number, b: number) =>
+              at((ox + x + a) / p.cells, (oy + y + b) / p.cells);
+            const center = local(width / 2, depth / 2);
+            for (const point of [
+              center,
+              local(width / 2 - 0.1, depth / 2),
+              local(width / 2 + 0.1, depth / 2),
+              local(width / 2, depth / 2 - 0.1),
+              local(width / 2, depth / 2 + 0.1),
+              local(0.15, 0.15),
+              local(width - 0.15, depth - 0.15),
+            ]) {
+              expect(point.height).toBeGreaterThan(0.014);
+              expect(point.mortar).toBe(0);
+              expect(point.occlusion).toBe(1);
+            }
+            for (const [a, b] of [
+              [0, depth / 2],
+              [width, depth / 2],
+              [width / 2, 0],
+              [width / 2, depth],
+              [0, 0],
+            ]) {
+              const joint = local(a, b);
+              expect(joint.height).toBe(0);
+              expect(joint.mortar).toBe(1);
+              expect(joint.roughness - center.roughness).toBeGreaterThan(0.13);
+              expect(joint.occlusion).toBe(0.55);
+            }
+          }
+    },
+  );
+  it('keeps internal domino cell changes, T joints, brick bevels and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('stamped metal louvers', () => {
   const p = proceduralMaterialPresets.louveredmetal;
