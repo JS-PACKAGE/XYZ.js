@@ -5667,3 +5667,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor preview 可見寬幅微彎土色層，AO 可見凹孔，狀態列為 362 presets，無 page errors。實際 size 33／seed 0xffffffff 建立、借用 roughness 0.8、metallic 0、2 m repeats 1、冪等銷毀四張 maps 與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實體裝置與效能認證。
 - 完整 Vitest 178 檔／5258 項、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：銅綠氧化銅（copperpatina）
+
+- 新增裸銅與青綠氧化斑塊，目錄 362→363 種；0.5 m tile。同一 coverage 場驅動色彩、metallic 與 roughness，裸銅接近 metallic 1、粗糙氧化層接近 0；預設 `material`／`createMaterial()` metallic factor 1 保留混合圖。四圖維持 OPAQUE，不新增 geometry、shader、options 或 runtime 依賴。
+- 初次專項驗證發現 seed 1 的裸銅面積僅 2.03%，未達 5% 最低辨識門檻。將覆蓋過渡從 0.34–0.64 收斂至 0.4–0.6，未降低測試門檻；三 seed 的裸銅／氧化層色彩、roughness、覆蓋面積與 periodic 一階連續性共 4 項通過，build 通過。typecheck、lint、format:check 亦已執行通過。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 362 種四圖 SHA256 全相同，新增恰為 copperpatina。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor／metallicRoughness 預覽呈現裸銅及銅綠區域，狀態列為 363 presets，無 page errors。實際 size 33／seed 0xffffffff、預設與借用 material metallic 均為 1、borrow roughness 0.8、0.5 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- 同步 README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 gallery 的金屬度說明；文件列出 copperpatina 混合金屬度，補齊使用說明原漏列的 draincover，與既有程式一致。相對連結無失效路徑。逐功能提交、不 push，不擴大瀏覽器、實機或效能認證。
+- 修正後完整 Vitest 178 檔／5264 項、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件與調整後 data 經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

@@ -387,7 +387,78 @@ const kinds: ProceduralMaterialKind[] = [
   'subwaytiles',
   'canewebbing',
   'rammedearth',
+  'copperpatina',
 ];
+
+describe('oxidized copper', () => {
+  it.each([0, 1, 0xffffffff])(
+    'keeps exposed copper metallic and green oxide rough dielectric for seed %s',
+    (seed) => {
+      const size = 64;
+      const maps = generateProceduralMaps('copperpatina', size, seed);
+      let exposed = 0,
+        oxidized = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const metal = maps.metallicRoughness[i + 2];
+        const rough = maps.metallicRoughness[i + 1];
+        const red = maps.baseColor[i],
+          green = maps.baseColor[i + 1];
+        if (metal > 242) {
+          exposed++;
+          expect(red - green).toBeGreaterThan(50);
+          expect(rough).toBeLessThan(85);
+        } else if (metal < 13) {
+          oxidized++;
+          expect(green - red).toBeGreaterThan(70);
+          expect(rough).toBeGreaterThan(185);
+        }
+      }
+      expect(exposed / (size * size)).toBeGreaterThan(0.05);
+      expect(oxidized / (size * size)).toBeGreaterThan(0.05);
+    },
+  );
+
+  it('keeps color, metalness and relief continuous through periodic noise joins', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const a = empty(),
+      b = empty(),
+      c = empty();
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('copperpatina', seed);
+      for (const count of [4, 20, 96]) {
+        for (let cell = 0; cell <= count; cell++) {
+          for (const axis of [0, 1]) {
+            const edge = cell / count;
+            const t = (cell * 0.61803398875) % 1;
+            sample(axis ? t : edge - h, axis ? edge - h : t, a);
+            sample(axis ? t : edge, axis ? edge : t, b);
+            sample(axis ? t : edge + h, axis ? edge + h : t, c);
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'metallic',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('rammed earth walls', () => {
   const p = proceduralMaterialPresets.rammedearth;
@@ -5272,6 +5343,7 @@ describe('periodic procedural material fields', () => {
           expect(first.metallicRoughness[p + 2]).toBe(255);
         else if (
           kind !== 'rust' &&
+          kind !== 'copperpatina' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -5280,7 +5352,7 @@ describe('periodic procedural material fields', () => {
         expect(first.occlusion[p]).toBeGreaterThan(0);
         expect(first.occlusion[p + 3]).toBe(255);
       }
-      if (kind === 'rust') {
+      if (kind === 'rust' || kind === 'copperpatina') {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
       }
@@ -14526,6 +14598,7 @@ describe('procedural preset acquisition and ownership', () => {
 
   it.each([
     'metal',
+    'copperpatina',
     'basketball',
     'tennisball',
     'golfball',
@@ -14536,7 +14609,9 @@ describe('procedural preset acquisition and ownership', () => {
     'borrows %s maps across independent materials and never takes ownership of overrides',
     async (kind) => {
       const preset = await ProceduralMaterial.create(kind, { size: 32 });
-      expect(preset.material.metallic).toBe(kind === 'metal' ? 1 : 0);
+      expect(preset.material.metallic).toBe(
+        kind === 'metal' || kind === 'copperpatina' ? 1 : 0,
+      );
       expect(preset.material.alphaMode).toBe('OPAQUE');
       const external = new Texture({
         width: 1,

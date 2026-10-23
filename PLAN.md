@@ -265,6 +265,8 @@
 
 同輪追加 `rammedearth`（夯土牆），實際目錄 361→362 種：寬幅土色壓實層、輕微起伏接縫、細砂粒與凹孔，非砂岩換色。每張 2 m tile 八層；四圖維持 opaque dielectric、metallic 0，不新增位移／geometry 或資源生命週期。依使用者授權逐功能驗證、提交、不 push。
 
+同輪追加 `copperpatina`（銅綠氧化銅），實際目錄 362→363 種：裸銅與青綠氧化斑塊共享覆蓋場，metallic／roughness 隨氧化程度連續變化。tile 0.5 m，預設 material metallic factor 1 以保留 map 的混合金屬度；不新增 geometry、shader、options 或資源所有權契約，逐功能驗證並提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

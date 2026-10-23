@@ -368,7 +368,8 @@ export type ProceduralMaterialKind =
   | 'flutedwood'
   | 'subwaytiles'
   | 'canewebbing'
-  | 'rammedearth';
+  | 'rammedearth'
+  | 'copperpatina';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -763,6 +764,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'subwaytiles',
   'canewebbing',
   'rammedearth',
+  'copperpatina',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -886,6 +888,7 @@ export class ProceduralMaterial {
       metallic:
         this.kind === 'metal' ||
         this.kind === 'rust' ||
+        this.kind === 'copperpatina' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

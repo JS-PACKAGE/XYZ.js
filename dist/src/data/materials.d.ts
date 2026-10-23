@@ -2251,6 +2251,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         transition: 0.1;
         seamWidth: 0.05;
     }>;
+    copperpatina: Readonly<{
+        dark: readonly [177, 92, 51];
+        light: readonly [49, 146, 124];
+        roughness: 0.24;
+        relief: 0.006;
+        coverageStart: 0.4;
+        coverageRange: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2616,4 +2624,5 @@ export declare const proceduralTileMeters: Readonly<{
     subwaytiles: 0.6;
     canewebbing: 0.24;
     rammedearth: 2;
+    copperpatina: 0.5;
 }>;

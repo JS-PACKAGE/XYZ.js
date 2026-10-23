@@ -273,6 +273,8 @@
 
 `rammedearth` 將八層 seeded 土色透過平滑過渡連接，沿水平週期波微幅彎曲；窄壓實接縫、細砂與凹孔另外控制 normal／roughness／AO，避免把色帶直接變成幾何階梯。預先快取色層與 noise lattices，sample 不配置；2 m tile、opaque dielectric 四圖與既有 ownership 不變，目錄增為 362 種。
 
+`copperpatina` 將大塊腐蝕分布與細碎氧化斑融合為連續 patina coverage，同時驅動紅銅→青綠 baseColor、metallic 1→0、roughness 與淺氧化層 relief，避免綠色氧化層仍保有裸金屬反射。沿用既有混合金屬圖路徑與 default factor 1；四份週期 maps、0.5 m tile、caller ownership 不變，目錄增為 363 種。gallery 說明改為金屬類使用 authored metallic maps，不再僅列 metal／rust。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

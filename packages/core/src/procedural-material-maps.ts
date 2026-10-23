@@ -1248,6 +1248,29 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'copperpatina': {
+        const p = proceduralMaterialPresets.copperpatina;
+        const patches = cachedNoise(4, 4, seed ^ 0x7a93);
+        const flakes = cachedNoise(20, 20, seed ^ 0x2c67);
+        const grains = cachedNoise(96, 96, seed ^ 0x59e1);
+        return () => {
+          const patch = patches(u, v),
+            flake = flakes(u, v),
+            grain = grains(u, v);
+          const patina = smooth(
+            clamp(
+              (0.78 * patch + 0.22 * flake - p.coverageStart) / p.coverageRange,
+            ),
+          );
+          // The same oxide coverage drives color and the metal/dielectric transition.
+          color = 0.05 + 0.9 * patina + 0.03 * grain;
+          metallic = 1 - patina;
+          height = 0.25 + 0.28 * patina + 0.06 * grain + 0.1 * flake * patina;
+          roughness += 0.53 * patina + 0.05 * grain;
+          occlusion = 0.98 - 0.15 * (1 - flake) * patina;
+          return;
+        };
+      }
       case 'rammedearth': {
         const p = proceduralMaterialPresets.rammedearth;
         const tones = new Float64Array(p.layers);
@@ -10429,6 +10452,7 @@ export function createSurfaceSampler(
     kind === 'subwaytiles' ||
     kind === 'canewebbing' ||
     kind === 'rammedearth' ||
+    kind === 'copperpatina' ||
     fabricated ||
     botanical ||
     packaging ||

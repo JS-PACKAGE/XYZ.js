@@ -5146,6 +5146,22 @@ var proceduralMaterialPresets = Object.freeze({
 		fineWarp: .04,
 		transition: .1,
 		seamWidth: .05
+	}),
+	copperpatina: Object.freeze({
+		dark: [
+			177,
+			92,
+			51
+		],
+		light: [
+			49,
+			146,
+			124
+		],
+		roughness: .24,
+		relief: .006,
+		coverageStart: .4,
+		coverageRange: .2
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5510,7 +5526,8 @@ var proceduralTileMeters = Object.freeze({
 	flutedwood: .32,
 	subwaytiles: .6,
 	canewebbing: .24,
-	rammedearth: 2
+	rammedearth: 2,
+	copperpatina: .5
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

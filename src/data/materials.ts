@@ -2252,6 +2252,14 @@ export const proceduralMaterialPresets = Object.freeze({
     transition: 0.1,
     seamWidth: 0.05,
   }),
+  copperpatina: Object.freeze({
+    dark: [177, 92, 51] as const,
+    light: [49, 146, 124] as const,
+    roughness: 0.24,
+    relief: 0.006,
+    coverageStart: 0.4,
+    coverageRange: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2618,4 +2626,5 @@ export const proceduralTileMeters = Object.freeze({
   subwaytiles: 0.6,
   canewebbing: 0.24,
   rammedearth: 2,
+  copperpatina: 0.5,
 });
