@@ -526,6 +526,7 @@ try {
     'staranise',
     'logcabinparquet',
     'countersunkmetal',
+    'trilobitefossil',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -6923,6 +6923,39 @@ var proceduralMaterialPresets = Object.freeze({
 		boreShoulder: .025,
 		coneRadius: .3,
 		coneShoulder: .12
+	}),
+	trilobitefossil: Object.freeze({
+		dark: [
+			45,
+			38,
+			25
+		],
+		light: [
+			192,
+			180,
+			145
+		],
+		roughness: .8,
+		relief: .025,
+		cells: 3,
+		headWidth: .25,
+		headLength: .18,
+		headCenter: -.2,
+		bodyWidth: .19,
+		bodyLength: .29,
+		bodyCenter: .04,
+		tailWidth: .11,
+		tailLength: .09,
+		tailCenter: .29,
+		shoulder: .18,
+		axisWidth: .055,
+		segments: 10,
+		segmentStart: -.035,
+		segmentPitch: .027,
+		segmentCurve: .8,
+		eyeOffset: .13,
+		eyeCenter: -.22,
+		eyeRadius: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7372,7 +7405,8 @@ var proceduralTileMeters = Object.freeze({
 	crossstitch: .08,
 	staranise: .12,
 	logcabinparquet: 1.2,
-	countersunkmetal: .3
+	countersunkmetal: .3,
+	trilobitefossil: .45
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -1260,6 +1260,97 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'trilobitefossil': {
+        const p = proceduralMaterialPresets.trilobitefossil;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const angle = TAU * hash(col, row, seed ^ 0x5b71);
+            const i = (row * p.cells + col) * 2;
+            rotations[i] = Math.cos(angle);
+            rotations[i + 1] = Math.sin(angle);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6c83);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * rotations[i] + dy * rotations[i + 1],
+            y = dy * rotations[i] - dx * rotations[i + 1];
+          const headDome = clamp(
+            1 -
+              (x / p.headWidth) ** 2 -
+              ((y - p.headCenter) / p.headLength) ** 2,
+          );
+          const head = smooth(clamp(headDome / p.shoulder));
+          const body = smooth(
+            clamp(
+              (1 -
+                (x / p.bodyWidth) ** 2 -
+                ((y - p.bodyCenter) / p.bodyLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const tail = smooth(
+            clamp(
+              (1 -
+                (x / p.tailWidth) ** 2 -
+                ((y - p.tailCenter) / p.tailLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const face = 1 - (1 - head) * (1 - body) * (1 - tail);
+          const axis =
+            smooth(clamp(1 - (x / p.axisWidth) ** 2)) *
+            smooth(clamp((y + 0.29) / 0.04)) *
+            smooth(clamp((0.32 - y) / 0.06));
+          const z = y - p.segmentCurve * x * x;
+          const end = p.segmentStart + (p.segments - 1) * p.segmentPitch;
+          const envelope =
+            smooth(clamp((z - p.segmentStart + p.segmentPitch / 2) / 0.008)) *
+            smooth(clamp((end + p.segmentPitch / 2 - z) / 0.008));
+          const rib =
+            envelope *
+            (1 - head) *
+            (0.5 +
+              0.5 * Math.cos((TAU * (z - p.segmentStart)) / p.segmentPitch)) **
+              3;
+          const eyes =
+            smooth(
+              clamp(
+                1 -
+                  ((x - p.eyeOffset) / p.eyeRadius) ** 2 -
+                  ((y - p.eyeCenter) / p.eyeRadius) ** 2,
+              ),
+            ) +
+            smooth(
+              clamp(
+                1 -
+                  ((x + p.eyeOffset) / p.eyeRadius) ** 2 -
+                  ((y - p.eyeCenter) / p.eyeRadius) ** 2,
+              ),
+            );
+          const grain = grainField(u, v);
+          color =
+            (1 - face) * (0.75 + 0.03 * grain) +
+            face * (0.3 + 0.08 * rib + 0.05 * axis + 0.02 * grain);
+          // The axial lobe joins the head and tail; paired pleurae remain segmented.
+          height =
+            0.2 +
+            0.006 * grain +
+            face *
+              (0.3 +
+                0.12 * axis +
+                0.09 * rib * (1 - 0.6 * axis) +
+                0.05 * eyes +
+                0.06 * headDome * head);
+          roughness += 0.02 * grain - 0.13 * face + 0.04 * face * rib;
+          occlusion =
+            0.98 + face * (-0.18 + 0.08 * axis + 0.06 * rib + 0.03 * eyes);
+        };
+      }
       case 'countersunkmetal': {
         const p = proceduralMaterialPresets.countersunkmetal;
         const grainField = cachedNoise(8, 128, seed ^ 0x4e61);
@@ -14304,6 +14395,7 @@ export function createSurfaceSampler(
     kind === 'staranise' ||
     kind === 'logcabinparquet' ||
     kind === 'countersunkmetal' ||
+    kind === 'trilobitefossil' ||
     fabricated ||
     botanical ||
     packaging ||

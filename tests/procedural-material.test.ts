@@ -472,7 +472,138 @@ const kinds: ProceduralMaterialKind[] = [
   'staranise',
   'logcabinparquet',
   'countersunkmetal',
+  'trilobitefossil',
 ];
+
+describe('Trilobite fossil stone', () => {
+  const p = proceduralMaterialPresets.trilobitefossil;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('trilobitefossil', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps broad heads, paired eyes, axial lobes, ten pleural segments and narrow tails for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = Math.PI * 2 * hash(col, row, seed ^ 0x5b71);
+          const at = (x: number, y: number) =>
+            sample(
+              (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+              (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+            );
+          const stone = at(0.3, 0);
+          for (const sign of [-1, 1]) {
+            const head = at(sign * 0.2, -0.2),
+              tail = at(sign * 0.07, 0.29);
+            for (const fossil of [head, tail]) {
+              expect(fossil.height - stone.height).toBeGreaterThan(0.0072);
+              expect(stone.color - fossil.color).toBeGreaterThan(0.4);
+              expect(stone.roughness - fossil.roughness).toBeGreaterThan(0.1);
+              expect(fossil.metallic).toBe(0);
+            }
+            expect(
+              Math.abs(at(sign * 0.14, 0.29).height - stone.height),
+            ).toBeLessThan(0.00016);
+            expect(
+              at(sign * p.eyeOffset, p.eyeCenter).height -
+                at(sign * 0.17, p.eyeCenter).height,
+            ).toBeGreaterThan(0.001);
+            for (let segment = 0; segment < p.segments; segment++) {
+              const x = sign * 0.1;
+              const y =
+                p.segmentStart +
+                segment * p.segmentPitch +
+                p.segmentCurve * x * x;
+              const ridge = at(x, y),
+                groove = at(x, y + p.segmentPitch / 2);
+              expect(ridge.height - groove.height).toBeGreaterThan(0.0018);
+              expect(ridge.color - groove.color).toBeGreaterThan(0.06);
+              expect(ridge.occlusion - groove.occlusion).toBeGreaterThan(0.05);
+            }
+          }
+          expect(at(0, 0.1).height - at(0.08, 0.1).height).toBeGreaterThan(
+            0.0006,
+          );
+        }
+    },
+  );
+  it('keeps fossil silhouettes, overlapping shields, segment ends, eyes and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 96; x++) points.push([x / 96, y / 96]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = Math.PI * 2 * hash(col, row, seed ^ 0x5b71);
+          const add = (x: number, y: number) =>
+            points.push([
+              (col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+              (row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+            ]);
+          for (const [cx, cy, width, length] of [
+            [0, p.headCenter, p.headWidth, p.headLength],
+            [0, p.bodyCenter, p.bodyWidth, p.bodyLength],
+            [0, p.tailCenter, p.tailWidth, p.tailLength],
+            [-p.eyeOffset, p.eyeCenter, p.eyeRadius, p.eyeRadius],
+            [p.eyeOffset, p.eyeCenter, p.eyeRadius, p.eyeRadius],
+          ])
+            for (const q of [1 - p.shoulder, 1])
+              for (let ray = 0; ray < 32; ray++) {
+                const theta = (ray * Math.PI) / 16;
+                add(
+                  cx + width * Math.sqrt(q) * Math.cos(theta),
+                  cy + length * Math.sqrt(q) * Math.sin(theta),
+                );
+              }
+          for (const x of [-0.15, -p.axisWidth, 0, p.axisWidth, 0.15]) {
+            for (const y of [-0.29, -0.25, 0.26, 0.32]) add(x, y);
+            const first = p.segmentStart - p.segmentPitch / 2;
+            const last = p.segmentStart + (p.segments - 0.5) * p.segmentPitch;
+            for (const z of [first, first + 0.008, last - 0.008, last])
+              add(x, z + p.segmentCurve * x * x);
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Countersunk metal plate', () => {
   const p = proceduralMaterialPresets.countersunkmetal;

@@ -443,6 +443,8 @@
 
 `countersunkmetal` 以圓孔距離分出低底面、陡內壁、錐形沉孔及外部平板。錐形坡度採中段線性、兩端二次 shoulder 的 C1 輪廓，微量拉絲高度不掩蓋直線錐面；孔內 opaque 底面與整板皆保留 metallic 1，factory factor、四圖契約與借用／destroy 路徑同步。0.3 m tile、無新增 geometry，目錄增為 447 種。
 
+`trilobitefossil` 快取九個旋轉，以頭／胸／尾橢圓 compact supports 平滑聯集形成化石輪廓；中央軸葉連接盾甲，十對胸肋沿二次曲線偏移，胸節 envelope 在兩端歸零且由頭甲遮蔽，眼部另以小型橢圓抬高。頭甲穹面乘自己的 support，避免重疊胸甲處產生斜率斷點。0.45 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 448 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

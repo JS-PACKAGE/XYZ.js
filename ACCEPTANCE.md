@@ -6303,3 +6303,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐孔沿 16 個方向驗證深孔底、內壁、錐面等距升幅與直線斜率、外板平坦度、色差、roughness／AO／metallic；另檢查內壁、錐面肩部與 tile wrap 的 C1。初次 seed 1 的細拉絲高度使錐面二階差超過門檻，將高度振幅減半後保留原測試門檻。四項形態／連續性與新增 ownership 案例共五項 targeted tests 通過；build、typecheck、lint、format:check、完整 178 檔 5698 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面金屬孔陣列及四圖的暗孔、錐面 normal、全金屬 MR 與孔緣 AO 可見，status 為 447 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.3 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 446 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件及 metallic factor 清單同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：三葉蟲化石石板（trilobitefossil）
+
+- 目錄 447→448 種。0.45 m tile、九個 seeded 旋轉三葉蟲低浮雕，具有寬頭甲、成對眼部、中央軸葉、十對彎曲胸肋及窄尾甲，嵌於較淺石質底面。四圖 opaque、metallic 0、既有 ownership 不變，不新增化石 geometry 或特定物種科學復原。
+- 三個 seed（0／1／`0xffffffff`）驗證九個化石的頭／尾寬度、浮雕高度與石底色差／roughness、雙眼、軸葉、全部十對胸肋及凹槽的高度／色彩／AO；另檢查盾甲重疊、輪廓、眼部、胸節端點與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5703 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot，status 為 448 種，完成 smoke 的兩頁錯誤列表皆空。預設小 swatch 可見化石輪廓與軸葉，但不足以逐節辨識細胸肋；另以公開 API 產生 size 512／seed 7 normal，暫時繪入同頁放大 swatch，確認雙眼、中央軸葉及成對胸節可見，未更動 gallery 原始碼。WebGL2 首頁 screenshot 成功，後續操作遇工具 detached frame；另開 fresh tab 完成放大預覽與 API smoke。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.45 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 447 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

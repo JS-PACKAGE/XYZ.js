@@ -3198,6 +3198,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         coneRadius: 0.3;
         coneShoulder: 0.12;
     }>;
+    trilobitefossil: Readonly<{
+        dark: readonly [45, 38, 25];
+        light: readonly [192, 180, 145];
+        roughness: 0.8;
+        relief: 0.025;
+        cells: 3;
+        headWidth: 0.25;
+        headLength: 0.18;
+        headCenter: -0.2;
+        bodyWidth: 0.19;
+        bodyLength: 0.29;
+        bodyCenter: 0.04;
+        tailWidth: 0.11;
+        tailLength: 0.09;
+        tailCenter: 0.29;
+        shoulder: 0.18;
+        axisWidth: 0.055;
+        segments: 10;
+        segmentStart: -0.035;
+        segmentPitch: 0.027;
+        segmentCurve: 0.8;
+        eyeOffset: 0.13;
+        eyeCenter: -0.22;
+        eyeRadius: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3648,4 +3673,5 @@ export declare const proceduralTileMeters: Readonly<{
     staranise: 0.12;
     logcabinparquet: 1.2;
     countersunkmetal: 0.3;
+    trilobitefossil: 0.45;
 }>;

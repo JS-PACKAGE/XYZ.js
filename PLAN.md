@@ -435,6 +435,8 @@
 
 同輪追加 `countersunkmetal`（沉頭孔金屬板），實際目錄 446→447 種：六乘六深圓孔，具有陡峭內壁、較寬的錐形沉孔及平坦板面；錐面中段保留直線斜率、兩端平滑接合。0.3 m tile、四圖 opaque、metallic B／材質 factor 皆為 1，孔內保留低金屬底面；不新增透明孔洞／切削 geometry，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `trilobitefossil`（三葉蟲化石石板），實際目錄 447→448 種：九個 seeded 旋轉低浮雕，具有寬頭甲、成對眼部、中央軸葉、十對彎曲胸肋及窄尾甲，嵌於較淺石質底面。0.45 m tile、四圖 opaque dielectric、metallic 0，不新增化石 geometry／特定物種科學復原，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
