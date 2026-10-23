@@ -5624,3 +5624,8 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - `[Starters]` 2D starter 的 Vite 由 8.3.1 更新為 8.3.3，與已提交的根套件及 3D starter 對齊；遊戲與引擎 API 不變。
 - 實際執行 `smoke:starters --template 2d` 通過：由新 archive 獨立安裝、建置並啟動 production starter，在 Chromium 驗證遊玩、收集、暫停、存檔續玩、結算、重啟、音訊解鎖與銷毀，以及可攜設定和離線部署；保留 canvas PNG 證據。不代表新增實體裝置或其他瀏覽器認證。
+
+## v1.21.2 發佈準備
+
+- 使用者授權推送並發佈 `v1.21.2`，納入 `[Build]` 工具鏈間接依賴更新與 `[Starters]` 2D starter Vite 8.3.3 更新；上述測試與 Chromium starter smoke 證據仍適用，版本更新不新增 runtime 功能。
+- 沿既有 CI／Release workflow 封裝完整 archive 與 checksum；不做 npm publish，不移動歷史 tags。遠端發佈結果須以 workflow 與實際附件為準。
