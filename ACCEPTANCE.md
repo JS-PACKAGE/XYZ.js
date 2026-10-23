@@ -5619,3 +5619,8 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - `[Build]` lockfile 更新 `markdown-it` 14.3.2 → 14.3.3、`source-map-js` 1.2.1 → 1.2.2；不新增 runtime 依賴、不改公開 API。
 - 本機 frozen-lockfile 安裝、build、typecheck、lint、format:check、完整測試（178 檔／5238 項）通過；實際執行 `docs:api` 成功產生可搜尋的 v1.21.1 API 文件。既有 README／PLAN／DESIGN 與技術契約不變。
+
+## 2026-10-23 2D starter 開發工具更新
+
+- `[Starters]` 2D starter 的 Vite 由 8.3.1 更新為 8.3.3，與已提交的根套件及 3D starter 對齊；遊戲與引擎 API 不變。
+- 實際執行 `smoke:starters --template 2d` 通過：由新 archive 獨立安裝、建置並啟動 production starter，在 Chromium 驗證遊玩、收集、暫停、存檔續玩、結算、重啟、音訊解鎖與銷毀，以及可攜設定和離線部署；保留 canvas PNG 證據。不代表新增實體裝置或其他瀏覽器認證。
