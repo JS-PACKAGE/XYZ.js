@@ -454,7 +454,109 @@ const kinds: ProceduralMaterialKind[] = [
   'frenchknots',
   'artichoke',
   'splitlockwashers',
+  'flemishbond',
 ];
+
+describe('Flemish bond brickwork', () => {
+  const p = proceduralMaterialPresets.flemishbond;
+  const units = p.modules * 3;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('flemishbond', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates dark headers and long stretchers in every course with aligned centers and equal physical joints for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      const halfBevel = (p.grout + p.bevel / 2) / p.rows;
+      for (let row = 0; row < p.rows; row++)
+        for (let module = 0; module < p.modules; module++) {
+          const start = module * 3 + 1.5 * (row % 2),
+            v = (row + 0.5) / p.rows;
+          const headerU = (start + 0.5) / units,
+            stretcherU = (start + 2) / units;
+          const header = sample(headerU, v),
+            stretcher = sample(stretcherU, v);
+          expect(stretcher.color - header.color).toBeGreaterThan(0.08);
+          expect(Math.abs(stretcher.height - header.height)).toBeLessThan(
+            0.001,
+          );
+          const above = sample(stretcherU, (row + 1.5) / p.rows);
+          expect(above.mortar).toBe(0);
+          expect(stretcher.color - above.color).toBeGreaterThan(0.08);
+          for (const joint of [start, start + 1]) {
+            const u = joint / units;
+            const gap = sample(u, v);
+            expect(gap.mortar).toBe(1);
+            expect(header.height - gap.height).toBeGreaterThan(0.017);
+            expect(header.occlusion - gap.occlusion).toBeGreaterThan(0.35);
+            for (const side of [-1, 1])
+              expect(sample(u + side * halfBevel, v).mortar).toBeCloseTo(
+                0.5,
+                8,
+              );
+          }
+          for (const u of [headerU, stretcherU]) {
+            expect(sample(u, v).mortar).toBe(0);
+            expect(sample(u, row / p.rows).mortar).toBe(1);
+            for (const side of [-1, 1])
+              expect(
+                sample(u, row / p.rows + side * halfBevel).mortar,
+              ).toBeCloseTo(0.5, 8);
+          }
+          expect(header.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps alternating brick ownership, bevel shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.rows; row++)
+        for (let module = 0; module < p.modules; module++)
+          for (const joint of [0, 1])
+            for (const distance of [0, p.grout, p.grout + p.bevel])
+              for (const side of [-1, 1])
+                points.push([
+                  (3 * module + 1.5 * (row % 2) + joint) / units +
+                    (side * distance) / p.rows,
+                  (row + 0.5) / p.rows,
+                ]);
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Split lock washers', () => {
   const p = proceduralMaterialPresets.splitlockwashers;

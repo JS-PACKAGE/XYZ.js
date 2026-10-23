@@ -6177,3 +6177,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 5 tests 通過：三 seeds 驗證全部墊圈的缺口／中心孔／外側同層底板、沿圈抬升與兩端高度差、徑向平面、粗糙度／AO／metallic；另在 seeded 精確切口端點／倒角界線、angle branch cut 與 tile wrap 驗證 C1，並驗證金屬 factor 與借用／override ownership。build／typecheck／lint／format:check／全套 **178 files、5605 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：旋轉開口金屬環、環緣與高低切口 normal、缺口／中心底板 AO 及四圖可見，status 為 429 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切口，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 428 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：佛蘭德式磚砌（flemishbond）
+
+- 目錄 429→430 種。1.2 m tile、十六層磚列每層交替四組深色短磚頭與雙寬長磚面，共一百二十八塊磚；相鄰列平移一個半寬度單位，讓短磚頭對齊上下層長磚面中心。灰縫與倒角使用 row-pitch units 保持水平／垂直實體寬度一致。四圖 opaque、metallic 0、既有 ownership 不變；不是英式單一磚向交替列，色差不額外改變兩種磚面的嵌平高度，不新增砌磚 geometry。
+- 定向 4 tests 通過：三 seeds 驗證全部磚頭／長磚面色差與等高、上下層中心對齊、各灰縫及水平／垂直 half-bevel 的一致寬度；另在精確灰縫／倒角邊界、磚 owner／列切換與 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5610 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：每層深短磚頭／淺長磚面的交替錯位、灰縫 normal／AO 及四圖可見，status 為 430 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視磚列，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.2 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 429 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

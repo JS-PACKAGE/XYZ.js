@@ -435,7 +435,8 @@ export type ProceduralMaterialKind =
   | 'flintwall'
   | 'frenchknots'
   | 'artichoke'
-  | 'splitlockwashers';
+  | 'splitlockwashers'
+  | 'flemishbond';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -897,6 +898,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'frenchknots',
   'artichoke',
   'splitlockwashers',
+  'flemishbond',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

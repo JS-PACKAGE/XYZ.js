@@ -2942,6 +2942,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         gap: 0.16;
         angularBevel: 0.08;
     }>;
+    flemishbond: Readonly<{
+        dark: readonly [80, 32, 23];
+        light: readonly [208, 117, 63];
+        roughness: 0.8;
+        relief: 0.025;
+        modules: 4;
+        rows: 16;
+        grout: 0.035;
+        bevel: 0.055;
+        headerTone: 0.25;
+        stretcherTone: 0.55;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3374,4 +3386,5 @@ export declare const proceduralTileMeters: Readonly<{
     frenchknots: 0.06;
     artichoke: 0.18;
     splitlockwashers: 0.08;
+    flemishbond: 1.2;
 }>;
