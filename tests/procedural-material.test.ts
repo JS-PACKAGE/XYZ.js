@@ -437,7 +437,96 @@ const kinds: ProceduralMaterialKind[] = [
   'englishbond',
   'rebar',
   'starfruit',
+  'diamondrustication',
 ];
+
+describe('diamond-point stone rustication', () => {
+  const p = proceduralMaterialPresets.diamondrustication;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('diamondrustication', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves four planar flanks, diagonal ridges, a flat stone collar and lower mortar for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const point = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const apex = point(0, 0);
+          for (let side = 0; side < 4; side++) {
+            const angle = (side * Math.PI) / 2,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            const flank = (x: number, y: number) =>
+              point(x * c - y * s, x * s + y * c);
+            const near = flank(0.12, 0.03),
+              middle = flank(0.2, 0.03),
+              far = flank(0.28, 0.03);
+            expect(near.height - middle.height).toBeGreaterThan(0.005);
+            expect(middle.height - far.height).toBeGreaterThan(0.005);
+            expect(
+              Math.abs(near.height - 2 * middle.height + far.height),
+            ).toBeLessThan(0.0008);
+            const collar = flank(0.4, 0),
+              outerCollar = flank(0.42, 0),
+              joint = flank(0.5, 0);
+            expect(apex.height - collar.height).toBeGreaterThan(0.024);
+            expect(Math.abs(collar.height - outerCollar.height)).toBeLessThan(
+              0.0004,
+            );
+            expect(collar.height - joint.height).toBeGreaterThan(0.0075);
+            expect(collar.mortar).toBe(0);
+            expect(joint.mortar).toBe(1);
+            expect(collar.occlusion - joint.occlusion).toBeGreaterThan(0.42);
+            expect(
+              flank(0.25 / Math.SQRT2, 0.25 / Math.SQRT2).height -
+                flank(0.25, 0).height,
+            ).toBeGreaterThan(0.003);
+          }
+        }
+    },
+  );
+  it('keeps apexes, diagonal ridges, flat collars, bevel corners and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('golden starfruit slices', () => {
   const p = proceduralMaterialPresets.starfruit;

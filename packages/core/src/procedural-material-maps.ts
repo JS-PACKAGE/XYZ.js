@@ -1255,6 +1255,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'diamondrustication': {
+        const p = proceduralMaterialPresets.diamondrustication;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6d31);
+        const mineralField = cachedNoise(24, 24, seed ^ 0x9a57);
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x3c29);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const ax = Math.sqrt(x * x + 0.0001),
+            ay = Math.sqrt(y * y + 0.0001);
+          const edge = 0.5 * (ax + ay + Math.sqrt((ax - ay) ** 2 + 0.0004));
+          const t = clamp(1 - edge / p.bossHalfWidth);
+          // Retain planar flanks while flattening only the boss foot, leaving
+          // a separate stone collar before the outer bevel and mortar.
+          const boss =
+            t < p.footSoftness
+              ? (t * t) / (2 * p.footSoftness)
+              : t - p.footSoftness / 2;
+          const face =
+            smooth(clamp((0.5 - Math.abs(x) - p.grout) / p.bevel)) *
+            smooth(clamp((0.5 - Math.abs(y) - p.grout) / p.bevel));
+          const grain = grainField(u, v),
+            mineral = mineralField(u, v);
+          const tone = tones[Math.floor(vCell) * p.cells + Math.floor(uCell)]!;
+          color =
+            face * (0.35 + 0.3 * tone + 0.1 * mineral + 0.04 * grain) +
+            0.5 * (1 - face);
+          height = 0.06 + face * (0.2 + 0.7 * boss + 0.008 * grain);
+          mortar = 1 - face;
+          roughness += 0.035 * grain * face + 0.12 * mortar;
+          occlusion = 0.55 + 0.43 * face;
+        };
+      }
       case 'starfruit': {
         const p = proceduralMaterialPresets.starfruit;
         const grainField = cachedNoise(96, 96, seed ^ 0x8d31);
@@ -12563,6 +12601,7 @@ export function createSurfaceSampler(
     kind === 'englishbond' ||
     kind === 'rebar' ||
     kind === 'starfruit' ||
+    kind === 'diamondrustication' ||
     fabricated ||
     botanical ||
     packaging ||

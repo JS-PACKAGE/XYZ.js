@@ -2747,6 +2747,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         outerRadius: 0.43;
         seedRadius: 0.1;
     }>;
+    diamondrustication: Readonly<{
+        dark: readonly [83, 76, 62];
+        light: readonly [210, 200, 175];
+        roughness: 0.76;
+        relief: 0.04;
+        cells: 4;
+        bossHalfWidth: 0.38;
+        footSoftness: 0.08;
+        grout: 0.025;
+        bevel: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3162,4 +3173,5 @@ export declare const proceduralTileMeters: Readonly<{
     englishbond: 0.8;
     rebar: 0.12;
     starfruit: 0.18;
+    diamondrustication: 1.6;
 }>;

@@ -418,7 +418,8 @@ export type ProceduralMaterialKind =
   | 'hollyleaf'
   | 'englishbond'
   | 'rebar'
-  | 'starfruit';
+  | 'starfruit'
+  | 'diamondrustication';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -863,6 +864,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'englishbond',
   'rebar',
   'starfruit',
+  'diamondrustication',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

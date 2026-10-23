@@ -6057,3 +6057,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證五角突出／凹缺口／輪廓外暗底、籽腔相對高度／色差／粗糙度／AO、金黃外緣與平整中央果肉；另驗證果瓣／外緣／籽腔橢圓／中央極點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5518 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：金黃五角切片、淺色果肉、暗底凹缺口與切面 normal、四圖及 25 球可見，status 為 412 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.18 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 411 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：鑽尖石砌飾面（diamondrustication）
+
+- 目錄 412→413 種。1.6 m tile、十六塊石材各有四面近似平面斜坡、中央尖頂與對角稜線。凸飾平滑落到獨立平整石框，再經外倒角下降到灰縫，seeded 色差／細粒保留三層高度。四圖 opaque、metallic 0、既有 ownership 不變；不是石砌 geometry。
+- 定向 4 tests 通過：三 seeds 驗證四面斜坡的單調／近似線性下降、中央尖頂高於平框、平框平整且高於灰縫、對角稜線與 AO；另驗證尖頂／稜線／平框／倒角交點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5523 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：暖灰石材、四面尖頂 normal、平框與灰縫、四圖及 25 球可見，status 為 413 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.6 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 412 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

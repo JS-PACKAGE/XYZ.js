@@ -365,6 +365,8 @@
 
 同輪追加 `starfruit`（楊桃切片），實際目錄 411→412 種：九片 seeded 旋轉五角切面，金黃外緣包住淺黃果肉，五個放射狀橢圓籽腔較暗／低／粗糙，中央果肉保持平整。0.18 m tile、四圖 opaque dielectric、metallic 0，不新增果肉 geometry、透明度或次表面散射；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `diamondrustication`（鑽尖石砌飾面），實際目錄 412→413 種：十六塊石材各有四面斜坡、中央尖頂與對角稜線，斜坡底部平滑落到平整石框，再經倒角下降到灰縫。seeded 色差與細粒不掩蓋三層高度。1.6 m tile、四圖 opaque dielectric、metallic 0，不新增石砌 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

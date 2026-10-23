@@ -2760,6 +2760,17 @@ export const proceduralMaterialPresets = Object.freeze({
     outerRadius: 0.43,
     seedRadius: 0.1,
   }),
+  diamondrustication: Object.freeze({
+    dark: [83, 76, 62] as const,
+    light: [210, 200, 175] as const,
+    roughness: 0.76,
+    relief: 0.04,
+    cells: 4,
+    bossHalfWidth: 0.38,
+    footSoftness: 0.08,
+    grout: 0.025,
+    bevel: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3176,4 +3187,5 @@ export const proceduralTileMeters = Object.freeze({
   englishbond: 0.8,
   rebar: 0.12,
   starfruit: 0.18,
+  diamondrustication: 1.6,
 });
