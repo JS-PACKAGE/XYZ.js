@@ -20,4 +20,5 @@ export declare function writeNormals(height: Float32Array, size: number, normal:
 export declare function generateProceduralMaps(kind: ProceduralMaterialKind, size: number, seed: number, controls?: {
     contrast?: number;
     roughnessBias?: number;
+    tint?: readonly [number, number, number];
 }): ProceduralMaps;

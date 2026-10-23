@@ -467,6 +467,8 @@
 
 `seedbeads` 以偶數列數維持週期的半珠錯位，逐列換算 cell 座標；珠身用四次方超橢圓遮罩與 `1 - (y/b)^2` 的桶狀剖面，兩端各以 compact 圓蓋壓低穿線孔，孔位落在 cell 內避免被相鄰 cell 截斷。逐珠色調由預先 seeded 的 hash 表取得（列與欄皆取模），珠間 face 遮罩為 0，色調不連續被隱藏在線隙內。0.06 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 459 種。
 
+`tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.22.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

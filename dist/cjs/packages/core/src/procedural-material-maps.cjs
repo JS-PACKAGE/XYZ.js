@@ -3733,8 +3733,8 @@ function generateProceduralMaps(t, n, r, i = {}) {
 		let d = e * n + t, f = d * 4;
 		o[d] = l.height;
 		for (let e = 0; e < 3; e++) {
-			let t = c.dark[e] + (c.light[e] - c.dark[e]) * l.color;
-			a.baseColor[f + e] = Math.round(t * (1 - l.mortar) + (e === 2 ? 139 : 153) * l.mortar), a.occlusion[f + e] = byte(l.occlusion);
+			let t = c.dark[e] + (c.light[e] - c.dark[e]) * l.color, n = i.tint === void 0 ? t : t * i.tint[e];
+			a.baseColor[f + e] = Math.round(n * (1 - l.mortar) + (e === 2 ? 139 : 153) * l.mortar), a.occlusion[f + e] = byte(l.occlusion);
 		}
 		a.baseColor[f + 3] = a.occlusion[f + 3] = 255, a.metallicRoughness[f] = 255, a.metallicRoughness[f + 1] = byte(l.roughness + u), a.metallicRoughness[f + 2] = byte(l.metallic), a.metallicRoughness[f + 3] = 255;
 	}

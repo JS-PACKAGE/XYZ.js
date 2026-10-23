@@ -6398,3 +6398,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 ## 2026-10-24 現行契約文件修正
 
 - `docs/CURRENT.md` 的程序材質清單由過期的 358 種補齊為原始碼的 459 種(逐一比對缺漏 0),front matter 由 v1.19 改為 v1.22。純文件修正,不改 runtime 或公開 API;已發佈的 v1.22.0 附件內容不變。
+
+## 2026-10-24 程序材質選項:顏料 tint
+
+- 新增 `ProceduralMaterialOptions.tint`(三個 0–4 的逐通道倍率),只乘上原設計 sRGB 顏料色;灰縫色調與 normal/metallic-roughness/occlusion maps 不變。省略時以提交前 dist 為基準比對 459 種 size 64/seed 7 四圖 SHA256,changed 0。
+- 新增測試:`[1,1,1]` 與省略相同、`[0,0,0]` 時每像素只剩灰縫色且其他三圖不變、單通道倍率方向正確、長度/範圍/NaN/Infinity/非數值的 tint 拒絕。build、typecheck、lint、format:check、完整 Vitest(178 檔/5761 項)、check:api-compatibility 通過。
+- managed headless Chromium 的 `/examples/pbr3d/` 分別強制 WebGPU 與 WebGL2 透過公開 API 建立 brick:`tint [1.6,0.6,0.6]` 使 baseColor 平均 R 154→224、G 91→68;無效 tint 為 RangeError;兩者 destroy 後狀態正確,頁面無錯誤。gallery 未加 tint 控制項。不擴大 Canvas2D 3D、Safari、實機或效能認證範圍;未 push。

@@ -23897,6 +23897,45 @@ describe('periodic procedural material fields', () => {
     expect(() => proceduralRepeats('brick', 0)).toThrow(RangeError);
   });
 
+  it('tints only surface pigment and leaves mortar and other maps unchanged', () => {
+    const plain = generateProceduralMaps('tiles', 32, 7);
+    expect(generateProceduralMaps('tiles', 32, 7, { tint: [1, 1, 1] })).toEqual(
+      plain,
+    );
+    const black = generateProceduralMaps('tiles', 32, 7, { tint: [0, 0, 0] });
+    expect(black.normal).toEqual(plain.normal);
+    expect(black.metallicRoughness).toEqual(plain.metallicRoughness);
+    expect(black.occlusion).toEqual(plain.occlusion);
+    const sample = createSurfaceSampler('tiles', 7);
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    let mortarPixels = 0;
+    for (let y = 0; y < 32; y++)
+      for (let x = 0; x < 32; x++) {
+        sample((x + 0.5) / 32, (y + 0.5) / 32, out);
+        if (out.mortar > 0.5) mortarPixels++;
+        const p = (y * 32 + x) * 4;
+        for (let c = 0; c < 3; c++)
+          expect(black.baseColor[p + c]).toBe(
+            Math.round((c === 2 ? 139 : 153) * out.mortar),
+          );
+      }
+    expect(mortarPixels).toBeGreaterThan(0);
+    const warm = generateProceduralMaps('wood', 32, 1, { tint: [2, 1, 0.5] });
+    const wood = generateProceduralMaps('wood', 32, 1);
+    for (let p = 0; p < wood.baseColor.length; p += 4) {
+      expect(warm.baseColor[p]).toBeGreaterThanOrEqual(wood.baseColor[p]);
+      expect(warm.baseColor[p + 1]).toBe(wood.baseColor[p + 1]);
+      expect(warm.baseColor[p + 2]).toBeLessThanOrEqual(wood.baseColor[p + 2]);
+    }
+  });
+
   it('wraps normal neighbors and uses negative slopes along both image UV axes', () => {
     const size = 32,
       heights = new Float32Array(size * size),
@@ -23948,6 +23987,19 @@ describe('procedural preset acquisition and ownership', () => {
       await expect(ProceduralMaterial.create('wood', { seed })).rejects.toThrow(
         RangeError,
       );
+    for (const tint of [
+      [1, 1],
+      [1, 1, 1, 1],
+      [-0.1, 1, 1],
+      [1, 4.1, 1],
+      [1, NaN, 1],
+      [1, Infinity, 1],
+      ['1', 1, 1],
+      'red',
+    ])
+      await expect(
+        ProceduralMaterial.create('wood', { tint: tint as never }),
+      ).rejects.toThrow(RangeError);
     await expect(
       ProceduralMaterial.create('wood', null as never),
     ).rejects.toThrow(TypeError);

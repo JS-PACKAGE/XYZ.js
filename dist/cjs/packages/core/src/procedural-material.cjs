@@ -29,28 +29,31 @@ var ProceduralMaterial = class ProceduralMaterial {
 		if (!Number.isInteger(s) || s < 0 || s > 4294967295) throw RangeError(`Procedural material seed must be an unsigned 32-bit integer.`);
 		let c = r.contrast ?? 1, l = r.roughnessBias ?? 0, u = r.repeats ?? 1;
 		if (!Number.isFinite(c) || c < 0 || !Number.isFinite(l) || l < -1 || l > 1 || !Number.isFinite(u) || u <= 0) throw RangeError(`Procedural contrast must be finite and nonnegative, roughnessBias within -1..1, and repeats finite and positive.`);
-		let d = require_procedural_material_maps.generateProceduralMaps(n, o, s, {
+		let d = r.tint;
+		if (d !== void 0 && (!Array.isArray(d) || d.length !== 3 || !d.every((e) => typeof e == `number` && Number.isFinite(e) && e >= 0 && e <= 4))) throw RangeError(`Procedural tint must be three finite multipliers within 0..4.`);
+		let f = require_procedural_material_maps.generateProceduralMaps(n, o, s, {
 			contrast: c,
-			roughnessBias: l
-		}), f = [];
+			roughnessBias: l,
+			tint: d
+		}), p = [];
 		try {
 			for (let t of [
-				d.baseColor,
-				d.normal,
-				d.metallicRoughness,
-				d.occlusion
+				f.baseColor,
+				f.normal,
+				f.metallicRoughness,
+				f.occlusion
 			]) {
 				let n = new ImageData(o, o);
-				n.data.set(t), f.push(await require_texture.Texture.fromImage(n));
+				n.data.set(t), p.push(await require_texture.Texture.fromImage(n));
 			}
 			return new ProceduralMaterial(n, {
-				baseColor: f[0],
-				normal: f[1],
-				metallicRoughness: f[2],
-				occlusion: f[3]
+				baseColor: p[0],
+				normal: p[1],
+				metallicRoughness: p[2],
+				occlusion: p[3]
 			}, u);
 		} catch (e) {
-			for (let e of f) e.destroy();
+			for (let e of p) e.destroy();
 			throw e;
 		}
 	}

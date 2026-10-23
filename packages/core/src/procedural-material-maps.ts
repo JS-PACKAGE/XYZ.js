@@ -15099,7 +15099,11 @@ export function generateProceduralMaps(
   kind: ProceduralMaterialKind,
   size: number,
   seed: number,
-  controls: { contrast?: number; roughnessBias?: number } = {},
+  controls: {
+    contrast?: number;
+    roughnessBias?: number;
+    tint?: readonly [number, number, number];
+  } = {},
 ): ProceduralMaps {
   const maps: ProceduralMaps = {
     baseColor: new Uint8ClampedArray(size * size * 4),
@@ -15128,8 +15132,11 @@ export function generateProceduralMaps(
         p = i * 4;
       heights[i] = surface.height;
       for (let c = 0; c < 3; c++) {
-        const color =
+        const authored =
           preset.dark[c] + (preset.light[c] - preset.dark[c]) * surface.color;
+        // Tint scales only the surface pigment; mortar/grout keeps its neutral tone.
+        const color =
+          controls.tint === undefined ? authored : authored * controls.tint[c];
         maps.baseColor[p + c] = Math.round(
           color * (1 - surface.mortar) + (c === 2 ? 139 : 153) * surface.mortar,
         );

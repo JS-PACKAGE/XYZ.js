@@ -459,6 +459,8 @@
 
 同輪追加 `seedbeads`（peyote 小米珠），實際目錄 458→459 種：錯開半顆的四十八顆光澤圓柱珠，桶狀拱起剖面、兩端凹入穿線孔、低而粗糙的珠間線隙與依 seed 分布的逐珠色調。0.06 m tile、四圖 opaque dielectric、metallic 0，不新增珠子 geometry／透光／線材模擬，沿用既有契約，逐功能驗證提交、不 push。
 
+追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

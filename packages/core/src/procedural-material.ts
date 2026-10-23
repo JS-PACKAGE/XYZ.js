@@ -476,6 +476,11 @@ export interface ProceduralMaterialOptions {
   roughnessBias?: number;
   /** UV repeats of the generated tile. Default 1. */
   repeats?: number;
+  /**
+   * Per-channel multipliers for the authored sRGB pigment, each finite and
+   * within 0..4. Omitted keeps the authored colors byte-identical.
+   */
+  tint?: readonly [number, number, number];
 }
 
 /** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
@@ -1023,9 +1028,26 @@ export class ProceduralMaterial {
       throw new RangeError(
         'Procedural contrast must be finite and nonnegative, roughnessBias within -1..1, and repeats finite and positive.',
       );
+    const tint = options.tint;
+    if (
+      tint !== undefined &&
+      (!Array.isArray(tint) ||
+        tint.length !== 3 ||
+        !tint.every(
+          (value) =>
+            typeof value === 'number' &&
+            Number.isFinite(value) &&
+            value >= 0 &&
+            value <= 4,
+        ))
+    )
+      throw new RangeError(
+        'Procedural tint must be three finite multipliers within 0..4.',
+      );
     const maps = generateProceduralMaps(kind, size, seed, {
       contrast,
       roughnessBias,
+      tint,
     });
     const acquired: Texture[] = [];
     // Sequential acquisition keeps cleanup deterministic even when decoding a later map fails.

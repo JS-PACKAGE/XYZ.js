@@ -10,6 +10,11 @@ export interface ProceduralMaterialOptions {
     roughnessBias?: number;
     /** UV repeats of the generated tile. Default 1. */
     repeats?: number;
+    /**
+     * Per-channel multipliers for the authored sRGB pigment, each finite and
+     * within 0..4. Omitted keeps the authored colors byte-identical.
+     */
+    tint?: readonly [number, number, number];
 }
 /** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
 export declare function proceduralRepeats(kind: ProceduralMaterialKind, meters: number): number;
