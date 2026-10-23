@@ -399,7 +399,8 @@ export type ProceduralMaterialKind =
   | 'rhombille'
   | 'fossillimestone'
   | 'seigaihatiles'
-  | 'tuftedleather';
+  | 'tuftedleather'
+  | 'louveredmetal';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -825,6 +826,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fossillimestone',
   'seigaihatiles',
   'tuftedleather',
+  'louveredmetal',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -959,6 +961,7 @@ export class ProceduralMaterial {
         this.kind === 'damascus' ||
         this.kind === 'castiron' ||
         this.kind === 'pressedtin' ||
+        this.kind === 'louveredmetal' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

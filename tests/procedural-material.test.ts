@@ -418,7 +418,89 @@ const kinds: ProceduralMaterialKind[] = [
   'fossillimestone',
   'seigaihatiles',
   'tuftedleather',
+  'louveredmetal',
 ];
+
+describe('stamped metal louvers', () => {
+  const p = proceduralMaterialPresets.louveredmetal;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('louveredmetal', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises directional lips over lower slots while retaining both sheet attachments for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.columns, (row + 0.5 + y) / p.rows);
+          const plate = local(0, -0.35),
+            upper = local(0, -0.12),
+            middle = local(0, 0),
+            lip = local(0, 0.18),
+            slot = local(0, 0.3);
+          expect(upper.height).toBeGreaterThan(plate.height + 0.002);
+          expect(middle.height).toBeGreaterThan(upper.height + 0.006);
+          expect(lip.height).toBeGreaterThan(middle.height + 0.008);
+          expect(slot.height).toBeLessThan(plate.height - 0.002);
+          expect(lip.color - slot.color).toBeGreaterThan(0.5);
+          expect(slot.roughness - lip.roughness).toBeGreaterThan(0.14);
+          expect(slot.occlusion).toBeLessThan(0.36);
+          for (const x of [-0.46, 0.46]) {
+            const side = local(x, 0.18),
+              sideSlot = local(x, 0.3);
+            expect(Math.abs(side.height - plate.height)).toBeLessThan(0.00025);
+            expect(Math.abs(sideSlot.height - plate.height)).toBeLessThan(
+              0.00025,
+            );
+            expect(sideSlot.occlusion).toBe(1);
+          }
+          for (const point of [plate, upper, middle, lip, slot]) {
+            expect(point.metallic).toBe(1);
+            expect(point.mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps blade ends, upper attachments, lower lips, slot exits and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('diamond tufted leather', () => {
   const p = proceduralMaterialPresets.tuftedleather;
@@ -8148,6 +8230,7 @@ describe('periodic procedural material fields', () => {
           kind === 'damascus' ||
           kind === 'castiron' ||
           kind === 'pressedtin' ||
+          kind === 'louveredmetal' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -17430,6 +17513,7 @@ describe('procedural preset acquisition and ownership', () => {
     'damascus',
     'castiron',
     'pressedtin',
+    'louveredmetal',
     'basketball',
     'tennisball',
     'golfball',
@@ -17448,7 +17532,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
-          kind === 'pressedtin'
+          kind === 'pressedtin' ||
+          kind === 'louveredmetal'
           ? 1
           : 0,
       );

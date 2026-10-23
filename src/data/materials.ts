@@ -2587,6 +2587,16 @@ export const proceduralMaterialPresets = Object.freeze({
     buttonRadius: 0.075,
     collarRadius: 0.16,
   }),
+  louveredmetal: Object.freeze({
+    dark: [45, 50, 55] as const,
+    light: [205, 212, 216] as const,
+    roughness: 0.33,
+    relief: 0.04,
+    columns: 3,
+    rows: 6,
+    halfWidth: 0.44,
+    endShoulder: 0.08,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2984,4 +2994,5 @@ export const proceduralTileMeters = Object.freeze({
   fossillimestone: 0.6,
   seigaihatiles: 0.6,
   tuftedleather: 0.8,
+  louveredmetal: 0.6,
 });

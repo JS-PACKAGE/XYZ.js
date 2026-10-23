@@ -327,6 +327,8 @@
 
 同輪追加 `tuftedleather`（菱形拉扣皮革），實際目錄 392→393 種：深棕色菱形鼓包、交叉壓褶、凹下拉扣口袋與包皮圓扣，圓扣介於口袋與墊面最高點之間；seeded 細皮紋與磨耗，不套用 quilting 織線或金屬釘。0.8 m tile、四圖 opaque dielectric，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `louveredmetal`（沖壓百葉金屬板），實際目錄 393→394 種：兩端連接板面的傾斜葉片、較高下緣及下方暗槽，區別於普通波紋或對稱圓管；seeded 細金屬粒紋。0.6 m tile、四圖 opaque、metallic map 與 factor 均為 1，暗槽保留不透明背板，不增加 geometry 或穿孔，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -2574,6 +2574,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         buttonRadius: 0.075;
         collarRadius: 0.16;
     }>;
+    louveredmetal: Readonly<{
+        dark: readonly [45, 50, 55];
+        light: readonly [205, 212, 216];
+        roughness: 0.33;
+        relief: 0.04;
+        columns: 3;
+        rows: 6;
+        halfWidth: 0.44;
+        endShoulder: 0.08;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2970,4 +2980,5 @@ export declare const proceduralTileMeters: Readonly<{
     fossillimestone: 0.6;
     seigaihatiles: 0.6;
     tuftedleather: 0.8;
+    louveredmetal: 0.6;
 }>;

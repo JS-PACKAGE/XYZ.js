@@ -1232,6 +1232,7 @@ export function createSurfaceSampler(
     kind === 'damascus' ||
     kind === 'castiron' ||
     kind === 'pressedtin' ||
+    kind === 'louveredmetal' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1252,6 +1253,33 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'louveredmetal': {
+        const p = proceduralMaterialPresets.louveredmetal;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6d39);
+        return () => {
+          const x = fract(u * p.columns) - 0.5;
+          const y = fract(v * p.rows) - 0.5;
+          const ends = smooth(
+            clamp((p.halfWidth - Math.abs(x)) / p.endShoulder),
+          );
+          const blade =
+            ends *
+            smooth(clamp((y + 0.3) / 0.08)) *
+            (1 - smooth(clamp((y - 0.2) / 0.06)));
+          const tilt = smooth(clamp((y + 0.22) / 0.44));
+          const slot =
+            ends *
+            smooth(clamp((y - 0.22) / 0.04)) *
+            (1 - smooth(clamp((y - 0.34) / 0.04)));
+          const grain = grainField(u, v);
+          // Stamped blades remain attached at both ends. Their raised lower
+          // lip overhangs an opaque recessed backing, not an alpha-cut hole.
+          color = 0.46 + 0.2 * blade * tilt - 0.36 * slot + 0.025 * grain;
+          height = 0.1 + 0.5 * blade * tilt - 0.07 * slot + 0.006 * grain;
+          roughness += -0.04 * blade + 0.12 * slot + 0.01 * grain;
+          occlusion = 1 - 0.65 * slot;
+        };
+      }
       case 'tuftedleather': {
         const p = proceduralMaterialPresets.tuftedleather;
         const grainField = cachedNoise(96, 96, seed ^ 0x35c7);
@@ -11709,6 +11737,7 @@ export function createSurfaceSampler(
     kind === 'fossillimestone' ||
     kind === 'seigaihatiles' ||
     kind === 'tuftedleather' ||
+    kind === 'louveredmetal' ||
     fabricated ||
     botanical ||
     packaging ||
