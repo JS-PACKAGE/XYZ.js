@@ -1254,6 +1254,53 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'woodworm': {
+        const p = proceduralMaterialPresets.woodworm;
+        const grainField = cachedNoise(96, 4, seed ^ 0x7c19);
+        const fiberField = cachedNoise(192, 8, seed ^ 0x3a27);
+        const galleries = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            const angle = TAU * hash(col, row, seed ^ 0x5e31);
+            galleries[i] = Math.cos(angle);
+            galleries[i + 1] = Math.sin(angle);
+            galleries[i + 2] = 0.06 + 0.05 * hash(col, row, seed ^ 0x2b47);
+          }
+        const channelScale = 1 / (p.channelWidth * p.channelWidth);
+        const holeScale = 1 / (p.holeRadius * p.holeRadius);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 3;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * galleries[i] + dy * galleries[i + 1],
+            y = dy * galleries[i] - dx * galleries[i + 1];
+          const offset = y - galleries[i + 2] * Math.sin((TAU * x) / 0.6);
+          const channel =
+            (1 -
+              smooth(clamp((offset * offset * channelScale - 0.25) / 0.75))) *
+            (1 - smooth(clamp((Math.abs(x) - 0.26) / 0.08)));
+          let holes = 0;
+          for (let side = -1; side <= 1; side += 2) {
+            const a = x - side * 0.3;
+            holes +=
+              1 - smooth(clamp(((a * a + y * y) * holeScale - 0.2) / 0.8));
+          }
+          // Smooth union avoids seams where deeper exit bores meet the
+          // exposed winding gallery; supports stay inside their owner cell.
+          const groove = 1 - (1 - channel) * (1 - holes);
+          const grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          color =
+            0.58 + 0.2 * grain + 0.05 * fiber - 0.43 * groove - 0.12 * holes;
+          height =
+            0.74 + 0.018 * grain + 0.01 * fiber - 0.42 * groove - 0.2 * holes;
+          roughness += 0.06 * grain + 0.1 * groove;
+          occlusion = 0.98 - 0.35 * groove - 0.3 * holes;
+        };
+      }
       case 'cofferedconcrete': {
         const p = proceduralMaterialPresets.cofferedconcrete;
         const grainField = cachedNoise(96, 96, seed ^ 0x4c37);
@@ -12244,6 +12291,7 @@ export function createSurfaceSampler(
     kind === 'lotusseedpod' ||
     kind === 'crowncaps' ||
     kind === 'cofferedconcrete' ||
+    kind === 'woodworm' ||
     fabricated ||
     botanical ||
     packaging ||

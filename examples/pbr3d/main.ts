@@ -483,6 +483,7 @@ try {
     'lotusseedpod',
     'crowncaps',
     'cofferedconcrete',
+    'woodworm',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -429,7 +429,96 @@ const kinds: ProceduralMaterialKind[] = [
   'lotusseedpod',
   'crowncaps',
   'cofferedconcrete',
+  'woodworm',
 ];
+
+describe('woodworm galleries', () => {
+  const p = proceduralMaterialPresets.woodworm;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('woodworm', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts winding galleries into intact timber and places deeper exit bores at their ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = 2 * Math.PI * hash(col, row, seed ^ 0x5e31);
+          const c = Math.cos(angle),
+            s = Math.sin(angle),
+            amplitude = 0.06 + 0.05 * hash(col, row, seed ^ 0x2b47);
+          const point = (x: number, y: number) =>
+            at(
+              (col + 0.5 + x * c - y * s) / p.cells,
+              (row + 0.5 + x * s + y * c) / p.cells,
+            );
+          const middle = point(0, 0);
+          for (const x of [-0.21, -0.1, 0, 0.1, 0.21]) {
+            const y = amplitude * Math.sin((2 * Math.PI * x) / 0.6);
+            const channel = point(x, y),
+              wood = point(x, y + 0.1);
+            expect(wood.height - channel.height).toBeGreaterThan(0.007);
+            expect(wood.color - channel.color).toBeGreaterThan(0.15);
+            expect(channel.occlusion).toBeLessThan(0.65);
+            expect(wood.occlusion).toBeGreaterThan(0.93);
+          }
+          for (const side of [-1, 1]) {
+            const bore = point(side * 0.3, 0);
+            expect(middle.height - bore.height).toBeGreaterThan(0.004);
+            expect(bore.occlusion).toBeLessThan(0.4);
+            expect(point(side * 0.4, 0).height).toBeGreaterThan(0.018);
+            expect(
+              point(side * 0.3, 0.08).height - bore.height,
+            ).toBeGreaterThan(0.014);
+          }
+        }
+    },
+  );
+  it('keeps gallery walls, exit rims, rotated supports and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('coffered concrete slab', () => {
   const p = proceduralMaterialPresets.cofferedconcrete;

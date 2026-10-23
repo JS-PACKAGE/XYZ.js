@@ -349,6 +349,8 @@
 
 同輪追加 `cofferedconcrete`（井字混凝土樓板），實際目錄 403→404 種：連續平頂肋梁、平底方形凹室、平滑斜壁與牆角，seeded 骨材、細粒與淺氣孔。2.4 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `woodworm`（蟲蝕木材），實際目錄 404→405 種：縱向木紋上的有限長彎曲蟲道、兩端更深的圓形出孔、seeded 旋轉與彎曲幅度。0.16 m tile、四圖 opaque dielectric、metallic 0，暗部有底、不新增切孔 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

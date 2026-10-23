@@ -2671,6 +2671,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         opening: 0.4;
         wallWidth: 0.14;
     }>;
+    woodworm: Readonly<{
+        dark: readonly [38, 24, 12];
+        light: readonly [203, 161, 103];
+        roughness: 0.72;
+        relief: 0.025;
+        cells: 4;
+        channelWidth: 0.028;
+        holeRadius: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3078,4 +3087,5 @@ export declare const proceduralTileMeters: Readonly<{
     lotusseedpod: 0.3;
     crowncaps: 0.112;
     cofferedconcrete: 2.4;
+    woodworm: 0.16;
 }>;

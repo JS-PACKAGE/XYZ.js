@@ -2684,6 +2684,15 @@ export const proceduralMaterialPresets = Object.freeze({
     opening: 0.4,
     wallWidth: 0.14,
   }),
+  woodworm: Object.freeze({
+    dark: [38, 24, 12] as const,
+    light: [203, 161, 103] as const,
+    roughness: 0.72,
+    relief: 0.025,
+    cells: 4,
+    channelWidth: 0.028,
+    holeRadius: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3092,4 +3101,5 @@ export const proceduralTileMeters = Object.freeze({
   lotusseedpod: 0.3,
   crowncaps: 0.112,
   cofferedconcrete: 2.4,
+  woodworm: 0.16,
 });

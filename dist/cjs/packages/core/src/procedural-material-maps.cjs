@@ -360,6 +360,23 @@ function createSurfaceSampler(t, r) {
 	}
 	let Wt = t === `stone` || t === `metal` || t === `marble`, Gt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, G = 0, K = 0, Kt = 0, q = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 1, $ = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `standingseam` || t === `damascus` || t === `castiron` || t === `pressedtin` || t === `louveredmetal` || t === `crowncaps` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `woodworm`: {
+				let t = require_materials.proceduralMaterialPresets.woodworm, i = cachedNoise(96, 4, r ^ 31769), a = cachedNoise(192, 8, r ^ 14887), o = new Float64Array(t.cells * t.cells * 3);
+				for (let e = 0; e < t.cells; e++) for (let i = 0; i < t.cells; i++) {
+					let a = (e * t.cells + i) * 3, s = n * hash(i, e, r ^ 24113);
+					o[a] = Math.cos(s), o[a + 1] = Math.sin(s), o[a + 2] = .06 + .05 * hash(i, e, r ^ 11079);
+				}
+				let s = 1 / (t.channelWidth * t.channelWidth), c = 1 / (t.holeRadius * t.holeRadius);
+				return () => {
+					let e = G * t.cells, r = K * t.cells, l = (Math.floor(r) * t.cells + Math.floor(e)) * 3, u = fract(e) - .5, d = fract(r) - .5, f = u * o[l] + d * o[l + 1], p = d * o[l] - u * o[l + 1], m = p - o[l + 2] * Math.sin(n * f / .6), h = (1 - smooth(clamp((m * m * s - .25) / .75))) * (1 - smooth(clamp((Math.abs(f) - .26) / .08))), g = 0;
+					for (let e = -1; e <= 1; e += 2) {
+						let t = f - e * .3;
+						g += 1 - smooth(clamp(((t * t + p * p) * c - .2) / .8));
+					}
+					let _ = 1 - (1 - h) * (1 - g), v = i(G, K), y = a(G, K);
+					Y = .58 + .2 * v + .05 * y - .43 * _ - .12 * g, X = .74 + .018 * v + .01 * y - .42 * _ - .2 * g, Z += .06 * v + .1 * _, Q = .98 - .35 * _ - .3 * g;
+				};
+			}
 			case `cofferedconcrete`: {
 				let t = require_materials.proceduralMaterialPresets.cofferedconcrete, n = cachedNoise(96, 96, r ^ 19511), i = cachedNoise(24, 24, r ^ 28185);
 				return () => {
@@ -2924,7 +2941,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || t === `standingseam` || t === `damascus` || t === `windmillpavers` || t === `castiron` || t === `porphyry` || t === `linen` || t === `chippedenamel` || t === `perforatedleather` || t === `argyle` || t === `chevronparquet` || t === `ginkgoleaf` || t === `pressedtin` || t === `sashiko` || t === `ashlar` || t === `gabion` || t === `gingham` || t === `mossypavers` || t === `bamboocrosscut` || t === `moire` || t === `oakleaf` || t === `rhombille` || t === `fossillimestone` || t === `seigaihatiles` || t === `tuftedleather` || t === `louveredmetal` || t === `herringbonebrick` || t === `shibori` || t === `scallopedslate` || t === `saltpan` || t === `dogbonepavers` || t === `palmendgrain` || t === `asanoha` || t === `lotusseedpod` || t === `crowncaps` || t === `cofferedconcrete` || at || ct || pt || _t || St || Dt || At || Nt || Se || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || t === `standingseam` || t === `damascus` || t === `windmillpavers` || t === `castiron` || t === `porphyry` || t === `linen` || t === `chippedenamel` || t === `perforatedleather` || t === `argyle` || t === `chevronparquet` || t === `ginkgoleaf` || t === `pressedtin` || t === `sashiko` || t === `ashlar` || t === `gabion` || t === `gingham` || t === `mossypavers` || t === `bamboocrosscut` || t === `moire` || t === `oakleaf` || t === `rhombille` || t === `fossillimestone` || t === `seigaihatiles` || t === `tuftedleather` || t === `louveredmetal` || t === `herringbonebrick` || t === `shibori` || t === `scallopedslate` || t === `saltpan` || t === `dogbonepavers` || t === `palmendgrain` || t === `asanoha` || t === `lotusseedpod` || t === `crowncaps` || t === `cofferedconcrete` || t === `woodworm` || at || ct || pt || _t || St || Dt || At || Nt || Se || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), Kt = Wt ? noise(G, K, 4, 4, r) : 0, q = Xt ? noise(G, K, 32, 32, Zt) : 0, J = Gt ? noise(G, K, 64, 64, Qt) : 0, Y = Kt, X = Kt, Z = i.roughness, Q = 1, $ = 0, qt = Jt, Yt(), n.color = Y, n.height = X * i.relief, n.roughness = clamp(Z), n.occlusion = Q, n.mortar = $, n.metallic = qt;
 	};

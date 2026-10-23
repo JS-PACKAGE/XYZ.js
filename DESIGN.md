@@ -357,6 +357,8 @@
 
 `cofferedconcrete` 在九個方格內，以兩軸平滑肩部乘積形成 flat-bottomed 凹室；斜壁在四周歸零，使跨 cell 的平頂肋梁與交會處連續，避免 max 造成對角尖脊。cached 96×96 細粒及 24×24 骨材只提供微表面起伏，氣孔輕微下凹，凹室底降低 AO；不是布料圓鼓交織。2.4 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 404 種。
 
+`woodworm` 預先計算十六個蟲道的旋轉基底與彎曲幅度，局部正弦中心線用平方距離平滑降入木面，兩端逐步收束。圓形出孔與蟲道採平滑聯集，另加孔深，使出孔低於蟲道；所有旋轉支撐留在 cell 內，底面 opaque。縱向 cached 96×4 木紋與 192×8 細纖維獨立於蟲道方向。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 405 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

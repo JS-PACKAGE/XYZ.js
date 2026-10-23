@@ -410,7 +410,8 @@ export type ProceduralMaterialKind =
   | 'asanoha'
   | 'lotusseedpod'
   | 'crowncaps'
-  | 'cofferedconcrete';
+  | 'cofferedconcrete'
+  | 'woodworm';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -847,6 +848,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lotusseedpod',
   'crowncaps',
   'cofferedconcrete',
+  'woodworm',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
