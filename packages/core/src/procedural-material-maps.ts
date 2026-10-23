@@ -1254,6 +1254,32 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'slottedwood': {
+        const p = proceduralMaterialPresets.slottedwood;
+        const grainField = cachedNoise(96, 4, seed ^ 0x4c29);
+        const fiberField = cachedNoise(192, 8, seed ^ 0x7e13);
+        const outerSquared = p.outerRadius * p.outerRadius;
+        const wallRange = outerSquared - p.coreRadius * p.coreRadius;
+        const aspect = p.columns / p.rows;
+        return () => {
+          const row = Math.floor(v * p.rows);
+          const x = fract(u * p.columns - (row % 2) * 0.5) - 0.5;
+          const y = (fract(v * p.rows) - 0.5) * aspect;
+          // Measure both axes in column-cell units so the slot ends are
+          // circular on the square UV tile despite the rectangular pitch.
+          const end = Math.max(0, Math.abs(x) - p.spine);
+          const hole = smooth(
+            clamp((outerSquared - end * end - y * y) / wallRange),
+          );
+          const face = 1 - hole;
+          const grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          color = (0.58 + 0.2 * grain + 0.04 * fiber) * face + 0.025 * hole;
+          height = (0.74 + 0.018 * grain + 0.006 * fiber) * face + 0.08 * hole;
+          roughness += 0.04 * grain * face + 0.28 * hole;
+          occlusion = 0.98 - 0.72 * hole;
+        };
+      }
       case 'ikat': {
         const p = proceduralMaterialPresets.ikat;
         const alignmentField = cachedNoise(p.threads, 1, seed ^ 0x6c17);
@@ -12355,6 +12381,7 @@ export function createSurfaceSampler(
     kind === 'woodworm' ||
     kind === 'calcadawaves' ||
     kind === 'ikat' ||
+    kind === 'slottedwood' ||
     fabricated ||
     botanical ||
     packaging ||

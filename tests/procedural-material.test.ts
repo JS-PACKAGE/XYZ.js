@@ -432,7 +432,97 @@ const kinds: ProceduralMaterialKind[] = [
   'woodworm',
   'calcadawaves',
   'ikat',
+  'slottedwood',
 ];
+
+describe('round-ended slotted wood', () => {
+  const p = proceduralMaterialPresets.slottedwood;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('slottedwood', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts finite staggered capsule slots while retaining wood bridges and circular ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const u = (col + 0.5 + (row % 2) * 0.5) / p.columns,
+            v = (row + 0.5) / p.rows;
+          const point = (x: number, y: number) =>
+            at(u + x / p.columns, v + y / p.rows);
+          const floor = point(0, 0),
+            bridge = point(0, 0.4);
+          expect(bridge.height - floor.height).toBeGreaterThan(0.016);
+          expect(bridge.color - floor.color).toBeGreaterThan(0.5);
+          expect(floor.occlusion).toBeLessThan(0.3);
+          expect(floor.roughness - bridge.roughness).toBeGreaterThan(0.2);
+          for (const side of [-1, 1]) {
+            expect(
+              Math.abs(point(side * 0.22, 0).height - floor.height),
+            ).toBeLessThan(0.0001);
+            expect(
+              Math.abs(point(side * 0.305, 0).height - floor.height),
+            ).toBeLessThan(0.0001);
+            expect(point(side * 0.36, 0).height).toBeGreaterThan(0.018);
+            const axial = point(side * 0.32, 0),
+              transverse = point(side * 0.29, 0.06);
+            expect(Math.abs(axial.height - transverse.height)).toBeLessThan(
+              0.001,
+            );
+            expect(
+              point(side * 0.32, 0.06).height - axial.height,
+            ).toBeGreaterThan(0.009);
+          }
+          expect(at(u, v + 1 / p.rows).height - floor.height).toBeGreaterThan(
+            0.016,
+          );
+          expect(
+            Math.abs(
+              at(u + 0.5 / p.columns, v + 1 / p.rows).height - floor.height,
+            ),
+          ).toBeLessThan(0.0001);
+        }
+    },
+  );
+  it('keeps slot sidewalls, semicircular ends, staggered rows and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('warp-dyed ikat cloth', () => {
   const p = proceduralMaterialPresets.ikat;

@@ -363,6 +363,8 @@
 
 `ikat` 用 cached 64×1 經紗對位場平移局部染紋的縱向座標，維持同一束經紗在各列的偏移；圓化絕對距離的菱形支撐在 cell 邊界前歸零，避免尖角與 wrap 導數不連續。染紋只進入 color，六十四線平織紋及 cached 96×96 細粒獨立控制高度／粗糙度／AO。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 407 種。
 
+`slottedwood` 以線段平方距離形成膠囊槽，先用 columns／rows 比例校正 y 軸，確保方形 UV tile 上的端部為圓形而非橢圓。八個偶數列逐列偏移半格，支撐在 row 邊界前歸零；槽壁平滑接回木面，槽底為暗色 opaque backing，cached 縱向木紋／纖維僅作用於木面。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 408 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

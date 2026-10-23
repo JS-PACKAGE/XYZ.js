@@ -2698,6 +2698,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         threads: 64;
         fringe: 0.16;
     }>;
+    slottedwood: Readonly<{
+        dark: readonly [33, 21, 12];
+        light: readonly [199, 157, 99];
+        roughness: 0.64;
+        relief: 0.025;
+        columns: 4;
+        rows: 8;
+        spine: 0.29;
+        coreRadius: 0.025;
+        outerRadius: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3108,4 +3119,5 @@ export declare const proceduralTileMeters: Readonly<{
     woodworm: 0.16;
     calcadawaves: 1.28;
     ikat: 0.16;
+    slottedwood: 0.8;
 }>;

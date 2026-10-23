@@ -2711,6 +2711,17 @@ export const proceduralMaterialPresets = Object.freeze({
     threads: 64,
     fringe: 0.16,
   }),
+  slottedwood: Object.freeze({
+    dark: [33, 21, 12] as const,
+    light: [199, 157, 99] as const,
+    roughness: 0.64,
+    relief: 0.025,
+    columns: 4,
+    rows: 8,
+    spine: 0.29,
+    coreRadius: 0.025,
+    outerRadius: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3122,4 +3133,5 @@ export const proceduralTileMeters = Object.freeze({
   woodworm: 0.16,
   calcadawaves: 1.28,
   ikat: 0.16,
+  slottedwood: 0.8,
 });
