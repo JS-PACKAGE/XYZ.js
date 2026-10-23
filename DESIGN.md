@@ -263,6 +263,8 @@
 
 果皮表面增量為 pineapple／strawberry／lychee（鳳梨皮／草莓皮／荔枝皮），目前共二百零四種；前述 counts 與段落保留為歷史。鳳梨皮呈現金黃／橄欖色菱形多邊形果目、斜向交錯排列、狹窄棕綠色凹縫與圓潤冠部內的小凹陷中央果眼，區別於松果搭接木質鱗片；草莓皮呈現紅色表皮、不規則交錯的細長凹陷種子窩與窩內小型赭黃色種子，區別於橘皮圓形油腺或芝麻正向凸粒；荔枝皮呈現粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫，區別於圓形毛囊或鳳梨規整大果目。沿用既有 scalar 雙端點調色設計，不新增逐材質 RGB 輸出路徑；種子資料只快取消費到的內容，取樣不配置物件，週期／cell 接縫、特徵肩部、中心、角度切線、ownership 與局部支撐邊界的 scalar fields 須保持有限且 C1，AO 對應凹陷而非任意顏料帶。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat。僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission、BRDF 或依賴。前二百零一種 presets 與四份 maps 須逐位元組保持不變；既有 options、repeat、呼叫者 ownership 與借用 maps 的生命週期不變。本段僅定義設計範圍，不宣稱 runtime 驗收。
 
+榻榻米 `tatami` 以週期餘弦塑造藺草凸脊，以平滑緊支撐函數生成橫向綁線，交替草莖交點分別抬高／壓低；低振幅縱向纖維與 seeded noise 補充表面變化。目前實際目錄 303→304 種，既有歷史 counts 不改。沿用 CPU 一次生成的四份 maps、opaque dielectric（metallic 0）、0.16 m tile 與 caller-owned textures；不新增 shader、geometry、透明或物理模擬。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

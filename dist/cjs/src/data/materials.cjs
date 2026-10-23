@@ -5058,6 +5058,23 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .2,
 		relief: .0022
+	}),
+	tatami: Object.freeze({
+		dark: [
+			83,
+			78,
+			32
+		],
+		light: [
+			208,
+			195,
+			116
+		],
+		roughness: .81,
+		relief: .006,
+		reeds: 32,
+		bindings: 4,
+		bindingWidth: .09
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -5417,7 +5434,8 @@ var proceduralTileMeters = Object.freeze({
 	avocadoflesh: .1,
 	turquoise: .16,
 	rhodonite: .2,
-	tigereye: .18
+	tigereye: .18,
+	tatami: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

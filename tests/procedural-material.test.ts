@@ -382,7 +382,90 @@ const kinds: ProceduralMaterialKind[] = [
   'turquoise',
   'rhodonite',
   'tigereye',
+  'tatami',
 ];
+
+describe('tatami rush weave', () => {
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised reeds, recessed gaps and alternating binding crossings for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tatami', seed);
+      const p = proceduralMaterialPresets.tatami;
+      const at = (u: number, v: number): SurfaceSample => {
+        const out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        out.height /= p.relief;
+        return out;
+      };
+      for (let reed = 0; reed < p.reeds; reed++) {
+        const u = reed / p.reeds;
+        const crown = at(u, 0.125);
+        const gap = at(u + 0.5 / p.reeds, 0.125);
+        const crossing = at(u, 0);
+        expect(crown.height - gap.height).toBeGreaterThan(0.38);
+        expect(crown.occlusion - gap.occlusion).toBeGreaterThan(0.24);
+        if (reed % 2 === 0)
+          expect(crossing.height - crown.height).toBeGreaterThan(0.22);
+        else expect(crown.height - crossing.height).toBeGreaterThan(0.08);
+      }
+    },
+  );
+
+  it('has no field or normal-slope discontinuity at tile and binding support seams', () => {
+    const keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    const out = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tatami', seed);
+      const p = proceduralMaterialPresets.tatami;
+      for (const axis of [0, 1]) {
+        for (const seam of axis === 0
+          ? [0, 1]
+          : [
+              0,
+              1,
+              p.bindingWidth / p.bindings,
+              1 - p.bindingWidth / p.bindings,
+            ]) {
+          for (let i = 0; i < 17; i++) {
+            const a = out(),
+              b = out(),
+              c = out();
+            const h = 1e-6;
+            const at = (offset: number, target: SurfaceSample): void =>
+              sample(
+                axis === 0 ? seam + offset : i / 17,
+                axis === 1 ? seam + offset : i / 17,
+                target,
+              );
+            at(-h, a);
+            at(0, b);
+            at(h, c);
+            for (const key of keys) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.15,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('opaque fruit rind morphology', () => {
   const seeds = [0, 1, 0xffffffff];

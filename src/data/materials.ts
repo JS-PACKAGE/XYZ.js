@@ -2204,6 +2204,15 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.2,
     relief: 0.0022,
   }),
+  tatami: Object.freeze({
+    dark: [83, 78, 32] as const,
+    light: [208, 195, 116] as const,
+    roughness: 0.81,
+    relief: 0.006,
+    reeds: 32,
+    bindings: 4,
+    bindingWidth: 0.09,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2565,4 +2574,5 @@ export const proceduralTileMeters = Object.freeze({
   turquoise: 0.16,
   rhodonite: 0.2,
   tigereye: 0.18,
+  tatami: 0.16,
 });

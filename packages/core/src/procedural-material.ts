@@ -363,7 +363,8 @@ export type ProceduralMaterialKind =
   | 'avocadoflesh'
   | 'turquoise'
   | 'rhodonite'
-  | 'tigereye';
+  | 'tigereye'
+  | 'tatami';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -753,6 +754,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'turquoise',
   'rhodonite',
   'tigereye',
+  'tatami',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

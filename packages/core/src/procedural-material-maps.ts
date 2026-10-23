@@ -1248,6 +1248,30 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'tatami':
+        return () => {
+          const p = proceduralMaterialPresets.tatami;
+          const reed = 0.5 + 0.5 * Math.cos(TAU * p.reeds * u);
+          const cross = fract(v * p.bindings + 0.5) - 0.5;
+          const binding = smooth(clamp(1 - (cross / p.bindingWidth) ** 2));
+          // Alternate over/under at neighboring reed crowns, with a smooth crossover.
+          const over = 0.5 + 0.5 * Math.cos(TAU * (p.reeds / 2) * u);
+          const grain = noise(u, v, p.reeds, 4, seed ^ 0x3157);
+          const fiber =
+            0.5 +
+            0.5 *
+              Math.cos(TAU * p.reeds * 3 * u + 0.12 * Math.sin(TAU * 4 * v));
+          color = 0.31 + 0.26 * reed + 0.18 * grain - 0.14 * binding;
+          height =
+            0.16 +
+            0.4 * reed +
+            0.016 * fiber * reed +
+            0.015 * detail +
+            binding * (0.24 * over - 0.1 * (1 - over));
+          roughness += 0.035 * grain - 0.045 * binding * over;
+          occlusion = 0.72 + 0.26 * reed - 0.06 * binding * (1 - over);
+          return;
+        };
       case 'pineapple':
         return () => {
           const p = proceduralMaterialPresets.pineapple,

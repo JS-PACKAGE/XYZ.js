@@ -254,6 +254,8 @@
 
 果皮表面增量追加 pineapple／strawberry／lychee（鳳梨皮／草莓皮／荔枝皮），目前共二百零四種；前述 counts 與段落保留為歷史。鳳梨皮為金黃／橄欖色菱形多邊形果目、斜向交錯排列、狹窄棕綠色凹縫與圓潤冠部內的小凹陷中央果眼，不是松果搭接木質鱗片；草莓皮為紅色表皮、不規則交錯的細長凹陷種子窩與窩內小型赭黃色種子，不是橘皮圓形油腺或芝麻正向凸粒；荔枝皮為粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫，不是圓形毛囊或鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat。僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission、BRDF 或依賴。前二百零一種 presets 與四份 maps 須逐位元組保持不變；既有 options、repeat、呼叫者 ownership 與借用 maps 的生命週期不變。本段僅定義範圍，不宣稱 runtime 驗收。
 
+榻榻米增量追加 `tatami`，由目前實際目錄 303 種增為 304 種；既有段落 counts 保留為歷史。呈現黃綠色藺草凸脊、凹陷間隙、交替上下穿越草莖的橫向綁線與縱向纖維。沿用 seeded periodic 四圖、opaque dielectric、physical repeats 與 ownership；一張 UV tile 對應 0.16 m，不新增 geometry、透明孔洞或物理模擬。既有 303 種輸出保持不變，依本輪授權逐功能 commit、不 push；實際驗證見 ACCEPTANCE。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

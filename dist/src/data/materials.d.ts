@@ -2203,6 +2203,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.2;
         relief: 0.0022;
     }>;
+    tatami: Readonly<{
+        dark: readonly [83, 78, 32];
+        light: readonly [208, 195, 116];
+        roughness: 0.81;
+        relief: 0.006;
+        reeds: 32;
+        bindings: 4;
+        bindingWidth: 0.09;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2563,4 +2572,5 @@ export declare const proceduralTileMeters: Readonly<{
     turquoise: 0.16;
     rhodonite: 0.2;
     tigereye: 0.18;
+    tatami: 0.16;
 }>;
