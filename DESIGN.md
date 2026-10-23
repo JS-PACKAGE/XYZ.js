@@ -421,6 +421,8 @@
 
 `acornbarnacles` 快取十六個 seeded 旋轉，以平滑圓裙緣與向內升高殼壁構成橡實形殼體；六條板縫及四十八條細肋在中央前淡出，避免角度場奇點。正則化 L1 場形成菱形凹口與圓滑尖角，深孔低於殼緣；板縫同步降低高度／AO 並提高粗糙度，殼外仍為 opaque 底面。0.12 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 436 種。
 
+`circularpavers` 快取四個拼花相位與三百二十四塊石材色調，以半徑選擇中心石／四個環圈，再按圈號增加楔形石數；交替圈偏移半個扇區。徑向邊使用圓半徑差、扇區邊使用到徑向直線的垂距，令灰縫／倒角不隨圈半徑改變寬度。所有 owner 切換收於 compact 灰縫內，中心石不依賴角度場，平齊石面只含細粒起伏。1.6 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 437 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

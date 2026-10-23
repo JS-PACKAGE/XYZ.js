@@ -6226,3 +6226,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證十六殼的菱形開口四方向、深孔與高殼緣、全部六板縫的高度／色差／AO／粗糙度、由上向下殼壁坡度及細肋起伏；另在菱口肩部、角向細肋 supports、殼緣／坡面界線及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5641 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：米白殼面、中央角形暗孔、放射板縫 AO 與殼壁 normal 四圖可見，status 為 436 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 435 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：同心環狀鋪石（circularpavers）
+
+- 目錄 436→437 種。1.6 m tile、二乘二圓形拼花，每組中心石外有四圈各八／十六／二十四／三十二塊楔形石，相鄰圈錯開角向接縫，seed 控制旋轉與逐石色差。徑向及環向灰縫採一致實體寬度，石面嵌平並具有平滑倒角。四圖 opaque、metallic 0、既有 ownership 不變，不新增鋪石 geometry。
+- 定向 4 tests 通過：三 seeds 驗證四中心與三百二十楔形石面、內外環縫與角向縫的高度／AO／粗糙度、徑向及切向半倒角等寬；另在精確環縫／角縫肩部、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5646 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：四組同心鋪石、逐圈細分的楔形石、倒角 normal 與灰縫 AO 四圖可見，status 為 437 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.6 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 436 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

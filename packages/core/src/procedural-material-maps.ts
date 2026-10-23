@@ -1258,6 +1258,68 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'circularpavers': {
+        const p = proceduralMaterialPresets.circularpavers;
+        const count = 1 + (p.sectors * p.courses * (p.courses + 1)) / 2;
+        const stride = count + 1;
+        const stones = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride;
+            stones[i] = TAU * hash(col, row, seed ^ 0x3d51);
+            for (let stone = 0; stone < count; stone++)
+              stones[i + 1 + stone] = hash(
+                col * count + stone,
+                row,
+                seed ^ 0x4e63,
+              );
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5f75);
+        const outerRadius = (p.courses + 1) * p.courseWidth;
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * stride;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const radius = Math.hypot(x, y);
+          let face = 0,
+            stone = 0;
+          if (radius < p.courseWidth) {
+            face = smooth(clamp((p.courseWidth - radius - p.grout) / p.bevel));
+          } else if (radius < outerRadius) {
+            const course = Math.min(
+              p.courses,
+              Math.floor(radius / p.courseWidth),
+            );
+            const sectors = p.sectors * course;
+            const phase = stones[i] + ((course % 2) * Math.PI) / sectors;
+            const turn = fract((Math.atan2(y, x) - phase) / TAU) * sectors;
+            const sector = Math.floor(turn) % sectors,
+              local = fract(turn);
+            const radial = Math.min(
+              radius - course * p.courseWidth,
+              (course + 1) * p.courseWidth - radius,
+            );
+            const angular =
+              radius * Math.sin((Math.min(local, 1 - local) * TAU) / sectors);
+            face =
+              smooth(clamp((radial - p.grout) / p.bevel)) *
+              smooth(clamp((angular - p.grout) / p.bevel));
+            stone = 1 + (p.sectors * (course - 1) * course) / 2 + sector;
+          }
+          const grain = grainField(u, v);
+          mortar = 1 - face;
+          // Both circular and radial joints use physical cell-space distances.
+          // Owner changes happen inside grout; the center stone has no angle field.
+          color =
+            face * (0.35 + 0.3 * stones[i + 1 + stone] + 0.06 * grain) +
+            0.5 * mortar;
+          height = 0.08 + face * (0.68 + 0.015 * grain);
+          roughness += 0.04 * grain * face + 0.13 * mortar;
+          occlusion = 0.55 + 0.42 * face;
+        };
+      }
       case 'acornbarnacles': {
         const p = proceduralMaterialPresets.acornbarnacles;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -13696,6 +13758,7 @@ export function createSurfaceSampler(
     kind === 'hexnuts' ||
     kind === 'orbicularjasper' ||
     kind === 'acornbarnacles' ||
+    kind === 'circularpavers' ||
     fabricated ||
     botanical ||
     packaging ||

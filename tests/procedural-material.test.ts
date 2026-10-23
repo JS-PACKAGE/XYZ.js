@@ -461,7 +461,142 @@ const kinds: ProceduralMaterialKind[] = [
   'hexnuts',
   'orbicularjasper',
   'acornbarnacles',
+  'circularpavers',
 ];
+
+describe('Concentric circular paving', () => {
+  const p = proceduralMaterialPresets.circularpavers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('circularpavers', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps four concentric wedge courses and a center stone above constant-width joints for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x3d51);
+          const at = (radius: number, angle: number) =>
+            sample(
+              (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+            );
+          const center = at(0, 0),
+            outside = at(0.48, 0);
+          expect(center.height - outside.height).toBeGreaterThan(0.012);
+          expect(center.mortar).toBe(0);
+          expect(outside.mortar).toBe(1);
+          for (let course = 1; course <= 4; course++) {
+            const sectors = 8 * course;
+            const origin = phase + ((course % 2) * Math.PI) / sectors;
+            const radius = (course + 0.5) * p.courseWidth;
+            for (let sector = 0; sector < sectors; sector++) {
+              const edge = origin + (sector * 2 * Math.PI) / sectors;
+              const middle = edge + Math.PI / sectors;
+              const face = at(radius, middle),
+                radialJoint = at(course * p.courseWidth, middle),
+                sectorJoint = at(radius, edge);
+              for (const grout of [radialJoint, sectorJoint]) {
+                expect(face.height - grout.height).toBeGreaterThan(0.012);
+                expect(face.occlusion - grout.occlusion).toBeGreaterThan(0.4);
+                expect(grout.roughness - face.roughness).toBeGreaterThan(0.09);
+                expect(grout.mortar).toBe(1);
+              }
+              expect(face.mortar).toBe(0);
+              expect(face.metallic).toBe(0);
+              expect(Math.abs(face.height - center.height)).toBeLessThan(
+                0.00035,
+              );
+              const distance = p.grout + p.bevel / 2;
+              const radialHalf = at(course * p.courseWidth + distance, middle);
+              const angularHalf = at(
+                radius,
+                edge + Math.asin(distance / radius),
+              );
+              expect(radialHalf.mortar).toBeCloseTo(0.5, 8);
+              expect(angularHalf.mortar).toBeCloseTo(0.5, 8);
+              expect(
+                Math.abs(radialHalf.height - angularHalf.height),
+              ).toBeLessThan(0.0002);
+            }
+          }
+        }
+    },
+  );
+  it('keeps course ownership, wedge angle wrap, grout shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x3d51);
+          const add = (radius: number, angle: number) =>
+            points.push([
+              (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+            ]);
+          for (let course = 1; course <= p.courses; course++) {
+            const sectors = p.sectors * course;
+            const origin = phase + ((course % 2) * Math.PI) / sectors;
+            const radius = (course + 0.5) * p.courseWidth;
+            for (let sector = 0; sector < sectors; sector++) {
+              const edge = origin + (sector * 2 * Math.PI) / sectors;
+              for (const distance of [0, p.grout, p.grout + p.bevel]) {
+                add(radius, edge + Math.asin(distance / radius));
+                add(
+                  course * p.courseWidth + distance,
+                  edge + Math.PI / sectors,
+                );
+                add(
+                  (course + 1) * p.courseWidth - distance,
+                  edge + Math.PI / sectors,
+                );
+              }
+            }
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Acorn barnacle shells', () => {
   const p = proceduralMaterialPresets.acornbarnacles;
