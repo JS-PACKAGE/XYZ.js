@@ -6380,3 +6380,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）於 9 個 cell 驗證 8 個凸線取樣點對 6 個凹槽取樣點（含鉤口缺口與內側開放尖端）的高度、色差、AO 與 roughness；另驗證 3×4 條 cell 邊界上的底線左右極限差小於 1e-6，以及鉤角、底線與 tile wrap 的 C1。測試一次通過，閾值取自實測值下限並留餘量；新增五項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5755 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨連續回紋鉤、凸線 normal 與凹槽 AO，未更動 gallery 原始碼。status 為 458 種，兩頁錯誤列表皆空。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.45 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 457 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：peyote 小米珠（seedbeads）
+
+- 目錄 458→459 種。0.06 m tile、錯開半顆的四十八顆光澤圓柱珠，桶狀拱起剖面、兩端各一個凹入穿線孔，珠間線隙低而粗糙，逐珠色調依 seed 分布在藍到金的色階上。四圖 opaque dielectric、metallic 0、既有 ownership 不變，不新增珠子 geometry、透光或線材模擬。
+- 三個 seed（0／1／`0xffffffff`）於 48 顆珠子驗證珠心／穿線孔／上下線隙／側向線隙的高度、AO、色差與 roughness，並驗證下一列珠心正對本列側向線隙（確認半珠錯位），及 48 顆珠心色調 spread 大於 0.2；另檢查珠緣、穿線孔與半珠錯位 tile wrap 的 C1。測試一次通過形態斷言。首次完整套件跑到 C1 測試 5.2 s 超過 vitest 預設 5 s 而失敗：該次我同時開著瀏覽器 smoke 佔用 CPU，單獨執行僅約 1.3 s，與其他材質的 C1 測試相近（約 1.2–1.3 s）。我另把取樣器的 `**4` 改為乘法（輸出不變，未量測效能差異），並在無併行負載下重跑；重建後 build、typecheck、lint、format:check、完整 178 檔 5760 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- 重建後 managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨錯位珠列、逐珠色調、兩端穿線孔 normal 與線隙 AO，未更動 gallery 原始碼。status 為 459 種，兩頁錯誤列表皆空。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.06 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 458 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

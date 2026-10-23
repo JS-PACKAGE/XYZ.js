@@ -464,7 +464,8 @@ export type ProceduralMaterialKind =
   | 'quatrefoiltile'
   | 'okraslice'
   | 'eggcarton'
-  | 'greekkey';
+  | 'greekkey'
+  | 'seedbeads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -955,6 +956,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'okraslice',
   'eggcarton',
   'greekkey',
+  'seedbeads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

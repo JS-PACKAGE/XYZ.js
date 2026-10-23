@@ -483,7 +483,84 @@ const kinds: ProceduralMaterialKind[] = [
   'okraslice',
   'eggcarton',
   'greekkey',
+  'seedbeads',
 ];
+
+describe('Peyote seed beads', () => {
+  const p = proceduralMaterialPresets.seedbeads;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('seedbeads', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'staggers glossy beads by half a bead with recessed end holes and thread gaps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const centers: number[] = [];
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cx = col + 0.5 + 0.5 * (row & 1),
+            cy = row + 0.5;
+          const center = at(cx, cy);
+          const flank = at(cx, cy + 0.3);
+          const holeLeft = at(cx - p.holeOffset, cy),
+            holeRight = at(cx + p.holeOffset, cy);
+          const gapAbove = at(cx, row);
+          const gapBeside = at(cx + 0.5, cy);
+          const below = at(cx + 0.5, cy + 1);
+          centers.push(center.color);
+          for (const hole of [holeLeft, holeRight]) {
+            expect(center.height - hole.height).toBeGreaterThan(0.007);
+            expect(hole.height - gapAbove.height).toBeGreaterThan(0.01);
+            expect(center.occlusion - hole.occlusion).toBeGreaterThan(0.35);
+            expect(center.color - hole.color).toBeGreaterThan(0.15);
+          }
+          expect(center.height - flank.height).toBeGreaterThan(0.004);
+          expect(gapAbove.roughness - center.roughness).toBeGreaterThan(0.55);
+          expect(gapBeside.roughness - center.roughness).toBeGreaterThan(0.55);
+          // The next row's bead centres under this row's side gap.
+          expect(below.height - gapBeside.height).toBeGreaterThan(0.015);
+          expect(center.metallic).toBe(0);
+        }
+      expect(Math.max(...centers) - Math.min(...centers)).toBeGreaterThan(0.2);
+    },
+  );
+  it('keeps bead rims, end holes and the half-bead tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 192,
+              v = (y * p.rows) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Gilded Greek key fret', () => {
   const p = proceduralMaterialPresets.greekkey;

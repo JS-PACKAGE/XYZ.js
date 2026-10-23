@@ -1261,6 +1261,42 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'seedbeads': {
+        const p = proceduralMaterialPresets.seedbeads;
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x4d27);
+        const holeSquared = p.holeRadius * p.holeRadius;
+        return () => {
+          const y = v * p.rows;
+          const row = Math.floor(y);
+          // Even row counts keep the half-bead stagger periodic across the tile wrap.
+          const x = u * p.columns - 0.5 * (row & 1);
+          const col = Math.floor(x);
+          const fx = fract(x) - 0.5,
+            fy = fract(y) - 0.5;
+          const ax = fx / p.halfLength,
+            ay = fy / p.halfHeight;
+          const ax2 = ax * ax,
+            ay2 = ay * ay;
+          const face = smooth(clamp((1 - ax2 * ax2 - ay2 * ay2) / p.shoulder));
+          const lens = clamp(1 - ay2);
+          const hx = Math.abs(fx) - p.holeOffset;
+          const hole = smooth(clamp(1 - (hx * hx + fy * fy) / holeSquared));
+          const tone =
+            tones[
+              (((row % p.rows) + p.rows) % p.rows) * p.columns +
+                (((col % p.columns) + p.columns) % p.columns)
+            ]!;
+          color =
+            0.06 + face * (0.12 + 0.6 * tone * (0.6 + 0.4 * lens) - 0.2 * hole);
+          height = 0.1 + face * (0.35 + 0.35 * lens - 0.3 * hole);
+          roughness += 0.5 * (1 - face) - 0.1 * face * lens;
+          occlusion = 0.3 + face * (0.6 + 0.1 * lens - 0.4 * hole);
+          return;
+        };
+      }
       case 'greekkey': {
         const p = proceduralMaterialPresets.greekkey;
         const grainField = cachedNoise(96, 96, seed ^ 0x3b95);
@@ -14980,6 +15016,7 @@ export function createSurfaceSampler(
     kind === 'okraslice' ||
     kind === 'eggcarton' ||
     kind === 'greekkey' ||
+    kind === 'seedbeads' ||
     fabricated ||
     botanical ||
     packaging ||

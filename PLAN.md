@@ -457,6 +457,8 @@
 
 同輪追加 `greekkey`（鎏金希臘回紋），實際目錄 457→458 種：深藍黑陶瓷上九個方形螺旋回紋鉤，鉤向內捲至開放尖端，底線貫穿 cell 邊緣使回紋跨 tile 連續，凸線帶較亮細芯。0.45 m tile、四圖 opaque dielectric、metallic 0，不新增浮雕 geometry／真實黃金或陶瓷模擬，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `seedbeads`（peyote 小米珠），實際目錄 458→459 種：錯開半顆的四十八顆光澤圓柱珠，桶狀拱起剖面、兩端凹入穿線孔、低而粗糙的珠間線隙與依 seed 分布的逐珠色調。0.06 m tile、四圖 opaque dielectric、metallic 0，不新增珠子 geometry／透光／線材模擬，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
