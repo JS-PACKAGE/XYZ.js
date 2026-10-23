@@ -5994,3 +5994,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 5 tests 通過：三 seeds 驗證平頂、捲邊高於頂部、裙邊低於頂部、二十一組褶峰／谷高度差與波狀邊緣、凹槽 AO；另驗證極點／捲邊／壓褶／tile wrap C1 及金屬 ownership／override 契約。build／typecheck／lint／format:check／全套 **178 files、5472 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：銀灰瓶蓋、環狀邊緣與裙邊 normal、四圖及 25 球可見，status 為 403 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.112 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 402 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，金屬 factor 清單加入新種類，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：井字混凝土樓板（cofferedconcrete）
+
+- 目錄 403→404 種。2.4 m tile、連續平頂交叉肋梁、九個平底方形凹室與平滑斜壁；牆角用平滑乘積避免 max 尖脊，seeded 骨材、細粒與淺氣孔保留結構層次。四圖 opaque、metallic 0、既有 ownership 不變；僅 normal mapping、不新增 geometry。
+- 定向 4 tests 通過：三 seeds 驗證凹室底低於肋梁、交叉肋梁連續平頂、平底及各側斜壁逐步升高、牆角過渡與凹室 AO；另驗證室底／斜壁／肋梁交會／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5477 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：灰色方形凹室、平頂井字肋梁與四向斜壁 normal、四圖及 25 球可見，status 為 404 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、2.4 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 403 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

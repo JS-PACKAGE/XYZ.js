@@ -1254,6 +1254,37 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cofferedconcrete': {
+        const p = proceduralMaterialPresets.cofferedconcrete;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4c37);
+        const aggregateField = cachedNoise(24, 24, seed ^ 0x6e19);
+        return () => {
+          const x = Math.abs(fract(u * p.cells) - 0.5),
+            y = Math.abs(fract(v * p.cells) - 0.5);
+          // Flat-bottomed chambers stop before the shared ribs. A product
+          // rounds the wall junctions without creating diagonal max cusps.
+          const chamber =
+            smooth(clamp((p.opening - x) / p.wallWidth)) *
+            smooth(clamp((p.opening - y) / p.wallWidth));
+          const grain = grainField(u, v),
+            aggregate = aggregateField(u, v);
+          const pores = smooth(clamp((grain - 0.68) / 0.2));
+          color =
+            0.64 -
+            0.22 * chamber +
+            0.06 * grain +
+            0.025 * aggregate -
+            0.07 * pores;
+          height =
+            0.8 -
+            0.65 * chamber +
+            0.009 * grain +
+            0.006 * aggregate -
+            0.015 * pores;
+          roughness += 0.05 * grain + 0.03 * chamber;
+          occlusion = 0.98 - 0.45 * chamber - 0.04 * pores;
+        };
+      }
       case 'crowncaps': {
         const p = proceduralMaterialPresets.crowncaps;
         const grainField = cachedNoise(96, 96, seed ^ 0x5c27);
@@ -12212,6 +12243,7 @@ export function createSurfaceSampler(
     kind === 'asanoha' ||
     kind === 'lotusseedpod' ||
     kind === 'crowncaps' ||
+    kind === 'cofferedconcrete' ||
     fabricated ||
     botanical ||
     packaging ||

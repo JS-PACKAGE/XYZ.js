@@ -347,6 +347,8 @@
 
 同輪追加 `crowncaps`（金屬皇冠瓶蓋），實際目錄 402→403 種：平頂、隆起捲邊與下降的二十一道壓褶裙邊，seeded 旋轉壓褶同時改變輪廓與裙邊高度。0.112 m tile、四圖 opaque 金屬，metallic B 255／factor 1、暗部有金屬底、不新增 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `cofferedconcrete`（井字混凝土樓板），實際目錄 403→404 種：連續平頂肋梁、平底方形凹室、平滑斜壁與牆角，seeded 骨材、細粒與淺氣孔。2.4 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -5956,6 +5956,23 @@ var proceduralMaterialPresets = Object.freeze({
 		relief: .018,
 		cells: 4,
 		teeth: 21
+	}),
+	cofferedconcrete: Object.freeze({
+		dark: [
+			76,
+			74,
+			68
+		],
+		light: [
+			192,
+			188,
+			177
+		],
+		roughness: .83,
+		relief: .04,
+		cells: 3,
+		opening: .4,
+		wallWidth: .14
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6361,7 +6378,8 @@ var proceduralTileMeters = Object.freeze({
 	palmendgrain: .024,
 	asanoha: .12,
 	lotusseedpod: .3,
-	crowncaps: .112
+	crowncaps: .112,
+	cofferedconcrete: 2.4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

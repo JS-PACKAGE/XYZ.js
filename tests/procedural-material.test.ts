@@ -428,7 +428,93 @@ const kinds: ProceduralMaterialKind[] = [
   'asanoha',
   'lotusseedpod',
   'crowncaps',
+  'cofferedconcrete',
 ];
+
+describe('coffered concrete slab', () => {
+  const p = proceduralMaterialPresets.cofferedconcrete;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cofferedconcrete', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps shared flat ribs above tapered square chambers for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const point = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const bed = point(0, 0),
+            corner = point(0.46, 0.46);
+          expect(corner.height - bed.height).toBeGreaterThan(0.025);
+          expect(corner.color - bed.color).toBeGreaterThan(0.14);
+          expect(bed.occlusion).toBeLessThan(0.55);
+          expect(corner.occlusion).toBeGreaterThan(0.93);
+          for (const side of [-1, 1]) {
+            for (const t of [-0.46, -0.2, 0, 0.2, 0.46]) {
+              expect(point(side * 0.46, t).height).toBeGreaterThan(0.031);
+              expect(point(t, side * 0.46).height).toBeGreaterThan(0.031);
+            }
+            for (const t of [-0.2, 0, 0.2])
+              expect(
+                Math.abs(point(side * 0.2, t).height - bed.height),
+              ).toBeLessThan(0.001);
+            for (const axis of [0, 1]) {
+              const wall = (r: number) =>
+                point(axis ? 0 : side * r, axis ? side * r : 0);
+              expect(wall(0.33).height - wall(0.29).height).toBeGreaterThan(
+                0.008,
+              );
+              expect(wall(0.37).height - wall(0.33).height).toBeGreaterThan(
+                0.008,
+              );
+            }
+          }
+          expect(
+            point(0.33, 0.33).height - point(0.33, 0).height,
+          ).toBeGreaterThan(0.006);
+        }
+    },
+  );
+  it('keeps chamber beds, sloped walls, rib junctions and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('crimped metal crown caps', () => {
   const p = proceduralMaterialPresets.crowncaps;
