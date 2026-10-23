@@ -415,7 +415,95 @@ const kinds: ProceduralMaterialKind[] = [
   'moire',
   'oakleaf',
   'rhombille',
+  'fossillimestone',
 ];
+
+describe('spiral fossil limestone', () => {
+  const p = proceduralMaterialPresets.fossillimestone;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('fossillimestone', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'exposes contrasting spiral walls within a flush polished matrix for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const nucleus = local(0, 0),
+            matrix = local(0.46, 0.46);
+          expect(nucleus.color).toBeLessThan(0.3);
+          expect(matrix.color).toBeGreaterThan(0.48);
+          expect(matrix.roughness).toBeGreaterThan(0.43);
+          let asymmetricWalls = 0;
+          let minHeight = Infinity,
+            maxHeight = -Infinity;
+          const profile = Array.from({ length: 451 }, (_, i) =>
+            local(i / 1000, 0),
+          );
+          for (let i = 1; i < profile.length - 1; i++) {
+            const point = profile[i];
+            minHeight = Math.min(minHeight, point.height);
+            maxHeight = Math.max(maxHeight, point.height);
+            expect(point.occlusion).toBe(0.99);
+            expect(point.mortar).toBe(0);
+            if (
+              point.color > 0.72 &&
+              point.color > profile[i - 1].color &&
+              point.color > profile[i + 1].color
+            ) {
+              // Concentric rings would brighten both sides at the same radius.
+              const opposite = local(-i / 1000, 0);
+              if (opposite.color < 0.58) asymmetricWalls++;
+              expect(point.roughness).toBeLessThan(matrix.roughness - 0.06);
+            }
+          }
+          expect(asymmetricWalls).toBeGreaterThanOrEqual(2);
+          expect(maxHeight - minHeight).toBeLessThan(0.0001);
+        }
+    },
+  );
+  it('keeps fossil outlines, nuclei, angular cuts, cell borders and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('three-way rhombus tiles', () => {
   const p = proceduralMaterialPresets.rhombille;

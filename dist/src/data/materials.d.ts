@@ -2542,6 +2542,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.035;
         shades: readonly [0.78, 0.49, 0.2];
     }>;
+    fossillimestone: Readonly<{
+        dark: readonly [82, 67, 48];
+        light: readonly [235, 222, 188];
+        roughness: 0.44;
+        relief: 0.006;
+        cells: 3;
+        turns: 4;
+        septa: 18;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2935,4 +2944,5 @@ export declare const proceduralTileMeters: Readonly<{
     moire: 0.08;
     oakleaf: 0.3;
     rhombille: 0.9;
+    fossillimestone: 0.6;
 }>;

@@ -5895,3 +5895,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 389 種四圖 SHA256 全相同，新增恰為 rhombille；CJS 產物出現較廣的 minifier 變數更名，另確認全部 390 種四圖 CJS／ESM hash 完全一致。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現三色菱形方塊錯視及倒角灰縫，狀態列為 390 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.9 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5405 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：螺旋化石石灰岩（fossillimestone）
+
+- 新增米褐色拋光基質內的 seeded 橢圓化石切面、淺色螺旋壁與細隔板、深色礦物填充腔室；化石與基質共面，螺旋及外緣不隆起；目錄 390→391 種。0.6 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的暗色核心、多圈螺旋壁與對側相位差（防止退化成同心圓）、較光滑的淺色礦物、無化石高度／AO 隆起及一階連續性。最初 h=1e-8 的有限差分殘差超標；實際瀏覽器 sampler 量測 h=1e-7／1e-8／1e-9 的最大殘差為 0.242808／0.024280／0.002424，確認線性收斂後改用 h=1e-9，0.02 門檻未放寬。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 390 種四圖 SHA256 全相同，新增恰為 fossillimestone。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現石材內的螺旋化石切面，normal 不沿螺旋凹凸，狀態列為 391 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.6 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5410 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

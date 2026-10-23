@@ -5732,6 +5732,23 @@ var proceduralMaterialPresets = Object.freeze({
 			.49,
 			.2
 		]
+	}),
+	fossillimestone: Object.freeze({
+		dark: [
+			82,
+			67,
+			48
+		],
+		light: [
+			235,
+			222,
+			188
+		],
+		roughness: .44,
+		relief: .006,
+		cells: 3,
+		turns: 4,
+		septa: 18
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6124,7 +6141,8 @@ var proceduralTileMeters = Object.freeze({
 	bamboocrosscut: .24,
 	moire: .08,
 	oakleaf: .3,
-	rhombille: .9
+	rhombille: .9,
+	fossillimestone: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

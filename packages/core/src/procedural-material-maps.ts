@@ -1252,6 +1252,63 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'fossillimestone': {
+        const p = proceduralMaterialPresets.fossillimestone;
+        const grainField = cachedNoise(80, 80, seed ^ 0x2f39);
+        const sedimentField = cachedNoise(12, 12, seed ^ 0x61a7);
+        const fossils = new Float64Array(p.cells * p.cells * 5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * 5;
+            const angle = TAU * hash(col, row, seed ^ 0x375b);
+            const radius = 0.3 + 0.12 * hash(col, row, seed ^ 0x73d1);
+            fossils[offset] = Math.cos(angle);
+            fossils[offset + 1] = Math.sin(angle);
+            fossils[offset + 2] = 1 / radius;
+            fossils[offset + 3] =
+              1 / (radius * (0.72 + 0.22 * hash(col, row, seed ^ 0x19c7)));
+            fossils[offset + 4] = TAU * hash(col, row, seed ^ 0x57b3);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const offset = (Math.floor(y) * p.cells + Math.floor(x)) * 5;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const a =
+            (dx * fossils[offset] + dy * fossils[offset + 1]) *
+            fossils[offset + 2];
+          const b =
+            (dy * fossils[offset] - dx * fossils[offset + 1]) *
+            fossils[offset + 3];
+          const q = a * a + b * b;
+          const grain = grainField(u, v),
+            sediment = sedimentField(u, v);
+          color = 0.48 + 0.08 * sediment + 0.035 * grain;
+          // A polished cut exposes mineral-filled chambers, not raised shells.
+          // Neither the coil nor its outer outline contributes macro relief/AO.
+          height = 0.35 + 0.015 * grain;
+          roughness += 0.015 * grain;
+          occlusion = 0.99;
+          if (q >= 1) return;
+          const face = 1 - smooth(clamp((q - 0.81) / 0.19));
+          const center = smooth(clamp((q - 0.0064) / 0.0256));
+          const radius = Math.sqrt(q),
+            angle = Math.atan2(b, a);
+          const phase = fossils[offset + 4];
+          // Integer angular harmonics agree across atan2's branch cut; an
+          // open constant nucleus removes its directional singularity.
+          const coil =
+            (0.5 + 0.5 * Math.cos(TAU * p.turns * radius - angle + phase)) **
+            16;
+          const septa =
+            (0.5 + 0.5 * Math.cos(p.septa * angle - TAU * radius + phase)) **
+            24;
+          const wall = center * (coil + 0.45 * septa * (1 - coil));
+          color += face * (0.26 + 0.57 * wall + 0.02 * grain - color);
+          roughness -= 0.09 * face * wall;
+        };
+      }
       case 'rhombille': {
         const p = proceduralMaterialPresets.rhombille;
         const rowStep = Math.sqrt(3) / 2;
@@ -11554,6 +11611,7 @@ export function createSurfaceSampler(
     kind === 'moire' ||
     kind === 'oakleaf' ||
     kind === 'rhombille' ||
+    kind === 'fossillimestone' ||
     fabricated ||
     botanical ||
     packaging ||

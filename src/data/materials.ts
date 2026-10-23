@@ -2555,6 +2555,15 @@ export const proceduralMaterialPresets = Object.freeze({
     shoulder: 0.035,
     shades: [0.78, 0.49, 0.2] as const,
   }),
+  fossillimestone: Object.freeze({
+    dark: [82, 67, 48] as const,
+    light: [235, 222, 188] as const,
+    roughness: 0.44,
+    relief: 0.006,
+    cells: 3,
+    turns: 4,
+    septa: 18,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2949,4 +2958,5 @@ export const proceduralTileMeters = Object.freeze({
   moire: 0.08,
   oakleaf: 0.3,
   rhombille: 0.9,
+  fossillimestone: 0.6,
 });

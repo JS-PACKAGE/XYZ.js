@@ -321,6 +321,8 @@
 
 同輪追加 `rhombille`（三向菱形拼磚），實際目錄 389→390 種：三種明暗的四邊菱形磚組成方塊錯視，磚片同高，只有倒角及中性灰縫凹陷；不將明暗當成立體方塊面。0.9 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `fossillimestone`（螺旋化石石灰岩），實際目錄 390→391 種：米褐色拋光石材內的 seeded 橢圓化石切面、淺色螺旋壁與隔板、深色礦物填充腔室；化石與基質共面，不是隆起的完整貝殼。0.6 m tile、四圖 opaque dielectric，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -469,6 +469,7 @@ try {
     'moire',
     'oakleaf',
     'rhombille',
+    'fossillimestone',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
