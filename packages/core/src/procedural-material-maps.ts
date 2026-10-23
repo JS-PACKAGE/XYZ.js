@@ -1251,6 +1251,53 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'chevronparquet': {
+        const p = proceduralMaterialPresets.chevronparquet;
+        const fineField = cachedNoise(64, 64, seed ^ 0x6b31);
+        const variations = new Float64Array(2 * p.rows);
+        for (let col = 0; col < 2; col++)
+          for (let row = 0; row < p.rows; row++)
+            variations[col * p.rows + row] = hash(col, row, seed ^ 0x4d27);
+        return () => {
+          const col = Math.floor(2 * u),
+            local = fract(2 * u);
+          const sign = col === 0 ? 1 : -1;
+          const band = p.rows * (v + (col === 0 ? u : 1 - u));
+          const cross = fract(band),
+            row = Math.floor(band) % p.rows;
+          const end = smooth(
+            clamp(
+              (Math.min(local, 1 - local) - p.endGap) / (p.endBevel - p.endGap),
+            ),
+          );
+          const side = smooth(
+            clamp(
+              (Math.min(cross, 1 - cross) - p.sideGap) /
+                (p.sideBevel - p.sideGap),
+            ),
+          );
+          const face = end * side;
+          const variation = variations[col * p.rows + row]!;
+          const grain =
+            0.5 +
+            0.5 *
+              Math.sin(
+                TAU *
+                  (p.grainBands * band +
+                    0.15 * Math.sin(TAU * 2 * (u - sign * v)) +
+                    variation),
+              );
+          const fineGrain = fineField(u, v);
+          // Mitered ends and diagonal board edges meet in the same recessed joint.
+          color =
+            0.08 +
+            face * (0.3 + 0.2 * variation + 0.22 * grain + 0.03 * fineGrain);
+          height = face * (0.6 + 0.01 * grain);
+          roughness = 0.84 + face * (p.roughness - 0.84 + 0.04 * grain);
+          occlusion = 0.5 + 0.48 * face;
+          return;
+        };
+      }
       case 'argyle': {
         const p = proceduralMaterialPresets.argyle;
         const grainField = cachedNoise(96, 96, seed ^ 0x3e57);
@@ -11010,6 +11057,7 @@ export function createSurfaceSampler(
     kind === 'chippedenamel' ||
     kind === 'perforatedleather' ||
     kind === 'argyle' ||
+    kind === 'chevronparquet' ||
     fabricated ||
     botanical ||
     packaging ||

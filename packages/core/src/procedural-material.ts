@@ -384,7 +384,8 @@ export type ProceduralMaterialKind =
   | 'linen'
   | 'chippedenamel'
   | 'perforatedleather'
-  | 'argyle';
+  | 'argyle'
+  | 'chevronparquet';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -795,6 +796,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chippedenamel',
   'perforatedleather',
   'argyle',
+  'chevronparquet',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

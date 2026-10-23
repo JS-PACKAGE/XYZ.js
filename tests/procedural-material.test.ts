@@ -403,7 +403,107 @@ const kinds: ProceduralMaterialKind[] = [
   'chippedenamel',
   'perforatedleather',
   'argyle',
+  'chevronparquet',
 ];
+
+describe('chevron parquet flooring', () => {
+  const p = proceduralMaterialPresets.chevronparquet;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('chevronparquet', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins diagonal boards at miters and aligns grain along both V arms for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const col of [0, 1]) {
+        const sign = col === 0 ? 1 : -1;
+        let alongEnergy = 0,
+          acrossEnergy = 0;
+        for (let row = 0; row < p.rows; row++) {
+          const u = col * 0.5 + 0.25;
+          const v = (row + 0.5) / p.rows - (col === 0 ? u : 1 - u);
+          const face = at(u, v),
+            side = at(u, v - 0.5 / p.rows),
+            end = at(0.5, v);
+          for (const joint of [side, end]) {
+            expect(face.height - joint.height).toBeGreaterThan(0.014);
+            expect(face.color - joint.color).toBeGreaterThan(0.29);
+            expect(joint.roughness - face.roughness).toBeGreaterThan(0.4);
+            expect(face.occlusion - joint.occlusion).toBeGreaterThan(0.47);
+          }
+          for (let i = 0; i < 16; i++) {
+            const x = col * 0.5 + 0.1 + i * 0.02;
+            const y =
+              (row + 0.25 + i * 0.03) / p.rows - (col === 0 ? x : 1 - x);
+            const d = 0.0001;
+            const along =
+              at(x + d, y - sign * d).color - at(x - d, y + sign * d).color;
+            const across =
+              at(x + d, y + sign * d).color - at(x - d, y - sign * d).color;
+            alongEnergy += along * along;
+            acrossEnergy += across * across;
+          }
+        }
+        expect(acrossEnergy).toBeGreaterThan(alongEnergy * 8);
+      }
+    },
+  );
+  it('keeps miter tips, bevel shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let i = 0; i <= 64; i++) {
+        for (const x of [0, 0.5, 1]) points.push([x, i / 64]);
+        points.push([i / 64, 0]);
+      }
+      for (const col of [0, 1]) {
+        for (let i = 0; i <= 32; i++) {
+          const u = col * 0.5 + i / 64;
+          for (const cross of [
+            0,
+            p.sideGap,
+            p.sideBevel,
+            1 - p.sideBevel,
+            1 - p.sideGap,
+          ]) {
+            points.push([u, cross / p.rows - (col === 0 ? u : 1 - u)]);
+          }
+        }
+      }
+      for (const [x, y] of points) {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('argyle diamond cloth', () => {
   const p = proceduralMaterialPresets.argyle;

@@ -11,7 +11,7 @@ Browser-native TypeScript game engine for 2D and 3D.
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
 
 - **2D**：Sprite、圖集與動畫、文字、Tilemap、粒子、UI、遮罩與混合。
-- **3D**：glTF／GLB、PBR 與可重用程序式材質（自然、建築、工業與生活素材，含 Argyle 菱格布、透氣孔皮革、缺角琺瑯、竹節亞麻布與拋光斑岩）、光照與陰影、骨骼動畫、instancing、後處理。
+- **3D**：glTF／GLB、PBR 與可重用程序式材質（自然、建築、工業與生活素材，含 Chevron 斜接木地板、Argyle 菱格布、透氣孔皮革、缺角琺瑯與竹節亞麻布）、光照與陰影、骨骼動畫、instancing、後處理。
 - **遊戲系統**：輸入、物理、導航、場景切換、資源載入、存檔，以及 OPM／取樣音訊。
 - **渲染**：WebGPU、WebGL2、Canvas2D；各 backend 的功能不同，詳見[目前支援契約](docs/CURRENT.md)。
 
@@ -120,7 +120,7 @@ XYZ.js is a browser-native TypeScript game engine with 2D/3D rendering, scenes, 
 
 **Start here:** with Node.js ≥22.13.0, run `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 examples`. Open `http://127.0.0.1:5173/examples/`. For your own project, install a GitHub release tarball or build and pack locally; npm is unpublished. The [English guide](docs/USAGE.md) covers installation, standalone 2D/3D starters and deployment.
 
-- Procedural PBR presets cover natural, architectural, industrial and everyday surfaces, including Argyle diamond cloth, perforated seat leather, chipped ivory enamel, natural slub linen and polished red porphyry; maps are generated once and reusable.
+- Procedural PBR presets cover natural, architectural, industrial and everyday surfaces, including Chevron parquet flooring, Argyle diamond cloth, perforated seat leather, chipped ivory enamel and natural slub linen; maps are generated once and reusable.
 - `auto` tries WebGPU → WebGL2 → Canvas2D at initialization only. Forced backends do not switch. Runtime GPU/GL recovery uses the same backend; recreate renderer-owned targets and snapshots.
 - Canvas2D is 2D-only and rejects native shader effects. Check `game.graphics.capabilities`; see [current contracts](docs/CURRENT.md) for feature-specific limits.
 - Unlock audio with `await game.audio.unlock()` inside a user gesture. Game pause does not pause audio. WebGPU/AudioWorklet need HTTPS or localhost.
@@ -133,7 +133,7 @@ XYZ.js はブラウザーのネイティブ API を使う TypeScript ゲーム�
 
 **まず動かす：** Node.js ≥22.13.0 で `npx pnpm@12.6.0 install`、続いて `npx pnpm@12.6.0 examples` を実行し、`http://127.0.0.1:5173/examples/` を開きます。npm は未公開のため、自分のプロジェクトには GitHub Release の tarball、またはローカルで build／pack したものをインストールしてください。導入・2D／3D starter・配信手順は [English guide](docs/USAGE.md) を参照してください。
 
-- プロシージャル PBR 材質は自然・建築・工業・生活用品の表面（アーガイル柄の布、パンチングレザー、欠けた象牙色ホーロー、スラブ入りリネン、磨いた赤色斑岩を含む）を扱い、マップは一度生成して再利用できます。
+- プロシージャル PBR 材質は自然・建築・工業・生活用品の表面（シェブロン張りの木床、アーガイル柄の布、パンチングレザー、欠けた象牙色ホーロー、スラブ入りリネンを含む）を扱い、マップは一度生成して再利用できます。
 - `auto` は初期化時だけ WebGPU → WebGL2 → Canvas2D を試します。指定 backend は切り替わりません。実行中の GPU／GL 復旧は同じ backend を使い、render targets／snapshots は再作成が必要です。
 - Canvas2D は 2D 専用で native shader effects は非対応です。`game.graphics.capabilities` と[現在の契約](docs/CURRENT.md)で機能を確認してください。
 - 音声はユーザー操作内で `await game.audio.unlock()` が必要です。Game の pause は音声を停止しません。WebGPU／AudioWorklet には HTTPS または localhost が必要です。

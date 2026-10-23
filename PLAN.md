@@ -297,6 +297,8 @@
 
 同輪追加 `argyle`（Argyle 菱格布），實際目錄 377→378 種：交替酒紅／玫瑰菱形色塊與穿越菱形中心的細斜線，獨立平織紗線肌理不隨印花隆起。0.16 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `chevronparquet`（Chevron 斜接木地板），實際目錄 378→379 種：兩列相反 45° 木板斜接形成 V 字，沿板長木紋與逐板 seeded 色差、平滑倒角和凹接縫，區別於原有籃編拼花。0.6 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
