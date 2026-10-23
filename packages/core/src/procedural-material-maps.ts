@@ -1253,6 +1253,56 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'asanoha': {
+        const p = proceduralMaterialPresets.asanoha;
+        const rowStep = Math.sqrt(3) / 2;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5b17);
+        const gridLine = (t: number): number => {
+          const f = fract(t);
+          return smooth(clamp((0.035 - rowStep * Math.min(f, 1 - f)) / 0.015));
+        };
+        return () => {
+          const t = v * p.rows,
+            s = u * p.columns - 0.5 * t;
+          const a = fract(s),
+            b = fract(t);
+          let x = a + 0.5 * b,
+            y = rowStep * b;
+          if (a + b > 1) {
+            x = 1.5 - x;
+            y = rowStep - y;
+          }
+          let unprinted =
+            (1 - gridLine(s)) * (1 - gridLine(t)) * (1 - gridLine(s + t));
+          const cx = x - 0.5,
+            cy = y - rowStep / 3;
+          for (let vertex = 0; vertex < 3; vertex++) {
+            const dx = vertex === 0 ? -0.5 : vertex === 1 ? 0.5 : 0;
+            const dy = vertex === 2 ? (2 * rowStep) / 3 : -rowStep / 3;
+            const along = clamp(3 * (cx * dx + cy * dy));
+            const distance2 = (cx - along * dx) ** 2 + (cy - along * dy) ** 2;
+            const line = smooth(
+              clamp((0.018 ** 2 - distance2) / (0.018 ** 2 - 0.008 ** 2)),
+            );
+            unprinted *= 1 - line;
+          }
+          // The saturated lattice stroke covers triangle ownership changes.
+          // All hemp-leaf lines are dye; only the underlying weave has relief.
+          const warp = 0.5 + 0.5 * Math.cos(TAU * p.threads * u),
+            weft = 0.5 + 0.5 * Math.cos(TAU * p.threads * v),
+            over = 0.5 + 0.5 * Math.cos(Math.PI * p.threads * (u + v));
+          const thread = warp * over + weft * (1 - over),
+            grain = grainField(u, v);
+          color =
+            0.13 * unprinted +
+            0.9 * (1 - unprinted) +
+            0.025 * thread +
+            0.02 * grain;
+          height = 0.24 + 0.16 * thread + 0.02 * grain;
+          roughness += 0.025 * grain + 0.025 * (1 - thread);
+          occlusion = 0.88 + 0.1 * thread;
+        };
+      }
       case 'palmendgrain': {
         const p = proceduralMaterialPresets.palmendgrain;
         const grainField = cachedNoise(96, 96, seed ^ 0x4a13);
@@ -12049,6 +12099,7 @@ export function createSurfaceSampler(
     kind === 'saltpan' ||
     kind === 'dogbonepavers' ||
     kind === 'palmendgrain' ||
+    kind === 'asanoha' ||
     fabricated ||
     botanical ||
     packaging ||

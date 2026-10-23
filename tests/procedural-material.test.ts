@@ -425,7 +425,101 @@ const kinds: ProceduralMaterialKind[] = [
   'saltpan',
   'dogbonepavers',
   'palmendgrain',
+  'asanoha',
 ];
+
+describe('asanoha hemp leaf printed cloth', () => {
+  const p = proceduralMaterialPresets.asanoha;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('asanoha', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'prints connected triangular lattice and three-spoke leaf divisions without embossed dye for seed %s',
+    (seed) => {
+      const at = field(seed),
+        step = Math.sqrt(3) / 2;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (const upper of [false, true]) {
+            const local = (x: number, y: number) => {
+              if (upper) {
+                x = 1.5 - x;
+                y = step - y;
+              }
+              return at(
+                (col + 0.5 * row + x) / p.columns,
+                (row + y / step) / p.rows,
+              );
+            };
+            let minHeight = Infinity,
+              maxHeight = -Infinity;
+            for (const [x, y] of [
+              [0.5, 0],
+              [0.25, step / 2],
+              [0.75, step / 2],
+              [0.5, step / 3],
+              [0.25, step / 6],
+              [0.75, step / 6],
+              [0.5, (2 * step) / 3],
+            ]) {
+              const stroke = local(x, y);
+              expect(stroke.color).toBeGreaterThan(0.88);
+              minHeight = Math.min(minHeight, stroke.height);
+              maxHeight = Math.max(maxHeight, stroke.height);
+            }
+            for (let sector = 0; sector < 3; sector++) {
+              const angle = (sector * 2 * Math.PI) / 3;
+              const interior = local(
+                0.5 - (0.1 - step / 3) * Math.sin(angle),
+                step / 3 + (0.1 - step / 3) * Math.cos(angle),
+              );
+              expect(interior.color).toBeLessThan(0.2);
+              minHeight = Math.min(minHeight, interior.height);
+              maxHeight = Math.max(maxHeight, interior.height);
+            }
+            expect(maxHeight - minHeight).toBeLessThan(p.relief * 0.2);
+          }
+    },
+  );
+  it('keeps printed intersections, triangle ownership and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('palm wood end grain vascular bundles', () => {
   const p = proceduralMaterialPresets.palmendgrain;

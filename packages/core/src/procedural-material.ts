@@ -406,7 +406,8 @@ export type ProceduralMaterialKind =
   | 'scallopedslate'
   | 'saltpan'
   | 'dogbonepavers'
-  | 'palmendgrain';
+  | 'palmendgrain'
+  | 'asanoha';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -839,6 +840,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'saltpan',
   'dogbonepavers',
   'palmendgrain',
+  'asanoha',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

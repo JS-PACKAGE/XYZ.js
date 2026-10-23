@@ -5973,3 +5973,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證束心深色、兩個導管孔低於束心且 AO 降低、八方向周圍基質較亮而高度仍平齊；另驗證孔唇、束邊界、cell lookup 與週期邊界的 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5456 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：金棕色平切面、散布深色維管束、四圖與 25 球可見，status 為 400 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.024 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 399 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：麻葉紋布料（asanoha）
+
+- 目錄 400→401 種。0.12 m tile、酒紅底象牙色麻葉幾何印花；三向三角格線與各三角形內部三支線相接，印花只改顏色，獨立六十四線平織紋與 seeded 細粒控制高度／粗糙度／AO。四圖 opaque、metallic 0、既有 ownership 不變。
+- 定向 4 tests 通過：三 seeds 檢查兩種三角形的格線、三支線、中心交點及三個留白區，印花與留白間高度差維持在織紋幅度內；另驗證交點、三角形 lookup 與週期邊界 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5461 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：酒紅底象牙色麻葉網絡、無印花浮雕的四圖及 25 球可見，status 為 401 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 400 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
