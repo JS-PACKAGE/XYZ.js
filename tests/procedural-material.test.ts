@@ -24,6 +24,10 @@ import { Mesh } from '../packages/core/src/mesh.js';
 import { Geometry } from '../packages/core/src/geometry.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
 
+// The C1 sweeps sample ~660k points each: ~1.3 s on a dev machine but 6-7 s on the
+// slower CI runners, which exceeds Vitest's default 5 s.
+vi.setConfig({ testTimeout: 30_000 });
+
 const kinds: ProceduralMaterialKind[] = [
   'wood',
   'brick',
