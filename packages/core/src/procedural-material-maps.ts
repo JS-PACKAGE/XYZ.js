@@ -1228,6 +1228,7 @@ export function createSurfaceSampler(
     kind === 'hammeredmetal' ||
     kind === 'galvanized' ||
     kind === 'corrugatedmetal' ||
+    kind === 'standingseam' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1248,6 +1249,22 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'standingseam': {
+        const p = proceduralMaterialPresets.standingseam;
+        const rolledField = cachedNoise(64, 4, seed ^ 0x3e87);
+        return () => {
+          const x = Math.abs(fract(u * p.panels + 0.5) - 0.5);
+          const cap = 1 - smooth(clamp((x - p.capHalfWidth) / p.shoulder));
+          const d = (x - p.toeOffset) / p.toeWidth;
+          const toe = smooth(clamp(1 - d * d));
+          const rolled = rolledField(u, v);
+          color = 0.5 + 0.1 * rolled + 0.1 * cap - 0.1 * toe;
+          height = 0.15 + 0.72 * cap - 0.07 * toe + 0.003 * rolled;
+          roughness += 0.05 * rolled - 0.06 * cap;
+          occlusion = 1 - 0.18 * toe;
+          return;
+        };
+      }
       case 'truchettiles': {
         const p = proceduralMaterialPresets.truchettiles;
         const grainField = cachedNoise(32, 32, seed ^ 0x2d75);
@@ -10658,6 +10675,7 @@ export function createSurfaceSampler(
     kind === 'ripstop' ||
     kind === 'octagondot' ||
     kind === 'truchettiles' ||
+    kind === 'standingseam' ||
     fabricated ||
     botanical ||
     packaging ||

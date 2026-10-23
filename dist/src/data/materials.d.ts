@@ -2322,6 +2322,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         arcRadius: 0.5;
         arcWidthSquared: 0.055;
     }>;
+    standingseam: Readonly<{
+        dark: readonly [101, 116, 126];
+        light: readonly [214, 225, 231];
+        roughness: 0.32;
+        relief: 0.035;
+        panels: 4;
+        capHalfWidth: 0.015;
+        shoulder: 0.03;
+        toeOffset: 0.065;
+        toeWidth: 0.02;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2694,4 +2705,5 @@ export declare const proceduralTileMeters: Readonly<{
     ripstop: 0.04;
     octagondot: 0.8;
     truchettiles: 0.8;
+    standingseam: 2;
 }>;

@@ -358,8 +358,15 @@ function createSurfaceSampler(t, r) {
 		let n = (e * 16 + t) * 7, i = .3 * (hash(t, e, r ^ 14249) - .5);
 		W[n] = .25 + .5 * hash(t, e, r ^ 6459), W[n + 1] = .25 + .5 * hash(t, e, r ^ 23847), W[n + 2] = Math.cos(i), W[n + 3] = Math.sin(i), W[n + 4] = 1 / (.1 + .03 * hash(t, e, r ^ 27411)), W[n + 5] = 1 / (.32 + .12 * hash(t, e, r ^ 16855)), W[n + 6] = +(hash(t, e, r ^ 31153) > .3);
 	}
-	let Wt = t === `stone` || t === `metal` || t === `marble`, Gt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, G = 0, K = 0, Kt = 0, q = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 1, $ = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
+	let Wt = t === `stone` || t === `metal` || t === `marble`, Gt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, G = 0, K = 0, Kt = 0, q = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 1, $ = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `standingseam` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `standingseam`: {
+				let t = require_materials.proceduralMaterialPresets.standingseam, n = cachedNoise(64, 4, r ^ 16007);
+				return () => {
+					let e = Math.abs(fract(G * t.panels + .5) - .5), r = 1 - smooth(clamp((e - t.capHalfWidth) / t.shoulder)), i = (e - t.toeOffset) / t.toeWidth, a = smooth(clamp(1 - i * i)), o = n(G, K);
+					Y = .5 + .1 * o + .1 * r - .1 * a, X = .15 + .72 * r - .07 * a + .003 * o, Z += .05 * o - .06 * r, Q = 1 - .18 * a;
+				};
+			}
 			case `truchettiles`: {
 				let t = require_materials.proceduralMaterialPresets.truchettiles, n = cachedNoise(32, 32, r ^ 11637), i = new Uint8Array(t.cells * t.cells);
 				for (let e = 0; e < t.cells; e++) for (let n = 0; n < t.cells; n++) i[e * t.cells + n] = hash(n, e, r ^ 19433) < .5 ? 0 : 1;
@@ -2521,7 +2528,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || at || ct || pt || _t || St || Dt || At || Nt || xe || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || t === `standingseam` || at || ct || pt || _t || St || Dt || At || Nt || xe || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), Kt = Wt ? noise(G, K, 4, 4, r) : 0, q = Xt ? noise(G, K, 32, 32, Zt) : 0, J = Gt ? noise(G, K, 64, 64, Qt) : 0, Y = Kt, X = Kt, Z = i.roughness, Q = 1, $ = 0, qt = Jt, Yt(), n.color = Y, n.height = X * i.relief, n.roughness = clamp(Z), n.occlusion = Q, n.mortar = $, n.metallic = qt;
 	};

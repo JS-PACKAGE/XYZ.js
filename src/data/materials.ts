@@ -2323,6 +2323,17 @@ export const proceduralMaterialPresets = Object.freeze({
     arcRadius: 0.5,
     arcWidthSquared: 0.055,
   }),
+  standingseam: Object.freeze({
+    dark: [101, 116, 126] as const,
+    light: [214, 225, 231] as const,
+    roughness: 0.32,
+    relief: 0.035,
+    panels: 4,
+    capHalfWidth: 0.015,
+    shoulder: 0.03,
+    toeOffset: 0.065,
+    toeWidth: 0.02,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2696,4 +2707,5 @@ export const proceduralTileMeters = Object.freeze({
   ripstop: 0.04,
   octagondot: 0.8,
   truchettiles: 0.8,
+  standingseam: 2,
 });

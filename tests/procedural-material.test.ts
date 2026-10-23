@@ -394,7 +394,94 @@ const kinds: ProceduralMaterialKind[] = [
   'ripstop',
   'octagondot',
   'truchettiles',
+  'standingseam',
 ];
+
+describe('standing-seam metal roofing', () => {
+  const p = proceduralMaterialPresets.standingseam;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('standingseam', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.panels, y, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains narrow raised seams and recessed toes around broad flat metallic pans for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let panel = 0; panel < p.panels; panel++) {
+        for (const v of [0, 0.23, 0.51, 0.79, 1]) {
+          const cap = at(panel, v),
+            pan = at(panel + 0.5, v);
+          expect(cap.height - pan.height).toBeGreaterThan(0.71);
+          for (const side of [-1, 1]) {
+            const toe = at(panel + side * p.toeOffset, v);
+            expect(pan.height - toe.height).toBeGreaterThan(0.066);
+            expect(pan.occlusion - toe.occlusion).toBeGreaterThan(0.17);
+          }
+          for (const x of [0.2, 0.35, 0.65, 0.8]) {
+            const flat = at(panel + x, v);
+            expect(Math.abs(flat.height - pan.height)).toBeLessThan(0.004);
+            expect(flat.metallic).toBe(1);
+            expect(flat.mortar).toBe(0);
+          }
+          expect(cap.metallic).toBe(1);
+        }
+      }
+    },
+  );
+
+  it('keeps cap shoulders, toe supports, pan centers and wraps C1 continuous', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let panel = 0; panel <= p.panels; panel++) {
+        for (const side of [-1, 1]) {
+          for (const offset of [
+            0,
+            p.capHalfWidth,
+            p.capHalfWidth + p.shoulder,
+            p.toeOffset - p.toeWidth,
+            p.toeOffset,
+            p.toeOffset + p.toeWidth,
+            0.5,
+          ]) {
+            for (const y of [0, 0.23, 0.5, 0.79, 1]) {
+              const x = panel + side * offset;
+              for (const axis of [0, 1]) {
+                const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+                const b = at(x, y);
+                const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+                for (const key of [
+                  'color',
+                  'height',
+                  'roughness',
+                  'occlusion',
+                ] as const) {
+                  expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                  expect(
+                    Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                  ).toBeLessThan(0.02);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('Truchet double-arc glazed tiles', () => {
   const p = proceduralMaterialPresets.truchettiles;
@@ -5874,6 +5961,7 @@ describe('periodic procedural material fields', () => {
           kind === 'hammeredmetal' ||
           kind === 'galvanized' ||
           kind === 'corrugatedmetal' ||
+          kind === 'standingseam' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -15143,6 +15231,7 @@ describe('procedural preset acquisition and ownership', () => {
   it.each([
     'metal',
     'copperpatina',
+    'standingseam',
     'basketball',
     'tennisball',
     'golfball',
@@ -15154,7 +15243,9 @@ describe('procedural preset acquisition and ownership', () => {
     async (kind) => {
       const preset = await ProceduralMaterial.create(kind, { size: 32 });
       expect(preset.material.metallic).toBe(
-        kind === 'metal' || kind === 'copperpatina' ? 1 : 0,
+        kind === 'metal' || kind === 'copperpatina' || kind === 'standingseam'
+          ? 1
+          : 0,
       );
       expect(preset.material.alphaMode).toBe('OPAQUE');
       const external = new Texture({

@@ -279,6 +279,8 @@
 
 同輪追加 `truchettiles`（Truchet 雙弧線花磚），實際目錄 368→369 種：每塊釉面方磚依 seed 旋轉兩條四分之一圓弧，邊中點對接形成曲線拼圖；色釉不額外隆起。0.8 m tile 含四乘四方磚，四圖 opaque dielectric／metallic 0；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `standingseam`（立縫金屬屋面），實際目錄 369→370 種：寬平金屬板、窄立縫頂蓋、平滑肩部與兩側凹腳，區別於連續波浪形浪板。2 m tile 含四片板，四圖 opaque、metallic map 與 factor 均為 1，代表無塗漆金屬；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
