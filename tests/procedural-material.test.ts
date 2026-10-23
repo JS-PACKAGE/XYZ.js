@@ -479,7 +479,90 @@ const kinds: ProceduralMaterialKind[] = [
   'rollerchain',
   'mapleleaf',
   'smocking',
+  'quatrefoiltile',
 ];
+
+describe('Quatrefoil glazed mosaic', () => {
+  const p = proceduralMaterialPresets.quatrefoiltile;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('quatrefoiltile', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates four rounded lobes, concave grout and dark diamond inserts for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = at(col + 0.5, row + 0.5);
+          const dot = at(col, row);
+          const hollow = at(col + 0.25, row + 0.25);
+          expect(center.height - dot.height).toBeGreaterThan(0.0016);
+          expect(dot.height - hollow.height).toBeGreaterThan(0.01);
+          expect(center.color - dot.color).toBeGreaterThan(0.65);
+          expect(hollow.roughness - center.roughness).toBeGreaterThan(0.45);
+          expect(dot.occlusion - hollow.occlusion).toBeGreaterThan(0.55);
+          expect(hollow.mortar).toBe(1);
+          expect(dot.mortar).toBe(0);
+          expect(center.metallic).toBe(0);
+          for (const [dx, dy] of [
+            [0.39, 0],
+            [-0.39, 0],
+            [0, 0.39],
+            [0, -0.39],
+          ] as const) {
+            const lobe = at(col + 0.5 + dx, row + 0.5 + dy);
+            expect(lobe.height - hollow.height).toBeGreaterThan(0.011);
+            expect(lobe.mortar).toBe(0);
+          }
+          for (const dx of [-0.24, 0.24])
+            for (const dy of [-0.24, 0.24]) {
+              const notch = at(col + 0.5 + dx, row + 0.5 + dy);
+              expect(notch.mortar).toBe(1);
+              expect(center.height - notch.height).toBeGreaterThan(0.012);
+            }
+          const joint = at(col + 1, row + 0.5);
+          expect(joint.mortar).toBe(1);
+          expect(dot.roughness).toBeLessThan(0.35);
+        }
+    },
+  );
+  it('keeps circular unions, concave shoulders, diamond joins and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 192,
+              v = (y * p.cells) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Honeycomb smocked fabric', () => {
   const p = proceduralMaterialPresets.smocking;

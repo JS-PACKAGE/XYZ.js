@@ -3347,6 +3347,19 @@ export const proceduralMaterialPresets = Object.freeze({
     stitchHeight: 0.023,
     threads: 96,
   }),
+  quatrefoiltile: Object.freeze({
+    dark: [16, 44, 58] as const,
+    light: [108, 200, 204] as const,
+    roughness: 0.27,
+    relief: 0.018,
+    cells: 5,
+    lobeOffset: 0.24,
+    lobeRadius: 0.205,
+    coreRadius: 0.23,
+    shoulder: 0.008,
+    dotRadius: 0.42,
+    dotShoulder: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3805,4 +3818,5 @@ export const proceduralTileMeters = Object.freeze({
   rollerchain: 0.24,
   mapleleaf: 0.3,
   smocking: 0.12,
+  quatrefoiltile: 0.5,
 });

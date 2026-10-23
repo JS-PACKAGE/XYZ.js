@@ -449,6 +449,8 @@
 
 同輪追加 `smocking`（蜂巢抽褶布），實際目錄 453→454 種：藍紫色成對布褶在相鄰列交替收束，三十六道短橫針腳壓住收束點，張開褶冠較高。0.12 m tile、四圖 opaque dielectric、metallic 0，不新增布料模擬／線材 geometry／穿孔，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `quatrefoiltile`（四葉弧形釉面磚），實際目錄 454→455 種：二十五塊青綠四葉弧形磚、深色菱形嵌片、凹角肩及粗糙下凹填縫。0.5 m tile、四圖 opaque dielectric、metallic 0，不新增磚塊 geometry／displacement，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

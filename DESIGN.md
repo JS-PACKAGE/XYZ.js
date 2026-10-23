@@ -457,6 +457,8 @@
 
 `smocking` 以相反方向的餘弦位移讓成對褶線在相鄰列交替接近，以 compact 橫向輪廓合成布褶，收束 envelope 壓低固定點，短橫向橢圓針腳覆於其上；偶數列數維持週期。細織紋與 seeded 纖維補足布面，不用 quilt 的鼓包菱格替代抽褶。0.12 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 454 種。
 
+`quatrefoiltile` 以中央圓盤連接四個偏移圓瓣，再用 compact supports 平滑聯集形成深凹角的四葉輪廓；避免原先圓瓣過度重疊而看成圓角八角磚，也不使用 hard max 引入稜線。凹角之間以兩條平方對角帶相乘裁出深色菱形嵌片，與主磚保留粗糙下凹填縫。主磚略高於菱形，seeded grain 僅作用於陶瓷支持內。0.5 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 455 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

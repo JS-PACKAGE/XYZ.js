@@ -1261,6 +1261,45 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'quatrefoiltile': {
+        const p = proceduralMaterialPresets.quatrefoiltile;
+        const grainField = cachedNoise(48, 48, seed ^ 0x72d5);
+        const radiusSquared = p.lobeRadius * p.lobeRadius;
+        const coreSquared = p.coreRadius * p.coreRadius;
+        const dotSquared = p.dotRadius * p.dotRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          let outside =
+            1 - smooth(clamp((coreSquared - x * x - y * y) / p.shoulder));
+          // A central disk joins separated lobes while retaining deep concave notches.
+          for (let arm = 0; arm < 4; arm++) {
+            const dx =
+              x - (arm === 0 ? p.lobeOffset : arm === 1 ? -p.lobeOffset : 0);
+            const dy =
+              y - (arm === 2 ? p.lobeOffset : arm === 3 ? -p.lobeOffset : 0);
+            outside *=
+              1 -
+              smooth(clamp((radiusSquared - dx * dx - dy * dy) / p.shoulder));
+          }
+          const tile = 1 - outside;
+          const dx = fract(u * p.cells + 0.5) - 0.5,
+            dy = fract(v * p.cells + 0.5) - 0.5;
+          const dot =
+            smooth(clamp((dotSquared - (dx + dy) ** 2) / p.dotShoulder)) *
+            smooth(clamp((dotSquared - (dx - dy) ** 2) / p.dotShoulder));
+          const ceramic = tile + dot;
+          const grain = grainField(u, v);
+          color =
+            0.34 + (0.48 + 0.025 * grain) * tile - (0.23 - 0.015 * grain) * dot;
+          height = (0.68 + 0.004 * grain) * tile + (0.58 + 0.004 * grain) * dot;
+          roughness +=
+            0.48 * (1 - ceramic) + 0.04 * dot + 0.015 * grain * ceramic;
+          occlusion = 0.42 + 0.58 * ceramic;
+          mortar = 1 - ceramic;
+          return;
+        };
+      }
       case 'smocking': {
         const p = proceduralMaterialPresets.smocking;
         const grainField = cachedNoise(48, 48, seed ^ 0x5e71);
@@ -14807,6 +14846,7 @@ export function createSurfaceSampler(
     kind === 'rollerchain' ||
     kind === 'mapleleaf' ||
     kind === 'smocking' ||
+    kind === 'quatrefoiltile' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -3313,6 +3313,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         stitchHeight: 0.023;
         threads: 96;
     }>;
+    quatrefoiltile: Readonly<{
+        dark: readonly [16, 44, 58];
+        light: readonly [108, 200, 204];
+        roughness: 0.27;
+        relief: 0.018;
+        cells: 5;
+        lobeOffset: 0.24;
+        lobeRadius: 0.205;
+        coreRadius: 0.23;
+        shoulder: 0.008;
+        dotRadius: 0.42;
+        dotShoulder: 0.018;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3770,4 +3783,5 @@ export declare const proceduralTileMeters: Readonly<{
     rollerchain: 0.24;
     mapleleaf: 0.3;
     smocking: 0.12;
+    quatrefoiltile: 0.5;
 }>;
