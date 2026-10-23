@@ -487,6 +487,7 @@ try {
     'calcadawaves',
     'ikat',
     'slottedwood',
+    'hollyleaf',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

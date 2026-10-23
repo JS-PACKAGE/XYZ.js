@@ -1254,6 +1254,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'hollyleaf': {
+        const p = proceduralMaterialPresets.hollyleaf;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3d71);
+        const leaves = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            const angle = TAU * hash(col, row, seed ^ 0x6b29);
+            leaves[i] = Math.cos(angle);
+            leaves[i + 1] = Math.sin(angle);
+          }
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * leaves[i]! + dy * leaves[i + 1]!,
+            y = dy * leaves[i]! - dx * leaves[i + 1]!;
+          const a = Math.abs(x);
+          let blade = smooth(
+            clamp((1 - (x * x) / 0.0225 - (y * y) / 0.1024) / 0.2),
+          );
+          let branches = 0;
+          for (let pair = -1; pair <= 1; pair++) {
+            const center = pair * 0.18;
+            const width = 0.06 * clamp((0.3 - a) / 0.22);
+            const offset = y - center - 0.035 * clamp((a - 0.08) / 0.22);
+            const spine =
+              smooth(clamp((width * width - offset * offset) / 0.00015)) *
+              smooth(clamp((a - 0.08) / 0.03));
+            blade = 1 - (1 - blade) * (1 - spine);
+            const veinOffset = y - center - 0.12 * a;
+            // Branch veins vanish with zero slope before the absolute
+            // cross-axis coordinate reaches the central rib.
+            branches +=
+              smooth(clamp((0.000025 - veinOffset * veinOffset) / 0.000025)) *
+              smooth(clamp(a / 0.025)) *
+              smooth(clamp((0.28 - a) / 0.06));
+          }
+          const tipWidth = 0.07 * clamp((0.4 - y) / 0.15);
+          const tip =
+            smooth(clamp((y - 0.25) / 0.04)) *
+            smooth(clamp((tipWidth * tipWidth - x * x) / 0.00008));
+          blade = 1 - (1 - blade) * (1 - tip);
+          const stem =
+            smooth(clamp((y + 0.42) / 0.035)) *
+            (1 - smooth(clamp((y + 0.3) / 0.035))) *
+            smooth(clamp((0.000196 - x * x) / 0.000196));
+          const midrib =
+            smooth(clamp((0.0001 - x * x) / 0.0001)) *
+            smooth(clamp((0.34 - Math.abs(y)) / 0.04));
+          const grain = grainField(u, v),
+            veins = midrib + 0.55 * branches;
+          const coverage = 1 - (1 - blade) * (1 - stem);
+          color =
+            0.04 +
+            blade * (0.5 + 0.12 * grain + 0.08 * veins) +
+            (1 - blade) * 0.25 * stem;
+          height =
+            0.04 +
+            blade * (0.58 + 0.015 * grain + 0.045 * veins) +
+            (1 - blade) * 0.25 * stem;
+          roughness += 0.3 * (1 - blade) + 0.02 * grain * blade;
+          occlusion = 0.34 + 0.64 * coverage;
+        };
+      }
       case 'slottedwood': {
         const p = proceduralMaterialPresets.slottedwood;
         const grainField = cachedNoise(96, 4, seed ^ 0x4c29);
@@ -12382,6 +12449,7 @@ export function createSurfaceSampler(
     kind === 'calcadawaves' ||
     kind === 'ikat' ||
     kind === 'slottedwood' ||
+    kind === 'hollyleaf' ||
     fabricated ||
     botanical ||
     packaging ||

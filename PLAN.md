@@ -357,6 +357,8 @@
 
 同輪追加 `slottedwood`（圓端開槽木飾板），實際目錄 407→408 種：三十二條有限長膠囊形槽逐列錯開半格，保留槽間完整木橋，槽底較暗／粗糙，縱向木紋只在木面。0.8 m tile、四圖 opaque dielectric、metallic 0，不新增切孔 geometry 或聲學模擬；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `hollyleaf`（尖刺冬青葉），實際目錄 408→409 種：seeded 旋轉深綠亮葉、三對尖刺葉緣、尖葉端、較低葉柄與凸起主／側脈，凹缺口保留暗色底層。0.24 m tile、四圖 opaque dielectric、metallic 0；與圓裂橡葉區分，不新增植物 geometry 或透明裁切。沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

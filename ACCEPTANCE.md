@@ -6029,3 +6029,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證槽底低於／暗於木橋、槽底較粗糙、有限長平底、圓端等半徑剖面及排除方角、逐列半格錯位；另驗證側壁／半圓端／錯列邊界／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5497 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：黃棕木面、錯列有限長暗槽、槽壁 normal／槽底 AO、四圖及 25 球可見，status 為 408 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 407 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：尖刺冬青葉（hollyleaf）
+
+- 目錄 408→409 種。0.24 m tile、seeded 旋轉綠葉、三對漸尖葉緣刺與尖葉端、完整凹缺口、較低葉柄與凸起主／側脈；葉面比 opaque 暗底平滑。compact smooth 支撐及側脈主軸淡出保留連續導數，與圓裂橡葉區分。四圖 opaque、metallic 0、既有 ownership 不變；不是植物 geometry 或透明裁切。
+- 定向 4 tests 通過：三 seeds 驗證六個側刺／外側暗底／凹缺口、尖葉端／葉柄高度、主脈與側脈的相對凸起；另驗證葉緣／葉端／脈交點／tile wrap C1。初次 C1 有限差分因高曲率超過門檻；實際 sampler 全網格量測 h=1e-8／1e-9／1e-10 的最大值依序 0.37158／0.03716／0.00370，線性收斂後使用 h=1e-10，門檻維持 0.02。build／typecheck／lint／format:check／全套 **178 files、5502 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：綠色尖刺葉、暗底凹缺口、葉脈 normal、四圖及 25 球可見，status 為 409 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 408 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

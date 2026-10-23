@@ -2709,6 +2709,13 @@ export declare const proceduralMaterialPresets: Readonly<{
         coreRadius: 0.025;
         outerRadius: 0.045;
     }>;
+    hollyleaf: Readonly<{
+        dark: readonly [4, 19, 9];
+        light: readonly [86, 133, 49];
+        roughness: 0.36;
+        relief: 0.03;
+        cells: 3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3120,4 +3127,5 @@ export declare const proceduralTileMeters: Readonly<{
     calcadawaves: 1.28;
     ikat: 0.16;
     slottedwood: 0.8;
+    hollyleaf: 0.24;
 }>;

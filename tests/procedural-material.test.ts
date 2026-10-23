@@ -433,7 +433,104 @@ const kinds: ProceduralMaterialKind[] = [
   'calcadawaves',
   'ikat',
   'slottedwood',
+  'hollyleaf',
 ];
+
+describe('spiny holly leaves', () => {
+  const p = proceduralMaterialPresets.hollyleaf;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('hollyleaf', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves paired pointed margins, recessed notches, an apical point and raised veins for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = 2 * Math.PI * hash(col, row, seed ^ 0x6b29),
+            c = Math.cos(angle),
+            s = Math.sin(angle);
+          const point = (x: number, y: number) =>
+            at(
+              (col + 0.5 + x * c - y * s) / p.cells,
+              (row + 0.5 + x * s + y * c) / p.cells,
+            );
+          const face = point(0, 0);
+          expect(face.height).toBeGreaterThan(0.018);
+          expect(face.roughness).toBeLessThan(0.4);
+          for (const side of [-1, 1]) {
+            for (const center of [-0.18, 0, 0.18]) {
+              const spine = point(side * 0.235, center + 0.0247);
+              expect(spine.height).toBeGreaterThan(0.018);
+              expect(point(side * 0.32, center + 0.035).height).toBeLessThan(
+                0.002,
+              );
+            }
+            for (const y of [-0.09, 0.09]) {
+              const notch = point(side * 0.22, y);
+              expect(notch.height).toBeLessThan(0.002);
+              expect(notch.occlusion).toBeLessThan(0.4);
+            }
+          }
+          expect(point(0, 0.35).height).toBeGreaterThan(0.018);
+          expect(point(0, 0.43).height).toBeLessThan(0.002);
+          const stem = point(0, -0.38);
+          expect(stem.height).toBeGreaterThan(0.004);
+          expect(face.height - stem.height).toBeGreaterThan(0.009);
+          expect(
+            point(0, 0.08).height - point(0.04, 0.08).height,
+          ).toBeGreaterThan(0.0008);
+          expect(
+            point(0.1, 0.012).height - point(0.1, 0.05).height,
+          ).toBeGreaterThan(0.00015);
+        }
+    },
+  );
+  it('keeps spiny margins, pointed tips, vein junctions and tile wrap C1 continuous', () => {
+    const h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('round-ended slotted wood', () => {
   const p = proceduralMaterialPresets.slottedwood;

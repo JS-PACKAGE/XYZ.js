@@ -2722,6 +2722,13 @@ export const proceduralMaterialPresets = Object.freeze({
     coreRadius: 0.025,
     outerRadius: 0.045,
   }),
+  hollyleaf: Object.freeze({
+    dark: [4, 19, 9] as const,
+    light: [86, 133, 49] as const,
+    roughness: 0.36,
+    relief: 0.03,
+    cells: 3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3134,4 +3141,5 @@ export const proceduralTileMeters = Object.freeze({
   calcadawaves: 1.28,
   ikat: 0.16,
   slottedwood: 0.8,
+  hollyleaf: 0.24,
 });
