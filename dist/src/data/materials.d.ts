@@ -3250,6 +3250,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         widthDecay: 0.7;
         supportRadius: 0.43;
     }>;
+    ravioli: Readonly<{
+        dark: readonly [75, 47, 19];
+        light: readonly [248, 218, 130];
+        roughness: 0.67;
+        relief: 0.025;
+        cells: 4;
+        halfWidth: 0.44;
+        shoulder: 0.03;
+        scallop: 0.01;
+        pillowRadius: 0.3;
+        crimpCenter: 0.37;
+        crimpWidth: 0.045;
+        crimpSpan: 0.34;
+        crimps: 8;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3703,4 +3718,5 @@ export declare const proceduralTileMeters: Readonly<{
     trilobitefossil: 0.45;
     eyeletcotton: 0.06;
     dendriticagate: 0.15;
+    ravioli: 0.16;
 }>;

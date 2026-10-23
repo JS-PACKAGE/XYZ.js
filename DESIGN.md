@@ -449,6 +449,8 @@
 
 `dendriticagate` 預先快取每 cell 的 31 個 capsule 線段、角度與長／寬衰減，子枝從父枝端點接出；統一依最大徑向 extent 縮入 cell support，避免旋轉後跨界截斷。compact squared-distance masks 以平滑聯集合成深色包裹體，只改 base color；拋光面 height／roughness 與 AO 不沿枝條起伏。0.15 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 450 種。
 
+`ravioli` 以相乘的平滑 scalloped 軸向 supports 裁切外緣，四次方 rounded-square compact dome 抬高中間餡料包；四邊 compact 條帶乘週期叉痕，僅壓低扁平封邊。個別鼓包位置／色調預先 seeded 快取，麵皮 grain 受 face 遮罩避免跨 cell 色差。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 451 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -441,6 +441,8 @@
 
 同輪追加 `dendriticagate`（樹枝狀瑪瑙），實際目錄 449→450 種：九組 seeded 五代二叉分枝礦物包裹體，深色枝條逐漸變細，位於暖淺色拋光石面之下而非凸起葉片。0.15 m tile、四圖 opaque dielectric、metallic 0，不新增礦物 geometry／地質生長模擬，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `ravioli`（義式方餃麵皮），實際目錄 450→451 種：十六個金黃色麵皮包，中央 seeded 微偏移鼓包、扁平封邊、每片二十道叉壓凹槽與微波浪切邊。0.16 m tile、四圖 opaque dielectric、metallic 0，不新增麵皮 geometry／內餡／烹調模擬，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

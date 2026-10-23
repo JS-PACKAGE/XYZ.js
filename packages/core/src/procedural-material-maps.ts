@@ -1260,6 +1260,74 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ravioli': {
+        const p = proceduralMaterialPresets.ravioli;
+        const pillows = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            pillows[i] = 0.03 * (hash(col, row, seed ^ 0x6d31) - 0.5);
+            pillows[i + 1] = 0.03 * (hash(col, row, seed ^ 0x3f57) - 0.5);
+            pillows[i + 2] = hash(col, row, seed ^ 0x7c19);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5b23);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 3;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const waveX = Math.cos(TAU * p.crimps * x),
+            waveY = Math.cos(TAU * p.crimps * y);
+          const face =
+            smooth(
+              clamp(
+                (p.halfWidth + p.scallop * waveY - Math.abs(x)) / p.shoulder,
+              ),
+            ) *
+            smooth(
+              clamp(
+                (p.halfWidth + p.scallop * waveX - Math.abs(y)) / p.shoulder,
+              ),
+            );
+          const dome = smooth(
+            clamp(
+              1 -
+                ((x - pillows[i]) / p.pillowRadius) ** 4 -
+                ((y - pillows[i + 1]) / p.pillowRadius) ** 4,
+            ),
+          );
+          const crimpX =
+            smooth(
+              clamp(1 - ((Math.abs(x) - p.crimpCenter) / p.crimpWidth) ** 2),
+            ) *
+            smooth(clamp((p.crimpSpan - Math.abs(y)) / 0.04)) *
+            (0.5 + 0.5 * waveY) ** 4;
+          const crimpY =
+            smooth(
+              clamp(1 - ((Math.abs(y) - p.crimpCenter) / p.crimpWidth) ** 2),
+            ) *
+            smooth(clamp((p.crimpSpan - Math.abs(x)) / 0.04)) *
+            (0.5 + 0.5 * waveX) ** 4;
+          const crimp = crimpX + crimpY - crimpX * crimpY;
+          const grain = grainField(u, v);
+          color =
+            0.05 +
+            face *
+              (0.55 +
+                0.15 * dome +
+                0.06 * grain +
+                0.04 * pillows[i + 2] -
+                0.1 * crimp);
+          // Fork marks indent the flat sealed rim; the filling remains a raised pillow.
+          height =
+            0.05 + face * (0.3 + 0.48 * dome + 0.01 * grain - 0.1 * crimp);
+          roughness +=
+            0.18 * (1 - face) +
+            face * (0.03 * grain - 0.08 * dome + 0.05 * crimp);
+          occlusion = 0.38 + face * (0.58 - 0.17 * crimp);
+        };
+      }
       case 'dendriticagate': {
         const p = proceduralMaterialPresets.dendriticagate;
         const count = 2 ** p.levels - 1,
@@ -14532,6 +14600,7 @@ export function createSurfaceSampler(
     kind === 'trilobitefossil' ||
     kind === 'eyeletcotton' ||
     kind === 'dendriticagate' ||
+    kind === 'ravioli' ||
     fabricated ||
     botanical ||
     packaging ||

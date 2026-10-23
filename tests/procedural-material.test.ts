@@ -475,7 +475,111 @@ const kinds: ProceduralMaterialKind[] = [
   'trilobitefossil',
   'eyeletcotton',
   'dendriticagate',
+  'ravioli',
 ];
+
+describe('Ravioli pasta pillows', () => {
+  const p = proceduralMaterialPresets.ravioli;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ravioli', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sixteen filled pillows above flat sealed rims with twenty fork grooves for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const pillow = at(0, 0),
+            gap = at(0.49, 0);
+          for (const axis of [0, 1])
+            for (const side of [-1, 1])
+              for (let tooth = -2; tooth <= 2; tooth++) {
+                const along = tooth / p.crimps,
+                  between = along + 0.5 / p.crimps;
+                const groove = axis
+                  ? at(along, side * p.crimpCenter)
+                  : at(side * p.crimpCenter, along);
+                const rim = axis
+                  ? at(between, side * p.crimpCenter)
+                  : at(side * p.crimpCenter, between);
+                expect(pillow.height - rim.height).toBeGreaterThan(0.011);
+                expect(rim.height - groove.height).toBeGreaterThan(0.0022);
+                expect(groove.height - gap.height).toBeGreaterThan(0.0049);
+                expect(rim.color - groove.color).toBeGreaterThan(0.05);
+                expect(rim.occlusion - groove.occlusion).toBeCloseTo(0.17, 12);
+                expect(groove.roughness - rim.roughness).toBeGreaterThan(0.02);
+                expect(pillow.roughness).toBeLessThan(rim.roughness);
+              }
+          expect(
+            at(p.halfWidth, 0).height - at(p.halfWidth, 0.5 / p.crimps).height,
+          ).toBeGreaterThan(0.001);
+          expect(pillow.color - gap.color).toBeGreaterThan(0.69);
+          expect(pillow.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps pillow shoulders, fork grooves, scalloped cut edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) points.push([x / 128, y / 128]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let k = -16; k <= 16; k++) {
+            const y = k / 32;
+            const edge =
+              p.halfWidth + p.scallop * Math.cos(Math.PI * 2 * p.crimps * y);
+            for (const r of [
+              edge,
+              edge - p.shoulder,
+              p.crimpCenter - p.crimpWidth,
+              p.crimpCenter + p.crimpWidth,
+            ])
+              for (const sign of [-1, 1]) {
+                points.push([
+                  (col + 0.5 + sign * r) / p.cells,
+                  (row + 0.5 + y) / p.cells,
+                ]);
+                points.push([
+                  (col + 0.5 + y) / p.cells,
+                  (row + 0.5 + sign * r) / p.cells,
+                ]);
+              }
+          }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+    }
+  });
+});
 
 describe('Dendritic agate', () => {
   const p = proceduralMaterialPresets.dendriticagate;
