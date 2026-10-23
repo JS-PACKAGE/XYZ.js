@@ -319,6 +319,8 @@
 
 同輪追加 `oakleaf`（圓裂橡樹葉），實際目錄 388→389 種：seeded 旋轉及色差的綠色長葉片，具成對圓裂、深缺刻、中肋、分枝葉脈及短葉柄，區別於扇形銀杏葉。0.3 m tile、四圖 opaque dielectric；葉間維持深色不透明底層，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `rhombille`（三向菱形拼磚），實際目錄 389→390 種：三種明暗的四邊菱形磚組成方塊錯視，磚片同高，只有倒角及中性灰縫凹陷；不將明暗當成立體方塊面。0.9 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

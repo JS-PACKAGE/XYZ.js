@@ -2544,6 +2544,17 @@ export const proceduralMaterialPresets = Object.freeze({
     length: 0.38,
     width: 0.23,
   }),
+  rhombille: Object.freeze({
+    dark: [56, 40, 30] as const,
+    light: [226, 207, 171] as const,
+    roughness: 0.42,
+    relief: 0.02,
+    columns: 3,
+    rows: 4,
+    grout: 0.012,
+    shoulder: 0.035,
+    shades: [0.78, 0.49, 0.2] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2937,4 +2948,5 @@ export const proceduralTileMeters = Object.freeze({
   bamboocrosscut: 0.24,
   moire: 0.08,
   oakleaf: 0.3,
+  rhombille: 0.9,
 });

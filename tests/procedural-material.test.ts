@@ -414,7 +414,102 @@ const kinds: ProceduralMaterialKind[] = [
   'bamboocrosscut',
   'moire',
   'oakleaf',
+  'rhombille',
 ];
+
+describe('three-way rhombus tiles', () => {
+  const p = proceduralMaterialPresets.rhombille;
+  const step = Math.sqrt(3) / 2;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('rhombille', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins three coplanar four-sided tiles with separate tonal faces for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (x: number, y: number) =>
+            at(
+              (col + (row % 2) * 0.5 + x) / p.columns,
+              (row * step + y) / (p.rows * step),
+            );
+          const light = local(0.25, 1 / (4 * Math.sqrt(3)));
+          const medium = local(0, -1 / (2 * Math.sqrt(3)));
+          const dark = local(-0.25, 1 / (4 * Math.sqrt(3)));
+          expect(light.color - medium.color).toBeGreaterThan(0.22);
+          expect(medium.color - dark.color).toBeGreaterThan(0.22);
+          for (const tile of [light, medium, dark]) {
+            expect(tile.height).toBeGreaterThan(0.012);
+            expect(Math.abs(tile.height - light.height)).toBeLessThan(0.00011);
+            expect(tile.roughness).toBeLessThan(0.5);
+            expect(tile.mortar).toBe(0);
+          }
+          // All four inset parallelogram corners belong to the same light tile;
+          // a triangular wedge substitution would lose one of these corners.
+          for (const x of [0.1, 0.4])
+            for (const a of [0.1, 0.4]) {
+              const corner = local(x, (a - 0.5 * x) / step);
+              expect(corner.color).toBeGreaterThan(medium.color + 0.22);
+              expect(corner.height).toBeGreaterThan(0.012);
+            }
+          for (const [x, y] of [
+            [0, 0],
+            [0, 1 / (2 * Math.sqrt(3))],
+            [0.25, -1 / (4 * Math.sqrt(3))],
+            [-0.25, -1 / (4 * Math.sqrt(3))],
+            [0.5, 0],
+            [0, 1 / Math.sqrt(3)],
+          ] as const) {
+            const grout = local(x, y);
+            expect(grout.height).toBe(0);
+            expect(grout.mortar).toBe(1);
+            expect(grout.roughness).toBeGreaterThan(0.8);
+            expect(light.occlusion - grout.occlusion).toBeGreaterThan(0.5);
+          }
+        }
+    },
+  );
+  it('keeps bevel corners, three-way junctions, hex owners and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('rounded-lobe oak leaves', () => {
   const p = proceduralMaterialPresets.oakleaf;

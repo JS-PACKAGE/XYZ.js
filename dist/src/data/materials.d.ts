@@ -2531,6 +2531,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         length: 0.38;
         width: 0.23;
     }>;
+    rhombille: Readonly<{
+        dark: readonly [56, 40, 30];
+        light: readonly [226, 207, 171];
+        roughness: 0.42;
+        relief: 0.02;
+        columns: 3;
+        rows: 4;
+        grout: 0.012;
+        shoulder: 0.035;
+        shades: readonly [0.78, 0.49, 0.2];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2923,4 +2934,5 @@ export declare const proceduralTileMeters: Readonly<{
     bamboocrosscut: 0.24;
     moire: 0.08;
     oakleaf: 0.3;
+    rhombille: 0.9;
 }>;

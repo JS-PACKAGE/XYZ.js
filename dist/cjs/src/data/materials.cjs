@@ -5709,6 +5709,29 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 3,
 		length: .38,
 		width: .23
+	}),
+	rhombille: Object.freeze({
+		dark: [
+			56,
+			40,
+			30
+		],
+		light: [
+			226,
+			207,
+			171
+		],
+		roughness: .42,
+		relief: .02,
+		columns: 3,
+		rows: 4,
+		grout: .012,
+		shoulder: .035,
+		shades: [
+			.78,
+			.49,
+			.2
+		]
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6100,7 +6123,8 @@ var proceduralTileMeters = Object.freeze({
 	mossypavers: .8,
 	bamboocrosscut: .24,
 	moire: .08,
-	oakleaf: .3
+	oakleaf: .3,
+	rhombille: .9
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

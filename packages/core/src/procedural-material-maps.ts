@@ -1252,6 +1252,71 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'rhombille': {
+        const p = proceduralMaterialPresets.rhombille;
+        const rowStep = Math.sqrt(3) / 2;
+        const grainField = cachedNoise(64, 64, seed ^ 0x6b17);
+        const tones = new Float64Array(p.columns * p.rows * 3);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let k = 0; k < 3; k++)
+              tones[(row * p.columns + col) * 3 + k] =
+                p.shades[k]! +
+                0.04 * (hash(col, row, seed ^ (k * 0x9e37)) - 0.5);
+        const band = (t: number): number =>
+          smooth(clamp((t - p.grout) / p.shoulder)) *
+          smooth(clamp((0.5 - p.grout - t) / p.shoulder));
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * rowStep;
+          const row = Math.floor(y / rowStep);
+          let best = Infinity,
+            dx = 0,
+            dy = 0,
+            ownerX = 0,
+            ownerY = 0;
+          // The even staggered row count closes the triangular lattice at wrap.
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy;
+            const offset = (((cy % 2) + 2) % 2) * 0.5;
+            const column = Math.round(x - offset);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox;
+              const px = x - cx - offset,
+                py = y - cy * rowStep;
+              const distance = px * px + py * py;
+              if (distance < best) {
+                best = distance;
+                dx = px;
+                dy = py;
+                ownerX = ((cx % p.columns) + p.columns) % p.columns;
+                ownerY = ((cy % p.rows) + p.rows) % p.rows;
+              }
+            }
+          }
+          const a = 0.5 * dx + rowStep * dy,
+            b = -0.5 * dx + rowStep * dy;
+          // Three pairs of parallel half-planes form lozenges, not triangular
+          // wedges. Products round corners without a min-distance crease.
+          const first = band(dx) * band(a);
+          const second = band(-a) * band(-b);
+          const third = band(-dx) * band(b);
+          const face = first + second + third;
+          const i = (ownerY * p.columns + ownerX) * 3;
+          const grain = grainField(u, v);
+          color =
+            0.04 +
+            first * tones[i]! +
+            second * tones[i + 1]! +
+            third * tones[i + 2]! +
+            0.02 * grain * face;
+          height = (0.65 + 0.005 * grain) * face;
+          roughness += 0.4 * (1 - face) + 0.01 * grain * face;
+          occlusion = 0.45 + 0.55 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'oakleaf': {
         const p = proceduralMaterialPresets.oakleaf;
         const fineField = cachedNoise(96, 96, seed ^ 0x9c31);
@@ -11488,6 +11553,7 @@ export function createSurfaceSampler(
     kind === 'bamboocrosscut' ||
     kind === 'moire' ||
     kind === 'oakleaf' ||
+    kind === 'rhombille' ||
     fabricated ||
     botanical ||
     packaging ||
