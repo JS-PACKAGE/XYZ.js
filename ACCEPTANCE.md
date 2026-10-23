@@ -6310,3 +6310,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）驗證九個化石的頭／尾寬度、浮雕高度與石底色差／roughness、雙眼、軸葉、全部十對胸肋及凹槽的高度／色彩／AO；另檢查盾甲重疊、輪廓、眼部、胸節端點與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5703 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot，status 為 448 種，完成 smoke 的兩頁錯誤列表皆空。預設小 swatch 可見化石輪廓與軸葉，但不足以逐節辨識細胸肋；另以公開 API 產生 size 512／seed 7 normal，暫時繪入同頁放大 swatch，確認雙眼、中央軸葉及成對胸節可見，未更動 gallery 原始碼。WebGL2 首頁 screenshot 成功，後續操作遇工具 detached frame；另開 fresh tab 完成放大預覽與 API smoke。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.45 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 447 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：鏤空刺繡棉布（eyeletcotton）
+
+- 目錄 448→449 種。0.06 m tile、六乘六暗圓孔，每孔有連續凸起繡邊與十六個 seeded 放射狀針腳；繡邊谷部仍高於象牙白底布。四圖 opaque、metallic 0、既有 ownership 不變，孔內保留低 opaque 底面，不新增透明裁切或線材 geometry。
+- 三個 seed（0／1／`0xffffffff`）驗證全部 36 孔及 576 個針腳的峰／谷、繡邊／底布／孔底高度順序、色差、roughness／AO／metallic；另檢查孔壁、環帶裙、角向與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5708 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面白棉布暗孔可見；另以公開 API 產生 size 512／seed 7 四圖，暫時繪入同頁放大 swatch，確認連續繡邊與細針腳 normal、roughness／AO，未更動 gallery 原始碼。status 為 449 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.06 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 448 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

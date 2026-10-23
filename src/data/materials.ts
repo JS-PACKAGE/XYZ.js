@@ -3257,6 +3257,19 @@ export const proceduralMaterialPresets = Object.freeze({
     eyeCenter: -0.22,
     eyeRadius: 0.025,
   }),
+  eyeletcotton: Object.freeze({
+    dark: [40, 37, 31] as const,
+    light: [239, 234, 213] as const,
+    roughness: 0.85,
+    relief: 0.02,
+    cells: 6,
+    holeRadius: 0.14,
+    holeShoulder: 0.04,
+    rimRadius: 0.22,
+    rimWidth: 0.06,
+    stitches: 16,
+    threads: 72,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3709,4 +3722,5 @@ export const proceduralTileMeters = Object.freeze({
   logcabinparquet: 1.2,
   countersunkmetal: 0.3,
   trilobitefossil: 0.45,
+  eyeletcotton: 0.06,
 });

@@ -1260,6 +1260,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'eyeletcotton': {
+        const p = proceduralMaterialPresets.eyeletcotton;
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x6b51);
+        const grainField = cachedNoise(96, 96, seed ^ 0x7c63);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = Math.floor(vCell) * p.cells + Math.floor(uCell);
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const radius = Math.hypot(x, y);
+          const face = smooth(clamp((radius - p.holeRadius) / p.holeShoulder));
+          const rim = smooth(
+            clamp(1 - ((radius - p.rimRadius) / p.rimWidth) ** 2),
+          );
+          const stitch =
+            rim > 0
+              ? (0.5 +
+                  0.5 * Math.cos(p.stitches * Math.atan2(y, x) + phases[i])) **
+                3
+              : 0;
+          const weave =
+            0.5 +
+            0.25 *
+              (Math.cos(TAU * p.threads * u) + Math.cos(TAU * p.threads * v));
+          const grain = grainField(u, v);
+          // The embroidered ring sits above the cloth, not inside the dark hole.
+          color =
+            0.04 * (1 - face) +
+            face * (0.78 + 0.03 * weave + 0.02 * grain) +
+            rim * (0.12 + 0.03 * stitch);
+          height =
+            0.05 +
+            face * (0.3 + 0.02 * weave + 0.004 * grain) +
+            rim * (0.18 + 0.1 * stitch);
+          roughness += 0.12 * (1 - face) - rim * (0.12 + 0.04 * stitch);
+          occlusion = 0.23 + 0.75 * face - 0.1 * rim + 0.08 * rim * stitch;
+        };
+      }
       case 'trilobitefossil': {
         const p = proceduralMaterialPresets.trilobitefossil;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -14396,6 +14438,7 @@ export function createSurfaceSampler(
     kind === 'logcabinparquet' ||
     kind === 'countersunkmetal' ||
     kind === 'trilobitefossil' ||
+    kind === 'eyeletcotton' ||
     fabricated ||
     botanical ||
     packaging ||

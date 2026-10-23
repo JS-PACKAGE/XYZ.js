@@ -437,6 +437,8 @@
 
 同輪追加 `trilobitefossil`（三葉蟲化石石板），實際目錄 447→448 種：九個 seeded 旋轉低浮雕，具有寬頭甲、成對眼部、中央軸葉、十對彎曲胸肋及窄尾甲，嵌於較淺石質底面。0.45 m tile、四圖 opaque dielectric、metallic 0，不新增化石 geometry／特定物種科學復原，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `eyeletcotton`（鏤空刺繡棉布），實際目錄 448→449 種：六乘六暗圓孔、連續凸起繡邊與每孔十六個 seeded 放射狀針腳，繡邊谷部仍高於象牙白底布。0.06 m tile、四圖 opaque dielectric、metallic 0，孔內保留低 opaque 底面；不新增透明裁切／線材 geometry，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

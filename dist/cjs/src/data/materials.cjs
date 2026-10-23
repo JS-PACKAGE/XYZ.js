@@ -6956,6 +6956,27 @@ var proceduralMaterialPresets = Object.freeze({
 		eyeOffset: .13,
 		eyeCenter: -.22,
 		eyeRadius: .025
+	}),
+	eyeletcotton: Object.freeze({
+		dark: [
+			40,
+			37,
+			31
+		],
+		light: [
+			239,
+			234,
+			213
+		],
+		roughness: .85,
+		relief: .02,
+		cells: 6,
+		holeRadius: .14,
+		holeShoulder: .04,
+		rimRadius: .22,
+		rimWidth: .06,
+		stitches: 16,
+		threads: 72
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7406,7 +7427,8 @@ var proceduralTileMeters = Object.freeze({
 	staranise: .12,
 	logcabinparquet: 1.2,
 	countersunkmetal: .3,
-	trilobitefossil: .45
+	trilobitefossil: .45,
+	eyeletcotton: .06
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

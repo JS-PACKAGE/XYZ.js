@@ -445,6 +445,8 @@
 
 `trilobitefossil` 快取九個旋轉，以頭／胸／尾橢圓 compact supports 平滑聯集形成化石輪廓；中央軸葉連接盾甲，十對胸肋沿二次曲線偏移，胸節 envelope 在兩端歸零且由頭甲遮蔽，眼部另以小型橢圓抬高。頭甲穹面乘自己的 support，避免重疊胸甲處產生斜率斷點。0.45 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 448 種。
 
+`eyeletcotton` 以圓孔 wall shoulder 降至暗底面，以 compact 環形 support 抬高連續繡邊；十六次角向整數諧波形成鎖邊針腳，僅在環帶內求角度，避免中心奇點。環帶谷部保留高度，不把針腳間隙切穿成齒輪；細織紋與 seeded 纖維留在底布。0.06 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 449 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

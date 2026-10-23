@@ -473,7 +473,107 @@ const kinds: ProceduralMaterialKind[] = [
   'logcabinparquet',
   'countersunkmetal',
   'trilobitefossil',
+  'eyeletcotton',
 ];
+
+describe('Embroidered eyelet cotton', () => {
+  const p = proceduralMaterialPresets.eyeletcotton;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('eyeletcotton', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps thirty-six dark openings with raised continuous embroidered rims and sixteen radial stitches for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = Math.PI * 2 * hash(col, row, seed ^ 0x6b51);
+          const at = (r: number, angle: number) =>
+            sample(
+              (col + 0.5 + r * Math.cos(angle)) / p.cells,
+              (row + 0.5 + r * Math.sin(angle)) / p.cells,
+            );
+          const hole = at(0, 0);
+          for (let stitch = 0; stitch < p.stitches; stitch++) {
+            const angle = (stitch * Math.PI * 2 - phase) / p.stitches;
+            const crest = at(p.rimRadius, angle);
+            const valley = at(p.rimRadius, angle + Math.PI / p.stitches);
+            const cloth = at(0.36, angle);
+            expect(crest.height - valley.height).toBeGreaterThan(0.0015);
+            expect(valley.height - cloth.height).toBeGreaterThan(0.003);
+            expect(cloth.height - hole.height).toBeGreaterThan(0.0059);
+            expect(crest.occlusion - valley.occlusion).toBeCloseTo(0.08, 12);
+            expect(valley.roughness - crest.roughness).toBeCloseTo(0.04, 12);
+            expect(cloth.color - hole.color).toBeGreaterThan(0.73);
+            expect(at(0.12, angle).height).toBe(hole.height);
+            expect(hole.occlusion).toBeCloseTo(0.23, 12);
+            expect(crest.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps hole walls, ring skirts, angular stitch wrap and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 96; x++) points.push([x / 96, y / 96]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const r of [
+            0,
+            p.holeRadius,
+            p.holeRadius + p.holeShoulder,
+            p.rimRadius - p.rimWidth,
+            p.rimRadius,
+            p.rimRadius + p.rimWidth,
+          ])
+            for (let ray = 0; ray < 32; ray++) {
+              const angle = (ray * Math.PI) / 16;
+              points.push([
+                (col + 0.5 + r * Math.cos(angle)) / p.cells,
+                (row + 0.5 + r * Math.sin(angle)) / p.cells,
+              ]);
+            }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Trilobite fossil stone', () => {
   const p = proceduralMaterialPresets.trilobitefossil;
