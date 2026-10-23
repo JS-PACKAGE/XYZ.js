@@ -383,6 +383,8 @@
 
 同輪追加 `seaurchintest`（海膽殼），實際目錄 420→421 種：九枚 seeded 旋轉的象牙色微凸殼面，各有五放射雙孔列、頂端開口及孔列間凸瘤；孔洞比殼面低／暗／粗糙，外緣降至不透明暗底。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增殼體 geometry 或透明孔洞；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `crystallineglaze`（結晶釉陶瓷），實際目錄 421→422 種：藍綠釉面內的十六組 seeded 晶花具有不規則輪廓、放射針晶與生長色帶；晶花只改變顏色／粗糙度，高度由獨立釉面細粒決定，AO 保持平面。0.16 m tile、四圖 opaque dielectric、metallic 0；不是霜晶浮雕或晶體 geometry，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

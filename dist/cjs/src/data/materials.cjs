@@ -6296,6 +6296,25 @@ var proceduralMaterialPresets = Object.freeze({
 		poreRadius: .018,
 		apicalRadius: .035,
 		tubercleRadius: .035
+	}),
+	crystallineglaze: Object.freeze({
+		dark: [
+			20,
+			49,
+			69
+		],
+		light: [
+			187,
+			224,
+			216
+		],
+		roughness: .18,
+		relief: .004,
+		cells: 4,
+		radiusMin: .26,
+		radiusRange: .1,
+		armsMin: 18,
+		armsRange: 12
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6719,7 +6738,8 @@ var proceduralTileMeters = Object.freeze({
 	vermiculite: .06,
 	cairotiles: .8,
 	guilloche: .1,
-	seaurchintest: .24
+	seaurchintest: .24,
+	crystallineglaze: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

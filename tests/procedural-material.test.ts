@@ -446,7 +446,100 @@ const kinds: ProceduralMaterialKind[] = [
   'cairotiles',
   'guilloche',
   'seaurchintest',
+  'crystallineglaze',
 ];
+
+describe('Crystalline ceramic glaze', () => {
+  const p = proceduralMaterialPresets.crystallineglaze;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('crystallineglaze', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'embeds radial crystal needles and growth bands in a flat glossy coating for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = 0.44 + 0.12 * hash(col, row, seed ^ 0x2a51),
+            cy = 0.44 + 0.12 * hash(col, row, seed ^ 0x3b63);
+          const radius =
+              p.radiusMin + p.radiusRange * hash(col, row, seed ^ 0x4c75),
+            phase = 2 * Math.PI * hash(col, row, seed ^ 0x5d87);
+          const arms =
+            p.armsMin + Math.floor(p.armsRange * hash(col, row, seed ^ 0x6e99));
+          const at = (r: number, angle: number) =>
+            sample(
+              (col + cx + r * radius * Math.cos(angle)) / p.cells,
+              (row + cy + r * radius * Math.sin(angle)) / p.cells,
+            );
+          for (let arm = 0; arm < arms; arm++) {
+            const angle = (2 * Math.PI * arm - phase) / arms;
+            const needle = at(0.6, angle),
+              gap = at(0.6, angle + Math.PI / arms);
+            expect(needle.color - gap.color).toBeGreaterThan(0.5);
+            expect(needle.roughness - gap.roughness).toBeGreaterThan(0.07);
+            expect(Math.abs(needle.height - gap.height)).toBeLessThan(0.00002);
+            expect(needle.occlusion).toBe(1);
+            expect(gap.occlusion).toBe(1);
+            const growthBright = at(Math.sqrt(1 / 3), angle),
+              growthDark = at(Math.sqrt(1 / 6), angle);
+            expect(growthBright.color - growthDark.color).toBeGreaterThan(0.1);
+          }
+          const center = at(0, 0),
+            clear = sample((col + 0.01) / p.cells, (row + 0.01) / p.cells);
+          expect(center.color - clear.color).toBeGreaterThan(0.45);
+          expect(Math.abs(center.height - clear.height)).toBeLessThan(0.00002);
+          expect(clear.roughness).toBeCloseTo(0.18);
+          expect(clear.occlusion).toBe(1);
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps crystal centres, irregular rims, needles and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Sea urchin skeletal shell', () => {
   const p = proceduralMaterialPresets.seaurchintest;

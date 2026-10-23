@@ -6120,3 +6120,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證九枚殼的全部雙孔列、間孔橋面、間輻凸瘤、頂孔／殼頂／殼緣與暗底；另驗證孔緣／凸瘤／nearest-ray 選擇／殼緣／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5564 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：象牙色圓殼、五放射孔列與四圖可見，status 為 421 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視孔列，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 420 種 size 64／seed 7 四圖 SHA256 全數不變，421 種 ESM／CJS 輸出亦全數相同；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：結晶釉陶瓷（crystallineglaze）
+
+- 目錄 421→422 種。0.16 m tile、藍綠色釉面內十六組 seeded 晶花，各有放射針晶、生長色帶與不規則輪廓。晶花改變顏色／粗糙度，但不改變高度或 AO；釉面細粒獨立產生微小 normal。四圖 opaque、metallic 0、既有 ownership 不變；不是霜晶浮雕，不新增晶體 geometry 或窯燒模擬。
+- 定向 4 tests 通過：三 seeds 驗證十六組晶花的全部針晶／針間對比、生長色帶、核心／留釉區，並確認晶花不產生宏觀高度或 AO 浮雕；另驗證晶核／不規則邊緣／針晶／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5569 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：藍綠底色、放射晶花與未浮雕的 normal／AO、四圖可見，status 為 422 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視晶花，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.16 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 421 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

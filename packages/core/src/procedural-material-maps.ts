@@ -1256,6 +1256,52 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'crystallineglaze': {
+        const p = proceduralMaterialPresets.crystallineglaze;
+        const crystals = new Float64Array(p.cells * p.cells * 5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 5;
+            crystals[index] = 0.44 + 0.12 * hash(col, row, seed ^ 0x2a51);
+            crystals[index + 1] = 0.44 + 0.12 * hash(col, row, seed ^ 0x3b63);
+            crystals[index + 2] =
+              p.radiusMin + p.radiusRange * hash(col, row, seed ^ 0x4c75);
+            crystals[index + 3] = TAU * hash(col, row, seed ^ 0x5d87);
+            crystals[index + 4] =
+              p.armsMin +
+              Math.floor(p.armsRange * hash(col, row, seed ^ 0x6e99));
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x7fab);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const index = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 5;
+          const x = fract(uCell) - crystals[index],
+            y = fract(vCell) - crystals[index + 1];
+          const q =
+            (x * x + y * y) / (crystals[index + 2] * crystals[index + 2]);
+          const angle = Math.atan2(y, x),
+            phase = crystals[index + 3];
+          const edge =
+            1 +
+            0.08 * Math.cos(5 * angle + phase) +
+            0.05 * Math.cos(9 * angle - phase);
+          const face = smooth(clamp((1 - q / (edge * edge)) / 0.25));
+          const fade = smooth(clamp(q / 0.04));
+          const ray = 0.5 + 0.5 * Math.cos(crystals[index + 4] * angle + phase);
+          const needles = ray * ray * ray * ray;
+          const growth = 0.5 + 0.5 * Math.cos(TAU * 3 * q);
+          const crystal =
+            (0.6 + 0.4 * fade * (2 * needles - 1)) * (0.85 + 0.15 * growth);
+          const grain = grainField(u, v);
+          color = 0.12 + 0.8 * face * crystal + 0.02 * grain;
+          // Crystals are embedded in the glaze, not raised ice or carved rays.
+          // Only independent coating grain contributes to the height field.
+          height = 0.4 + 0.004 * grain;
+          roughness += 0.08 * face * fade * needles;
+          occlusion = 1;
+        };
+      }
       case 'seaurchintest': {
         const p = proceduralMaterialPresets.seaurchintest;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -12963,6 +13009,7 @@ export function createSurfaceSampler(
     kind === 'cairotiles' ||
     kind === 'guilloche' ||
     kind === 'seaurchintest' ||
+    kind === 'crystallineglaze' ||
     fabricated ||
     botanical ||
     packaging ||
