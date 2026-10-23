@@ -5614,3 +5614,8 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 
 - 使用者要求提交並發佈 patch `v1.21.1`：內容為 `[Materials] Add tatami rush weave preset`（程序材質 `tatami`）與版本字串更新。
 - 本機（macOS，Node 26）乾淨 worktree 以 `pnpm@12.6.0 install --frozen-lockfile` 後：format:check、typecheck、lint、test（5238 通過）、build、check:api-compatibility、check:package-hygiene、check:tree-shaking、check:distribution 通過。瀏覽器矩陣與 site smoke 由遠端 CI 執行。npm 仍未發佈。
+
+## 2026-10-23 工具鏈間接依賴更新
+
+- `[Build]` lockfile 更新 `markdown-it` 14.3.2 → 14.3.3、`source-map-js` 1.2.1 → 1.2.2；不新增 runtime 依賴、不改公開 API。
+- 本機 frozen-lockfile 安裝、build、typecheck、lint、format:check、完整測試（178 檔／5238 項）通過；實際執行 `docs:api` 成功產生可搜尋的 v1.21.1 API 文件。既有 README／PLAN／DESIGN 與技術契約不變。
