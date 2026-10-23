@@ -305,6 +305,8 @@
 
 同輪追加 `sashiko`（靛藍刺子繡布），實際目錄 381→382 種：深靛藍織布上以 seeded 行列相位交替排列凸起的米白針腳，針腳間保留底布，不是印花或連續補強線。0.064 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `ashlar`（模組拼砌石材），實際目錄 382→383 種：十一塊不同長寬的矩形石塊形成 T 字接縫，逐塊 seeded 色差與細礦物顆粒、平滑倒角及凹縫，區別於等尺寸錯縫磚。1.2 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

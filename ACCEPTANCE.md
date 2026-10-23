@@ -5831,3 +5831,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 381 種四圖 SHA256 全相同，新增恰為 sashiko。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現深靛藍底布與斷續亮針腳，狀態列為 382 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.064 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5364 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：模組拼砌石材（ashlar）
+
+- 新增十一塊不同長寬的矩形切石、逐塊 seeded 色差及礦物顆粒、平滑倒角與 T 字凹縫，石塊內部不產生模組格線接縫；目錄 382→383 種。1.2 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的完整石面、凹縫高度／亮度／roughness／AO 差異、內部 lookup 格線無假接縫、T 字接縫終止，以及倒角端點／接縫／wrap 一階連續性。初版矩形分割在模組 (5,5) 重疊，導致大石中央誤成凹縫及 owner 換主不連續；診斷確認 owner 8／9 重疊後修正末列石塊寬度，原失敗測試全部通過，未放寬斷言。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 382 種四圖 SHA256 全相同，新增恰為 ashlar。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現不等尺寸褐灰石塊、倒角及深凹接縫，狀態列為 383 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5369 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

@@ -407,7 +407,97 @@ const kinds: ProceduralMaterialKind[] = [
   'ginkgoleaf',
   'pressedtin',
   'sashiko',
+  'ashlar',
 ];
+
+describe('modular ashlar masonry', () => {
+  const p = proceduralMaterialPresets.ashlar;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ashlar', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves complete unequal stone faces and recessed T joints for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const [x, y, width, height] of p.stones) {
+        const center = at(
+          (x + width / 2) / p.cells,
+          (y + height / 2) / p.cells,
+        );
+        const edge = at(x / p.cells, (y + height / 2) / p.cells);
+        expect(center.height).toBeGreaterThan(0.015);
+        expect(edge.height).toBe(0);
+        expect(center.color - edge.color).toBeGreaterThan(0.25);
+        expect(edge.roughness - center.roughness).toBeGreaterThan(0.11);
+        expect(center.occlusion - edge.occlusion).toBeGreaterThan(0.35);
+        for (let i = 1; i < width; i++)
+          expect(
+            at((x + i) / p.cells, (y + height / 2) / p.cells).height,
+          ).toBeGreaterThan(0.015);
+        for (let i = 1; i < height; i++)
+          expect(
+            at((x + width / 2) / p.cells, (y + i) / p.cells).height,
+          ).toBeGreaterThan(0.015);
+      }
+      // A horizontal joint terminates at the side of the larger left stone.
+      expect(at(3.2 / p.cells, 1 / p.cells).height).toBe(0);
+      expect(at(2.8 / p.cells, 1 / p.cells).height).toBeGreaterThan(0.015);
+      expect(at(3 / p.cells, 0.8 / p.cells).height).toBe(0);
+      expect(at(3 / p.cells, 1.2 / p.cells).height).toBe(0);
+    },
+  );
+  it('keeps bevel endpoints, T joints, internal lookup boundaries and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let i = 0; i <= 96; i++)
+          points.push([cell / p.cells, i / 96], [i / 96, cell / p.cells]);
+      for (const [x, y, width, height] of p.stones)
+        for (const d of [p.gap, p.gap + p.bevel])
+          for (const t of [0, 0.2, 0.5, 0.8, 1]) {
+            points.push(
+              [(x + d) / p.cells, (y + height * t) / p.cells],
+              [(x + width - d) / p.cells, (y + height * t) / p.cells],
+            );
+            points.push(
+              [(x + width * t) / p.cells, (y + d) / p.cells],
+              [(x + width * t) / p.cells, (y + height - d) / p.cells],
+            );
+          }
+      for (const [x, y] of points)
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(x, y),
+            c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('indigo sashiko cloth', () => {
   const p = proceduralMaterialPresets.sashiko;

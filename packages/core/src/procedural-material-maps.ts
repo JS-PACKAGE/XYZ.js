@@ -1252,6 +1252,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ashlar': {
+        const p = proceduralMaterialPresets.ashlar;
+        const owners = new Uint8Array(p.cells * p.cells);
+        const tones = new Float64Array(p.stones.length);
+        const grainField = cachedNoise(64, 64, seed ^ 0x2f63);
+        const mineralField = cachedNoise(12, 12, seed ^ 0x7b19);
+        for (let i = 0; i < p.stones.length; i++) {
+          const [x, y, width, height] = p.stones[i];
+          tones[i] = hash(i, 0, seed ^ 0x5c47);
+          for (let row = y; row < y + height; row++)
+            for (let col = x; col < x + width; col++)
+              owners[row * p.cells + col] = i;
+        }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const index = owners[Math.floor(y) * p.cells + Math.floor(x)];
+          const stone = p.stones[index];
+          const dx = x - stone[0],
+            dy = y - stone[1];
+          // Internal lookup cells are not joints; only the complete stone boundary bevels.
+          const face =
+            smooth(clamp((dx - p.gap) / p.bevel)) *
+            smooth(clamp((stone[2] - dx - p.gap) / p.bevel)) *
+            smooth(clamp((dy - p.gap) / p.bevel)) *
+            smooth(clamp((stone[3] - dy - p.gap) / p.bevel));
+          const grain = grainField(u, v),
+            mineral = mineralField(u, v);
+          color =
+            0.05 +
+            face * (0.28 + 0.35 * tones[index] + 0.18 * mineral) +
+            0.025 * grain;
+          height = face * (0.62 + 0.08 * mineral + 0.015 * grain);
+          roughness += 0.16 * (1 - face) + 0.04 * grain;
+          occlusion = 0.58 + 0.4 * face;
+          return;
+        };
+      }
       case 'sashiko': {
         const p = proceduralMaterialPresets.sashiko;
         const grainField = cachedNoise(64, 64, seed ^ 0x7a31);
@@ -11204,6 +11242,7 @@ export function createSurfaceSampler(
     kind === 'ginkgoleaf' ||
     kind === 'pressedtin' ||
     kind === 'sashiko' ||
+    kind === 'ashlar' ||
     fabricated ||
     botanical ||
     packaging ||

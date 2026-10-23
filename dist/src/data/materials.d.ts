@@ -2464,6 +2464,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         stitchLength: 0.4;
         stitchWidth: 0.09;
     }>;
+    ashlar: Readonly<{
+        dark: readonly [57, 48, 36];
+        light: readonly [207, 190, 158];
+        roughness: 0.72;
+        relief: 0.025;
+        cells: 6;
+        gap: 0.025;
+        bevel: 0.08;
+        stones: readonly [readonly [0, 0, 3, 2], readonly [3, 0, 3, 1], readonly [3, 1, 2, 2], readonly [5, 1, 1, 3], readonly [0, 2, 1, 2], readonly [1, 2, 2, 3], readonly [3, 3, 2, 2], readonly [0, 4, 1, 2], readonly [5, 4, 1, 2], readonly [3, 5, 2, 1], readonly [1, 5, 2, 1]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2849,4 +2859,5 @@ export declare const proceduralTileMeters: Readonly<{
     ginkgoleaf: 0.24;
     pressedtin: 0.6;
     sashiko: 0.064;
+    ashlar: 1.2;
 }>;

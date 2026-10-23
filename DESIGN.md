@@ -313,6 +313,8 @@
 
 `sashiko` 預存每列與每行的二元針腳相位，以 compact 橢圓冠形成交替斷續的經緯針腳，端點在格線交點前歸零、不重疊；底布使用連續平織場與快取細粒。針腳同步抬升 height、提高亮度並降低 roughness，區別於純色印花。0.064 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 382 種。
 
+`ashlar` 以固定矩形分割完整覆蓋 6×6 模組，預存 owner lookup 與逐石色差；取樣時以整塊石材四側的平滑覆蓋相乘計算倒角，內部 lookup 格線不產生假接縫。石材色差在共用凹縫前消失，T 字交點與週期邊界保持連續，礦物及細粒場預先快取。1.2 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 383 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
