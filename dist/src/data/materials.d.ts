@@ -3176,6 +3176,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedWidth: 0.018;
         hubRadius: 0.075;
     }>;
+    logcabinparquet: Readonly<{
+        dark: readonly [47, 25, 12];
+        light: readonly [203, 155, 92];
+        roughness: 0.4;
+        relief: 0.012;
+        blocks: 2;
+        units: 6;
+        gap: 0.018;
+        bevel: 0.035;
+        boards: readonly [readonly [2, 2, 2, 2], readonly [4, 2, 1, 2], readonly [2, 4, 3, 1], readonly [1, 2, 1, 3], readonly [1, 1, 4, 1], readonly [5, 1, 1, 4], readonly [1, 5, 5, 1], readonly [0, 1, 1, 5], readonly [0, 0, 6, 1]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3624,4 +3635,5 @@ export declare const proceduralTileMeters: Readonly<{
     monsteraleaf: 0.9;
     crossstitch: 0.08;
     staranise: 0.12;
+    logcabinparquet: 1.2;
 }>;

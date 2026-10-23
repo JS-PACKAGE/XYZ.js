@@ -1259,6 +1259,51 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'logcabinparquet': {
+        const p = proceduralMaterialPresets.logcabinparquet;
+        const owners = new Uint8Array(p.units * p.units);
+        const tones = new Float64Array(p.blocks * p.blocks * p.boards.length);
+        for (let board = 0; board < p.boards.length; board++) {
+          const [x, y, width, height] = p.boards[board];
+          for (let row = y; row < y + height; row++)
+            for (let col = x; col < x + width; col++)
+              owners[row * p.units + col] = board;
+          for (let block = 0; block < p.blocks * p.blocks; block++)
+            tones[block * p.boards.length + board] = hash(
+              board,
+              block,
+              seed ^ 0x5c61,
+            );
+        }
+        const grainField = cachedNoise(8, 96, seed ^ 0x6d73);
+        return () => {
+          const uBlock = u * p.blocks,
+            vBlock = v * p.blocks;
+          const block = Math.floor(vBlock) * p.blocks + Math.floor(uBlock);
+          const x = fract(uBlock) * p.units,
+            y = fract(vBlock) * p.units;
+          const owner = owners[Math.floor(y) * p.units + Math.floor(x)];
+          const board = p.boards[owner];
+          const dx = x - board[0],
+            dy = y - board[1];
+          const face =
+            smooth(clamp((Math.min(dx, board[2] - dx) - p.gap) / p.bevel)) *
+            smooth(clamp((Math.min(dy, board[3] - dy) - p.gap) / p.bevel));
+          const horizontal = board[2] >= board[3];
+          const along = horizontal ? dx : dy,
+            across = horizontal ? dy : dx;
+          const tone = tones[block * p.boards.length + owner];
+          const grain = grainField(
+            along / p.units + tone,
+            across / p.units + 0.3 * tone,
+          );
+          // Lookup-cell boundaries within one long board are not wood joints.
+          color = 0.06 + face * (0.32 + 0.25 * tone + 0.25 * grain);
+          height = 0.1 + face * (0.65 + 0.004 * grain);
+          roughness += 0.3 * (1 - face) + 0.03 * face * grain;
+          occlusion = 0.55 + 0.43 * face;
+        };
+      }
       case 'staranise': {
         const p = proceduralMaterialPresets.staranise;
         const axes = new Float64Array(p.cells * p.cells * p.pods * 2);
@@ -14229,6 +14274,7 @@ export function createSurfaceSampler(
     kind === 'monsteraleaf' ||
     kind === 'crossstitch' ||
     kind === 'staranise' ||
+    kind === 'logcabinparquet' ||
     fabricated ||
     botanical ||
     packaging ||

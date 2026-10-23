@@ -6830,6 +6830,80 @@ var proceduralMaterialPresets = Object.freeze({
 		seedLength: .055,
 		seedWidth: .018,
 		hubRadius: .075
+	}),
+	logcabinparquet: Object.freeze({
+		dark: [
+			47,
+			25,
+			12
+		],
+		light: [
+			203,
+			155,
+			92
+		],
+		roughness: .4,
+		relief: .012,
+		blocks: 2,
+		units: 6,
+		gap: .018,
+		bevel: .035,
+		boards: Object.freeze([
+			[
+				2,
+				2,
+				2,
+				2
+			],
+			[
+				4,
+				2,
+				1,
+				2
+			],
+			[
+				2,
+				4,
+				3,
+				1
+			],
+			[
+				1,
+				2,
+				1,
+				3
+			],
+			[
+				1,
+				1,
+				4,
+				1
+			],
+			[
+				5,
+				1,
+				1,
+				4
+			],
+			[
+				1,
+				5,
+				5,
+				1
+			],
+			[
+				0,
+				1,
+				1,
+				5
+			],
+			[
+				0,
+				0,
+				6,
+				1
+			]
+		])
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7277,7 +7351,8 @@ var proceduralTileMeters = Object.freeze({
 	cucumberslices: .18,
 	monsteraleaf: .9,
 	crossstitch: .08,
-	staranise: .12
+	staranise: .12,
+	logcabinparquet: 1.2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

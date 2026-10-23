@@ -431,6 +431,8 @@
 
 同輪追加 `staranise`（八角香料），實際目錄 444→445 種：九個 seeded 旋轉八角，各有八個尖端木質果莢、凹腔與較光滑種子。莢壁高於種子、種子高於腔底，放射莢間保留低暗間隙。0.12 m tile、四圖 opaque dielectric、metallic 0，不新增果莢 geometry／透明間隙，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `logcabinparquet`（螺旋拼木地板），實際目錄 445→446 種：四個方形區塊各以八條漸長木條環繞中央方板，合計 36 塊板材；木紋沿長軸、平接端頭與窄凹縫分隔板面，不在內部 lookup cell 邊界產生假接縫。1.2 m tile、四圖 opaque dielectric、metallic 0，不新增板材 geometry，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

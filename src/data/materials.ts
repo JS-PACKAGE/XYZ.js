@@ -3200,6 +3200,27 @@ export const proceduralMaterialPresets = Object.freeze({
     seedWidth: 0.018,
     hubRadius: 0.075,
   }),
+  logcabinparquet: Object.freeze({
+    dark: [47, 25, 12] as const,
+    light: [203, 155, 92] as const,
+    roughness: 0.4,
+    relief: 0.012,
+    blocks: 2,
+    units: 6,
+    gap: 0.018,
+    bevel: 0.035,
+    boards: Object.freeze([
+      [2, 2, 2, 2],
+      [4, 2, 1, 2],
+      [2, 4, 3, 1],
+      [1, 2, 1, 3],
+      [1, 1, 4, 1],
+      [5, 1, 1, 4],
+      [1, 5, 5, 1],
+      [0, 1, 1, 5],
+      [0, 0, 6, 1],
+    ] as const),
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3649,4 +3670,5 @@ export const proceduralTileMeters = Object.freeze({
   monsteraleaf: 0.9,
   crossstitch: 0.08,
   staranise: 0.12,
+  logcabinparquet: 1.2,
 });

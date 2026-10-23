@@ -470,7 +470,136 @@ const kinds: ProceduralMaterialKind[] = [
   'monsteraleaf',
   'crossstitch',
   'staranise',
+  'logcabinparquet',
 ];
+
+describe('Log cabin spiral parquet', () => {
+  const p = proceduralMaterialPresets.logcabinparquet;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('logcabinparquet', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps thirty-six complete spiral boards, recessed butt joints and lengthwise grain for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      let alongVariation = 0,
+        acrossVariation = 0;
+      for (let row = 0; row < p.blocks; row++)
+        for (let col = 0; col < p.blocks; col++) {
+          const at = (x: number, y: number) =>
+            sample(
+              (col + x / p.units) / p.blocks,
+              (row + y / p.units) / p.blocks,
+            );
+          for (const [x, y, width, height] of p.boards) {
+            const center = at(x + width / 2, y + height / 2);
+            expect(center.height).toBeGreaterThan(0.0089);
+            expect(center.occlusion).toBeCloseTo(0.98, 12);
+            expect(center.metallic).toBe(0);
+            for (const [ex, ey, nx, ny] of [
+              [x, y + height / 2, 1, 0],
+              [x + width, y + height / 2, -1, 0],
+              [x + width / 2, y, 0, 1],
+              [x + width / 2, y + height, 0, -1],
+            ]) {
+              const joint = at(ex, ey);
+              const bevel = at(
+                ex + nx * (p.gap + p.bevel / 2),
+                ey + ny * (p.gap + p.bevel / 2),
+              );
+              expect(center.height - joint.height).toBeGreaterThan(0.0077);
+              expect(center.color - joint.color).toBeGreaterThan(0.3);
+              expect(joint.roughness - center.roughness).toBeGreaterThan(0.26);
+              expect(joint.occlusion).toBeCloseTo(0.55, 12);
+              expect(bevel.height - joint.height).toBeGreaterThan(0.0038);
+              expect(center.height - bevel.height).toBeGreaterThan(0.0038);
+            }
+            for (let i = 1; i < width; i++)
+              expect(at(x + i, y + height / 2).height).toBeGreaterThan(0.0089);
+            for (let i = 1; i < height; i++)
+              expect(at(x + width / 2, y + i).height).toBeGreaterThan(0.0089);
+            const horizontal = width >= height;
+            let prevAlong = 0,
+              prevAcross = 0;
+            for (let i = 0; i <= 60; i++) {
+              const d = (i / 60 - 0.5) * 0.6;
+              const a = at(
+                x + width / 2 + (horizontal ? d : 0),
+                y + height / 2 + (horizontal ? 0 : d),
+              );
+              const b = at(
+                x + width / 2 + (horizontal ? 0 : d),
+                y + height / 2 + (horizontal ? d : 0),
+              );
+              if (i > 0) {
+                alongVariation += Math.abs(a.color - prevAlong);
+                acrossVariation += Math.abs(b.color - prevAcross);
+              }
+              prevAlong = a.color;
+              prevAcross = b.color;
+            }
+          }
+          for (let y = 0; y < p.units; y++)
+            for (let x = 0; x < p.units; x++)
+              expect(at(x + 0.5, y + 0.5).height).toBeGreaterThan(0.0089);
+        }
+      expect(acrossVariation).toBeGreaterThan(3 * alongVariation);
+    },
+  );
+  it('keeps board ownership, butt joints, bevel shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 96; x++) points.push([x / 96, y / 96]);
+      for (let row = 0; row < p.blocks; row++)
+        for (let col = 0; col < p.blocks; col++)
+          for (const [x, y, width, height] of p.boards)
+            for (const d of [0, p.gap, p.gap + p.bevel])
+              for (const t of [0, 0.25, 0.5, 0.75, 1])
+                for (const [px, py] of [
+                  [x + d, y + height * t],
+                  [x + width - d, y + height * t],
+                  [x + width * t, y + d],
+                  [x + width * t, y + height - d],
+                ])
+                  points.push([
+                    (col + px / p.units) / p.blocks,
+                    (row + py / p.units) / p.blocks,
+                  ]);
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Star anise pods', () => {
   const p = proceduralMaterialPresets.staranise;

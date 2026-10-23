@@ -6289,3 +6289,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐一驗證 72 個果莢的莢壁／種子／腔底高度順序、色差、roughness／AO、尖端收窄及放射間隙；另檢查莢壁、腔／種子裙、中心與 tile wrap 的 C1。初次測試的定位 hash 與正式實作不一致，對齊既有 hash 後保留形態門檻；另降低木質微粒色彩振幅，避免掩蓋莢壁／種子對比。最終新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5687 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：褐色八向果莢、莢腔 normal、較光滑種子及放射輪廓 AO 四圖與球面材質可見，status 為 445 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；WebGPU 頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 444 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：螺旋拼木地板（logcabinparquet）
+
+- 目錄 445→446 種。1.2 m tile、四個區塊各有中央方板與八條漸長螺旋木條，合計 36 板；木紋沿長軸，平接端頭、窄凹縫與倒角分隔平坦板面，不在內部 lookup cell 邊界產生假接縫。四圖 opaque、metallic 0、既有 ownership 不變，不新增板材 geometry。
+- 三個 seed（0／1／`0xffffffff`）驗證 36 板完整面、四邊凹縫／半倒角、內部跨格無假縫、全部單位格覆蓋及橫紋變化大於順紋三倍；另檢查 ownership、平接端頭、倒角 shoulder 與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5692 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面拼木及四圖的螺旋長木條、轉向木紋、接縫 normal／AO 與 roughness 可見，status 為 446 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.2 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 445 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
