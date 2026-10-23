@@ -6007,6 +6007,23 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 16,
 		grout: .025,
 		bevel: .045
+	}),
+	ikat: Object.freeze({
+		dark: [
+			16,
+			31,
+			62
+		],
+		light: [
+			218,
+			205,
+			175
+		],
+		roughness: .81,
+		relief: .006,
+		cells: 4,
+		threads: 64,
+		fringe: .16
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6415,7 +6432,8 @@ var proceduralTileMeters = Object.freeze({
 	crowncaps: .112,
 	cofferedconcrete: 2.4,
 	woodworm: .16,
-	calcadawaves: 1.28
+	calcadawaves: 1.28,
+	ikat: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -431,7 +431,101 @@ const kinds: ProceduralMaterialKind[] = [
   'cofferedconcrete',
   'woodworm',
   'calcadawaves',
+  'ikat',
 ];
+
+describe('warp-dyed ikat cloth', () => {
+  const p = proceduralMaterialPresets.ikat;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ikat', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'feathers diamond dye along warp yarns without embossing the pigment for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const u = (col + 0.5) / p.cells,
+            v = (row + 0.5) / p.cells;
+          const light = at(u, v),
+            dark = at(u, v + 0.5 / p.cells);
+          expect(light.color).toBeGreaterThan(0.85);
+          expect(dark.color).toBeLessThan(0.1);
+          expect(Math.abs(light.height - dark.height)).toBeLessThan(0.0001);
+          expect(Math.abs(light.roughness - dark.roughness)).toBeLessThan(0.03);
+          expect(Math.abs(light.occlusion - dark.occlusion)).toBeLessThan(
+            0.001,
+          );
+        }
+      const midpoints: number[] = [];
+      for (let yarn = 0; yarn <= 16; yarn++) {
+        const x = -0.24 + (0.48 * yarn) / 16,
+          u = (0.5 + x) / p.cells;
+        const center = (row: number) => {
+          const roots: number[] = [];
+          for (const side of [-1, 1]) {
+            let low = 0,
+              high = 0.49;
+            for (let step = 0; step < 24; step++) {
+              const middle = (low + high) / 2;
+              if (at(u, (row + 0.5 + side * middle) / p.cells).color > 0.45)
+                low = middle;
+              else high = middle;
+            }
+            roots.push((side * (low + high)) / 2);
+          }
+          return (roots[0]! + roots[1]!) / 2;
+        };
+        const first = center(0);
+        midpoints.push(first);
+        expect(Math.abs(first - center(1))).toBeLessThan(0.004);
+      }
+      // A straight printed diamond would have one common centerline;
+      // warp dye shifts it differently for neighboring yarns.
+      const spread = Math.max(...midpoints) - Math.min(...midpoints);
+      expect(spread).toBeGreaterThan(0.025);
+      expect(spread).toBeLessThan(0.17);
+    },
+  );
+  it('keeps feathered dye edges, diamond tips and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Portuguese wave stone pavement', () => {
   const p = proceduralMaterialPresets.calcadawaves;

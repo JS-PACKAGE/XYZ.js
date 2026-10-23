@@ -412,7 +412,8 @@ export type ProceduralMaterialKind =
   | 'crowncaps'
   | 'cofferedconcrete'
   | 'woodworm'
-  | 'calcadawaves';
+  | 'calcadawaves'
+  | 'ikat';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -851,6 +852,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cofferedconcrete',
   'woodworm',
   'calcadawaves',
+  'ikat',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

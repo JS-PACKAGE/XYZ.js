@@ -2689,6 +2689,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.025;
         bevel: 0.045;
     }>;
+    ikat: Readonly<{
+        dark: readonly [16, 31, 62];
+        light: readonly [218, 205, 175];
+        roughness: 0.81;
+        relief: 0.006;
+        cells: 4;
+        threads: 64;
+        fringe: 0.16;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3098,4 +3107,5 @@ export declare const proceduralTileMeters: Readonly<{
     cofferedconcrete: 2.4;
     woodworm: 0.16;
     calcadawaves: 1.28;
+    ikat: 0.16;
 }>;

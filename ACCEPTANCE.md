@@ -6015,3 +6015,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證黑白波帶相位與週期、整石同色、黑白石面等高且粗糙度／AO 不受色帶控制、接縫較低；另驗證倒角／黑白邊界／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5487 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：黑白整石波浪排列、獨立規則接縫 normal／AO、四圖及 25 球可見，status 為 406 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.28 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 405 種 size 64／seed 7 四圖 SHA256 全數不變；生成 CJS bundle 變動較大，另以 fresh Node 程序確認全部 406 種 ESM／CJS 四圖 hash 一致。README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：經紗絣織布（ikat）
+
+- 目錄 406→407 種。0.16 m tile、深靛藍底淺色菱形與 seeded 經紗對位毛邊，同一束經紗的偏移在各列重複；柔化菱形尖角避免導數尖點。染紋只改色彩，獨立六十四線平織紋及細粒控制高度／粗糙度／AO。四圖 opaque、metallic 0、既有 ownership 不變，不把染紋做成浮雕。
+- 定向 4 tests 通過：三 seeds 驗證淺色菱形／深色底、同織紋相位的明暗部等高且粗糙度／AO 不隨染紋改變、以色彩邊界二分取樣確認各經紗中心線偏移與跨列重複；另驗證染紋毛邊／尖端／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5492 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：靛藍底毛邊淺色菱形、無菱形浮雕的 normal／AO、四圖及 25 球可見，status 為 407 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.16 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 406 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

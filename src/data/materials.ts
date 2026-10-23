@@ -2702,6 +2702,15 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.025,
     bevel: 0.045,
   }),
+  ikat: Object.freeze({
+    dark: [16, 31, 62] as const,
+    light: [218, 205, 175] as const,
+    roughness: 0.81,
+    relief: 0.006,
+    cells: 4,
+    threads: 64,
+    fringe: 0.16,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3112,4 +3121,5 @@ export const proceduralTileMeters = Object.freeze({
   cofferedconcrete: 2.4,
   woodworm: 0.16,
   calcadawaves: 1.28,
+  ikat: 0.16,
 });

@@ -1254,6 +1254,35 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ikat': {
+        const p = proceduralMaterialPresets.ikat;
+        const alignmentField = cachedNoise(p.threads, 1, seed ^ 0x6c17);
+        const grainField = cachedNoise(96, 96, seed ^ 0x3e49);
+        return () => {
+          const alignment = p.fringe * (alignmentField(u, 0) - 0.5);
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells + alignment) - 0.5;
+          // A softly rounded diamond avoids cusps; per-warp alignment
+          // shifts its dye boundary along the yarn, not the cloth relief.
+          const diamond = Math.sqrt(x * x + 0.0001) + Math.sqrt(y * y + 0.0001);
+          const resist = 1 - smooth(clamp((diamond - 0.34) / 0.07));
+          const tx = u * p.threads,
+            ty = v * p.threads;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * tx),
+            weft = 0.5 + 0.5 * Math.cos(TAU * ty);
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * tx) * Math.cos(Math.PI * ty);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          const grain = grainField(u, v);
+          color = 0.055 + 0.82 * resist + 0.025 * grain;
+          height = 0.12 + 0.22 * weave + 0.004 * grain;
+          roughness += 0.02 * grain + 0.02 * (1 - weave);
+          occlusion = 0.82 + 0.16 * weave;
+        };
+      }
       case 'calcadawaves': {
         const p = proceduralMaterialPresets.calcadawaves;
         const grainField = cachedNoise(96, 96, seed ^ 0x7d31);
@@ -12325,6 +12354,7 @@ export function createSurfaceSampler(
     kind === 'cofferedconcrete' ||
     kind === 'woodworm' ||
     kind === 'calcadawaves' ||
+    kind === 'ikat' ||
     fabricated ||
     botanical ||
     packaging ||
