@@ -317,6 +317,8 @@
 
 同輪追加 `moire`（水波紋絲緞），實際目錄 387→388 種：紫色布面的低頻水波調制色澤與 roughness，細紗決定 height／AO，不把大波紋做成浮雕。0.08 m tile、四圖 opaque dielectric；不新增繞射、視角相關變色或 anisotropic BRDF，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `oakleaf`（圓裂橡樹葉），實際目錄 388→389 種：seeded 旋轉及色差的綠色長葉片，具成對圓裂、深缺刻、中肋、分枝葉脈及短葉柄，區別於扇形銀杏葉。0.3 m tile、四圖 opaque dielectric；葉間維持深色不透明底層，沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

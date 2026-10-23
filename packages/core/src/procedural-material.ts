@@ -394,7 +394,8 @@ export type ProceduralMaterialKind =
   | 'gingham'
   | 'mossypavers'
   | 'bamboocrosscut'
-  | 'moire';
+  | 'moire'
+  | 'oakleaf';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -815,6 +816,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mossypavers',
   'bamboocrosscut',
   'moire',
+  'oakleaf',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

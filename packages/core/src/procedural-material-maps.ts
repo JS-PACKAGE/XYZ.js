@@ -1252,6 +1252,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'oakleaf': {
+        const p = proceduralMaterialPresets.oakleaf;
+        const fineField = cachedNoise(96, 96, seed ^ 0x9c31);
+        const leaves = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            const angle = TAU * hash(col, row, seed ^ 0x7d43);
+            leaves[i] = Math.cos(angle);
+            leaves[i + 1] = Math.sin(angle);
+            leaves[i + 2] = hash(col, row, seed ^ 0x5a29);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 3;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const a = dx * leaves[i]! + dy * leaves[i + 1]!;
+          const b = dy * leaves[i]! - dx * leaves[i + 1]!;
+          const along = b / p.length;
+          const width = p.width * (0.72 + 0.28 * Math.cos(3 * Math.PI * along));
+          const cap = clamp(1 - along * along - (a / width) ** 2);
+          const blade = smooth(clamp(cap / 0.18));
+          const stem = smooth(
+            clamp((1 - (a / 0.012) ** 2 - ((b + 0.405) / 0.065) ** 2) / 0.35),
+          );
+          const face = 1 - (1 - blade) * (1 - stem);
+          const midrib = smooth(clamp(1 - (a / 0.014) ** 2));
+          // Regularizing the absolute cross-axis distance keeps paired branch
+          // veins differentiable where they meet the central rib.
+          const branches =
+            (0.5 +
+              0.5 *
+                Math.cos(
+                  TAU *
+                    (3 * along - 0.75 * Math.sqrt((a / p.width) ** 2 + 0.0004)),
+                )) **
+            16;
+          const ribs = blade * (midrib + 0.45 * branches * (1 - midrib));
+          const grain = fineField(u, v);
+          color =
+            0.06 +
+            face * (0.48 + 0.18 * leaves[i + 2]! + 0.12 * ribs + 0.03 * grain);
+          height = 0.08 + 0.28 * face + 0.1 * blade * cap * cap + 0.06 * ribs;
+          roughness =
+            0.86 + face * (p.roughness - 0.86 + 0.02 * grain - 0.03 * ribs);
+          occlusion = 0.55 + 0.4 * face;
+          return;
+        };
+      }
       case 'moire': {
         const p = proceduralMaterialPresets.moire;
         const phaseA = TAU * hash(0, 0, seed ^ 0x6d13);
@@ -11436,6 +11487,7 @@ export function createSurfaceSampler(
     kind === 'mossypavers' ||
     kind === 'bamboocrosscut' ||
     kind === 'moire' ||
+    kind === 'oakleaf' ||
     fabricated ||
     botanical ||
     packaging ||

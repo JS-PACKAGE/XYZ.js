@@ -5879,3 +5879,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 387 種四圖 SHA256 全相同，新增恰為 moire。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現紫色水波與相應 roughness 變化，normal 未出現宏觀波紋凹凸，狀態列為 388 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.08 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5395 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：圓裂橡樹葉（oakleaf）
+
+- 新增 seeded 旋轉及色差的綠色長葉片、成對圓裂與深缺刻、中肋、分枝葉脈及短葉柄，不套用銀杏扇形輪廓；目錄 388→389 種。0.3 m tile、四圖 opaque dielectric、metallic 0；葉間是深色不透明底層，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的葉柄方向辨識、雙側圓裂及缺刻、葉柄、中肋及分枝葉脈，以及 cell 邊界與 wrap 一階連續性。初次 C1 差分 h=1e-8 未達門檻；實際 sampler 最壞殘差在 h=1e-7／1e-8／1e-9 分別約 0.375226／0.037523／0.003752，呈線性收斂，將差分步長改為 1e-9，維持原 0.02 門檻，未改材質以掩蓋不連續。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 388 種四圖 SHA256 全相同，新增恰為 oakleaf。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現綠色圓裂葉片及深色底層，狀態列為 389 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.3 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5400 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

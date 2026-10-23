@@ -2522,6 +2522,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         warpThreads: 72;
         weftThreads: 56;
     }>;
+    oakleaf: Readonly<{
+        dark: readonly [12, 24, 7];
+        light: readonly [128, 155, 52];
+        roughness: 0.66;
+        relief: 0.02;
+        cells: 3;
+        length: 0.38;
+        width: 0.23;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2913,4 +2922,5 @@ export declare const proceduralTileMeters: Readonly<{
     mossypavers: 0.8;
     bamboocrosscut: 0.24;
     moire: 0.08;
+    oakleaf: 0.3;
 }>;

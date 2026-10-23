@@ -360,6 +360,17 @@ function createSurfaceSampler(t, r) {
 	}
 	let Wt = t === `stone` || t === `metal` || t === `marble`, Gt = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`, G = 0, K = 0, Kt = 0, q = 0, J = 0, Y = 0, X = 0, Z = 0, Q = 1, $ = 0, qt = 0, Jt = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `standingseam` || t === `damascus` || t === `castiron` || t === `pressedtin` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`), pick = () => {
 		switch (t) {
+			case `oakleaf`: {
+				let t = require_materials.proceduralMaterialPresets.oakleaf, i = cachedNoise(96, 96, r ^ 39985), a = new Float64Array(t.cells * t.cells * 3);
+				for (let e = 0; e < t.cells; e++) for (let i = 0; i < t.cells; i++) {
+					let o = (e * t.cells + i) * 3, s = n * hash(i, e, r ^ 32067);
+					a[o] = Math.cos(s), a[o + 1] = Math.sin(s), a[o + 2] = hash(i, e, r ^ 23081);
+				}
+				return () => {
+					let e = G * t.cells, r = K * t.cells, o = (Math.floor(r) * t.cells + Math.floor(e)) * 3, s = fract(e) - .5, c = fract(r) - .5, l = s * a[o] + c * a[o + 1], u = c * a[o] - s * a[o + 1], d = u / t.length, f = t.width * (.72 + .28 * Math.cos(3 * Math.PI * d)), p = clamp(1 - d * d - (l / f) ** 2), m = smooth(clamp(p / .18)), h = smooth(clamp((1 - (l / .012) ** 2 - ((u + .405) / .065) ** 2) / .35)), g = 1 - (1 - m) * (1 - h), _ = smooth(clamp(1 - (l / .014) ** 2)), v = m * (_ + .45 * (.5 + .5 * Math.cos(n * (3 * d - .75 * Math.sqrt((l / t.width) ** 2 + 4e-4)))) ** 16 * (1 - _)), y = i(G, K);
+					Y = .06 + g * (.48 + .18 * a[o + 2] + .12 * v + .03 * y), X = .08 + .28 * g + .1 * m * p * p + .06 * v, Z = .86 + g * (t.roughness - .86 + .02 * y - .03 * v), Q = .55 + .4 * g;
+				};
+			}
 			case `moire`: {
 				let t = require_materials.proceduralMaterialPresets.moire, i = n * hash(0, 0, r ^ 27923), a = n * hash(0, 0, r ^ 35415), o = cachedNoise(96, 96, r ^ 15505);
 				return () => {
@@ -2715,7 +2726,7 @@ function createSurfaceSampler(t, r) {
 			};
 		}
 		throw Error(`Procedural material ${t} has no sampler case in createSurfaceSampler.`);
-	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || t === `standingseam` || t === `damascus` || t === `windmillpavers` || t === `castiron` || t === `porphyry` || t === `linen` || t === `chippedenamel` || t === `perforatedleather` || t === `argyle` || t === `chevronparquet` || t === `ginkgoleaf` || t === `pressedtin` || t === `sashiko` || t === `ashlar` || t === `gabion` || t === `gingham` || t === `mossypavers` || t === `bamboocrosscut` || t === `moire` || at || ct || pt || _t || St || Dt || At || Nt || xe || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
+	}, Yt = pick(), Xt = !(et || t === `flutedwood` || t === `subwaytiles` || t === `canewebbing` || t === `rammedearth` || t === `copperpatina` || t === `birdseyemaple` || t === `breezeblock` || t === `basketweavepavers` || t === `ripstop` || t === `octagondot` || t === `truchettiles` || t === `standingseam` || t === `damascus` || t === `windmillpavers` || t === `castiron` || t === `porphyry` || t === `linen` || t === `chippedenamel` || t === `perforatedleather` || t === `argyle` || t === `chevronparquet` || t === `ginkgoleaf` || t === `pressedtin` || t === `sashiko` || t === `ashlar` || t === `gabion` || t === `gingham` || t === `mossypavers` || t === `bamboocrosscut` || t === `moire` || t === `oakleaf` || at || ct || pt || _t || St || Dt || At || Nt || xe || Lt || Bt || ge || de || re || ee || l || d || p), Zt = r ^ 2747636419, Qt = r ^ 2135587861;
 	return (e, t, n) => {
 		G = fract(e), K = fract(t), Kt = Wt ? noise(G, K, 4, 4, r) : 0, q = Xt ? noise(G, K, 32, 32, Zt) : 0, J = Gt ? noise(G, K, 64, 64, Qt) : 0, Y = Kt, X = Kt, Z = i.roughness, Q = 1, $ = 0, qt = Jt, Yt(), n.color = Y, n.height = X * i.relief, n.roughness = clamp(Z), n.occlusion = Q, n.mortar = $, n.metallic = qt;
 	};

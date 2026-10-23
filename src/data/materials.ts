@@ -2535,6 +2535,15 @@ export const proceduralMaterialPresets = Object.freeze({
     warpThreads: 72,
     weftThreads: 56,
   }),
+  oakleaf: Object.freeze({
+    dark: [12, 24, 7] as const,
+    light: [128, 155, 52] as const,
+    roughness: 0.66,
+    relief: 0.02,
+    cells: 3,
+    length: 0.38,
+    width: 0.23,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2927,4 +2936,5 @@ export const proceduralTileMeters = Object.freeze({
   mossypavers: 0.8,
   bamboocrosscut: 0.24,
   moire: 0.08,
+  oakleaf: 0.3,
 });

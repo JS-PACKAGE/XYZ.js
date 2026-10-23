@@ -413,7 +413,114 @@ const kinds: ProceduralMaterialKind[] = [
   'mossypavers',
   'bamboocrosscut',
   'moire',
+  'oakleaf',
 ];
+
+describe('rounded-lobe oak leaves', () => {
+  const p = proceduralMaterialPresets.oakleaf;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('oakleaf', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves paired lobes, deep sinuses, petioles and branching ribs for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Discover the actual petiole direction without duplicating the seed hash.
+          let sx = 0,
+            sy = 0,
+            covered = 0;
+          for (let i = 0; i < 360; i++) {
+            const angle = (i * Math.PI) / 180;
+            const s = at(
+              (col + 0.5 + 0.42 * Math.cos(angle)) / p.cells,
+              (row + 0.5 + 0.42 * Math.sin(angle)) / p.cells,
+            );
+            if (s.color > 0.3) {
+              sx += Math.cos(angle);
+              sy += Math.sin(angle);
+              covered++;
+            }
+          }
+          expect(covered).toBeGreaterThanOrEqual(2);
+          expect(covered).toBeLessThan(6);
+          const axis = Math.atan2(-sy, -sx),
+            cos = Math.cos(axis),
+            sin = Math.sin(axis);
+          const local = (a: number, b: number) =>
+            at(
+              (col + 0.5 + b * cos - a * sin) / p.cells,
+              (row + 0.5 + b * sin + a * cos) / p.cells,
+            );
+          for (const side of [-1, 1])
+            for (const end of [-1, 1]) {
+              const sinus = local(side * 0.14, (end * p.length) / 3);
+              const lobe = local(side * 0.14, (end * p.length * 2) / 3);
+              expect(lobe.height - sinus.height).toBeGreaterThan(0.004);
+              expect(lobe.color - sinus.color).toBeGreaterThan(0.4);
+              expect(lobe.occlusion - sinus.occlusion).toBeGreaterThan(0.3);
+            }
+          const stem = local(0, -0.42),
+            outside = local(0.3, 0);
+          expect(stem.height - outside.height).toBeGreaterThan(0.005);
+          expect(outside.roughness - stem.roughness).toBeGreaterThan(0.15);
+          expect(
+            local(0, 0.1).height - local(0.025, 0.1).height,
+          ).toBeGreaterThan(0.0005);
+          const branchY =
+            (p.length * 0.75 * Math.sqrt((0.08 / p.width) ** 2 + 0.0004)) / 3;
+          const vein = local(0.08, branchY).height;
+          const flesh =
+            (local(0.08, branchY - 0.025).height +
+              local(0.08, branchY + 0.025).height) /
+            2;
+          expect(vein - flesh).toBeGreaterThan(0.0003);
+        }
+    },
+  );
+  it('keeps lobed blades, branch junctions, cell owners and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++) points.push([x / 64, y / 64]);
+      for (let edge = 0; edge <= p.cells; edge++)
+        for (let i = 0; i <= 64; i++)
+          points.push([edge / p.cells, i / 64], [i / 64, edge / p.cells]);
+      for (const [x, y] of points)
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(x, y),
+            c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('watered silk moire', () => {
   const p = proceduralMaterialPresets.moire;
