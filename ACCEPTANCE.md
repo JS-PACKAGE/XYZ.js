@@ -6008,3 +6008,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證彎曲蟲道低於且暗於周圍完整木面、出孔低於蟲道、孔外木面保持完整及 AO 深度層次；另驗證蟲道壁／孔緣／旋轉支撐／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5482 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：黃棕縱向木紋、彎曲暗色蟲道與兩端出孔、四圖及 25 球可見，status 為 405 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.16 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 404 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：葡式黑白波浪石鋪面（calcadawaves）
+
+- 目錄 405→406 種。1.28 m tile、二百五十六顆倒角小石塊，以整石黑／白排列形成波浪帶；灰色低接縫隔開石塊，色帶不影響高度、粗糙度或 AO，seeded 細粒／骨材提供微變化。四圖 opaque、metallic 0、既有 ownership 不變；僅 normal mapping、不新增 geometry。
+- 定向 4 tests 通過：三 seeds 驗證黑白波帶相位與週期、整石同色、黑白石面等高且粗糙度／AO 不受色帶控制、接縫較低；另驗證倒角／黑白邊界／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5487 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：黑白整石波浪排列、獨立規則接縫 normal／AO、四圖及 25 球可見，status 為 406 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.28 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 405 種 size 64／seed 7 四圖 SHA256 全數不變；生成 CJS bundle 變動較大，另以 fresh Node 程序確認全部 406 種 ESM／CJS 四圖 hash 一致。README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

@@ -5990,6 +5990,23 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 4,
 		channelWidth: .028,
 		holeRadius: .045
+	}),
+	calcadawaves: Object.freeze({
+		dark: [
+			26,
+			27,
+			25
+		],
+		light: [
+			218,
+			214,
+			199
+		],
+		roughness: .84,
+		relief: .018,
+		cells: 16,
+		grout: .025,
+		bevel: .045
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6397,7 +6414,8 @@ var proceduralTileMeters = Object.freeze({
 	lotusseedpod: .3,
 	crowncaps: .112,
 	cofferedconcrete: 2.4,
-	woodworm: .16
+	woodworm: .16,
+	calcadawaves: 1.28
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

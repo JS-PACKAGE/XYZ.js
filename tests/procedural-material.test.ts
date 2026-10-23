@@ -430,7 +430,95 @@ const kinds: ProceduralMaterialKind[] = [
   'crowncaps',
   'cofferedconcrete',
   'woodworm',
+  'calcadawaves',
 ];
+
+describe('Portuguese wave stone pavement', () => {
+  const p = proceduralMaterialPresets.calcadawaves;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('calcadawaves', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'forms alternating wave bands from whole coplanar black and white stones for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const stone = (col: number, row: number, x = 0, y = 0) =>
+        at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+      expect(stone(3, 1).color).toBeLessThan(0.2);
+      expect(stone(11, 1).color).toBeGreaterThan(0.7);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = stone(col, row),
+            white = center.color > 0.5;
+          const opposite = stone(col, (row + 4) % p.cells),
+            repeat = stone(col, (row + 8) % p.cells);
+          expect(opposite.color > 0.5).toBe(!white);
+          expect(repeat.color > 0.5).toBe(white);
+          expect(Math.abs(center.height - opposite.height)).toBeLessThan(0.001);
+          expect(Math.abs(center.roughness - opposite.roughness)).toBeLessThan(
+            0.04,
+          );
+          expect(center.occlusion).toBe(opposite.occlusion);
+          for (const x of [-0.25, 0.25])
+            for (const y of [-0.25, 0.25]) {
+              const corner = stone(col, row, x, y);
+              if (white) expect(corner.color).toBeGreaterThan(0.7);
+              else expect(corner.color).toBeLessThan(0.2);
+            }
+          for (const [x, y] of [
+            [-0.5, 0],
+            [0.5, 0],
+            [0, -0.5],
+            [0, 0.5],
+          ]) {
+            const joint = stone(col, row, x, y);
+            expect(center.height - joint.height).toBeGreaterThan(0.009);
+            expect(joint.occlusion).toBeLessThan(0.5);
+            expect(joint.mortar).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps tessera bevels, black-white boundaries and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('woodworm galleries', () => {
   const p = proceduralMaterialPresets.woodworm;

@@ -1254,6 +1254,38 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'calcadawaves': {
+        const p = proceduralMaterialPresets.calcadawaves;
+        const grainField = cachedNoise(96, 96, seed ^ 0x7d31);
+        const aggregateField = cachedNoise(48, 48, seed ^ 0x4b27);
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const wave =
+              row + 0.5 + 2.8 * Math.sin((TAU * (col + 0.5)) / p.cells);
+            tones[row * p.cells + col] =
+              Math.cos((TAU * wave) / 8) >= 0 ? 0.83 : 0.05;
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const face =
+            smooth(
+              clamp((0.5 - Math.abs(fract(x) - 0.5) - p.grout) / p.bevel),
+            ) *
+            smooth(clamp((0.5 - Math.abs(fract(y) - 0.5) - p.grout) / p.bevel));
+          const tone = tones[Math.floor(y) * p.cells + Math.floor(x)];
+          const grain = grainField(u, v),
+            aggregate = aggregateField(u, v);
+          // Whole stones carry the wave pattern; their color never cuts
+          // across a tessera or changes its relief, roughness or occlusion.
+          color = 0.3 + face * (tone - 0.3 + 0.04 * grain);
+          height = 0.1 + face * (0.65 + 0.015 * grain + 0.008 * aggregate);
+          roughness += 0.03 * grain + 0.05 * (1 - face);
+          occlusion = 0.43 + 0.55 * face;
+          mortar = 1 - face;
+        };
+      }
       case 'woodworm': {
         const p = proceduralMaterialPresets.woodworm;
         const grainField = cachedNoise(96, 4, seed ^ 0x7c19);
@@ -12292,6 +12324,7 @@ export function createSurfaceSampler(
     kind === 'crowncaps' ||
     kind === 'cofferedconcrete' ||
     kind === 'woodworm' ||
+    kind === 'calcadawaves' ||
     fabricated ||
     botanical ||
     packaging ||

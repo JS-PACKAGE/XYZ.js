@@ -2680,6 +2680,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         channelWidth: 0.028;
         holeRadius: 0.045;
     }>;
+    calcadawaves: Readonly<{
+        dark: readonly [26, 27, 25];
+        light: readonly [218, 214, 199];
+        roughness: 0.84;
+        relief: 0.018;
+        cells: 16;
+        grout: 0.025;
+        bevel: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3088,4 +3097,5 @@ export declare const proceduralTileMeters: Readonly<{
     crowncaps: 0.112;
     cofferedconcrete: 2.4;
     woodworm: 0.16;
+    calcadawaves: 1.28;
 }>;

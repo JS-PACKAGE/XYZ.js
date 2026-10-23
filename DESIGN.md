@@ -359,6 +359,8 @@
 
 `woodworm` 預先計算十六個蟲道的旋轉基底與彎曲幅度，局部正弦中心線用平方距離平滑降入木面，兩端逐步收束。圓形出孔與蟲道採平滑聯集，另加孔深，使出孔低於蟲道；所有旋轉支撐留在 cell 內，底面 opaque。縱向 cached 96×4 木紋與 192×8 細纖維獨立於蟲道方向。0.16 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 405 種。
 
+`calcadawaves` 依各 tessera 中心所在波帶預先決定黑／白，整顆石材同色，不將曲線畫穿石面或接縫；色調在倒角支撐外歸零，使 owner 改變時保持 C1。兩軸平滑倒角相乘，灰色低接縫隔開石塊；cached 細粒／骨材控制微起伏，色帶不控制高度、粗糙度或 AO。1.28 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 406 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
