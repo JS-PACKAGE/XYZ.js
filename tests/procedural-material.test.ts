@@ -422,7 +422,93 @@ const kinds: ProceduralMaterialKind[] = [
   'herringbonebrick',
   'shibori',
   'scallopedslate',
+  'saltpan',
 ];
+
+describe('raised polygonal salt pan crust', () => {
+  const p = proceduralMaterialPresets.saltpan;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('saltpan', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'encloses low crust interiors with irregular pale raised ridges rather than depressed cracks for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let displacedEdges = 0;
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells; x++)
+          for (const [dx, dy] of [
+            [1, 0],
+            [y % 2 === 0 ? 0.5 : -0.5, 1],
+          ]) {
+            const along = (t: number) =>
+              at(
+                (x + 0.5 + (y % 2) * 0.5 + dx * t) / p.cells,
+                (y + 0.5 + dy * t) / p.cells,
+              );
+            const a = along(0),
+              b = along(1);
+            expect(a.height).toBeLessThan(0.004);
+            expect(b.height).toBeLessThan(0.004);
+            expect(a.color).toBeLessThan(0.5);
+            let peak = a,
+              peakAt = 0;
+            for (let step = 1; step < 128; step++) {
+              const s = along(step / 128);
+              if (s.height > peak.height) {
+                peak = s;
+                peakAt = step / 128;
+              }
+            }
+            expect(peak.height).toBeGreaterThan(0.018);
+            expect(peak.color).toBeGreaterThan(0.75);
+            expect(peak.roughness - a.roughness).toBeGreaterThan(0.03);
+            expect(peakAt).toBeGreaterThan(0.25);
+            expect(peakAt).toBeLessThan(0.75);
+            if (Math.abs(peakAt - 0.5) > 0.04) displacedEdges++;
+          }
+      expect(displacedEdges).toBeGreaterThan(4);
+    },
+  );
+  it('keeps polygon corners, bisectors, spatial lookup and wrapped ridges C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 64,
+              v = y / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('overlapping scalloped slate roof', () => {
   const p = proceduralMaterialPresets.scallopedslate;

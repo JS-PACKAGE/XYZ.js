@@ -5859,6 +5859,22 @@ var proceduralMaterialPresets = Object.freeze({
 		halfWidth: .49,
 		tailStart: .85,
 		tailDepth: .55
+	}),
+	saltpan: Object.freeze({
+		dark: [
+			158,
+			151,
+			133
+		],
+		light: [
+			255,
+			253,
+			242
+		],
+		roughness: .86,
+		relief: .03,
+		cells: 4,
+		ridgeWidth: .1
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6258,7 +6274,8 @@ var proceduralTileMeters = Object.freeze({
 	louveredmetal: .6,
 	herringbonebrick: 1.2,
 	shibori: .24,
-	scallopedslate: 1.2
+	scallopedslate: 1.2,
+	saltpan: 3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

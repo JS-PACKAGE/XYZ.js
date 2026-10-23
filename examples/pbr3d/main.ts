@@ -476,6 +476,7 @@ try {
     'herringbonebrick',
     'shibori',
     'scallopedslate',
+    'saltpan',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

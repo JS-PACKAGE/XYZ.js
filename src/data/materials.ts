@@ -2626,6 +2626,14 @@ export const proceduralMaterialPresets = Object.freeze({
     tailStart: 0.85,
     tailDepth: 0.55,
   }),
+  saltpan: Object.freeze({
+    dark: [158, 151, 133] as const,
+    light: [255, 253, 242] as const,
+    roughness: 0.86,
+    relief: 0.03,
+    cells: 4,
+    ridgeWidth: 0.1,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3027,4 +3035,5 @@ export const proceduralTileMeters = Object.freeze({
   herringbonebrick: 1.2,
   shibori: 0.24,
   scallopedslate: 1.2,
+  saltpan: 3,
 });

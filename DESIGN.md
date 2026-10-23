@@ -343,6 +343,8 @@
 
 `scallopedslate` 將三列錯半格的瓦片由下至上合成：側邊、隱藏上緣與橢圓下尾採平滑 compact 遮罩，圓尾跨列覆蓋下瓦、抬高弧形下緣並於外側衰減陰影。三列候選的進出點皆在零遮罩區，保留列切換與 wrap 的搭接連續性；cached 細粒與橫向層理、每瓦 seeded 色差獨立於輪廓。陰影不改表面 roughness。1.2 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 397 種。
 
+`saltpan` 沿用既有共用半平面與平滑肩部相乘的連續多邊形慣例，預先計算錯列 jittered site 的八條鄰居平分面；偶數列維持週期錯位，3×3 lookup 中各多邊形面積遮罩的補集形成近六邊形的隆起鹽脊網絡，pigment 只在各自內部插值，不以最近點切換色差。細粒與小結晶為獨立 cached noise，鹽脊比低平內部更白、更高且較粗糙，區別於泥裂與釉面開片。3 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 398 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

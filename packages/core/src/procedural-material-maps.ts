@@ -1253,6 +1253,83 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'saltpan': {
+        const p = proceduralMaterialPresets.saltpan;
+        const grainField = cachedNoise(96, 96, seed ^ 0x2a71);
+        const crystalField = cachedNoise(48, 48, seed ^ 0x6d35);
+        const cells = new Float64Array(p.cells * p.cells * 27);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * 27;
+            const px = 0.36 + 0.28 * hash(col, row, seed ^ 0x3b19),
+              py = 0.36 + 0.28 * hash(col, row, seed ^ 0x7f23);
+            cells[offset] = px;
+            cells[offset + 1] = py;
+            cells[offset + 2] = hash(col, row, seed ^ 0x5c17);
+            let plane = offset + 3;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                if (ox === 0 && oy === 0) continue;
+                const wx = (col + ox + p.cells) % p.cells,
+                  wy = (row + oy + p.cells) % p.cells;
+                const dx =
+                    ox +
+                    ((wy & 1) - (row & 1)) * 0.5 +
+                    0.36 +
+                    0.28 * hash(wx, wy, seed ^ 0x3b19) -
+                    px,
+                  dy = oy + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x7f23) - py;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                cells[plane++] = dx / distance;
+                cells[plane++] = dy / distance;
+                cells[plane++] = distance / 2;
+              }
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            iy = Math.floor(y);
+          let faces = 0,
+            pigment = 0;
+          // As with crackle glaze, shared bisectors and products of smooth
+          // half-planes keep corners C1. Here their complement rises as salt
+          // ridges instead of sinking into mud cracks or glazed hairlines.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cy = iy + oy;
+              const stagger = (cy & 1) * 0.5;
+              const cx = Math.floor(x - stagger) + ox;
+              const offset =
+                (((cy + p.cells) % p.cells) * p.cells +
+                  ((cx + p.cells) % p.cells)) *
+                27;
+              const dx = x - cx - stagger - cells[offset],
+                dy = y - cy - cells[offset + 1];
+              let face = 1;
+              for (let edge = 0; edge < 8 && face > 0; edge++) {
+                const plane = offset + 3 + edge * 3;
+                face *= smooth(
+                  clamp(
+                    (cells[plane + 2] -
+                      dx * cells[plane] -
+                      dy * cells[plane + 1]) /
+                      p.ridgeWidth,
+                  ),
+                );
+              }
+              faces += face;
+              pigment += face * cells[offset + 2];
+            }
+          const ridge = 1 - clamp(faces),
+            grain = grainField(u, v);
+          const crystal = smooth(clamp((crystalField(u, v) - 0.65) / 0.25));
+          color =
+            0.32 + 0.48 * ridge + 0.1 * pigment + 0.03 * grain + 0.04 * crystal;
+          height = 0.08 + 0.58 * ridge + 0.025 * grain + 0.015 * crystal;
+          roughness += 0.06 * ridge + 0.025 * grain;
+          occlusion = 0.9 + 0.08 * ridge;
+        };
+      }
       case 'scallopedslate': {
         const p = proceduralMaterialPresets.scallopedslate;
         const grainField = cachedNoise(96, 96, seed ^ 0x4e31);
@@ -11884,6 +11961,7 @@ export function createSurfaceSampler(
     kind === 'herringbonebrick' ||
     kind === 'shibori' ||
     kind === 'scallopedslate' ||
+    kind === 'saltpan' ||
     fabricated ||
     botanical ||
     packaging ||

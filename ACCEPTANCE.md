@@ -5951,3 +5951,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 396 種四圖 SHA256 全相同，新增恰為 scallopedslate。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與四圖呈現灰藍錯列圓尾、弧形搭接及邊緣陰影，狀態列為 397 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5441 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：多邊形鹽灘結晶殼（saltpan）
+
+- 新增錯列 jittered 多邊形的低平結晶內部、連通淡白隆起鹽脊及細粒／小結晶，鹽脊較高且較粗糙，不是下凹泥裂或釉面開片，目錄 397→398 種。3 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的相鄰低平內部與其間較高／較白／較粗糙鹽脊、非等距邊界及多邊形角落／平分面／lookup／wrap 一階連續性。第一版正方格種子分布雖通過專項測試，實際 WebGPU 預覽偏方格；改為錯列分布後重新執行專項、build、完整 gates 及雙 backend 實測，保留原高度／色差／粗糙度／連續性門檻。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 397 種四圖 SHA256 全相同，新增恰為 saltpan。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與四圖呈現近六邊形淡白鹽脊網絡及較低內部，狀態列為 398 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、3 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5446 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
