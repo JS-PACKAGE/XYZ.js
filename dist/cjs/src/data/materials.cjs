@@ -5823,6 +5823,23 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 8,
 		grout: .035,
 		shoulder: .06
+	}),
+	shibori: Object.freeze({
+		dark: [
+			10,
+			25,
+			70
+		],
+		light: [
+			225,
+			230,
+			216
+		],
+		roughness: .88,
+		relief: .009,
+		cells: 3,
+		threads: 64,
+		pleats: 18
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6220,7 +6237,8 @@ var proceduralTileMeters = Object.freeze({
 	seigaihatiles: .6,
 	tuftedleather: .8,
 	louveredmetal: .6,
-	herringbonebrick: 1.2
+	herringbonebrick: 1.2,
+	shibori: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

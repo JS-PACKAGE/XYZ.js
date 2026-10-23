@@ -2606,6 +2606,15 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.035,
     shoulder: 0.06,
   }),
+  shibori: Object.freeze({
+    dark: [10, 25, 70] as const,
+    light: [225, 230, 216] as const,
+    roughness: 0.88,
+    relief: 0.009,
+    cells: 3,
+    threads: 64,
+    pleats: 18,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3005,4 +3014,5 @@ export const proceduralTileMeters = Object.freeze({
   tuftedleather: 0.8,
   louveredmetal: 0.6,
   herringbonebrick: 1.2,
+  shibori: 0.24,
 });

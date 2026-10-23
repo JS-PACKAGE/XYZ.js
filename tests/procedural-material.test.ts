@@ -420,7 +420,98 @@ const kinds: ProceduralMaterialKind[] = [
   'tuftedleather',
   'louveredmetal',
   'herringbonebrick',
+  'shibori',
 ];
+
+describe('indigo shibori resist dyed cloth', () => {
+  const p = proceduralMaterialPresets.shibori;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('shibori', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains dark centers and gaps, pale feathered rings and radial tie marks without embossing dye for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells; x++) {
+          const radial = (r: number, angle: number) =>
+            at(
+              (x + 0.5 + r * Math.cos(angle)) / p.cells,
+              (y + 0.5 + r * Math.sin(angle)) / p.cells,
+            );
+          expect(radial(0, 0).color).toBeLessThan(0.1);
+          for (const r of [0.17, 0.34]) {
+            const ring = Array.from(
+              { length: 128 },
+              (_, i) => radial(r, (2 * Math.PI * i) / 128).color,
+            );
+            expect(Math.min(...ring)).toBeGreaterThan(0.35);
+            expect(Math.max(...ring)).toBeGreaterThan(0.8);
+            expect(Math.max(...ring) - Math.min(...ring)).toBeGreaterThan(0.25);
+          }
+          for (let i = 0; i < 64; i++) {
+            expect(radial(0.25, (2 * Math.PI * i) / 64).color).toBeLessThan(
+              0.12,
+            );
+            expect(radial(0.48, (2 * Math.PI * i) / 64).color).toBeLessThan(
+              0.1,
+            );
+          }
+        }
+      // Equal weave phases across the dyed and undyed regions must stay flat
+      // relative to one another; only the small grain may change their height.
+      const points = Array.from({ length: 1024 }, (_, i) =>
+        at((i % 32) / 32 + 0.0013, Math.floor(i / 32) / 32 + 0.0027),
+      );
+      const colors = points.map((s) => s.color),
+        heights = points.map((s) => s.height);
+      expect(Math.max(...colors) - Math.min(...colors)).toBeGreaterThan(0.7);
+      expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(
+        0.000037,
+      );
+      for (const s of points)
+        expect(s.occlusion).toBeCloseTo(points[0].occlusion, 10);
+    },
+  );
+  it('keeps dye centers, angular wrap, rings, cell edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 72; y++)
+        for (let x = 0; x <= 72; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 72,
+              v = y / 72;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('interlocking herringbone brick paving', () => {
   const p = proceduralMaterialPresets.herringbonebrick;

@@ -5935,3 +5935,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 394 種四圖 SHA256 全相同，新增恰為 herringbonebrick；395 種 ESM／CJS 四圖 hash 全一致。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現橫直咬合長磚、完整磚面與灰縫，狀態列為 395 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5431 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：靛藍絞染布（shibori）
+
+- 新增靛藍底、雙層淡色防染環帶、seeded 不規則暈邊及放射綁染痕跡，中心與環帶間保留深藍；染色只改 pigment，獨立平織與細粒決定高度，目錄 395→396 種。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的深色中心／環間／外側、兩道淡色環及放射明暗差、相同織紋相位下跨染色區的高度及 AO 不變性、中心／角度 wrap／環帶／格邊／tile wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 395 種四圖 SHA256 全相同，新增恰為 shibori。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor 呈現靛藍底及淡色不規則環帶，normal／AO 無環帶浮雕，狀態列為 396 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.24 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5436 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

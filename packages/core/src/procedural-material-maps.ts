@@ -1253,6 +1253,65 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'shibori': {
+        const p = proceduralMaterialPresets.shibori;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3b71);
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x7d23);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const q = dx * dx + dy * dy;
+          const grain = grainField(u, v);
+          let resist = 0;
+          // The compact annuli vanish before the center and cell boundary,
+          // so atan2 never introduces a singular dye mark or a tile seam.
+          if (q > 0.0025 && q < 0.2304) {
+            const angle = Math.atan2(dy, dx);
+            const phase = phases[Math.floor(y) * p.cells + Math.floor(x)];
+            const radius =
+              Math.sqrt(q) +
+              0.01 * Math.sin(5 * angle + phase) +
+              0.012 * Math.sin(9 * angle - phase) +
+              0.008 * (grain - 0.5);
+            const inner = smooth(
+              clamp((0.055 - Math.abs(radius - 0.17)) / 0.035),
+            );
+            const outer = smooth(
+              clamp((0.055 - Math.abs(radius - 0.34)) / 0.035),
+            );
+            const pleat = smooth(
+              clamp(
+                (Math.cos(
+                  p.pleats * angle + 0.8 * Math.sin(3 * angle + phase),
+                ) -
+                  0.2) /
+                  0.8,
+              ),
+            );
+            resist = (inner + outer) * (0.55 + 0.45 * pleat);
+          }
+          const tx = u * p.threads,
+            ty = v * p.threads;
+          const warp = 0.5 + 0.5 * Math.cos(TAU * tx),
+            weft = 0.5 + 0.5 * Math.cos(TAU * ty);
+          const over =
+            0.5 + 0.5 * Math.cos(Math.PI * tx) * Math.cos(Math.PI * ty);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          // Resist dye changes pigment, not the underlying cotton relief.
+          color = 0.055 + 0.82 * resist + 0.025 * grain;
+          height = 0.12 + 0.22 * weave + 0.004 * grain;
+          roughness += 0.02 * grain + 0.02 * (1 - weave);
+          occlusion = 0.82 + 0.16 * weave;
+        };
+      }
       case 'herringbonebrick': {
         const p = proceduralMaterialPresets.herringbonebrick;
         const grainField = cachedNoise(96, 96, seed ^ 0x53a7);
@@ -11776,6 +11835,7 @@ export function createSurfaceSampler(
     kind === 'tuftedleather' ||
     kind === 'louveredmetal' ||
     kind === 'herringbonebrick' ||
+    kind === 'shibori' ||
     fabricated ||
     botanical ||
     packaging ||

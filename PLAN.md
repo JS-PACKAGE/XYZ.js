@@ -331,6 +331,8 @@
 
 同輪追加 `herringbonebrick`（人字拼紅磚），實際目錄 394→395 種：2:1 長磚沿對角帶橫直交錯咬合，T 形接點、倒角、中性灰縫與 seeded 燒製色差；每塊長磚跨越內部格線而沒有假接縫。1.2 m tile、四圖 opaque dielectric，區別於 running-bond 鋪面及織物 herringbone，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `shibori`（靛藍絞染布），實際目錄 395→396 種：深藍底、雙層淡色防染環帶、seeded 不規則暈邊與放射綁染痕跡；染色不改高度，平織 relief 獨立。0.24 m tile、四圖 opaque dielectric，沿用既有借用及銷毀契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
