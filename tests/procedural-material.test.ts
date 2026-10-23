@@ -384,7 +384,103 @@ const kinds: ProceduralMaterialKind[] = [
   'tigereye',
   'tatami',
   'flutedwood',
+  'subwaytiles',
 ];
+
+describe('beveled subway tiles', () => {
+  const p = proceduralMaterialPresets.subwaytiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('subwaytiles', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'keeps flat glazed faces above bevels and staggered rough grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const shift = (row % 2) * 0.5;
+        const v = (row + 0.5) / p.rows;
+        for (let column = 0; column < p.columns; column++) {
+          const u = (column - shift) / p.columns;
+          const face = at(u + 0.5 / p.columns, v);
+          const flat = at(u + 0.35 / p.columns, v);
+          const bevel = at(
+            u + (p.grout + p.shoulder + p.bevel * 0.5) / p.columns,
+            v,
+          );
+          const grout = at(u, v);
+          expect(face.height).toBeCloseTo(flat.height, 12);
+          expect(face.height - bevel.height).toBeGreaterThan(0.2);
+          expect(bevel.height - grout.height).toBeGreaterThan(0.5);
+          expect(grout.roughness - face.roughness).toBeGreaterThan(0.55);
+          expect(face.occlusion - grout.occlusion).toBeGreaterThan(0.35);
+          expect(grout.mortar).toBe(1);
+          expect(face.mortar).toBe(0);
+          const nextRow = at(u, v + 1 / p.rows);
+          expect(nextRow.height - grout.height).toBeGreaterThan(0.75);
+        }
+      }
+    },
+  );
+
+  it('keeps staggered joins, bevel shoulders and tile wrap C1 continuous', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const offsets = [
+        0,
+        p.grout,
+        p.grout + p.shoulder,
+        p.grout + p.shoulder + p.bevel,
+      ];
+      for (const axis of [0, 1]) {
+        for (let i = 0; i < 25; i++) {
+          const t = i / 24;
+          const row = Math.floor((t % 1) * p.rows);
+          const shift = axis === 0 ? ((row % 2) * 0.5) / p.columns : 0;
+          const count = axis === 0 ? p.columns : p.rows;
+          for (let cell = 0; cell <= count; cell++) {
+            for (const edge of offsets) {
+              for (const sign of [-1, 1]) {
+                const seam = cell / count - shift + (sign * edge) / p.columns;
+                const get = (d: number): SurfaceSample =>
+                  at(axis === 0 ? seam + d : t, axis === 1 ? seam + d : t);
+                const a = get(-h),
+                  b = get(0),
+                  c = get(h);
+                for (const key of [
+                  'color',
+                  'height',
+                  'roughness',
+                  'occlusion',
+                  'mortar',
+                ] as const) {
+                  expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                  expect(
+                    Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                  ).toBeLessThan(0.02);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('fluted wood panels', () => {
   const p = proceduralMaterialPresets.flutedwood;

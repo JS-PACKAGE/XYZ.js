@@ -5639,3 +5639,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 實際操作 pbr3d，WebGPU／WebGL2 切換 flutedwood 均顯示縱向圓潤木條與深色槽、四張 map 預覽；狀態列回報 359 presets，無 page errors。Canvas2D 明確回報不支援 PBR 3D，未假裝渲染。
 - 瀏覽器實際建立 size 32／seed 7 preset 與 borrowing material，兩者 metallic 皆為 0；每米 repeats 為 3.125；冪等 destroy 後四張 Texture 皆 destroyed。README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結檢查無失效路徑。
 - 依本輪授權獨立功能 commit、不 push；不擴大其他瀏覽器、實體裝置或效能認證。
+
+## 2026-10-23 程序材質：倒角長方磚（subwaytiles）
+
+- 新增青綠色錯縫長方磚，平整釉面、圓滑倒角、粗糙凹陷填縫；目錄 359→360 種。每張 0.6 m tile 兩欄四列，四份 maps 為 opaque dielectric、metallic 0；不新增 geometry、位移、shader 或 runtime 依賴。
+- 專項 Vitest 1 檔／1521 項通過，新增三 seed 的平臺／倒角／填縫高低、粗糙度與錯縫位置檢查；支撐邊界、倒角肩部與週期接縫的一階連續性通過。build、typecheck、lint 通過。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 359 種四圖 SHA256 全相同，新增恰為 subwaytiles。
+- 本機 headless Chromium 的 pbr3d 在 WebGPU／WebGL2 逐一選取並截圖，顯示青綠色釉面與錯縫、倒角 normal 預覽；狀態列為 360 presets，無 page errors。實際 size 33／seed 0xffffffff 建立、覆寫 borrowing roughness 0.8、0.6 m 對應 repeats 1、冪等銷毀四張 maps 與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步；相對連結無失效路徑。沿使用者授權獨立功能提交，不 push，不擴大跨瀏覽器／實機認證。
+- 完整 Vitest 178 檔／5248 項、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。文件完成後另跑八份變更 Markdown 格式檢查通過。既有 OPM dynamic-import Vite warning 保留，未改 audio。

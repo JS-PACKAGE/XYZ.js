@@ -259,6 +259,8 @@
 
 2026-10-23 持續材質擴充追加 `flutedwood`（直槽木飾板）：圓潤縱向木條、深色凹槽與沿木紋纖維。以實際 data 目錄 358 種為基準增為 359 種；前述 counts 保留歷史。沿用 seeded periodic 四圖、opaque dielectric、0.32 m tile、既有 options／ownership，不新增 geometry 或 shader。依使用者要求逐功能驗證、獨立 commit，直到使用者停止；不 push。
 
+同輪再追加 `subwaytiles`（倒角長方磚），實際目錄 359→360 種：青綠色平整釉面、錯縫排列、圓滑倒角與粗糙凹陷填縫。0.6 m tile 為兩欄四列；沿用 opaque dielectric 四圖與 caller ownership，不新增 geometry、位移或 renderer 功能。依使用者要求獨立驗證並提交，不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

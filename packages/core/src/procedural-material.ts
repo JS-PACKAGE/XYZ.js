@@ -365,7 +365,8 @@ export type ProceduralMaterialKind =
   | 'rhodonite'
   | 'tigereye'
   | 'tatami'
-  | 'flutedwood';
+  | 'flutedwood'
+  | 'subwaytiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -757,6 +758,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tigereye',
   'tatami',
   'flutedwood',
+  'subwaytiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

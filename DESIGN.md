@@ -267,6 +267,8 @@
 
 `flutedwood` 直槽木飾板使用緊支撐平滑圓冠，與平坦深色底板在零斜率處相接；週期縱向木紋與細纖維只作用於凸條，seeded noise lattice 每個 sampler 建立一次。實際 data 目錄增為 359 種，四圖維持 opaque dielectric、metallic 0；一張 tile 對應 0.32 m。凹凸僅為 normal map，不位移 geometry、不更動 renderer 或 caller-owned textures 契約。
 
+`subwaytiles` 以兩欄四列錯縫矩形單元形成倒角長方磚。分離軸向平滑遮罩產生等寬填縫肩部與內縮平臺；逐磚 seed 色差在單元邊界前淡出，避免錯列換行時的色彩／法線接縫。平整釉面低 roughness、填縫高 roughness；四圖維持 opaque dielectric、0.6 m tile 與既有 ownership，目錄增為 360 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

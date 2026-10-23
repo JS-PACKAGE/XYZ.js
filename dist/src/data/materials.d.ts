@@ -2220,6 +2220,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         slats: 8;
         halfWidth: 0.44;
     }>;
+    subwaytiles: Readonly<{
+        dark: readonly [12, 45, 40];
+        light: readonly [130, 188, 157];
+        roughness: 0.2;
+        relief: 0.012;
+        columns: 2;
+        rows: 4;
+        grout: 0.012;
+        shoulder: 0.012;
+        bevel: 0.065;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2582,4 +2593,5 @@ export declare const proceduralTileMeters: Readonly<{
     tigereye: 0.18;
     tatami: 0.16;
     flutedwood: 0.32;
+    subwaytiles: 0.6;
 }>;

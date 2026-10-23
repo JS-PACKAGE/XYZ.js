@@ -1248,6 +1248,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'subwaytiles': {
+        const p = proceduralMaterialPresets.subwaytiles;
+        const owners = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let column = 0; column < p.columns; column++)
+            owners[row * p.columns + column] = hash(column, row, seed ^ 0x7b19);
+        return () => {
+          const row = Math.floor(v * p.rows);
+          const shifted = u * p.columns + (row % 2) * 0.5;
+          const x = fract(shifted);
+          const aspect = p.columns / p.rows;
+          const y = fract(v * p.rows) * aspect;
+          // Equal-width shoulders in UV space, including the rectangular corners.
+          const face =
+            smooth(clamp((x - p.grout) / p.shoulder)) *
+            smooth(clamp((1 - x - p.grout) / p.shoulder)) *
+            smooth(clamp((y - p.grout) / p.shoulder)) *
+            smooth(clamp((aspect - y - p.grout) / p.shoulder));
+          const inset = p.grout + p.shoulder;
+          const plateau =
+            smooth(clamp((x - inset) / p.bevel)) *
+            smooth(clamp((1 - x - inset) / p.bevel)) *
+            smooth(clamp((y - inset) / p.bevel)) *
+            smooth(clamp((aspect - y - inset) / p.bevel));
+          const tone =
+            owners[row * p.columns + (Math.floor(shifted) % p.columns)];
+          // Owner-dependent color vanishes before staggered row ownership changes.
+          color = 0.4 + face * (0.2 + 0.24 * tone);
+          height = 0.08 + face * (0.32 + 0.48 * plateau);
+          mortar = 1 - face;
+          roughness += 0.6 * mortar + 0.05 * face * (1 - plateau);
+          occlusion = 0.62 + 0.38 * face;
+          return;
+        };
+      }
       case 'flutedwood': {
         const p = proceduralMaterialPresets.flutedwood;
         const grainField = cachedNoise(64, 4, seed ^ 0x47b1);
@@ -10314,6 +10349,7 @@ export function createSurfaceSampler(
   const needsDetail = !(
     architectural ||
     kind === 'flutedwood' ||
+    kind === 'subwaytiles' ||
     fabricated ||
     botanical ||
     packaging ||
