@@ -1235,6 +1235,7 @@ export function createSurfaceSampler(
     kind === 'louveredmetal' ||
     kind === 'crowncaps' ||
     kind === 'rebar' ||
+    kind === 'guilloche' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1255,6 +1256,37 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'guilloche': {
+        const p = proceduralMaterialPresets.guilloche;
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x4a31);
+        const grainField = cachedNoise(96, 96, seed ^ 0x5b43);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const phase = phases[Math.floor(vCell) * p.cells + Math.floor(uCell)];
+          const r = Math.hypot(x, y);
+          const contour =
+            p.radius +
+            p.amplitude * Math.cos(p.lobes * Math.atan2(y, x) + phase);
+          let groove = 0;
+          for (let ring = -1; ring <= 1; ring++) {
+            const distance = (r - contour - ring * p.spacing) / p.width;
+            groove += smooth(clamp(1 - distance * distance));
+          }
+          // All cuts stay away from the polar centre and cell boundary.
+          // The uncut plate therefore has no angular singularity or seam.
+          const grain = grainField(u, v);
+          color = 0.75 + 0.05 * grain - 0.25 * groove;
+          height = 0.65 + 0.005 * grain - 0.15 * groove;
+          roughness += 0.015 * grain + 0.12 * groove;
+          occlusion = 0.99 - 0.18 * groove;
+        };
+      }
       case 'cairotiles': {
         const p = proceduralMaterialPresets.cairotiles;
         const planes = new Float64Array(4 * 5 * 3);
@@ -12862,6 +12894,7 @@ export function createSurfaceSampler(
     kind === 'suminagashi' ||
     kind === 'vermiculite' ||
     kind === 'cairotiles' ||
+    kind === 'guilloche' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -444,7 +444,97 @@ const kinds: ProceduralMaterialKind[] = [
   'suminagashi',
   'vermiculite',
   'cairotiles',
+  'guilloche',
 ];
+
+describe('Guilloche rosette engraving', () => {
+  const p = proceduralMaterialPresets.guilloche;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('guilloche', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'engraves three nested eight-lobed contours into an unbroken metal plate for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4a31);
+          const at = (r: number, angle: number) =>
+            sample(
+              (col + 0.5 + r * Math.cos(angle)) / p.cells,
+              (row + 0.5 + r * Math.sin(angle)) / p.cells,
+            );
+          for (let sector = 0; sector < p.lobes * 2; sector++) {
+            const angle = (sector * Math.PI - phase) / p.lobes;
+            for (let ring = -1; ring <= 1; ring++) {
+              const r =
+                p.radius +
+                p.amplitude * (sector % 2 ? -1 : 1) +
+                ring * p.spacing;
+              const cut = at(r, angle),
+                plate = at(r + p.width * 2, angle);
+              expect(plate.height - cut.height).toBeGreaterThan(0.0014);
+              expect(plate.color - cut.color).toBeGreaterThan(0.19);
+              expect(cut.roughness - plate.roughness).toBeGreaterThan(0.1);
+              expect(plate.occlusion - cut.occlusion).toBeGreaterThan(0.17);
+              expect(cut.metallic).toBe(1);
+            }
+            const center = at(0, angle),
+              perimeter = at(0.45, angle);
+            expect(Math.abs(center.height - perimeter.height)).toBeLessThan(
+              0.00006,
+            );
+            expect(center.occlusion).toBe(perimeter.occlusion);
+            expect(perimeter.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps cut shoulders, lobe tips, polar centres and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Cairo pentagonal tiles', () => {
   const p = proceduralMaterialPresets.cairotiles;
@@ -10453,6 +10543,7 @@ describe('periodic procedural material fields', () => {
           kind === 'louveredmetal' ||
           kind === 'crowncaps' ||
           kind === 'rebar' ||
+          kind === 'guilloche' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -19738,6 +19829,7 @@ describe('procedural preset acquisition and ownership', () => {
     'louveredmetal',
     'crowncaps',
     'rebar',
+    'guilloche',
     'basketball',
     'tennisball',
     'golfball',
@@ -19759,7 +19851,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'pressedtin' ||
           kind === 'louveredmetal' ||
           kind === 'crowncaps' ||
-          kind === 'rebar'
+          kind === 'rebar' ||
+          kind === 'guilloche'
           ? 1
           : 0,
       );

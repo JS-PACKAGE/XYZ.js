@@ -425,7 +425,8 @@ export type ProceduralMaterialKind =
   | 'cocoamat'
   | 'suminagashi'
   | 'vermiculite'
-  | 'cairotiles';
+  | 'cairotiles'
+  | 'guilloche';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -877,6 +878,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'suminagashi',
   'vermiculite',
   'cairotiles',
+  'guilloche',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1014,6 +1016,7 @@ export class ProceduralMaterial {
         this.kind === 'louveredmetal' ||
         this.kind === 'crowncaps' ||
         this.kind === 'rebar' ||
+        this.kind === 'guilloche' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

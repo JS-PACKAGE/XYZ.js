@@ -2839,6 +2839,18 @@ export const proceduralMaterialPresets = Object.freeze({
       0,
     ] as const,
   }),
+  guilloche: Object.freeze({
+    dark: [90, 96, 98] as const,
+    light: [219, 225, 229] as const,
+    roughness: 0.28,
+    relief: 0.01,
+    cells: 2,
+    lobes: 8,
+    radius: 0.28,
+    amplitude: 0.04,
+    spacing: 0.05,
+    width: 0.009,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3262,4 +3274,5 @@ export const proceduralTileMeters = Object.freeze({
   suminagashi: 0.24,
   vermiculite: 0.06,
   cairotiles: 0.8,
+  guilloche: 0.1,
 });

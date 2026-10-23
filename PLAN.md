@@ -379,6 +379,8 @@
 
 同輪追加 `cairotiles`（Cairo 五邊形鋪磚），實際目錄 418→419 種：三十二塊等形五邊磚以交替鏡射／旋轉鋪滿平面，每塊兩個直角、三個 120 度角，形成四向及三向接縫；五邊皆有等寬灰縫與平滑倒角，不以方磚印上假五邊紋。0.8 m tile、四圖 opaque dielectric、metallic 0，不新增鋪磚 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `guilloche`（Guilloché 花紋雕刻金屬），實際目錄 419→420 種：四組 seeded 旋轉、三圈套疊的閉合八瓣刻線，刻槽低於／暗於／粗糙於銀色金屬平面，中心與外圍保持完整金屬。0.1 m tile、四圖 opaque，整張 metallic B=255、factory factor 1；不是圓盤磨紋或凸起壓花，不新增刻線 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

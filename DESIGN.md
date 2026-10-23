@@ -387,6 +387,8 @@
 
 `cairotiles` 以正方節點格的左／下邊各放一塊 Cairo 五邊形，奇偶節點鏡射輪廓，產生無洞／無重疊的真正五邊形分割。只快取四種方向的 normalized half-planes 與各磚 seeded 色調；五條 signed-distance shoulder 的乘積提供相同實體寬度的灰縫／倒角，wrapped 鄰域在裁切前歸零。四向直角與三向 120 度接點保持連續。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 419 種。
 
+`guilloche` 以八次 angular harmonic 彎曲三條同心閉合刻線，compact smooth 槽寬彼此不重疊；所有刻槽離開 polar 中心與 cell 邊界，平面微粒不產生角度奇點。刻槽同時降低高度／色彩／AO 並提高粗糙度，與既有 engine-turned 磨紋及壓花凸飾不同。0.1 m tile、四圖 opaque、metallic B 全 255／factory factor 1、既有 ownership 不變，目錄增為 420 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

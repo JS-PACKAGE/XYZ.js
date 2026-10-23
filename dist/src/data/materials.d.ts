@@ -2815,6 +2815,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.025;
         vertices: readonly [number, -0.5, number, -0.5, 0, 0, -0.5, number, -1, 0];
     }>;
+    guilloche: Readonly<{
+        dark: readonly [90, 96, 98];
+        light: readonly [219, 225, 229];
+        roughness: 0.28;
+        relief: 0.01;
+        cells: 2;
+        lobes: 8;
+        radius: 0.28;
+        amplitude: 0.04;
+        spacing: 0.05;
+        width: 0.009;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3237,4 +3249,5 @@ export declare const proceduralTileMeters: Readonly<{
     suminagashi: 0.24;
     vermiculite: 0.06;
     cairotiles: 0.8;
+    guilloche: 0.1;
 }>;
