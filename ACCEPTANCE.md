@@ -6099,3 +6099,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 最終定向 4 tests 通過：三 seeds 驗證三十六顆粒的層脊／層隙高度、色彩、粗糙度及 AO，外圍低暗底與凸層擴張側緣；另驗證層片肩部／側緣／交錯行列切換／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5548 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取最終材質並取得 screenshot：細長金棕色層片顆粒、層脊 normal／層隙 AO 與四圖可見，status 為 418 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視層片，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.06 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 417 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：Cairo 五邊形鋪磚（cairotiles）
+
+- 目錄 418→419 種。0.8 m tile、三十二塊等形五邊磚，每塊兩個直角、三個 120 度角，以交替鏡射／旋轉形成四向及三向接點。normalized half-planes 保持五邊的等寬灰縫／平滑倒角，seeded 暖褐色差不改變磚面高度；不是方磚印花。四圖 opaque、metallic 0、既有 ownership 不變；不新增鋪磚 geometry。
+- 實作前以獨立幾何運算抽查 25,600 個位置，未見空洞或重疊。定向 4 tests 通過：三 seeds 驗證三十二塊磚的五條邊、雙側鄰磚、灰縫深度、AO／粗糙度及相同距離的倒角上升；另驗證角點／三向與四向接縫／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5553 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：暖褐色五邊磚、三向／四向灰縫、五邊倒角 normal／AO、四圖及 25 球可見，status 為 419 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 418 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

@@ -443,7 +443,100 @@ const kinds: ProceduralMaterialKind[] = [
   'cocoamat',
   'suminagashi',
   'vermiculite',
+  'cairotiles',
 ];
+
+describe('Cairo pentagonal tiles', () => {
+  const p = proceduralMaterialPresets.cairotiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cairotiles', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins all five edges to neighbouring tiles with shared grout and bevel widths for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let axis = 0; axis < 2; axis++) {
+            const sign = (row + col) & 1 ? -1 : 1;
+            const points = Array.from({ length: 5 }, (_, i) => {
+              const x = p.vertices[i * 2],
+                y = sign * p.vertices[i * 2 + 1];
+              return [col + (axis ? -y : x), row + (axis ? x : y)] as const;
+            });
+            const at = (x: number, y: number) =>
+              sample(x / p.cells, y / p.cells);
+            const center = at(
+              points.reduce((sum, v) => sum + v[0], 0) / 5,
+              points.reduce((sum, v) => sum + v[1], 0) / 5,
+            );
+            expect(center.height).toBeGreaterThan(0.019);
+            for (let edge = 0; edge < 5; edge++) {
+              const a = points[edge],
+                b = points[(edge + 1) % 5];
+              const mx = (a[0] + b[0]) / 2,
+                my = (a[1] + b[1]) / 2;
+              const inverse = sign / Math.hypot(b[0] - a[0], b[1] - a[1]);
+              const nx = (a[1] - b[1]) * inverse,
+                ny = (b[0] - a[0]) * inverse;
+              const joint = at(mx, my);
+              expect(joint.height).toBeLessThan(0.003);
+              expect(center.occlusion - joint.occlusion).toBeGreaterThan(0.4);
+              for (const side of [-1, 1]) {
+                const face = at(mx + side * nx * 0.07, my + side * ny * 0.07);
+                expect(face.height - joint.height).toBeGreaterThan(0.016);
+                expect(joint.roughness - face.roughness).toBeGreaterThan(0.12);
+                const early = p.grout + p.shoulder * 0.25,
+                  late = p.grout + p.shoulder * 0.75;
+                expect(
+                  at(mx + side * nx * late, my + side * ny * late).height -
+                    at(mx + side * nx * early, my + side * ny * early).height,
+                ).toBeGreaterThan(0.01);
+              }
+            }
+          }
+    },
+  );
+  it('keeps pentagon corners, three-way and four-way joints and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Expanded vermiculite lamellae', () => {
   const p = proceduralMaterialPresets.vermiculite;

@@ -1255,6 +1255,86 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cairotiles': {
+        const p = proceduralMaterialPresets.cairotiles;
+        const planes = new Float64Array(4 * 5 * 3);
+        for (let parity = 0; parity < 2; parity++)
+          for (let axis = 0; axis < 2; axis++) {
+            const sign = parity ? -1 : 1;
+            for (let edge = 0; edge < 5; edge++) {
+              const next = (edge + 1) % 5;
+              const vx = p.vertices[edge * 2],
+                vy = sign * p.vertices[edge * 2 + 1],
+                wx = p.vertices[next * 2],
+                wy = sign * p.vertices[next * 2 + 1];
+              const ax = axis ? -vy : vx,
+                ay = axis ? vx : vy,
+                bx = axis ? -wy : wx,
+                by = axis ? wx : wy;
+              const inverse = sign / Math.hypot(bx - ax, by - ay);
+              const nx = (ay - by) * inverse,
+                ny = (bx - ax) * inverse;
+              const offset = ((parity * 2 + axis) * 5 + edge) * 3;
+              planes[offset] = nx;
+              planes[offset + 1] = ny;
+              planes[offset + 2] = -nx * ax - ny * ay;
+            }
+          }
+        const tones = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let axis = 0; axis < 2; axis++)
+              tones[(row * p.cells + col) * 2 + axis] = hash(
+                col,
+                row,
+                seed ^ (axis ? 0x6e39 : 0x5d27),
+              );
+        const grainField = cachedNoise(96, 96, seed ^ 0x7f41);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let faces = 0,
+            pigment = 0;
+          // Each square-grid node owns its left and lower pentagon. Alternating
+          // reflections join three 120-degree corners or four right angles.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % p.cells) + p.cells) % p.cells,
+                wy = ((cy % p.cells) + p.cells) % p.cells;
+              const parity = (cx + cy) & 1,
+                dx = x - cx,
+                dy = y - cy;
+              for (let axis = 0; axis < 2; axis++) {
+                let face = 1;
+                for (let edge = 0; edge < 5 && face > 0; edge++) {
+                  const offset = ((parity * 2 + axis) * 5 + edge) * 3;
+                  face *= smooth(
+                    clamp(
+                      (planes[offset] * dx +
+                        planes[offset + 1] * dy +
+                        planes[offset + 2] -
+                        p.grout) /
+                        p.shoulder,
+                    ),
+                  );
+                }
+                faces += face;
+                pigment += face * tones[(wy * p.cells + wx) * 2 + axis];
+              }
+            }
+          faces = clamp(faces);
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = faces * (0.25 + 0.05 * grain) + 0.35 * pigment + 0.5 * mortar;
+          height = 0.08 + faces * (0.7 + 0.01 * grain);
+          roughness += 0.04 * grain * faces + 0.18 * mortar;
+          occlusion = 0.55 + 0.43 * faces;
+        };
+      }
       case 'vermiculite': {
         const p = proceduralMaterialPresets.vermiculite;
         const flakes = new Float64Array(p.cells * p.cells * 3);
@@ -12781,6 +12861,7 @@ export function createSurfaceSampler(
     kind === 'cocoamat' ||
     kind === 'suminagashi' ||
     kind === 'vermiculite' ||
+    kind === 'cairotiles' ||
     fabricated ||
     botanical ||
     packaging ||

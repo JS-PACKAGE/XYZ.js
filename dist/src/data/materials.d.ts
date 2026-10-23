@@ -2805,6 +2805,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         halfWidth: 0.22;
         ribWidth: 0.05;
     }>;
+    cairotiles: Readonly<{
+        dark: readonly [86, 52, 30];
+        light: readonly [193, 152, 106];
+        roughness: 0.7;
+        relief: 0.025;
+        cells: 4;
+        grout: 0.012;
+        shoulder: 0.025;
+        vertices: readonly [number, -0.5, number, -0.5, 0, 0, -0.5, number, -1, 0];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3226,4 +3236,5 @@ export declare const proceduralTileMeters: Readonly<{
     cocoamat: 0.08;
     suminagashi: 0.24;
     vermiculite: 0.06;
+    cairotiles: 0.8;
 }>;

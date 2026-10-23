@@ -385,6 +385,8 @@
 
 `vermiculite` 快取交錯排列細長顆粒的方向與層片 phase，以有限橢圓包絡保留離散顆粒。縱向 cosine 平方層脊同時提高、提亮、降低粗糙度並擴張短軸側緣，層隙及顆粒間低暗底分別保留 AO。包絡在 cell 邊界前平滑歸零，cached 96×96 細粒不外溢到暗底。0.06 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 418 種。
 
+`cairotiles` 以正方節點格的左／下邊各放一塊 Cairo 五邊形，奇偶節點鏡射輪廓，產生無洞／無重疊的真正五邊形分割。只快取四種方向的 normalized half-planes 與各磚 seeded 色調；五條 signed-distance shoulder 的乘積提供相同實體寬度的灰縫／倒角，wrapped 鄰域在裁切前歸零。四向直角與三向 120 度接點保持連續。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 419 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
