@@ -2954,6 +2954,18 @@ export const proceduralMaterialPresets = Object.freeze({
     midrib: 0.055,
     veinWidth: 0.015,
   }),
+  splitlockwashers: Object.freeze({
+    dark: [54, 61, 67] as const,
+    light: [210, 218, 223] as const,
+    roughness: 0.33,
+    relief: 0.025,
+    cells: 4,
+    inner: 0.22,
+    outer: 0.43,
+    bevel: 0.025,
+    gap: 0.16,
+    angularBevel: 0.08,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3386,4 +3398,5 @@ export const proceduralTileMeters = Object.freeze({
   flintwall: 1.2,
   frenchknots: 0.06,
   artichoke: 0.18,
+  splitlockwashers: 0.08,
 });

@@ -6170,3 +6170,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證全部苞片的主脈起伏、窄葉端高於兩側下層葉根、寬葉面連續覆蓋、六條分支葉脈及葉端抬升；另驗證尖端輪廓／覆疊次序／葉脈／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5599 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：交錯綠色苞片、葉緣／細脈 normal、尖端周圍暗隙 AO 及四圖可見，status 為 428 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視葉片，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.18 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 427 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：開口彈簧墊圈（splitlockwashers）
+
+- 目錄 428→429 種。0.08 m tile、四乘四 seeded 旋轉開口金屬環，環面沿圈漸升，切口兩端高低分離，內外圓緣保留窄倒角。中心孔、缺口與外側露出同一低鋼板底面，不是 alpha hole；四圖 opaque、墊圈及底板 metallic 通道／factory factor 均為 1、既有 ownership 不變，不新增墊圈 geometry／彈簧模擬。
+- 定向 5 tests 通過：三 seeds 驗證全部墊圈的缺口／中心孔／外側同層底板、沿圈抬升與兩端高度差、徑向平面、粗糙度／AO／metallic；另在 seeded 精確切口端點／倒角界線、angle branch cut 與 tile wrap 驗證 C1，並驗證金屬 factor 與借用／override ownership。build／typecheck／lint／format:check／全套 **178 files、5605 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：旋轉開口金屬環、環緣與高低切口 normal、缺口／中心底板 AO 及四圖可見，status 為 429 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切口，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 428 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

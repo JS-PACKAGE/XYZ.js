@@ -405,6 +405,8 @@
 
 `artichoke` 以二次曲線寬度定義由寬根漸尖的苞片輪廓，compact smooth shoulders 將兩側／根部／葉端連接，按列由後向前疊合交錯苞片。葉端逐漸抬起，中央 compact midrib 與三對斜向葉脈提供獨立細起伏；seeded 色調預先快取，微粒場提供局部變化。葉片支撐範圍在鄰域丟棄前歸零，重疊邊緣的 AO 保留細陰影。0.18 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 428 種。
 
+`splitlockwashers` 將兩個 compact radial shoulders 與兩個切口角向 shoulders 相乘，形成有窄倒角的開口平面環。角向高度沿完整環段線性漸升，angle branch cut 完全落在零支撐缺口內，不跨缺口插值；seeded 相位預先快取，獨立微粒覆蓋墊圈與低鋼板。中心孔不是 alpha hole，底面與墊圈皆為金屬，因此 MR B 通道／factory metallic factor 均為 1。0.08 m tile、四圖 opaque、既有 ownership 不變，目錄增為 429 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

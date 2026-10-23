@@ -453,7 +453,120 @@ const kinds: ProceduralMaterialKind[] = [
   'flintwall',
   'frenchknots',
   'artichoke',
+  'splitlockwashers',
 ];
+
+describe('Split lock washers', () => {
+  const p = proceduralMaterialPresets.splitlockwashers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('splitlockwashers', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates helical ring ends with a cut sector exposing the same plate as the center hole for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2b49);
+          const at = (r: number, angle: number) =>
+            sample(
+              (col + 0.5 + r * Math.cos(angle + phase)) / p.cells,
+              (row + 0.5 + r * Math.sin(angle + phase)) / p.cells,
+            );
+          const radius = (p.inner + p.outer) / 2;
+          const low = at(radius, p.gap + 0.1),
+            high = at(radius, 2 * Math.PI - p.gap - 0.1),
+            middle = at(radius, Math.PI),
+            gap = at(radius, 0),
+            hole = at(0, 0);
+          expect(low.height - gap.height).toBeGreaterThan(0.007);
+          expect(high.height - low.height).toBeGreaterThan(0.0068);
+          expect(middle.height - low.height).toBeGreaterThan(0.003);
+          expect(high.height - middle.height).toBeGreaterThan(0.003);
+          expect(Math.abs(hole.height - gap.height)).toBeLessThan(0.0001);
+          expect(low.color - gap.color).toBeGreaterThan(0.39);
+          expect(gap.roughness - low.roughness).toBeGreaterThan(0.23);
+          expect(low.occlusion - gap.occlusion).toBeGreaterThan(0.32);
+          for (const r of [p.inner - 0.01, p.outer + 0.01])
+            expect(Math.abs(at(r, Math.PI).height - hole.height)).toBeLessThan(
+              0.0001,
+            );
+          expect(
+            Math.abs(at(p.inner + 0.04, Math.PI).height - middle.height),
+          ).toBeLessThan(0.0002);
+          for (const value of [low, high, middle, hole, gap])
+            expect(value.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps cut ends, radial bevels, the angle branch cut and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++) points.push([x / 64, y / 64]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2b49);
+          for (const angle of [
+            0,
+            p.gap,
+            p.gap + p.angularBevel,
+            2 * Math.PI - p.gap,
+            2 * Math.PI - p.gap - p.angularBevel,
+            Math.PI,
+          ])
+            for (const r of [
+              p.inner,
+              p.inner + p.bevel,
+              (p.inner + p.outer) / 2,
+              p.outer - p.bevel,
+              p.outer,
+            ])
+              points.push([
+                (col + 0.5 + r * Math.cos(angle + phase)) / p.cells,
+                (row + 0.5 + r * Math.sin(angle + phase)) / p.cells,
+              ]);
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Artichoke bracts', () => {
   const p = proceduralMaterialPresets.artichoke;
@@ -11271,6 +11384,7 @@ describe('periodic procedural material fields', () => {
           kind === 'crowncaps' ||
           kind === 'rebar' ||
           kind === 'guilloche' ||
+          kind === 'splitlockwashers' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -20557,6 +20671,7 @@ describe('procedural preset acquisition and ownership', () => {
     'crowncaps',
     'rebar',
     'guilloche',
+    'splitlockwashers',
     'basketball',
     'tennisball',
     'golfball',
@@ -20579,7 +20694,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'louveredmetal' ||
           kind === 'crowncaps' ||
           kind === 'rebar' ||
-          kind === 'guilloche'
+          kind === 'guilloche' ||
+          kind === 'splitlockwashers'
           ? 1
           : 0,
       );

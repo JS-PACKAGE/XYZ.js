@@ -507,6 +507,7 @@ try {
     'flintwall',
     'frenchknots',
     'artichoke',
+    'splitlockwashers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -434,7 +434,8 @@ export type ProceduralMaterialKind =
   | 'rakedgravel'
   | 'flintwall'
   | 'frenchknots'
-  | 'artichoke';
+  | 'artichoke'
+  | 'splitlockwashers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -895,6 +896,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flintwall',
   'frenchknots',
   'artichoke',
+  'splitlockwashers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1033,6 +1035,7 @@ export class ProceduralMaterial {
         this.kind === 'crowncaps' ||
         this.kind === 'rebar' ||
         this.kind === 'guilloche' ||
+        this.kind === 'splitlockwashers' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

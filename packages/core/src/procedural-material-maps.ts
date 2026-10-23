@@ -1236,6 +1236,7 @@ export function createSurfaceSampler(
     kind === 'crowncaps' ||
     kind === 'rebar' ||
     kind === 'guilloche' ||
+    kind === 'splitlockwashers' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1256,6 +1257,39 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'splitlockwashers': {
+        const p = proceduralMaterialPresets.splitlockwashers;
+        const phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x2b49);
+        const grainField = cachedNoise(96, 96, seed ^ 0x3c5b);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const index = Math.floor(vCell) * p.cells + Math.floor(uCell);
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const r = Math.sqrt(x * x + y * y);
+          const angle = TAU * fract((Math.atan2(y, x) - phases[index]) / TAU);
+          const face =
+            smooth(clamp((r - p.inner) / p.bevel)) *
+            smooth(clamp((p.outer - r) / p.bevel)) *
+            smooth(clamp((angle - p.gap) / p.angularBevel)) *
+            smooth(clamp((TAU - p.gap - angle) / p.angularBevel));
+          const rise = clamp((angle - p.gap) / (TAU - 2 * p.gap));
+          const grain = grainField(u, v);
+          // The cut lies in a zero-support sector, so the helical rise never
+          // bridges the gap or creates a discontinuity across the angle wrap.
+          color =
+            (1 - face) * (0.2 + 0.06 * grain) +
+            face * (0.65 + 0.08 * grain + 0.08 * rise);
+          height =
+            0.06 + 0.003 * grain + face * (0.3 + 0.3 * rise + 0.004 * grain);
+          roughness += 0.02 * grain + 0.25 * (1 - face);
+          occlusion = 0.65 + 0.33 * face;
+        };
+      }
       case 'artichoke': {
         const p = proceduralMaterialPresets.artichoke;
         const tones = new Float64Array(p.cells * p.cells);
@@ -13333,6 +13367,7 @@ export function createSurfaceSampler(
     kind === 'flintwall' ||
     kind === 'frenchknots' ||
     kind === 'artichoke' ||
+    kind === 'splitlockwashers' ||
     fabricated ||
     botanical ||
     packaging ||
