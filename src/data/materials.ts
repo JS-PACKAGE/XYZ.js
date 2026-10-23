@@ -2660,6 +2660,13 @@ export const proceduralMaterialPresets = Object.freeze({
     rows: 4,
     threads: 64,
   }),
+  lotusseedpod: Object.freeze({
+    dark: [36, 21, 9] as const,
+    light: [173, 130, 68] as const,
+    roughness: 0.83,
+    relief: 0.035,
+    cells: 3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3065,4 +3072,5 @@ export const proceduralTileMeters = Object.freeze({
   dogbonepavers: 0.8,
   palmendgrain: 0.024,
   asanoha: 0.12,
+  lotusseedpod: 0.3,
 });

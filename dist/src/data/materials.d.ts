@@ -2647,6 +2647,13 @@ export declare const proceduralMaterialPresets: Readonly<{
         rows: 4;
         threads: 64;
     }>;
+    lotusseedpod: Readonly<{
+        dark: readonly [36, 21, 9];
+        light: readonly [173, 130, 68];
+        roughness: 0.83;
+        relief: 0.035;
+        cells: 3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3051,4 +3058,5 @@ export declare const proceduralTileMeters: Readonly<{
     dogbonepavers: 0.8;
     palmendgrain: 0.024;
     asanoha: 0.12;
+    lotusseedpod: 0.3;
 }>;

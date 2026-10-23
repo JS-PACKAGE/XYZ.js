@@ -5980,3 +5980,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 檢查兩種三角形的格線、三支線、中心交點及三個留白區，印花與留白間高度差維持在織紋幅度內；另驗證交點、三角形 lookup 與週期邊界 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5461 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：酒紅底象牙色麻葉網絡、無印花浮雕的四圖及 25 球可見，status 為 401 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 400 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：乾燥蓮蓬表面（lotusseedpod）
+
+- 目錄 401→402 種。0.3 m tile、九個棕色蓮蓬，各有中央與環列的七個凹室、隆起孔緣及較光滑的內嵌蓮子；seeded 蓬徑／孔位／孔徑與細粒。蓮子從室底凸起但低於蓬面，暗部有 opaque backing，不新增切孔 geometry；metallic 0、既有 ownership 不變。
+- 定向 4 tests 通過：三 seeds 驗證高蓬面、低背景、七室中蓮子高於室底但低於蓬面、孔緣高於蓬面、室內 AO 降低及蓮子較光滑；另驗證種子冠、孔唇、蓬邊界與 tile wrap C1 連續。build／typecheck／lint／format:check／全套 **178 files、5466 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：九個棕色蓮蓬、凹室及孔緣 normal／AO、四圖與 25 球可見，status 為 402 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.3 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 401 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

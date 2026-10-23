@@ -1253,6 +1253,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'lotusseedpod': {
+        const p = proceduralMaterialPresets.lotusseedpod;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6d27);
+        const pods = new Float64Array(p.cells * p.cells * 22);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 22;
+            const phase = TAU * hash(col, row, seed ^ 0x2f51);
+            pods[i] = 0.44 + 0.02 * hash(col, row, seed ^ 0x5a19);
+            for (let chamber = 0; chamber < 7; chamber++) {
+              const j = i + 1 + chamber * 3,
+                id = col * 7 + chamber;
+              const angle =
+                phase +
+                ((chamber - 1) * TAU) / 6 +
+                0.1 * (hash(id, row, seed ^ 0x7b31) - 0.5);
+              const distance =
+                chamber === 0 ? 0 : 0.235 + 0.03 * hash(id, row, seed ^ 0x3c49);
+              const radius = 0.07 + 0.015 * hash(id, row, seed ^ 0x8e17);
+              pods[j] = distance * Math.cos(angle);
+              pods[j + 1] = distance * Math.sin(angle);
+              pods[j + 2] = 1 / (radius * radius);
+            }
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 22;
+          const dx = fract(x) - 0.5,
+            dy = fract(y) - 0.5;
+          const face = smooth(clamp((pods[i] - Math.hypot(dx, dy)) / 0.04));
+          let cavities = 0,
+            rims = 0,
+            seeds = 0;
+          for (let chamber = 0; chamber < 7; chamber++) {
+            const j = i + 1 + chamber * 3;
+            const q =
+              ((dx - pods[j]) ** 2 + (dy - pods[j + 1]) ** 2) * pods[j + 2];
+            cavities += 1 - smooth(clamp((q - 0.45) / 0.55));
+            rims +=
+              smooth(clamp((q - 0.75) / 0.25)) *
+              (1 - smooth(clamp((q - 1.2) / 0.35)));
+            seeds += smooth(clamp((0.2 - q) / 0.2));
+          }
+          const grain = grainField(u, v);
+          // Seeds rise from the chamber floor but remain below the dry pod face.
+          // Dark gaps and chambers have opaque backing, not cutout geometry.
+          color =
+            0.04 +
+            face *
+              (0.58 +
+                0.04 * grain -
+                0.4 * cavities +
+                0.08 * rims +
+                0.05 * seeds);
+          height =
+            0.03 +
+            face *
+              (0.57 +
+                0.012 * grain -
+                0.4 * cavities +
+                0.08 * rims +
+                0.17 * seeds);
+          roughness += face * (0.04 * grain + 0.05 * cavities - 0.22 * seeds);
+          occlusion = 0.35 + face * (0.63 - 0.48 * cavities + 0.08 * seeds);
+        };
+      }
       case 'asanoha': {
         const p = proceduralMaterialPresets.asanoha;
         const rowStep = Math.sqrt(3) / 2;
@@ -12100,6 +12167,7 @@ export function createSurfaceSampler(
     kind === 'dogbonepavers' ||
     kind === 'palmendgrain' ||
     kind === 'asanoha' ||
+    kind === 'lotusseedpod' ||
     fabricated ||
     botanical ||
     packaging ||

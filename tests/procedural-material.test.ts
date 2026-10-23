@@ -426,7 +426,100 @@ const kinds: ProceduralMaterialKind[] = [
   'dogbonepavers',
   'palmendgrain',
   'asanoha',
+  'lotusseedpod',
 ];
+
+describe('dried lotus seedpod chambers', () => {
+  const p = proceduralMaterialPresets.lotusseedpod;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('lotusseedpod', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates raised rims, recessed chambers and embedded seeds for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const face = local(0.39, 0),
+            gap = local(0.5, 0.5);
+          expect(face.height).toBeGreaterThan(0.02);
+          expect(face.color).toBeGreaterThan(0.6);
+          expect(gap.height).toBeLessThan(0.002);
+          expect(gap.occlusion).toBeLessThan(0.4);
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x2f51);
+          for (let chamber = 0; chamber < 7; chamber++) {
+            // Locate the seeded chamber without reproducing surface outputs.
+            const id = col * 7 + chamber;
+            const angle =
+              phase +
+              ((chamber - 1) * 2 * Math.PI) / 6 +
+              0.1 * (hash(id, row, seed ^ 0x7b31) - 0.5);
+            const distance =
+              chamber === 0 ? 0 : 0.235 + 0.03 * hash(id, row, seed ^ 0x3c49);
+            const radius = 0.07 + 0.015 * hash(id, row, seed ^ 0x8e17);
+            const x = distance * Math.cos(angle),
+              y = distance * Math.sin(angle);
+            const embedded = local(x, y),
+              floor = local(x + radius * Math.sqrt(0.3), y),
+              rim = local(x + radius * Math.sqrt(1.1), y);
+            expect(embedded.height - floor.height).toBeGreaterThan(0.005);
+            expect(face.height - embedded.height).toBeGreaterThan(0.007);
+            expect(rim.height - face.height).toBeGreaterThan(0.002);
+            expect(floor.occlusion).toBeLessThan(0.51);
+            expect(embedded.occlusion).toBeLessThan(face.occlusion);
+            expect(embedded.roughness).toBeLessThan(face.roughness - 0.1);
+            expect(face.color - embedded.color).toBeGreaterThan(0.3);
+          }
+        }
+    },
+  );
+  it('keeps seed caps, chamber lips, pod edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('asanoha hemp leaf printed cloth', () => {
   const p = proceduralMaterialPresets.asanoha;
