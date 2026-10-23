@@ -5875,6 +5875,24 @@ var proceduralMaterialPresets = Object.freeze({
 		relief: .03,
 		cells: 4,
 		ridgeWidth: .1
+	}),
+	dogbonepavers: Object.freeze({
+		dark: [
+			53,
+			57,
+			61
+		],
+		light: [
+			156,
+			160,
+			158
+		],
+		roughness: .82,
+		relief: .025,
+		columns: 4,
+		rows: 2,
+		grout: .025,
+		shoulder: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6275,7 +6293,8 @@ var proceduralTileMeters = Object.freeze({
 	herringbonebrick: 1.2,
 	shibori: .24,
 	scallopedslate: 1.2,
-	saltpan: 3
+	saltpan: 3,
+	dogbonepavers: .8
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

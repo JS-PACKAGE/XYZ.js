@@ -2621,6 +2621,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         cells: 4;
         ridgeWidth: 0.1;
     }>;
+    dogbonepavers: Readonly<{
+        dark: readonly [53, 57, 61];
+        light: readonly [156, 160, 158];
+        roughness: 0.82;
+        relief: 0.025;
+        columns: 4;
+        rows: 2;
+        grout: 0.025;
+        shoulder: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3022,4 +3032,5 @@ export declare const proceduralTileMeters: Readonly<{
     shibori: 0.24;
     scallopedslate: 1.2;
     saltpan: 3;
+    dogbonepavers: 0.8;
 }>;

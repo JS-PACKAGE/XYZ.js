@@ -1253,6 +1253,51 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dogbonepavers': {
+        const p = proceduralMaterialPresets.dogbonepavers;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3a91);
+        const aggregateField = cachedNoise(24, 24, seed ^ 0x6c27);
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x5d13);
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * 2;
+          let faces = 0,
+            pigment = 0;
+          for (let ox = -1; ox <= 1; ox++) {
+            const col = Math.floor(x) + ox,
+              shift = col & 1;
+            const row = Math.floor((y - shift) / 2);
+            const tx = x - col - 0.5,
+              ty = y - (row * 2 + shift + 1);
+            // Adjacent columns shift half a brick: complementary shoulders
+            // make each wide end fit its neighbor's narrow waist exactly.
+            const halfWidth =
+              0.35 + 0.3 * smooth(clamp((Math.abs(ty) - 0.35) / 0.3));
+            const face =
+              smooth(clamp((halfWidth - Math.abs(tx) - p.grout) / p.shoulder)) *
+              smooth(clamp((1 - Math.abs(ty) - p.grout) / p.shoulder));
+            const wx = (col + p.columns) % p.columns,
+              wy = (row + p.rows) % p.rows;
+            faces += face;
+            pigment += face * tones[wy * p.columns + wx];
+          }
+          const face = clamp(faces),
+            grain = grainField(u, v),
+            aggregate = aggregateField(u, v);
+          color =
+            0.2 +
+            0.4 * face +
+            0.2 * pigment +
+            face * (0.04 * grain - 0.06 * aggregate);
+          height = face * (0.62 + 0.025 * grain + 0.01 * aggregate);
+          roughness += 0.1 * (1 - face) + 0.025 * grain * face;
+          occlusion = 0.5 + 0.5 * face;
+          mortar = 1 - face;
+        };
+      }
       case 'saltpan': {
         const p = proceduralMaterialPresets.saltpan;
         const grainField = cachedNoise(96, 96, seed ^ 0x2a71);
@@ -11962,6 +12007,7 @@ export function createSurfaceSampler(
     kind === 'shibori' ||
     kind === 'scallopedslate' ||
     kind === 'saltpan' ||
+    kind === 'dogbonepavers' ||
     fabricated ||
     botanical ||
     packaging ||

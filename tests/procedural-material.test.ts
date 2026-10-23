@@ -423,7 +423,106 @@ const kinds: ProceduralMaterialKind[] = [
   'shibori',
   'scallopedslate',
   'saltpan',
+  'dogbonepavers',
 ];
+
+describe('interlocking dogbone concrete pavers', () => {
+  const p = proceduralMaterialPresets.dogbonepavers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('dogbonepavers', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins wide ends through narrow waists and interlocks adjacent staggered columns for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (x: number, y: number) =>
+            at(
+              (col + 0.5 + x) / p.columns,
+              (row * 2 + (col % 2) + 1 + y) / (p.rows * 2),
+            );
+          for (const [x, y] of [
+            [0, 0],
+            [-0.2, 0],
+            [0.2, 0],
+            [0, -0.5],
+            [0, 0.5],
+            [-0.53, -0.85],
+            [0.53, -0.85],
+            [-0.53, 0.85],
+            [0.53, 0.85],
+          ]) {
+            const face = local(x, y);
+            expect(face.height).toBeGreaterThan(0.015);
+            expect(face.mortar).toBe(0);
+            expect(face.occlusion).toBe(1);
+          }
+          for (const [x, y] of [
+            [0.35, 0],
+            [-0.35, 0],
+            [0.5, 0],
+            [0.5, 0.5],
+            [-0.5, -0.5],
+            [0.65, 0.85],
+            [-0.65, -0.85],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const joint = local(x, y);
+            expect(joint.height).toBe(0);
+            expect(joint.mortar).toBe(1);
+            expect(joint.occlusion).toBe(0.5);
+          }
+          // Wide ends of the neighboring column occupy the waist recess;
+          // this would be empty in a grid of isolated dogbone silhouettes.
+          for (const x of [-0.5, 0.5]) {
+            expect(local(x, 0.15).height).toBeGreaterThan(0.015);
+            expect(local(x, -0.15).mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps waist shoulders, end corners, column lookup and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('raised polygonal salt pan crust', () => {
   const p = proceduralMaterialPresets.saltpan;

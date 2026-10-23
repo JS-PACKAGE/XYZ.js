@@ -477,6 +477,7 @@ try {
     'shibori',
     'scallopedslate',
     'saltpan',
+    'dogbonepavers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

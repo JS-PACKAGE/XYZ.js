@@ -5959,3 +5959,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 397 種四圖 SHA256 全相同，新增恰為 saltpan。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與四圖呈現近六邊形淡白鹽脊網絡及較低內部，狀態列為 398 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、3 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5446 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：狗骨形互鎖鋪路磚（dogbonepavers）
+
+- 目錄 398→399 種。0.8 m tile、四欄兩磚共八塊狗骨形混凝土磚；寬端／窄腰／平滑肩部與相鄰欄半磚錯位構成互補輪廓，倒角、中性灰縫、seeded 色差與骨材細粒。opaque、metallic 0、既有借用與銷毀契約不變。
+- 定向 4 tests 通過：三 seeds 驗證完整窄腰、四個寬端、肩部及端部灰縫、鄰磚寬端實際填入腰部凹口；另驗證肩部、lookup、角落與週期邊界的 C1 連續。build／typecheck／lint／format:check／全套 **178 files、5451 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：寬端與窄腰互鎖的灰色混凝土磚、倒角 normal、粗糙度與 AO 四圖和 25 球可見，status 為 399 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 398 種 size 64／seed 7 四圖 SHA256 全數不變；相對文件連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
