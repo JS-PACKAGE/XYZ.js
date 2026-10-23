@@ -509,6 +509,7 @@ try {
     'artichoke',
     'splitlockwashers',
     'flemishbond',
+    'satinweave',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -455,7 +455,93 @@ const kinds: ProceduralMaterialKind[] = [
   'artichoke',
   'splitlockwashers',
   'flemishbond',
+  'satinweave',
 ];
+
+describe('Five-harness warp satin', () => {
+  const p = proceduralMaterialPresets.satinweave;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('satinweave', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps four warp floats per isolated weft interlacing with a two-thread course step for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        let exposed = 0;
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const alongWarp = at(0, 0.38),
+            alongWeft = at(0.38, 0);
+          const interlace = (col + 2 * row) % 5 === 0;
+          const top = interlace ? alongWeft : alongWarp,
+            bottom = interlace ? alongWarp : alongWeft;
+          expect(top.height - bottom.height).toBeGreaterThan(0.0008);
+          expect(bottom.roughness - top.roughness).toBeGreaterThan(0.04);
+          if (alongWeft.height > alongWarp.height) exposed++;
+          const center = at(0, 0),
+            gap = at(0.5, 0.5);
+          expect(center.height - gap.height).toBeGreaterThan(0.0017);
+          expect(center.occlusion - gap.occlusion).toBeGreaterThan(0.21);
+          expect(center.metallic).toBe(0);
+        }
+        expect(exposed).toBe(5);
+      }
+    },
+  );
+  it('keeps yarn skirts, isolated ownership transitions and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          if ((col + 2 * row) % 5 === 0)
+            for (const offset of [
+              -p.exposureHalf,
+              p.exposureShoulder - p.exposureHalf,
+              p.exposureHalf - p.exposureShoulder,
+              p.exposureHalf,
+            ])
+              points.push([
+                (col + 0.5 + offset) / p.cells,
+                (row + 0.5) / p.cells,
+              ]);
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Flemish bond brickwork', () => {
   const p = proceduralMaterialPresets.flemishbond;

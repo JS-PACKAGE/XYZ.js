@@ -1257,6 +1257,47 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'satinweave': {
+        const p = proceduralMaterialPresets.satinweave;
+        const phase = TAU * hash(0, 0, seed ^ 0x5d31);
+        const grainField = cachedNoise(128, 128, seed ^ 0x6e43);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const col = Math.floor(uCell),
+            row = Math.floor(vCell);
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const warp = smooth(clamp(1 - (x * x) / (p.halfWidth * p.halfWidth)));
+          const weft = smooth(clamp(1 - (y * y) / (p.halfWidth * p.halfWidth)));
+          const interlace = (col + p.step * row) % p.harness === 0;
+          const exposure = interlace
+            ? smooth(
+                clamp((p.exposureHalf - Math.abs(x)) / p.exposureShoulder),
+              ) *
+              smooth(clamp((p.exposureHalf - Math.abs(y)) / p.exposureShoulder))
+            : 0;
+          const warpFiber = 0.5 + 0.5 * Math.cos(TAU * 4 * x + phase);
+          const weftFiber = 0.5 + 0.5 * Math.cos(TAU * 4 * y + phase);
+          const fiber = warpFiber * (1 - exposure) + weftFiber * exposure;
+          const dominant = warp * (1 - exposure) + weft * exposure;
+          const coverage = 1 - (1 - warp) * (1 - weft);
+          const warpTop = 0.45 * warp + 0.15 * weft * (1 - warp);
+          const weftTop = 0.45 * weft + 0.15 * warp * (1 - weft);
+          const grain = grainField(u, v);
+          // Four warp floats precede each isolated weft interlacing.
+          // Compact exposure keeps the ownership change inside its crossing.
+          color = 0.4 + 0.2 * dominant + 0.08 * fiber * coverage + 0.08 * grain;
+          height =
+            0.08 +
+            warpTop * (1 - exposure) +
+            weftTop * exposure +
+            0.006 * fiber * coverage +
+            0.005 * grain;
+          roughness += 0.08 * (1 - dominant) + 0.015 * grain;
+          occlusion = 0.75 + 0.22 * coverage;
+        };
+      }
       case 'flemishbond': {
         const p = proceduralMaterialPresets.flemishbond;
         const units = p.modules * 3;
@@ -13414,6 +13455,7 @@ export function createSurfaceSampler(
     kind === 'artichoke' ||
     kind === 'splitlockwashers' ||
     kind === 'flemishbond' ||
+    kind === 'satinweave' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -6184,3 +6184,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證全部磚頭／長磚面色差與等高、上下層中心對齊、各灰縫及水平／垂直 half-bevel 的一致寬度；另在精確灰縫／倒角邊界、磚 owner／列切換與 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5610 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：每層深短磚頭／淺長磚面的交替錯位、灰縫 normal／AO 及四圖可見，status 為 430 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視磚列，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、1.2 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 429 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：五枚經面緞紋（satinweave）
+
+- 目錄 430→431 種。0.02 m tile、二十五乘二十五交叉點的五枚經面組織，四跨一壓的長經浮線與孤立緯線露點逐列錯開兩根線，交織處交換經緯主導高度／粗糙度，seed 控制纖維相位與微粒。四圖 opaque、metallic 0、既有 ownership 不變；不是一上一下平紋或連續斜紋，不新增布料 geometry／各向異性 BRDF。
+- 定向 4 tests 通過：三 seeds 驗證全部六百二十五個交叉點的經緯優先高度／粗糙度、每列五個分散緯線露點與線間低暗隙；另在精確露點肩部界線、yarn skirts、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5615 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：紫色長經浮線與分散交織點、細微 normal／roughness 變化、線間 AO 及四圖可見，status 為 431 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視織紋，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.02 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 430 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

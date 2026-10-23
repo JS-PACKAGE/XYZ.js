@@ -2954,6 +2954,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         headerTone: 0.25;
         stretcherTone: 0.55;
     }>;
+    satinweave: Readonly<{
+        dark: readonly [54, 28, 82];
+        light: readonly [203, 165, 217];
+        roughness: 0.3;
+        relief: 0.004;
+        cells: 25;
+        harness: 5;
+        step: 2;
+        halfWidth: 0.46;
+        exposureHalf: 0.48;
+        exposureShoulder: 0.1;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3387,4 +3399,5 @@ export declare const proceduralTileMeters: Readonly<{
     artichoke: 0.18;
     splitlockwashers: 0.08;
     flemishbond: 1.2;
+    satinweave: 0.02;
 }>;

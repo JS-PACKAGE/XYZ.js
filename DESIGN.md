@@ -409,6 +409,8 @@
 
 `flemishbond` 每三個寬度單位分為一單位磚頭與兩單位長磚面，相鄰列平移一個半單位，使磚頭對齊上下層長磚面中心。快取一百二十八個 seeded 色調，以 row-pitch units 同時計算水平／垂直灰縫與倒角，避免長磚面加倍灰縫寬度；compact face 消除磚 owner／列切換接縫。磚頭較暗、長磚面較亮，但共用相同高度場與微粒／骨材起伏。1.2 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 430 種。
 
+`satinweave` 以五枚組織與兩步飛數安排孤立緯線露點，compact exposure 完全收於單一交叉點內，平滑交換經線／緯線主導的高度與纖維方向。二十五乘二十五週期的 yarn skirts 在線間暗隙歸零，四個交叉點保持經浮線、第五個由緯線覆蓋；微粒與纖維相位可重現。光澤差異仍只使用既有 roughness／normal maps，不新增方向性散射模型。0.02 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 431 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
