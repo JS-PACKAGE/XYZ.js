@@ -6359,3 +6359,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 初版放大預覽接近圓角八角磚；新增深凹角回歸斷言後三個 seed 皆失敗，調整偏移圓瓣及中央連接區後通過。三個 seed（0／1／`0xffffffff`）驗證 25 磚的四個瓣／四個凹角、主磚／嵌片／填縫高度、色差、roughness／AO／mortar；另檢查圓瓣聯集、肩、菱形接縫與 wrap 的 C1。修正後四項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5739 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - 修正後 managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨青綠四葉主磚、深色菱形、凹角 normal 與填縫 AO，未更動 gallery 原始碼。status 為 455 種，完成 smoke 的兩頁錯誤列表皆空。初版 WebGPU screenshot timeout、初版 WebGL2 與修正版首次 WebGPU screenshot 遇工具 `Target closed`，皆以 fresh tab 完成後續驗證。各 backend 最終實測 size 33／seed `0xffffffff`、roughness override 0.8、0.5 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 454 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：秋葵切片（okraslice）
+
+- 目錄 455→456 種。0.09 m tile、九片 seeded 旋轉綠色秋葵切片，五稜外皮包圍五個凹入種子腔，每腔兩顆淺色圓籽；籽粒高於腔底但低於實心中央組織與分隔壁。四圖 opaque dielectric、metallic 0、既有 ownership 不變，不新增蔬菜 geometry、真實孔洞或食品模擬。
+- 三個 seed（0／1／`0xffffffff`）驗證 9 片切片、45 個種子腔、90 顆籽粒、五個外皮稜／凹口、腔底／籽粒／中央高度、色差、roughness／AO；另檢查中心、外皮、腔緣、籽粒與 tile wrap 的 C1。首次 tip 取樣落在外皮暗邊之前、後續 roughness 閾值過嚴，均依觀察值修正測試取樣與邊界，沒有放寬材質形態；新增四項形態／連續性測試、build、typecheck、lint、format:check、完整 178 檔 5744 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot；公開 API 產生 size 512／seed 7 四圖暫繪同頁放大 swatch，可辨五稜切片、五腔、成對淺色籽粒、normal 與 AO，未更動 gallery 原始碼。status 為 456 種，兩頁錯誤列表皆空。各 backend 實測 size 33／seed `0xffffffff`、roughness override 0.8、0.09 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 455 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

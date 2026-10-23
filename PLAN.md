@@ -451,6 +451,8 @@
 
 同輪追加 `quatrefoiltile`（四葉弧形釉面磚），實際目錄 454→455 種：二十五塊青綠四葉弧形磚、深色菱形嵌片、凹角肩及粗糙下凹填縫。0.5 m tile、四圖 opaque dielectric、metallic 0，不新增磚塊 geometry／displacement，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `okraslice`（秋葵切片），實際目錄 455→456 種：九片 seeded 旋轉五稜綠色切片，每片五個凹入種子腔，每腔兩顆淺色圓籽，保留實心中央組織與分隔壁。0.09 m tile、四圖 opaque dielectric、metallic 0，不新增蔬菜 geometry／真實孔洞／食品模擬，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

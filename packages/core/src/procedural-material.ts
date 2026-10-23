@@ -461,7 +461,8 @@ export type ProceduralMaterialKind =
   | 'rollerchain'
   | 'mapleleaf'
   | 'smocking'
-  | 'quatrefoiltile';
+  | 'quatrefoiltile'
+  | 'okraslice';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -949,6 +950,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mapleleaf',
   'smocking',
   'quatrefoiltile',
+  'okraslice',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

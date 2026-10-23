@@ -7115,6 +7115,32 @@ var proceduralMaterialPresets = Object.freeze({
 		shoulder: .008,
 		dotRadius: .42,
 		dotShoulder: .018
+	}),
+	okraslice: Object.freeze({
+		dark: [
+			23,
+			49,
+			17
+		],
+		light: [
+			235,
+			239,
+			171
+		],
+		roughness: .48,
+		relief: .022,
+		cells: 3,
+		radius: .35,
+		lobeDepth: .055,
+		edge: .012,
+		rind: .028,
+		chambers: 5,
+		chamberDistance: .2,
+		chamberLong: .09,
+		chamberShort: .075,
+		chamberShoulder: .3,
+		seedOffset: .032,
+		seedRadius: .024
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7572,7 +7598,8 @@ var proceduralTileMeters = Object.freeze({
 	rollerchain: .24,
 	mapleleaf: .3,
 	smocking: .12,
-	quatrefoiltile: .5
+	quatrefoiltile: .5,
+	okraslice: .09
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

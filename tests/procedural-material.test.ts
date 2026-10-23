@@ -480,7 +480,97 @@ const kinds: ProceduralMaterialKind[] = [
   'mapleleaf',
   'smocking',
   'quatrefoiltile',
+  'okraslice',
 ];
+
+describe('Okra cross sections', () => {
+  const p = proceduralMaterialPresets.okraslice;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('okraslice', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five rind lobes, separated chambers and paired pale seeds for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x34b9);
+          const center = at(col + 0.5, row + 0.5);
+          for (let chamber = 0; chamber < p.chambers; chamber++) {
+            const a = phase + (2 * Math.PI * chamber) / p.chambers;
+            const c = Math.cos(a),
+              s = Math.sin(a);
+            const local = (along: number, across: number) =>
+              at(
+                col + 0.5 + along * c - across * s,
+                row + 0.5 + along * s + across * c,
+              );
+            const cavity = local(p.chamberDistance, 0);
+            const tip = local(0.39, 0);
+            const between = a + Math.PI / p.chambers;
+            const notch = at(
+              col + 0.5 + 0.39 * Math.cos(between),
+              row + 0.5 + 0.39 * Math.sin(between),
+            );
+            expect(tip.height - notch.height).toBeGreaterThan(0.013);
+            expect(center.height - cavity.height).toBeGreaterThan(0.0085);
+            expect(center.color - tip.color).toBeGreaterThan(0.08);
+            for (const side of [-1, 1]) {
+              const pip = local(p.chamberDistance, side * p.seedOffset);
+              expect(pip.height - cavity.height).toBeGreaterThan(0.0055);
+              expect(center.height - pip.height).toBeGreaterThan(0.0028);
+              expect(pip.color - cavity.color).toBeGreaterThan(0.65);
+              expect(pip.occlusion - cavity.occlusion).toBeGreaterThan(0.31);
+              expect(cavity.roughness - pip.roughness).toBeGreaterThan(0.09);
+              expect(pip.metallic).toBe(0);
+            }
+          }
+        }
+    },
+  );
+  it('keeps the center, rind, cavity rims, seeds and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 192,
+              v = (y * p.cells) / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Quatrefoil glazed mosaic', () => {
   const p = proceduralMaterialPresets.quatrefoiltile;

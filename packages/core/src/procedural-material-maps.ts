@@ -1261,6 +1261,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'okraslice': {
+        const p = proceduralMaterialPresets.okraslice;
+        const grainField = cachedNoise(96, 96, seed ^ 0x63e7);
+        const stride = 1 + 2 * p.chambers;
+        const slices = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride;
+            const phase = TAU * hash(col, row, seed ^ 0x34b9);
+            slices[i] = phase;
+            for (let chamber = 0; chamber < p.chambers; chamber++) {
+              const a = phase + (TAU * chamber) / p.chambers;
+              slices[i + 1 + 2 * chamber] = Math.cos(a);
+              slices[i + 2 + 2 * chamber] = Math.sin(a);
+            }
+          }
+        const longInverse = 1 / (p.chamberLong * p.chamberLong),
+          shortInverse = 1 / (p.chamberShort * p.chamberShort),
+          seedInverse = 1 / (p.seedRadius * p.seedRadius);
+        return () => {
+          const sx = u * p.cells,
+            sy = v * p.cells;
+          const i = (Math.floor(sy) * p.cells + Math.floor(sx)) * stride;
+          const x = fract(sx) - 0.5,
+            y = fract(sy) - 0.5;
+          const r2 = x * x + y * y;
+          const radius =
+            p.radius +
+            p.lobeDepth * Math.cos(p.chambers * (Math.atan2(y, x) - slices[i]));
+          const face = smooth(clamp((radius * radius - r2) / p.edge));
+          // The angular center is inside the saturated face and outside the rind.
+          const rind = smooth(clamp((r2 - (radius - p.rind) ** 2) / p.edge));
+          let cavities = 0,
+            seeds = 0;
+          for (let chamber = 0; chamber < p.chambers; chamber++) {
+            const c = slices[i + 1 + 2 * chamber],
+              s = slices[i + 2 + 2 * chamber];
+            const along = x * c + y * s - p.chamberDistance;
+            const across = -x * s + y * c;
+            const q =
+              along * along * longInverse + across * across * shortInverse;
+            cavities += smooth(clamp((1 - q) / p.chamberShoulder));
+            for (let side = -1; side <= 1; side += 2) {
+              const offset = across - side * p.seedOffset;
+              seeds += smooth(
+                clamp(1 - (along * along + offset * offset) * seedInverse),
+              );
+            }
+          }
+          const grain = grainField(u, v);
+          color =
+            0.06 +
+            face *
+              (0.53 -
+                0.28 * rind -
+                0.38 * cavities +
+                0.68 * seeds +
+                0.015 * grain);
+          height =
+            0.04 +
+            face * (0.62 - 0.4 * cavities + 0.26 * seeds + 0.005 * grain);
+          roughness +=
+            face * (0.1 * rind + 0.15 * cavities - 0.12 * seeds + 0.02 * grain);
+          occlusion = 0.28 + face * (0.7 - 0.4 * cavities + 0.32 * seeds);
+          return;
+        };
+      }
       case 'quatrefoiltile': {
         const p = proceduralMaterialPresets.quatrefoiltile;
         const grainField = cachedNoise(48, 48, seed ^ 0x72d5);
@@ -14847,6 +14914,7 @@ export function createSurfaceSampler(
     kind === 'mapleleaf' ||
     kind === 'smocking' ||
     kind === 'quatrefoiltile' ||
+    kind === 'okraslice' ||
     fabricated ||
     botanical ||
     packaging ||
