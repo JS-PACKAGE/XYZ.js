@@ -1248,6 +1248,35 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'breezeblock': {
+        const p = proceduralMaterialPresets.breezeblock;
+        const grainField = cachedNoise(64, 64, seed ^ 0x3b75);
+        const radiusSquared = p.lobeRadius * p.lobeRadius;
+        const lobe = (x: number, y: number): number =>
+          smooth(clamp((radiusSquared - x * x - y * y) / p.lobeShoulder));
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const face =
+            smooth(clamp((0.5 - Math.abs(x) - p.grout) / p.edgeShoulder)) *
+            smooth(clamp((0.5 - Math.abs(y) - p.grout) / p.edgeShoulder));
+          // A smooth union preserves rounded lobes without cusps at their overlaps.
+          const opening =
+            1 -
+            (1 - lobe(x - p.lobeOffset, y)) *
+              (1 - lobe(x + p.lobeOffset, y)) *
+              (1 - lobe(x, y - p.lobeOffset)) *
+              (1 - lobe(x, y + p.lobeOffset));
+          const concrete = face * (1 - opening);
+          const grain = grainField(u, v);
+          color = 0.04 + concrete * (0.58 + 0.18 * grain);
+          height = 0.06 + concrete * (0.74 + 0.02 * grain);
+          roughness += 0.08 * grain * concrete;
+          occlusion = 0.22 + 0.76 * concrete;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'birdseyemaple': {
         const p = proceduralMaterialPresets.birdseyemaple;
         const centers = new Float64Array(p.cells * p.cells * 2);
@@ -10491,6 +10520,7 @@ export function createSurfaceSampler(
     kind === 'rammedearth' ||
     kind === 'copperpatina' ||
     kind === 'birdseyemaple' ||
+    kind === 'breezeblock' ||
     fabricated ||
     botanical ||
     packaging ||

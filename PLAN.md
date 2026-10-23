@@ -269,6 +269,8 @@
 
 同輪追加 `birdseyemaple`（鳥眼楓木），實際目錄 363→364 種：分散眼狀紋理、橢圓細環與繞行縱紋，保持平整飾面的淺起伏而非凸起木節。0.24 m tile、四圖 opaque dielectric、metallic 0，沿用 options／ownership；逐功能驗證並提交、不 push。
 
+同輪追加 `breezeblock`（四葉花孔水泥花磚），實際目錄 364→365 種：四葉圓孔外觀、厚水泥框與細填縫，孔內為不透明暗凹槽而非穿透孔。每張 0.8 m tile 四乘四單元，四圖 opaque dielectric／metallic 0；沿用既有 options、資源生命週期與 renderer 路徑，逐功能驗證並提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

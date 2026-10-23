@@ -389,7 +389,107 @@ const kinds: ProceduralMaterialKind[] = [
   'rammedearth',
   'copperpatina',
   'birdseyemaple',
+  'breezeblock',
 ];
+
+describe('quatrefoil breeze blocks', () => {
+  const p = proceduralMaterialPresets.breezeblock;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('breezeblock', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'retains four dark rounded lobes within a raised concrete frame for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const frame = at(col + 0.88, row + 0.88);
+          const diagonal = at(col + 0.74, row + 0.74);
+          for (const [x, y] of [
+            [0, 0],
+            [0.24, 0],
+            [-0.24, 0],
+            [0, 0.24],
+            [0, -0.24],
+          ]) {
+            const hollow = at(col + 0.5 + x!, row + 0.5 + y!);
+            expect(frame.height - hollow.height).toBeGreaterThan(0.7);
+            expect(frame.color - hollow.color).toBeGreaterThan(0.5);
+            expect(frame.occlusion - hollow.occlusion).toBeGreaterThan(0.7);
+            expect(diagonal.height - hollow.height).toBeGreaterThan(0.7);
+            expect(hollow.mortar).toBe(0);
+          }
+          expect(at(col, row + 0.5).mortar).toBe(1);
+        }
+      }
+    },
+  );
+
+  it('keeps lobe shoulders, intersections and block seams C1 continuous', () => {
+    const h = 1e-6;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (x: number, y: number): void => {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+      };
+      for (const [cx, cy] of [
+        [p.lobeOffset, 0],
+        [-p.lobeOffset, 0],
+        [0, p.lobeOffset],
+        [0, -p.lobeOffset],
+      ]) {
+        for (const radius of [
+          p.lobeRadius,
+          Math.sqrt(p.lobeRadius ** 2 - p.lobeShoulder),
+        ]) {
+          for (let i = 0; i < 32; i++) {
+            const angle = (i * Math.PI) / 16;
+            check(
+              0.5 + cx! + radius * Math.cos(angle),
+              0.5 + cy! + radius * Math.sin(angle),
+            );
+          }
+        }
+      }
+      for (let i = 0; i <= 32; i++) {
+        for (const edge of [0, p.grout, p.grout + p.edgeShoulder, p.cells]) {
+          check(edge, (i * p.cells) / 32);
+          check((i * p.cells) / 32, edge);
+        }
+      }
+    }
+  });
+});
 
 describe('birdseye maple', () => {
   const p = proceduralMaterialPresets.birdseyemaple;

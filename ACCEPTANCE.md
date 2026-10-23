@@ -5685,3 +5685,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體呈淡木色縱紋，baseColor preview 可見散布細小眼狀紋，狀態列為 364 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8／metallic 0、0.24 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5269 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：四葉花孔水泥花磚（breezeblock）
+
+- 新增四葉圓孔外觀、粗糙水泥框與窄填縫，目錄 364→365 種；0.8 m tile 含四乘四單元。孔內為不透明暗凹槽與 normal／AO 效果，不新增 alpha 孔洞、geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的四葉凹槽／厚框／對角實心區形態，以及圓瓣內外肩部、交疊區、塊縫和 wrap 的一階連續性。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 364 種四圖 SHA256 全相同，新增恰為 breezeblock；本次另對比全部 365 種 ESM／CommonJS 四圖 SHA256，完全一致。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖預覽呈現厚框、圓瓣凹槽與填縫，狀態列為 365 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5274 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
