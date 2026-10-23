@@ -7046,6 +7046,33 @@ var proceduralMaterialPresets = Object.freeze({
 		pinCore: .065,
 		collarRadius: .11,
 		collarWidth: .02
+	}),
+	mapleleaf: Object.freeze({
+		dark: [
+			39,
+			13,
+			6
+		],
+		light: [
+			219,
+			110,
+			32
+		],
+		roughness: .7,
+		relief: .022,
+		cells: 3,
+		lobes: 5,
+		innerRadius: .18,
+		lobeDepth: .17,
+		serration: .012,
+		tipRoundness: .03,
+		edgeSquared: .014,
+		veinRoot: .08,
+		veinTip: .335,
+		veinWidth: .01,
+		stemCenter: .27,
+		stemLength: .18,
+		stemWidth: .013
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7500,7 +7527,8 @@ var proceduralTileMeters = Object.freeze({
 	eyeletcotton: .06,
 	dendriticagate: .15,
 	ravioli: .16,
-	rollerchain: .24
+	rollerchain: .24,
+	mapleleaf: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

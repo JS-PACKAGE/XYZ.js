@@ -3315,6 +3315,25 @@ export const proceduralMaterialPresets = Object.freeze({
     collarRadius: 0.11,
     collarWidth: 0.02,
   }),
+  mapleleaf: Object.freeze({
+    dark: [39, 13, 6] as const,
+    light: [219, 110, 32] as const,
+    roughness: 0.7,
+    relief: 0.022,
+    cells: 3,
+    lobes: 5,
+    innerRadius: 0.18,
+    lobeDepth: 0.17,
+    serration: 0.012,
+    tipRoundness: 0.03,
+    edgeSquared: 0.014,
+    veinRoot: 0.08,
+    veinTip: 0.335,
+    veinWidth: 0.01,
+    stemCenter: 0.27,
+    stemLength: 0.18,
+    stemWidth: 0.013,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3771,4 +3790,5 @@ export const proceduralTileMeters = Object.freeze({
   dendriticagate: 0.15,
   ravioli: 0.16,
   rollerchain: 0.24,
+  mapleleaf: 0.3,
 });

@@ -477,7 +477,110 @@ const kinds: ProceduralMaterialKind[] = [
   'dendriticagate',
   'ravioli',
   'rollerchain',
+  'mapleleaf',
 ];
+
+describe('Autumn maple leaves', () => {
+  const p = proceduralMaterialPresets.mapleleaf;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('mapleleaf', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine rotated five-lobed palmate blades with raised radiating veins and narrow petioles for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const rotation = Math.PI * 2 * hash(col, row, seed ^ 0x6e51);
+          const c = Math.cos(rotation),
+            s = Math.sin(rotation);
+          const at = (x: number, y: number) =>
+            sample(
+              (col + 0.5 + x * c - y * s) / p.cells,
+              (row + 0.5 + x * s + y * c) / p.cells,
+            );
+          const stem = at(0, 0.32),
+            besideStem = at(0.03, 0.32);
+          expect(stem.height - besideStem.height).toBeGreaterThan(0.0054);
+          expect(stem.color - besideStem.color).toBeGreaterThan(0.34);
+          for (let lobe = 0; lobe < p.lobes; lobe++) {
+            const angle = -Math.PI / 2 + (Math.PI * 2 * lobe) / p.lobes;
+            const tip = at(0.3 * Math.cos(angle), 0.3 * Math.sin(angle));
+            const notchAngle = angle + Math.PI / p.lobes;
+            const notch = at(
+              0.26 * Math.cos(notchAngle),
+              0.26 * Math.sin(notchAngle),
+            );
+            expect(tip.height - notch.height).toBeGreaterThan(
+              lobe === 2 ? 0.004 : 0.009,
+            );
+            expect(tip.color - besideStem.color).toBeGreaterThan(0.54);
+            for (const side of [-1, 1]) {
+              const flankAngle = angle + side * 0.17;
+              const flank = at(
+                0.3 * Math.cos(flankAngle),
+                0.3 * Math.sin(flankAngle),
+              );
+              expect(tip.height - flank.height).toBeGreaterThan(0.009);
+            }
+            const dx = p.veinTip * Math.cos(angle),
+              dy = p.veinTip * Math.sin(angle) - p.veinRoot;
+            const length = Math.hypot(dx, dy),
+              x = 0.6 * dx,
+              y = p.veinRoot + 0.6 * dy;
+            const vein = at(x, y),
+              blade = at(x + (0.022 * dy) / length, y - (0.022 * dx) / length);
+            expect(vein.height - blade.height).toBeGreaterThan(0.0013);
+            expect(vein.color - blade.color).toBeGreaterThan(0.035);
+            expect(vein.occlusion - blade.occlusion).toBeCloseTo(0.04, 12);
+            expect(vein.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps polar interior, vein junctions, leaf contours, petiole and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 192,
+              v = y / 192;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Roller chain sideplates', () => {
   const p = proceduralMaterialPresets.rollerchain;

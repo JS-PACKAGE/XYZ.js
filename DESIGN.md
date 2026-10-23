@@ -453,6 +453,8 @@
 
 `rollerchain` 聯集兩個圓端與細束腰 bridge，於相鄰三片支持內合成連續覆蓋；偶數外片另加高層，與低內片在共用鉸接點重疊。整數位置放置具圓冠的銷軸頭，compact 環帶壓低 collar；偶數節數與空背景支援錯列及 tile wrap。0.24 m tile、四圖 opaque、全金屬 B／factor 1、既有 ownership 不變，目錄增為 452 種。
 
+`mapleleaf` 以五裂角向波的平滑絕對值輪廓收尖，搭配微齒邊調整外半徑，避免圓裂片看成五瓣花；平方半徑肩形成掌狀輪廓。角度奇點藏於飽和內部，圓冠用 Cartesian 半徑平方計算。五條預計算線段從葉柄端放射向葉尖，compact masks 抬高葉脈；葉柄與葉片平滑聯集。0.3 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 453 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

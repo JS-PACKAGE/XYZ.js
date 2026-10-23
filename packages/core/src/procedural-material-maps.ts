@@ -1261,6 +1261,94 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'mapleleaf': {
+        const p = proceduralMaterialPresets.mapleleaf;
+        const tipNorm =
+          Math.sqrt(1 + p.tipRoundness * p.tipRoundness) - p.tipRoundness;
+        const leaves = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            const angle = TAU * hash(col, row, seed ^ 0x6e51);
+            leaves[i] = Math.cos(angle);
+            leaves[i + 1] = Math.sin(angle);
+            leaves[i + 2] = hash(col, row, seed ^ 0x3b27);
+          }
+        const veins = new Float64Array(p.lobes * 3);
+        for (let lobe = 0; lobe < p.lobes; lobe++) {
+          const angle = -Math.PI / 2 + (TAU * lobe) / p.lobes;
+          const dx = p.veinTip * Math.cos(angle),
+            dy = p.veinTip * Math.sin(angle) - p.veinRoot;
+          veins[lobe * 3] = dx;
+          veins[lobe * 3 + 1] = dy;
+          veins[lobe * 3 + 2] = 1 / (dx * dx + dy * dy);
+        }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5f13);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 3;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * leaves[i] + dy * leaves[i + 1],
+            y = dy * leaves[i] - dx * leaves[i + 1];
+          const angle = Math.atan2(y, x),
+            squared = x * x + y * y;
+          const lobeWave = Math.sin((p.lobes * (angle + Math.PI / 2)) / 2);
+          const lobe =
+            1 -
+            (Math.sqrt(lobeWave * lobeWave + p.tipRoundness * p.tipRoundness) -
+              p.tipRoundness) /
+              tipNorm;
+          const radius =
+            p.innerRadius +
+            p.lobeDepth * lobe +
+            p.serration * lobe * Math.sin(15 * angle) ** 2;
+          // The origin lies in the saturated interior, so angle has no polar seam.
+          const leaf = smooth(
+            clamp((radius * radius - squared) / p.edgeSquared),
+          );
+          const stem = smooth(
+            clamp(
+              1 -
+                (x / p.stemWidth) ** 2 -
+                ((y - p.stemCenter) / p.stemLength) ** 8,
+            ),
+          );
+          const face = leaf + stem - leaf * stem;
+          let vein = 0;
+          for (let ray = 0; ray < p.lobes; ray++) {
+            const j = ray * 3;
+            const t = clamp(
+              (x * veins[j] + (y - p.veinRoot) * veins[j + 1]) * veins[j + 2],
+            );
+            const a = x - t * veins[j],
+              b = y - p.veinRoot - t * veins[j + 1];
+            const cover = smooth(
+              clamp(1 - (a * a + b * b) / (p.veinWidth * p.veinWidth)),
+            );
+            vein += (1 - vein) * cover;
+          }
+          const crown =
+            clamp(1 - squared / (p.innerRadius + p.lobeDepth) ** 2) ** 2;
+          const grain = grainField(u, v);
+          color =
+            0.07 +
+            leaf * (0.55 + 0.1 * crown + 0.08 * vein + 0.05 * leaves[i + 2]) +
+            0.35 * stem * (1 - leaf) +
+            0.04 * grain * face;
+          height =
+            0.05 +
+            leaf * (0.45 + 0.12 * crown + 0.07 * vein) +
+            0.25 * stem * (1 - leaf);
+          roughness +=
+            0.16 * (1 - face) -
+            0.1 * leaf -
+            0.03 * vein * leaf +
+            0.04 * grain * face;
+          occlusion = 0.38 + 0.58 * face + 0.04 * vein * leaf;
+        };
+      }
       case 'rollerchain': {
         const p = proceduralMaterialPresets.rollerchain;
         const grainField = cachedNoise(16, 96, seed ^ 0x6e41);
@@ -14680,6 +14768,7 @@ export function createSurfaceSampler(
     kind === 'dendriticagate' ||
     kind === 'ravioli' ||
     kind === 'rollerchain' ||
+    kind === 'mapleleaf' ||
     fabricated ||
     botanical ||
     packaging ||
