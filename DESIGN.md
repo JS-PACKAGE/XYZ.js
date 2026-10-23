@@ -403,6 +403,8 @@
 
 `frenchknots` 快取每顆結粒的 seeded 位置、橢圓旋轉與繞線相位；compact cap 承托兩道輕微三葉擾動的 annular yarn ridges，中央 compact dimple 只降低結粒頂部、不穿透底布。繞線在中心與外圍均歸零，橢圓結粒及陰影 halo 在 cell 邊界前歸零；獨立六十四乘六十四細織紋與微粒覆蓋底布。0.06 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 427 種。
 
+`artichoke` 以二次曲線寬度定義由寬根漸尖的苞片輪廓，compact smooth shoulders 將兩側／根部／葉端連接，按列由後向前疊合交錯苞片。葉端逐漸抬起，中央 compact midrib 與三對斜向葉脈提供獨立細起伏；seeded 色調預先快取，微粒場提供局部變化。葉片支撐範圍在鄰域丟棄前歸零，重疊邊緣的 AO 保留細陰影。0.18 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 428 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

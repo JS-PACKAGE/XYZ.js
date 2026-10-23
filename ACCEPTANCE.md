@@ -6163,3 +6163,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證全部小結的十二個角向雙圈峰／圈間谷、中央凹點及高於底布的閉合高度，以及底布／結粒色差與粗糙度差；另驗證繞線／中央凹點／結粒外緣／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5594 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：淺色底布上的粉紅結粒、繞線 normal 起伏、外緣 AO 及四圖可見，status 為 427 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視結粒，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.06 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 426 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：朝鮮薊苞片（artichoke）
+
+- 目錄 427→428 種。0.18 m tile、六乘六交錯覆疊的綠色苞片從寬根部漸縮成抬起的尖端，具有中央主脈、三對斜向細葉脈及 seeded 色調／微粒，覆疊邊緣保留細 AO 陰影。四圖 opaque、metallic 0、既有 ownership 不變；不是木質平截松果鱗片或稀疏火龍果突片，不新增葉片 geometry。
+- 定向 4 tests 通過：三 seeds 驗證全部苞片的主脈起伏、窄葉端高於兩側下層葉根、寬葉面連續覆蓋、六條分支葉脈及葉端抬升；另驗證尖端輪廓／覆疊次序／葉脈／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5599 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：交錯綠色苞片、葉緣／細脈 normal、尖端周圍暗隙 AO 及四圖可見，status 為 428 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視葉片，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.18 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 427 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

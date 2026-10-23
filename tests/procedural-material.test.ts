@@ -452,7 +452,90 @@ const kinds: ProceduralMaterialKind[] = [
   'rakedgravel',
   'flintwall',
   'frenchknots',
+  'artichoke',
 ];
+
+describe('Artichoke bracts', () => {
+  const p = proceduralMaterialPresets.artichoke;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('artichoke', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'overlaps pointed bracts above broad roots with a midrib and paired branching veins for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(
+              (col + 0.5 + 0.5 * (row % 2) + x) / p.cells,
+              (row + 0.5 + y) / p.cells,
+            );
+          const rib = at(0, 0.05),
+            tip = at(0, 0.45);
+          for (const side of [-1, 1]) {
+            expect(rib.height - at(side * 0.12, 0.05).height).toBeGreaterThan(
+              0.0015,
+            );
+            expect(tip.height - at(side * 0.35, 0.45).height).toBeGreaterThan(
+              0.006,
+            );
+            expect(at(side * 0.3, 0).occlusion).toBeGreaterThan(0.95);
+            for (let branch = 0; branch < 3; branch++) {
+              const y =
+                -0.3 + 0.25 * branch + 0.55 * Math.sqrt(0.18 * 0.18 + 0.0001);
+              const peak = at(side * 0.18, y);
+              const sides =
+                (at(side * 0.18, y - 0.04).height +
+                  at(side * 0.18, y + 0.04).height) /
+                2;
+              expect(peak.height - sides).toBeGreaterThan(0.0003);
+            }
+          }
+          expect(tip.height - rib.height).toBeGreaterThan(0.003);
+          expect(rib.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps pointed outlines, overlap order, veins and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('French knot embroidery', () => {
   const p = proceduralMaterialPresets.frenchknots;

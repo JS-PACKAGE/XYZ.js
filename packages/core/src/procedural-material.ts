@@ -433,7 +433,8 @@ export type ProceduralMaterialKind =
   | 'sunburstveneer'
   | 'rakedgravel'
   | 'flintwall'
-  | 'frenchknots';
+  | 'frenchknots'
+  | 'artichoke';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -893,6 +894,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rakedgravel',
   'flintwall',
   'frenchknots',
+  'artichoke',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

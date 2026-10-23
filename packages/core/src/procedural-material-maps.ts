@@ -1256,6 +1256,65 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'artichoke': {
+        const p = proceduralMaterialPresets.artichoke;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x6c27);
+        const grainField = cachedNoise(96, 96, seed ^ 0x7d39);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            row = Math.floor(y);
+          const grain = grainField(u, v);
+          color = 0.08 + 0.03 * grain;
+          height = 0.1;
+          occlusion = 0.5;
+          // Back-to-front rows expose broad roots beneath the pointed bracts.
+          for (let oy = 1; oy >= -1; oy--) {
+            const cy = row + oy,
+              wy = (cy + p.cells) % p.cells;
+            const stagger = 0.5 * (wy % 2),
+              column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = column + ox,
+                wx = (cx + p.cells) % p.cells;
+              const dx = x - cx - stagger - 0.5,
+                dy = y - cy - 0.5;
+              const t = clamp((dy - p.root) / (p.tip - p.root));
+              const width = p.halfWidth * (1 - t * t);
+              const cover =
+                smooth(clamp((width * width - dx * dx) / p.edge)) *
+                smooth(clamp((dy - p.root) / 0.12)) *
+                smooth(clamp((p.tip - dy) / 0.1));
+              if (cover === 0) continue;
+              const tip = smooth(clamp((dy + 0.15) / 0.9));
+              const rib = smooth(clamp(1 - (dx * dx) / (p.midrib * p.midrib)));
+              const branchFade = smooth(clamp((Math.abs(dx) - 0.04) / 0.05));
+              let veins = rib;
+              for (let branch = 0; branch < 3; branch++) {
+                const line =
+                  -0.3 + 0.25 * branch + 0.55 * Math.sqrt(dx * dx + 0.0001);
+                const distance = (dy - line) / p.veinWidth;
+                veins += branchFade * smooth(clamp(1 - distance * distance));
+              }
+              const pigment =
+                0.32 +
+                0.17 * tones[wy * p.cells + wx] +
+                0.18 * (1 - tip) +
+                0.05 * veins +
+                0.025 * grain;
+              const relief =
+                0.28 + 0.28 * tip + 0.05 * rib + 0.025 * veins + 0.012 * grain;
+              color += cover * (pigment - color);
+              height += cover * (relief - height);
+              occlusion += cover * (0.96 - 0.22 * (1 - cover) - occlusion);
+            }
+          }
+          roughness += 0.05 * grain + 0.08 * (1 - occlusion);
+        };
+      }
       case 'frenchknots': {
         const p = proceduralMaterialPresets.frenchknots;
         const knots = new Float64Array(p.cells * p.cells * 5);
@@ -13273,6 +13332,7 @@ export function createSurfaceSampler(
     kind === 'rakedgravel' ||
     kind === 'flintwall' ||
     kind === 'frenchknots' ||
+    kind === 'artichoke' ||
     fabricated ||
     botanical ||
     packaging ||
