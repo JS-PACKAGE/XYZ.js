@@ -467,7 +467,155 @@ const kinds: ProceduralMaterialKind[] = [
   'pistachios',
   'polkadotfabric',
   'cucumberslices',
+  'monsteraleaf',
 ];
+
+describe('Fenestrated monstera leaves', () => {
+  const p = proceduralMaterialPresets.monsteraleaf;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('monsteraleaf', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates six enclosed fenestrations from six open margin cuts while preserving the midrib for seed %s',
+    (seed) => {
+      const sample = field(seed),
+        c = 1 / Math.hypot(1, p.slope),
+        s = p.slope * c;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4a71);
+          const at = (x: number, y: number) =>
+            sample(
+              (col + 0.5 + x * Math.cos(phase) - y * Math.sin(phase)) / p.cells,
+              (row + 0.5 + x * Math.sin(phase) + y * Math.cos(phase)) / p.cells,
+            );
+          for (const level of p.levels)
+            for (const side of [-1, 1]) {
+              const hole = at(side * p.holeX, level + p.slope * p.holeX);
+              expect(hole.height).toBeCloseTo(0.04 * p.relief, 12);
+              for (let ray = 0; ray < 8; ray++) {
+                const angle = (ray * Math.PI) / 4;
+                const along = p.holeLength * 1.5 * Math.cos(angle),
+                  across = p.holeWidth * 1.5 * Math.sin(angle);
+                const rim = at(
+                  side * (p.holeX + along * c - across * s),
+                  level + p.slope * p.holeX + along * s + across * c,
+                );
+                expect(rim.height - hole.height).toBeGreaterThan(0.015);
+                expect(rim.color - hole.color).toBeGreaterThan(0.5);
+                expect(rim.occlusion - hole.occlusion).toBeGreaterThan(0.6);
+                expect(hole.roughness - rim.roughness).toBeGreaterThan(0.17);
+              }
+              const betweenCuts = at(
+                side * 0.225,
+                level + p.slope * 0.225 - 0.035,
+              );
+              for (const x of [0.225, 0.26, 0.29]) {
+                const openCut = at(side * x, level + p.slope * x);
+                expect(openCut.height).toBeCloseTo(hole.height, 12);
+                expect(betweenCuts.height - openCut.height).toBeGreaterThan(
+                  0.015,
+                );
+                expect(openCut.metallic).toBe(0);
+              }
+            }
+          expect(at(0, 0).height - at(0.035, 0).height).toBeGreaterThan(0.0009);
+          const notch = at(0, -0.34);
+          for (const side of [-1, 1])
+            expect(
+              at(side * 0.15, -0.27).height - notch.height,
+            ).toBeGreaterThan(0.015);
+        }
+    },
+  );
+  it('keeps fenestration rims, margin cut shoulders, basal notch and tile wrap C1 continuous', () => {
+    const h = 1e-9,
+      c = 1 / Math.hypot(1, p.slope),
+      s = p.slope * c;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4a71);
+          const add = (x: number, y: number) =>
+            points.push([
+              (col + 0.5 + x * Math.cos(phase) - y * Math.sin(phase)) / p.cells,
+              (row + 0.5 + x * Math.sin(phase) + y * Math.cos(phase)) / p.cells,
+            ]);
+          for (const level of p.levels)
+            for (const side of [-1, 1]) {
+              for (const r of [1, Math.sqrt(1 - p.shoulder)])
+                for (let ray = 0; ray < 16; ray++) {
+                  const angle = (ray * Math.PI) / 8;
+                  const along = r * p.holeLength * Math.cos(angle),
+                    across = r * p.holeWidth * Math.sin(angle);
+                  add(
+                    side * (p.holeX + along * c - across * s),
+                    level + p.slope * p.holeX + along * s + across * c,
+                  );
+                }
+              for (const x of [
+                p.slitStart,
+                p.slitStart + p.slitShoulder,
+                0.225,
+              ])
+                for (const offset of [-p.slitWidth, 0, p.slitWidth])
+                  add(side * x, level + p.slope * x + offset);
+            }
+          for (const r of [1, Math.sqrt(1 - p.shoulder)])
+            for (let ray = 0; ray < 16; ray++) {
+              const angle = (ray * Math.PI) / 8;
+              add(
+                r * p.width * Math.cos(angle),
+                r * p.length * Math.sin(angle),
+              );
+              add(
+                r * p.notchWidth * Math.cos(angle),
+                p.notchY + r * p.notchLength * Math.sin(angle),
+              );
+            }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Cucumber slices', () => {
   const p = proceduralMaterialPresets.cucumberslices;

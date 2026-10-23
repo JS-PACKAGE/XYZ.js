@@ -3123,6 +3123,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedWidth: 0.014;
         shoulder: 0.25;
     }>;
+    monsteraleaf: Readonly<{
+        dark: readonly [11, 35, 14];
+        light: readonly [74, 151, 62];
+        roughness: 0.4;
+        relief: 0.03;
+        cells: 3;
+        width: 0.3;
+        length: 0.4;
+        shoulder: 0.18;
+        levels: readonly [-0.23, -0.07, 0.09];
+        slope: 0.5;
+        holeX: 0.115;
+        holeLength: 0.045;
+        holeWidth: 0.02;
+        slitStart: 0.18;
+        slitShoulder: 0.035;
+        slitWidth: 0.018;
+        notchY: -0.38;
+        notchWidth: 0.11;
+        notchLength: 0.13;
+        midribWidth: 0.015;
+        veinWidth: 0.008;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3568,4 +3591,5 @@ export declare const proceduralTileMeters: Readonly<{
     pistachios: 0.15;
     polkadotfabric: 0.12;
     cucumberslices: 0.18;
+    monsteraleaf: 0.9;
 }>;

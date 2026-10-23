@@ -1259,6 +1259,78 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'monsteraleaf': {
+        const p = proceduralMaterialPresets.monsteraleaf;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x4a71);
+            const i = (row * p.cells + col) * 2;
+            rotations[i] = Math.cos(phase);
+            rotations[i + 1] = Math.sin(phase);
+          }
+        const inverseSlopeLength = 1 / Math.hypot(1, p.slope);
+        const grainField = cachedNoise(96, 96, seed ^ 0x5b83);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * rotations[i] + dy * rotations[i + 1],
+            y = dy * rotations[i] - dx * rotations[i + 1],
+            a = Math.abs(x);
+          let blade = smooth(
+            clamp((1 - (x / p.width) ** 2 - (y / p.length) ** 2) / p.shoulder),
+          );
+          const notch = smooth(
+            clamp(
+              (1 -
+                (x / p.notchWidth) ** 2 -
+                ((y - p.notchY) / p.notchLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          blade *= 1 - notch;
+          let branches = 0;
+          for (const level of p.levels) {
+            const hx = a - p.holeX,
+              hy = y - level - p.slope * p.holeX;
+            const along = (hx + p.slope * hy) * inverseSlopeLength,
+              across = (hy - p.slope * hx) * inverseSlopeLength;
+            const hole = smooth(
+              clamp(
+                (1 -
+                  (along / p.holeLength) ** 2 -
+                  (across / p.holeWidth) ** 2) /
+                  p.shoulder,
+              ),
+            );
+            const offset = y - level - p.slope * a;
+            const slit =
+              smooth(clamp(1 - (offset / p.slitWidth) ** 2)) *
+              smooth(clamp((a - p.slitStart) / p.slitShoulder));
+            blade *= (1 - hole) * (1 - slit);
+            const veinOffset = offset - 0.08;
+            branches +=
+              smooth(clamp(1 - (veinOffset / p.veinWidth) ** 2)) *
+              smooth(clamp(a / 0.025));
+          }
+          const midrib =
+            smooth(clamp(1 - (x / p.midribWidth) ** 2)) *
+            smooth(clamp((0.34 - Math.abs(y)) / 0.05));
+          const grain = grainField(u, v);
+          // Closed inner fenestrations and open margin cuts share opaque backing.
+          color =
+            0.04 +
+            blade * (0.55 + 0.08 * grain + 0.1 * midrib + 0.04 * branches);
+          height =
+            0.04 +
+            blade * (0.58 + 0.02 * grain + 0.05 * midrib + 0.025 * branches);
+          roughness += 0.2 * (1 - blade) + 0.02 * grain * blade;
+          occlusion = 0.3 + 0.68 * blade;
+        };
+      }
       case 'cucumberslices': {
         const p = proceduralMaterialPresets.cucumberslices;
         const axes = new Float64Array(p.cells * p.cells * p.chambers * 2);
@@ -14032,6 +14104,7 @@ export function createSurfaceSampler(
     kind === 'pistachios' ||
     kind === 'polkadotfabric' ||
     kind === 'cucumberslices' ||
+    kind === 'monsteraleaf' ||
     fabricated ||
     botanical ||
     packaging ||

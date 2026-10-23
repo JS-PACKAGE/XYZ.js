@@ -3147,6 +3147,29 @@ export const proceduralMaterialPresets = Object.freeze({
     seedWidth: 0.014,
     shoulder: 0.25,
   }),
+  monsteraleaf: Object.freeze({
+    dark: [11, 35, 14] as const,
+    light: [74, 151, 62] as const,
+    roughness: 0.4,
+    relief: 0.03,
+    cells: 3,
+    width: 0.3,
+    length: 0.4,
+    shoulder: 0.18,
+    levels: [-0.23, -0.07, 0.09] as const,
+    slope: 0.5,
+    holeX: 0.115,
+    holeLength: 0.045,
+    holeWidth: 0.02,
+    slitStart: 0.18,
+    slitShoulder: 0.035,
+    slitWidth: 0.018,
+    notchY: -0.38,
+    notchWidth: 0.11,
+    notchLength: 0.13,
+    midribWidth: 0.015,
+    veinWidth: 0.008,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3593,4 +3616,5 @@ export const proceduralTileMeters = Object.freeze({
   pistachios: 0.15,
   polkadotfabric: 0.12,
   cucumberslices: 0.18,
+  monsteraleaf: 0.9,
 });

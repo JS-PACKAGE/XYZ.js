@@ -433,6 +433,8 @@
 
 `cucumberslices` 快取九片各三組 seeded 放射軸，以同向橢圓 compact supports 形成膠質種子腔及其中三顆更窄長籽，深綠皮緣由平滑環帶構成。三腔互不重疊，籽裙緣完全位於腔內，避免分支跳變；切面 height 僅含獨立微粒，AO 只反映切片外緣，保留嵌平果肉而非蓮藕式空氣孔。0.18 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 442 種。
 
+`monsteraleaf` 快取九片 seeded 旋轉，以闊橢圓葉面減去基部凹口、三對斜向閉合長孔與三對向外延伸裂口。孔／裂口各用 compact supports，在內孔與外裂口之間保留連續葉肉；側脈在中軸前平滑淡出，中肋獨立抬高。所有孔底與葉外同為 opaque 低暗底面，不依賴 alpha 裁切。0.9 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 443 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
