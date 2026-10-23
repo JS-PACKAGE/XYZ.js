@@ -6113,3 +6113,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 5 tests 通過：三 seeds 驗證四組花紋各八個瓣尖／瓣谷及三條刻線的高度、色彩、粗糙度、AO／metallic，另驗證平台／刻線肩部／花心／tile wrap C1 與金屬材質借用。build／typecheck／lint／format:check／全套 **178 files、5559 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：銀灰金屬、套疊八瓣刻線與四圖可見，status 為 420 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視細刻線，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.1 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 419 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：海膽殼（seaurchintest）
+
+- 目錄 420→421 種。0.24 m tile、九枚 seeded 旋轉的象牙色微凸殼，各有五放射雙孔列（共五十孔）、頂端凹孔與十個間輻凸瘤。孔洞低於／暗於／粗糙於殼面，凸瘤較高／平滑；外緣降至暗底。四圖 opaque、metallic 0、既有 ownership 不變；不新增殼體 geometry 或透明孔洞。
+- 定向 4 tests 通過：三 seeds 驗證九枚殼的全部雙孔列、間孔橋面、間輻凸瘤、頂孔／殼頂／殼緣與暗底；另驗證孔緣／凸瘤／nearest-ray 選擇／殼緣／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5564 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：象牙色圓殼、五放射孔列與四圖可見，status 為 421 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視孔列，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.24 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 420 種 size 64／seed 7 四圖 SHA256 全數不變，421 種 ESM／CJS 輸出亦全數相同；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

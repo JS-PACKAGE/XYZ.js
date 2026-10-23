@@ -1256,6 +1256,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'seaurchintest': {
+        const p = proceduralMaterialPresets.seaurchintest;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const angle = TAU * hash(col, row, seed ^ 0x6c51);
+            const index = (row * p.cells + col) * 2;
+            rotations[index] = Math.cos(angle);
+            rotations[index + 1] = Math.sin(angle);
+          }
+        const axes = new Float64Array(20);
+        for (let ray = 0; ray < 10; ray++) {
+          axes[ray * 2] = Math.cos((TAU * ray) / 10);
+          axes[ray * 2 + 1] = Math.sin((TAU * ray) / 10);
+        }
+        const grainField = cachedNoise(96, 96, seed ^ 0x7d63);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const index = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const x = dx * rotations[index] + dy * rotations[index + 1],
+            y = dy * rotations[index] - dx * rotations[index + 1];
+          const r2 = x * x + y * y;
+          const dome = clamp(1 - r2 / (p.radius * p.radius));
+          const face = smooth(clamp(dome / 0.2));
+          // Nearest-ray and pore choices change only in zero-support gaps.
+          // The compact features therefore preserve the fivefold seams.
+          const angle = (Math.atan2(y, x) * 5) / TAU;
+          const ray = ((Math.round(angle) % 5) + 5) % 5;
+          const a = x * axes[ray * 4] + y * axes[ray * 4 + 1],
+            b = y * axes[ray * 4] - x * axes[ray * 4 + 1];
+          const row = Math.max(
+            0,
+            Math.min(
+              p.poreRows - 1,
+              Math.round((a - p.poreStart) / p.poreSpacing),
+            ),
+          );
+          const along = (a - p.poreStart - row * p.poreSpacing) / p.poreRadius,
+            across = (Math.abs(b) - p.poreOffset) / p.poreRadius;
+          const pores =
+            smooth(clamp(1 - along * along - across * across)) +
+            smooth(clamp(1 - r2 / (p.apicalRadius * p.apicalRadius)));
+          const gap = (((Math.round(angle - 0.5) % 5) + 5) % 5) * 4 + 2;
+          const tx = x * axes[gap] + y * axes[gap + 1],
+            ty = (y * axes[gap] - x * axes[gap + 1]) / p.tubercleRadius;
+          const tr = (tx - (tx < 0.25 ? 0.2 : 0.3)) / p.tubercleRadius;
+          const tubercle = smooth(clamp(1 - tr * tr - ty * ty));
+          const grain = grainField(u, v);
+          color =
+            0.07 * (1 - face) +
+            face * (0.53 + 0.18 * dome + 0.05 * grain - 0.3 * pores);
+          height =
+            0.04 +
+            face *
+              (0.42 +
+                0.3 * dome +
+                0.07 * tubercle +
+                0.01 * grain -
+                0.16 * pores);
+          roughness +=
+            0.14 * (1 - face) + face * (0.1 * pores - 0.06 * tubercle);
+          occlusion = 0.3 + face * (0.68 - 0.45 * pores);
+        };
+      }
       case 'guilloche': {
         const p = proceduralMaterialPresets.guilloche;
         const phases = new Float64Array(p.cells * p.cells);
@@ -12895,6 +12962,7 @@ export function createSurfaceSampler(
     kind === 'vermiculite' ||
     kind === 'cairotiles' ||
     kind === 'guilloche' ||
+    kind === 'seaurchintest' ||
     fabricated ||
     botanical ||
     packaging ||

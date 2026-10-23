@@ -445,7 +445,103 @@ const kinds: ProceduralMaterialKind[] = [
   'vermiculite',
   'cairotiles',
   'guilloche',
+  'seaurchintest',
 ];
+
+describe('Sea urchin skeletal shell', () => {
+  const p = proceduralMaterialPresets.seaurchintest;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('seaurchintest', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'forms five paired pore rows, an apical opening and interradial tubercles for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x6c51);
+          const at = (a: number, b: number, angle: number) =>
+            sample(
+              (col + 0.5 + a * Math.cos(angle) - b * Math.sin(angle)) / p.cells,
+              (row + 0.5 + a * Math.sin(angle) + b * Math.cos(angle)) / p.cells,
+            );
+          for (let ray = 0; ray < 5; ray++) {
+            const angle = phase + (2 * Math.PI * ray) / 5;
+            for (let n = 0; n < p.poreRows; n++)
+              for (const side of [-1, 1]) {
+                const r = p.poreStart + n * p.poreSpacing;
+                const pore = at(r, side * p.poreOffset, angle),
+                  bridge = at(r, 0, angle);
+                expect(bridge.height - pore.height).toBeGreaterThan(0.0045);
+                expect(bridge.color - pore.color).toBeGreaterThan(0.25);
+                expect(bridge.occlusion - pore.occlusion).toBeGreaterThan(0.44);
+                expect(pore.roughness - bridge.roughness).toBeGreaterThan(0.09);
+              }
+            for (const r of [0.2, 0.3]) {
+              const crown = at(r, 0, angle + Math.PI / 5),
+                flank = at(r, 0.05, angle + Math.PI / 5);
+              expect(crown.height - flank.height).toBeGreaterThan(0.0018);
+              expect(flank.roughness - crown.roughness).toBeGreaterThan(0.05);
+            }
+          }
+          const center = at(0, 0, phase),
+            cap = at(0.06, 0, phase),
+            edge = at(0.41, 0, phase),
+            backing = at(0.47, 0, phase);
+          expect(cap.height - center.height).toBeGreaterThan(0.004);
+          expect(cap.occlusion - center.occlusion).toBeGreaterThan(0.44);
+          expect(cap.height).toBeGreaterThan(edge.height);
+          expect(edge.height - backing.height).toBeGreaterThan(0.005);
+          expect(backing.occlusion).toBeCloseTo(0.3);
+          expect(cap.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps pores, tubercles, ray selection, shell edges and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Guilloche rosette engraving', () => {
   const p = proceduralMaterialPresets.guilloche;

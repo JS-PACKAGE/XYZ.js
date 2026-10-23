@@ -381,6 +381,8 @@
 
 同輪追加 `guilloche`（Guilloché 花紋雕刻金屬），實際目錄 419→420 種：四組 seeded 旋轉、三圈套疊的閉合八瓣刻線，刻槽低於／暗於／粗糙於銀色金屬平面，中心與外圍保持完整金屬。0.1 m tile、四圖 opaque，整張 metallic B=255、factory factor 1；不是圓盤磨紋或凸起壓花，不新增刻線 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `seaurchintest`（海膽殼），實際目錄 420→421 種：九枚 seeded 旋轉的象牙色微凸殼面，各有五放射雙孔列、頂端開口及孔列間凸瘤；孔洞比殼面低／暗／粗糙，外緣降至不透明暗底。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增殼體 geometry 或透明孔洞；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
