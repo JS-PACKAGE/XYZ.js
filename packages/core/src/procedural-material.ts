@@ -376,7 +376,8 @@ export type ProceduralMaterialKind =
   | 'ripstop'
   | 'octagondot'
   | 'truchettiles'
-  | 'standingseam';
+  | 'standingseam'
+  | 'damascus';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -779,6 +780,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'octagondot',
   'truchettiles',
   'standingseam',
+  'damascus',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -908,6 +910,7 @@ export class ProceduralMaterial {
         this.kind === 'galvanized' ||
         this.kind === 'corrugatedmetal' ||
         this.kind === 'standingseam' ||
+        this.kind === 'damascus' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

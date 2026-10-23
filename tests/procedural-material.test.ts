@@ -395,7 +395,89 @@ const kinds: ProceduralMaterialKind[] = [
   'octagondot',
   'truchettiles',
   'standingseam',
+  'damascus',
 ];
+
+describe('etched Damascus steel', () => {
+  const p = proceduralMaterialPresets.damascus;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('damascus', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'folds fine strata into local eyes while dark etched layers stay rougher and shallow for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const crossings = (u: number): number => {
+        let count = 0,
+          previous = at(u, 0).color > 0.55;
+        for (let i = 1; i <= 2048; i++) {
+          const current = at(u, i / 2048).color > 0.55;
+          if (current !== previous) count++;
+          previous = current;
+        }
+        return count;
+      };
+      const straight = crossings(0.02 / p.cells);
+      expect(straight).toBeGreaterThan(30);
+      expect(straight).toBeLessThan(50);
+      expect(crossings(0.5 / p.cells) - straight).toBeGreaterThan(8);
+      let dark = at(0, 0),
+        light = dark;
+      for (let i = 0; i < 256; i++) {
+        const sample = at(0.02 / p.cells, i / 256);
+        if (sample.color < dark.color) dark = sample;
+        if (sample.color > light.color) light = sample;
+        expect(sample.metallic).toBe(1);
+      }
+      expect(light.color - dark.color).toBeGreaterThan(0.6);
+      expect(dark.roughness - light.roughness).toBeGreaterThan(0.25);
+      expect(light.height - dark.height).toBeGreaterThan(0.00018);
+      expect(light.height - dark.height).toBeLessThan(0.00021);
+    },
+  );
+
+  it('keeps fold-cell ownership and tile wraps C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let edge = 0; edge <= p.cells; edge++) {
+        for (let i = 0; i <= 64; i++) {
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 64 : edge / p.cells;
+            const y = axis ? edge / p.cells : i / 64;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+            const b = at(x, y);
+            const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('standing-seam metal roofing', () => {
   const p = proceduralMaterialPresets.standingseam;
@@ -5962,6 +6044,7 @@ describe('periodic procedural material fields', () => {
           kind === 'galvanized' ||
           kind === 'corrugatedmetal' ||
           kind === 'standingseam' ||
+          kind === 'damascus' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -15232,6 +15315,7 @@ describe('procedural preset acquisition and ownership', () => {
     'metal',
     'copperpatina',
     'standingseam',
+    'damascus',
     'basketball',
     'tennisball',
     'golfball',
@@ -15243,7 +15327,10 @@ describe('procedural preset acquisition and ownership', () => {
     async (kind) => {
       const preset = await ProceduralMaterial.create(kind, { size: 32 });
       expect(preset.material.metallic).toBe(
-        kind === 'metal' || kind === 'copperpatina' || kind === 'standingseam'
+        kind === 'metal' ||
+          kind === 'copperpatina' ||
+          kind === 'standingseam' ||
+          kind === 'damascus'
           ? 1
           : 0,
       );

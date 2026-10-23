@@ -2334,6 +2334,16 @@ export const proceduralMaterialPresets = Object.freeze({
     toeOffset: 0.065,
     toeWidth: 0.02,
   }),
+  damascus: Object.freeze({
+    dark: [46, 56, 65] as const,
+    light: [214, 223, 227] as const,
+    roughness: 0.22,
+    relief: 0.002,
+    cells: 4,
+    layers: 20,
+    foldRadius: 0.32,
+    foldStrength: 3.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2708,4 +2718,5 @@ export const proceduralTileMeters = Object.freeze({
   octagondot: 0.8,
   truchettiles: 0.8,
   standingseam: 2,
+  damascus: 0.12,
 });

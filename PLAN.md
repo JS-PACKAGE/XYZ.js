@@ -281,6 +281,8 @@
 
 同輪追加 `standingseam`（立縫金屬屋面），實際目錄 369→370 種：寬平金屬板、窄立縫頂蓋、平滑肩部與兩側凹腳，區別於連續波浪形浪板。2 m tile 含四片板，四圖 opaque、metallic map 與 factor 均為 1，代表無塗漆金屬；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `damascus`（大馬士革鋼），實際目錄 370→371 種：細密層疊蝕刻紋與局部眼狀折紋，較暗蝕刻層較粗糙、略低，並非厚浮雕或岩石晶粒。0.12 m tile、四圖 opaque、metallic map 與 factor 均為 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

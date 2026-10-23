@@ -1229,6 +1229,7 @@ export function createSurfaceSampler(
     kind === 'galvanized' ||
     kind === 'corrugatedmetal' ||
     kind === 'standingseam' ||
+    kind === 'damascus' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1249,6 +1250,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'damascus': {
+        const p = proceduralMaterialPresets.damascus;
+        const grainField = cachedNoise(64, 64, seed ^ 0x5de7);
+        const centers = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            centers[i] = 0.4 + 0.2 * hash(col, row, seed ^ 0x37a1);
+            centers[i + 1] = 0.4 + 0.2 * hash(col, row, seed ^ 0x6b19);
+          }
+        const inverseRadiusSquared = 1 / (p.foldRadius * p.foldRadius);
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const i = (row * p.cells + col) * 2;
+          const x = fract(u * p.cells) - centers[i]!;
+          const y = fract(v * p.cells) - centers[i + 1]!;
+          // Compact folds return to the shared strata before changing cell owner.
+          const fold = smooth(
+            clamp(1 - (x * x + y * y) * inverseRadiusSquared),
+          );
+          const angle =
+            TAU *
+            (v * p.layers +
+              0.35 * Math.sin(TAU * u + phase) +
+              p.foldStrength * fold);
+          const layer = smooth(0.5 + 0.5 * Math.sin(angle));
+          const grain = grainField(u, v);
+          color = 0.2 + 0.65 * layer + 0.03 * grain;
+          height = 0.3 + 0.1 * layer + 0.003 * grain;
+          roughness += 0.28 * (1 - layer) + 0.02 * grain;
+          occlusion = 0.96 + 0.04 * layer;
+          return;
+        };
+      }
       case 'standingseam': {
         const p = proceduralMaterialPresets.standingseam;
         const rolledField = cachedNoise(64, 4, seed ^ 0x3e87);
@@ -10676,6 +10712,7 @@ export function createSurfaceSampler(
     kind === 'octagondot' ||
     kind === 'truchettiles' ||
     kind === 'standingseam' ||
+    kind === 'damascus' ||
     fabricated ||
     botanical ||
     packaging ||
