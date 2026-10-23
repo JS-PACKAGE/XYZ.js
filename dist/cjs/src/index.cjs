@@ -384,6 +384,7 @@ exports.PreloadBatch = require_preload_batch.PreloadBatch;
 exports.PreparedAudioImpulse = require_effects.PreparedAudioImpulse;
 exports.Primitive2D = require_primitive2d.Primitive2D;
 exports.PrismaticJoint = require_joints$1.PrismaticJoint;
+exports.ProceduralMapCache = require_procedural_material.ProceduralMapCache;
 exports.ProceduralMaterial = require_procedural_material.ProceduralMaterial;
 exports.Profiler = require_profiler.Profiler;
 exports.Quaternion = require_math3d.Quaternion;

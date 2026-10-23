@@ -23,6 +23,11 @@ export interface ProceduralMaterialOptions {
      * Output is byte-identical to synchronous generation; the pool is borrowed.
      */
     workerPool?: NativeWorkerPool;
+    /**
+     * Reuses generated CPU maps for identical kind/size/seed/contrast/
+     * roughnessBias/tint. Every preset still owns its own textures.
+     */
+    cache?: ProceduralMapCache;
 }
 /** Validated generation inputs sent to a trusted procedural worker. */
 export interface ProceduralMapsRequest {
@@ -38,6 +43,38 @@ export declare const proceduralMapsJob: WorkerJobDefinition<ProceduralMapsReques
 export declare function proceduralWorkerURL(): URL;
 /** Static native Worker construction is visible to bundlers. */
 export declare function createProceduralWorkerPool(options?: Omit<NativeWorkerPoolOptions, 'moduleURL' | 'workerFactory'>): NativeWorkerPool;
+export interface ProceduralMapCacheOptions {
+    /** Retained map bytes (four RGBA maps per entry). Default 64 MiB. */
+    maxBytes?: number;
+    /** Retained entries. Default 32. */
+    maxEntries?: number;
+}
+/**
+ * Caller-owned, bounded least-recently-used cache of generated CPU maps.
+ * Concurrent identical requests share one generation; failures are not cached.
+ * Cached arrays are never handed out, only copied into new textures.
+ */
+export declare class ProceduralMapCache {
+    readonly maxBytes: number;
+    readonly maxEntries: number;
+    private readonly entries;
+    private readonly pending;
+    private retained;
+    private hitCount;
+    private missCount;
+    constructor(options?: ProceduralMapCacheOptions);
+    /** Number of retained entries. */
+    get size(): number;
+    /** Bytes retained by cached maps. */
+    get bytes(): number;
+    get hits(): number;
+    get misses(): number;
+    /** Drops retained maps. Generations already in flight still complete and are then retained. */
+    clear(): void;
+    /** @internal Used by ProceduralMaterial.create with an already validated request. */
+    acquire(request: ProceduralMapsRequest, generate: () => Promise<ProceduralMaps>): Promise<ProceduralMaps>;
+    private store;
+}
 /** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
 export declare function proceduralRepeats(kind: ProceduralMaterialKind, meters: number): number;
 interface ProceduralTextures {

@@ -3,6 +3,11 @@ export declare const proceduralMaterialLimits: Readonly<{
     maxSize: 1024;
     defaultSize: 256;
     defaultSeed: 1;
+    /** ProceduralMapCache defaults: four maps at size 1024 are 16 MiB. */
+    cacheDefaultBytes: number;
+    cacheMaxBytes: number;
+    cacheDefaultEntries: 32;
+    cacheMaxEntries: 4096;
 }>;
 /** Base colors are authored in sRGB; relief is measured in UV units. */
 export declare const proceduralMaterialPresets: Readonly<{

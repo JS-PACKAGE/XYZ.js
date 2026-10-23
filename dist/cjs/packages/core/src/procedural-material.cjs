@@ -32,6 +32,67 @@ function createProceduralWorkerPool(e = {}) {
 		workerFactory: () => new Worker(new URL(`./workers/procedural-material.worker.js`, __xyzOriginalModuleURL), { type: `module` })
 	});
 }
+var ProceduralMapCache = class {
+	maxBytes;
+	maxEntries;
+	entries = /* @__PURE__ */ new Map();
+	pending = /* @__PURE__ */ new Map();
+	retained = 0;
+	hitCount = 0;
+	missCount = 0;
+	constructor(e = {}) {
+		let n = e.maxBytes ?? require_materials.proceduralMaterialLimits.cacheDefaultBytes, r = e.maxEntries ?? require_materials.proceduralMaterialLimits.cacheDefaultEntries;
+		if (!Number.isSafeInteger(n) || n < 0 || n > require_materials.proceduralMaterialLimits.cacheMaxBytes || !Number.isSafeInteger(r) || r < 0 || r > require_materials.proceduralMaterialLimits.cacheMaxEntries) throw RangeError(`Procedural cache maxBytes must be an integer 0..1 GiB and maxEntries 0..4096.`);
+		this.maxBytes = n, this.maxEntries = r;
+	}
+	get size() {
+		return this.entries.size;
+	}
+	get bytes() {
+		return this.retained;
+	}
+	get hits() {
+		return this.hitCount;
+	}
+	get misses() {
+		return this.missCount;
+	}
+	clear() {
+		this.entries.clear(), this.retained = 0;
+	}
+	async acquire(e, t) {
+		let n = [
+			e.kind,
+			e.size,
+			e.seed,
+			e.contrast,
+			e.roughnessBias,
+			e.tint?.join(`,`) ?? ``
+		].join(`|`), r = this.entries.get(n);
+		if (r) return this.hitCount++, this.entries.delete(n), this.entries.set(n, r), r;
+		let i = this.pending.get(n);
+		if (i) return this.hitCount++, i;
+		this.missCount++;
+		let a = t();
+		this.pending.set(n, a);
+		try {
+			let e = await a;
+			return this.store(n, e), e;
+		} finally {
+			this.pending.delete(n);
+		}
+	}
+	store(e, t) {
+		let n = t.baseColor.byteLength * 4;
+		if (!(n > this.maxBytes || this.maxEntries === 0)) {
+			this.entries.set(e, t), this.retained += n;
+			for (let [e, t] of this.entries) {
+				if (this.retained <= this.maxBytes && this.entries.size <= this.maxEntries) break;
+				this.entries.delete(e), this.retained -= t.baseColor.byteLength * 4;
+			}
+		}
+	}
+};
 function proceduralRepeats(e, t) {
 	if (!Number.isFinite(t) || t <= 0) throw RangeError(`Procedural surface size must be finite and positive.`);
 	return t / require_materials.proceduralTileMeters[e];
@@ -62,46 +123,47 @@ var ProceduralMaterial = class ProceduralMaterial {
 		if (f !== void 0 && (!Array.isArray(f) || f.length !== 3 || !f.every((e) => typeof e == `number` && Number.isFinite(e) && e >= 0 && e <= 4))) throw RangeError(`Procedural tint must be three finite multipliers within 0..4.`);
 		let p = i.workerPool;
 		if (p !== void 0 && !(p instanceof require_worker_jobs.NativeWorkerPool)) throw TypeError(`Procedural workerPool must be a NativeWorkerPool.`);
-		let m;
-		if (p === void 0) m = require_procedural_material_maps.generateProceduralMaps(n, a, c, {
+		let m = i.cache;
+		if (m !== void 0 && !(m instanceof ProceduralMapCache)) throw TypeError(`Procedural cache must be a ProceduralMapCache.`);
+		let h = {
+			kind: n,
+			size: a,
+			seed: c,
 			contrast: l,
 			roughnessBias: u,
-			tint: f
-		});
-		else {
-			let e = {
-				kind: n,
-				size: a,
-				seed: c,
+			...f === void 0 ? {} : { tint: [
+				f[0],
+				f[1],
+				f[2]
+			] }
+		}, generate = async () => {
+			if (p === void 0) return require_procedural_material_maps.generateProceduralMaps(n, a, c, {
 				contrast: l,
 				roughnessBias: u,
-				...f === void 0 ? {} : { tint: [
-					f[0],
-					f[1],
-					f[2]
-				] }
-			};
-			if (m = (await p.submit(proceduralMapsJob, e, { requestBytes: 0 }).promise).value, m.baseColor.length !== a * a * 4) throw RangeError(`Worker procedural maps do not match their size.`);
-		}
-		let h = [];
+				tint: f
+			});
+			let e = (await p.submit(proceduralMapsJob, h, { requestBytes: 0 }).promise).value;
+			if (e.baseColor.length !== a * a * 4) throw RangeError(`Worker procedural maps do not match their size.`);
+			return e;
+		}, g = m === void 0 ? await generate() : await m.acquire(h, generate), _ = [];
 		try {
 			for (let t of [
-				m.baseColor,
-				m.normal,
-				m.metallicRoughness,
-				m.occlusion
+				g.baseColor,
+				g.normal,
+				g.metallicRoughness,
+				g.occlusion
 			]) {
 				let n = new ImageData(a, a);
-				n.data.set(t), h.push(await require_texture.Texture.fromImage(n));
+				n.data.set(t), _.push(await require_texture.Texture.fromImage(n));
 			}
 			return new ProceduralMaterial(n, {
-				baseColor: h[0],
-				normal: h[1],
-				metallicRoughness: h[2],
-				occlusion: h[3]
+				baseColor: _[0],
+				normal: _[1],
+				metallicRoughness: _[2],
+				occlusion: _[3]
 			}, d);
 		} catch (e) {
-			for (let e of h) e.destroy();
+			for (let e of _) e.destroy();
 			throw e;
 		}
 	}
@@ -137,6 +199,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 	}
 };
 //#endregion
+exports.ProceduralMapCache = ProceduralMapCache;
 exports.ProceduralMaterial = ProceduralMaterial;
 exports.createProceduralWorkerPool = createProceduralWorkerPool;
 exports.proceduralMapsJob = proceduralMapsJob;

@@ -3,6 +3,11 @@ export const proceduralMaterialLimits = Object.freeze({
   maxSize: 1024,
   defaultSize: 256,
   defaultSeed: 1,
+  /** ProceduralMapCache defaults: four maps at size 1024 are 16 MiB. */
+  cacheDefaultBytes: 64 * 1024 * 1024,
+  cacheMaxBytes: 1024 * 1024 * 1024,
+  cacheDefaultEntries: 32,
+  cacheMaxEntries: 4096,
 });
 
 /** Base colors are authored in sRGB; relief is measured in UV units. */

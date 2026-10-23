@@ -11,6 +11,7 @@ import { Texture } from '../packages/assets/src/index.js';
 import { proceduralMaterialPresets } from '../src/data/materials.js';
 import {
   ProceduralMaterial,
+  ProceduralMapCache,
   proceduralRepeats,
   type ProceduralMaterialKind,
 } from '../packages/core/src/procedural-material.js';
@@ -24209,6 +24210,129 @@ describe('procedural preset acquisition and ownership', () => {
           workerPool: {} as NativeWorkerPool,
         }),
       ).rejects.toThrow(TypeError);
+    } finally {
+      pool.destroy();
+    }
+  });
+
+  it('reuses cached maps per exact inputs while every preset owns its own textures', async () => {
+    const cache = new ProceduralMapCache();
+    const first = await ProceduralMaterial.create('brick', {
+      size: 32,
+      seed: 3,
+      cache,
+    });
+    const second = await ProceduralMaterial.create('brick', {
+      size: 32,
+      seed: 3,
+      cache,
+    });
+    expect([cache.hits, cache.misses, cache.size]).toEqual([1, 1, 1]);
+    expect(cache.bytes).toBe(32 * 32 * 4 * 4);
+    expect(decoded.slice(4).map((bitmap) => bitmap.pixels)).toEqual(
+      decoded.slice(0, 4).map((bitmap) => bitmap.pixels),
+    );
+    expect(second.textures.baseColor).not.toBe(first.textures.baseColor);
+    first.destroy();
+    expect(second.textures.baseColor.destroyed).toBe(false);
+    second.destroy();
+    for (const options of [
+      { seed: 4 },
+      { contrast: 1.2 },
+      { roughnessBias: 0.1 },
+      { tint: [1, 1, 0.9] as const },
+    ])
+      (
+        await ProceduralMaterial.create('brick', {
+          size: 32,
+          seed: 3,
+          ...options,
+          cache,
+        })
+      ).destroy();
+    expect(cache.misses).toBe(5);
+    const [a, b] = await Promise.all([
+      ProceduralMaterial.create('wood', { size: 32, cache }),
+      ProceduralMaterial.create('wood', { size: 32, cache }),
+    ]);
+    expect(cache.misses).toBe(6);
+    a.destroy();
+    b.destroy();
+    cache.clear();
+    expect([cache.size, cache.bytes]).toEqual([0, 0]);
+  });
+
+  it('evicts least recently used maps within byte and entry bounds and validates options', async () => {
+    const entry = 32 * 32 * 4 * 4;
+    const cache = new ProceduralMapCache({ maxBytes: entry * 2 });
+    for (const seed of [1, 2, 1, 3])
+      (
+        await ProceduralMaterial.create('stone', { size: 32, seed, cache })
+      ).destroy();
+    // Seed 1 was refreshed before seed 3 arrived, so seed 2 was evicted.
+    expect([cache.size, cache.bytes]).toEqual([2, entry * 2]);
+    (
+      await ProceduralMaterial.create('stone', { size: 32, seed: 1, cache })
+    ).destroy();
+    (
+      await ProceduralMaterial.create('stone', { size: 32, seed: 2, cache })
+    ).destroy();
+    expect(cache.misses).toBe(4);
+    const single = new ProceduralMapCache({ maxEntries: 1 });
+    for (const seed of [1, 2])
+      (
+        await ProceduralMaterial.create('stone', {
+          size: 32,
+          seed,
+          cache: single,
+        })
+      ).destroy();
+    expect(single.size).toBe(1);
+    const none = new ProceduralMapCache({ maxEntries: 0 });
+    (
+      await ProceduralMaterial.create('stone', { size: 32, cache: none })
+    ).destroy();
+    expect(none.size).toBe(0);
+    for (const options of [
+      { maxBytes: -1 },
+      { maxBytes: 1.5 },
+      { maxBytes: 2 * 1024 * 1024 * 1024 },
+      { maxEntries: 4097 },
+      { maxEntries: NaN },
+    ])
+      expect(() => new ProceduralMapCache(options)).toThrow(RangeError);
+    await expect(
+      ProceduralMaterial.create('stone', { cache: {} as ProceduralMapCache }),
+    ).rejects.toThrow(TypeError);
+  });
+
+  it('does not cache failed generations', async () => {
+    const cache = new ProceduralMapCache();
+    const pool = new NativeWorkerPool({
+      moduleURL: new URL('https://example.test/broken.worker.js'),
+      workers: 1,
+      workerFactory: () =>
+        ({
+          onmessage: null,
+          onerror: null,
+          onmessageerror: null,
+          postMessage(this: { onerror: ((e: Event) => void) | null }) {
+            queueMicrotask(() => this.onerror?.(new Event('error')));
+          },
+          terminate() {},
+        }) as unknown as Worker,
+    });
+    try {
+      await expect(
+        ProceduralMaterial.create('stone', {
+          size: 32,
+          workerPool: pool,
+          cache,
+        }),
+      ).rejects.toThrow();
+      expect([cache.size, cache.misses]).toEqual([0, 1]);
+      (await ProceduralMaterial.create('stone', { size: 32, cache })).destroy();
+      expect([cache.size, cache.misses]).toEqual([1, 2]);
     } finally {
       pool.destroy();
     }

@@ -6410,3 +6410,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增 `ProceduralMaterialOptions.workerPool`、`createProceduralWorkerPool()`、`proceduralWorkerURL()`、`proceduralMapsJob` 與 worker 端 `trustedProceduralMapsJob`(發佈檔 `workers/procedural-material.worker.js`),沿用既有 NativeWorkerPool/trusted worker 協定;主端驗證完整選項後送出,回傳四個 buffer 以 transfer 傳回並驗證長度與 size。未傳 `workerPool` 時維持同步,459 種 size 64/seed 7 四圖 SHA256 changed 0。
 - 測試以 in-process 協定橋接執行真正的 trusted job:pool 結果與同步生成逐位元組相同、壞掉的回應被拒絕且不建立貼圖、非 pool 物件為 TypeError。build、typecheck、lint、format:check、完整 Vitest(178 檔/5765 項)、check:distribution、`pnpm pack` + `check-package-hygiene --archive`(新 worker 檔皆在 archive 內)通過。check:api-compatibility 第一次與第二次執行回報與本變更無關的 `Object3D.add` 泛型比較失敗,之後同一 build 連續三次 PASS,判定為該檢查的不穩定行為,未修改。
 - managed headless Chromium 以真正的 module Worker 載入 dist:size 1024 `cairotiles` 同步生成時最長 RAF 間隔 206 ms,經 `workerPool` 為 19 ms(總耗時約 205 ms 不變),兩者 normal map 取樣相同,pool completed 1/failed 0,頁面無錯誤。只在 WebGL2 頁面量測;不代表其他瀏覽器、手機或效能認證;未 push。
+
+## 2026-10-24 程序材質:生成快取
+
+- 新增呼叫者擁有的 `ProceduralMapCache({ maxBytes?, maxEntries? })` 與 `ProceduralMaterialOptions.cache`:以 kind/size/seed/contrast/roughnessBias/tint 為 key 的有界 LRU(預設 64 MiB/32 筆,上限 1 GiB/4096 筆,常數在 `src/data/materials.ts`),合併同時發出的相同請求、失敗不快取、`clear()` 釋放。只保存 CPU maps,每個 preset 仍建立並擁有自己的貼圖。未傳 `cache` 時行為不變。
+- 新增測試:同參數第二次命中且像素相同、兩個 preset 的貼圖各自獨立 destroy、任一參數不同即 miss、同時請求只生成一次、依 bytes 與 entries 的 LRU 淘汰、`maxEntries 0` 不保留、無效選項 RangeError、非 cache 物件 TypeError、worker 失敗不寫入快取。在只含已提交原始碼的乾淨 worktree 執行 build、typecheck、lint、format:check、完整 Vitest(178 檔/5765 項)、check:api-compatibility、check:distribution 通過;dist 取自該 worktree,未包含工作樹中其他未提交的修改。
+- managed headless Chromium 載入 dist(靜態伺服器):size 1024 `cairotiles` 首次 323 ms、命中 9 ms、未用快取 336 ms;快取 16 MiB、hits 1/misses 1,destroy 第一個 preset 後第二個的貼圖仍有效,`clear()` 後為 0,頁面無錯誤。不代表其他瀏覽器、手機或效能認證;未 push。

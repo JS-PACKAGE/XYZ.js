@@ -3,7 +3,11 @@ var proceduralMaterialLimits = Object.freeze({
 	minSize: 32,
 	maxSize: 1024,
 	defaultSize: 256,
-	defaultSeed: 1
+	defaultSeed: 1,
+	cacheDefaultBytes: 67108864,
+	cacheMaxBytes: 1073741824,
+	cacheDefaultEntries: 32,
+	cacheMaxEntries: 4096
 });
 var proceduralMaterialPresets = Object.freeze({
 	wood: Object.freeze({

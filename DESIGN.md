@@ -471,6 +471,8 @@
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
 
+`ProceduralMapCache` 只保存 CPU 端的四個 `Uint8ClampedArray`，從不交給呼叫者；`create()` 每次仍以 `ImageData` 複製進新的貼圖，所以 destroy 一個 preset 不影響其他 preset 或快取。key 由 kind／size／seed／contrast／roughnessBias／tint 串成，Map 插入順序即 LRU 順序（命中時重新插入）；超過 bytes 或 entries 上限時從最舊的淘汰，單筆超過上限則不保留。進行中的生成以 pending promise 共用，失敗時移除且不寫入。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.22.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -496,6 +496,11 @@ export interface ProceduralMaterialOptions {
    * Output is byte-identical to synchronous generation; the pool is borrowed.
    */
   workerPool?: NativeWorkerPool;
+  /**
+   * Reuses generated CPU maps for identical kind/size/seed/contrast/
+   * roughnessBias/tint. Every preset still owns its own textures.
+   */
+  cache?: ProceduralMapCache;
 }
 
 /** Validated generation inputs sent to a trusted procedural worker. */
@@ -567,6 +572,126 @@ export function createProceduralWorkerPool(
         { type: 'module' },
       ),
   });
+}
+
+export interface ProceduralMapCacheOptions {
+  /** Retained map bytes (four RGBA maps per entry). Default 64 MiB. */
+  maxBytes?: number;
+  /** Retained entries. Default 32. */
+  maxEntries?: number;
+}
+
+/**
+ * Caller-owned, bounded least-recently-used cache of generated CPU maps.
+ * Concurrent identical requests share one generation; failures are not cached.
+ * Cached arrays are never handed out, only copied into new textures.
+ */
+export class ProceduralMapCache {
+  readonly maxBytes: number;
+  readonly maxEntries: number;
+  private readonly entries = new Map<string, ProceduralMaps>();
+  private readonly pending = new Map<string, Promise<ProceduralMaps>>();
+  private retained = 0;
+  private hitCount = 0;
+  private missCount = 0;
+
+  constructor(options: ProceduralMapCacheOptions = {}) {
+    const maxBytes =
+      options.maxBytes ?? proceduralMaterialLimits.cacheDefaultBytes;
+    const maxEntries =
+      options.maxEntries ?? proceduralMaterialLimits.cacheDefaultEntries;
+    if (
+      !Number.isSafeInteger(maxBytes) ||
+      maxBytes < 0 ||
+      maxBytes > proceduralMaterialLimits.cacheMaxBytes ||
+      !Number.isSafeInteger(maxEntries) ||
+      maxEntries < 0 ||
+      maxEntries > proceduralMaterialLimits.cacheMaxEntries
+    )
+      throw new RangeError(
+        'Procedural cache maxBytes must be an integer 0..1 GiB and maxEntries 0..4096.',
+      );
+    this.maxBytes = maxBytes;
+    this.maxEntries = maxEntries;
+  }
+
+  /** Number of retained entries. */
+  get size(): number {
+    return this.entries.size;
+  }
+
+  /** Bytes retained by cached maps. */
+  get bytes(): number {
+    return this.retained;
+  }
+
+  get hits(): number {
+    return this.hitCount;
+  }
+
+  get misses(): number {
+    return this.missCount;
+  }
+
+  /** Drops retained maps. Generations already in flight still complete and are then retained. */
+  clear(): void {
+    this.entries.clear();
+    this.retained = 0;
+  }
+
+  /** @internal Used by ProceduralMaterial.create with an already validated request. */
+  async acquire(
+    request: ProceduralMapsRequest,
+    generate: () => Promise<ProceduralMaps>,
+  ): Promise<ProceduralMaps> {
+    const key = [
+      request.kind,
+      request.size,
+      request.seed,
+      request.contrast,
+      request.roughnessBias,
+      request.tint?.join(',') ?? '',
+    ].join('|');
+    const cached = this.entries.get(key);
+    if (cached) {
+      this.hitCount++;
+      // Reinsert to mark as most recently used.
+      this.entries.delete(key);
+      this.entries.set(key, cached);
+      return cached;
+    }
+    const inFlight = this.pending.get(key);
+    if (inFlight) {
+      this.hitCount++;
+      return inFlight;
+    }
+    this.missCount++;
+    const promise = generate();
+    this.pending.set(key, promise);
+    try {
+      const maps = await promise;
+      this.store(key, maps);
+      return maps;
+    } finally {
+      this.pending.delete(key);
+    }
+  }
+
+  private store(key: string, maps: ProceduralMaps): void {
+    const bytes = maps.baseColor.byteLength * 4;
+    if (bytes > this.maxBytes || this.maxEntries === 0) return;
+    this.entries.set(key, maps);
+    this.retained += bytes;
+    for (const [oldest, old] of this.entries) {
+      if (
+        this.retained <= this.maxBytes &&
+        this.entries.size <= this.maxEntries
+      )
+        break;
+      this.entries.delete(oldest);
+      this.retained -= old.baseColor.byteLength * 4;
+    }
+  }
 }
 
 /** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
@@ -1133,29 +1258,36 @@ export class ProceduralMaterial {
     const pool = options.workerPool;
     if (pool !== undefined && !(pool instanceof NativeWorkerPool))
       throw new TypeError('Procedural workerPool must be a NativeWorkerPool.');
-    let maps: ProceduralMaps;
-    if (pool === undefined) {
-      maps = generateProceduralMaps(kind, size, seed, {
-        contrast,
-        roughnessBias,
-        tint,
-      });
-    } else {
-      const request: ProceduralMapsRequest = {
-        kind,
-        size,
-        seed,
-        contrast,
-        roughnessBias,
-        ...(tint === undefined ? {} : { tint: [tint[0], tint[1], tint[2]] }),
-      };
-      maps = (
+    const cache = options.cache;
+    if (cache !== undefined && !(cache instanceof ProceduralMapCache))
+      throw new TypeError('Procedural cache must be a ProceduralMapCache.');
+    const request: ProceduralMapsRequest = {
+      kind,
+      size,
+      seed,
+      contrast,
+      roughnessBias,
+      ...(tint === undefined ? {} : { tint: [tint[0], tint[1], tint[2]] }),
+    };
+    const generate = async (): Promise<ProceduralMaps> => {
+      if (pool === undefined)
+        return generateProceduralMaps(kind, size, seed, {
+          contrast,
+          roughnessBias,
+          tint,
+        });
+      const generated = (
         await pool.submit(proceduralMapsJob, request, { requestBytes: 0 })
           .promise
       ).value;
-      if (maps.baseColor.length !== size * size * 4)
+      if (generated.baseColor.length !== size * size * 4)
         throw new RangeError('Worker procedural maps do not match their size.');
-    }
+      return generated;
+    };
+    const maps =
+      cache === undefined
+        ? await generate()
+        : await cache.acquire(request, generate);
     const acquired: Texture[] = [];
     // Sequential acquisition keeps cleanup deterministic even when decoding a later map fails.
     try {

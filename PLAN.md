@@ -463,6 +463,8 @@
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
 
+追加呼叫者擁有的 `ProceduralMapCache`（`ProceduralMaterialOptions.cache`）：以完整生成參數為 key 的有界 LRU（預設 64 MiB／32 筆，上限 1 GiB／4096 筆，常數在 `src/data/materials.ts`），合併同時發出的相同請求、失敗不快取；只快取 CPU maps，貼圖 ownership 不變。逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

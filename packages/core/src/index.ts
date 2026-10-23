@@ -151,11 +151,13 @@ export {
   proceduralMapsJob,
   proceduralWorkerURL,
   createProceduralWorkerPool,
+  ProceduralMapCache,
 } from './procedural-material.js';
 export type {
   ProceduralMaterialKind,
   ProceduralMaterialOptions,
   ProceduralMapsRequest,
+  ProceduralMapCacheOptions,
 } from './procedural-material.js';
 export type { ProceduralMaps } from './procedural-material-maps.js';
 export { trustedProceduralMapsJob } from './procedural-material-worker-job.js';
