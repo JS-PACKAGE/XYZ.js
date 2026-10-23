@@ -417,6 +417,8 @@
 
 `hexnuts` 快取十六枚 seeded 六角螺帽各六條單位半平面法線，以 compact product 形成直外緣倒角及平滑角部交集，再乘圓形孔裙緣，避免把六角外輪廓誤作圓環。頂面使用低幅同心加工紋及細粒，所有孔底／外側露出同一低鋼板底面；加工紋不是螺旋牙 geometry。0.08 m tile、四圖 opaque、全 metallic 通道及 factory factor 1、既有 ownership 不變，目錄增為 434 種。
 
+`orbicularjasper` 快取二十五個 seeded 中心、倒平方半徑及三／四環數，以平方徑向場產生同心色帶，避免中心的徑向尖點；compact orbicle skirts 在 cell 邊界前歸零，保留獨立球紋與可見綠色基質。礦物環只影響 color／roughness，height 僅有獨立微粒，AO 維持 1，不將拋光包裹體誤作凸環或孔洞。0.12 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 435 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

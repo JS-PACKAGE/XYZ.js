@@ -459,7 +459,117 @@ const kinds: ProceduralMaterialKind[] = [
   'lotusroot',
   'cardboardedge',
   'hexnuts',
+  'orbicularjasper',
 ];
+
+describe('Polished orbicular jasper', () => {
+  const p = proceduralMaterialPresets.orbicularjasper;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('orbicularjasper', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps separate three- or four-ring orbicles flush with polished green matrix for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx =
+            p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x2d47);
+          const cy =
+            p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x3e59);
+          const radius =
+            p.radiusMin + p.radiusVariation * hash(col, row, seed ^ 0x4f6b);
+          const cycles = hash(col, row, seed ^ 0x5a7d) < 0.5 ? 3 : 4;
+          const sample = (q: number, angle: number) =>
+            at(
+              (col + cx + radius * Math.sqrt(q) * Math.cos(angle)) / p.cells,
+              (row + cy + radius * Math.sqrt(q) * Math.sin(angle)) / p.cells,
+            );
+          const matrix = at(col / p.cells, row / p.cells),
+            core = sample(0, 0);
+          expect(matrix.color - core.color).toBeGreaterThan(0.035);
+          for (let ray = 0; ray < 8; ray++)
+            for (let ring = 0; ring < cycles; ring++) {
+              const angle = (ray * Math.PI) / 4;
+              const pale = sample((ring + 0.5) / cycles, angle),
+                dark = sample(ring / cycles, angle);
+              expect(pale.color - dark.color).toBeGreaterThan(0.55);
+              expect(pale.color - matrix.color).toBeGreaterThan(0.45);
+              expect(pale.roughness - dark.roughness).toBeGreaterThan(0.035);
+              for (const point of [pale, dark]) {
+                expect(Math.abs(point.height - matrix.height)).toBeLessThan(
+                  0.00002,
+                );
+                expect(point.occlusion).toBe(1);
+                expect(point.metallic).toBe(0);
+              }
+            }
+        }
+    },
+  );
+  it('keeps radial centers, compact orbicle rims and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx =
+            p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x2d47);
+          const cy =
+            p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x3e59);
+          const radius =
+            p.radiusMin + p.radiusVariation * hash(col, row, seed ^ 0x4f6b);
+          points.push([(col + cx) / p.cells, (row + cy) / p.cells]);
+          for (const scale of [1, Math.sqrt(1 - p.shoulder)])
+            for (let ray = 0; ray < 8; ray++) {
+              const angle = (ray * Math.PI) / 4;
+              points.push([
+                (col + cx + radius * scale * Math.cos(angle)) / p.cells,
+                (row + cy + radius * scale * Math.sin(angle)) / p.cells,
+              ]);
+            }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Hexagonal metal nuts', () => {
   const p = proceduralMaterialPresets.hexnuts;

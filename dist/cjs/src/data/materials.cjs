@@ -6567,6 +6567,26 @@ var proceduralMaterialPresets = Object.freeze({
 		boreRadius: .19,
 		boreBevel: .035,
 		machining: 96
+	}),
+	orbicularjasper: Object.freeze({
+		dark: [
+			24,
+			68,
+			47
+		],
+		light: [
+			231,
+			225,
+			171
+		],
+		roughness: .22,
+		relief: .004,
+		cells: 5,
+		centerMin: .42,
+		centerVariation: .16,
+		radiusMin: .22,
+		radiusVariation: .17,
+		shoulder: .16
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7003,7 +7023,8 @@ var proceduralTileMeters = Object.freeze({
 	satinweave: .02,
 	lotusroot: .24,
 	cardboardedge: .024,
-	hexnuts: .08
+	hexnuts: .08,
+	orbicularjasper: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

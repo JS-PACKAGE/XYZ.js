@@ -3033,6 +3033,18 @@ export const proceduralMaterialPresets = Object.freeze({
     boreBevel: 0.035,
     machining: 96,
   }),
+  orbicularjasper: Object.freeze({
+    dark: [24, 68, 47] as const,
+    light: [231, 225, 171] as const,
+    roughness: 0.22,
+    relief: 0.004,
+    cells: 5,
+    centerMin: 0.42,
+    centerVariation: 0.16,
+    radiusMin: 0.22,
+    radiusVariation: 0.17,
+    shoulder: 0.16,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3471,4 +3483,5 @@ export const proceduralTileMeters = Object.freeze({
   lotusroot: 0.24,
   cardboardedge: 0.024,
   hexnuts: 0.08,
+  orbicularjasper: 0.12,
 });

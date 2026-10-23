@@ -440,7 +440,8 @@ export type ProceduralMaterialKind =
   | 'satinweave'
   | 'lotusroot'
   | 'cardboardedge'
-  | 'hexnuts';
+  | 'hexnuts'
+  | 'orbicularjasper';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -907,6 +908,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lotusroot',
   'cardboardedge',
   'hexnuts',
+  'orbicularjasper',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -3009,6 +3009,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         boreBevel: 0.035;
         machining: 96;
     }>;
+    orbicularjasper: Readonly<{
+        dark: readonly [24, 68, 47];
+        light: readonly [231, 225, 171];
+        roughness: 0.22;
+        relief: 0.004;
+        cells: 5;
+        centerMin: 0.42;
+        centerVariation: 0.16;
+        radiusMin: 0.22;
+        radiusVariation: 0.17;
+        shoulder: 0.16;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3446,4 +3458,5 @@ export declare const proceduralTileMeters: Readonly<{
     lotusroot: 0.24;
     cardboardedge: 0.024;
     hexnuts: 0.08;
+    orbicularjasper: 0.12;
 }>;

@@ -1258,6 +1258,43 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'orbicularjasper': {
+        const p = proceduralMaterialPresets.orbicularjasper;
+        const orbs = new Float64Array(p.cells * p.cells * 4);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4;
+            const radius =
+              p.radiusMin + p.radiusVariation * hash(col, row, seed ^ 0x4f6b);
+            orbs[i] =
+              p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x2d47);
+            orbs[i + 1] =
+              p.centerMin + p.centerVariation * hash(col, row, seed ^ 0x3e59);
+            orbs[i + 2] = 1 / (radius * radius);
+            orbs[i + 3] = hash(col, row, seed ^ 0x5a7d) < 0.5 ? 3 : 4;
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6b8f);
+        const matrixField = cachedNoise(8, 8, seed ^ 0x7ca1);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 4;
+          const x = fract(uCell) - orbs[i],
+            y = fract(vCell) - orbs[i + 1];
+          const q = (x * x + y * y) * orbs[i + 2];
+          const orb = smooth(clamp((1 - q) / p.shoulder));
+          const bands =
+            orb > 0 ? 0.5 - 0.5 * Math.cos(TAU * orbs[i + 3] * q) : 0;
+          const grain = grainField(u, v);
+          color =
+            (1 - orb) * (0.2 + 0.1 * matrixField(u, v)) +
+            orb * (0.12 + 0.75 * bands + 0.04 * grain);
+          // These are polished mineral inclusions, not raised rings or cavities.
+          height = 0.4 + 0.004 * grain;
+          roughness += 0.06 * orb * bands + 0.015 * grain;
+          occlusion = 1;
+        };
+      }
       case 'hexnuts': {
         const p = proceduralMaterialPresets.hexnuts;
         const planes = new Float64Array(p.cells * p.cells * 12);
@@ -13594,6 +13631,7 @@ export function createSurfaceSampler(
     kind === 'lotusroot' ||
     kind === 'cardboardedge' ||
     kind === 'hexnuts' ||
+    kind === 'orbicularjasper' ||
     fabricated ||
     botanical ||
     packaging ||
