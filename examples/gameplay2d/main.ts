@@ -531,8 +531,10 @@ try {
     await runtime.audio.unlock();
     if (released || version !== audioRequest) return;
     const scene = active();
+    const opm = runtime.audio.opmState === 'ready';
     scene.music!.stop();
-    scene.music!.play({ channel: 'music', scene });
+    // OPM may be unavailable on its own; native PCM still plays on the shared context.
+    if (opm) scene.music!.play({ channel: 'music', scene });
     pcm?.stop();
     const playback = await scene.sample!.play({
       channel: 'sfx',
@@ -547,7 +549,7 @@ try {
     pcm = playback;
     text(
       'audio-status',
-      `OPM music + native PCM: ${pcm.state}, decoded ${scene.sample!.decoded}, ${scene.sample!.duration}s; shared eight-context adapter`,
+      `${opm ? 'OPM music' : 'OPM unavailable'} + native PCM: ${pcm.state}, decoded ${scene.sample!.decoded}, ${scene.sample!.duration}s; one shared AudioContext`,
     );
   });
   bind('pcm-pause', () => {

@@ -102,8 +102,8 @@ async function playable(page, template, output, phase, resources) {
   );
   const silent = await page.evaluate(() => window.__xyzSiteSmoke.audioSafety);
   check(
-    silent.nativeContexts === 8 &&
-      silent.zeroGainDestinations === 8 &&
+    silent.nativeContexts === 1 &&
+      silent.zeroGainDestinations === 1 &&
       silent.gains.every((gain) => gain === 0),
     `Native audio destination was not verified physically silent: ${JSON.stringify(silent)}`,
   );
@@ -112,9 +112,10 @@ async function playable(page, template, output, phase, resources) {
     './engine/vendor/opm/dist/worklet/processor.js',
     page.url(),
   ).href;
+  // Eight OPM slots each register the official processor on the one engine-owned context.
   check(
     nativeAudio.modules.length === 8 &&
-      new Set(nativeAudio.modules.map((entry) => entry.context)).size === 8 &&
+      new Set(nativeAudio.modules.map((entry) => entry.context)).size === 1 &&
       nativeAudio.modules.every(
         (entry) => entry.status === 'loaded' && entry.url === processorURL,
       ) &&
@@ -124,9 +125,9 @@ async function playable(page, template, output, phase, resources) {
           node.name === 'opm-processor' &&
           nativeAudio.modules.some((entry) => entry.context === node.context),
       ) &&
-      new Set(nativeAudio.nodes.map((node) => node.context)).size === 8 &&
+      new Set(nativeAudio.nodes.map((node) => node.context)).size === 1 &&
       !nativeAudio.errors.length,
-    `${phase}: all eight native OPM modules/processors did not initialize`,
+    `${phase}: eight native OPM processors did not initialize on one shared context`,
   );
   const modules = await page.evaluate(async (entries) => {
     const responses = [];
@@ -170,8 +171,8 @@ async function playable(page, template, output, phase, resources) {
     () => window.__xyzSiteSmoke.audioSafety,
   );
   check(
-    playingAudio.nativeContexts === 8 &&
-      playingAudio.zeroGainDestinations === 8 &&
+    playingAudio.nativeContexts === 1 &&
+      playingAudio.zeroGainDestinations === 1 &&
       playingAudio.gains.every((gain) => gain === 0),
     `${phase}: running native audio lost its zero-gain destinations`,
   );

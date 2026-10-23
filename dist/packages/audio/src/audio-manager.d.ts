@@ -10,6 +10,8 @@ import type { Object3D } from '../../core/src/object3d.js';
 import { AudioTransformBinding, type SpatialAudioPlayback } from './bindings.js';
 import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
+/** OPM synthesizer readiness, independent of sample and stream audio. */
+export type OPMState = 'locked' | 'starting' | 'ready' | 'failed';
 export interface AudioNote {
     readonly note: number;
     readonly time: number;
@@ -69,7 +71,10 @@ export declare class AudioPlayback {
     /** @internal */
     finish(state: 'stopped' | 'ended'): void;
 }
-/** Schedules a bounded lookahead; each slot owns an independent OPM voice. */
+/**
+ * Owns the single AudioContext shared by OPM, samples and streams, and schedules a bounded
+ * OPM lookahead in which each slot owns an independent OPM voice.
+ */
 export declare class AudioManager {
     private readonly getScene;
     private readonly onError;
@@ -91,10 +96,19 @@ export declare class AudioManager {
     private readonly pauseReasons;
     private pausedAt;
     private pausedTotal;
+    private context;
+    private ready;
+    private unlocking;
+    private opmStarting;
+    private opmFailure;
     constructor(getScene: () => Scene | undefined, onError: (error: Error) => void);
     /** Manager-wide 3D listener used by playbacks created with `spatial` options. */
     get listener(): AudioListenerState;
+    /** The shared AudioContext is running (or paused by policy); OPM may still be unavailable. */
     get unlocked(): boolean;
+    get opmState(): OPMState;
+    /** Why OPM did not start on the last unlock; cleared once a later unlock succeeds. */
+    get opmError(): Error | undefined;
     /** True while at least one pause reason is active (see {@link pause}). */
     get paused(): boolean;
     /** Clock used by channel gain automation; frozen while the native contexts are paused. */
@@ -121,7 +135,19 @@ export declare class AudioManager {
     /** Audio-timeline seconds: wall time minus every paused interval. */
     private clock;
     get opm(): OPMAdapter['opm'];
+    /**
+     * Creates and resumes the shared AudioContext in the caller's turn, then starts OPM on it.
+     * An OPM failure (insecure origin, missing vendor files, blocked worklet) does not reject:
+     * it is reported through the error callback and {@link opmError}, while samples and
+     * streams stay usable. Calling unlock again retries OPM.
+     */
     unlock(): Promise<void>;
+    private open;
+    private startOPM;
+    private assertAlive;
+    private dropContext;
+    /** Native calls happen in the caller's turn, including a trusted resume gesture. */
+    private setContextPaused;
     /** Subscriber cancellation does not abort another caller's loader-owned cache request. */
     load(url: string, options?: {
         signal?: AbortSignal;

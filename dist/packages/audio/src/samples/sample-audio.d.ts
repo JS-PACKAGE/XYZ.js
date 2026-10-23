@@ -47,7 +47,7 @@ export declare class SampleAudioAsset {
     /** @internal */
     dispose(): void;
 }
-/** Owns sampled buses and sources on the first OPM context, independent of the eight OPM slots. */
+/** Owns sampled buses and sources on the manager's shared context, independent of OPM slots. */
 export declare class SampleAudioEngine {
     private readonly host;
     private readonly lifetime;

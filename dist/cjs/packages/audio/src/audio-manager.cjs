@@ -125,13 +125,17 @@ var AudioManager = class {
 	pauseReasons = /* @__PURE__ */ new Set();
 	pausedAt;
 	pausedTotal = 0;
+	context;
+	ready = !1;
+	unlocking;
+	opmStarting = !1;
+	opmFailure;
 	constructor(e, t) {
-		this.getScene = e, this.onError = t, this.adapter = new require_opm_adapter.OPMAdapter((e, t) => this.mixer.input(e, t)), this.samples = new require_sample_audio.SampleAudioEngine({
-			context: () => this.adapter.sampleContext,
+		this.getScene = e, this.onError = t, this.adapter = new require_opm_adapter.OPMAdapter((e, t) => this.mixer.input(e, t)), this.adapter.lendContext(() => this.context), this.samples = new require_sample_audio.SampleAudioEngine({
+			context: () => this.unlocked ? this.context : void 0,
 			scene: this.getScene,
 			bus: (e, t) => this.mixer.input(e, t),
 			activity: (e, t) => this.mixer.acquire(e, t),
-			contexts: () => this.adapter.contexts,
 			report: (e) => this.report(e)
 		});
 	}
@@ -139,7 +143,13 @@ var AudioManager = class {
 		return this.samples.listener;
 	}
 	get unlocked() {
-		return this.adapter.unlocked;
+		return this.ready && !this.disposed;
+	}
+	get opmState() {
+		return this.adapter.unlocked ? `ready` : this.opmStarting ? `starting` : this.opmFailure ? `failed` : `locked`;
+	}
+	get opmError() {
+		return this.opmFailure;
 	}
 	get paused() {
 		return this.pauseReasons.size > 0;
@@ -186,11 +196,11 @@ var AudioManager = class {
 				}
 				this.slots[e]?.activity.release(), this.slots[e] = void 0;
 			}
-			this.samples.suspend(), this.adapter.setPaused(!0).catch((e) => this.report(e));
+			this.samples.suspend(), this.setContextPaused(!0);
 		}
 	}
 	resume(e = `user`) {
-		!this.disposed && this.pauseReasons.delete(e) && (this.pauseReasons.size > 0 || this.pausedAt === void 0 || (this.pausedTotal += this.adapter.now - this.pausedAt, this.pausedAt = void 0, this.samples.resume(), this.adapter.setPaused(!1).catch((e) => this.report(e)), this.tick()));
+		!this.disposed && this.pauseReasons.delete(e) && (this.pauseReasons.size > 0 || this.pausedAt === void 0 || (this.pausedTotal += this.adapter.now - this.pausedAt, this.pausedAt = void 0, this.samples.resume(), this.setContextPaused(!1), this.tick()));
 	}
 	clock() {
 		return (this.pausedAt ?? this.adapter.now) - this.pausedTotal;
@@ -198,14 +208,41 @@ var AudioManager = class {
 	get opm() {
 		return this.adapter.opm;
 	}
-	async unlock() {
-		if (this.disposed) throw new require_errors.AudioError(`AudioManager has been destroyed.`);
+	unlock() {
+		return this.disposed ? Promise.reject(new require_errors.AudioError(`AudioManager has been destroyed.`)) : this.ready && this.adapter.unlocked && this.context?.state !== `closed` ? Promise.resolve() : this.unlocking ??= this.open().finally(() => {
+			this.unlocking = void 0;
+		});
+	}
+	async open() {
 		try {
-			if (await this.adapter.unlock(), this.disposed) throw new require_errors.AudioError(`AudioManager has been destroyed.`);
-			this.listener.apply(), this.paused && await this.adapter.setPaused(!0);
+			let e = this.context;
+			e?.state === `closed` && this.dropContext(), e = this.context, e || (e = new AudioContext(), this.context = e, this.mixer.attach(e)), await e.resume(), this.assertAlive(), this.adapter.unlocked || await this.startOPM(), this.assertAlive(), this.paused && await e.suspend(), this.assertAlive(), this.ready = !0, this.listener.apply();
 		} catch (e) {
-			throw this.adapter.unlocked || this.mixer.clearContexts(), e instanceof require_errors.AudioError ? e : new require_errors.AudioError(`Unable to unlock audio.`, { cause: e });
+			throw this.disposed ? new require_errors.AudioError(`AudioManager has been destroyed.`) : (this.dropContext(), e instanceof require_errors.AudioError ? e : new require_errors.AudioError(`Unable to unlock audio.`, { cause: e }));
 		}
+	}
+	async startOPM() {
+		this.opmStarting = !0;
+		try {
+			await this.adapter.unlock(), this.opmFailure = void 0;
+		} catch (e) {
+			if (this.disposed) return;
+			this.opmFailure = new require_errors.AudioError(`OPM synthesizer is unavailable.`, { cause: e }), this.report(this.opmFailure);
+		} finally {
+			this.opmStarting = !1;
+		}
+	}
+	assertAlive() {
+		if (this.disposed) throw new require_errors.AudioError(`AudioManager has been destroyed.`);
+	}
+	dropContext() {
+		this.ready = !1, this.adapter.release(), this.mixer.clearContexts();
+		let e = this.context;
+		this.context = void 0, e && e.state !== `closed` && e.close().catch(() => {});
+	}
+	setContextPaused(e) {
+		let t = this.context;
+		t && t.state !== `closed` && (e ? t.suspend() : t.resume()).catch((e) => this.report(e));
 	}
 	load(e, n = {}) {
 		if (n.signal?.aborted) return Promise.reject(n.signal.reason);
@@ -261,7 +298,7 @@ var AudioManager = class {
 	play(e, n = {}) {
 		if (this.disposed) throw new require_errors.AudioError(`AudioManager has been destroyed.`);
 		if (!e.belongsTo(this)) throw new require_errors.AudioError(`Audio asset belongs to another manager.`);
-		if (!this.unlocked) throw new require_errors.AudioError(`Audio must be unlocked from a user gesture before playback.`);
+		if (!this.adapter.unlocked) throw this.opmFailure ? new require_errors.AudioError(`OPM synthesizer is unavailable; only sample and stream audio can play.`, { cause: this.opmFailure }) : new require_errors.AudioError(`Audio must be unlocked from a user gesture before playback.`);
 		let r = n.channel ?? e.channel;
 		if (r !== `music` && r !== `sfx` && r !== `ui`) throw new require_errors.AudioError(`Unknown audio channel.`);
 		let i = n.scene ?? this.getScene();
@@ -315,15 +352,16 @@ var AudioManager = class {
 		this.stopIdleTimer();
 	}
 	destroy() {
-		if (!this.disposed) {
-			this.disposed = !0, clearInterval(this.timer), this.timer = void 0;
-			for (let e of this.bindings) e.unbind();
-			this.bindings.clear(), this.listenerBinding = void 0, this.samples.destroy();
-			for (let e of this.cache.values()) e.controller.abort();
-			this.cache.clear();
-			for (let e of this.playbacks.keys()) e.finish(`stopped`);
-			this.playbacks.clear(), this.slots.fill(void 0), this.adapter.destroy(), this.mixer.destroy();
-		}
+		if (this.disposed) return;
+		this.disposed = !0, clearInterval(this.timer), this.timer = void 0;
+		for (let e of this.bindings) e.unbind();
+		this.bindings.clear(), this.listenerBinding = void 0, this.samples.destroy();
+		for (let e of this.cache.values()) e.controller.abort();
+		this.cache.clear();
+		for (let e of this.playbacks.keys()) e.finish(`stopped`);
+		this.playbacks.clear(), this.slots.fill(void 0), this.adapter.destroy(), this.mixer.destroy(), this.ready = !1;
+		let e = this.context;
+		this.context = void 0, e && e.state !== `closed` && e.close().catch(() => {});
 	}
 	async fetchAudio(e, a) {
 		try {

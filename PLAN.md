@@ -493,7 +493,7 @@
 - Renderer 隔離 backend；WebGPU 使用 WGSL，WebGL2 使用 GLSL。P06 完成初始化失敗的三級 fallback，強制 backend 不切換；目前預設 `recoverGraphics:true` 對 runtime loss 重建同 backend，renderer-owned handles 失效、復原失敗或明確關閉 recovery 才走 fatal。
 - 遊戲邏輯以 `graphics.capabilities` 判斷功能；WebGL2 使用 GLSL ES，Canvas2D 只支援 2D 並回報 `threeD === false`。Capabilities 描述 backend 能力，不代表已有公開 custom shader／compute API。
 - Scene 為 world/lifecycle 容器，不是 Entity；公開 Sprite 等物件 facade，ECS 為內核。Asset cache 與 backend GPU resource 分離；同 Scene 的 3D 先作 depth-test，再以 z-order 疊加 2D。
-- Audio 使用未修改的官方 OPM.js v1.13.0（tag `v1.13.0`）DSP／worklet；voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數，但 XYZ.js 仍以八個隔離 OPM instances 管理八個 slot（含 release），只搶最舊 SFX，不切斷 BGM；每個 worklet 的 256-event queue 以 bounded lookahead 控制。手勢 unlock 前不建立 AudioContext，代價是 unlock 後共八個 contexts／worklets。此 vendor 升級不新增引擎功能或擴大認證範圍。
+- Audio 使用未修改的官方 OPM.js v1.13.0（tag `v1.13.0`）DSP／worklet；voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數，但 XYZ.js 仍以八個隔離 OPM instances 管理八個 slot（含 release），只搶最舊 SFX，不切斷 BGM；每個 worklet 的 256-event queue 以 bounded lookahead 控制。手勢 unlock 前不建立 AudioContext；P137 起 AudioManager 擁有單一 AudioContext，八個 OPM instances 以官方 `context` 選項借用（同一 context 上八個 worklets），取樣／串流共用同一 clock；OPM 單獨啟動失敗不阻擋 unlock，以 `opmState`／`opmError` 與 error event 回報。此 vendor 升級不新增引擎功能或擴大認證範圍。
 - 可調值集中 `src/data/`；ESM 相對匯入附 `.js`，輸出 `.d.ts`，使 npm 與無 bundler 的 vendor 複製兩種發佈路徑皆可使用。
 
 ## 驗收硬指標
@@ -972,3 +972,17 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   不做計時播放；既有 VideoTexture／decoder 擁有權契約不變。
 - 實作不代表驗收；實際驗證證據記 ACCEPTANCE／CURRENT。本文不新增通過宣告、版本或
   發佈授權，commit／push 需另經使用者授權。
+
+## 使用者直接指定：P137 音訊架構解耦（2026-10-24）
+
+使用者要求讓音訊架構更解耦，並選定以下兩項設計：
+
+- **單一 context**：`AudioManager` 擁有唯一 AudioContext；八個 OPM instance 以官方
+  `context` 選項借用，sample／stream／effects／listener 共用。八個 slot、只搶最舊 SFX
+  與 vendor bytes 不變；`audioContextCount` 由 8 變 1。
+- **部分成功 unlock**：OPM 無法啟動（非安全來源、vendor 缺漏、worklet 被擋）時
+  `unlock()` 仍 resolve，以 Game `error`、`opmState`／`opmError` 回報；sample／stream
+  照常可用，再次 unlock 重試 OPM。無法建立或 resume context 時仍 reject。
+- 1.x additive：既有公開宣告保持 API 相容 gate 的 identity，不移除 export。
+- 從外部 CDN 載入 OPM 的選項另行討論，不在本階段範圍。驗證證據記於 ACCEPTANCE；
+  依 AGENTS 規範建立 `[P137]` commit，不 push。

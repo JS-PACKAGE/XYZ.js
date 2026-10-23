@@ -71,8 +71,13 @@ var OPMAdapter = class {
 	destroyed = !1;
 	frozen = !1;
 	contextList = [];
+	owned;
+	lent;
 	constructor(e) {
 		this.output = e;
+	}
+	lendContext(e) {
+		this.lent = e;
 	}
 	get contexts() {
 		return this.contextList;
@@ -98,7 +103,7 @@ var OPMAdapter = class {
 		return e.legacy ??= legacyOPM(e.opm);
 	}
 	get sampleContext() {
-		return this.unlocked ? this.slots[0].opm.context ?? void 0 : void 0;
+		return this.contextList[0];
 	}
 	unlock() {
 		return this.destroyed ? Promise.reject(new require_errors.AudioError(`Audio adapter has been destroyed`)) : this.unlocked ? Promise.resolve() : (this.unlocking ||= this.initialize().finally(() => {
@@ -108,33 +113,38 @@ var OPMAdapter = class {
 	async initialize() {
 		let n = await loadOPM();
 		if (this.destroyed) throw new require_errors.AudioError(`Audio adapter has been destroyed`);
-		let r = Array.from({ length: require_audio.audioDefaults.voiceCount }, () => ({ opm: new n() }));
+		let r = [];
 		this.pendingSlots = r;
-		let i = !1;
+		let i, a = !1;
 		try {
+			let o = this.lent?.();
+			if (this.lent && (!o || o.state === `closed`)) throw new require_errors.AudioError(`The lent AudioContext is unavailable.`);
+			o ||= (i = new AudioContext(), this.owned = i, i);
+			let s = o;
+			for (let t = 0; t < require_audio.audioDefaults.voiceCount; t++) r.push({ opm: new n({
+				context: s,
+				destination: null
+			}) });
 			if (await Promise.all(r.map(async (e) => {
 				try {
-					if (await e.opm.start(), i || this.destroyed) {
+					if (await e.opm.start(), a || this.destroyed) {
 						this.dispose(e);
 						return;
 					}
-					let t = e.opm.context, n = e.opm.node, r = t.createGain();
-					e.gain = r, n.disconnect(), n.connect(r), r.connect(t.destination);
+					let t = s.createGain();
+					e.gain = t, e.opm.node.connect(t);
 				} catch (e) {
-					i = !0;
+					a = !0;
 					for (let e of r) this.dispose(e);
 					throw e;
 				}
 			})), this.destroyed) throw new require_errors.AudioError(`Audio adapter has been destroyed`);
-			for (let e of r) {
-				let t = e.opm.context;
-				e.gain.disconnect(), e.gain.connect(this.output?.(t, `sfx`) ?? t.destination);
-			}
-			if (this.slots = r, this.contextList = Object.freeze(r.map((e) => e.opm.context)), await this.setPaused(this.frozen), this.destroyed) throw new require_errors.AudioError(`Audio adapter has been destroyed`);
+			for (let e of r) e.gain.connect(this.output?.(s, `sfx`) ?? s.destination);
+			if (this.slots = r, this.contextList = Object.freeze([s]), i && await this.setPaused(this.frozen), this.destroyed) throw new require_errors.AudioError(`Audio adapter has been destroyed`);
 		} catch (e) {
-			i = !0;
+			a = !0, this.release();
 			for (let e of r) this.dispose(e);
-			throw this.slots = [], this.contextList = [], e;
+			throw e;
 		} finally {
 			this.pendingSlots = void 0;
 		}
@@ -169,12 +179,17 @@ var OPMAdapter = class {
 	setGain(e, t) {
 		this.getSlot(e).gain.gain.value = t;
 	}
+	release() {
+		for (let e of this.slots) this.dispose(e);
+		this.slots = [], this.contextList = [];
+		let e = this.owned;
+		this.owned = void 0, e && e.state !== `closed` && e.close().catch(() => {});
+	}
 	destroy() {
 		if (!this.destroyed) {
 			this.destroyed = !0;
-			for (let e of this.slots) this.dispose(e);
 			for (let e of this.pendingSlots ?? []) this.dispose(e);
-			this.slots = [], this.contextList = [], this.pendingSlots = void 0;
+			this.pendingSlots = void 0, this.release();
 		}
 	}
 	getSlot(e) {

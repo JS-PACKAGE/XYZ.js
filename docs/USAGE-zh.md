@@ -320,7 +320,9 @@ button.addEventListener('click', async () => {
 
 首次播放必須在使用者手勢中 unlock。master／music／sfx／ui volume 為 0–1。音訊預設跟隨目前 Scene，切換時停止非 persistent 音訊；`sound.play({ persistent:true })` 可跨 Scene。`sound.stop()` 停止此資產；play 回傳值的 `.stop()` 只停止該次播放。Game.pause 不會停止音訊。
 
-八聲部預算包含 release；溢位只搶最舊 SFX，不切斷 BGM。沒有可搶的 SFX 時略過新音符。八個獨立 contexts/worklets 有資源成本，不要隨意繞過 `game.audio` 操作底層 OPM。
+八聲部預算包含 release；溢位只搶最舊 SFX，不切斷 BGM。沒有可搶的 SFX 時略過新音符。八個 OPM slot 共用 manager 的單一 AudioContext；不要隨意繞過 `game.audio` 操作底層 OPM。
+
+OPM 需要 AudioWorklet（HTTPS 或 localhost）。無法啟動時 `unlock()` 仍會 resolve，讓 sample 與 stream 可以播放；播放 OPM asset 前先確認 `game.audio.opmState === 'ready'`，原因見 `game.audio.opmError`。再次呼叫 `unlock()` 會重試 OPM。
 
 ## 8. 資產安全與清理
 
@@ -1748,7 +1750,7 @@ P55 的 `new RigidBody3D({ continuous: true })` 原先只對 static targets 做 
   上述 Physics2D 排除屬 P58–P70 歷史；P76 已加入 bounded relative dynamic／rotational CCD（第39節）。
 - **Navigation：**`NavigationGridBakeJob2D` 採樣 collision occupancy；`NavigationSurfaceBakeJob3D` 現保留有界多個 support 與 swept capsule edge clearance。Bake／rebake 原子 publish、依 revision invalidation；P78 把歷史 topmost-only 擴充為有限多層 lattice，非 polygon navmesh。
 - **Text：**Native 2D text／input 支援 bidi visual order、grapheme-safe caret／selection／fallback-font runs。Trusted browser editing 不等於 OS IME 認證。Text3D 仍 native fillText，不使用新的 2D run／caret renderer。
-- **Audio：**Channel／master native biquad／compressor／prepared convolution effects 處理 sample／stream／OPM；activity ducking、absolute manager-clock automation／cancel-and-hold、listener／emitter world bindings 共用既有八 contexts。Pause 用 explicit audio reasons，不假設 `Game.pause()` 停聲。Bindings 借用 objects／playbacks，owner teardown 前 unbind。
+- **Audio：**Channel／master native biquad／compressor／prepared convolution effects 處理 sample／stream／OPM；activity ducking、absolute manager-clock automation／cancel-and-hold、listener／emitter world bindings 使用 manager 的單一共用 context（P137 起；之前為八 contexts）。Pause 用 explicit audio reasons，不假設 `Game.pause()` 停聲。Bindings 借用 objects／playbacks，owner teardown 前 unbind。
 
 ### 共用 navigation quota 範例
 

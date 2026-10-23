@@ -40,6 +40,7 @@ const controls = [
   'sfx-volume',
   'music-volume',
 ].map((id) => $<HTMLInputElement | HTMLButtonElement>(id));
+const opmControls = ['sfx', 'music', 'stop-music', 'loop'];
 
 backend.value = new URLSearchParams(location.search).get('renderer') ?? 'auto';
 backend.addEventListener('change', () => {
@@ -171,7 +172,14 @@ try {
     try {
       await runtime.audio.unlock();
       enable.disabled = true;
-      for (const control of controls) control.disabled = false;
+      // OPM can fail alone (insecure origin, blocked worklet); samples and streams still play.
+      const opm = runtime.audio.opmState === 'ready';
+      for (const control of controls)
+        control.disabled = !opm && opmControls.includes(control.id);
+      if (!opm) {
+        const cause = runtime.audio.opmError?.cause;
+        status.textContent = `OPM unavailable; PCM and streams still play. ${cause instanceof Error ? cause.message : ''}`;
+      }
     } catch (error) {
       status.textContent =
         error instanceof Error ? error.message : String(error);
@@ -274,7 +282,7 @@ try {
     const pcm = scene.pcmPlayback;
     audioState.textContent = [
       runtime.audio.unlocked
-        ? 'Audio unlocked'
+        ? `Audio unlocked · OPM ${runtime.audio.opmState}`
         : 'Audio locked (click Enable audio)',
       `OPM SFX handles playing: ${scene.playingSfx}`,
       `OPM music: ${scene.musicPlayback?.state ?? 'idle'}`,

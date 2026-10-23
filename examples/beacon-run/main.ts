@@ -909,7 +909,7 @@ class BeaconScene extends Scene {
     if (
       preferences.muted ||
       !this.music ||
-      !this.runtime.audio.unlocked ||
+      this.runtime.audio.opmState !== 'ready' ||
       this.musicPlayback?.state === 'playing'
     )
       return;
@@ -1070,7 +1070,12 @@ class BeaconScene extends Scene {
     resetInput();
   }
   effect(): void {
-    if (preferences.muted || !this.runtime.audio.unlocked || !this.sfx) return;
+    if (
+      preferences.muted ||
+      this.runtime.audio.opmState !== 'ready' ||
+      !this.sfx
+    )
+      return;
     for (const playback of this.playbacks)
       if (playback.state !== 'playing') this.playbacks.delete(playback);
     this.playbacks.add(this.sfx.play({ channel: 'sfx', scene: this }));

@@ -195,7 +195,7 @@ export class SampleAudioAsset {
   }
 }
 
-/** Owns sampled buses and sources on the first OPM context, independent of the eight OPM slots. */
+/** Owns sampled buses and sources on the manager's shared context, independent of OPM slots. */
 export class SampleAudioEngine {
   private readonly lifetime = new AbortController();
   private readonly cache = new Map<string, CachedSample>();

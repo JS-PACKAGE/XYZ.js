@@ -167,7 +167,7 @@ try {
         identity,
         concurrency,
         workload:
-          'Eight official contexts per page; parallel samples/streams/OPM; context-local native effects; exact requested-time independent target reference; owned teardown. No retries, no autoplay bypass flags.',
+          'One shared official context per page (eight OPM slots); parallel samples/streams/OPM; native effects; exact requested-time independent target reference; owned teardown. No retries, no autoplay bypass flags.',
         startupError,
         results,
       },

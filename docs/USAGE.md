@@ -322,7 +322,9 @@ button.addEventListener('click', async () => {
 
 First playback requires unlock from a user gesture. Master/music/sfx/ui volume ranges from 0 to 1. Audio belongs to the current Scene by default; switching stops nonpersistent playback. `sound.play({ persistent:true })` survives Scene changes. `sound.stop()` stops the asset; calling `.stop()` on a playback handle stops only that playback. Game.pause does not stop audio.
 
-The eight-voice budget includes release tails. Overflow steals only the oldest SFX, not BGM. When no SFX can be stolen, the new note is skipped. Eight independent contexts/worklets have a resource cost; avoid bypassing `game.audio` to manipulate underlying OPM instances casually.
+The eight-voice budget includes release tails. Overflow steals only the oldest SFX, not BGM. When no SFX can be stolen, the new note is skipped. The eight OPM slots share the manager's single AudioContext; avoid bypassing `game.audio` to manipulate underlying OPM instances casually.
+
+OPM needs AudioWorklet (HTTPS or localhost). If it cannot start, `unlock()` still resolves so samples and streams play; check `game.audio.opmState === 'ready'` before playing OPM assets and read `game.audio.opmError` for the cause. Calling `unlock()` again retries OPM.
 
 ## 8. Asset Safety and Cleanup
 
@@ -1762,7 +1764,7 @@ These additions are included in **v1.10 / 1.10.0 / Apache-2.0**, not changes to 
   That Physics2D exclusion is historical P58–P70 scope; P76 now adds bounded relative dynamic/rotational CCD (section 39).
 - **Navigation:** `NavigationGridBakeJob2D` samples collision occupancy; `NavigationSurfaceBakeJob3D` now retains bounded multiple supports and swept capsule edge clearance. Bake/rebake publication is atomic and revision-sensitive. P78 expands the historical topmost-only profile to a finite multisurface lattice, not polygon navmesh generation.
 - **Text:** native 2D text/input supports bidi visual order, grapheme-safe caret/selection and fallback font runs. Trusted browser editing evidence is not OS IME certification. Text3D still uses native fillText, not the new 2D run/caret renderer.
-- **Audio:** channel/master native biquad, compressor and prepared convolution effects apply to sample/stream/OPM sources; activity-driven ducking, absolute manager-clock automation/cancel-and-hold, and listener/emitter world bindings use the existing eight contexts. Pause uses explicit audio reasons, not implicit `Game.pause()`. Bindings borrow objects/playbacks; unbind before owner teardown.
+- **Audio:** channel/master native biquad, compressor and prepared convolution effects apply to sample/stream/OPM sources; activity-driven ducking, absolute manager-clock automation/cancel-and-hold, and listener/emitter world bindings use the manager's single shared context (since P137; previously eight contexts). Pause uses explicit audio reasons, not implicit `Game.pause()`. Bindings borrow objects/playbacks; unbind before owner teardown.
 
 ### Aggregate navigation example
 

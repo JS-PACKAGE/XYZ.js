@@ -167,10 +167,10 @@ async function unlock(page, row) {
   );
   const evidence = await audio(page);
   check(
-    evidence.nativeContexts === 8 &&
-      evidence.zeroGainDestinations === 8 &&
+    evidence.nativeContexts === 1 &&
+      evidence.zeroGainDestinations === 1 &&
       evidence.gains.every((gain) => gain === 0),
-    'Unlock must initialize eight real, silent native audio destinations',
+    'Unlock must initialize one real, silent shared native audio destination',
   );
   row.unlocks.push(evidence);
 }

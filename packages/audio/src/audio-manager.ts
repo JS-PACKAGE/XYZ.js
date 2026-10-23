@@ -32,6 +32,8 @@ import {
 import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
+/** OPM synthesizer readiness, independent of sample and stream audio. */
+export type OPMState = 'locked' | 'starting' | 'ready' | 'failed';
 export interface AudioNote {
   readonly note: number;
   readonly time: number;
@@ -203,7 +205,10 @@ const LOOKAHEAD = audioDefaults.lookahead;
 const TICK_MS = audioDefaults.tickMs;
 const CHANNEL_ORDER = ['music', 'ui', 'sfx'] as const;
 
-/** Schedules a bounded lookahead; each slot owns an independent OPM voice. */
+/**
+ * Owns the single AudioContext shared by OPM, samples and streams, and schedules a bounded
+ * OPM lookahead in which each slot owns an independent OPM voice.
+ */
 export class AudioManager {
   private readonly mixer = new AudioMixer();
   readonly master = new AudioChannel(
@@ -241,6 +246,11 @@ export class AudioManager {
   private readonly pauseReasons = new Set<string>();
   private pausedAt: number | undefined;
   private pausedTotal = 0;
+  private context: AudioContext | undefined;
+  private ready = false;
+  private unlocking: Promise<void> | undefined;
+  private opmStarting = false;
+  private opmFailure: Error | undefined;
 
   constructor(
     private readonly getScene: () => Scene | undefined,
@@ -249,12 +259,12 @@ export class AudioManager {
     this.adapter = new OPMAdapter((context, channel) =>
       this.mixer.input(context, channel),
     );
+    this.adapter.lendContext(() => this.context);
     this.samples = new SampleAudioEngine({
-      context: () => this.adapter.sampleContext,
+      context: () => (this.unlocked ? this.context : undefined),
       scene: this.getScene,
       bus: (context, channel) => this.mixer.input(context, channel),
       activity: (channel, delay) => this.mixer.acquire(channel, delay),
-      contexts: () => this.adapter.contexts,
       report: (error) => this.report(error),
     });
   }
@@ -264,8 +274,20 @@ export class AudioManager {
     return this.samples.listener;
   }
 
+  /** The shared AudioContext is running (or paused by policy); OPM may still be unavailable. */
   get unlocked(): boolean {
-    return this.adapter.unlocked;
+    return this.ready && !this.disposed;
+  }
+
+  get opmState(): OPMState {
+    if (this.adapter.unlocked) return 'ready';
+    if (this.opmStarting) return 'starting';
+    return this.opmFailure ? 'failed' : 'locked';
+  }
+
+  /** Why OPM did not start on the last unlock; cleared once a later unlock succeeds. */
+  get opmError(): Error | undefined {
+    return this.opmFailure;
   }
 
   /** True while at least one pause reason is active (see {@link pause}). */
@@ -351,9 +373,7 @@ export class AudioManager {
       this.slots[slot] = undefined;
     }
     this.samples.suspend();
-    void this.adapter
-      .setPaused(true)
-      .catch((error: unknown) => this.report(error));
+    this.setContextPaused(true);
   }
 
   resume(reason = 'user'): void {
@@ -362,9 +382,7 @@ export class AudioManager {
     this.pausedTotal += this.adapter.now - this.pausedAt;
     this.pausedAt = undefined;
     this.samples.resume();
-    void this.adapter
-      .setPaused(false)
-      .catch((error: unknown) => this.report(error));
+    this.setContextPaused(false);
     this.tick();
   }
 
@@ -377,19 +395,87 @@ export class AudioManager {
     return this.adapter.opm;
   }
 
-  async unlock(): Promise<void> {
-    if (this.disposed) throw new AudioError('AudioManager has been destroyed.');
+  /**
+   * Creates and resumes the shared AudioContext in the caller's turn, then starts OPM on it.
+   * An OPM failure (insecure origin, missing vendor files, blocked worklet) does not reject:
+   * it is reported through the error callback and {@link opmError}, while samples and
+   * streams stay usable. Calling unlock again retries OPM.
+   */
+  unlock(): Promise<void> {
+    if (this.disposed)
+      return Promise.reject(new AudioError('AudioManager has been destroyed.'));
+    if (this.ready && this.adapter.unlocked && this.context?.state !== 'closed')
+      return Promise.resolve();
+    return (this.unlocking ??= this.open().finally(() => {
+      this.unlocking = undefined;
+    }));
+  }
+
+  private async open(): Promise<void> {
     try {
-      await this.adapter.unlock();
+      let context = this.context;
+      if (context?.state === 'closed') this.dropContext();
+      context = this.context;
+      if (!context) {
+        context = new AudioContext();
+        this.context = context;
+        this.mixer.attach(context);
+      }
+      // Resume inside the trusted gesture even when paused; pause policy suspends afterwards.
+      await context.resume();
+      this.assertAlive();
+      if (!this.adapter.unlocked) await this.startOPM();
+      this.assertAlive();
+      if (this.paused) await context.suspend();
+      this.assertAlive();
+      this.ready = true;
+      this.listener.apply();
+    } catch (error) {
       if (this.disposed)
         throw new AudioError('AudioManager has been destroyed.');
-      this.listener.apply();
-      if (this.paused) await this.adapter.setPaused(true);
-    } catch (error) {
-      if (!this.adapter.unlocked) this.mixer.clearContexts();
+      this.dropContext();
       if (error instanceof AudioError) throw error;
       throw new AudioError('Unable to unlock audio.', { cause: error });
     }
+  }
+
+  private async startOPM(): Promise<void> {
+    this.opmStarting = true;
+    try {
+      await this.adapter.unlock();
+      this.opmFailure = undefined;
+    } catch (error) {
+      if (this.disposed) return;
+      this.opmFailure = new AudioError('OPM synthesizer is unavailable.', {
+        cause: error,
+      });
+      this.report(this.opmFailure);
+    } finally {
+      this.opmStarting = false;
+    }
+  }
+
+  private assertAlive(): void {
+    if (this.disposed) throw new AudioError('AudioManager has been destroyed.');
+  }
+
+  private dropContext(): void {
+    this.ready = false;
+    this.adapter.release();
+    this.mixer.clearContexts();
+    const context = this.context;
+    this.context = undefined;
+    if (context && context.state !== 'closed')
+      void context.close().catch(() => {});
+  }
+
+  /** Native calls happen in the caller's turn, including a trusted resume gesture. */
+  private setContextPaused(paused: boolean): void {
+    const context = this.context;
+    if (!context || context.state === 'closed') return;
+    void (paused ? context.suspend() : context.resume()).catch(
+      (error: unknown) => this.report(error),
+    );
   }
 
   /** Subscriber cancellation does not abort another caller's loader-owned cache request. */
@@ -475,10 +561,15 @@ export class AudioManager {
     if (this.disposed) throw new AudioError('AudioManager has been destroyed.');
     if (!asset.belongsTo(this))
       throw new AudioError('Audio asset belongs to another manager.');
-    if (!this.unlocked)
-      throw new AudioError(
-        'Audio must be unlocked from a user gesture before playback.',
-      );
+    if (!this.adapter.unlocked)
+      throw this.opmFailure
+        ? new AudioError(
+            'OPM synthesizer is unavailable; only sample and stream audio can play.',
+            { cause: this.opmFailure },
+          )
+        : new AudioError(
+            'Audio must be unlocked from a user gesture before playback.',
+          );
     const channel = options.channel ?? asset.channel;
     if (channel !== 'music' && channel !== 'sfx' && channel !== 'ui')
       throw new AudioError('Unknown audio channel.');
@@ -590,6 +681,11 @@ export class AudioManager {
     this.slots.fill(undefined);
     this.adapter.destroy();
     this.mixer.destroy();
+    this.ready = false;
+    const context = this.context;
+    this.context = undefined;
+    if (context && context.state !== 'closed')
+      void context.close().catch(() => {});
   }
 
   private async fetchAudio(

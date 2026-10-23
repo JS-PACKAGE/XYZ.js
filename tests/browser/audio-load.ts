@@ -346,8 +346,8 @@ try {
         .then(async () => {
           report.contexts = runtime.audio.audioContextCount;
           check(
-            report.contexts === 8,
-            'Official eight-context unlock changed.',
+            report.contexts === 1 && runtime.audio.opmState === 'ready',
+            'Official OPM did not start on the single shared context.',
           );
           primary = runtime.audio.opm?.context ?? undefined;
           check(!!primary, 'Primary native context is unavailable.');

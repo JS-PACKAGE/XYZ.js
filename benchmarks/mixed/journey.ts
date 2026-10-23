@@ -77,10 +77,10 @@ export function nativeSurface(): OwnedNative {
 export function assertSilentNative(): NativeObservation {
   const snapshot = nativeSurface().snapshot();
   check(
-    snapshot.nativeContexts === 8 &&
-      snapshot.zeroGainDestinations === 8 &&
+    snapshot.nativeContexts === 1 &&
+      snapshot.zeroGainDestinations === 1 &&
       snapshot.gains.every((gain) => gain === 0),
-    'All eight native contexts must have private zero-gain physical sinks.',
+    'The shared native context must have a private zero-gain physical sink.',
   );
   check(
     snapshot.errorCount === 0,

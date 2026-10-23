@@ -8,6 +8,7 @@ export type {
   AudioPlayOptions,
   AudioChannelName,
   AudioNote,
+  OPMState,
 } from './audio-manager.js';
 export { OPMAdapter } from './opm-adapter.js';
 export type { OPMVoice, OPMOperator } from './opm-adapter.js';

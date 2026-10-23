@@ -25,6 +25,8 @@ const mock = vi.hoisted(() => {
     setPaused: vi.fn().mockResolvedValue(undefined),
     setPosition: vi.fn(),
     contexts: [],
+    release: vi.fn(),
+    lendContext: vi.fn(),
     destroy: vi.fn(),
   };
   return { clock, api };
@@ -78,6 +80,61 @@ function deferred<T>() {
     resolve = done;
   });
   return { promise, resolve };
+}
+
+function fakeNode() {
+  return {
+    gain: {
+      value: 1,
+      setValueAtTime() {},
+      cancelScheduledValues() {},
+      setTargetAtTime() {},
+      linearRampToValueAtTime() {},
+      exponentialRampToValueAtTime() {},
+    },
+    connect() {},
+    disconnect() {},
+  };
+}
+
+/** Records every AudioContext the manager constructs; `resumeFails` models a closed context. */
+function installAudioContext(resumeFails = false) {
+  const created: Array<{ state: AudioContextState }> = [];
+  vi.stubGlobal(
+    'AudioContext',
+    class {
+      state: AudioContextState = 'suspended';
+      currentTime = 0;
+      sampleRate = 48000;
+      destination = fakeNode();
+      listener = {};
+      createGain = fakeNode;
+      createAnalyser = fakeNode;
+      constructor() {
+        created.push(this);
+      }
+      async resume() {
+        if (resumeFails || this.state === 'closed')
+          throw new DOMException('Context is closed.', 'InvalidStateError');
+        this.state = 'running';
+      }
+      async suspend() {
+        this.state = 'suspended';
+      }
+      async close() {
+        this.state = 'closed';
+      }
+      async decodeAudioData() {
+        return {
+          length: 48000,
+          numberOfChannels: 1,
+          sampleRate: 48000,
+          duration: 1,
+        };
+      }
+    },
+  );
+  return created;
 }
 
 afterEach(() => {
@@ -370,5 +427,91 @@ describe('AudioManager orchestration', () => {
     pending.resolve({ ok: true, json: vi.fn() } as unknown as Response);
     await Promise.resolve();
     await expect(manager.load('melody.json')).rejects.toThrow(AudioError);
+  });
+});
+
+describe('AudioManager context ownership', () => {
+  it('keeps samples usable on its single context when OPM fails, then retries OPM on unlock', async () => {
+    const created = installAudioContext();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(new ArrayBuffer(8))),
+    );
+    mock.api.unlocked = false;
+    const failure = new Error('AudioWorklet requires a secure context');
+    mock.api.unlock.mockRejectedValueOnce(failure);
+    const onError = vi.fn();
+    const manager = new AudioManager(() => undefined, onError);
+    await Promise.all([manager.unlock(), manager.unlock()]);
+    expect(created).toHaveLength(1);
+    expect(created[0].state).toBe('running');
+    expect(mock.api.unlock).toHaveBeenCalledTimes(1);
+    expect(manager.unlocked).toBe(true);
+    expect(manager.audioContextCount).toBe(1);
+    expect(manager.opmState).toBe('failed');
+    expect(manager.opmError).toBeInstanceOf(AudioError);
+    expect(manager.opmError?.cause).toBe(failure);
+    expect(onError).toHaveBeenCalledWith(manager.opmError);
+    let refused: unknown;
+    try {
+      asset(manager, [{ note: 60, time: 0, duration: 1 }]).play();
+    } catch (error) {
+      refused = error;
+    }
+    expect(refused).toBeInstanceOf(AudioError);
+    expect((refused as AudioError).cause).toBe(manager.opmError);
+    const sample = await manager.loadSample('https://example.test/hit.wav');
+    await sample.decode();
+    expect(sample.duration).toBe(1);
+
+    mock.api.unlock.mockImplementationOnce(async () => {
+      mock.api.unlocked = true;
+    });
+    await manager.unlock();
+    expect(mock.api.unlock).toHaveBeenCalledTimes(2);
+    expect(created).toHaveLength(1);
+    expect(manager.opmState).toBe('ready');
+    expect(manager.opmError).toBeUndefined();
+    manager.destroy();
+    expect(created[0].state).toBe('closed');
+    expect(manager.audioContextCount).toBe(0);
+    expect(manager.unlocked).toBe(false);
+  });
+
+  it('rejects and closes its context when the native context cannot resume', async () => {
+    const created = installAudioContext(true);
+    mock.api.unlocked = false;
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    await expect(manager.unlock()).rejects.toBeInstanceOf(AudioError);
+    expect(mock.api.unlock).not.toHaveBeenCalled();
+    expect(mock.api.release).toHaveBeenCalled();
+    expect(manager.unlocked).toBe(false);
+    expect(manager.audioContextCount).toBe(0);
+    expect(created[0].state).toBe('closed');
+    manager.destroy();
+  });
+
+  it('re-suspends the shared context after OPM startup resumes it during a pause', async () => {
+    const created = installAudioContext();
+    mock.api.unlocked = false;
+    mock.api.unlock.mockImplementationOnce(async () => {
+      // Official OPM start resumes even a borrowed context.
+      await (created[0] as unknown as AudioContext).resume();
+      mock.api.unlocked = true;
+    });
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    manager.pause('hidden');
+    await manager.unlock();
+    expect(created[0].state).toBe('suspended');
+    manager.resume('hidden');
+    await Promise.resolve();
+    expect(created[0].state).toBe('running');
+    manager.destroy();
   });
 });

@@ -491,7 +491,7 @@ Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執�
 - P02 Scene 已完成：候選初始化成功才發佈，準備失敗保留舊 Scene，取消使用 AbortSignal，清理同步且只執行一次。Scene／物件均不可跨 owner 共用；移除物件可重新加入，destroy 則終結生命週期。P03 已將 Asset cache 與 renderer-specific GPU resources 分離，Sprite 支援貼圖、opacity、z-order，共用 instanced pipeline。
 - P04 已完成 Camera2D 與輸入。原 P05 範圍為 Vector3／Quaternion／Matrix4／Transform3D、Mesh（自訂頂點與 cube／sphere／plane／quad）、貼圖材質、PerspectiveCamera、depth、ambient＋directional lighting；同 Scene 先渲染 3D 再按 z-order 疊加 2D。原階段不含進階 3D／模型載入；下列 P09–P12 已擴充此範圍，自製 Shader IR 仍非目標。
 - P06 已完成三級初始化 fallback、capabilities、WebGL2 GLSL 2D／3D、Canvas2D Sprite 與跨 backend Primitive2D。Canvas2D threeD=false，遇可見 Mesh 明確拒絕；不做 software rasterizer。Capabilities 描述 backend 硬體能力，不表示已公開 custom shader／compute facade。
-- P07 當時整合 OPM.js v1.1.0 官方完整 dist／LICENSE／release checksum；目前 vendor 為官方 v1.13.0（tag `v1.13.0`），build 原樣複製。Voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數，但引擎仍以八個獨立 OPM instance 各保留一個聲部，總預算含 release，overflow 只以官方 `opm.panic()` 清除最舊 SFX instance 的音符，保留 managed node／routing；不影響 BGM，也不修改官方 DSP。代價是八個 AudioContexts/worklets，teardown 使用官方 `opm.dispose()`。首次手勢 unlock 前不建 AudioContext；bounded lookahead 避免填滿官方 256-event queue；Scene 清理取消非 persistent 音訊。此 vendor 升級不新增引擎功能或擴大認證範圍。
+- P07 當時整合 OPM.js v1.1.0 官方完整 dist／LICENSE／release checksum；目前 vendor 為官方 v1.13.0（tag `v1.13.0`），build 原樣複製。Voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數，但引擎仍以八個獨立 OPM instance 各保留一個聲部，總預算含 release，overflow 只以官方 `opm.panic()` 清除最舊 SFX instance 的音符，保留 managed node／routing；不影響 BGM，也不修改官方 DSP。P137 前代價是八個 AudioContexts/worklets；P137 起八個 instance 借用 AudioManager 擁有的單一 AudioContext（八個 worklet nodes），teardown 使用官方 `opm.dispose()` 且不關閉借用的 context。首次手勢 unlock 前不建 AudioContext；bounded lookahead 避免填滿官方 256-event queue；Scene 清理取消非 persistent 音訊。此 vendor 升級不新增引擎功能或擴大認證範圍。
 - P08 當時完成 Error hierarchy／logger／loss cleanup／六範例與 1,000 Sprite benchmark，loss 使 Game paused／拒絕 resume且沒有 recovery；這是歷史行為，現在預設 `recoverGraphics:true` 可重建同 backend（見上方 Renderer 契約與 TECHNICAL），失敗或關閉復原才 fatal。當時獨立 `[Pxx]` commit／不 push 記錄保留。Safari／Edge／Firefox、實體 gamepad、真背景分頁／BFCache、跨螢幕 DPR／driver reset 不因現有 Chromium 證據取得認證。
 - 後續優化保持公開 API：World 按需穩定壓縮 Systems、WebGPU 只在 logical viewport 改變時重傳對應 uniform；Keyboard 在 focus 轉入 editable 後仍處理既有按鍵釋放。時間量測未證明 CPU／FPS 改善，見 ACCEPTANCE，不以 API call 減少冒充 throughput 提升。
 - 安全維護：圖片與音訊共用內部 bounded response reader，依實際 response stream bytes 計數，不信任 Content-Length。JSON 在 byte cap 後解析並檢查 notes 上限；Texture 在解碼後檢查尺寸／像素且超限釋放。依使用者選擇保留所有瀏覽器支援圖片格式，因此不宣稱防止解碼瞬間放大或提供全域 cache 預算。
@@ -526,7 +526,7 @@ Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執�
 ## P18 preload／native sample audio（限定 Chromium 驗收）
 
 - PreloadBatch 為 EventTarget，unique-key tasks／最多4 concurrent／4096 tasks；progress 依完成 task 數、empty ratio=1，不捏造 byte readiness。Batch 僅 owns cooperative cancellation、不 destroy returned resources。Texture／OPM／sample shared cache 的 subscriber abort 只拒該 caller，loader destroy 才中止 shared fetch；generic text／JSON／binary 非 cache，各 request 可 abort。
-- AudioManager.loadSample encoded cache 不提前 decode，SampleAudioAsset.decode／play 需 unlock。Source→perplay gain→sample channel/master buses 使用第一個 OPM context，獨立32-playback budget、不搶八個 OPM slots；vendor 不改，worklet reset 不斷 sample buses。
+- AudioManager.loadSample encoded cache 不提前 decode，SampleAudioAsset.decode／play 需 unlock。Source→perplay gain→sample channel/master buses 使用 AudioManager 擁有的共用 context（P137 前為第一個 OPM context），獨立32-playback budget、不搶八個 OPM slots；vendor 不改，worklet reset 或 OPM 啟動失敗不斷 sample buses。
 - SamplePlayback clock 是 AudioContext，不跟 Game pause；pause／resume／seek 換 one-shot source、不重新 decode，舊 ended 不污染新 source。Scene stop nonpersistent／detach persistent；manager destroy 清 sources／cache／buses／late results。Encoded8 MiB；decoded budgets 在 decodeAudioData **完成後**檢查，不防 decoder transient amplification、非 global memory budget。
 - Scene 的 protected preload(game,signal) 回 PreloadBatch／void 或相應Promise；準備先等待batch成功才initialize，再原子publish。Game.loading只讀當前candidate barrier，clear以Scene owner檢查，舊candidate晚到finally不能清新loading。Old Scene在準備期間繼續更新，paused不更新；可在pause期間prepare／publish、新Scene等resume才tick。Failure／cancel／destroy中止並清candidate但保留shared loader resources。
 - GLTFLoader.task為unique acquisition，batch未完成即failure／cancel會dispose該task owned model／textures，不碰unrelated direct models或shared textures；成功則ownership轉交caller，應在移除consumers後dispose。Custom tasks仍須own failures與配合signal，不宣稱batch通用destroy shared results。
@@ -950,3 +950,15 @@ destruction and empty-frame retirement are separate from consumer destruction.
 Actual WebGL loss/replay is tested while resources are live. Counter scope is
 tracked native resource estimates, not process RSS or driver VRAM; unavailable
 physical-device qualification remains BLOCKED.
+
+## P137 audio context ownership
+
+The manager, not OPM, owns the one AudioContext. OPM v1.13 accepts a borrowed
+context and never suspends or closes it, so pause/resume/destroy belong to the
+manager. This decouples sample/stream audio from OPM start-up: an insecure origin,
+missing vendor file or blocked worklet fails only OPM, which is reported rather
+than rejecting unlock. Eight isolated OPM instances remain because SFX-only stealing
+needs per-slot ownership. They now share one clock instead of eight, so cross-context
+gain mapping is no longer exercised by the manager; the mixer stays context-generic.
+The borrowed context is injected through an internal method because changing a
+published constructor would break the API compatibility gate's declaration identity.

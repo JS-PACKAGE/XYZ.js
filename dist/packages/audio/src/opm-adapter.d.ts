@@ -40,7 +40,10 @@ interface OfficialOPM {
     close(): Promise<void>;
 }
 type OutputRouter = (context: AudioContext, channel: AudioChannelName) => AudioNode;
-/** Eight live AudioContexts/worklets isolate voice stealing at the cost of idle resources; destroy closes them. */
+/**
+ * Eight OPM instances isolate voice stealing per slot and share one AudioContext. AudioManager
+ * lends its own context; a standalone adapter creates one and closes it on destroy.
+ */
 export declare class OPMAdapter {
     private readonly output?;
     private slots;
@@ -49,8 +52,12 @@ export declare class OPMAdapter {
     private destroyed;
     private frozen;
     private contextList;
+    private owned;
+    private lent;
     constructor(output?: OutputRouter | undefined);
-    /** Context-local graphs cannot share native nodes across these eight clocks. */
+    /** @internal AudioManager lends its context; the adapter never suspends or closes it. */
+    lendContext(context: () => AudioContext | undefined): void;
+    /** The single native context shared by every slot, once unlocked. */
     get contexts(): readonly AudioContext[];
     /** Native calls happen in the caller's turn, including a trusted resume gesture. */
     setPaused(paused: boolean): Promise<void>;
@@ -58,7 +65,7 @@ export declare class OPMAdapter {
     get unlocked(): boolean;
     get now(): number;
     get opm(): OfficialOPM | undefined;
-    /** @internal Native PCM shares the first existing context; worklet reset leaves it alive. */
+    /** @internal The shared slot context; AudioManager hands samples its own context instead. */
     get sampleContext(): AudioContext | undefined;
     unlock(): Promise<void>;
     private initialize;
@@ -67,6 +74,8 @@ export declare class OPMAdapter {
     setPosition(slot: number, position: Readonly<AudioVec3>): void;
     reset(slot: number): void;
     setGain(slot: number, value: number): void;
+    /** @internal Drops every slot (closing only an owned context); a later unlock starts afresh. */
+    release(): void;
     destroy(): void;
     private getSlot;
     private dispose;

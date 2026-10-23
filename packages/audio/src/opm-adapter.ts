@@ -56,7 +56,10 @@ interface NativeOPM extends Omit<OfficialOPM, 'voices' | 'playNote'> {
   dispose(): Promise<void>;
 }
 
-type OPMConstructor = new () => NativeOPM;
+type OPMConstructor = new (options?: {
+  context?: AudioContext;
+  destination?: AudioNode | null;
+}) => NativeOPM;
 
 // Keep the published engine schema while retaining all upstream expressive fields.
 const normalizedVoices = new WeakMap<OPMVoice, NativeVoice>();
@@ -158,7 +161,10 @@ async function loadOPM(): Promise<OPMConstructor> {
   return module.OPM;
 }
 
-/** Eight live AudioContexts/worklets isolate voice stealing at the cost of idle resources; destroy closes them. */
+/**
+ * Eight OPM instances isolate voice stealing per slot and share one AudioContext. AudioManager
+ * lends its own context; a standalone adapter creates one and closes it on destroy.
+ */
 export class OPMAdapter {
   private slots: Slot[] = [];
   private pendingSlots: Slot[] | undefined;
@@ -166,10 +172,17 @@ export class OPMAdapter {
   private destroyed = false;
   private frozen = false;
   private contextList: readonly AudioContext[] = [];
+  private owned: AudioContext | undefined;
+  private lent: (() => AudioContext | undefined) | undefined;
 
   constructor(private readonly output?: OutputRouter) {}
 
-  /** Context-local graphs cannot share native nodes across these eight clocks. */
+  /** @internal AudioManager lends its context; the adapter never suspends or closes it. */
+  lendContext(context: () => AudioContext | undefined): void {
+    this.lent = context;
+  }
+
+  /** The single native context shared by every slot, once unlocked. */
   get contexts(): readonly AudioContext[] {
     return this.contextList;
   }
@@ -206,9 +219,9 @@ export class OPMAdapter {
     return (slot.legacy ??= legacyOPM(slot.opm));
   }
 
-  /** @internal Native PCM shares the first existing context; worklet reset leaves it alive. */
+  /** @internal The shared slot context; AudioManager hands samples its own context instead. */
   get sampleContext(): AudioContext | undefined {
-    return this.unlocked ? (this.slots[0].opm.context ?? undefined) : undefined;
+    return this.contextList[0];
   }
 
   unlock(): Promise<void> {
@@ -228,13 +241,23 @@ export class OPMAdapter {
     if (this.destroyed)
       throw new AudioError('Audio adapter has been destroyed');
 
-    const slots: Slot[] = Array.from(
-      { length: audioDefaults.voiceCount },
-      () => ({ opm: new OPM() }),
-    );
+    const slots: Slot[] = [];
     this.pendingSlots = slots;
+    let owned: AudioContext | undefined;
     let failed = false;
     try {
+      let context = this.lent?.();
+      if (this.lent && (!context || context.state === 'closed'))
+        throw new AudioError('The lent AudioContext is unavailable.');
+      if (!context) {
+        owned = new AudioContext();
+        this.owned = owned;
+        context = owned;
+      }
+      const shared = context;
+      // Borrowed: OPM never closes it, and nothing reaches the destination before routing.
+      for (let index = 0; index < audioDefaults.voiceCount; index++)
+        slots.push({ opm: new OPM({ context: shared, destination: null }) });
       await Promise.all(
         slots.map(async (slot) => {
           try {
@@ -243,13 +266,9 @@ export class OPMAdapter {
               this.dispose(slot);
               return;
             }
-            const context = slot.opm.context!;
-            const node = slot.opm.node!;
-            const gain = context.createGain();
+            const gain = shared.createGain();
             slot.gain = gain;
-            node.disconnect();
-            node.connect(gain);
-            gain.connect(context.destination);
+            slot.opm.node!.connect(gain);
           } catch (error) {
             failed = true;
             for (const pending of slots) this.dispose(pending);
@@ -259,24 +278,19 @@ export class OPMAdapter {
       );
       if (this.destroyed)
         throw new AudioError('Audio adapter has been destroyed');
-      // Publish graphs in slot order, not network/worklet startup completion order.
-      for (const slot of slots) {
-        const context = slot.opm.context!;
-        slot.gain!.disconnect();
-        slot.gain!.connect(
-          this.output?.(context, 'sfx') ?? context.destination,
-        );
-      }
+      // Route only after every slot started, so a failed unlock never produced sound.
+      for (const slot of slots)
+        slot.gain!.connect(this.output?.(shared, 'sfx') ?? shared.destination);
       this.slots = slots;
-      this.contextList = Object.freeze(slots.map((slot) => slot.opm.context!));
-      await this.setPaused(this.frozen);
+      this.contextList = Object.freeze([shared]);
+      // OPM start resumes its context; only an owned context follows the adapter's pause state.
+      if (owned) await this.setPaused(this.frozen);
       if (this.destroyed)
         throw new AudioError('Audio adapter has been destroyed');
     } catch (error) {
       failed = true;
+      this.release();
       for (const slot of slots) this.dispose(slot);
-      this.slots = [];
-      this.contextList = [];
       throw error;
     } finally {
       this.pendingSlots = undefined;
@@ -343,14 +357,22 @@ export class OPMAdapter {
     this.getSlot(slot).gain!.gain.value = value;
   }
 
+  /** @internal Drops every slot (closing only an owned context); a later unlock starts afresh. */
+  release(): void {
+    for (const slot of this.slots) this.dispose(slot);
+    this.slots = [];
+    this.contextList = [];
+    const owned = this.owned;
+    this.owned = undefined;
+    if (owned && owned.state !== 'closed') void owned.close().catch(() => {});
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    for (const slot of this.slots) this.dispose(slot);
     for (const slot of this.pendingSlots ?? []) this.dispose(slot);
-    this.slots = [];
-    this.contextList = [];
     this.pendingSlots = undefined;
+    this.release();
   }
 
   private getSlot(index: number): Slot {
@@ -374,6 +396,6 @@ export class OPMAdapter {
     slot.panner?.disconnect();
     slot.panner = undefined;
     slot.noteId = undefined;
-    // OPM owns its context, processor port and pending command lifecycle.
+    // OPM owns its processor port and pending commands; contexts are only borrowed.
   }
 }
