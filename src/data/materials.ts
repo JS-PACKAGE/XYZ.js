@@ -2344,6 +2344,15 @@ export const proceduralMaterialPresets = Object.freeze({
     foldRadius: 0.32,
     foldStrength: 3.2,
   }),
+  windmillpavers: Object.freeze({
+    dark: [65, 38, 29] as const,
+    light: [220, 148, 99] as const,
+    roughness: 0.86,
+    relief: 0.045,
+    cells: 2,
+    grout: 0.035,
+    shoulder: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2719,4 +2728,5 @@ export const proceduralTileMeters = Object.freeze({
   truchettiles: 0.8,
   standingseam: 2,
   damascus: 0.12,
+  windmillpavers: 0.9,
 });

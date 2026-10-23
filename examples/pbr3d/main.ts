@@ -450,6 +450,7 @@ try {
     'truchettiles',
     'standingseam',
     'damascus',
+    'windmillpavers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

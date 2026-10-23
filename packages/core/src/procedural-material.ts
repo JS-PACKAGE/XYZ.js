@@ -377,7 +377,8 @@ export type ProceduralMaterialKind =
   | 'octagondot'
   | 'truchettiles'
   | 'standingseam'
-  | 'damascus';
+  | 'damascus'
+  | 'windmillpavers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -781,6 +782,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'truchettiles',
   'standingseam',
   'damascus',
+  'windmillpavers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -1250,6 +1250,67 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'windmillpavers': {
+        const p = proceduralMaterialPresets.windmillpavers;
+        const grainField = cachedNoise(64, 64, seed ^ 0x3a57);
+        const tones = new Float64Array(p.cells * p.cells * 5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let brick = 0; brick < 5; brick++)
+              tones[(row * p.cells + col) * 5 + brick] = hash(
+                col * 5 + brick,
+                row,
+                seed ^ 0x5e13,
+              );
+        return () => {
+          const col = Math.floor(u * p.cells),
+            row = Math.floor(v * p.cells);
+          const x = fract(u * p.cells) * 3,
+            y = fract(v * p.cells) * 3;
+          let left = 1,
+            top = 1,
+            width = 1,
+            depth = 1,
+            brick = 4;
+          if (y < 1 && x < 2) {
+            left = 0;
+            top = 0;
+            width = 2;
+            brick = 0;
+          } else if (x >= 2 && y < 2) {
+            left = 2;
+            top = 0;
+            depth = 2;
+            brick = 1;
+          } else if (y >= 2 && x >= 1) {
+            left = 1;
+            top = 2;
+            width = 2;
+            brick = 2;
+          } else if (x < 1 && y >= 1) {
+            left = 0;
+            top = 1;
+            depth = 2;
+            brick = 3;
+          }
+          const dx = x - left,
+            dy = y - top;
+          const face =
+            smooth(clamp((Math.min(dx, width - dx) - p.grout) / p.shoulder)) *
+            smooth(clamp((Math.min(dy, depth - dy) - p.grout) / p.shoulder));
+          const grain = grainField(u, v);
+          const tone = tones[(row * p.cells + col) * 5 + brick]!;
+          // Each long paver and the dark square fade into the same recessed grout.
+          color =
+            0.08 +
+            face * ((brick === 4 ? 0.1 : 0.5) + 0.15 * tone + 0.08 * grain);
+          height = face * (0.7 + 0.008 * grain);
+          roughness += face * (0.03 * grain - 0.04);
+          occlusion = 0.45 + 0.55 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'damascus': {
         const p = proceduralMaterialPresets.damascus;
         const grainField = cachedNoise(64, 64, seed ^ 0x5de7);
@@ -10713,6 +10774,7 @@ export function createSurfaceSampler(
     kind === 'truchettiles' ||
     kind === 'standingseam' ||
     kind === 'damascus' ||
+    kind === 'windmillpavers' ||
     fabricated ||
     botanical ||
     packaging ||

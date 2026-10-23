@@ -291,6 +291,8 @@
 
 `damascus` 將週期金屬層紋通過 seeded compact 徑向折紋場局部回折，折紋在單元換主前平滑歸零，中心預先儲存。共用層覆蓋同步控制亮暗、蝕刻深淺與粗糙度，relief 保持微淺，metallic B 與預設 factor 均為 1。0.12 m tile、四圖 opaque、既有 ownership 不變，目錄增為 371 種。
 
+`windmillpavers` 每組以五個互不重疊矩形分割三乘三單元，四片長磚繞中央深色方磚。兩軸獨立 smooth 邊緣相乘，讓倒角角落與換主填縫均保持一階連續；預先儲存每磚 seeded 色差與細粒場，所有 owner 特徵在填縫內歸零。中央方磚與外圈等高，0.9 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 372 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

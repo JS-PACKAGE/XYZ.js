@@ -283,6 +283,8 @@
 
 同輪追加 `damascus`（大馬士革鋼），實際目錄 370→371 種：細密層疊蝕刻紋與局部眼狀折紋，較暗蝕刻層較粗糙、略低，並非厚浮雕或岩石晶粒。0.12 m tile、四圖 opaque、metallic map 與 factor 均為 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `windmillpavers`（風車拼鋪路磚），實際目錄 371→372 種：四片二比一長磚圍繞等高深色方磚，以平滑倒角與凹填縫構成風車排列。0.9 m tile 含四組風車、20 塊磚，四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

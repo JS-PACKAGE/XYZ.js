@@ -396,7 +396,102 @@ const kinds: ProceduralMaterialKind[] = [
   'truchettiles',
   'standingseam',
   'damascus',
+  'windmillpavers',
 ];
+
+describe('windmill clay paving', () => {
+  const p = proceduralMaterialPresets.windmillpavers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('windmillpavers', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / (3 * p.cells), y / (3 * p.cells), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'wraps four uninterrupted long pavers around an equally raised dark square for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          const sample = (x: number, y: number) => at(x + col * 3, y + row * 3);
+          const center = sample(1.5, 1.5);
+          for (const [x, y] of [
+            [1, 0.5],
+            [2.5, 1],
+            [2, 2.5],
+            [0.5, 2],
+          ]) {
+            const brick = sample(x!, y!);
+            expect(brick.mortar).toBe(0);
+            expect(brick.color - center.color).toBeGreaterThan(0.17);
+            expect(Math.abs(brick.height - center.height)).toBeLessThan(0.0004);
+          }
+          expect(center.mortar).toBe(0);
+          expect(center.metallic).toBe(0);
+          for (const [x, y] of [
+            [1.5, 1],
+            [2, 1.5],
+            [1.5, 2],
+            [1, 1.5],
+            [0, 1.5],
+          ]) {
+            const joint = sample(x!, y!);
+            expect(joint.mortar).toBe(1);
+            expect(center.height - joint.height).toBeGreaterThan(0.03);
+            expect(center.occlusion - joint.occlusion).toBeGreaterThan(0.5);
+            expect(joint.roughness).toBeGreaterThan(center.roughness);
+          }
+        }
+      }
+    },
+  );
+  it('keeps all paver owners, bevel shoulders and tile wraps C1 continuous', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let edge = 0; edge <= 3 * p.cells; edge++) {
+        for (const offset of [
+          0,
+          p.grout,
+          p.grout + p.shoulder,
+          -p.grout,
+          -p.grout - p.shoulder,
+        ]) {
+          for (let i = 0; i <= 48; i++) {
+            for (const axis of [0, 1]) {
+              const x = axis ? i / 8 : edge + offset,
+                y = axis ? edge + offset : i / 8;
+              const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+                b = at(x, y),
+                c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+              for (const key of [
+                'color',
+                'height',
+                'roughness',
+                'occlusion',
+                'mortar',
+              ] as const) {
+                expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+                expect(
+                  Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+                ).toBeLessThan(0.001);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('etched Damascus steel', () => {
   const p = proceduralMaterialPresets.damascus;
