@@ -369,7 +369,8 @@ export type ProceduralMaterialKind =
   | 'subwaytiles'
   | 'canewebbing'
   | 'rammedearth'
-  | 'copperpatina';
+  | 'copperpatina'
+  | 'birdseyemaple';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -765,6 +766,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'canewebbing',
   'rammedearth',
   'copperpatina',
+  'birdseyemaple',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

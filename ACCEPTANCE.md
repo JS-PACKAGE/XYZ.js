@@ -5676,3 +5676,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體與 baseColor／metallicRoughness 預覽呈現裸銅及銅綠區域，狀態列為 363 presets，無 page errors。實際 size 33／seed 0xffffffff、預設與借用 material metallic 均為 1、borrow roughness 0.8、0.5 m repeats 1、冪等銷毀四圖及拒絕銷毀後借用均通過。
 - 同步 README 中／英／日、PLAN／DESIGN、雙語技術與操作文件及 gallery 的金屬度說明；文件列出 copperpatina 混合金屬度，補齊使用說明原漏列的 draincover，與既有程式一致。相對連結無失效路徑。逐功能提交、不 push，不擴大瀏覽器、實機或效能認證。
 - 修正後完整 Vitest 178 檔／5264 項、check:api-compatibility、check:material-reference 通過；未重生 golden。驗收文件與調整後 data 經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：鳥眼楓木（birdseyemaple）
+
+- 新增分散深色眼心、橢圓細環與繞行縱紋，目錄 363→364 種；0.24 m tile 含六乘六 seeded 單元，色彩對比不轉成凸起木節。四圖維持 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項通過，涵蓋三 seed 每單元深色眼心對比、淺起伏範圍、owner 邊界與週期 wrap 一階連續性；build 通過。
+- 以上一功能提交 dist 為基準，size 64／seed 7 的既有 363 種四圖 SHA256 全相同，新增恰為 birdseyemaple。
+- 本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體呈淡木色縱紋，baseColor preview 可見散布細小眼狀紋，狀態列為 364 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8／metallic 0、0.24 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5269 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。驗收文件另經 Prettier 檢查通過；既有 OPM dynamic-import Vite warning 未改。

@@ -2259,6 +2259,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         coverageStart: 0.4;
         coverageRange: 0.2;
     }>;
+    birdseyemaple: Readonly<{
+        dark: readonly [116, 67, 27];
+        light: readonly [242, 218, 166];
+        roughness: 0.38;
+        relief: 0.003;
+        cells: 6;
+        radiusX: 0.22;
+        radiusY: 0.28;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2625,4 +2634,5 @@ export declare const proceduralTileMeters: Readonly<{
     canewebbing: 0.24;
     rammedearth: 2;
     copperpatina: 0.5;
+    birdseyemaple: 0.24;
 }>;

@@ -388,7 +388,82 @@ const kinds: ProceduralMaterialKind[] = [
   'canewebbing',
   'rammedearth',
   'copperpatina',
+  'birdseyemaple',
 ];
+
+describe('birdseye maple', () => {
+  const p = proceduralMaterialPresets.birdseyemaple;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('birdseyemaple', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      out.height /= p.relief;
+      return out;
+    };
+  };
+
+  it.each([0, 1, 0xffffffff])(
+    'has dark localized eyes without raised knot geometry for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++) {
+        for (let col = 0; col < p.cells; col++) {
+          let darkestEye = 1,
+            darkestEdge = 1,
+            minHeight = 1,
+            maxHeight = 0;
+          for (let y = 0; y <= 16; y++) {
+            darkestEdge = Math.min(darkestEdge, at(col, row + y / 16).color);
+            for (let x = 0; x <= 16; x++) {
+              const point = at(col + 0.25 + x / 32, row + 0.25 + y / 32);
+              darkestEye = Math.min(darkestEye, point.color);
+              minHeight = Math.min(minHeight, point.height);
+              maxHeight = Math.max(maxHeight, point.height);
+            }
+          }
+          expect(darkestEdge - darkestEye).toBeGreaterThan(0.12);
+          expect(maxHeight - minHeight).toBeLessThan(0.05);
+        }
+      }
+    },
+  );
+
+  it('keeps eye-cell ownership boundaries and tile wrap C1 continuous', () => {
+    const h = 1e-6;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let cell = 0; cell <= p.cells; cell++) {
+        for (let i = 0; i <= 24; i++) {
+          const t = (i * p.cells) / 24;
+          for (const axis of [0, 1]) {
+            const a = axis ? at(t, cell - h) : at(cell - h, t);
+            const b = axis ? at(t, cell) : at(cell, t);
+            const c = axis ? at(t, cell + h) : at(cell + h, t);
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+});
 
 describe('oxidized copper', () => {
   it.each([0, 1, 0xffffffff])(

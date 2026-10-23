@@ -1248,6 +1248,43 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'birdseyemaple': {
+        const p = proceduralMaterialPresets.birdseyemaple;
+        const centers = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++) {
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            centers[i] = 0.34 + 0.32 * hash(col, row, seed ^ 0x4f17);
+            centers[i + 1] = 0.34 + 0.32 * hash(col, row, seed ^ 0x23d9);
+          }
+        }
+        const grainField = cachedNoise(48, 4, seed ^ 0x6b31);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 2;
+          const dx = fract(x) - centers[i],
+            dy = fract(y) - centers[i + 1];
+          const radius = (dx / p.radiusX) ** 2 + (dy / p.radiusY) ** 2;
+          // Compact eyes stay inside their cells; grain bends vanish before owner changes.
+          const support = smooth(clamp(1 - radius));
+          const core = smooth(clamp(1 - radius / 0.06));
+          const rings =
+            support > 0
+              ? support * (0.5 + 0.5 * Math.cos(TAU * 2 * radius))
+              : 0;
+          const bend = Math.sin(TAU * 2 * v);
+          const grain = Math.sin(
+            TAU * (24 * u + 0.35 * bend + 0.7 * dx * support) + phase,
+          );
+          const fiber = Math.cos(TAU * (64 * u + 0.16 * bend) + phase);
+          color = 0.67 + 0.12 * grain - 0.34 * core - 0.12 * rings;
+          height = 0.45 + 0.012 * grain - 0.015 * core + 0.005 * fiber;
+          roughness += 0.025 * core + 0.03 * grainField(u, v);
+          occlusion = 0.98 - 0.04 * core;
+          return;
+        };
+      }
       case 'copperpatina': {
         const p = proceduralMaterialPresets.copperpatina;
         const patches = cachedNoise(4, 4, seed ^ 0x7a93);
@@ -10453,6 +10490,7 @@ export function createSurfaceSampler(
     kind === 'canewebbing' ||
     kind === 'rammedearth' ||
     kind === 'copperpatina' ||
+    kind === 'birdseyemaple' ||
     fabricated ||
     botanical ||
     packaging ||

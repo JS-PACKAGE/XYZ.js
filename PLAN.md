@@ -267,6 +267,8 @@
 
 同輪追加 `copperpatina`（銅綠氧化銅），實際目錄 362→363 種：裸銅與青綠氧化斑塊共享覆蓋場，metallic／roughness 隨氧化程度連續變化。tile 0.5 m，預設 material metallic factor 1 以保留 map 的混合金屬度；不新增 geometry、shader、options 或資源所有權契約，逐功能驗證並提交、不 push。
 
+同輪追加 `birdseyemaple`（鳥眼楓木），實際目錄 363→364 種：分散眼狀紋理、橢圓細環與繞行縱紋，保持平整飾面的淺起伏而非凸起木節。0.24 m tile、四圖 opaque dielectric、metallic 0，沿用 options／ownership；逐功能驗證並提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
