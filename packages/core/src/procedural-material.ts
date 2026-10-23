@@ -455,7 +455,8 @@ export type ProceduralMaterialKind =
   | 'logcabinparquet'
   | 'countersunkmetal'
   | 'trilobitefossil'
-  | 'eyeletcotton';
+  | 'eyeletcotton'
+  | 'dendriticagate';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -937,6 +938,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'countersunkmetal',
   'trilobitefossil',
   'eyeletcotton',
+  'dendriticagate',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

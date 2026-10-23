@@ -3270,6 +3270,20 @@ export const proceduralMaterialPresets = Object.freeze({
     stitches: 16,
     threads: 72,
   }),
+  dendriticagate: Object.freeze({
+    dark: [30, 28, 23] as const,
+    light: [228, 217, 188] as const,
+    roughness: 0.24,
+    relief: 0.004,
+    cells: 3,
+    levels: 5,
+    rootOffset: 0.32,
+    branchLength: 0.27,
+    lengthDecay: 0.67,
+    branchWidth: 0.018,
+    widthDecay: 0.7,
+    supportRadius: 0.43,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3723,4 +3737,5 @@ export const proceduralTileMeters = Object.freeze({
   countersunkmetal: 0.3,
   trilobitefossil: 0.45,
   eyeletcotton: 0.06,
+  dendriticagate: 0.15,
 });

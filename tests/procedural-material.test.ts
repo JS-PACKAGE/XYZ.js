@@ -474,7 +474,168 @@ const kinds: ProceduralMaterialKind[] = [
   'countersunkmetal',
   'trilobitefossil',
   'eyeletcotton',
+  'dendriticagate',
 ];
+
+describe('Dendritic agate', () => {
+  const p = proceduralMaterialPresets.dendriticagate;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'embeds five generations of connected thinning dark branches below one polished face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dendriticagate', seed);
+      const at = (u: number, v: number) => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let cell = 0; cell < 9; cell++) {
+        const rotation = Math.PI * 2 * hash(cell, 0, seed ^ 0x6c13);
+        const lines: {
+          x: number;
+          y: number;
+          ex: number;
+          ey: number;
+          radius: number;
+        }[] = [];
+        const grow = (
+          x: number,
+          y: number,
+          angle: number,
+          depth: number,
+          node: number,
+        ): void => {
+          const length =
+            p.branchLength *
+            p.lengthDecay ** depth *
+            (0.94 + 0.12 * hash(node, cell, seed ^ 0x7b39));
+          const ex = x + length * Math.sin(angle),
+            ey = y + length * Math.cos(angle);
+          lines.push({
+            x,
+            y,
+            ex,
+            ey,
+            radius: p.branchWidth * p.widthDecay ** depth,
+          });
+          if (depth + 1 < p.levels)
+            for (const side of [-1, 1]) {
+              const child = node * 2 + (side < 0 ? 1 : 2);
+              grow(
+                ex,
+                ey,
+                angle + side * (0.48 + 0.2 * hash(child, cell, seed ^ 0x4f25)),
+                depth + 1,
+                child,
+              );
+            }
+        };
+        grow(
+          p.rootOffset * Math.sin(rotation),
+          -p.rootOffset * Math.cos(rotation),
+          rotation,
+          0,
+          0,
+        );
+        const extent = Math.max(
+          ...lines.flatMap((l) => [
+            Math.hypot(l.x, l.y) + l.radius,
+            Math.hypot(l.ex, l.ey) + l.radius,
+          ]),
+        );
+        const scale = Math.min(1, p.supportRadius / extent);
+        const local = (x: number, y: number) =>
+          at(
+            ((cell % 3) + 0.5 + scale * x) / 3,
+            (Math.floor(cell / 3) + 0.5 + scale * y) / 3,
+          );
+        for (const line of lines) {
+          for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            const pigment = local(
+              line.x + (line.ex - line.x) * t,
+              line.y + (line.ey - line.y) * t,
+            );
+            expect(pigment.color).toBeCloseTo(0.06, 10);
+            expect(pigment.height).toBeGreaterThanOrEqual(0.5 * p.relief);
+            expect(pigment.height).toBeLessThanOrEqual(0.503 * p.relief);
+            expect(pigment.roughness).toBeGreaterThanOrEqual(p.roughness);
+            expect(pigment.roughness).toBeLessThanOrEqual(p.roughness + 0.015);
+            expect(pigment.occlusion).toBe(1);
+            expect(pigment.metallic).toBe(0);
+          }
+        }
+        // The trunk is wider than terminal branches; an equal offset clears each tip.
+        const root = lines[0],
+          tip = lines.at(-1)!;
+        const beside = (line: typeof root, offset: number) => {
+          const dx = line.ex - line.x,
+            dy = line.ey - line.y,
+            length = Math.hypot(dx, dy);
+          return local(
+            (line.x + line.ex) / 2 + (offset * dy) / length,
+            (line.y + line.ey) / 2 - (offset * dx) / length,
+          );
+        };
+        expect(beside(root, 0.009).color).toBeLessThan(0.3);
+        expect(beside(tip, 0.009).color).toBeGreaterThan(0.75);
+        for (let edge = 0; edge <= 32; edge++) {
+          expect(
+            at(((cell % 3) + edge / 32) / 3, Math.floor(cell / 3) / 3).color,
+          ).toBeGreaterThan(0.75);
+          expect(
+            at((cell % 3) / 3, (Math.floor(cell / 3) + edge / 32) / 3).color,
+          ).toBeGreaterThan(0.75);
+        }
+      }
+    },
+  );
+  it('keeps branch silhouettes and junctions C1 without raised inclusion normals', () => {
+    const sample = createSurfaceSampler('dendriticagate', 7);
+    const at = (u: number, v: number) => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+    const h = 1e-10;
+    for (let y = 0; y <= 256; y++)
+      for (let x = 0; x <= 256; x++)
+        for (const axis of [0, 1]) {
+          const u = x / 256,
+            v = y / 256;
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+  });
+});
 
 describe('Embroidered eyelet cotton', () => {
   const p = proceduralMaterialPresets.eyeletcotton;

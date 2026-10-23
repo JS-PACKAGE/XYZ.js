@@ -439,6 +439,8 @@
 
 同輪追加 `eyeletcotton`（鏤空刺繡棉布），實際目錄 448→449 種：六乘六暗圓孔、連續凸起繡邊與每孔十六個 seeded 放射狀針腳，繡邊谷部仍高於象牙白底布。0.06 m tile、四圖 opaque dielectric、metallic 0，孔內保留低 opaque 底面；不新增透明裁切／線材 geometry，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `dendriticagate`（樹枝狀瑪瑙），實際目錄 449→450 種：九組 seeded 五代二叉分枝礦物包裹體，深色枝條逐漸變細，位於暖淺色拋光石面之下而非凸起葉片。0.15 m tile、四圖 opaque dielectric、metallic 0，不新增礦物 geometry／地質生長模擬，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

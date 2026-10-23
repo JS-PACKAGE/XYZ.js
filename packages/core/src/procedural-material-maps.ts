@@ -1260,6 +1260,98 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dendriticagate': {
+        const p = proceduralMaterialPresets.dendriticagate;
+        const count = 2 ** p.levels - 1,
+          stride = count * 6;
+        const branches = new Float64Array(p.cells * p.cells * stride);
+        const angles = new Float64Array(count);
+        for (let cell = 0; cell < p.cells * p.cells; cell++) {
+          const rotation = TAU * hash(cell, 0, seed ^ 0x6c13);
+          let extent = 0;
+          for (let node = 0; node < count; node++) {
+            const depth = Math.floor(Math.log2(node + 1));
+            const i = cell * stride + node * 6;
+            const parent = Math.floor((node - 1) / 2);
+            const parentIndex = cell * stride + parent * 6;
+            const angle =
+              node === 0
+                ? rotation
+                : angles[parent] +
+                  (node % 2 ? -1 : 1) *
+                    (0.48 + 0.2 * hash(node, cell, seed ^ 0x4f25));
+            angles[node] = angle;
+            const length =
+              p.branchLength *
+              p.lengthDecay ** depth *
+              (0.94 + 0.12 * hash(node, cell, seed ^ 0x7b39));
+            const radius = p.branchWidth * p.widthDecay ** depth;
+            const x =
+              node === 0
+                ? p.rootOffset * Math.sin(rotation)
+                : branches[parentIndex] + branches[parentIndex + 2];
+            const y =
+              node === 0
+                ? -p.rootOffset * Math.cos(rotation)
+                : branches[parentIndex + 1] + branches[parentIndex + 3];
+            const dx = length * Math.sin(angle),
+              dy = length * Math.cos(angle);
+            branches[i] = x;
+            branches[i + 1] = y;
+            branches[i + 2] = dx;
+            branches[i + 3] = dy;
+            branches[i + 4] = 1 / (length * length);
+            branches[i + 5] = 1 / (radius * radius);
+            extent = Math.max(
+              extent,
+              Math.hypot(x, y) + radius,
+              Math.hypot(x + dx, y + dy) + radius,
+            );
+          }
+          // Keep all rotated descendants inside their owning cell.
+          const scale = Math.min(1, p.supportRadius / extent);
+          for (let node = 0; node < count; node++) {
+            const i = cell * stride + node * 6;
+            for (let j = 0; j < 4; j++) branches[i + j] *= scale;
+            branches[i + 4] /= scale * scale;
+            branches[i + 5] /= scale * scale;
+          }
+        }
+        const clouds = cachedNoise(8, 8, seed ^ 0x4e73);
+        const grainField = cachedNoise(64, 64, seed ^ 0x6f21);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const offset =
+            (Math.floor(vCell) * p.cells + Math.floor(uCell)) * stride;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          let inclusion = 0;
+          if (x * x + y * y < p.supportRadius * p.supportRadius)
+            for (let node = 0; node < count; node++) {
+              const i = offset + node * 6;
+              const px = x - branches[i],
+                py = y - branches[i + 1];
+              const t = clamp(
+                (px * branches[i + 2] + py * branches[i + 3]) * branches[i + 4],
+              );
+              const dx = px - t * branches[i + 2],
+                dy = py - t * branches[i + 3];
+              const cover = smooth(
+                clamp(1 - (dx * dx + dy * dy) * branches[i + 5]),
+              );
+              inclusion += (1 - inclusion) * cover;
+            }
+          const grain = grainField(u, v);
+          color =
+            (0.76 + 0.12 * clouds(u, v) + 0.03 * grain) * (1 - inclusion) +
+            0.06 * inclusion;
+          // Mineral inclusions lie below one polished surface, not raised veins.
+          height = 0.5 + 0.003 * grain;
+          roughness += 0.015 * grain;
+          occlusion = 1;
+        };
+      }
       case 'eyeletcotton': {
         const p = proceduralMaterialPresets.eyeletcotton;
         const phases = new Float64Array(p.cells * p.cells);
@@ -14439,6 +14531,7 @@ export function createSurfaceSampler(
     kind === 'countersunkmetal' ||
     kind === 'trilobitefossil' ||
     kind === 'eyeletcotton' ||
+    kind === 'dendriticagate' ||
     fabricated ||
     botanical ||
     packaging ||
