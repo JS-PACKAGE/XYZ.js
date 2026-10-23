@@ -405,7 +405,107 @@ const kinds: ProceduralMaterialKind[] = [
   'argyle',
   'chevronparquet',
   'ginkgoleaf',
+  'pressedtin',
 ];
+
+describe('pressed tin ceiling panels', () => {
+  const p = proceduralMaterialPresets.pressedtin;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pressedtin', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises four symmetric petals, a central boss and a frame above metallic sheet for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const sheet = local(0.25, 0.25),
+            boss = local(0, 0);
+          expect(boss.height - sheet.height).toBeGreaterThan(0.0058);
+          expect(local(0.43, 0).height - sheet.height).toBeGreaterThan(0.0022);
+          const petals = [
+            local(0.2, 0),
+            local(-0.2, 0),
+            local(0, 0.2),
+            local(0, -0.2),
+          ];
+          for (const petal of petals) {
+            expect(petal.height - sheet.height).toBeGreaterThan(0.0068);
+            expect(petal.color - sheet.color).toBeGreaterThan(0.16);
+            expect(sheet.roughness - petal.roughness).toBeGreaterThan(0.015);
+            expect(petal.metallic).toBe(1);
+          }
+          expect(
+            Math.max(...petals.map((s) => s.height)) -
+              Math.min(...petals.map((s) => s.height)),
+          ).toBeLessThan(0.00011);
+        }
+    },
+  );
+  it('keeps stamped support edges, frame corners and tile wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let i = 0; i <= 64; i++) {
+        points.push([0, i / 64], [0.5, i / 64], [i / 64, 0], [i / 64, 0.5]);
+        for (const edge of [
+          p.frameOuter,
+          p.frameOuter - p.frameEdge,
+          p.frameInner,
+          p.frameInner - p.frameEdge,
+        ]) {
+          points.push(
+            [(0.5 + edge) / p.cells, i / 64],
+            [i / 64, (0.5 + edge) / p.cells],
+          );
+        }
+      }
+      for (let i = 0; i < 64; i++) {
+        const a = (i * Math.PI) / 32;
+        points.push([
+          (0.5 + p.bossRadius * Math.cos(a)) / p.cells,
+          (0.5 + p.bossRadius * Math.sin(a)) / p.cells,
+        ]);
+        points.push([
+          (0.5 + p.petalOffset + p.petalLength * Math.cos(a)) / p.cells,
+          (0.5 + p.petalWidth * Math.sin(a)) / p.cells,
+        ]);
+      }
+      for (const [x, y] of points)
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0));
+          const b = at(x, y);
+          const c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('golden ginkgo leaves', () => {
   const p = proceduralMaterialPresets.ginkgoleaf;
@@ -6952,6 +7052,7 @@ describe('periodic procedural material fields', () => {
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
+          kind === 'pressedtin' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -16230,6 +16331,7 @@ describe('procedural preset acquisition and ownership', () => {
     'standingseam',
     'damascus',
     'castiron',
+    'pressedtin',
     'basketball',
     'tennisball',
     'golfball',
@@ -16246,7 +16348,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'chippedenamel' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
-          kind === 'castiron'
+          kind === 'castiron' ||
+          kind === 'pressedtin'
           ? 1
           : 0,
       );

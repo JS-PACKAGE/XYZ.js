@@ -309,6 +309,8 @@
 
 `ginkgoleaf` 預存逐葉旋轉基底與色差，compact 扇形在所屬單元內完整消失；平滑半徑缺口區分左右葉瓣，葉柄以笛卡兒橢圓平滑併入。扇形與角度葉脈在極座標原點及 angle branch cut 前歸零，避免中心奇異與法線裂痕。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 380 種。
 
+`pressedtin` 以雙層平滑矩形覆蓋之差形成方框，四個 compact 橢圓冠與圓形凸鈕形成壓製花飾，支撐邊界以零斜率接回共用板面。細粒場預先快取，raised 紋樣同時調整 normal、color、roughness 與 AO。0.6 m tile、四圖 opaque、metallic map 與預設 factor 1、既有 ownership 不變，目錄增為 381 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

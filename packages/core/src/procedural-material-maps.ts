@@ -1231,6 +1231,7 @@ export function createSurfaceSampler(
     kind === 'standingseam' ||
     kind === 'damascus' ||
     kind === 'castiron' ||
+    kind === 'pressedtin' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1251,6 +1252,49 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pressedtin': {
+        const p = proceduralMaterialPresets.pressedtin;
+        const fineField = cachedNoise(64, 64, seed ^ 0x5a39);
+        const alongScale = 1 / (p.petalLength * p.petalLength);
+        const acrossScale = 1 / (p.petalWidth * p.petalWidth);
+        const bossScale = 1 / (p.bossRadius * p.bossRadius);
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const outer =
+            smooth(clamp((p.frameOuter - Math.abs(x)) / p.frameEdge)) *
+            smooth(clamp((p.frameOuter - Math.abs(y)) / p.frameEdge));
+          const inner =
+            smooth(clamp((p.frameInner - Math.abs(x)) / p.frameEdge)) *
+            smooth(clamp((p.frameInner - Math.abs(y)) / p.frameEdge));
+          const frame = outer - inner;
+          let petals = 0;
+          for (let axis = 0; axis < 2; axis++) {
+            const along = axis === 0 ? x : y,
+              across = axis === 0 ? y : x;
+            for (let side = -1; side <= 1; side += 2) {
+              const d = along - side * p.petalOffset;
+              const cap = Math.max(
+                0,
+                1 - d * d * alongScale - across * across * acrossScale,
+              );
+              petals += cap * cap;
+            }
+          }
+          const cap = Math.max(0, 1 - (x * x + y * y) * bossScale);
+          const boss = cap * cap,
+            grain = fineField(u, v);
+          // Compact stamped ornaments return to the same flat metal sheet.
+          color =
+            0.45 + 0.2 * frame + 0.2 * petals + 0.18 * boss + 0.03 * grain;
+          height =
+            0.2 + 0.12 * frame + 0.35 * petals + 0.3 * boss + 0.005 * grain;
+          roughness +=
+            0.05 * grain - 0.07 * petals - 0.06 * boss - 0.04 * frame;
+          occlusion = 0.94 + 0.04 * boss + 0.02 * petals;
+          return;
+        };
+      }
       case 'ginkgoleaf': {
         const p = proceduralMaterialPresets.ginkgoleaf;
         const fineField = cachedNoise(96, 96, seed ^ 0x5c19);
@@ -11110,6 +11154,7 @@ export function createSurfaceSampler(
     kind === 'argyle' ||
     kind === 'chevronparquet' ||
     kind === 'ginkgoleaf' ||
+    kind === 'pressedtin' ||
     fabricated ||
     botanical ||
     packaging ||

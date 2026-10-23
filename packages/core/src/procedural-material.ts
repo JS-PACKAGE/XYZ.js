@@ -386,7 +386,8 @@ export type ProceduralMaterialKind =
   | 'perforatedleather'
   | 'argyle'
   | 'chevronparquet'
-  | 'ginkgoleaf';
+  | 'ginkgoleaf'
+  | 'pressedtin';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -799,6 +800,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'argyle',
   'chevronparquet',
   'ginkgoleaf',
+  'pressedtin',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -931,6 +933,7 @@ export class ProceduralMaterial {
         this.kind === 'standingseam' ||
         this.kind === 'damascus' ||
         this.kind === 'castiron' ||
+        this.kind === 'pressedtin' ||
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||

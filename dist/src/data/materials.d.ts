@@ -2440,6 +2440,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         notchWidth: 0.14;
         edge: 0.02;
     }>;
+    pressedtin: Readonly<{
+        dark: readonly [72, 77, 80];
+        light: readonly [220, 224, 226];
+        roughness: 0.32;
+        relief: 0.02;
+        cells: 2;
+        frameOuter: 0.47;
+        frameInner: 0.4;
+        frameEdge: 0.025;
+        petalOffset: 0.2;
+        petalLength: 0.14;
+        petalWidth: 0.07;
+        bossRadius: 0.09;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2823,4 +2837,5 @@ export declare const proceduralTileMeters: Readonly<{
     argyle: 0.16;
     chevronparquet: 0.6;
     ginkgoleaf: 0.24;
+    pressedtin: 0.6;
 }>;
