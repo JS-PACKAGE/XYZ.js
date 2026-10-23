@@ -439,7 +439,80 @@ const kinds: ProceduralMaterialKind[] = [
   'starfruit',
   'diamondrustication',
   'bargello',
+  'saffiano',
 ];
+
+describe('Saffiano crosshatched leather', () => {
+  const p = proceduralMaterialPresets.saffiano;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('saffiano', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps both diagonal grooves below leather plateaus without doubling crossing depth for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const point = (a: number, b: number) =>
+        at((a + b) / (2 * p.lines), (a - b) / (2 * p.lines));
+      for (let a = 0; a < 8; a++)
+        for (let b = 0; b < 8; b++) {
+          const plateau = point(a + 0.5, b + 0.5),
+            crossing = point(a, b);
+          const rising = point(a, b + 0.5),
+            falling = point(a + 0.5, b);
+          for (const groove of [rising, falling, crossing]) {
+            expect(plateau.height - groove.height).toBeGreaterThan(0.0004);
+            expect(plateau.color - groove.color).toBeGreaterThan(0.04);
+            expect(groove.roughness - plateau.roughness).toBeGreaterThan(0.05);
+            expect(plateau.occlusion - groove.occlusion).toBeGreaterThan(0.12);
+          }
+          expect(Math.abs(crossing.height - rising.height)).toBeLessThan(
+            0.00011,
+          );
+          expect(Math.abs(crossing.height - falling.height)).toBeLessThan(
+            0.00011,
+          );
+        }
+    },
+  );
+  it('keeps diagonal groove shoulders, crossings and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Bargello flame needlepoint', () => {
   const p = proceduralMaterialPresets.bargello;

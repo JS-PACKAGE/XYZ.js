@@ -377,6 +377,8 @@
 
 `bargello` 將長直針腳的 y phase 依欄位三角階梯偏移四分之一針長，使用四階 yarn tone 形成火焰色帶。針腳兩側及兩端以 compact smooth 支撐接回暗底，隱藏欄位／列 ownership 的離散切換；rounded 橫冠、縱向細纖維與 seeded 細粒保留長直針形。色階不參與高度，避免把色帶另做浮雕。0.064 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 414 種。
 
+`saffiano` 以兩組正反斜向 cosine shoulder 形成細壓槽，smooth union 合併交點而非相加深度。皮面微粒使用 cached 128×128 periodic noise；高度、色彩、粗糙度及 AO 分別保留低暗壓槽與完整平台，不產生金屬菱形滾花凸冠。0.032 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 415 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

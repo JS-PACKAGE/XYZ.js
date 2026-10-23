@@ -1255,6 +1255,26 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'saffiano': {
+        const p = proceduralMaterialPresets.saffiano;
+        const grainField = cachedNoise(128, 128, seed ^ 0x6f29);
+        return () => {
+          const a = smooth(
+            clamp((Math.cos(TAU * p.lines * (u + v)) - 0.8) / 0.2),
+          );
+          const b = smooth(
+            clamp((Math.cos(TAU * p.lines * (u - v)) - 0.8) / 0.2),
+          );
+          // Pressed crosshatch intersections share one groove floor instead
+          // of adding two cuts into an artificially deep pit.
+          const groove = 1 - (1 - a) * (1 - b);
+          const grain = grainField(u, v);
+          color = 0.48 + 0.08 * grain - 0.13 * groove;
+          height = 0.65 + 0.025 * grain - p.grooveDepth * groove;
+          roughness += 0.025 * grain + 0.08 * groove;
+          occlusion = 0.97 - 0.13 * groove;
+        };
+      }
       case 'bargello': {
         const p = proceduralMaterialPresets.bargello;
         const grainField = cachedNoise(96, 96, seed ^ 0x5e39);
@@ -12630,6 +12650,7 @@ export function createSurfaceSampler(
     kind === 'starfruit' ||
     kind === 'diamondrustication' ||
     kind === 'bargello' ||
+    kind === 'saffiano' ||
     fabricated ||
     botanical ||
     packaging ||

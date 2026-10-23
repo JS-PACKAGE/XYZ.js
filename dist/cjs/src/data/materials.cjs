@@ -6155,6 +6155,22 @@ var proceduralMaterialPresets = Object.freeze({
 			.7,
 			.92
 		]
+	}),
+	saffiano: Object.freeze({
+		dark: [
+			31,
+			15,
+			9
+		],
+		light: [
+			137,
+			78,
+			43
+		],
+		roughness: .58,
+		relief: .004,
+		lines: 16,
+		grooveDepth: .14
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6571,7 +6587,8 @@ var proceduralTileMeters = Object.freeze({
 	rebar: .12,
 	starfruit: .18,
 	diamondrustication: 1.6,
-	bargello: .064
+	bargello: .064,
+	saffiano: .032
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

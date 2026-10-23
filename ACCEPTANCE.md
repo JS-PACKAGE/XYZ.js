@@ -6071,3 +6071,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證長直針圓冠高於端部／側隙、長軸高度保持、深淺紗線高度不受色階影響、四階週期與逐欄四分之一錯位；另驗證針腳側邊／錯位端點／火焰轉折／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5528 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：紫色階梯火焰帶、長直針腳與錯位針端、針冠 normal／側隙 AO、四圖及 25 球可見，status 為 414 種，兩頁錯誤列表皆空。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.064 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 413 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：Saffiano 十字紋皮革（saffiano）
+
+- 目錄 414→415 種。0.032 m tile、兩組細斜壓紋與 seeded 皮面微粒。壓槽低於／暗於／粗糙於紋間平台；平滑聯集讓交點保持單槽深度，不疊成雙倍深坑。四圖 opaque、metallic 0、既有 ownership 不變；不是皮革 geometry 或新增 BRDF。
+- 定向 4 tests 通過：三 seeds 驗證正反斜槽與交點低於皮面、色彩／粗糙度／AO 差異及交點不加倍深度；另驗證壓槽肩部／交點／tile wrap C1。build／typecheck／lint／format:check／全套 **178 files、5533 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：棕色皮面、細十字紋 AO 與四圖可見，status 為 415 種，兩頁錯誤列表皆空；WebGL2 暫時放大既有 swatch 檢視細紋，未更動 gallery 原始碼。size 256／seed 7 的 normal R／G 範圍皆為 117–138，保留細淺壓紋而非平面 normal。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.032 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 414 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

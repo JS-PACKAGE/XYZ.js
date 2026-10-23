@@ -420,7 +420,8 @@ export type ProceduralMaterialKind =
   | 'rebar'
   | 'starfruit'
   | 'diamondrustication'
-  | 'bargello';
+  | 'bargello'
+  | 'saffiano';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -867,6 +868,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'starfruit',
   'diamondrustication',
   'bargello',
+  'saffiano',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

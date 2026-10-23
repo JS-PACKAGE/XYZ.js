@@ -369,6 +369,8 @@
 
 同輪追加 `bargello`（Bargello 火焰針繡），實際目錄 413→414 種：三十二欄長直針腳逐欄錯開四分之一針長，階梯上升／下降形成紫色深淺火焰色帶。每針有圓冠、縱向纖維及低於針面的兩端／側隙；色帶不另外改變針腳高度。0.064 m tile、四圖 opaque dielectric、metallic 0，不新增線材 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `saffiano`（Saffiano 十字紋皮革），實際目錄 414→415 種：兩組細斜壓紋在棕色皮面上交叉，壓槽低於／暗於／粗糙於紋間平台，交點與單槽共用相同深度，不疊成雙倍深坑。seeded 微粒保留細壓紋尺度。0.032 m tile、四圖 opaque dielectric、metallic 0，不新增皮革 geometry 或 BRDF；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
