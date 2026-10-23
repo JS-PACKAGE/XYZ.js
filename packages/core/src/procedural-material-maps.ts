@@ -1237,6 +1237,7 @@ export function createSurfaceSampler(
     kind === 'rebar' ||
     kind === 'guilloche' ||
     kind === 'splitlockwashers' ||
+    kind === 'hexnuts' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1257,6 +1258,54 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'hexnuts': {
+        const p = proceduralMaterialPresets.hexnuts;
+        const planes = new Float64Array(p.cells * p.cells * 12);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x4c71);
+            for (let side = 0; side < 6; side++) {
+              const i = (row * p.cells + col) * 12 + side * 2;
+              const angle = phase + (TAU * side) / 6;
+              planes[i] = Math.cos(angle);
+              planes[i + 1] = Math.sin(angle);
+            }
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5d83);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 12;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          let outer = 1;
+          for (let side = 0; side < 6; side++) {
+            const j = i + side * 2;
+            outer *= smooth(
+              clamp(
+                (p.inradius - x * planes[j] - y * planes[j + 1]) / p.outerBevel,
+              ),
+            );
+          }
+          const radius = Math.hypot(x, y);
+          const face =
+            outer * smooth(clamp((radius - p.boreRadius) / p.boreBevel));
+          const grain = grainField(u, v);
+          const machining = 0.5 + 0.5 * Math.cos(TAU * p.machining * radius);
+          // Circular bores and outside spaces expose the same opaque steel backing.
+          // Fine concentric machining marks are not helical thread geometry.
+          color =
+            (1 - face) * (0.15 + 0.05 * grain) +
+            face * (0.68 + 0.06 * grain + 0.04 * machining);
+          height =
+            0.05 +
+            0.003 * grain +
+            face * (0.7 + 0.004 * grain + 0.001 * machining);
+          roughness +=
+            0.015 * grain + 0.18 * (1 - face) + 0.025 * machining * face;
+          occlusion = 0.45 + 0.53 * face;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -13544,6 +13593,7 @@ export function createSurfaceSampler(
     kind === 'satinweave' ||
     kind === 'lotusroot' ||
     kind === 'cardboardedge' ||
+    kind === 'hexnuts' ||
     fabricated ||
     botanical ||
     packaging ||

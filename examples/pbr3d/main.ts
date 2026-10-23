@@ -512,6 +512,7 @@ try {
     'satinweave',
     'lotusroot',
     'cardboardedge',
+    'hexnuts',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

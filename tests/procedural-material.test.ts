@@ -458,7 +458,131 @@ const kinds: ProceduralMaterialKind[] = [
   'satinweave',
   'lotusroot',
   'cardboardedge',
+  'hexnuts',
 ];
+
+describe('Hexagonal metal nuts', () => {
+  const p = proceduralMaterialPresets.hexnuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('hexnuts', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates six straight flats and extended corners from circular recessed bores for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          const polar = (r: number, a: number) =>
+            at(r * Math.cos(a), r * Math.sin(a));
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4c71);
+          const bore = at(0, 0),
+            backing = at(0.49, 0.49);
+          expect(Math.abs(bore.height - backing.height)).toBeLessThan(0.0001);
+          for (let side = 0; side < 6; side++) {
+            const angle = phase + (2 * Math.PI * side) / 6;
+            const top = polar(0.3, angle),
+              flatOutside = polar(0.4, angle),
+              corner = polar(0.4, angle + Math.PI / 6);
+            expect(top.height - bore.height).toBeGreaterThan(0.02);
+            expect(top.color - bore.color).toBeGreaterThan(0.48);
+            expect(top.occlusion - bore.occlusion).toBeGreaterThan(0.5);
+            expect(bore.roughness - top.roughness).toBeGreaterThan(0.13);
+            expect(corner.height - flatOutside.height).toBeGreaterThan(0.015);
+            const half = polar(p.inradius - p.outerBevel / 2, angle);
+            const tangent = at(
+              (p.inradius - p.outerBevel / 2) * Math.cos(angle) -
+                0.08 * Math.sin(angle),
+              (p.inradius - p.outerBevel / 2) * Math.sin(angle) +
+                0.08 * Math.cos(angle),
+            );
+            expect(Math.abs(half.height - tangent.height)).toBeLessThan(0.0002);
+            let previousOuter = polar(p.inradius, angle).height,
+              previousBore = polar(p.boreRadius, angle).height;
+            for (let step = 1; step <= 4; step++) {
+              const outer = polar(
+                p.inradius - (p.outerBevel * step) / 4,
+                angle,
+              );
+              const inner = polar(
+                p.boreRadius + (p.boreBevel * step) / 4,
+                angle,
+              );
+              expect(outer.height).toBeGreaterThan(previousOuter);
+              expect(inner.height).toBeGreaterThan(previousBore);
+              previousOuter = outer.height;
+              previousBore = inner.height;
+              expect(outer.metallic).toBe(1);
+              expect(inner.metallic).toBe(1);
+            }
+          }
+        }
+    },
+  );
+  it('keeps hexagonal bevel intersections, circular bore skirts and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x4c71);
+          for (let side = 0; side < 12; side++) {
+            const angle = phase + (Math.PI * side) / 6;
+            const correction = side % 2 ? Math.cos(Math.PI / 6) : 1;
+            for (const radius of [
+              p.inradius / correction,
+              (p.inradius - p.outerBevel) / correction,
+              p.boreRadius,
+              p.boreRadius + p.boreBevel,
+            ])
+              points.push([
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              ]);
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Corrugated cardboard cut edge', () => {
   const p = proceduralMaterialPresets.cardboardedge;
@@ -11819,6 +11943,7 @@ describe('periodic procedural material fields', () => {
           kind === 'rebar' ||
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
+          kind === 'hexnuts' ||
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
@@ -21106,6 +21231,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rebar',
     'guilloche',
     'splitlockwashers',
+    'hexnuts',
     'basketball',
     'tennisball',
     'golfball',
@@ -21129,7 +21255,8 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'crowncaps' ||
           kind === 'rebar' ||
           kind === 'guilloche' ||
-          kind === 'splitlockwashers'
+          kind === 'splitlockwashers' ||
+          kind === 'hexnuts'
           ? 1
           : 0,
       );

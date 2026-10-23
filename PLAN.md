@@ -407,6 +407,8 @@
 
 同輪追加 `cardboardedge`（瓦楞紙板切邊），實際目錄 432→433 種：六層紙板切面，各四個波浪芯紙週期連接上下平面紙層，seed 決定逐層相位與紙漿細紋；紙邊嵌平，中空腔低暗。0.024 m tile、四圖 opaque dielectric、metallic 0；與既有瓦楞正面不同，不新增紙板 geometry／透明中空模型，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `hexnuts`（六角螺帽），實際目錄 433→434 種：四乘四 seeded 旋轉六角金屬面，六條直外緣與伸出的角部保留倒角，圓形凹孔具有獨立圓弧倒角，頂面附細密同心加工紋。0.08 m tile、四圖 opaque、metallic 通道與 factory factor 均為 1；孔底與外側使用同一低鋼板底面，不新增螺帽 geometry／alpha holes／實際螺旋牙，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

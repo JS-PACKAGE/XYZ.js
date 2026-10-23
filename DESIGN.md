@@ -415,6 +415,8 @@
 
 `cardboardedge` 快取六層 seeded 相位，四週期正弦芯紙以切線斜率修正垂直距離，避免陡側紙壁過薄；上下 liner 以 compact shoulders 形成直紙邊，與芯紙用 product union 接合，交點不疊高。所有紙邊共用切面高度與細微紙漿／纖維起伏，空腔保持低暗 opaque 底面；各層紙邊在 row 邊界前歸零，不因相位切換產生接縫。0.024 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 433 種。
 
+`hexnuts` 快取十六枚 seeded 六角螺帽各六條單位半平面法線，以 compact product 形成直外緣倒角及平滑角部交集，再乘圓形孔裙緣，避免把六角外輪廓誤作圓環。頂面使用低幅同心加工紋及細粒，所有孔底／外側露出同一低鋼板底面；加工紋不是螺旋牙 geometry。0.08 m tile、四圖 opaque、全 metallic 通道及 factory factor 1、既有 ownership 不變，目錄增為 434 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

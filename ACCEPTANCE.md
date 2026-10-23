@@ -6205,3 +6205,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證二十四個芯紙週期各十六個相位的波形紙邊、上下 liner、低暗腔高度／色差／AO／粗糙度、波峰波谷與 liner 連續接合；另在精確芯紙／liner skirts、層 owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5625 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：棕色直紙層、逐層錯相波浪芯紙、暗腔、紙邊 normal／AO 及四圖可見，status 為 433 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視切邊，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.024 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 432 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：六角螺帽（hexnuts）
+
+- 目錄 433→434 種。0.08 m tile、四乘四 seeded 旋轉六角金屬面，六條直外緣／伸出角部有平滑倒角，圓形凹孔有獨立圓弧倒角，頂面附細密同心加工紋。孔底與外側露出同一低鋼板底面，不是圓形墊圈或十字螺絲頭。四圖 opaque、全 metallic 通道與 factory factor 均為 1、既有 ownership 不變，不新增螺帽 geometry／alpha holes／實際螺旋牙。
+- 定向 5 tests 通過：三 seeds 驗證十六枚螺帽全部六邊的直緣切向等高、角部超出直邊、內外倒角單調高度、圓孔低底／頂面對比及 metallic；另驗證半平面倒角交集、圓孔裙緣與 tile wrap C1，以及多 material 借用／外部 override ownership。build／typecheck／lint／format:check／全套 **178 files、5631 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：灰銀六角外輪廓／圓孔、內外倒角 normal、金屬 MR 與孔隙 AO 四圖可見，status 為 434 種，兩頁錯誤列表皆空。WebGL2 暫時放大既有 swatch 檢視六角輪廓，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 433 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件及 metallic factor 清單同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
