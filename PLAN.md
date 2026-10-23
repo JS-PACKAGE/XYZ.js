@@ -371,6 +371,8 @@
 
 同輪追加 `saffiano`（Saffiano 十字紋皮革），實際目錄 414→415 種：兩組細斜壓紋在棕色皮面上交叉，壓槽低於／暗於／粗糙於紋間平台，交點與單槽共用相同深度，不疊成雙倍深坑。seeded 微粒保留細壓紋尺度。0.032 m tile、四圖 opaque dielectric、metallic 0，不新增皮革 geometry 或 BRDF；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `cocoamat`（椰纖門墊），實際目錄 415→416 種：八乘八區域各有四根 seeded 旋轉短彎纖維，跨區域交疊並平滑收束兩端；棕色粗纖維高於／亮於暗底，間隙保留粗糙陰影而非整片實心。0.08 m tile、四圖 opaque dielectric、metallic 0，不新增纖維 geometry；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

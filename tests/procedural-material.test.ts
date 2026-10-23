@@ -440,7 +440,100 @@ const kinds: ProceduralMaterialKind[] = [
   'diamondrustication',
   'bargello',
   'saffiano',
+  'cocoamat',
 ];
+
+describe('Coir coconut-fiber mat', () => {
+  const p = proceduralMaterialPresets.cocoamat;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cocoamat', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps curved fibers raised across cell edges while retaining dark backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let strand = 0; strand < p.fibers; strand++) {
+            const salt = seed ^ Math.imul(strand + 1, 0x9e37);
+            const angle = 2 * Math.PI * hash(col, row, salt ^ 0x5a29);
+            const cx = col + 0.2 + 0.6 * hash(col, row, salt ^ 0x3145),
+              cy = row + 0.2 + 0.6 * hash(col, row, salt ^ 0x4267);
+            const amplitude = 0.08 + 0.08 * hash(col, row, salt ^ 0x6b31);
+            for (const x of [-0.45, -0.25, 0, 0.25, 0.45]) {
+              const y = amplitude * Math.sin((Math.PI * x) / p.halfLength);
+              const fiber = at(
+                (cx + x * Math.cos(angle) - y * Math.sin(angle)) / p.cells,
+                (cy + x * Math.sin(angle) + y * Math.cos(angle)) / p.cells,
+              );
+              expect(fiber.height).toBeGreaterThan(0.018);
+              expect(fiber.color).toBeGreaterThan(0.55);
+              expect(fiber.occlusion).toBeGreaterThan(0.95);
+              expect(fiber.roughness).toBeLessThan(0.91);
+            }
+          }
+      let backing = 0;
+      for (let y = 0; y < 64; y++)
+        for (let x = 0; x < 64; x++) {
+          const sample = at(x / 64, y / 64);
+          if (sample.height < 0.003) {
+            backing++;
+            expect(sample.color).toBeLessThan(0.11);
+            expect(sample.occlusion).toBeLessThan(0.42);
+            expect(sample.roughness).toBeGreaterThan(0.95);
+          }
+        }
+      // Neither a solid plate nor isolated sparse noodles: the felted pile
+      // retains substantial shadowed interstices between overlapping strands.
+      expect(backing / 4096).toBeGreaterThan(0.1);
+      expect(backing / 4096).toBeLessThan(0.7);
+    },
+  );
+  it('keeps strand ends, crossings, neighbour windows and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Saffiano crosshatched leather', () => {
   const p = proceduralMaterialPresets.saffiano;

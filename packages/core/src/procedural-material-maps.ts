@@ -1255,6 +1255,65 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cocoamat': {
+        const p = proceduralMaterialPresets.cocoamat;
+        const fibers = new Float64Array(p.cells * p.cells * p.fibers * 5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let strand = 0; strand < p.fibers; strand++) {
+              const offset = ((row * p.cells + col) * p.fibers + strand) * 5;
+              const salt = seed ^ Math.imul(strand + 1, 0x9e37);
+              const angle = TAU * hash(col, row, salt ^ 0x5a29);
+              fibers[offset] = 0.2 + 0.6 * hash(col, row, salt ^ 0x3145);
+              fibers[offset + 1] = 0.2 + 0.6 * hash(col, row, salt ^ 0x4267);
+              fibers[offset + 2] = Math.cos(angle);
+              fibers[offset + 3] = Math.sin(angle);
+              fibers[offset + 4] = 0.08 + 0.08 * hash(col, row, salt ^ 0x6b31);
+            }
+        const grainField = cachedNoise(96, 96, seed ^ 0x7c43);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          let empty = 1;
+          // Compact curved strands vanish before the neighbour window changes.
+          // Their smooth union keeps crossings continuous without hard maxima.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const col = ((cx % p.cells) + p.cells) % p.cells,
+                row = ((cy % p.cells) + p.cells) % p.cells;
+              for (let strand = 0; strand < p.fibers; strand++) {
+                const offset = ((row * p.cells + col) * p.fibers + strand) * 5;
+                const dx = x - cx - fibers[offset],
+                  dy = y - cy - fibers[offset + 1];
+                const along = dx * fibers[offset + 2] + dy * fibers[offset + 3],
+                  across = dy * fibers[offset + 2] - dx * fibers[offset + 3];
+                if (
+                  Math.abs(along) >= p.halfLength ||
+                  Math.abs(across) >= fibers[offset + 4] + p.radius
+                )
+                  continue;
+                const curve =
+                  fibers[offset + 4] *
+                  Math.sin((Math.PI * along) / p.halfLength);
+                const distance = (across - curve) / p.radius;
+                const shape =
+                  smooth(clamp(1 - distance * distance)) *
+                  smooth(clamp((p.halfLength - Math.abs(along)) / 0.1));
+                empty *= 1 - shape;
+              }
+            }
+          const pile = 1 - empty,
+            grain = grainField(u, v);
+          color = 0.05 + pile * (0.52 + 0.12 * grain);
+          height = 0.06 + pile * (0.69 + 0.035 * grain);
+          roughness += 0.1 * empty + 0.02 * grain * pile;
+          occlusion = 0.35 + 0.63 * pile;
+        };
+      }
       case 'saffiano': {
         const p = proceduralMaterialPresets.saffiano;
         const grainField = cachedNoise(128, 128, seed ^ 0x6f29);
@@ -12651,6 +12710,7 @@ export function createSurfaceSampler(
     kind === 'diamondrustication' ||
     kind === 'bargello' ||
     kind === 'saffiano' ||
+    kind === 'cocoamat' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -494,6 +494,7 @@ try {
     'diamondrustication',
     'bargello',
     'saffiano',
+    'cocoamat',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
