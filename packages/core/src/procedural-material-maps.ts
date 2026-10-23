@@ -1255,6 +1255,50 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'vermiculite': {
+        const p = proceduralMaterialPresets.vermiculite;
+        const flakes = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * 3;
+            const angle = TAU * hash(col, row, seed ^ 0x4d27);
+            flakes[offset] = Math.cos(angle);
+            flakes[offset + 1] = Math.sin(angle);
+            flakes[offset + 2] = hash(col, row, seed ^ 0x5e39);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6f41);
+        return () => {
+          const vCell = v * p.cells,
+            row = Math.floor(vCell);
+          const uCell = u * p.cells - 0.5 * (row % 2);
+          const col = ((Math.floor(uCell) % p.cells) + p.cells) % p.cells;
+          const offset = (row * p.cells + col) * 3;
+          const tx = fract(uCell) - 0.5,
+            ty = fract(vCell) - 0.5;
+          const x = tx * flakes[offset] + ty * flakes[offset + 1],
+            y = ty * flakes[offset] - tx * flakes[offset + 1];
+          const wave =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU *
+                  ((p.layers * x) / (2 * p.halfLength) + flakes[offset + 2]),
+              );
+          const ridge = wave * wave;
+          // Expanded lamellae widen at the crests, not just painted stripes.
+          const width = p.halfWidth + p.ribWidth * ridge;
+          const q = (x / p.halfLength) ** 2 + (y / width) ** 2;
+          const face = smooth(clamp((1 - q) / 0.18));
+          const dome = clamp(1 - q),
+            grain = grainField(u, v);
+          color =
+            0.12 * (1 - face) + face * (0.43 + 0.3 * ridge + 0.08 * grain);
+          height =
+            0.06 + face * (0.35 + 0.27 * ridge + 0.12 * dome + 0.015 * grain);
+          roughness += 0.18 * (1 - face) + face * (0.04 * grain - 0.12 * ridge);
+          occlusion = 0.35 + face * (0.38 + 0.22 * ridge);
+        };
+      }
       case 'suminagashi': {
         const p = proceduralMaterialPresets.suminagashi;
         const warpX = cachedNoise(4, 4, seed ^ 0x2d47),
@@ -12736,6 +12780,7 @@ export function createSurfaceSampler(
     kind === 'saffiano' ||
     kind === 'cocoamat' ||
     kind === 'suminagashi' ||
+    kind === 'vermiculite' ||
     fabricated ||
     botanical ||
     packaging ||

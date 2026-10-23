@@ -383,6 +383,8 @@
 
 `suminagashi` 對 cached 3×3／7×7 periodic scalar fields 作雙軸 domain warp，再以平滑 cosine 色帶取等值輪廓，形成套疊墨紋。墨色與粗糙度共享 ink 欄位，但高度只由獨立 96×96 細粒／192×8 纖維形成；AO 保持平紙面，不將墨線變成刻痕。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 417 種；不包含流體模擬。
 
+`vermiculite` 快取交錯排列細長顆粒的方向與層片 phase，以有限橢圓包絡保留離散顆粒。縱向 cosine 平方層脊同時提高、提亮、降低粗糙度並擴張短軸側緣，層隙及顆粒間低暗底分別保留 AO。包絡在 cell 邊界前平滑歸零，cached 96×96 細粒不外溢到暗底。0.06 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 418 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

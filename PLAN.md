@@ -375,6 +375,8 @@
 
 同輪追加 `suminagashi`（墨流し紋紙），實際目錄 416→417 種：seeded domain warp 產生蜿蜒套疊的炭黑墨色輪廓，墨區與暖白紙面交替。墨色僅影響顏色與粗糙度；紙面高度來自獨立細粒／纖維，不把墨線刻成石材溝槽。0.24 m tile、四圖 opaque dielectric、metallic 0，不新增流體模擬或紙張 geometry；沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `vermiculite`（膨脹蛭石），實際目錄 417→418 種：交錯排列的三十六顆 seeded 旋轉細長金棕色顆粒有手風琴狀層片，層脊較高／亮／平滑，層隙較低／暗／粗糙；凸層同時擴張顆粒側緣，不只印上條紋。0.06 m tile、四圖 opaque dielectric、metallic 0，不新增礦物 geometry 或膨脹模擬；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

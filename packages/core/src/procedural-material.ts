@@ -423,7 +423,8 @@ export type ProceduralMaterialKind =
   | 'bargello'
   | 'saffiano'
   | 'cocoamat'
-  | 'suminagashi';
+  | 'suminagashi'
+  | 'vermiculite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -873,6 +874,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'saffiano',
   'cocoamat',
   'suminagashi',
+  'vermiculite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
