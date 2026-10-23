@@ -367,6 +367,8 @@
 
 `hollyleaf` 以橢圓葉身、三對漸尖側刺及尖葉端做 smooth union；平方橫距配合 compact smooth 支撐，在尖端／葉緣／葉柄交界保留連續導數。側脈在主軸前平滑歸零，避免 absolute cross-axis 導數尖點；預先計算 seeded 旋轉讓每葉完整留在自己的格內。較低葉柄、凸起主／側脈與細粒控制高度，綠色亮葉比 opaque 暗底平滑。0.24 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 409 種。
 
+`englishbond` 依列交替八個短端磚／四個雙寬長面磚，短端列偏移半格形成英式砌法；預先快取各磚 seeded 色差。水平與垂直接縫距離均換算為列間距單位，避免長面磚灰縫加倍，兩軸 smooth shoulder 相乘保留角落 C1。磚面細粒／骨料噪聲在灰縫歸零，跨列 ownership 切換不留下 seed 色差斷點。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 410 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

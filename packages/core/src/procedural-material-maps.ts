@@ -1254,6 +1254,39 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'englishbond': {
+        const p = proceduralMaterialPresets.englishbond;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5b17);
+        const aggregateField = cachedNoise(48, 48, seed ^ 0x3d29);
+        const tones = new Float64Array(p.rows * p.headerColumns);
+        for (let row = 0; row < p.rows; row++) {
+          const columns = row % 2 ? p.stretcherColumns : p.headerColumns;
+          for (let col = 0; col < columns; col++)
+            tones[row * p.headerColumns + col] = hash(col, row, seed ^ 0x8c43);
+        }
+        return () => {
+          const row = Math.floor(v * p.rows);
+          const headers = row % 2 === 0;
+          const columns = headers ? p.headerColumns : p.stretcherColumns;
+          const x = u * columns + (headers ? 0.5 : 0);
+          const col = Math.floor(x) % columns;
+          // Express both joint distances in row-pitch units: changing brick
+          // width must not double the physical mortar or bevel width.
+          const dx = ((0.5 - Math.abs(fract(x) - 0.5)) * p.rows) / columns;
+          const dy = 0.5 - Math.abs(fract(v * p.rows) - 0.5);
+          const face =
+            smooth(clamp((dx - p.grout) / p.bevel)) *
+            smooth(clamp((dy - p.grout) / p.bevel));
+          const grain = grainField(u, v),
+            aggregate = aggregateField(u, v);
+          const tone = tones[row * p.headerColumns + col]!;
+          color = face * (0.3 + 0.3 * tone + 0.05 * grain) + 0.5 * (1 - face);
+          height = 0.08 + face * (0.7 + 0.025 * grain + 0.015 * aggregate);
+          mortar = 1 - face;
+          roughness += 0.04 * grain * face + 0.1 * mortar;
+          occlusion = 0.6 + 0.36 * face;
+        };
+      }
       case 'hollyleaf': {
         const p = proceduralMaterialPresets.hollyleaf;
         const grainField = cachedNoise(96, 96, seed ^ 0x3d71);
@@ -12450,6 +12483,7 @@ export function createSurfaceSampler(
     kind === 'ikat' ||
     kind === 'slottedwood' ||
     kind === 'hollyleaf' ||
+    kind === 'englishbond' ||
     fabricated ||
     botanical ||
     packaging ||

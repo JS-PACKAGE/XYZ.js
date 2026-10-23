@@ -434,7 +434,96 @@ const kinds: ProceduralMaterialKind[] = [
   'ikat',
   'slottedwood',
   'hollyleaf',
+  'englishbond',
 ];
+
+describe('English-bond brick courses', () => {
+  const p = proceduralMaterialPresets.englishbond;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('englishbond', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates header and stretcher courses without widening mortar for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++) {
+        const headers = row % 2 === 0,
+          columns = headers ? 8 : 4,
+          offset = headers ? 0.5 : 0;
+        const v = (row + 0.5) / p.rows;
+        for (let col = 0; col < columns; col++) {
+          const u = (col + 0.5 - offset) / columns;
+          const center = at(u, v),
+            joint = at((col + 1 - offset) / columns, v);
+          expect(center.height - joint.height).toBeGreaterThan(0.017);
+          expect(center.occlusion - joint.occlusion).toBeGreaterThan(0.35);
+          expect(center.mortar).toBe(0);
+          expect(joint.mortar).toBe(1);
+          expect(at(u, (row + 1) / p.rows).mortar).toBe(1);
+          const side = at((col + 1 - offset) / columns - 0.05 / p.rows, v);
+          const bed = at(u, (row + 1) / p.rows - 0.05 / p.rows);
+          expect(side.mortar).toBeGreaterThan(0.3);
+          expect(side.mortar).toBeLessThan(0.5);
+          expect(Math.abs(side.mortar - bed.mortar)).toBeLessThan(1e-12);
+          expect(Math.abs(side.height - bed.height)).toBeLessThan(0.001);
+        }
+      }
+      for (let row = 0; row < p.rows; row += 2) {
+        const header = (row + 0.5) / p.rows,
+          stretcher = (row + 1.5) / p.rows;
+        for (let col = 0; col < 4; col++) {
+          const perpend = col / 4;
+          expect(
+            at(perpend, header).height - at(perpend, stretcher).height,
+          ).toBeGreaterThan(0.017);
+          expect(
+            at(perpend + 0.0625, stretcher).height -
+              at(perpend + 0.0625, header).height,
+          ).toBeGreaterThan(0.017);
+        }
+      }
+    },
+  );
+  it('keeps alternating course ownership, bevel corners and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('spiny holly leaves', () => {
   const p = proceduralMaterialPresets.hollyleaf;

@@ -359,6 +359,8 @@
 
 同輪追加 `hollyleaf`（尖刺冬青葉），實際目錄 408→409 種：seeded 旋轉深綠亮葉、三對尖刺葉緣、尖葉端、較低葉柄與凸起主／側脈，凹缺口保留暗色底層。0.24 m tile、四圖 opaque dielectric、metallic 0；與圓裂橡葉區分，不新增植物 geometry 或透明裁切。沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `englishbond`（英式砌磚），實際目錄 409→410 種：四列短端磚與四列兩倍寬長面磚交替，長面磚接縫落在相鄰短端磚中央，四十八塊 seeded 紅棕磚共用一致實際灰縫／倒角寬度。0.8 m tile、四圖 opaque dielectric、metallic 0，不新增砌體 geometry 或結構模擬；沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

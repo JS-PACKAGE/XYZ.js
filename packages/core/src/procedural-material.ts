@@ -415,7 +415,8 @@ export type ProceduralMaterialKind =
   | 'calcadawaves'
   | 'ikat'
   | 'slottedwood'
-  | 'hollyleaf';
+  | 'hollyleaf'
+  | 'englishbond';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -857,6 +858,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ikat',
   'slottedwood',
   'hollyleaf',
+  'englishbond',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
