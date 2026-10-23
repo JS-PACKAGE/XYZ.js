@@ -451,7 +451,100 @@ const kinds: ProceduralMaterialKind[] = [
   'sunburstveneer',
   'rakedgravel',
   'flintwall',
+  'frenchknots',
 ];
+
+describe('French knot embroidery', () => {
+  const p = proceduralMaterialPresets.frenchknots;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('frenchknots', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises two yarn wraps around a closed central dimple over woven cloth for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.45 + 0.1 * hash(col, row, seed ^ 0x1c41),
+            cy = row + 0.45 + 0.1 * hash(col, row, seed ^ 0x2d53);
+          const turn = 2 * Math.PI * hash(col, row, seed ^ 0x3a65),
+            phase = 2 * Math.PI * hash(col, row, seed ^ 0x4b77);
+          const at = (r: number, angle: number) => {
+            const x = r * Math.cos(angle),
+              y = (r * Math.sin(angle)) / p.aspect;
+            return sample(
+              (cx + x * Math.cos(turn) - y * Math.sin(turn)) / p.cells,
+              (cy + x * Math.sin(turn) + y * Math.cos(turn)) / p.cells,
+            );
+          };
+          const center = at(0, 0),
+            cloth = at(0.38, 0);
+          expect(center.height - cloth.height).toBeGreaterThan(0.005);
+          expect(cloth.color - center.color).toBeGreaterThan(0.56);
+          expect(cloth.roughness - center.roughness).toBeGreaterThan(0.07);
+          for (let step = 0; step < 12; step++) {
+            const angle = (2 * Math.PI * step) / 12;
+            const warp = p.warp * Math.cos(3 * angle + phase);
+            const inner = at(p.inner + warp, angle),
+              outer = at(p.outer + warp, angle),
+              valley = at((p.inner + p.outer) / 2 + warp, angle);
+            expect(inner.height - center.height).toBeGreaterThan(0.004);
+            expect(outer.height - center.height).toBeGreaterThan(0.001);
+            expect(inner.height - valley.height).toBeGreaterThan(0.002);
+            expect(outer.height - valley.height).toBeGreaterThan(0.0008);
+            expect(at(0.04, angle).height - center.height).toBeGreaterThan(
+              0.0005,
+            );
+          }
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps wrapped yarn, dimples, knot skirts and tile boundaries C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 80,
+              v = y / 80;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('Knapped flint wall', () => {
   const p = proceduralMaterialPresets.flintwall;

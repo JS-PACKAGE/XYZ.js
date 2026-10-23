@@ -2903,6 +2903,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         cortex: 0.05;
         bevel: 0.025;
     }>;
+    frenchknots: Readonly<{
+        dark: readonly [127, 47, 69];
+        light: readonly [245, 230, 207];
+        roughness: 0.85;
+        relief: 0.02;
+        cells: 6;
+        radius: 0.28;
+        inner: 0.095;
+        outer: 0.19;
+        width: 0.035;
+        dimple: 0.055;
+        warp: 0.008;
+        aspect: 1.15;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3332,4 +3346,5 @@ export declare const proceduralTileMeters: Readonly<{
     sunburstveneer: 0.8;
     rakedgravel: 0.8;
     flintwall: 1.2;
+    frenchknots: 0.06;
 }>;

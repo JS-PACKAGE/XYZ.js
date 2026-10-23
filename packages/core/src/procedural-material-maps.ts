@@ -1256,6 +1256,65 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'frenchknots': {
+        const p = proceduralMaterialPresets.frenchknots;
+        const knots = new Float64Array(p.cells * p.cells * 5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 5;
+            const angle = TAU * hash(col, row, seed ^ 0x3a65);
+            knots[index] = 0.45 + 0.1 * hash(col, row, seed ^ 0x1c41);
+            knots[index + 1] = 0.45 + 0.1 * hash(col, row, seed ^ 0x2d53);
+            knots[index + 2] = Math.cos(angle);
+            knots[index + 3] = Math.sin(angle);
+            knots[index + 4] = TAU * hash(col, row, seed ^ 0x4b77);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5c89);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const index = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 5;
+          const dx = fract(uCell) - knots[index],
+            dy = fract(vCell) - knots[index + 1];
+          const x = dx * knots[index + 2] + dy * knots[index + 3];
+          const y = (dy * knots[index + 2] - dx * knots[index + 3]) * p.aspect;
+          const q = x * x + y * y,
+            r = Math.sqrt(q);
+          const cap = smooth(clamp(1 - q / (p.radius * p.radius)));
+          const dimple = smooth(clamp(1 - q / (p.dimple * p.dimple)));
+          let wraps = 0;
+          if (
+            r > p.inner - p.width - p.warp &&
+            r < p.outer + p.width + p.warp
+          ) {
+            const warp =
+              p.warp * Math.cos(3 * Math.atan2(y, x) + knots[index + 4]);
+            const inner = (r - p.inner - warp) / p.width;
+            const outer = (r - p.outer - warp) / p.width;
+            wraps =
+              smooth(clamp(1 - inner * inner)) +
+              smooth(clamp(1 - outer * outer));
+          }
+          const halo = smooth(clamp(1 - q / (0.34 * 0.34)));
+          const weave =
+            (0.5 + 0.5 * Math.cos(TAU * 64 * u)) *
+            (0.5 + 0.5 * Math.cos(TAU * 64 * v));
+          const grain = grainField(u, v);
+          // Compact yarn wraps rise over a woven backing; the knot center
+          // dimples inward without opening a hole through the cloth.
+          color =
+            (1 - cap) * (0.9 + 0.04 * weave) +
+            cap * (0.25 + 0.08 * grain + 0.08 * wraps);
+          height =
+            0.08 +
+            0.02 * weave +
+            0.012 * grain +
+            cap * (0.4 - 0.12 * dimple) +
+            0.2 * wraps;
+          roughness += 0.03 * grain - 0.1 * cap;
+          occlusion = 0.98 - 0.2 * halo + 0.17 * cap + 0.02 * wraps;
+        };
+      }
       case 'flintwall': {
         const p = proceduralMaterialPresets.flintwall;
         const stride = 2 + p.edges * 3;
@@ -13213,6 +13272,7 @@ export function createSurfaceSampler(
     kind === 'sunburstveneer' ||
     kind === 'rakedgravel' ||
     kind === 'flintwall' ||
+    kind === 'frenchknots' ||
     fabricated ||
     botanical ||
     packaging ||
