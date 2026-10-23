@@ -6394,3 +6394,7 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 發佈前本機以 1.22.0 重建並驗證：build（ESM／CJS／完整 vendor）、typecheck、lint、format:check、完整 Vitest（178 檔／5760 項）、check:api-compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）通過；`pnpm pack` 產生 `xyz.js-1.22.0.tgz`，`check-package-hygiene --archive` 對該實際 archive 回報 `PACKAGE_HYGIENE_OK`，本機 SHA256 為 `088471fabc5ef2adb77051cec3e0c690602e4f8192ba53127bc05b2a1a61c20f`。`dist/` 重建後與已提交內容相同。未於此輪重跑 starter smoke，也未新增 runtime 依賴，不擴大瀏覽器、實體裝置或效能認證範圍。
 - 沿既有 CI／Release workflow（推送 `v1.22.0` tag 後先跑 CI，再封裝 archive 與 SHA256SUMS 並建立 GitHub release）；不做 npm publish。遠端 workflow 結果與實際附件須以 GitHub 上的紀錄為準。
 - 第一次推送 `v1.22.0`（指向 `6cff8a4a`）時 verify 階段失敗：Quatrefoil、Peyote、Okra、Egg carton、Greek key、Smocking、Maple leaves、Star anise 的 8 個 C1 連續性測試在 CI runner 耗時約 5.2–7.1 s，超過 Vitest 預設 5 s（本機約 1.3 s）；release job 因此被跳過，沒有建立 GitHub release 或附件。已於 `e8db4603` 以檔案層級 `vi.setConfig({ testTimeout: 30_000 })` 修正，修正後該測試檔本機 2033 項通過。經使用者同意，把尚未產生 release 的 `v1.22.0` tag 移到修正後的 commit 重跑；這與 v1.21.1 失敗後改發 v1.21.2 的先例不同，既有已發佈 release 的 tags 一律不動。
+
+## 2026-10-24 現行契約文件修正
+
+- `docs/CURRENT.md` 的程序材質清單由過期的 358 種補齊為原始碼的 459 種(逐一比對缺漏 0),front matter 由 v1.19 改為 v1.22。純文件修正,不改 runtime 或公開 API;已發佈的 v1.22.0 附件內容不變。
