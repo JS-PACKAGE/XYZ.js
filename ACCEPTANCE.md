@@ -5855,3 +5855,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 384 種四圖 SHA256 全相同，新增恰為 gingham。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現藍白與混色格紋，normal 未出現方磚式宏觀接縫，狀態列為 385 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.08 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5380 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：苔蘚鋪路石（mossypavers）
+
+- 新增倒角灰色方石與接縫內局部生長的綠色苔蘚，苔蘚墊高於裸縫但低於石冠、較石面粗糙，石面不整片染綠；目錄 385→386 種。0.8 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的石冠高度及粗糙度、苔蘚與裸縫的顏色／高度／roughness／AO 差異、實際 baseColor 的綠色接縫與中性石面，以及 cell 邊界、倒角與 wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 385 種四圖 SHA256 全相同，新增恰為 mossypavers。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現中性方石與局部綠色凹縫，狀態列為 386 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5385 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

@@ -319,6 +319,8 @@
 
 `gingham` 以平滑等寬色帶決定經紗及緯紗是否染藍，再由連續 plain-weave over-under 權重選取可見紗色，混色格內仍保留逐紗交替而非單一中間色。height／roughness／AO 只由細織紋與 seeded 纖維細粒決定，不把藍白色帶轉成宏觀方塊凹凸。0.08 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 385 種。
 
+`mossypavers` 用四乘四方石的雙軸平滑倒角遮罩區分石面與接縫；週期 seeded 生長場只在接縫內形成苔蘚墊，細粒場產生苔蘚尖端。石面用既有中性灰混合通道與逐石色差，苔蘚維持綠色，裸縫較暗；height、roughness、AO 隨生長量聯動，苔蘚永遠低於石冠。0.8 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 386 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

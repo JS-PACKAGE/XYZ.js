@@ -410,7 +410,107 @@ const kinds: ProceduralMaterialKind[] = [
   'ashlar',
   'gabion',
   'gingham',
+  'mossypavers',
 ];
+
+describe('moss-jointed stone pavers', () => {
+  const p = proceduralMaterialPresets.mossypavers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('mossypavers', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'grows rough green cushions only inside selected recessed joints for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells; x++) {
+          const stone = at((x + 0.5) / p.cells, (y + 0.5) / p.cells);
+          expect(stone.height).toBeGreaterThan(0.019);
+          expect(stone.mortar).toBeGreaterThanOrEqual(0.75);
+          expect(stone.roughness).toBeLessThan(0.7);
+          expect(stone.occlusion).toBeGreaterThan(0.95);
+        }
+      const joints: SurfaceSample[] = [];
+      for (let x = 0; x < p.cells; x++)
+        for (let y = 0; y < 128; y++) joints.push(at(x / p.cells, y / 128));
+      const sorted = joints.sort((a, b) => a.color - b.color);
+      const bare = sorted[0]!,
+        moss = sorted[sorted.length - 1]!;
+      expect(moss.color - bare.color).toBeGreaterThan(0.35);
+      expect(bare.height).toBeLessThan(0.001);
+      expect(moss.height).toBeGreaterThan(0.004);
+      expect(moss.height).toBeLessThan(0.009);
+      expect(moss.roughness - bare.roughness).toBeGreaterThan(0.04);
+      expect(moss.occlusion - bare.occlusion).toBeGreaterThan(0.15);
+      for (const joint of joints) {
+        expect(joint.mortar).toBe(0);
+        expect(joint.metallic).toBe(0);
+      }
+      const maps = generateProceduralMaps('mossypavers', 128, seed);
+      // Green joints must survive palette composition, not merely the height mask.
+      const greens: number[] = [],
+        stones: number[] = [];
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          const index = (y * 128 + x) * 4;
+          const contrast = maps.baseColor[index + 1]! - maps.baseColor[index]!;
+          if (x % 32 === 0) greens.push(contrast);
+          if (x % 32 === 16 && y % 32 === 16) stones.push(contrast);
+        }
+      expect(Math.max(...greens)).toBeGreaterThan(20);
+      expect(Math.max(...stones)).toBeLessThan(10);
+    },
+  );
+  it('keeps cell ownership, stone bevels and wrap C1 continuous', () => {
+    const h = 1e-8;
+    const lines = [0, 1];
+    for (let i = 0; i < p.cells; i++)
+      for (const edge of [
+        0,
+        p.gap,
+        p.gap + p.bevel,
+        1 - p.gap - p.bevel,
+        1 - p.gap,
+      ])
+        lines.push((i + edge) / p.cells);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (const line of lines)
+        for (let i = 0; i <= 64; i++)
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 64 : line,
+              y = axis ? line : i / 64;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+              b = at(x, y),
+              c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('blue and white gingham', () => {
   const p = proceduralMaterialPresets.gingham;

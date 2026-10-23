@@ -1252,6 +1252,40 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'mossypavers': {
+        const p = proceduralMaterialPresets.mossypavers;
+        const growthField = cachedNoise(8, 8, seed ^ 0x6c39);
+        const grainField = cachedNoise(96, 96, seed ^ 0x4e17);
+        const wearField = cachedNoise(20, 20, seed ^ 0x95a3);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const ix = Math.floor(x),
+            iy = Math.floor(y);
+          const face =
+            smooth(clamp((0.5 - Math.abs(fract(x) - 0.5) - p.gap) / p.bevel)) *
+            smooth(clamp((0.5 - Math.abs(fract(y) - 0.5) - p.gap) / p.bevel));
+          const grain = grainField(u, v);
+          const tips = smooth(clamp((grain - 0.2) / 0.6));
+          const growth = smooth(clamp((growthField(u, v) - 0.35) / 0.3));
+          const moss = (1 - face) * growth;
+          const tone = hash(ix, iy, seed ^ 0x21bf);
+          // Growth fills selected joints below the stone crowns, not a green
+          // tint spread across every face. Neutral mortar supplies the stone hue.
+          color =
+            0.08 +
+            face * (0.2 + 0.4 * tone) +
+            0.65 * moss * (0.65 + 0.35 * tips);
+          mortar = face * (0.75 + 0.15 * tone);
+          height =
+            face * (0.65 + 0.04 * wearField(u, v)) +
+            moss * (0.16 + 0.1 * tips) +
+            0.01 * grain;
+          roughness += 0.22 * (1 - face) + 0.07 * moss + 0.02 * grain;
+          occlusion = 0.5 + 0.47 * face + 0.2 * moss;
+          return;
+        };
+      }
       case 'gingham': {
         const p = proceduralMaterialPresets.gingham;
         const grainField = cachedNoise(96, 96, seed ^ 0x6d31);
@@ -11332,6 +11366,7 @@ export function createSurfaceSampler(
     kind === 'ashlar' ||
     kind === 'gabion' ||
     kind === 'gingham' ||
+    kind === 'mossypavers' ||
     fabricated ||
     botanical ||
     packaging ||

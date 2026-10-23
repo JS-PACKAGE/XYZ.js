@@ -311,6 +311,8 @@
 
 同輪追加 `gingham`（藍白織紋格布），實際目錄 384→385 種：等寬藍白經緯色帶以平織交替露出上層紗，形成亮、深及混色三類方格；色塊不另抬升為方磚。0.08 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `mossypavers`（苔蘚鋪路石），實際目錄 385→386 種：灰色倒角方石與接縫內局部生長的綠色苔蘚，苔蘚冠高於裸露接縫、低於石面且更粗糙，並非把整面石材染綠。0.8 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

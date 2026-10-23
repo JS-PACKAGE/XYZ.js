@@ -2495,6 +2495,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         threads: 64;
         colorEdge: 0.12;
     }>;
+    mossypavers: Readonly<{
+        dark: readonly [16, 25, 9];
+        light: readonly [102, 139, 45];
+        roughness: 0.64;
+        relief: 0.03;
+        cells: 4;
+        gap: 0.035;
+        bevel: 0.065;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2883,4 +2892,5 @@ export declare const proceduralTileMeters: Readonly<{
     ashlar: 1.2;
     gabion: 0.4;
     gingham: 0.08;
+    mossypavers: 0.8;
 }>;
