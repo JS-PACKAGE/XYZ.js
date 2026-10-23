@@ -208,6 +208,9 @@ var AudioManager = class {
 	get opm() {
 		return this.adapter.opm;
 	}
+	useOPMModule(e) {
+		this.adapter.useModule(e);
+	}
 	unlock() {
 		return this.disposed ? Promise.reject(new require_errors.AudioError(`AudioManager has been destroyed.`)) : this.ready && this.adapter.unlocked && this.context?.state !== `closed` ? Promise.resolve() : this.unlocking ??= this.open().finally(() => {
 			this.unlocking = void 0;
@@ -363,19 +366,19 @@ var AudioManager = class {
 		let e = this.context;
 		this.context = void 0, e && e.state !== `closed` && e.close().catch(() => {});
 	}
-	async fetchAudio(e, a) {
+	async fetchAudio(e, n) {
 		try {
-			let o = await fetch(e, { signal: a });
-			if (!o.ok) throw new require_errors.AudioError(`Audio request failed (HTTP ${o.status}).`);
-			let s = await require_read_response.readResponse(o, require_assets.assetLimits.audioBytes, a);
-			a.throwIfAborted();
-			let c = JSON.parse(await s.text());
+			let a = await fetch(e, { signal: n });
+			if (!a.ok) throw new require_errors.AudioError(`Audio request failed (HTTP ${a.status}).`);
+			let o = await require_read_response.readResponse(a, require_assets.assetLimits.audioBytes, n);
+			n.throwIfAborted();
+			let s = JSON.parse(await o.text());
 			if (this.disposed) throw new require_errors.AudioError(`AudioManager was destroyed while loading audio.`);
-			if (!c || typeof c != `object` || Array.isArray(c)) throw new require_errors.AudioError(`Audio must be a JSON object.`);
-			let l = c;
-			if (!Array.isArray(l.notes) || l.notes.length === 0) throw new require_errors.AudioError(`Audio notes must be a nonempty array.`);
-			if (l.notes.length > require_assets.assetLimits.audioNotes) throw new require_errors.AudioError(`Audio exceeds the note count resource budget.`);
-			let u = l.notes.map((e) => {
+			if (!s || typeof s != `object` || Array.isArray(s)) throw new require_errors.AudioError(`Audio must be a JSON object.`);
+			let c = s;
+			if (!Array.isArray(c.notes) || c.notes.length === 0) throw new require_errors.AudioError(`Audio notes must be a nonempty array.`);
+			if (c.notes.length > require_assets.assetLimits.audioNotes) throw new require_errors.AudioError(`Audio exceeds the note count resource budget.`);
+			let l = c.notes.map((e) => {
 				if (!e || typeof e != `object` || Array.isArray(e)) throw new require_errors.AudioError(`Invalid audio note.`);
 				let n = e;
 				if (typeof n.note != `number` || !Number.isInteger(n.note) || n.note < 0 || n.note > 127 || typeof n.time != `number` || !Number.isFinite(n.time) || n.time < 0 || typeof n.duration != `number` || !Number.isFinite(n.duration) || n.duration <= 0 || n.duration > 60) throw new require_errors.AudioError(`Invalid audio note: expected MIDI 0..127, time >= 0, duration in (0, 60].`);
@@ -385,19 +388,19 @@ var AudioManager = class {
 					duration: n.duration
 				};
 			});
-			u.sort((e, t) => e.time - t.time);
-			let d = 0;
-			for (let e of u) d = Math.max(d, e.time + e.duration);
-			let f = l.duration === void 0 ? d : l.duration;
-			if (typeof f != `number` || !Number.isFinite(f) || f < d) throw new require_errors.AudioError(`Audio loop duration must contain every note and be positive.`);
-			if (l.channel !== void 0 && l.channel !== `music` && l.channel !== `sfx` && l.channel !== `ui`) throw new require_errors.AudioError(`Unknown audio channel.`);
-			if (l.loop !== void 0 && typeof l.loop != `boolean`) throw new require_errors.AudioError(`Audio loop must be a boolean.`);
-			let p = await require_opm_adapter.OPMAdapter.validateVoice(l.voice);
+			l.sort((e, t) => e.time - t.time);
+			let u = 0;
+			for (let e of l) u = Math.max(u, e.time + e.duration);
+			let d = c.duration === void 0 ? u : c.duration;
+			if (typeof d != `number` || !Number.isFinite(d) || d < u) throw new require_errors.AudioError(`Audio loop duration must contain every note and be positive.`);
+			if (c.channel !== void 0 && c.channel !== `music` && c.channel !== `sfx` && c.channel !== `ui`) throw new require_errors.AudioError(`Unknown audio channel.`);
+			if (c.loop !== void 0 && typeof c.loop != `boolean`) throw new require_errors.AudioError(`Audio loop must be a boolean.`);
+			let f = await this.adapter.validate(c.voice);
 			if (this.disposed) throw new require_errors.AudioError(`AudioManager was destroyed while loading audio.`);
-			for (let e of u) Object.freeze(e);
-			Object.freeze(u);
-			for (let e of p.ops) Object.freeze(e.adsr), Object.freeze(e);
-			return Object.freeze(p.ops), p.lfo && Object.freeze(p.lfo), Object.freeze(p), new AudioAsset(this, p, u, f, l.channel ?? `sfx`, l.loop === !0);
+			for (let e of l) Object.freeze(e);
+			Object.freeze(l);
+			for (let e of f.ops) Object.freeze(e.adsr), Object.freeze(e);
+			return Object.freeze(f.ops), f.lfo && Object.freeze(f.lfo), Object.freeze(f), new AudioAsset(this, f, l, d, c.channel ?? `sfx`, c.loop === !0);
 		} catch (e) {
 			throw e instanceof require_errors.AudioError ? e : new require_errors.AudioError(`Unable to load audio.`, { cause: e });
 		}

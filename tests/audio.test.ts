@@ -27,6 +27,8 @@ const mock = vi.hoisted(() => {
     contexts: [],
     release: vi.fn(),
     lendContext: vi.fn(),
+    useModule: vi.fn(),
+    validate: vi.fn(async (value: unknown) => value),
     destroy: vi.fn(),
   };
   return { clock, api };

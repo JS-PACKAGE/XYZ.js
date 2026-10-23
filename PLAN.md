@@ -986,3 +986,14 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - 1.x additive：既有公開宣告保持 API 相容 gate 的 identity，不移除 export。
 - 從外部 CDN 載入 OPM 的選項另行討論，不在本階段範圍。驗證證據記於 ACCEPTANCE；
   依 AGENTS 規範建立 `[P137]` commit，不 push。
+
+## 使用者直接指定：P138 選用的 OPM 外部模組來源（2026-10-24）
+
+使用者同意 P137 後另開階段，做成部署端自行開啟的 CDN 選項：
+
+- `GameOptions.opmModuleUrl` 指向官方 `dist/api/index.js`（建議以 commit 釘住）；只接受 HTTPS
+  或同源 HTTP(S)，不可含帳密或 fragment，不合格時在建立 renderer 前拒絕。
+- 模組匯出的 `VERSION` 必須等於 vendor 版本（`src/data/opm.ts`），voice 驗證與 unlock 共用同一來源；
+  不做也無法做 CDN 內容完整性驗證，於 TECHNICAL／SECURITY 明示。
+- Vendor 仍完整收錄、仍是預設並隨套件發佈；AGENTS 的 vendor 規範不變。
+- 依 AGENTS 規範建立 `[P138]` commit，不 push。

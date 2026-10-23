@@ -6430,3 +6430,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   - 範例（Chromium WebGL2）：audio-lab、gameplay2d 的 secure／insecure 兩條路徑都符合上述行為。Beacon Run secure 時音樂播放、errors 為空；insecure 時 unlocked 且無音樂、顯示 OPM 不可用、遊戲可玩，destroy 後 cleanup 為 true。insecure 下的 Web Locks 存檔警告是既有限制。
 - `starter-smoke --template 2d`（包含 offline gate）PASS：unlock 兩次皆為 1 context／1 個 zero-gain sink；offline 的 8 次 processor 載入都在 context 0。`soak:mixed --preset smoke --renderer webgl2` 的 4 個 cycle 與 cleanup 後，native audio 都是 1 context、errors 0。
 - 未驗證：Safari、實機與可聽輸出、3D starter、`build:site` 全站 smoke，以及 WebKit native load 的既有失敗。未 push。
+
+## P138 選用的 OPM 外部模組來源（2026-10-24）
+
+- 使用者同意後新增 `GameOptions.opmModuleUrl`（additive）。只接受 HTTPS，或與頁面同源的 HTTP(S)，不可含帳密或 fragment；不合格時 `Game.create` 在建立 renderer 前以 AudioError 拒絕，canvas 不被佔用。Voice 驗證與 unlock 都改走該模組；不論來源，模組匯出的 `VERSION` 都必須等於 `src/data/opm.ts` 的 vendor pin（1.13.0）。透過 `@internal useOPMModule()`／`useModule()`／`validate()` 注入，公開的 `OPMAdapter.validateVoice` 仍使用 vendor。Vendor 仍收錄且是預設。
+- CDN 實測：jsDelivr 以 commit `d6b2780d6fca5475dfde3ea0f73767aa091f32f0`（tag `v1.13.0`）釘住的 `dist/api/index.js`、`dist/worklet/processor.js`、`dist/version.js` 三個檔案，SHA256 與 vendor 相同；回應帶 `access-control-allow-origin: *`、`cross-origin-resource-policy: cross-origin`。npm 上沒有 `opm.js` 套件（404）。
+- 新增測試：vendor manifest、`dist/version.js` 與 pin 一致；URL 接受／拒絕的邊界（HTTPS、相對路徑、同源 HTTP、跨源 HTTP、帳密、fragment、data:、javascript:、格式錯誤）；版本不符的模組在 validate 與 unlock 時都被拒；`Game.create` 收到不安全 URL 時不呼叫 createRenderer，而且同一 canvas 之後仍可建立 Game。
+- 工具鏈（worktree：HEAD `f0e7f27c` 加上本變更，未含工作目錄中其他工作線的材質修改）：build、typecheck、lint、format:check、Vitest **179 檔／5773 項**、check:api-compatibility（**737 exports／2810 contracts**，interned 272）、check:distribution 全數 PASS。
+- 拋棄式瀏覽器 smoke（dist、Game.create canvas2d，`127.0.0.1`）：
+  - CDN 模式，並以 route 讓所有 `/vendor/opm/` 請求失敗：Chromium／Firefox／WebKit 的 load 都 OK、`opmState` 為 ready、1 個 context；8 次 processor 都從 `cdn.jsdelivr.net` 載入（WebKit 以網路請求確認，8 次皆 200）；music RMS 約 **0.050–0.051**；vendor 請求 **0** 次；destroy 後 context closed。
+  - 同源假模組（`VERSION` 1.12.0）：load 與 unlock 都回報版本不符，`opmState` 為 failed，error 事件 1 次。
+  - 預設 vendor 模式：ready，8 次 processor 都來自本機 origin。
+- 未驗證：嚴格 CSP 頁面配合 CDN、離線部署配合 CDN、CDN 中斷或回應遲緩時的行為、Safari 與實機。CDN 內容完整性無法由引擎驗證，屬設計限制。未 push。

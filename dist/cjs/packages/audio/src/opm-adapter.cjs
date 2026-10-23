@@ -1,9 +1,10 @@
 const require_audio = require("../../../src/data/audio.cjs");
 const require_errors = require("./errors.cjs");
+const require_opm = require("../../../src/data/opm.cjs");
 const require_spatial = require("./samples/spatial.cjs");
 //#region dist/packages/audio/src/opm-adapter.js
 var __xyzOriginalModuleURL = require("node:url").pathToFileURL(require("node:path").resolve(__dirname, "../../../../packages/audio/src/opm-adapter.js")).href;
-var r = /* @__PURE__ */ new WeakMap();
+var i = /* @__PURE__ */ new WeakMap();
 function engineVoice(e) {
 	let t = {
 		...e,
@@ -14,20 +15,20 @@ function engineVoice(e) {
 		})),
 		lfo: e.lfo ? { ...e.lfo } : void 0
 	};
-	return r.set(t, {
+	return i.set(t, {
 		...t,
 		version: 7
 	}), t;
 }
 function nativeVoice(e) {
-	let t = r.get(e);
+	let t = i.get(e);
 	return t ? Object.isFrozen(e) ? t : {
 		...e,
 		version: 7
 	} : e;
 }
 function legacyOPM(e) {
-	let n = new Map([...e.voices].map(([e, t]) => [e, engineVoice(t)]));
+	let t = new Map([...e.voices].map(([e, t]) => [e, engineVoice(t)]));
 	return {
 		get context() {
 			return e.context;
@@ -41,13 +42,13 @@ function legacyOPM(e) {
 		set node(t) {
 			e.node = t;
 		},
-		voices: n,
-		loadVoice(t, i) {
-			e.loadVoice(t, typeof i == `object` && i && r.has(i) ? nativeVoice(i) : i), n.set(t, engineVoice(e.voices.get(t)));
+		voices: t,
+		loadVoice(n, r) {
+			e.loadVoice(n, typeof r == `object` && r && i.has(r) ? nativeVoice(r) : r), t.set(n, engineVoice(e.voices.get(n)));
 		},
 		start: () => e.start(),
 		playNote(r) {
-			let i = typeof r.voice == `string` ? n.get(r.voice) : r.voice;
+			let i = typeof r.voice == `string` ? t.get(r.voice) : r.voice;
 			if (typeof r.voice == `string` && !i) throw new require_errors.AudioError(`Unknown voice: ${r.voice}`);
 			return e.playNote({
 				...r,
@@ -60,8 +61,26 @@ function legacyOPM(e) {
 		close: () => e.close()
 	};
 }
-async function loadOPM() {
-	return (await import(new URL(`../../../vendor/opm/dist/api/index.js`, __xyzOriginalModuleURL).href)).OPM;
+function resolveOPMModuleURL(e) {
+	let t;
+	try {
+		let n = (typeof document < `u` ? document.baseURI : void 0) ?? (typeof location < `u` ? location.href : void 0);
+		t = new URL(e, n);
+	} catch (e) {
+		throw new require_errors.AudioError(`opmModuleUrl is not a valid URL.`, { cause: e });
+	}
+	let r = typeof location < `u` && t.origin === location.origin;
+	if (t.protocol !== `https:` && !(t.protocol === `http:` && r) || t.username || t.password || t.hash) throw new require_errors.AudioError(`opmModuleUrl must be an HTTPS (or same-origin HTTP) module URL without credentials or a fragment.`);
+	return t.href;
+}
+async function loadOPM(e) {
+	let r = await import(e ?? new URL(`../../../vendor/opm/dist/api/index.js`, __xyzOriginalModuleURL).href);
+	if (r.VERSION !== require_opm.opmVendor.version || typeof r.OPM != `function`) throw new require_errors.AudioError(`OPM module reports version ${String(r.VERSION)}; XYZ.js requires official OPM.js ${require_opm.opmVendor.version}.`);
+	return r.OPM;
+}
+async function validateWith(e, t) {
+	let n = new e();
+	return n.loadVoice(`validated`, t), engineVoice(n.voices.get(`validated`));
 }
 var OPMAdapter = class {
 	output;
@@ -73,11 +92,15 @@ var OPMAdapter = class {
 	contextList = [];
 	owned;
 	lent;
+	moduleUrl;
 	constructor(e) {
 		this.output = e;
 	}
 	lendContext(e) {
 		this.lent = e;
+	}
+	useModule(e) {
+		this.moduleUrl = e;
 	}
 	get contexts() {
 		return this.contextList;
@@ -88,8 +111,10 @@ var OPMAdapter = class {
 		}));
 	}
 	static async validateVoice(e) {
-		let t = new (await (loadOPM()))();
-		return t.loadVoice(`validated`, e), engineVoice(t.voices.get(`validated`));
+		return validateWith(await loadOPM(), e);
+	}
+	async validate(e) {
+		return validateWith(await loadOPM(this.moduleUrl), e);
 	}
 	get unlocked() {
 		return !this.destroyed && this.slots.length === require_audio.audioDefaults.voiceCount;
@@ -111,7 +136,7 @@ var OPMAdapter = class {
 		}), this.unlocking);
 	}
 	async initialize() {
-		let n = await loadOPM();
+		let t = await loadOPM(this.moduleUrl);
 		if (this.destroyed) throw new require_errors.AudioError(`Audio adapter has been destroyed`);
 		let r = [];
 		this.pendingSlots = r;
@@ -121,7 +146,7 @@ var OPMAdapter = class {
 			if (this.lent && (!o || o.state === `closed`)) throw new require_errors.AudioError(`The lent AudioContext is unavailable.`);
 			o ||= (i = new AudioContext(), this.owned = i, i);
 			let s = o;
-			for (let t = 0; t < require_audio.audioDefaults.voiceCount; t++) r.push({ opm: new n({
+			for (let n = 0; n < require_audio.audioDefaults.voiceCount; n++) r.push({ opm: new t({
 				context: s,
 				destination: null
 			}) });
@@ -149,7 +174,7 @@ var OPMAdapter = class {
 			this.pendingSlots = void 0;
 		}
 	}
-	play(e, t, r, i, a, o, s = `sfx`, c) {
+	play(e, t, n, i, a, o, s = `sfx`, c) {
 		let l = this.getSlot(e);
 		l.gain.gain.value = o, l.gain.disconnect(), l.panner?.disconnect(), l.panner = void 0;
 		let u = this.output?.(l.opm.context, s) ?? l.opm.context.destination;
@@ -159,7 +184,7 @@ var OPMAdapter = class {
 		} else l.gain.connect(u);
 		l.noteId = l.opm.playNote({
 			voice: nativeVoice(t),
-			note: r,
+			note: n,
 			time: i,
 			duration: a
 		});
@@ -209,5 +234,6 @@ var OPMAdapter = class {
 };
 //#endregion
 exports.OPMAdapter = OPMAdapter;
+exports.resolveOPMModuleURL = resolveOPMModuleURL;
 
 //# sourceMappingURL=opm-adapter.cjs.map

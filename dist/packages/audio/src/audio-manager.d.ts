@@ -135,6 +135,8 @@ export declare class AudioManager {
     /** Audio-timeline seconds: wall time minus every paused interval. */
     private clock;
     get opm(): OPMAdapter['opm'];
+    /** @internal Game applies `opmModuleUrl` (already resolved) before any load or unlock. */
+    useOPMModule(url: string): void;
     /**
      * Creates and resumes the shared AudioContext in the caller's turn, then starts OPM on it.
      * An OPM failure (insecure origin, missing vendor files, blocked worklet) does not reject:

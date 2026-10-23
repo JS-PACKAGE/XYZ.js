@@ -41,6 +41,11 @@ interface OfficialOPM {
 }
 type OutputRouter = (context: AudioContext, channel: AudioChannelName) => AudioNode;
 /**
+ * Validates an alternative official OPM `dist/api/index.js` URL, such as a version-pinned
+ * CDN copy: HTTPS, or HTTP(S) on the page's own origin, without credentials or a fragment.
+ */
+export declare function resolveOPMModuleURL(input: string | URL): string;
+/**
  * Eight OPM instances isolate voice stealing per slot and share one AudioContext. AudioManager
  * lends its own context; a standalone adapter creates one and closes it on destroy.
  */
@@ -54,14 +59,19 @@ export declare class OPMAdapter {
     private contextList;
     private owned;
     private lent;
+    private moduleUrl;
     constructor(output?: OutputRouter | undefined);
     /** @internal AudioManager lends its context; the adapter never suspends or closes it. */
     lendContext(context: () => AudioContext | undefined): void;
+    /** @internal A URL from {@link resolveOPMModuleURL}, used instead of the vendored copy. */
+    useModule(url: string): void;
     /** The single native context shared by every slot, once unlocked. */
     get contexts(): readonly AudioContext[];
     /** Native calls happen in the caller's turn, including a trusted resume gesture. */
     setPaused(paused: boolean): Promise<void>;
     static validateVoice(value: unknown): Promise<OPMVoice>;
+    /** @internal Validates through the configured module, like {@link validateVoice}. */
+    validate(value: unknown): Promise<OPMVoice>;
     get unlocked(): boolean;
     get now(): number;
     get opm(): OfficialOPM | undefined;

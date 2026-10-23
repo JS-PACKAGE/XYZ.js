@@ -324,6 +324,18 @@ button.addEventListener('click', async () => {
 
 OPM 需要 AudioWorklet（HTTPS 或 localhost）。無法啟動時 `unlock()` 仍會 resolve，讓 sample 與 stream 可以播放；播放 OPM asset 前先確認 `game.audio.opmState === 'ready'`，原因見 `game.audio.opmError`。再次呼叫 `unlock()` 會重試 OPM。
 
+若要改從 CDN 載入 OPM 而非 vendor 副本，傳入以 commit 釘住的模組 URL；vendor 檔案仍是預設：
+
+```js
+const game = await Game.create({
+  canvas: '#game',
+  opmModuleUrl:
+    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@d6b2780d6fca5475dfde3ea0f73767aa091f32f0/dist/api/index.js',
+});
+```
+
+CDN 必須以 CORS 提供 OPM.js 1.13.0，CSP 也必須允許它。其內容無法做完整性驗證；使用前請先看技術參考。
+
 ## 8. 資產安全與清理
 
 | 資源                     | 固定上限  |

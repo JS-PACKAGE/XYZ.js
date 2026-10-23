@@ -7,6 +7,7 @@ import {
 } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
+import { resolveOPMModuleURL } from '../../audio/src/opm-adapter.js';
 import {
   createRenderer,
   type Renderer,
@@ -97,6 +98,12 @@ export interface GameOptions {
    * playing as it always did.
    */
   audioPause?: { onPause?: boolean; onHidden?: boolean };
+  /**
+   * Load official OPM.js from this `dist/api/index.js` URL (for example a commit-pinned CDN copy)
+   * instead of the vendored files. HTTPS, or same-origin HTTP; the module must report the vendored
+   * version. Its bytes cannot be integrity-checked, and the page's CSP must allow it and its worklet.
+   */
+  opmModuleUrl?: string | URL;
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -448,6 +455,10 @@ export class Game extends EventTarget {
       throw new RuntimeError(
         'frameWorkBudgetMs must be a finite positive CPU target.',
       );
+    const opmModule =
+      options.opmModuleUrl === undefined
+        ? undefined
+        : resolveOPMModuleURL(options.opmModuleUrl);
     const clock = new Clock(options.maxDeltaTime);
     if (claimedCanvases.has(canvas)) {
       throw new RuntimeError(
@@ -487,6 +498,7 @@ export class Game extends EventTarget {
       );
       if (initializationError) throw initializationError;
       game = new Game(canvas, graphics, clock, options);
+      if (opmModule) game.audio.useOPMModule(opmModule);
       return game;
     } catch (cause) {
       try {

@@ -60,6 +60,12 @@ export interface GameOptions {
         onPause?: boolean;
         onHidden?: boolean;
     };
+    /**
+     * Load official OPM.js from this `dist/api/index.js` URL (for example a commit-pinned CDN copy)
+     * instead of the vendored files. HTTPS, or same-origin HTTP; the module must report the vendored
+     * version. Its bytes cannot be integrity-checked, and the page's CSP must allow it and its worklet.
+     */
+    opmModuleUrl?: string | URL;
 }
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
 export interface SetSceneOptions {

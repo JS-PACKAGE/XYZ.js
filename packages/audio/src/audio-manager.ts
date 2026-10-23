@@ -395,6 +395,11 @@ export class AudioManager {
     return this.adapter.opm;
   }
 
+  /** @internal Game applies `opmModuleUrl` (already resolved) before any load or unlock. */
+  useOPMModule(url: string): void {
+    this.adapter.useModule(url);
+  }
+
   /**
    * Creates and resumes the shared AudioContext in the caller's turn, then starts OPM on it.
    * An OPM failure (insecure origin, missing vendor files, blocked worklet) does not reject:
@@ -751,7 +756,7 @@ export class AudioManager {
         throw new AudioError('Unknown audio channel.');
       if (input.loop !== undefined && typeof input.loop !== 'boolean')
         throw new AudioError('Audio loop must be a boolean.');
-      const voice = await OPMAdapter.validateVoice(input.voice);
+      const voice = await this.adapter.validate(input.voice);
       if (this.disposed)
         throw new AudioError('AudioManager was destroyed while loading audio.');
       for (const note of notes) Object.freeze(note);

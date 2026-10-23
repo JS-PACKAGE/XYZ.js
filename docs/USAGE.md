@@ -326,6 +326,18 @@ The eight-voice budget includes release tails. Overflow steals only the oldest S
 
 OPM needs AudioWorklet (HTTPS or localhost). If it cannot start, `unlock()` still resolves so samples and streams play; check `game.audio.opmState === 'ready'` before playing OPM assets and read `game.audio.opmError` for the cause. Calling `unlock()` again retries OPM.
 
+To load OPM from a CDN instead of the vendored copy, pass a commit-pinned module URL; the vendored files stay the default:
+
+```js
+const game = await Game.create({
+  canvas: '#game',
+  opmModuleUrl:
+    'https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@d6b2780d6fca5475dfde3ea0f73767aa091f32f0/dist/api/index.js',
+});
+```
+
+The CDN must serve OPM.js 1.13.0 with CORS, and your CSP must allow it. Its bytes cannot be integrity-checked; see the technical reference before relying on it.
+
 ## 8. Asset Safety and Cleanup
 
 | Resource                   | Fixed limit |

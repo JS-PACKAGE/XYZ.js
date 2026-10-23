@@ -8,6 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { Game } from '../packages/core/src/game.js';
+import { AudioError } from '../packages/audio/src/errors.js';
 import { RuntimeError } from '../packages/core/src/errors.js';
 import {
   createRenderer,
@@ -234,6 +235,21 @@ describe('Game canvas ownership and lifecycle', () => {
     expect(canvas.style.getPropertyValue('contain-intrinsic-size')).toBe(
       '75px 50px',
     );
+  });
+
+  it('rejects an unsafe opmModuleUrl before claiming the canvas or creating a renderer', async () => {
+    await expect(
+      Game.create({
+        canvas: canvas as unknown as HTMLCanvasElement,
+        opmModuleUrl: 'http://cdn.example/opm/dist/api/index.js',
+      }),
+    ).rejects.toBeInstanceOf(AudioError);
+    expect(createRenderer).not.toHaveBeenCalled();
+    const game = await Game.create({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      opmModuleUrl: 'https://cdn.example/opm/dist/api/index.js',
+    });
+    game.destroy();
   });
 
   it('restores layout and releases ownership after listener setup fails', async () => {

@@ -962,3 +962,15 @@ needs per-slot ownership. They now share one clock instead of eight, so cross-co
 gain mapping is no longer exercised by the manager; the mixer stays context-generic.
 The borrowed context is injected through an internal method because changing a
 published constructor would break the API compatibility gate's declaration identity.
+
+## P138 optional OPM module origin
+
+A deployer may load the official OPM API from another URL. The worklet must come from
+the same tree, so the option names `dist/api/index.js` and OPM resolves its processor
+beside it; no separate worklet URL is accepted. Because neither `import()` nor
+`addModule()` can carry integrity metadata, the engine verifies only the exported
+`VERSION` against the vendored pin, then treats the module as trusted code. URLs must
+be HTTPS, or HTTP on the page origin, so an HTTPS page cannot be downgraded to a
+mixed-content CDN and local same-origin hosting keeps working. Validation happens in
+`Game.create` before any renderer is created. Failure at unlock reuses the P137 path
+(`opmState: 'failed'`), so samples and streams survive an unreachable CDN.

@@ -4,6 +4,7 @@ const require_xr_loop = require("./xr-loop.cjs");
 const require_resource_scope = require("../../assets/src/resource-scope.cjs");
 const require_index = require("../../assets/src/index.cjs");
 const require_index$1 = require("../../input/src/index.cjs");
+const require_opm_adapter = require("../../audio/src/opm-adapter.cjs");
 const require_audio_manager = require("../../audio/src/audio-manager.cjs");
 const require_logger = require("./logger.cjs");
 const require_index$2 = require("../../graphics/src/index.cjs");
@@ -21,7 +22,7 @@ var SceneCancelledError = class extends require_errors.RuntimeError {
 		super(`Scene initialization was cancelled.`);
 	}
 };
-var v = /* @__PURE__ */ new WeakSet();
+var y = /* @__PURE__ */ new WeakSet();
 var Game = class Game extends EventTarget {
 	canvas;
 	graphics;
@@ -134,17 +135,17 @@ var Game = class Game extends EventTarget {
 			});
 			if (n.signal.aborted || this.state === `destroyed`) throw o.release(), n.signal.throwIfAborted(), new require_errors.RuntimeError(`Game was destroyed during warmup.`);
 			let s = r, c = i, releasePrevious = () => {
-				this.warmupProtections.delete(u), c?.release(), s?.release();
-			}, u = {
+				this.warmupProtections.delete(l), c?.release(), s?.release();
+			}, l = {
 				progress: o.progress,
 				get released() {
 					return o.released;
 				},
 				release: () => {
-					this.warmupLeases.delete(u), releasePrevious(), o.release();
+					this.warmupLeases.delete(l), releasePrevious(), o.release();
 				}
 			};
-			return this.warmupLeases.add(u), (s || c) && this.warmupProtections.set(u, releasePrevious), r = void 0, i = void 0, u;
+			return this.warmupLeases.add(l), (s || c) && this.warmupProtections.set(l, releasePrevious), r = void 0, i = void 0, l;
 		} finally {
 			i?.release(), r?.release(), this.warmupControllers.delete(n), t.signal?.removeEventListener(`abort`, abort);
 		}
@@ -190,13 +191,13 @@ var Game = class Game extends EventTarget {
 		if (!Number.isFinite(r) || r <= 0 || !Number.isFinite(i) || i <= 0) throw new require_errors.RuntimeError(`Canvas width and height must be finite positive CSS pixel values.`);
 		if (t.pixelRatio !== void 0 && (!Number.isFinite(t.pixelRatio) || t.pixelRatio <= 0)) throw new require_errors.RuntimeError(`Canvas pixelRatio must be a finite positive number.`);
 		if (t.frameWorkBudgetMs !== void 0 && (!Number.isFinite(t.frameWorkBudgetMs) || t.frameWorkBudgetMs <= 0)) throw new require_errors.RuntimeError(`frameWorkBudgetMs must be a finite positive CPU target.`);
-		let a = new require_clock.Clock(t.maxDeltaTime);
-		if (v.has(n)) throw new require_errors.RuntimeError(`Canvas is already owned by a Game. Destroy the existing Game before creating another on this canvas.`);
-		v.add(n);
-		let o, u, d;
+		let a = t.opmModuleUrl === void 0 ? void 0 : require_opm_adapter.resolveOPMModuleURL(t.opmModuleUrl), o = new require_clock.Clock(t.maxDeltaTime);
+		if (y.has(n)) throw new require_errors.RuntimeError(`Canvas is already owned by a Game. Destroy the existing Game before creating another on this canvas.`);
+		y.add(n);
+		let d, f, p;
 		try {
-			if (u = await require_index$2.createRenderer(n, t.renderer ?? `auto`, (e) => {
-				o ? o.fail(e) : d = e;
+			if (f = await require_index$2.createRenderer(n, t.renderer ?? `auto`, (e) => {
+				d ? d.fail(e) : p = e;
 			}, {
 				antialias: t.antialias,
 				recover: t.recoverGraphics,
@@ -206,18 +207,18 @@ var Game = class Game extends EventTarget {
 					geometryBytes: t.resourceBudgets?.nativeGeometryBytes
 				},
 				onLost: (e) => {
-					o?.cancelTransition(), o?.dispatchEvent(new CustomEvent(`graphicslost`, { detail: e }));
+					d?.cancelTransition(), d?.dispatchEvent(new CustomEvent(`graphicslost`, { detail: e }));
 				},
-				onRecovered: () => o?.dispatchEvent(new CustomEvent(`graphicsrecovered`))
-			}), d) throw d;
-			return o = new Game(n, u, a, t), o;
+				onRecovered: () => d?.dispatchEvent(new CustomEvent(`graphicsrecovered`))
+			}), p) throw p;
+			return d = new Game(n, f, o, t), a && d.audio.useOPMModule(a), d;
 		} catch (e) {
 			try {
-				u?.destroy();
+				f?.destroy();
 			} catch (t) {
 				throw AggregateError([e, t], `Game initialization and renderer cleanup failed.`, { cause: t });
 			} finally {
-				v.delete(n);
+				y.delete(n);
 			}
 			throw e;
 		}
@@ -456,7 +457,7 @@ var Game = class Game extends EventTarget {
 		} catch (e) {
 			r.push(e);
 		} finally {
-			v.delete(this.canvas);
+			y.delete(this.canvas);
 		}
 		let i = !0;
 		try {

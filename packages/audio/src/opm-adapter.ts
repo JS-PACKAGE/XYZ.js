@@ -1,4 +1,5 @@
 import { audioDefaults } from '../../../src/data/audio.js';
+import { opmVendor } from '../../../src/data/opm.js';
 import { AudioError } from './errors.js';
 import type { AudioChannelName } from './audio-manager.js';
 import {
@@ -148,17 +149,59 @@ type OutputRouter = (
   channel: AudioChannelName,
 ) => AudioNode;
 
-async function loadOPM(): Promise<OPMConstructor> {
-  // The vendored OPM tree is copied unchanged beside compiled output, so a static bundled import would break its processor URL.
+/**
+ * Validates an alternative official OPM `dist/api/index.js` URL, such as a version-pinned
+ * CDN copy: HTTPS, or HTTP(S) on the page's own origin, without credentials or a fragment.
+ */
+export function resolveOPMModuleURL(input: string | URL): string {
+  let url: URL;
+  try {
+    const base =
+      (typeof document !== 'undefined' ? document.baseURI : undefined) ??
+      (typeof location !== 'undefined' ? location.href : undefined);
+    url = new URL(input, base);
+  } catch (cause) {
+    throw new AudioError('opmModuleUrl is not a valid URL.', { cause });
+  }
+  const sameOrigin =
+    typeof location !== 'undefined' && url.origin === location.origin;
+  if (
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' && sameOrigin)) ||
+    url.username ||
+    url.password ||
+    url.hash
+  )
+    throw new AudioError(
+      'opmModuleUrl must be an HTTPS (or same-origin HTTP) module URL without credentials or a fragment.',
+    );
+  return url.href;
+}
+
+async function loadOPM(moduleUrl?: string): Promise<OPMConstructor> {
+  // The vendored OPM tree is copied unchanged beside compiled output, so a static bundled import
+  // would break its processor URL. A configured module resolves its worklet beside itself.
   const module = (await import(
-    /* @vite-ignore */ new URL(
-      '../../../vendor/opm/dist/api/index.js',
-      import.meta.url,
-    ).href
+    /* @vite-ignore */ moduleUrl ??
+      new URL('../../../vendor/opm/dist/api/index.js', import.meta.url).href
   )) as {
-    OPM: OPMConstructor;
+    OPM?: OPMConstructor;
+    VERSION?: unknown;
   };
+  // Only the vendored version's API and voice schema are supported; a CDN cannot be hash-checked.
+  if (module.VERSION !== opmVendor.version || typeof module.OPM !== 'function')
+    throw new AudioError(
+      `OPM module reports version ${String(module.VERSION)}; XYZ.js requires official OPM.js ${opmVendor.version}.`,
+    );
   return module.OPM;
+}
+
+async function validateWith(
+  OPM: OPMConstructor,
+  value: unknown,
+): Promise<OPMVoice> {
+  const opm = new OPM();
+  opm.loadVoice('validated', value);
+  return engineVoice(opm.voices.get('validated')!);
 }
 
 /**
@@ -174,12 +217,18 @@ export class OPMAdapter {
   private contextList: readonly AudioContext[] = [];
   private owned: AudioContext | undefined;
   private lent: (() => AudioContext | undefined) | undefined;
+  private moduleUrl: string | undefined;
 
   constructor(private readonly output?: OutputRouter) {}
 
   /** @internal AudioManager lends its context; the adapter never suspends or closes it. */
   lendContext(context: () => AudioContext | undefined): void {
     this.lent = context;
+  }
+
+  /** @internal A URL from {@link resolveOPMModuleURL}, used instead of the vendored copy. */
+  useModule(url: string): void {
+    this.moduleUrl = url;
   }
 
   /** The single native context shared by every slot, once unlocked. */
@@ -199,10 +248,12 @@ export class OPMAdapter {
   }
 
   static async validateVoice(value: unknown): Promise<OPMVoice> {
-    const OPM = await loadOPM();
-    const opm = new OPM();
-    opm.loadVoice('validated', value);
-    return engineVoice(opm.voices.get('validated')!);
+    return validateWith(await loadOPM(), value);
+  }
+
+  /** @internal Validates through the configured module, like {@link validateVoice}. */
+  async validate(value: unknown): Promise<OPMVoice> {
+    return validateWith(await loadOPM(this.moduleUrl), value);
   }
 
   get unlocked(): boolean {
@@ -237,7 +288,7 @@ export class OPMAdapter {
   }
 
   private async initialize(): Promise<void> {
-    const OPM = await loadOPM();
+    const OPM = await loadOPM(this.moduleUrl);
     if (this.destroyed)
       throw new AudioError('Audio adapter has been destroyed');
 
