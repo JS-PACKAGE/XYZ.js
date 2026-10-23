@@ -427,6 +427,8 @@
 
 `sawblades` 快取十六個 seeded 相位，以每齒八成週期長升坡／兩成短降坡的 C1 徑向輪廓形成非對稱齒與齒谷；中央軸孔與外側倒角採獨立 compact supports，角度場不作用於軸孔中心。片面高度不跟隨齒相位，只保留微粒及細密同心加工紋，所有孔底／片外露出同一低金屬底板。0.8 m tile、四圖 opaque、全 metallic 通道及 factory factor 1、既有 ownership 不變，目錄增為 439 種。
 
+`pistachios` 快取二十五個 seeded 旋轉，以三組同向橢圓 compact supports 分別形成長殼體、中央開縫及更窄的果仁。雙瓣殼緣高於果仁，果仁再高於兩側暗隙，閉合兩端仍保留殼面；細長纖維僅作用於未開口殼區，避免把果仁誤作同一凸脊。0.15 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 440 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

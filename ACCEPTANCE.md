@@ -6247,3 +6247,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 5 tests 通過：三 seeds 驗證十六片全部二十四齒的齒尖／齒谷、長短前後緣、圓孔倒角、嵌平內外片面、金屬通道與高度／色差／AO／粗糙度；另在精確齒根／尖端／輪廓肩部及 tile wrap 驗證 C1，以及多 material 借用／外部 override ownership。build／typecheck／lint／format:check／全套 **178 files、5657 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：灰銀鋸齒圓片、中央圓孔、齒邊 normal、金屬 MR 與孔隙 AO 四圖可見，status 為 439 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.8 m repeats 1、metallic 1／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 438 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件及 metallic factor 清單同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：開口開心果（pistachios）
+
+- 目錄 439→440 種。0.15 m tile、五乘五 seeded 旋轉長橢圓果殼，淡色雙瓣殼緣高於綠色果仁，果仁兩側具有更低的暗隙，長軸兩端閉合保留殼面，細長纖維只作用於未開口殼區。四圖 opaque、metallic 0、既有 ownership 不變，不新增果殼 geometry／透明開口。
+- 定向 4 tests 通過：三 seeds 驗證二十五果殼沿長軸三截面的殼緣／果仁／側隙／底面高度順序、色差／AO／粗糙度及閉合長軸端部；另在果仁、開縫與殼體的精確橢圓 shoulders、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5662 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：淡色長橢圓殼緣、綠色中央果仁／暗縫、殼面 normal 與側隙 AO 四圖可見，status 為 440 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.15 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 439 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

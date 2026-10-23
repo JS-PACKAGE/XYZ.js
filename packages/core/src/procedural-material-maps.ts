@@ -1259,6 +1259,61 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pistachios': {
+        const p = proceduralMaterialPresets.pistachios;
+        const rotations = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x3c47);
+            const i = (row * p.cells + col) * 2;
+            rotations[i] = Math.cos(phase);
+            rotations[i + 1] = Math.sin(phase);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x4d59);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 2;
+          const dx = fract(uCell) - 0.5,
+            dy = fract(vCell) - 0.5;
+          const x = dx * rotations[i] + dy * rotations[i + 1],
+            y = dy * rotations[i] - dx * rotations[i + 1];
+          const dome = clamp(
+            1 - (x / p.shellWidth) ** 2 - (y / p.shellLength) ** 2,
+          );
+          const face = smooth(clamp(dome / p.shoulder));
+          const opening = smooth(
+            clamp(
+              (1 - (x / p.openingWidth) ** 2 - (y / p.openingLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const kernel = smooth(
+            clamp(
+              (1 - (x / p.kernelWidth) ** 2 - (y / p.kernelLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const grain = grainField(u, v);
+          const fiber =
+            0.5 + 0.5 * Math.cos(TAU * (p.fibers * x + 0.5 * y * y));
+          // Two pale shell lips sit above the green kernel and its darker side gaps.
+          color =
+            0.08 +
+            face * (0.82 + 0.03 * grain - 0.72 * opening + 0.14 * kernel);
+          height =
+            0.05 +
+            face *
+              (0.35 +
+                0.3 * dome -
+                0.3 * opening +
+                0.13 * kernel +
+                0.008 * grain +
+                0.006 * fiber * (1 - opening));
+          roughness += 0.03 * grain + face * (0.12 * opening - 0.18 * kernel);
+          occlusion = 0.3 + face * (0.67 - 0.4 * opening + 0.15 * kernel);
+        };
+      }
       case 'sawblades': {
         const p = proceduralMaterialPresets.sawblades;
         const phases = new Float64Array(p.cells * p.cells);
@@ -13874,6 +13929,7 @@ export function createSurfaceSampler(
     kind === 'circularpavers' ||
     kind === 'snowflaketiles' ||
     kind === 'sawblades' ||
+    kind === 'pistachios' ||
     fabricated ||
     botanical ||
     packaging ||

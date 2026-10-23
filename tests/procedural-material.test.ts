@@ -464,7 +464,119 @@ const kinds: ProceduralMaterialKind[] = [
   'circularpavers',
   'snowflaketiles',
   'sawblades',
+  'pistachios',
 ];
+
+describe('Open pistachios', () => {
+  const p = proceduralMaterialPresets.pistachios;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pistachios', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates pale shell lips, lower kernels and dark side gaps for all nuts with seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x3c47);
+          const at = (x: number, y: number) =>
+            sample(
+              (col + 0.5 + x * Math.cos(phase) - y * Math.sin(phase)) / p.cells,
+              (row + 0.5 + x * Math.sin(phase) + y * Math.cos(phase)) / p.cells,
+            );
+          const outside = at(0.3, 0);
+          for (const y of [-0.15, 0, 0.15]) {
+            const kernel = at(0, y);
+            for (const side of [-1, 1]) {
+              const shell = at(side * 0.14, y),
+                gap = at(side * 0.065, y);
+              expect(shell.height - kernel.height).toBeGreaterThan(0.001);
+              expect(kernel.height - gap.height).toBeGreaterThan(0.003);
+              expect(gap.height - outside.height).toBeGreaterThan(0.006);
+              expect(shell.color - kernel.color).toBeGreaterThan(0.55);
+              expect(kernel.color - gap.color).toBeGreaterThan(0.11);
+              expect(shell.occlusion - kernel.occlusion).toBeGreaterThan(0.24);
+              expect(kernel.occlusion - gap.occlusion).toBeGreaterThan(0.14);
+              expect(gap.roughness - kernel.roughness).toBeGreaterThan(0.15);
+              expect(shell.metallic).toBe(0);
+            }
+          }
+          for (const side of [-1, 1]) {
+            const end = at(0, side * 0.36),
+              across = at(side * 0.36, 0);
+            expect(end.height - across.height).toBeGreaterThan(0.01);
+            expect(end.color - across.color).toBeGreaterThan(0.8);
+            expect(end.occlusion - across.occlusion).toBeGreaterThan(0.6);
+          }
+        }
+    },
+  );
+  it('keeps kernel shoulders, slit rims, shell skirts and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = 2 * Math.PI * hash(col, row, seed ^ 0x3c47);
+          for (const [width, length] of [
+            [p.shellWidth, p.shellLength],
+            [p.openingWidth, p.openingLength],
+            [p.kernelWidth, p.kernelLength],
+          ])
+            for (const radius of [1, Math.sqrt(1 - p.shoulder)])
+              for (let step = 0; step < 16; step++) {
+                const angle = (step * Math.PI) / 8;
+                const x = radius * width * Math.cos(angle),
+                  y = radius * length * Math.sin(angle);
+                points.push([
+                  (col + 0.5 + x * Math.cos(phase) - y * Math.sin(phase)) /
+                    p.cells,
+                  (row + 0.5 + x * Math.sin(phase) + y * Math.cos(phase)) /
+                    p.cells,
+                ]);
+              }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Circular saw blades', () => {
   const p = proceduralMaterialPresets.sawblades;

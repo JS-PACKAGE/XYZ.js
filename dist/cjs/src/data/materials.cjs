@@ -6677,6 +6677,29 @@ var proceduralMaterialPresets = Object.freeze({
 		boreRadius: .1,
 		boreBevel: .015,
 		machining: 80
+	}),
+	pistachios: Object.freeze({
+		dark: [
+			28,
+			54,
+			15
+		],
+		light: [
+			238,
+			221,
+			174
+		],
+		roughness: .7,
+		relief: .025,
+		cells: 5,
+		shellWidth: .24,
+		shellLength: .43,
+		openingWidth: .09,
+		openingLength: .34,
+		kernelWidth: .055,
+		kernelLength: .28,
+		shoulder: .2,
+		fibers: 32
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7118,7 +7141,8 @@ var proceduralTileMeters = Object.freeze({
 	acornbarnacles: .12,
 	circularpavers: 1.6,
 	snowflaketiles: .8,
-	sawblades: .8
+	sawblades: .8,
+	pistachios: .15
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

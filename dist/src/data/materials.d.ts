@@ -3079,6 +3079,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         boreBevel: 0.015;
         machining: 80;
     }>;
+    pistachios: Readonly<{
+        dark: readonly [28, 54, 15];
+        light: readonly [238, 221, 174];
+        roughness: 0.7;
+        relief: 0.025;
+        cells: 5;
+        shellWidth: 0.24;
+        shellLength: 0.43;
+        openingWidth: 0.09;
+        openingLength: 0.34;
+        kernelWidth: 0.055;
+        kernelLength: 0.28;
+        shoulder: 0.2;
+        fibers: 32;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3521,4 +3536,5 @@ export declare const proceduralTileMeters: Readonly<{
     circularpavers: 1.6;
     snowflaketiles: 0.8;
     sawblades: 0.8;
+    pistachios: 0.15;
 }>;
