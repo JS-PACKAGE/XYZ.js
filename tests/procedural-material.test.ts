@@ -408,7 +408,94 @@ const kinds: ProceduralMaterialKind[] = [
   'pressedtin',
   'sashiko',
   'ashlar',
+  'gabion',
 ];
+
+describe('steel mesh stone gabion', () => {
+  const p = proceduralMaterialPresets.gabion;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('gabion', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps smooth metallic wire above rough dielectric stone crowns for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const axis of [0, 1])
+        for (let col = 0; col < p.mesh; col++)
+          for (let row = 0; row < 8; row++) {
+            const along = (x: number, y: number) =>
+              axis ? at(y, x) : at(x, y);
+            const wire = along(col / p.mesh, (row + 0.37) / 8);
+            const backing = along((col + 0.35) / p.mesh, (row + 0.37) / 8);
+            expect(wire.metallic).toBe(1);
+            expect(backing.metallic).toBe(0);
+            expect(wire.height - backing.height).toBeGreaterThan(0.004);
+            expect(backing.roughness - wire.roughness).toBeGreaterThan(0.4);
+          }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          let min = Infinity,
+            max = -Infinity;
+          for (let y = 1; y < 20; y++)
+            for (let x = 1; x < 20; x++) {
+              const s = at((col + x / 20) / p.cells, (row + y / 20) / p.cells);
+              if (s.metallic !== 0) continue;
+              min = Math.min(min, s.height);
+              max = Math.max(max, s.height);
+            }
+          expect(max).toBeGreaterThan(0.011);
+          expect(min).toBeLessThan(0.006);
+        }
+    },
+  );
+  it('keeps steel boundaries, crossings, stone owners and wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const lines = [0, 1 / 3, 2 / 3, 1];
+      for (let i = 0; i < p.mesh; i++)
+        lines.push(
+          i / p.mesh,
+          (i + p.wireWidth) / p.mesh,
+          (i - p.wireWidth) / p.mesh,
+        );
+      for (const line of lines)
+        for (let i = 0; i <= 128; i++)
+          for (const axis of [0, 1]) {
+            const x = axis ? i / 128 : line,
+              y = axis ? line : i / 128;
+            const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+              b = at(x, y),
+              c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+              'metallic',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('modular ashlar masonry', () => {
   const p = proceduralMaterialPresets.ashlar;
@@ -7251,6 +7338,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rust' &&
           kind !== 'copperpatina' &&
           kind !== 'chippedenamel' &&
+          kind !== 'gabion' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -7262,7 +7350,8 @@ describe('periodic procedural material fields', () => {
       if (
         kind === 'rust' ||
         kind === 'copperpatina' ||
-        kind === 'chippedenamel'
+        kind === 'chippedenamel' ||
+        kind === 'gabion'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -16511,6 +16600,7 @@ describe('procedural preset acquisition and ownership', () => {
     'metal',
     'copperpatina',
     'chippedenamel',
+    'gabion',
     'standingseam',
     'damascus',
     'castiron',
@@ -16529,6 +16619,7 @@ describe('procedural preset acquisition and ownership', () => {
         kind === 'metal' ||
           kind === 'copperpatina' ||
           kind === 'chippedenamel' ||
+          kind === 'gabion' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

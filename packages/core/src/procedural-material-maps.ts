@@ -1252,6 +1252,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'gabion': {
+        const p = proceduralMaterialPresets.gabion;
+        const grainField = cachedNoise(64, 64, seed ^ 0x4c71);
+        const stones = new Float64Array(p.cells * p.cells * 7);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7;
+            const angle = TAU * hash(col, row, seed ^ 0x1b39);
+            const radius =
+              p.radiusMin + p.radiusRange * hash(col, row, seed ^ 0x5f27);
+            const aspect = 0.85 + 0.15 * hash(col, row, seed ^ 0x7d13);
+            stones[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2a59) - 1);
+            stones[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x6e43) - 1);
+            stones[i + 2] = Math.cos(angle);
+            stones[i + 3] = Math.sin(angle);
+            stones[i + 4] = 1 / (radius * radius);
+            stones[i + 5] = 1 / (aspect * aspect);
+            stones[i + 6] = hash(col, row, seed ^ 0x3b65);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const i = (Math.floor(y) * p.cells + Math.floor(x)) * 7;
+          const dx = fract(x) - stones[i],
+            dy = fract(y) - stones[i + 1];
+          const rx = dx * stones[i + 2] + dy * stones[i + 3];
+          const ry = dy * stones[i + 2] - dx * stones[i + 3];
+          const cap = Math.max(
+            0,
+            1 - (rx * rx * stones[i + 5] + ry * ry) * stones[i + 4],
+          );
+          const coverage = smooth(clamp(cap / 0.3));
+          const wx = (fract(u * p.mesh + 0.5) - 0.5) / p.wireWidth;
+          const wy = (fract(v * p.mesh + 0.5) - 0.5) / p.wireWidth;
+          const a = smooth(clamp(1 - wx * wx)),
+            b = smooth(clamp(1 - wy * wy));
+          const wire = a + b - a * b,
+            grain = grainField(u, v);
+          color = 0.12 + coverage * (0.2 + 0.4 * stones[i + 6]) + 0.025 * grain;
+          // The steel grid stays above the stone crowns and blends to opaque backing, not holes.
+          height =
+            (0.16 + 0.4 * cap * cap + 0.015 * grain) * (1 - wire) + 0.85 * wire;
+          roughness = (roughness + 0.02 * grain) * (1 - wire) + 0.3 * wire;
+          occlusion = (0.55 + 0.38 * coverage) * (1 - wire) + 0.98 * wire;
+          mortar = wire;
+          metallic = wire;
+          return;
+        };
+      }
       case 'ashlar': {
         const p = proceduralMaterialPresets.ashlar;
         const owners = new Uint8Array(p.cells * p.cells);
@@ -11243,6 +11294,7 @@ export function createSurfaceSampler(
     kind === 'pressedtin' ||
     kind === 'sashiko' ||
     kind === 'ashlar' ||
+    kind === 'gabion' ||
     fabricated ||
     botanical ||
     packaging ||

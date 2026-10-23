@@ -2487,6 +2487,18 @@ export const proceduralMaterialPresets = Object.freeze({
       [1, 5, 2, 1],
     ] as const),
   }),
+  gabion: Object.freeze({
+    dark: [20, 24, 24] as const,
+    light: [175, 164, 139] as const,
+    roughness: 0.74,
+    relief: 0.025,
+    cells: 3,
+    mesh: 4,
+    wireWidth: 0.1,
+    radiusMin: 0.4,
+    radiusRange: 0.06,
+    jitter: 0.025,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2874,4 +2886,5 @@ export const proceduralTileMeters = Object.freeze({
   pressedtin: 0.6,
   sashiko: 0.064,
   ashlar: 1.2,
+  gabion: 0.4,
 });

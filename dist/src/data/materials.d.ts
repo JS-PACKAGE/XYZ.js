@@ -2474,6 +2474,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         bevel: 0.08;
         stones: readonly [readonly [0, 0, 3, 2], readonly [3, 0, 3, 1], readonly [3, 1, 2, 2], readonly [5, 1, 1, 3], readonly [0, 2, 1, 2], readonly [1, 2, 2, 3], readonly [3, 3, 2, 2], readonly [0, 4, 1, 2], readonly [5, 4, 1, 2], readonly [3, 5, 2, 1], readonly [1, 5, 2, 1]];
     }>;
+    gabion: Readonly<{
+        dark: readonly [20, 24, 24];
+        light: readonly [175, 164, 139];
+        roughness: 0.74;
+        relief: 0.025;
+        cells: 3;
+        mesh: 4;
+        wireWidth: 0.1;
+        radiusMin: 0.4;
+        radiusRange: 0.06;
+        jitter: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2860,4 +2872,5 @@ export declare const proceduralTileMeters: Readonly<{
     pressedtin: 0.6;
     sashiko: 0.064;
     ashlar: 1.2;
+    gabion: 0.4;
 }>;

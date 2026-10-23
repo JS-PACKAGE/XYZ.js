@@ -307,6 +307,8 @@
 
 同輪追加 `ashlar`（模組拼砌石材），實際目錄 382→383 種：十一塊不同長寬的矩形石塊形成 T 字接縫，逐塊 seeded 色差與細礦物顆粒、平滑倒角及凹縫，區別於等尺寸錯縫磚。1.2 m tile、四圖 opaque dielectric；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
 
+同輪追加 `gabion`（鋼網石籠），實際目錄 383→384 種：方格鋼線網覆蓋 seeded 朝向、大小及色差的圓石，鋼線位於石冠前方，網內為非金屬石材及不透明深色底層。0.4 m tile、四圖 opaque、metallic map 分區且預設 factor 1；沿用 options、生命週期與 renderer，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

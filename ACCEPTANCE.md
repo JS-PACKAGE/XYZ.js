@@ -5839,3 +5839,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 382 種四圖 SHA256 全相同，新增恰為 ashlar。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現不等尺寸褐灰石塊、倒角及深凹接縫，狀態列為 383 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、1.2 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5369 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：鋼網石籠（gabion）
+
+- 新增方格鋼網覆蓋 seeded 大小、朝向及色差的圓石，線網較平滑且高於石冠，石間是深色不透明底層；目錄 383→384 種。0.4 m tile、四圖 opaque、metallic B 在線網為 1／石材為 0、預設 factor 1，不新增可穿透 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 6 項與 build 通過，涵蓋三 seed 的雙軸鋼線／石材 metallic 分區、鋼線高於石冠且較平滑、逐石冠與深色底層高度差，以及線網邊界／交點、石材 owner 邊界與 wrap 一階連續性，另驗證借用 ownership、預設 factor 與 size 32 四圖。初次完整測試揭露細線網完全落在 32×32 texel 中心之間、metallic B 全為 0；加寬本預設線網以保留低解析度金屬區域後，原斷言通過，未變更共用取樣器或放寬測試。加寬後重新完成兩個 backend 的截圖及 lifecycle smoke。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 383 種四圖 SHA256 全相同，新增恰為 gabion。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現灰色方格線網、圓石與深色底層，MR 圖可見金屬線網及非金屬石面，狀態列為 384 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic factor 1、alphaMode OPAQUE、0.4 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5375 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

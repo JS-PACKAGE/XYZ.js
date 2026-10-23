@@ -389,7 +389,8 @@ export type ProceduralMaterialKind =
   | 'ginkgoleaf'
   | 'pressedtin'
   | 'sashiko'
-  | 'ashlar';
+  | 'ashlar'
+  | 'gabion';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -805,6 +806,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pressedtin',
   'sashiko',
   'ashlar',
+  'gabion',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -930,6 +932,7 @@ export class ProceduralMaterial {
         this.kind === 'rust' ||
         this.kind === 'copperpatina' ||
         this.kind === 'chippedenamel' ||
+        this.kind === 'gabion' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||
