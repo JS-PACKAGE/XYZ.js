@@ -5771,6 +5771,23 @@ var proceduralMaterialPresets = Object.freeze({
 		radius: .7,
 		arcStart: .12,
 		arcSpacing: .14
+	}),
+	tuftedleather: Object.freeze({
+		dark: [
+			28,
+			12,
+			7
+		],
+		light: [
+			145,
+			78,
+			40
+		],
+		roughness: .48,
+		relief: .04,
+		diamonds: 3,
+		buttonRadius: .075,
+		collarRadius: .16
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -6165,7 +6182,8 @@ var proceduralTileMeters = Object.freeze({
 	oakleaf: .3,
 	rhombille: .9,
 	fossillimestone: .6,
-	seigaihatiles: .6
+	seigaihatiles: .6,
+	tuftedleather: .8
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

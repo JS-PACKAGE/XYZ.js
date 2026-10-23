@@ -1252,6 +1252,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'tuftedleather': {
+        const p = proceduralMaterialPresets.tuftedleather;
+        const grainField = cachedNoise(96, 96, seed ^ 0x35c7);
+        const wearField = cachedNoise(24, 24, seed ^ 0x73a1);
+        const buttonSquared = p.buttonRadius * p.buttonRadius;
+        const collarSquared = p.collarRadius * p.collarRadius;
+        return () => {
+          const da = (u + v) * p.diamonds,
+            db = (u - v) * p.diamonds;
+          const a = 0.5 - 0.5 * Math.cos(TAU * da);
+          const b = 0.5 - 0.5 * Math.cos(TAU * db);
+          const padded = smooth(1 - Math.exp(-6 * a * b));
+          const dx = fract(da + 0.5) - 0.5,
+            dy = fract(db + 0.5) - 0.5;
+          const q = dx * dx + dy * dy;
+          const collar = smooth(clamp((collarSquared - q) / 0.02));
+          const button = smooth(clamp((buttonSquared - q) / 0.0015));
+          const grain = grainField(u, v),
+            wear = wearField(u, v);
+          color =
+            0.28 +
+            0.3 * padded -
+            0.13 * collar +
+            0.09 * button +
+            0.035 * grain +
+            0.015 * wear;
+          // The covered button rises from its compressed pocket, but stays
+          // below the diamond cushion crown; this is not a metal stud.
+          height =
+            0.12 +
+            0.6 * padded -
+            0.08 * collar +
+            0.18 * button * (1 - (0.25 * q) / buttonSquared) +
+            0.02 * grain;
+          roughness += -0.16 * padded + 0.06 * grain - 0.06 * button;
+          occlusion = 0.5 + 0.48 * padded - 0.15 * collar + 0.12 * button;
+        };
+      }
       case 'seigaihatiles': {
         const p = proceduralMaterialPresets.seigaihatiles;
         const grainField = cachedNoise(48, 48, seed ^ 0x39b7);
@@ -11670,6 +11708,7 @@ export function createSurfaceSampler(
     kind === 'rhombille' ||
     kind === 'fossillimestone' ||
     kind === 'seigaihatiles' ||
+    kind === 'tuftedleather' ||
     fabricated ||
     botanical ||
     packaging ||

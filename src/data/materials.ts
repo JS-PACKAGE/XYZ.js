@@ -2578,6 +2578,15 @@ export const proceduralMaterialPresets = Object.freeze({
     arcStart: 0.12,
     arcSpacing: 0.14,
   }),
+  tuftedleather: Object.freeze({
+    dark: [28, 12, 7] as const,
+    light: [145, 78, 40] as const,
+    roughness: 0.48,
+    relief: 0.04,
+    diamonds: 3,
+    buttonRadius: 0.075,
+    collarRadius: 0.16,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -2974,4 +2983,5 @@ export const proceduralTileMeters = Object.freeze({
   rhombille: 0.9,
   fossillimestone: 0.6,
   seigaihatiles: 0.6,
+  tuftedleather: 0.8,
 });

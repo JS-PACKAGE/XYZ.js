@@ -2565,6 +2565,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         arcStart: 0.12;
         arcSpacing: 0.14;
     }>;
+    tuftedleather: Readonly<{
+        dark: readonly [28, 12, 7];
+        light: readonly [145, 78, 40];
+        roughness: 0.48;
+        relief: 0.04;
+        diamonds: 3;
+        buttonRadius: 0.075;
+        collarRadius: 0.16;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2960,4 +2969,5 @@ export declare const proceduralTileMeters: Readonly<{
     rhombille: 0.9;
     fossillimestone: 0.6;
     seigaihatiles: 0.6;
+    tuftedleather: 0.8;
 }>;

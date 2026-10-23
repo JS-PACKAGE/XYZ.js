@@ -398,7 +398,8 @@ export type ProceduralMaterialKind =
   | 'oakleaf'
   | 'rhombille'
   | 'fossillimestone'
-  | 'seigaihatiles';
+  | 'seigaihatiles'
+  | 'tuftedleather';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -823,6 +824,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rhombille',
   'fossillimestone',
   'seigaihatiles',
+  'tuftedleather',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -5911,3 +5911,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以上一功能 dist 為基準，size 64／seed 7 的既有 391 種四圖 SHA256 全相同，新增恰為 seigaihatiles。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現交錯藍白青海波、normal 僅保留方磚倒角，狀態列為 392 presets，成功分頁無 page errors。第一次 WebGL2 截圖遇工具端 Target closed，已回報並以新分頁完成同一路徑，不計為引擎成功或失敗證據。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.6 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
 - README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
 - 完整 Vitest 178 檔／5415 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。
+
+## 2026-10-23 程序材質：菱形拉扣皮革（tuftedleather）
+
+- 新增深棕色菱形鼓包、交叉壓褶、凹下拉扣口袋與包皮圓扣；圓扣高於口袋、低於墊面最高點，seeded 細皮紋與磨耗覆蓋表面，不套用 quilting 織線或金屬釘；目錄 392→393 種。0.8 m tile、四圖 opaque dielectric、metallic 0，不新增 geometry、shader、options 或 runtime 依賴。
+- 專項 Vitest 4 項與 build 通過，涵蓋三 seed 的鼓包／圓扣／口袋／雙向壓褶高度階序、顏色與粗糙度、口袋 AO、圓扣的軸向及斜向輪廓，以及對角壓褶、扣緣、口袋及 wrap 一階連續性。
+- 以上一功能 dist 為基準，size 64／seed 7 的既有 392 種四圖 SHA256 全相同，新增恰為 tuftedleather。本機 headless Chromium 的 WebGPU／WebGL2 pbr3d 逐一選取並截圖，球體及四圖呈現深棕菱形鼓包與凹下交叉壓褶，狀態列為 393 presets，無 page errors。實際 size 33／seed 0xffffffff、borrow roughness 0.8、metallic 0、alphaMode OPAQUE、0.8 m repeats 1、冪等銷毀四圖與拒絕銷毀後借用均通過。
+- README 中／英／日、PLAN／DESIGN、雙語技術與操作文件同步，相對連結無失效路徑。逐功能提交、不 push，不擴大其他瀏覽器、實機或效能認證。
+- 完整 Vitest 178 檔／5420 項、typecheck、lint、format:check、check:api-compatibility 與 check:material-reference 通過；未重生 golden。既有 OPM dynamic-import Vite warning 未改。

@@ -417,7 +417,91 @@ const kinds: ProceduralMaterialKind[] = [
   'rhombille',
   'fossillimestone',
   'seigaihatiles',
+  'tuftedleather',
 ];
+
+describe('diamond tufted leather', () => {
+  const p = proceduralMaterialPresets.tuftedleather;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('tuftedleather', seed);
+    return (a: number, b: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((a + b) / (2 * p.diamonds), (a - b) / (2 * p.diamonds), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'pulls leather buttons into diamond creases below the padded crowns for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.diamonds; row++)
+        for (let col = 0; col < p.diamonds; col++) {
+          const crown = at(col + 0.5, row + 0.5);
+          const button = at(col, row);
+          const pocket = at(col + 0.1, row);
+          const creaseA = at(col, row + 0.5),
+            creaseB = at(col + 0.5, row);
+          expect(crown.height).toBeGreaterThan(0.028);
+          expect(crown.height - button.height).toBeGreaterThan(0.018);
+          expect(button.height - pocket.height).toBeGreaterThan(0.005);
+          expect(button.color - pocket.color).toBeGreaterThan(0.05);
+          expect(button.occlusion).toBeGreaterThan(pocket.occlusion + 0.08);
+          for (const crease of [creaseA, creaseB]) {
+            expect(crease.height).toBeLessThan(0.006);
+            expect(crown.color - crease.color).toBeGreaterThan(0.25);
+            expect(crease.roughness - crown.roughness).toBeGreaterThan(0.1);
+            expect(crown.occlusion - crease.occlusion).toBeGreaterThan(0.45);
+          }
+          expect(button.metallic).toBe(0);
+          // A round covered button has no diamond corners or cross-shaped arms.
+          for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
+            const inner = at(
+              col + 0.04 * Math.cos(angle),
+              row + 0.04 * Math.sin(angle),
+            );
+            const outer = at(
+              col + 0.1 * Math.cos(angle),
+              row + 0.1 * Math.sin(angle),
+            );
+            expect(inner.height - outer.height).toBeGreaterThan(0.004);
+          }
+        }
+    },
+  );
+  it('keeps diagonal folds, circular button lips, pockets and wrap C1 continuous', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 64; y++)
+        for (let x = 0; x <= 64; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.diamonds) / 64,
+              v = (y * p.diamonds) / 64;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+            }
+          }
+    }
+  });
+});
 
 describe('blue seigaiha wave tiles', () => {
   const p = proceduralMaterialPresets.seigaihatiles;
