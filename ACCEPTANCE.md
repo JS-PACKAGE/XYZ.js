@@ -6282,3 +6282,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐一驗證 64 個交點的上下層高度、交點不鼓包、布／線色差與 roughness、端點回到底布、AO 及 metallic；另檢查線裙、收尾、交疊與 tile wrap 的 C1。新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5682 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：球面 X 繡線及四圖的交叉線紋、normal、roughness 與斜線 AO 可見，status 為 444 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.08 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 443 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：八角香料（staranise）
+
+- 目錄 444→445 種。0.12 m tile、九個 seeded 旋轉八角，各有八個尖端木質果莢、凹腔及較光滑種子。莢壁高於種子、種子高於腔底，放射莢之間露出低暗底面。四圖 opaque、metallic 0、既有 ownership 不變，不新增果莢 geometry 或透明間隙。
+- 三個 seed（0／1／`0xffffffff`）逐一驗證 72 個果莢的莢壁／種子／腔底高度順序、色差、roughness／AO、尖端收窄及放射間隙；另檢查莢壁、腔／種子裙、中心與 tile wrap 的 C1。初次測試的定位 hash 與正式實作不一致，對齊既有 hash 後保留形態門檻；另降低木質微粒色彩振幅，避免掩蓋莢壁／種子對比。最終新增四項形態／連續性測試通過；build、typecheck、lint、format:check、完整 178 檔 5687 項測試、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）及 material reference 通過，未重建 golden。既有 OPM 動態 import 的 Vite 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：褐色八向果莢、莢腔 normal、較光滑種子及放射輪廓 AO 四圖與球面材質可見，status 為 445 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；WebGPU 頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 444 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

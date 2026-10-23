@@ -1259,6 +1259,72 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'staranise': {
+        const p = proceduralMaterialPresets.staranise;
+        const axes = new Float64Array(p.cells * p.cells * p.pods * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x3a61);
+            for (let pod = 0; pod < p.pods; pod++) {
+              const angle = phase + (pod * TAU) / p.pods;
+              const i = ((row * p.cells + col) * p.pods + pod) * 2;
+              axes[i] = Math.cos(angle);
+              axes[i + 1] = Math.sin(angle);
+            }
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0x4b73);
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells;
+          const i =
+            (Math.floor(vCell) * p.cells + Math.floor(uCell)) * p.pods * 2;
+          const x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5;
+          const hub = smooth(clamp(1 - (x * x + y * y) / p.hubRadius ** 2));
+          const grain = grainField(u, v);
+          color = 0.04 + 0.3 * hub;
+          height = 0.04 + 0.16 * hub;
+          occlusion = 0.3 + 0.2 * hub;
+          roughness += 0.02 * grain;
+          for (let pod = 0; pod < p.pods; pod++) {
+            const j = i + pod * 2;
+            const along = x * axes[j] + y * axes[j + 1],
+              across = y * axes[j] - x * axes[j + 1];
+            const bulge = clamp(1 - ((along - p.podCenter) / p.podLength) ** 2);
+            const face = smooth(
+              clamp((bulge * bulge - (across / p.podWidth) ** 2) / p.shoulder),
+            );
+            const cavity = smooth(
+              clamp(
+                (1 -
+                  ((along - p.podCenter) / p.cavityLength) ** 2 -
+                  (across / p.cavityWidth) ** 2) /
+                  0.2,
+              ),
+            );
+            const kernel = smooth(
+              clamp(
+                (1 -
+                  ((along - p.seedCenter) / p.seedLength) ** 2 -
+                  (across / p.seedWidth) ** 2) /
+                  0.2,
+              ),
+            );
+            // Pointed woody pod walls surround a lower cavity and its smooth seed.
+            color +=
+              face * (0.58 + 0.03 * grain - 0.4 * cavity + 0.16 * kernel);
+            height +=
+              face *
+              (0.5 +
+                0.1 * bulge -
+                0.36 * cavity +
+                0.14 * kernel +
+                0.008 * grain);
+            roughness -= 0.25 * face * kernel;
+            occlusion += face * (0.65 - 0.35 * cavity + 0.1 * kernel);
+          }
+        };
+      }
       case 'crossstitch': {
         const p = proceduralMaterialPresets.crossstitch;
         const stitches = new Float64Array(p.cells * p.cells * 2);
@@ -14162,6 +14228,7 @@ export function createSurfaceSampler(
     kind === 'cucumberslices' ||
     kind === 'monsteraleaf' ||
     kind === 'crossstitch' ||
+    kind === 'staranise' ||
     fabricated ||
     botanical ||
     packaging ||

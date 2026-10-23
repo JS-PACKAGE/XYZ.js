@@ -469,7 +469,148 @@ const kinds: ProceduralMaterialKind[] = [
   'cucumberslices',
   'monsteraleaf',
   'crossstitch',
+  'staranise',
 ];
+
+describe('Star anise pods', () => {
+  const p = proceduralMaterialPresets.staranise;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('staranise', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps eight pointed pods with recessed seeds and deeper cavities on each star for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = Math.PI * 2 * hash(col, row, seed ^ 0x3a61);
+          for (let pod = 0; pod < p.pods; pod++) {
+            const angle = phase + (pod * Math.PI * 2) / p.pods;
+            const at = (a: number, b: number) =>
+              sample(
+                (col + 0.5 + a * Math.cos(angle) - b * Math.sin(angle)) /
+                  p.cells,
+                (row + 0.5 + a * Math.sin(angle) + b * Math.cos(angle)) /
+                  p.cells,
+              );
+            const kernel = at(0.26, 0),
+              cavity = at(0.25, 0.028);
+            const back = at(0.47, 0);
+            expect(kernel.height - cavity.height).toBeGreaterThan(0.0035);
+            expect(cavity.height - back.height).toBeGreaterThan(0.006);
+            expect(kernel.color - cavity.color).toBeGreaterThan(0.1);
+            expect(cavity.roughness - kernel.roughness).toBeGreaterThan(0.23);
+            expect(kernel.occlusion - cavity.occlusion).toBeGreaterThan(0.09);
+            for (const sign of [-1, 1]) {
+              const rim = at(0.25, sign * 0.06);
+              expect(rim.height - kernel.height).toBeGreaterThan(0.006);
+              expect(rim.color - kernel.color).toBeGreaterThan(0.2);
+              expect(rim.occlusion - kernel.occlusion).toBeGreaterThan(0.2);
+              expect(at(0.4, sign * 0.04).height).toBeLessThan(0.0013);
+            }
+            expect(at(0.4, 0).height - back.height).toBeGreaterThan(0.015);
+            const gapAngle = angle + Math.PI / p.pods;
+            const gap = sample(
+              (col + 0.5 + 0.3 * Math.cos(gapAngle)) / p.cells,
+              (row + 0.5 + 0.3 * Math.sin(gapAngle)) / p.cells,
+            );
+            expect(gap.height).toBeCloseTo(back.height, 12);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            expect(kernel.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps pointed walls, cavity and seed skirts, hub and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        points: [number, number][] = [];
+      for (let y = 0; y <= 96; y++)
+        for (let x = 0; x <= 96; x++) points.push([x / 96, y / 96]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = Math.PI * 2 * hash(col, row, seed ^ 0x3a61);
+          for (let pod = 0; pod < p.pods; pod++) {
+            const angle = phase + (pod * Math.PI * 2) / p.pods;
+            const add = (a: number, b: number) =>
+              points.push([
+                (col + 0.5 + a * Math.cos(angle) - b * Math.sin(angle)) /
+                  p.cells,
+                (row + 0.5 + a * Math.sin(angle) + b * Math.cos(angle)) /
+                  p.cells,
+              ]);
+            for (const a of [
+              p.podCenter - p.podLength,
+              p.podCenter,
+              p.podCenter + p.podLength,
+              p.hubRadius,
+            ])
+              add(a, 0);
+            for (const [center, length, width] of [
+              [p.podCenter, p.cavityLength, p.cavityWidth],
+              [p.seedCenter, p.seedLength, p.seedWidth],
+            ])
+              for (const q of [0.8, 1])
+                for (let k = 0; k < 16; k++) {
+                  const theta = (k * Math.PI) / 8;
+                  add(
+                    center + length * Math.sqrt(q) * Math.cos(theta),
+                    width * Math.sqrt(q) * Math.sin(theta),
+                  );
+                }
+            for (let k = 0; k <= 16; k++) {
+              const t = k / 8 - 1,
+                bulge = 1 - t * t;
+              for (const sign of [-1, 1]) {
+                add(p.podCenter + p.podLength * t, sign * p.podWidth * bulge);
+                if (bulge * bulge > p.shoulder)
+                  add(
+                    p.podCenter + p.podLength * t,
+                    sign * p.podWidth * Math.sqrt(bulge * bulge - p.shoulder),
+                  );
+              }
+            }
+          }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Raised cross-stitch embroidery', () => {
   const p = proceduralMaterialPresets.crossstitch;

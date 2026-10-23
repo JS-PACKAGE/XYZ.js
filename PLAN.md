@@ -429,6 +429,8 @@
 
 同輪追加 `crossstitch`（十字繡），實際目錄 443→444 種：八乘八 X 繡針由兩條有限長斜向繡線交疊，上層固定遮住下層，交點不累加高度；保留底布織紋、細線纖維與 seeded 線色。0.08 m tile、四圖 opaque dielectric、metallic 0，不新增繡線 geometry／穿布孔洞，沿用既有契約，逐功能驗證提交、不 push。
 
+同輪追加 `staranise`（八角香料），實際目錄 444→445 種：九個 seeded 旋轉八角，各有八個尖端木質果莢、凹腔與較光滑種子。莢壁高於種子、種子高於腔底，放射莢間保留低暗間隙。0.12 m tile、四圖 opaque dielectric、metallic 0，不新增果莢 geometry／透明間隙，沿用既有契約，逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

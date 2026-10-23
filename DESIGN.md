@@ -437,6 +437,8 @@
 
 `crossstitch` 將 cell 座標旋轉 45°，以 compact 圓滑橫截面乘有限長端部 shoulder 形成兩條對角繡線。可見下層權重為 lower × (1 − upper)，上層覆蓋交點，避免高度相加形成不合理鼓包；線纖維採各自橫向相位，底布僅在未覆蓋處顯露。0.08 m tile、四圖 opaque、metallic 0、既有 ownership 不變，目錄增為 444 種。
 
+`staranise` 快取九個八角的八組旋轉軸，以沿莢長度的二次收窄輪廓形成尖端莢面；各莢嵌入橢圓凹腔與較小的橢圓種子，種子低於莢壁但高於腔底，roughness 也較低。八條放射莢的 compact supports 保留莢間空隙，中心小果軸與孔隙仍使用 opaque 底面。0.12 m tile、四圖、metallic 0、既有 ownership 不變，目錄增為 445 種。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.21.2`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
