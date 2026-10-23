@@ -446,7 +446,8 @@ export type ProceduralMaterialKind =
   | 'circularpavers'
   | 'snowflaketiles'
   | 'sawblades'
-  | 'pistachios';
+  | 'pistachios'
+  | 'polkadotfabric';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -919,6 +920,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'snowflaketiles',
   'sawblades',
   'pistachios',
+  'polkadotfabric',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

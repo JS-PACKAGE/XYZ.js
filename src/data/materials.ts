@@ -3118,6 +3118,16 @@ export const proceduralMaterialPresets = Object.freeze({
     shoulder: 0.2,
     fibers: 32,
   }),
+  polkadotfabric: Object.freeze({
+    dark: [35, 47, 86] as const,
+    light: [239, 233, 213] as const,
+    roughness: 0.8,
+    relief: 0.006,
+    cells: 6,
+    radius: 0.26,
+    shoulder: 0.2,
+    threads: 96,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3562,4 +3572,5 @@ export const proceduralTileMeters = Object.freeze({
   snowflaketiles: 0.8,
   sawblades: 0.8,
   pistachios: 0.15,
+  polkadotfabric: 0.12,
 });

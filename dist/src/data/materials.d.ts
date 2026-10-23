@@ -3094,6 +3094,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.2;
         fibers: 32;
     }>;
+    polkadotfabric: Readonly<{
+        dark: readonly [35, 47, 86];
+        light: readonly [239, 233, 213];
+        roughness: 0.8;
+        relief: 0.006;
+        cells: 6;
+        radius: 0.26;
+        shoulder: 0.2;
+        threads: 96;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3537,4 +3547,5 @@ export declare const proceduralTileMeters: Readonly<{
     snowflaketiles: 0.8;
     sawblades: 0.8;
     pistachios: 0.15;
+    polkadotfabric: 0.12;
 }>;

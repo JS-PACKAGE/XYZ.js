@@ -6254,3 +6254,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 定向 4 tests 通過：三 seeds 驗證二十五果殼沿長軸三截面的殼緣／果仁／側隙／底面高度順序、色差／AO／粗糙度及閉合長軸端部；另在果仁、開縫與殼體的精確橢圓 shoulders、owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5662 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：淡色長橢圓殼緣、綠色中央果仁／暗縫、殼面 normal 與側隙 AO 四圖可見，status 為 440 種，完成 smoke 的兩頁錯誤列表皆空。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.15 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
 - 既有 439 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。
+
+## 2026-10-23 程序材質：圓點印花布（polkadotfabric）
+
+- 目錄 440→441 種。0.12 m tile、藍色平織底布上六乘六米白圓點，相鄰列錯開半格，seed 控制印花平移與微粒。圓點只影響 color／roughness，底下九十六經緯線的高度與 AO 不受印花邊緣影響，沒有凸珠或假壓紋。四圖 opaque、metallic 0、既有 ownership 不變，不新增布料 geometry／透明網孔。
+- 定向 4 tests 通過：三 seeds 驗證三十六圓點十六徑向內外色差、相鄰列錯位與新圓心、相同織紋相位下印花／底布的高度及 AO 不變、染料粗糙度差；另在精確圓邊 shoulders、錯列 owner 切換及 tile wrap 驗證 C1。build／typecheck／lint／format:check／全套 **178 files、5667 tests** 通過；API compatibility 737 exports／2810 directional contracts／710 historical namespaces／5 consumers 通過；material reference 通過且未重建 golden，原 OPM 動態 import 分析警告仍在。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各自選取新材質並取得 screenshot：藍底米白錯列圓點、細微粗糙度差與沒有圓點輪廓的 normal／AO 四圖可見，status 為 441 種，完成 smoke 的兩頁錯誤列表皆空；縮小 swatch 未用來宣稱可辨識每條細織線。WebGL2 首次 screenshot 遇工具 `Target closed`，另開 fresh tab 完成 screenshot／API smoke；該頁暫時放大既有 swatch，未更動 gallery 原始碼。各 backend 另實測 size 33／seed `0xffffffff`、roughness override 0.8、0.12 m repeats 1、metallic 0／OPAQUE、兩次 destroy 後四圖 destroyed 與拒絕再借用。
+- 既有 440 種 size 64／seed 7 四圖 SHA256 全數不變；README 中／英／日、PLAN／DESIGN 與雙語技術／操作文件同步，相對連結檢查無缺失。此紀錄不擴大 Canvas2D 3D、Safari、實機或效能認證範圍；未 push。

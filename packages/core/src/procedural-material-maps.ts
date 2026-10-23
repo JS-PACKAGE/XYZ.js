@@ -1259,6 +1259,39 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'polkadotfabric': {
+        const p = proceduralMaterialPresets.polkadotfabric;
+        const shiftU = hash(0, 0, seed ^ 0x5d47),
+          shiftV = hash(1, 0, seed ^ 0x5d47);
+        const grainField = cachedNoise(96, 96, seed ^ 0x6e59);
+        return () => {
+          const uCell = fract(u + shiftU) * p.cells,
+            vCell = fract(v + shiftV) * p.cells;
+          const row = Math.floor(vCell);
+          const x = fract(uCell - 0.5 * (row & 1)) - 0.5,
+            y = fract(vCell) - 0.5;
+          const dot = smooth(
+            clamp((1 - (x * x + y * y) / (p.radius * p.radius)) / p.shoulder),
+          );
+          const warp = 0.5 + 0.5 * Math.cos(TAU * p.threads * u),
+            weft = 0.5 + 0.5 * Math.cos(TAU * p.threads * v);
+          const over =
+            0.5 +
+            0.5 *
+              Math.cos(Math.PI * p.threads * u) *
+              Math.cos(Math.PI * p.threads * v);
+          const weave =
+            warp * (0.35 + 0.25 * over) +
+            weft * (0.35 + 0.25 * (1 - over)) -
+            0.3 * warp * weft;
+          const grain = grainField(u, v);
+          // Staggered dots are pigment; their rims create no normal or AO ridges.
+          color = 0.12 + 0.78 * dot + 0.03 * weave + 0.02 * grain;
+          height = 0.2 + 0.15 * weave + 0.02 * grain;
+          roughness += 0.025 * (1 - weave) + 0.02 * grain - 0.04 * dot;
+          occlusion = 0.88 + 0.1 * weave;
+        };
+      }
       case 'pistachios': {
         const p = proceduralMaterialPresets.pistachios;
         const rotations = new Float64Array(p.cells * p.cells * 2);
@@ -13930,6 +13963,7 @@ export function createSurfaceSampler(
     kind === 'snowflaketiles' ||
     kind === 'sawblades' ||
     kind === 'pistachios' ||
+    kind === 'polkadotfabric' ||
     fabricated ||
     botanical ||
     packaging ||

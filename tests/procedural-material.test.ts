@@ -465,7 +465,115 @@ const kinds: ProceduralMaterialKind[] = [
   'snowflaketiles',
   'sawblades',
   'pistachios',
+  'polkadotfabric',
 ];
+
+describe('Polka dot woven fabric', () => {
+  const p = proceduralMaterialPresets.polkadotfabric;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('polkadotfabric', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'prints thirty-six staggered circular dots without embossing the weave for seed %s',
+    (seed) => {
+      const sample = field(seed);
+      const shiftU = hash(0, 0, seed ^ 0x5d47),
+        shiftV = hash(1, 0, seed ^ 0x5d47);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const u = (col + 0.5 + 0.5 * (row & 1)) / p.cells - shiftU,
+            v = (row + 0.5) / p.cells - shiftV;
+          const center = sample(u, v);
+          // Six yarn periods preserve the weave phase while crossing a print edge.
+          const bare = sample(u + 6 / p.threads, v);
+          expect(center.color - bare.color).toBeGreaterThan(0.75);
+          expect(bare.roughness - center.roughness).toBeGreaterThan(0.02);
+          expect(Math.abs(center.height - bare.height)).toBeLessThan(0.00013);
+          expect(center.occlusion).toBeCloseTo(bare.occlusion, 10);
+          expect(center.metallic).toBe(0);
+          expect(center.mortar).toBe(0);
+          for (let ray = 0; ray < 16; ray++) {
+            const angle = (ray * Math.PI) / 8,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            const inside = sample(
+                u + (0.2 * c) / p.cells,
+                v + (0.2 * s) / p.cells,
+              ),
+              outside = sample(
+                u + (0.34 * c) / p.cells,
+                v + (0.34 * s) / p.cells,
+              );
+            expect(inside.color - outside.color).toBeGreaterThan(0.73);
+          }
+          const nextRowAligned = sample(u, v + 1 / p.cells);
+          expect(center.color - nextRowAligned.color).toBeGreaterThan(0.75);
+          const nextRowDot = sample(u + 0.5 / p.cells, v + 1 / p.cells);
+          expect(nextRowDot.color - nextRowAligned.color).toBeGreaterThan(0.75);
+        }
+    },
+  );
+  it('keeps circular print shoulders, staggered row switches and tile wrap C1 continuous', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const shiftU = hash(0, 0, seed ^ 0x5d47),
+        shiftV = hash(1, 0, seed ^ 0x5d47);
+      const points: [number, number][] = [];
+      for (let y = 0; y <= 80; y++)
+        for (let x = 0; x <= 80; x++) points.push([x / 80, y / 80]);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const u = (col + 0.5 + 0.5 * (row & 1)) / p.cells - shiftU,
+            v = (row + 0.5) / p.cells - shiftV;
+          points.push([u, row / p.cells - shiftV]);
+          for (const radius of [p.radius, p.radius * Math.sqrt(1 - p.shoulder)])
+            for (let ray = 0; ray < 16; ray++) {
+              const angle = (ray * Math.PI) / 8;
+              points.push([
+                u + (radius * Math.cos(angle)) / p.cells,
+                v + (radius * Math.sin(angle)) / p.cells,
+              ]);
+            }
+        }
+      for (const [u, v] of points)
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            expect(Math.abs(a[key] - c[key])).toBeLessThan(0.0001);
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Open pistachios', () => {
   const p = proceduralMaterialPresets.pistachios;
