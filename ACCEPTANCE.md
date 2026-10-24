@@ -6456,3 +6456,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 上游 voice 格式改為 v8,且 v1–v7 會拒絕新欄位(`adsr.sr`、voice `pan`、noise LFO)。adapter 原本把 native voice 一律標成 `version: 7` 傳回,以官方 API 實測 v8 voice 重標 7 會被拒絕(`voice pan requires voice version 8`)。已改為保留 native voice 的版本;公開 `OPMVoice` 型別仍為 `version: 1`,不公開 v8 新欄位。
 - build、typecheck、lint、完整 Vitest(179 檔/5969 項)、check:distribution(實際呼叫官方 validateVoice)、check:api-compatibility 通過。`audio:native-load` 在 Chromium 與 Firefox PASS;WebKit FAIL(control-arrival reference difference 0.1262),以乾淨 worktree 的 v1.13.0 基準重跑得到相同失敗(0.1263),為既有問題,非本次更新造成。未做可聽輸出或實機認證;未 push。
 - `dist/vendor/opm/` 內另有 532 個 `* 2.js`、`LICENSE 5` 一類的重複檔,於先前 commit `95bb40f0`、`dce0799b` 被追蹤;package inventory 為明確清單,不會進入發佈包。本次未刪除,待使用者決定。
+
+## v1.22.1 發佈準備
+
+- 使用者授權推送並發佈 `v1.22.1`。相對 `v1.22.0` 納入 9 個 commit:現行契約材質清單補齊、程序材質 `tint`/`workerPool`/`cache`/`heightMap` 與 PBR height map parallax、官方 OPM.js v1.13.1 vendor 與 v8 voice 版本保留修正、移除 `dist/vendor/opm` 重複檔,以及使用者的 P137/P138 音訊變更。root metadata 與 README/PLAN/DESIGN/`docs/` 的目前版本字串由 1.22.0 改為 1.22.1;歷史紀錄保留原版本。
+- 發佈前本機以 1.22.1 重建並驗證:build、typecheck、lint、format:check、完整 Vitest(179 檔/5969 項)、check:api-compatibility、check:distribution 通過;`pnpm pack` 產生 `xyz.js-1.22.1.tgz`,`check-package-hygiene --archive` 回報 `PACKAGE_HYGIENE_OK`,本機 SHA256 `ab78f5a2e88b91bcce16a64b0e06f415b767dc43e29d010a899c9f768e38c903`,archive 內無 vendor 重複檔。未於此輪重跑 starter smoke;不擴大瀏覽器、實機或效能認證範圍。
+- 沿既有 CI/Release workflow(推送 tag 後先跑 verify,再封裝 archive 與 SHA256SUMS 並建立 GitHub release);不做 npm publish,不移動既有 tags。遠端結果以 GitHub 紀錄為準。
