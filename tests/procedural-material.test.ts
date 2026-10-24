@@ -515,7 +515,82 @@ const kinds: ProceduralMaterialKind[] = [
   'fivebarplate',
   'cinnamonswirl',
   'wheatears',
+  'scalemail',
 ];
+
+describe('Riveted overlapping steel scalemail', () => {
+  const p = proceduralMaterialPresets.scalemail;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('scalemail', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps staggered steel plates, raised ribs and rivets above the backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (dx: number, dy: number) =>
+            at(col + 0.5 + (row & 1) * 0.5 + dx, row + 0.5 + dy);
+          const base = local(0.49, 0),
+            ridge = local(0, 0.15),
+            face = local(0.22, 0.15),
+            rivet = local(0, p.rivetY),
+            besideRivet = local(0.1, p.rivetY);
+          expect(face.height - base.height).toBeGreaterThan(0.009);
+          expect(face.color - base.color).toBeGreaterThan(0.45);
+          expect(face.occlusion - base.occlusion).toBeGreaterThan(0.33);
+          expect(base.roughness - face.roughness).toBeGreaterThan(0.45);
+          expect(ridge.height - face.height).toBeGreaterThan(0.0038);
+          expect(ridge.color - face.color).toBeGreaterThan(0.12);
+          expect(rivet.height - besideRivet.height).toBeGreaterThan(0.0035);
+          expect(rivet.color - besideRivet.color).toBeGreaterThan(0.17);
+          // Both staggered owners fully cover this lens. The upper plate's
+          // shallow rim must hide the lower plate's much higher rolled lip.
+          expect(Math.abs(local(0.25, 0.4).height - face.height)).toBeLessThan(
+            0.0005,
+          );
+          expect(face.metallic).toBe(1);
+          expect(base.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps layer ownership, scale edges, ribs, rivets and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Golden awned wheat ears', () => {
   const p = proceduralMaterialPresets.wheatears;
@@ -16238,6 +16313,7 @@ describe('periodic procedural material fields', () => {
           kind === 'wingnuts' ||
           kind === 'circlips' ||
           kind === 'fivebarplate' ||
+          kind === 'scalemail' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -25677,6 +25753,7 @@ describe('procedural preset acquisition and ownership', () => {
     'wingnuts',
     'circlips',
     'fivebarplate',
+    'scalemail',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -25709,6 +25786,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'wingnuts' ||
           kind === 'circlips' ||
           kind === 'fivebarplate' ||
+          kind === 'scalemail' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

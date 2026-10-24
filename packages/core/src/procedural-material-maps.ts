@@ -1241,6 +1241,7 @@ export function createSurfaceSampler(
     kind === 'wingnuts' ||
     kind === 'circlips' ||
     kind === 'fivebarplate' ||
+    kind === 'scalemail' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1265,6 +1266,77 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'scalemail': {
+        const p = proceduralMaterialPresets.scalemail;
+        const grainField = cachedNoise(128, 8, seed ^ 0x4e93);
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            row = Math.floor(y);
+          const grain = grainField(u, v);
+          color = 0.07 + 0.02 * grain;
+          height = 0.08 + 0.004 * grain;
+          roughness = 0.9;
+          occlusion = 0.57;
+          // Upper rows cover lower rows; compact supports enter and leave the
+          // neighborhood with zero value and slope, including at tile wrap.
+          for (let oy = 1; oy >= -1; oy--) {
+            const cy = row + oy,
+              stagger = (cy & 1) * 0.5,
+              column = Math.floor(x - stagger);
+            for (let ox = -1; ox <= 1; ox++) {
+              const dx = x - column - ox - stagger - 0.5,
+                dy = y - cy - 0.5;
+              const width =
+                p.width *
+                (0.6 + 0.4 * smooth(clamp((p.length - dy) / (2 * p.length))));
+              const q = (dx / width) ** 2 + (dy / p.length) ** 2;
+              const cover = smooth(clamp((1 - q) / p.shoulder));
+              if (cover === 0) continue;
+              const ridge =
+                smooth(clamp(1 - (dx / p.ridgeWidth) ** 2)) *
+                smooth(clamp(1 - (dy / p.ridgeLength) ** 2));
+              const rivet = smooth(
+                clamp(
+                  (1 -
+                    (dx / p.rivetRadius) ** 2 -
+                    ((dy - p.rivetY) / p.rivetRadius) ** 2) /
+                    p.shoulder,
+                ),
+              );
+              const lip =
+                smooth(clamp((q - 0.64) / 0.15)) *
+                smooth(clamp((1 - q) / p.shoulder));
+              color +=
+                cover *
+                (0.56 +
+                  0.18 * ridge +
+                  0.16 * rivet +
+                  0.07 * lip +
+                  0.04 * grain -
+                  color);
+              height +=
+                cover *
+                (0.47 +
+                  0.2 * ridge +
+                  0.11 * rivet +
+                  0.06 * lip +
+                  0.005 * grain -
+                  height);
+              roughness +=
+                cover *
+                (p.roughness -
+                  0.06 * ridge -
+                  0.03 * rivet +
+                  0.03 * grain -
+                  roughness);
+              occlusion +=
+                cover * (0.91 + 0.06 * ridge + 0.02 * rivet - occlusion);
+            }
+          }
+          return;
+        };
+      }
       case 'wheatears': {
         const p = proceduralMaterialPresets.wheatears;
         const grainField = cachedNoise(96, 96, seed ^ 0x8d31);
@@ -15865,6 +15937,7 @@ export function createSurfaceSampler(
     kind === 'fivebarplate' ||
     kind === 'cinnamonswirl' ||
     kind === 'wheatears' ||
+    kind === 'scalemail' ||
     fabricated ||
     botanical ||
     packaging ||

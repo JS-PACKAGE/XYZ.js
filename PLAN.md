@@ -495,6 +495,8 @@
 
 同輪追加 `wheatears`（金黃麥穗），目錄 476→477 種：十六支各五對斜向穀粒、粒面縱溝、十根細穗芒與中央穗軸，相鄰轉 180°；不是玉米粒平鋪或葉片。0.24 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增植物 geometry、透明度、生長或風場模擬；逐功能驗證提交、不 push。
 
+同輪追加 `scalemail`（鋼製鱗甲），目錄 477→478 種：六列八行交錯金屬鱗片，上排覆下排，中央凸脊、頂端圓鉚釘與捲邊；暗縫是 opaque 鋼底層，區別有機魚鱗與環狀鎖子甲。0.24 m tile、metallic map／預設 factor 1，沿既有四圖／選用 height／options／ownership，不新增甲片 geometry、透明孔洞、碰撞或防護模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

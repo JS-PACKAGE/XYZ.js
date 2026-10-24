@@ -503,6 +503,8 @@
 
 `wheatears` 將每對穀粒旋轉 ±45°，compact smooth 橢圓場聯集形成粒面、隆起冠部、縱溝與延長細芒；中央窄穗軸連接兩側。所有支撐在 cell 內結束，以乘積聯集避免遮罩 max 接縫；96×96 seeded periodic grain 僅作用於穗形。4×4 支、每支五對穀粒、0.24 m tile、metallic 0、既有 maps／選用 height／ownership 不變，目錄增為 477 種；不新增 geometry、生長或風場模擬。
 
+`scalemail` 用下端收窄的 compact smooth 橢圓場建立金屬鱗片，在局部三乘三鄰域由下排往上排合成，使上排遮住下排捲邊。八行 parity stagger 保持跨 tile 一致，鄰域進出支撐為零值零斜率；中央凸脊、頂部圓鉚釘、周緣捲邊與 128×8 seeded periodic 拉絲分別控制表面。6×8 片、0.24 m tile，含暗鋼底層皆 metallic 1、既有 maps／選用 height／ownership 不變，目錄增為 478 種；不新增 geometry、透明孔洞或防護物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

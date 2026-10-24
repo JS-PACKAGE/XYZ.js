@@ -6588,3 +6588,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐格逐對檢查穀粒／縱溝、粒面肩部、細芒／芒外、穗軸／底層的高度／色差／AO／roughness／metallic，另掃描粒緣、縱溝、細芒、穗軸與 tile wrap C1。既有 476 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6063 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 wheatears，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認成對穀粒、中央穗軸、細芒與轉向，height true、metallic 0、destroyed true；預覽隨頁清除。文件建議較大貼圖／預覽以看清細芒與縱溝。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：鋼製鱗甲（scalemail）
+
+- 目錄 477→478 種；0.24 m tile，6×8 交錯金屬鱗片，上排覆下排、中央凸脊、頂端圓鉚釘與捲邊，暗縫保留 opaque 鋼底層。metallic map／預設 factor 1；沿四圖／選用 height／ownership，不新增甲片 geometry、透明孔洞、碰撞或防護物理。
+- 三 seed（0／1／`0xffffffff`）逐格檢查鱗面／凸脊／鉚釘／底層的高度／色差／AO／roughness／metallic；覆疊 lens 確認上排淺邊遮住下排較高捲邊，另掃描 ownership、片緣、脊、鉚釘與 tile wrap C1。既有 477 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6069 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 scalemail，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交錯覆疊、金屬凸脊、圓鉚釘與捲邊，height true、metallic 1、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

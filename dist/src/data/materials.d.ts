@@ -3655,6 +3655,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         stalkCenter: 0.06;
         shoulder: 0.2;
     }>;
+    scalemail: Readonly<{
+        dark: readonly [36, 43, 49];
+        light: readonly [215, 224, 230];
+        roughness: 0.39;
+        relief: 0.024;
+        columns: 6;
+        rows: 8;
+        width: 0.6;
+        length: 0.76;
+        shoulder: 0.16;
+        ridgeWidth: 0.16;
+        ridgeLength: 0.68;
+        rivetY: -0.32;
+        rivetRadius: 0.065;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4135,4 +4150,5 @@ export declare const proceduralTileMeters: Readonly<{
     fivebarplate: 0.6;
     cinnamonswirl: 0.32;
     wheatears: 0.24;
+    scalemail: 0.24;
 }>;
