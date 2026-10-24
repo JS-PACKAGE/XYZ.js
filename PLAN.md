@@ -563,6 +563,8 @@
 
 同輪追加 `punchcard`（打孔資料卡），目錄 510→511 種：2×4 米色薄紙卡、單側上角切角，20×8 矩形孔位每欄兩個不同 seeded 打孔，孔間保留紙橋並帶紙纖維細紋。0.44 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，孔位回到不透明背襯而非透明鏤空；不新增紙卡 geometry、真實資料編碼／讀卡或紙張物理；逐功能驗證提交、不 push。
 
+同輪追加 `braidedcord`（三股扁辮繩），目錄 511→512 種：四條直向棉色扁辮帶、每條四個週期，三股深淺不同的繩股沿 figure-eight 路徑交替上下穿越，區別 rope 的三股螺旋捻線與 cableknit 的雙股針織纜花。0.08 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增繩股 geometry、透明孔洞、編繩製程或布料物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

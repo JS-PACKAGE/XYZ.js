@@ -571,6 +571,8 @@
 
 `punchcard` 用兩軸 compact smooth rectangle mask 乘切角半平面畫八張薄紙卡；預算八組 seeded tones 與 20×8 slot bitmaps，每欄選兩個不同 row，僅為資料卡視覺、不宣稱歷史編碼。取樣以最近列／欄 owner 取一格矩形孔，兩軸 smooth punch bevels 的支撐在 owner 中線前歸零；paper coverage 為 face 乘 slot complement，孔位的 pigment／height／roughness／AO 回到共用不透明 backing。96×96 grain、0.44 m tile、metallic 0，目錄增為 511 種，紙／背襯高度差約 0.3 mm 而非深金屬孔；取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明鏤空、資料編碼／讀卡或紙張物理。
 
+`braidedcord` 三股相位差 1/3 的 C2 quartic periodic waves 畫橫向路徑，雙倍相位深度形成 figure-eight flat plait，而非三條同向 helices。截面用切線斜率平方近似法向寬度；C2 路徑使該寬度在半週期接點仍 C1。三股 compact coverage／convex domes 暫存在 sampler 初始化配置的九個 Float64 值，以 smooth depth ownership 遮蔽交叉下股，避免硬排序／max 接縫；十二組 seeded strand tones 預算。四條辮帶×四週期、96×96 grain、0.08 m tile、metallic 0，目錄增為 512 種；取樣無 trig、sqrt 或陣列配置，所有支撐在 column owner 邊界前歸零。既有 maps／height／ownership 不變，不新增 geometry、透明孔洞、編繩製程或布料物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

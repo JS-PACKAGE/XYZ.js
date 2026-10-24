@@ -549,7 +549,93 @@ const kinds: ProceduralMaterialKind[] = [
   'righttriangletiles',
   'cherryblossom',
   'punchcard',
+  'braidedcord',
 ];
+
+describe('Three-strand flat braided cords with alternating over-under crossings', () => {
+  const p = proceduralMaterialPresets.braidedcord;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('braidedcord', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.cycles, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates the foreground identities of all three strands without losing cord coverage or leaking into column gaps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let col = 0; col < p.columns; col++) {
+        for (let cycle = 0; cycle < p.cycles; cycle++) {
+          const local = (x: number, y: number) => at(col + 0.5 + x, cycle + y),
+            backing = local(0.49, 0),
+            crowns: SurfaceSample[] = [];
+          for (let i = 0; i < 3; i++) {
+            const phase = (1 + 2 * i) / 12,
+              side = i === 1 ? -1 : 1,
+              crown = local((side * p.amplitude * 41) / 81, phase),
+              isolated = local(-side * p.amplitude, phase);
+            crowns.push(crown);
+            expect(crown.height - isolated.height).toBeGreaterThan(0.0027);
+            expect(crown.height - backing.height).toBeGreaterThan(0.013);
+            expect(crown.occlusion - backing.occlusion).toBeGreaterThan(0.57);
+            expect(backing.roughness - crown.roughness).toBeGreaterThan(0.17);
+            expect(crown.metallic).toBe(0);
+          }
+          expect(crowns[1].color - crowns[0].color).toBeGreaterThan(0.09);
+          expect(crowns[2].color - crowns[1].color).toBeGreaterThan(0.09);
+          for (let i = 0; i <= 32; i++) {
+            expect(local(-0.5, i / 32).height).toBe(backing.height);
+            expect(local(0.5, i / 32).height).toBe(backing.height);
+          }
+        }
+        for (let row = 0; row < 16; row++) {
+          let groups = 0,
+            inside = false;
+          for (let i = 0; i <= 256; i++) {
+            const raised = at(col + i / 256, row / 16).height > 0.004;
+            if (raised && !inside) groups++;
+            inside = raised;
+          }
+          expect(groups).toBeGreaterThanOrEqual(2);
+          expect(groups).toBeLessThanOrEqual(3);
+        }
+      }
+    },
+  );
+  it('keeps piecewise-quartic plait paths, convex strands, smooth depth ownership and UV wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.cycles) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Thin punched paper cards with a clipped corner', () => {
   const p = proceduralMaterialPresets.punchcard;

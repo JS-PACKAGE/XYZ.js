@@ -6826,3 +6826,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐卡逐欄掃描八個孔位，確認恰有兩個矩形打孔、未打孔處與孔間紙橋保留；檢查 hole／web 的 height／color／AO／roughness／metallic、兩方向孔緣中間高度、單側上角切角與其他角保留、紙面高度差 0.29–0.31 mm、四外邊各 33 點回到 backing，另掃描 clipped outlines／punch bevels／nearest-slot owners／wrap C1。四項針對測試通過，既有 510 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6244 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 punchcard，511 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁從 about:blank 明確導航後，截圖仍發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面與 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認八張切角米色卡、矩形打孔及完整紙橋，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱歷史編碼精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：三股扁辮繩（braidedcord）
+
+- 目錄 511→512 種；0.08 m tile，四條直向棉色三股扁辮帶、各四週期，三股以不同 seeded 深淺保留身分，沿 figure-eight 路徑交替上下穿越；區別 rope 的螺旋捻線與 cableknit 的雙股針織纜花。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增繩股 geometry、透明孔洞、編繩製程或布料物理。
+- 三 seed（0／1／`0xffffffff`）逐辮帶逐週期檢查三個連續 crossing 的前景色身分順序、crown／isolated strand／backing 的 height／AO／roughness／metallic、兩側 column seams 各 33 點無起伏洩漏，以及十六條橫截面各保留二至三個繩股群；另掃描 C2 quartic plait paths／tangent-corrected widths／convex profiles／smooth depth ownership／wrap C1。四項針對測試通過，既有 511 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6249 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 braidedcord，512 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四條疏編扁辮、交替穿越與繩股深淺差，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面，不宣稱真實繩股接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -1274,6 +1274,93 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'braidedcord': {
+        const p = proceduralMaterialPresets.braidedcord;
+        const tones = new Float64Array(p.columns * p.strands),
+          strands = new Float64Array(p.strands * 3),
+          inverseWidthSquared = 1 / (p.strandWidth * p.strandWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inverseLayerBand = 1 / p.layerBand,
+          slopeScale = ((32 / 5) * p.amplitude * p.cycles) / p.columns,
+          grainField = cachedNoise(96, 96, seed ^ 0xcdf1);
+        for (let col = 0; col < p.columns; col++)
+          for (let i = 0; i < p.strands; i++)
+            tones[col * p.strands + i] =
+              0.15 + 0.3 * i + 0.03 * hash(col, i, seed ^ 0xcdf3);
+        return () => {
+          const uc = u * p.columns,
+            col = Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = v * p.cycles;
+          // C2 quartic waves keep tangent-corrected strand widths C1 at the
+          // half-period joins; a merely C1 centerline would crease those widths.
+          for (let i = 0; i < p.strands; i++) {
+            const phase = y + i / p.strands,
+              q = fract(phase) * 2,
+              half = q < 1 ? q : q - 1,
+              sign = q < 1 ? 1 : -1,
+              center =
+                (16 / 5) *
+                p.amplitude *
+                sign *
+                half *
+                (1 + half * half * (half - 2)),
+              slope = slopeScale * sign * (1 + half * half * (4 * half - 6)),
+              dx = x - center,
+              cap = clamp(
+                1 - (dx * dx * inverseWidthSquared) / (1 + slope * slope),
+              ),
+              zq = fract(phase * 2) * 2,
+              zh = zq < 1 ? zq : zq - 1,
+              depth =
+                (16 / 5) * (zq < 1 ? 1 : -1) * zh * (1 + zh * zh * (zh - 2)),
+              j = i * 3;
+            strands[j] = smooth(clamp(cap * inverseShoulder));
+            strands[j + 1] = smooth(cap);
+            strands[j + 2] = depth;
+          }
+          color = 0.08;
+          height = 0.06;
+          occlusion = 0.4;
+          let coverage = 0,
+            domes = 0;
+          const grain = grainField(u, v);
+          for (let i = 0; i < p.strands; i++) {
+            const j = i * 3,
+              dome = strands[j + 1],
+              depth = strands[j + 2];
+            let visible = strands[j];
+            if (visible === 0) continue;
+            for (let other = 0; other < p.strands; other++) {
+              const k = other * 3;
+              if (other === i || strands[k] === 0) continue;
+              visible *=
+                1 -
+                strands[k] *
+                  smooth(
+                    clamp(0.5 + (strands[k + 2] - depth) * inverseLayerBand),
+                  );
+            }
+            // A doubled depth phase gives figure-eight plaiting, not three
+            // helices. Smooth ownership lets each strand alternate over/under.
+            coverage += visible;
+            domes += visible * dome;
+            color +=
+              visible *
+              (0.3 +
+                0.45 * tones[col * p.strands + i] +
+                0.035 * depth +
+                0.08 * dome +
+                0.025 * grain);
+            height +=
+              visible * (0.42 + 0.18 * depth + 0.16 * dome + 0.004 * grain);
+            occlusion += visible * (0.45 + 0.1 * dome + 0.03 * depth);
+          }
+          roughness +=
+            0.12 * (1 - coverage) - 0.07 * domes + 0.01 * grain * coverage;
+          return;
+        };
+      }
       case 'punchcard': {
         const p = proceduralMaterialPresets.punchcard;
         const cardCount = p.columns * p.rows,
@@ -17830,6 +17917,7 @@ export function createSurfaceSampler(
     kind === 'righttriangletiles' ||
     kind === 'cherryblossom' ||
     kind === 'punchcard' ||
+    kind === 'braidedcord' ||
     fabricated ||
     botanical ||
     packaging ||

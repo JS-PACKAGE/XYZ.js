@@ -4155,6 +4155,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         punchHalfHeight: 0.026;
         punchBevel: 0.003;
     }>;
+    braidedcord: Readonly<{
+        dark: readonly [64, 40, 17];
+        light: readonly [218, 197, 149];
+        roughness: 0.8;
+        relief: 0.018;
+        columns: 4;
+        cycles: 4;
+        strands: 3;
+        amplitude: 0.28;
+        strandWidth: 0.055;
+        shoulder: 0.2;
+        layerBand: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4669,4 +4682,5 @@ export declare const proceduralTileMeters: Readonly<{
     righttriangletiles: 1;
     cherryblossom: 0.24;
     punchcard: 0.44;
+    braidedcord: 0.08;
 }>;
