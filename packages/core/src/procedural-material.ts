@@ -558,7 +558,8 @@ export type ProceduralMaterialKind =
   | 'matchsticks'
   | 'porcelaininsulators'
   | 'dominoes'
-  | 'woodenspoons';
+  | 'woodenspoons'
+  | 'chessrooks';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1351,6 +1352,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'porcelaininsulators',
   'dominoes',
   'woodenspoons',
+  'chessrooks',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

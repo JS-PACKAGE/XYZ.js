@@ -7072,3 +7072,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 542 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 woodenspoons，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6409 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 woodenspoons，543 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認橢圓深色凹碗、高緣、連續細頸、漸寬扁柄與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、容積／流體、食品安全、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：城堡棋子（chessrooks）
+
+- 目錄 543→544 種；0.24 m tile，4×4 交替水平／垂直象牙色 rook 側面，三齒冠／兩道向外開口、連續收腰柱身、上下 collars 與寬圓底座，區別 castellatednuts 六角環面。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增棋子 geometry、棋盤／棋規／棋力或物理。
+- 三 seed（0／1／`0xffffffff`）逐 16 子確認三個高齒、兩道 notch 回到 backing 且下方 crown floor 填實、39 點 neck／shaft／base 連續且不疊高、collars 與 base 比 shaft 寬、底座高於 shaft、外側／上下空隙、非金屬。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 543 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 chessrooks，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6414 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 chessrooks，544 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現三齒冠、兩道向外開口、連續柱身、collars、寬圓底座與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱棋子 geometry、棋盤／棋規／棋力、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

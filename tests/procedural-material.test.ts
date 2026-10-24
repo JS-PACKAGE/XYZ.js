@@ -581,7 +581,121 @@ const kinds: ProceduralMaterialKind[] = [
   'porcelaininsulators',
   'dominoes',
   'woodenspoons',
+  'chessrooks',
 ];
+
+describe('Ivory chess rooks with crenellated crowns and continuous shafts', () => {
+  const p = proceduralMaterialPresets.chessrooks;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('chessrooks', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? x : y)) / p.cells,
+        (row + 0.5 + (vertical ? y : x)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains three crown teeth, two open notches, continuous neck and shaft, collars and a broader base for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const gap = at(col, row, 0.21, 0),
+            shaft = at(col, row, 0, 0),
+            base = at(col, row, 0, p.baseY);
+          for (const x of [-0.11, 0, 0.11]) {
+            const tooth = at(col, row, x, -0.325);
+            expect(tooth.height - gap.height).toBeGreaterThan(0.00356);
+            expect(tooth.color - gap.color).toBeGreaterThan(0.75);
+            expect(tooth.occlusion).toBeCloseTo(0.98, 12);
+            expect(tooth.metallic).toBe(0);
+          }
+          for (const x of [-p.notchOffset, p.notchOffset]) {
+            const notch = at(col, row, x, -0.325),
+              floor = at(col, row, x, -0.26);
+            expect(notch.height).toBeCloseTo(gap.height, 12);
+            expect(notch.occlusion).toBeCloseTo(0.35, 12);
+            expect(floor.height - gap.height).toBeGreaterThan(0.00356);
+          }
+          expect(base.height - shaft.height).toBeGreaterThan(0.00089);
+          expect(base.height).toBeLessThan(0.004147);
+          for (let i = 0; i <= 38; i++) {
+            const body = at(col, row, 0, -0.25 + i * 0.015);
+            expect(body.height - gap.height).toBeGreaterThan(0.00308);
+            expect(body.height).toBeLessThan(0.004147);
+          }
+          expect(
+            at(col, row, 0.14, p.topCollarY).height - gap.height,
+          ).toBeGreaterThan(0.0027);
+          expect(
+            at(col, row, 0.12, p.lowerCollarY).height - gap.height,
+          ).toBeGreaterThan(0.0027);
+          expect(
+            at(col, row, 0.15, p.baseY).height - gap.height,
+          ).toBeGreaterThan(0.0036);
+          expect(at(col, row, 0.12, 0).height).toBeCloseTo(gap.height, 12);
+          for (const [x, y] of [
+            [-0.21, 0],
+            [0, -0.41],
+            [0, 0.42],
+            [0.19, p.baseY],
+          ]) {
+            const backing = at(col, row, x, y);
+            expect(backing.height).toBeCloseTo(gap.height, 12);
+            expect(backing.occlusion).toBeCloseTo(0.35, 12);
+          }
+        }
+    },
+  );
+  it('keeps crenellation ends, collars, normalized profile joins, shaft widening, base, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chessrooks', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Wooden spoons with concave oval bowls and continuous handles', () => {
   const p = proceduralMaterialPresets.woodenspoons;

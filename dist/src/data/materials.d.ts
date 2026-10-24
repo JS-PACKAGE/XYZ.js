@@ -4720,6 +4720,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         wideningStart: -0.04;
         wideningLength: 0.36;
     }>;
+    chessrooks: Readonly<{
+        dark: readonly [25, 27, 29];
+        light: readonly [233, 225, 205];
+        roughness: 0.38;
+        relief: 0.006;
+        cells: 4;
+        crownHalfWidth: 0.145;
+        crownTop: -0.36;
+        crownBottom: -0.18;
+        edgeBevel: 0.012;
+        notchOffset: 0.065;
+        notchHalfWidth: 0.022;
+        notchBottom: -0.285;
+        shaftTop: -0.25;
+        shaftBottom: 0.31;
+        neckWidth: 0.065;
+        shaftWidening: 0.03;
+        wideningStart: -0.15;
+        wideningLength: 0.4;
+        shaftShoulder: 0.3;
+        topCollarY: -0.18;
+        topCollarWidth: 0.16;
+        topCollarHeight: 0.03;
+        lowerCollarY: 0.225;
+        lowerCollarWidth: 0.135;
+        lowerCollarHeight: 0.035;
+        baseY: 0.31;
+        baseWidth: 0.18;
+        baseHeight: 0.065;
+        ellipseShoulder: 0.25;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5266,4 +5297,5 @@ export declare const proceduralTileMeters: Readonly<{
     porcelaininsulators: 0.8;
     dominoes: 0.24;
     woodenspoons: 0.4;
+    chessrooks: 0.24;
 }>;

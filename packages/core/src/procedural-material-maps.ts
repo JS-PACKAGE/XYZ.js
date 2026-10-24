@@ -1280,6 +1280,120 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'chessrooks': {
+        const p = proceduralMaterialPresets.chessrooks;
+        const tones = new Float64Array(p.cells * p.cells),
+          inverseEdge = 1 / p.edgeBevel,
+          inverseWidening = 1 / p.wideningLength,
+          inverseShaftShoulder = 1 / p.shaftShoulder,
+          inverseEllipseShoulder = 1 / p.ellipseShoulder,
+          inverseCrownWidthSquared = 1 / (p.crownHalfWidth * p.crownHalfWidth),
+          inverseTopWidthSquared = 1 / (p.topCollarWidth * p.topCollarWidth),
+          inverseTopHeightSquared = 1 / (p.topCollarHeight * p.topCollarHeight),
+          inverseLowerWidthSquared =
+            1 / (p.lowerCollarWidth * p.lowerCollarWidth),
+          inverseLowerHeightSquared =
+            1 / (p.lowerCollarHeight * p.lowerCollarHeight),
+          inverseBaseWidthSquared = 1 / (p.baseWidth * p.baseWidth),
+          inverseBaseHeightSquared = 1 / (p.baseHeight * p.baseHeight),
+          grainField = cachedNoise(96, 96, seed ^ 0x10d13);
+        for (let cell = 0; cell < tones.length; cell++)
+          tones[cell] = hash(cell, 0, seed ^ 0x10d11);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            width =
+              p.neckWidth +
+              p.shaftWidening *
+                smooth(clamp((y - p.wideningStart) * inverseWidening)),
+            shaftCap = clamp(1 - (x * x) / (width * width)),
+            shaftDome = smooth(shaftCap),
+            shaft =
+              smooth(clamp(shaftCap * inverseShaftShoulder)) *
+              smooth(clamp((y - p.shaftTop) * inverseEdge)) *
+              smooth(clamp((p.shaftBottom - y) * inverseEdge)),
+            notchY = smooth(clamp((p.notchBottom - y) * inverseEdge)),
+            leftNotch =
+              notchY *
+              smooth(
+                clamp(
+                  (p.notchHalfWidth - Math.abs(x + p.notchOffset)) *
+                    inverseEdge,
+                ),
+              ),
+            rightNotch =
+              notchY *
+              smooth(
+                clamp(
+                  (p.notchHalfWidth - Math.abs(x - p.notchOffset)) *
+                    inverseEdge,
+                ),
+              ),
+            crown =
+              smooth(clamp((p.crownHalfWidth - Math.abs(x)) * inverseEdge)) *
+              smooth(clamp((y - p.crownTop) * inverseEdge)) *
+              smooth(clamp((p.crownBottom - y) * inverseEdge)) *
+              (1 - leftNotch) *
+              (1 - rightNotch),
+            topY = y - p.topCollarY,
+            topDome = clamp(
+              1 -
+                x * x * inverseTopWidthSquared -
+                topY * topY * inverseTopHeightSquared,
+            ),
+            top = smooth(clamp(topDome * inverseEllipseShoulder)),
+            lowerY = y - p.lowerCollarY,
+            lowerDome = clamp(
+              1 -
+                x * x * inverseLowerWidthSquared -
+                lowerY * lowerY * inverseLowerHeightSquared,
+            ),
+            lower = smooth(clamp(lowerDome * inverseEllipseShoulder)),
+            baseY = y - p.baseY,
+            baseDome = clamp(
+              1 -
+                x * x * inverseBaseWidthSquared -
+                baseY * baseY * inverseBaseHeightSquared,
+            ),
+            base = smooth(clamp(baseDome * inverseEllipseShoulder)),
+            weight = shaft + crown + top + lower + base;
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (weight === 0) return;
+          let face = shaft;
+          face += (1 - face) * crown;
+          face += (1 - face) * top;
+          face += (1 - face) * lower;
+          face += (1 - face) * base;
+          const grain = grainField(u, v),
+            relief =
+              (shaft * (0.44 + 0.1 * shaftDome) +
+                crown *
+                  (0.62 +
+                    0.03 *
+                      smooth(clamp(1 - x * x * inverseCrownWidthSquared))) +
+                top * (0.59 + 0.04 * smooth(topDome)) +
+                lower * (0.59 + 0.04 * smooth(lowerDome)) +
+                base * (0.64 + 0.05 * smooth(baseDome))) /
+              weight;
+          // Normalized component relief prevents collars, crown and base from
+          // stacking thickness over the continuous lower shaft.
+          color +=
+            face *
+            (0.8 + 0.045 * tones[row * p.cells + col] + 0.009 * grain - color);
+          height += face * (relief + 0.001 * grain - height);
+          roughness += face * (0.38 + 0.015 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'woodenspoons': {
         const p = proceduralMaterialPresets.woodenspoons;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20350,6 +20464,7 @@ export function createSurfaceSampler(
     kind === 'porcelaininsulators' ||
     kind === 'dominoes' ||
     kind === 'woodenspoons' ||
+    kind === 'chessrooks' ||
     fabricated ||
     botanical ||
     packaging ||
