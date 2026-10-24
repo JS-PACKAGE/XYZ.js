@@ -583,7 +583,137 @@ const kinds: ProceduralMaterialKind[] = [
   'woodenspoons',
   'chessrooks',
   'threadspools',
+  'bellpepperslices',
 ];
+
+describe('Three-lobed green bell pepper crosscuts with pith and attached seeds', () => {
+  const p = proceduralMaterialPresets.bellpepperslices;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('bellpepperslices', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? x : y)) / p.cells,
+        (row + 0.5 + (vertical ? y : x)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains a three-lobed raised ring, lower pale connected pith, three open chambers and six convex attached seeds for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const gap = at(col, row, 0.4, 0),
+            core = at(col, row, 0, 0);
+          expect(core.height - gap.height).toBeGreaterThan(0.00176);
+          expect(core.color).toBeGreaterThan(0.909);
+          for (let lobe = 0; lobe < 3; lobe++) {
+            const angle = (Math.PI * 2 * lobe) / 3,
+              ax = Math.cos(angle),
+              ay = Math.sin(angle),
+              atLocal = (along: number, across: number) =>
+                at(
+                  col,
+                  row,
+                  along * ax - across * ay,
+                  along * ay + across * ax,
+                ),
+              wall = atLocal(0.2775, 0),
+              pith = atLocal(0.11, 0),
+              bulge = atLocal(0.29, 0),
+              betweenAngle = angle + Math.PI / 3,
+              recess = at(
+                col,
+                row,
+                0.13 * Math.cos(betweenAngle),
+                0.13 * Math.sin(betweenAngle),
+              ),
+              outsideLobe = at(
+                col,
+                row,
+                0.29 * Math.cos(betweenAngle),
+                0.29 * Math.sin(betweenAngle),
+              );
+            expect(wall.height - gap.height).toBeGreaterThan(0.0035);
+            expect(wall.height - pith.height).toBeGreaterThan(0.00171);
+            expect(pith.color - wall.color).toBeGreaterThan(0.57);
+            expect(pith.roughness - wall.roughness).toBeGreaterThan(0.17);
+            expect(wall.metallic).toBe(0);
+            expect(bulge.height - gap.height).toBeGreaterThan(0.0022);
+            expect(recess.height).toBeCloseTo(gap.height, 12);
+            expect(recess.occlusion).toBeCloseTo(0.3, 12);
+            expect(outsideLobe.height).toBeCloseTo(gap.height, 12);
+            for (let i = 0; i <= 26; i++) {
+              const membrane = atLocal(i * 0.01, 0);
+              expect(membrane.height - gap.height).toBeGreaterThan(0.00176);
+              expect(membrane.height).toBeLessThan(0.003685);
+            }
+            for (const side of [-1, 1]) {
+              const seedCenter = atLocal(p.seedAlong, side * p.seedOffset),
+                seedShoulder = atLocal(
+                  p.seedAlong + p.seedLength * 0.7,
+                  side * p.seedOffset,
+                );
+              expect(seedCenter.height - pith.height).toBeGreaterThan(0.00105);
+              expect(seedCenter.height - seedShoulder.height).toBeGreaterThan(
+                0.00019,
+              );
+              expect(seedCenter.color).toBeGreaterThan(0.959);
+              expect(seedCenter.roughness).toBeLessThan(pith.roughness);
+              expect(seedCenter.occlusion).toBeCloseTo(0.96, 12);
+            }
+          }
+        }
+    },
+  );
+  it('keeps three-lobed ring joins, hollow chamber edges, membrane junctions, seed shoulders, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bellpepperslices', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Red wound thread spools with broad wooden end flanges', () => {
   const p = proceduralMaterialPresets.threadspools;

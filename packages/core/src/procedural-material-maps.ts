@@ -1280,6 +1280,123 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'bellpepperslices': {
+        const p = proceduralMaterialPresets.bellpepperslices;
+        const axes = new Float64Array(p.lobes * 2),
+          tones = new Float64Array(p.cells * p.cells),
+          seedTones = new Float64Array(p.cells * p.cells * p.lobes * 2),
+          inverseOuterSquared = 1 / (p.outerRadius * p.outerRadius),
+          inverseInnerSquared = 1 / (p.innerRadius * p.innerRadius),
+          inverseCoreSquared = 1 / (p.coreRadius * p.coreRadius),
+          inversePithWidthSquared = 1 / (p.pithHalfWidth * p.pithHalfWidth),
+          inversePithBevel = 1 / p.pithBevel,
+          inverseShoulder = 1 / p.shoulder,
+          inverseSeedLengthSquared = 1 / (p.seedLength * p.seedLength),
+          inverseSeedWidthSquared = 1 / (p.seedWidth * p.seedWidth),
+          inverseSeedShoulder = 1 / p.seedShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x10f15);
+        for (let lobe = 0; lobe < p.lobes; lobe++) {
+          axes[lobe * 2] = Math.cos((TAU * lobe) / p.lobes);
+          axes[lobe * 2 + 1] = Math.sin((TAU * lobe) / p.lobes);
+        }
+        for (let cell = 0; cell < tones.length; cell++) {
+          tones[cell] = hash(cell, 0, seed ^ 0x10f11);
+          for (let index = 0; index < p.lobes * 2; index++)
+            seedTones[cell * p.lobes * 2 + index] = hash(
+              cell,
+              index,
+              seed ^ 0x10f13,
+            );
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col,
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            coreDome = clamp(1 - (x * x + y * y) * inverseCoreSquared);
+          let outer = 0,
+            inner = 0,
+            pith = smooth(clamp(coreDome * inverseShoulder)),
+            seeds = 0,
+            seedWeight = 0,
+            seedColor = 0,
+            seedHeight = 0;
+          for (let lobe = 0; lobe < p.lobes; lobe++) {
+            const ax = axes[lobe * 2],
+              ay = axes[lobe * 2 + 1],
+              along = x * ax + y * ay,
+              across = y * ax - x * ay,
+              dx = along - p.lobeOffset,
+              distanceSquared = dx * dx + across * across,
+              outside = smooth(
+                clamp(
+                  (1 - distanceSquared * inverseOuterSquared) * inverseShoulder,
+                ),
+              ),
+              hollow = smooth(
+                clamp(
+                  (1 - distanceSquared * inverseInnerSquared) * inverseShoulder,
+                ),
+              ),
+              membrane =
+                smooth(clamp(1 - across * across * inversePithWidthSquared)) *
+                smooth(clamp(along * inversePithBevel)) *
+                smooth(clamp((p.pithEnd - along) * inversePithBevel));
+            outer += (1 - outer) * outside;
+            inner += (1 - inner) * hollow;
+            pith += (1 - pith) * membrane;
+            const seedX = along - p.seedAlong;
+            for (let side = 0; side < 2; side++) {
+              const seedY =
+                  across - (side === 0 ? -p.seedOffset : p.seedOffset),
+                dome = clamp(
+                  1 -
+                    seedX * seedX * inverseSeedLengthSquared -
+                    seedY * seedY * inverseSeedWidthSquared,
+                ),
+                coverage = smooth(clamp(dome * inverseSeedShoulder));
+              seeds += (1 - seeds) * coverage;
+              seedWeight += coverage;
+              seedColor +=
+                coverage *
+                (0.96 +
+                  0.035 * seedTones[cell * p.lobes * 2 + lobe * 2 + side]);
+              seedHeight += coverage * (0.43 + 0.07 * smooth(dome));
+            }
+          }
+          const ring = outer * (1 - inner);
+          pith *= outer;
+          seeds *= outer;
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.3;
+          if (ring === 0 && pith === 0 && seeds === 0) return;
+          const grain = grainField(u, v);
+          color += ring * (0.28 + 0.035 * tones[cell] + 0.015 * grain - color);
+          height += ring * (0.61 + 0.004 * grain - height);
+          roughness += ring * (0.38 + 0.02 * grain - roughness);
+          occlusion += ring * (0.96 - occlusion);
+          // Pale membranes bridge to the ring; attached seeds replace them,
+          // while the three open chambers retain lower opaque backing.
+          color += pith * (0.91 + 0.025 * tones[cell] + 0.01 * grain - color);
+          height += pith * (0.32 + 0.004 * grain - height);
+          roughness += pith * (0.58 + 0.01 * grain - roughness);
+          occlusion += pith * (0.9 - occlusion);
+          if (seeds > 0) {
+            color += seeds * (seedColor / seedWeight + 0.003 * grain - color);
+            height +=
+              seeds * (seedHeight / seedWeight + 0.001 * grain - height);
+            roughness += seeds * (0.46 + 0.01 * grain - roughness);
+            occlusion += seeds * (0.96 - occlusion);
+          }
+          return;
+        };
+      }
       case 'threadspools': {
         const p = proceduralMaterialPresets.threadspools;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20555,6 +20672,7 @@ export function createSurfaceSampler(
     kind === 'woodenspoons' ||
     kind === 'chessrooks' ||
     kind === 'threadspools' ||
+    kind === 'bellpepperslices' ||
     fabricated ||
     botanical ||
     packaging ||

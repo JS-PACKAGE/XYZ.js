@@ -7088,3 +7088,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 544 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 threadspools，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6419 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 threadspools，545 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認暗紅線筒、較寬淺木端盤與交替方向，height true、metallic 0、destroyed true。另做實際 512 圖左上 128×128 原生 crop 的 baseColor／normal／height 三圖並排、CSS 3× nearest-neighbor 檢視，height 可見密集 winding relief、normal 顯示線筒與木盤輪廓，非提高生成解析度。Detail tab 首次 open 後 waitForText 出現 detached Frame，既有 tab 的 blank navigation 亦失敗；關閉後改 blank-first 新 tab 導向正式頁成功，detail errors／cleanup errors 皆空且 destroy／close／臨時預覽清除。不宣稱 geometry、解捲／張力／布料物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：青甜椒橫切面（bellpepperslices）
+
+- 目錄 545→546 種；0.32 m tile，4×4 交替方向三瓣綠色果肉環、低淡色胎座／三條膜、三空腔與六顆凸起附著籽粒，區別 okraslice 五瓣多室／lotusroot 無籽孔道。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增 geometry、透明開孔或食物／生物／流體模擬。
+- 三 seed（0／1／`0xffffffff`）逐 16 切面／三軸確認 raised wall、低而淡且較粗糙 pith、外環三瓣 bulges 與瓣間外側空隙、三個內空腔回到 backing、每條 27 點膜連續、六籽高於胎座且 convex／明亮／較平滑、AO 與非金屬。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 545 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 bellpepperslices，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6424 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 bellpepperslices，546 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現三瓣綠環、三淡色內膜、中央胎座、每膜兩籽、三空腔與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、透明開孔、食物／生物／流體模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

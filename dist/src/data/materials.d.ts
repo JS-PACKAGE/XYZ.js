@@ -4770,6 +4770,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         windingLength: 0.42;
         windingSlope: 0.4;
     }>;
+    bellpepperslices: Readonly<{
+        dark: readonly [6, 45, 8];
+        light: readonly [241, 239, 223];
+        roughness: 0.38;
+        relief: 0.006;
+        cells: 4;
+        lobes: 3;
+        lobeOffset: 0.085;
+        outerRadius: 0.22;
+        innerRadius: 0.165;
+        shoulder: 0.2;
+        pithHalfWidth: 0.016;
+        pithEnd: 0.2725;
+        pithBevel: 0.015;
+        coreRadius: 0.035;
+        seedAlong: 0.16;
+        seedOffset: 0.025;
+        seedLength: 0.021;
+        seedWidth: 0.0145;
+        seedShoulder: 0.3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5318,4 +5339,5 @@ export declare const proceduralTileMeters: Readonly<{
     woodenspoons: 0.4;
     chessrooks: 0.24;
     threadspools: 0.24;
+    bellpepperslices: 0.32;
 }>;
