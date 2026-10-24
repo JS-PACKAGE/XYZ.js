@@ -6926,3 +6926,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 524 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效；CURRENT 的 union 完整列舉與數量同步為 525 種。
 - 完整 build、typecheck、lint、format:check、179 檔／6318 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 greenpeapods，525 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認彎曲尖端莢形、五粒覆殼隆起、雙縫脊與短柄，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 植物表面，不宣稱生物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：黃銅皮帶框扣（beltbuckles）
+
+- 目錄 525→526 種；0.32 m tile，4×4 橫直交替圓角黃銅框、低中柱、高收尖扣舌與圓樞軸，雙腔為暗低 opaque backing。沿四圖／選用 height／ownership、metallic factor／map 1，不新增框扣 geometry、透明孔、皮帶材質、扣合動畫或機械模擬。
+- 三 seed（0／1／`0xffffffff`）逐扣沿四個圓角 36 點檢查框高／AO／metallic，驗證框邊 bevel、框／中柱／扣舌／樞軸高度順序、扣舌接觸外框不加厚、雙腔與框外 backing；129×129 網格、三 seed、雙方向四欄位 C1 通過，四項針對測試皆通過。同步加入既有金屬 map 與公開材質 factor／ownership 測試矩陣。
+- 既有 525 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6324 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 beltbuckles，526 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認圓角框、雙腔、中柱、收尖扣舌與樞軸，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 金屬表面浮雕，不宣稱透明開口、機械扣合、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

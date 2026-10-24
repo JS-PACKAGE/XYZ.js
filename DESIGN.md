@@ -599,6 +599,8 @@
 
 `greenpeapods` 預算 16 組 shell tones，±45° cell 內用 curved centerline 與 compact pointed lens 畫封閉外殼。五組 compact elliptical pea crowns 在莢內抬高、nearest-pea 於 support 間隙換 owner；lens shoulder 內側增高雙縫脊。短柄先混合、莢殼後覆蓋接合處，不把柄高累加到殼上。96×96 grain，採樣不配置、hash 及 axes trig 不進熱路徑；opaque dielectric，不新增透明外殼、幾何或植物物理。
 
+`beltbuckles` 用 rounded-rectangle signed distance 的 compact 管截面畫連續金屬框，圓角與直段相切；compact capsule 畫較低中柱，框後混合遮住柱端。正寬度 smooth taper 與 compact axial masks 畫較高扣舌，圓 pivot 最後覆蓋舌根；交接高度不相加。4×4 checker-quarter-turn、16 組預算 tones、8×128 brushed grain，取樣不配置、不跑 hash 或 trig axes；metallic factor／map 沿既有全金屬樣式為 1，開口是較暗較低 opaque backing，不是透明孔或獨立皮帶材質。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

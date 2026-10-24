@@ -563,7 +563,120 @@ const kinds: ProceduralMaterialKind[] = [
   'foldingfans',
   'togglebuttons',
   'greenpeapods',
+  'beltbuckles',
 ];
+
+describe('Rounded brass belt buckle frames with raised tongues', () => {
+  const p = proceduralMaterialPresets.beltbuckles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('beltbuckles', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const turn = (col + row) & 1;
+      sample(
+        (col + 0.5 + (turn ? -y : x)) / p.cells,
+        (row + 0.5 + (turn ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains a continuous rounded frame, two open-looking chambers, lower crossbar, raised tongue and pivot for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (let i = 0; i <= 8; i++) {
+                const angle = (Math.PI * i) / 16,
+                  frame = at(
+                    col,
+                    row,
+                    sx *
+                      (p.halfWidth -
+                        p.cornerRadius +
+                        p.cornerRadius * Math.cos(angle)),
+                    sy *
+                      (p.halfHeight -
+                        p.cornerRadius +
+                        p.cornerRadius * Math.sin(angle)),
+                  );
+                expect(frame.height).toBeCloseTo(0.53 * p.relief, 12);
+                expect(frame.occlusion).toBeCloseTo(0.95, 12);
+                expect(frame.metallic).toBe(1);
+              }
+          const frame = at(col, row, p.halfWidth, 0.1),
+            bevel = at(col, row, p.halfWidth + 0.02, 0.1),
+            bar = at(col, row, p.barX, 0.1),
+            tongue = at(col, row, 0.15, 0),
+            tip = at(col, row, p.halfWidth, 0),
+            pivot = at(col, row, p.barX, 0);
+          expect(frame.height - bevel.height).toBeGreaterThan(0.0006);
+          expect(frame.height - bar.height).toBeCloseTo(0.0007, 12);
+          expect(tongue.height - frame.height).toBeCloseTo(0.0019, 12);
+          expect(tip.height).toBeCloseTo(tongue.height, 12);
+          expect(pivot.height - tongue.height).toBeCloseTo(0.0006, 12);
+          for (const [x, y] of [
+            [-0.16, 0.1],
+            [0.15, 0.1],
+            [0.15, -0.1],
+            [0.34, 0],
+            [0, 0.29],
+          ] as const) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.36, 12);
+            expect(frame.color - gap.color).toBeGreaterThan(0.7);
+          }
+        }
+    },
+  );
+  it('keeps tangent frame corners, crossbar intersections, tapered tongue, pivot and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('beltbuckles', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Curved closed green pea pods with five covered peas', () => {
   const p = proceduralMaterialPresets.greenpeapods;
@@ -20589,6 +20702,7 @@ describe('periodic procedural material fields', () => {
           kind === 'coins' ||
           kind === 'ballchain' ||
           kind === 'doorkeys' ||
+          kind === 'beltbuckles' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -30043,6 +30157,7 @@ describe('procedural preset acquisition and ownership', () => {
     'coins',
     'ballchain',
     'doorkeys',
+    'beltbuckles',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -30088,6 +30203,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'coins' ||
           kind === 'ballchain' ||
           kind === 'doorkeys' ||
+          kind === 'beltbuckles' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

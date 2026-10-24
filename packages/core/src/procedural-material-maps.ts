@@ -1256,6 +1256,7 @@ export function createSurfaceSampler(
     kind === 'coins' ||
     kind === 'ballchain' ||
     kind === 'doorkeys' ||
+    kind === 'beltbuckles' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1277,6 +1278,83 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'beltbuckles': {
+        const p = proceduralMaterialPresets.beltbuckles;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xfb91);
+        const straightX = p.halfWidth - p.cornerRadius,
+          straightY = p.halfHeight - p.cornerRadius,
+          inverseFrame = 1 / (p.frameRadius * p.frameRadius),
+          inverseBar = 1 / (p.barRadius * p.barRadius),
+          inverseShoulder = 1 / p.shoulder,
+          inverseTongue = 1 / p.tongueBevel,
+          inverseTaper = 1 / p.taperRun,
+          pivotSquared = p.pivotRadius * p.pivotRadius,
+          inversePivot = 1 / (pivotSquared - p.pivotCore * p.pivotCore),
+          grainField = cachedNoise(8, 128, seed ^ 0xfb93);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            qx = Math.abs(x) - straightX,
+            qy = Math.abs(y) - straightY,
+            ox = Math.max(qx, 0),
+            oy = Math.max(qy, 0),
+            distance =
+              Math.sqrt(ox * ox + oy * oy) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.cornerRadius,
+            frameDome = clamp(1 - distance * distance * inverseFrame),
+            frame = smooth(clamp(frameDome * inverseShoulder)),
+            bx = x - p.barX,
+            by = Math.max(Math.abs(y) - p.halfHeight, 0),
+            barDome = clamp(1 - (bx * bx + by * by) * inverseBar),
+            bar = smooth(clamp(barDome * inverseShoulder)),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color = 0.05 + bar * (0.43 + 0.17 * barDome + 0.012 * grain);
+          height = 0.025 + bar * (0.315 + 0.12 * barDome);
+          roughness = 0.92 + bar * (0.32 - 0.92);
+          occlusion = 0.36 + bar * 0.59;
+          // The frame hides the lower crossbar ends; the tongue sits above
+          // both, and its pivot cap hides the narrow root rather than adding
+          // the intersecting profiles together.
+          color +=
+            frame *
+            (0.54 + 0.22 * frameDome + 0.04 * tone + 0.012 * grain - color);
+          height += frame * (0.4 + 0.13 * frameDome - height);
+          roughness += frame * (p.roughness - 0.04 * frameDome - roughness);
+          occlusion += frame * (0.95 - occlusion);
+          const width =
+              p.tongueWidth *
+              (1 - p.taper * smooth(clamp((x - p.taperStart) * inverseTaper))),
+            tongueDome = clamp(1 - (y / width) ** 2),
+            tongue =
+              smooth(clamp(tongueDome * inverseShoulder)) *
+              smooth(clamp((x - p.tongueStart) * inverseTongue)) *
+              smooth(clamp((p.tongueEnd - x) * inverseTongue)),
+            pivotQ = bx * bx + y * y,
+            pivot = smooth(clamp((pivotSquared - pivotQ) * inversePivot)),
+            pivotDome = clamp(1 - pivotQ / pivotSquared);
+          color += tongue * (0.69 + 0.13 * tongueDome + 0.012 * grain - color);
+          height += tongue * (0.64 + 0.08 * tongueDome - height);
+          roughness += tongue * (0.24 - roughness);
+          occlusion += tongue * (0.98 - occlusion);
+          color += pivot * (0.75 + 0.12 * pivotDome - color);
+          height += pivot * (0.73 + 0.05 * pivotDome - height);
+          roughness += pivot * (0.23 - roughness);
+          occlusion += pivot * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'greenpeapods': {
         const p = proceduralMaterialPresets.greenpeapods;
         const tones = new Float64Array(p.cells * p.cells);
@@ -18913,6 +18991,7 @@ export function createSurfaceSampler(
     kind === 'foldingfans' ||
     kind === 'togglebuttons' ||
     kind === 'greenpeapods' ||
+    kind === 'beltbuckles' ||
     fabricated ||
     botanical ||
     packaging ||
