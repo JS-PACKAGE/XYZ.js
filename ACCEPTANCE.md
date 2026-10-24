@@ -6889,3 +6889,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐大磚 12 個邊法線檢查 face／bevel／grout 的 height／roughness／AO／mortar，確認大磚同 tone；兩族三角中心與各三邊檢查 insert／grout／相鄰 dodecagon 的 coverage、色差與共平面高度。另掃描五欄位（含 mortar）的十二半平面／triangle families／nearest-column owners／wrap C1；四項針對測試通過，既有 519 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6292 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 dodecagontiles，520 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認十二邊大磚、兩族淡色小三角、灰縫及逐磚色差，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：銀色金屬珠鏈（ballchain）
+
+- 目錄 520→521 種；0.064 m tile，四條各八珠的銀色實心球珠鏈沿兩週期緩彎路徑排列，以較低且細的直頸連接；區別 seedbeads 的穿孔橢圓珠及 chainlink 的環鏈。Opaque metallic、map／預設 factor 皆為 1，沿既有四圖／選用 height／ownership，不新增珠鏈 geometry、透明度或鏈條物理。
+- 三 seed（0／1／`0xffffffff`）逐球以橫向黑箱搜尋定位 crown，32 方位驗證凸球冠與等半徑高度近似一致；各鏈 bead-center 橫向範圍確認實際 meander。逐連接中點（含垂直 wrap）檢查較低細頸、球冠不加疊線段高度、roughness／AO 與兩側 backing，另掃描 sphere rims／hidden connector owners／columns／wrap C1；四項針對測試通過，既有 520 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6298 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 ballchain，521 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四條緩彎銀珠鏈、圓球冠與細直連頸，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱實際珠鏈接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

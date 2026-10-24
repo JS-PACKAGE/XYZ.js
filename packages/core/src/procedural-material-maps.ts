@@ -1254,6 +1254,7 @@ export function createSurfaceSampler(
     kind === 'rollerchain' ||
     kind === 'hinges' ||
     kind === 'coins' ||
+    kind === 'ballchain' ||
     kind === 'doorkeys' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
@@ -1276,6 +1277,78 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ballchain': {
+        const p = proceduralMaterialPresets.ballchain;
+        const beads = new Float64Array(p.columns * p.rows * 4);
+        for (let col = 0; col < p.columns; col++) {
+          const phase = TAU * hash(col, 0, seed ^ 0xf671);
+          for (let row = 0; row < p.rows; row++) {
+            const i = (col * p.rows + row) * 4;
+            beads[i] =
+              p.amplitude *
+              Math.sin((TAU * p.cycles * (row + 0.5)) / p.rows + phase);
+            beads[i + 1] = hash(col, row, seed ^ 0xf673);
+          }
+          for (let row = 0; row < p.rows; row++) {
+            const i = (col * p.rows + row) * 4,
+              next = (col * p.rows + ((row + 1) % p.rows)) * 4,
+              dx = beads[next] - beads[i];
+            beads[i + 2] = dx;
+            beads[i + 3] = 1 / (dx * dx + p.pitch * p.pitch);
+          }
+        }
+        const radiusSquared = p.radius * p.radius,
+          inverseRadius = 1 / radiusSquared,
+          inverseBeadBevel =
+            1 / (radiusSquared - (p.radius - p.beadBevel) ** 2),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / neckSquared,
+          inverseNeckBevel =
+            1 / (neckSquared - (p.neckRadius - p.neckBevel) ** 2),
+          inversePitch = 1 / p.pitch,
+          grainField = cachedNoise(96, 96, seed ^ 0xf675);
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * p.pitch,
+            col = Math.floor(x),
+            row = Math.floor(y * inversePitch),
+            i = (col * p.rows + row) * 4,
+            dx = x - col - 0.5 - beads[i],
+            dy = y - (row + 0.5) * p.pitch,
+            r2 = dx * dx + dy * dy,
+            bead = smooth(clamp((radiusSquared - r2) * inverseBeadBevel)),
+            dome = bead > 0 ? Math.sqrt(clamp(1 - r2 * inverseRadius)) : 0,
+            segment = Math.floor(y * inversePitch - 0.5),
+            wrapped = ((segment % p.rows) + p.rows) % p.rows,
+            j = (col * p.rows + wrapped) * 4,
+            sx = x - col - 0.5 - beads[j],
+            sy = y - (segment + 0.5) * p.pitch,
+            t = clamp((sx * beads[j + 2] + sy * p.pitch) * beads[j + 3]),
+            ex = sx - t * beads[j + 2],
+            ey = sy - t * p.pitch,
+            distanceSquared = ex * ex + ey * ey,
+            neck = smooth(
+              clamp((neckSquared - distanceSquared) * inverseNeckBevel),
+            ),
+            neckDome = clamp(1 - distanceSquared * inverseNeck);
+          color = 0.055 * (1 - neck) + neck * (0.52 + 0.08 * neckDome);
+          height = 0.025 * (1 - neck) + neck * (0.13 + 0.05 * neckDome);
+          roughness = 0.56 * (1 - neck) + neck * (0.38 - 0.04 * neckDome);
+          occlusion = 0.4 * (1 - neck) + 0.92 * neck;
+          // A bead hides its two connector owners, including their join at
+          // the center plane. Do not add the wire's height through the sphere.
+          const grain = bead > 0 ? grainField(u, v) : 0;
+          color =
+            color * (1 - bead) +
+            bead * (0.4 + 0.42 * dome + 0.025 * beads[i + 1]);
+          height = height * (1 - bead) + bead * (0.2 + 0.51 * dome);
+          roughness =
+            roughness * (1 - bead) +
+            bead * (0.23 + 0.05 * (1 - dome) + 0.015 * grain);
+          occlusion = occlusion * (1 - bead) + 0.99 * bead;
+          return;
+        };
+      }
       case 'dodecagontiles': {
         const p = proceduralMaterialPresets.dodecagontiles;
         const tones = new Float64Array(p.columns * p.rows * 3);
@@ -18511,6 +18584,7 @@ export function createSurfaceSampler(
     kind === 'creamcrackers' ||
     kind === 'doorkeys' ||
     kind === 'dodecagontiles' ||
+    kind === 'ballchain' ||
     fabricated ||
     botanical ||
     packaging ||

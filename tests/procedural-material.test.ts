@@ -558,7 +558,113 @@ const kinds: ProceduralMaterialKind[] = [
   'creamcrackers',
   'doorkeys',
   'dodecagontiles',
+  'ballchain',
 ];
+
+describe('Meandering spherical metal ball pull chains', () => {
+  const p = proceduralMaterialPresets.ballchain;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ballchain', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / (p.rows * p.pitch), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps solid spherical crowns, a real meander and continuous lower narrow connectors through wrap for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let col = 0; col < p.columns; col++) {
+        const centers: number[] = [];
+        for (let row = 0; row < p.rows; row++) {
+          const y = (row + 0.5) * p.pitch;
+          let best = -Infinity,
+            center = 0;
+          for (let i = 0; i <= 256; i++) {
+            const x = col + 0.2 + (0.6 * i) / 256,
+              value = at(x, y).height;
+            if (value > best) {
+              best = value;
+              center = x;
+            }
+          }
+          centers.push(center);
+          const crown = at(center, y),
+            radialHeights: number[] = [];
+          expect(crown.height).toBeGreaterThan(0.00496);
+          expect(crown.metallic).toBe(1);
+          for (let i = 0; i < 32; i++) {
+            const a = (i * 2 * Math.PI) / 32,
+              side = at(center + 0.12 * Math.cos(a), y + 0.12 * Math.sin(a));
+            expect(crown.height - side.height).toBeGreaterThan(0.0009);
+            expect(side.metallic).toBe(1);
+            radialHeights.push(side.height);
+          }
+          expect(
+            Math.max(...radialHeights) - Math.min(...radialHeights),
+          ).toBeLessThan(0.00007);
+        }
+        expect(Math.max(...centers) - Math.min(...centers)).toBeGreaterThan(
+          0.16,
+        );
+        for (let row = 0; row < p.rows; row++) {
+          const x = (centers[row] + centers[(row + 1) % p.rows]) * 0.5,
+            y = (row + 1) * p.pitch,
+            dx = centers[(row + 1) % p.rows] - centers[row],
+            length = Math.hypot(dx, p.pitch),
+            nx = -p.pitch / length,
+            ny = dx / length,
+            link = at(x, y),
+            crown = at(centers[row], (row + 0.5) * p.pitch);
+          expect(link.height).toBeGreaterThan(0.00124);
+          expect(link.height).toBeLessThan(0.00128);
+          expect(crown.height - link.height).toBeGreaterThan(0.00365);
+          expect(link.occlusion).toBeGreaterThan(0.91);
+          expect(link.roughness - crown.roughness).toBeGreaterThan(0.09);
+          for (const side of [-1, 1]) {
+            const backing = at(x + side * 0.04 * nx, y + side * 0.04 * ny);
+            expect(backing.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(link.height - backing.height).toBeGreaterThan(0.001);
+            expect(link.color - backing.color).toBeGreaterThan(0.53);
+            expect(link.occlusion - backing.occlusion).toBeGreaterThan(0.51);
+          }
+        }
+      }
+    },
+  );
+  it('keeps compact spherical rims, hidden connector-owner changes, columns and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows * p.pitch) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dodecagonal glazed mosaic with two triangular insert families', () => {
   const p = proceduralMaterialPresets.dodecagontiles;
@@ -20080,6 +20186,7 @@ describe('periodic procedural material fields', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'ballchain' ||
           kind === 'doorkeys' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
@@ -29533,6 +29640,7 @@ describe('procedural preset acquisition and ownership', () => {
     'paperclips',
     'hinges',
     'coins',
+    'ballchain',
     'doorkeys',
     'hexkeys',
     'starsocketbolts',
@@ -29577,6 +29685,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'ballchain' ||
           kind === 'doorkeys' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||

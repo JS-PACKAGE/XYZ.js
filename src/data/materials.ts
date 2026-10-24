@@ -4409,6 +4409,21 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.018,
     bevel: 0.022,
   }),
+  ballchain: Object.freeze({
+    dark: [35, 40, 46] as const,
+    light: [216, 221, 227] as const,
+    roughness: 0.28,
+    relief: 0.007,
+    columns: 4,
+    rows: 8,
+    pitch: 0.5,
+    amplitude: 0.12,
+    cycles: 2,
+    radius: 0.17,
+    beadBevel: 0.018,
+    neckRadius: 0.024,
+    neckBevel: 0.006,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4933,4 +4948,5 @@ export const proceduralTileMeters = Object.freeze({
   creamcrackers: 0.24,
   doorkeys: 0.32,
   dodecagontiles: 0.7,
+  ballchain: 0.064,
 });
