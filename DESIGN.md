@@ -581,6 +581,8 @@
 
 `hexkeys` 以兩條直線與一段 quarter-circle 的相切距離場形成不等長 L 形棒材，兩端另乘 compact 平切 bevel。橫截面為平頂加兩個線性側稜坡面，僅在 ramp 端點窄帶用 C1 quadratic rounding；沿連續 elbow frame 保留 faceted profile，不以圓線 capsule union 冒充六角棒。16 組 seeded exact quarter-turn／tone 預算，96×96 grain 只在棒面混合，cell 邊界為定值 opaque backing。4×4、0.4 m tile，目錄 516 種；metallic map 與預設 factor 都為 1，沿既有 maps／height／ownership。取樣只在彎肘分支取 radial sqrt，無 trig 或配置；不新增工具 geometry、機械裝配或物理。
 
+`driedfigslice` 以隨縱向縮放的橢圓座標產生收窄輪廓，外皮與果肉皆為 compact squared profiles；整數 angular wrinkles 僅在 rind annulus 評估，避免中心 atan2 singularity。逐果 10×10 籽格預算 jitter／ellipse axis／tone，最大 seed radius 加 jitter 不越 owner cell；以果肉 coverage 裁切外圈籽，確保色、height、roughness、AO 一起退回果皮。96×96 grain 與籽粒微凸面混合，外部 backing 為定值。4×4 切片、0.24 m tile，目錄 517 種；opaque dielectric，不新增 geometry、透明度、食物生成或生物模擬。取樣無配置，籽軸 trig 預算、只有外皮 angular crease 使用 atan2／sin。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

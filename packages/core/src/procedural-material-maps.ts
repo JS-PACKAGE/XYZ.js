@@ -1275,6 +1275,99 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'driedfigslice': {
+        const p = proceduralMaterialPresets.driedfigslice;
+        const grains = new Float64Array(
+            p.cells * p.cells * p.seeds * p.seeds * 5,
+          ),
+          phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const fig = row * p.cells + col;
+            phases[fig] = TAU * hash(col, row, seed ^ 0xf231);
+            for (let sy = 0; sy < p.seeds; sy++)
+              for (let sx = 0; sx < p.seeds; sx++) {
+                const i = ((fig * p.seeds + sy) * p.seeds + sx) * 5,
+                  gx = col * p.seeds + sx,
+                  gy = row * p.seeds + sy,
+                  angle = TAU * hash(gx, gy, seed ^ 0xf237);
+                grains[i] =
+                  0.5 + 2 * p.seedJitter * (hash(gx, gy, seed ^ 0xf233) - 0.5);
+                grains[i + 1] =
+                  0.5 + 2 * p.seedJitter * (hash(gx, gy, seed ^ 0xf235) - 0.5);
+                grains[i + 2] = Math.cos(angle);
+                grains[i + 3] = Math.sin(angle);
+                grains[i + 4] = hash(gx, gy, seed ^ 0xf239);
+              }
+          }
+        const gridScale = p.seeds * 0.5,
+          inverseLong = 1 / (gridScale * p.seedLong),
+          inverseShort = 1 / (gridScale * p.seedShort),
+          inverseSeedShoulder = 1 / p.seedShoulder,
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshShoulder * p.fleshShoulder),
+          inverseEdge = 1 / p.edge,
+          grainField = cachedNoise(96, 96, seed ^ 0xf23b);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            fig = row * p.cells + col,
+            flip = (col + row) & 1 ? -1 : 1,
+            y = ((fract(vc) - 0.5) * flip - p.centerY) / p.length,
+            x = ((fract(uc) - 0.5) * flip) / (p.width * (1 + p.taper * y)),
+            q = x * x + y * y,
+            face = smooth(clamp((1 - q) * inverseEdge)),
+            flesh = face * smooth(clamp((fleshSquared - q) * inverseFlesh)),
+            rind = face - flesh;
+          let wrinkles = 0,
+            seeds = 0,
+            seedTone = 0;
+          // Angular creases have compact annular support, so their center
+          // singularity never reaches the flesh or the constant backing.
+          if (rind > 0) {
+            const wave = Math.sin(p.wrinkles * Math.atan2(y, x) + phases[fig]),
+              w2 = wave * wave,
+              w4 = w2 * w2;
+            wrinkles = rind * w4 * w4;
+          }
+          if (flesh > 0) {
+            const sx = (x + 1) * gridScale,
+              sy = (y + 1) * gridScale,
+              i =
+                ((fig * p.seeds + Math.floor(sy)) * p.seeds + Math.floor(sx)) *
+                5,
+              dx = fract(sx) - grains[i],
+              dy = fract(sy) - grains[i + 1],
+              a = (dx * grains[i + 2] + dy * grains[i + 3]) * inverseLong,
+              b = (dy * grains[i + 2] - dx * grains[i + 3]) * inverseShort;
+            // Jitter plus maximal seed radius stays inside its owner cell.
+            // Flesh clips outer grains before either body or rind boundaries.
+            seeds =
+              flesh * smooth(clamp((1 - a * a - b * b) * inverseSeedShoulder));
+            seedTone = grains[i + 4];
+          }
+          const grain = grainField(u, v);
+          color =
+            0.07 +
+            face * (0.43 + 0.13 * grain) -
+            0.12 * wrinkles +
+            flesh * (-0.26 + 0.01 * grain);
+          color = color * (1 - seeds) + seeds * (0.94 + 0.03 * seedTone);
+          height =
+            0.03 +
+            face * (0.62 + 0.012 * grain) -
+            0.035 * wrinkles -
+            0.02 * flesh +
+            0.035 * seeds;
+          roughness +=
+            0.12 * (1 - face) + 0.06 * wrinkles - flesh * (0.12 - 0.04 * grain);
+          roughness = roughness * (1 - seeds) + 0.58 * seeds;
+          occlusion = 0.5 + 0.48 * face - 0.04 * flesh + 0.03 * seeds;
+          return;
+        };
+      }
       case 'hexkeys': {
         const p = proceduralMaterialPresets.hexkeys;
         const poses = new Float64Array(p.cells * p.cells * 3);
@@ -18143,6 +18236,7 @@ export function createSurfaceSampler(
     kind === 'grommetcanvas' ||
     kind === 'fishscaletiles' ||
     kind === 'hexkeys' ||
+    kind === 'driedfigslice' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -6861,3 +6861,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐工具以兩個實際高度 landmark 搜尋唯一轉向，檢查兩條直臂及彎肘 17 截面的平頂、雙側斜面與兩側 backing 高度／color／roughness／AO／metallic，檢查兩端平切、長短臂保留及 L 內空間無虛假填滿；另掃描全域與逐轉向相切接點的 facet／elbow／end bevel／owners／wrap C1。四項針對測試通過，既有 515 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6271 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 hexkeys，516 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認不同轉向的長短 L 臂、連續彎肘、平切端與側稜，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱 CAD 精度、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：無花果乾切片（driedfigslice）
+
+- 目錄 516→517 種；0.24 m tile，4×4 交替轉向的收窄切片，淺褐皺摺外皮、深棕果肉與細小淡色橢圓籽；seeded jitter／軸向／tone 保留細密果籽，不沿用石榴分房或奇異果籽圈。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增果實 geometry、透明度、食物生成或生物模擬。
+- 三 seed（0／1／`0xffffffff`）逐果 48 方位檢查 rind／bevel／edge／outside 的 height／color／roughness／AO，並在完全位於果肉的每個籽格以黑箱找 peak，確認淡色籽的微凸高度、低 roughness、AO 與籽格邊界未漏出籽粒；另掃描 taper／annular creases／seed owners／wrap C1。初始 `h=1e-8` 的差分門檻失敗：fresh Bun 診斷最大 color gradient difference 隨 h 從 `1e-7`、`1e-8`、`1e-9` 到 `1e-10` 為 0.271774、0.027177、0.002710、0.000192，確認微小籽粒 bevel 的有限曲率收斂，而非 owner jump；調整取樣步距至 `1e-9`，保留 0.02 門檻，四項針對測試通過。既有 516 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6276 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 driedfigslice，517 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替收窄切片、放射果皮皺摺及果肉內密集淡色籽，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 食物表面，不宣稱生物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -4326,6 +4326,26 @@ export const proceduralMaterialPresets = Object.freeze({
     flatFraction: 0.5,
     facetRound: 0.1,
   }),
+  driedfigslice: Object.freeze({
+    dark: [47, 25, 11] as const,
+    light: [238, 211, 156] as const,
+    roughness: 0.82,
+    relief: 0.012,
+    cells: 4,
+    width: 0.32,
+    length: 0.35,
+    centerY: 0.02,
+    taper: 0.25,
+    edge: 0.0975,
+    fleshRadius: 0.82,
+    fleshShoulder: 0.77,
+    wrinkles: 32,
+    seeds: 10,
+    seedJitter: 0.28,
+    seedLong: 0.038,
+    seedShort: 0.024,
+    seedShoulder: 0.3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4846,4 +4866,5 @@ export const proceduralTileMeters = Object.freeze({
   grommetcanvas: 0.16,
   fishscaletiles: 0.4,
   hexkeys: 0.4,
+  driedfigslice: 0.24,
 });

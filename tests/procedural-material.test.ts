@@ -554,7 +554,110 @@ const kinds: ProceduralMaterialKind[] = [
   'grommetcanvas',
   'fishscaletiles',
   'hexkeys',
+  'driedfigslice',
 ];
+
+describe('Tapered dried fig slices with pale seeds inside wrinkled rind', () => {
+  const p = proceduralMaterialPresets.driedfigslice;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('driedfigslice', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps tapered whole slices, wrinkled tan rind and raised pale seeds confined to brown flesh for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const probe = (x: number, y: number) =>
+            at(
+              col + 0.5 + x * p.width * (1 + p.taper * y) * flip,
+              row + 0.5 + (p.centerY + y * p.length) * flip,
+            );
+          const pulp = probe(0, 0);
+          expect(pulp.color).toBeLessThan(0.39);
+          expect(pulp.metallic).toBe(0);
+          for (let i = 0; i < 48; i++) {
+            const a = (i * 2 * Math.PI) / 48,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              rind = probe(0.92 * c, 0.92 * s),
+              bevel = probe(0.975 * c, 0.975 * s),
+              edge = probe(c, s),
+              outside = probe(1.12 * c, 1.12 * s);
+            expect(rind.height - outside.height).toBeGreaterThan(0.0069);
+            expect(bevel.height).toBeGreaterThan(outside.height);
+            expect(bevel.height).toBeLessThan(rind.height);
+            expect(edge.height).toBeCloseTo(0.03 * p.relief, 12);
+            expect(outside.height).toBeCloseTo(0.03 * p.relief, 12);
+            expect(rind.color).toBeLessThan(0.65);
+            expect(rind.roughness - pulp.roughness).toBeGreaterThan(0.079);
+            expect(rind.occlusion - outside.occlusion).toBeGreaterThan(0.47);
+          }
+          for (let sy = 0; sy < p.seeds; sy++)
+            for (let sx = 0; sx < p.seeds; sx++) {
+              const x = -1 + ((sx + 0.5) * 2) / p.seeds,
+                y = -1 + ((sy + 0.5) * 2) / p.seeds;
+              if (x * x + y * y >= 0.55 * 0.55) continue;
+              let peak = pulp;
+              for (let iy = 0; iy <= 10; iy++)
+                for (let ix = 0; ix <= 10; ix++) {
+                  const value = probe(
+                    x + ((ix / 10 - 0.5) * 2) / p.seeds,
+                    y + ((iy / 10 - 0.5) * 2) / p.seeds,
+                  );
+                  if (value.color > peak.color) peak = value;
+                }
+              const between = probe(x - 1 / p.seeds, y - 1 / p.seeds);
+              expect(peak.color).toBeGreaterThan(0.93);
+              expect(peak.color - between.color).toBeGreaterThan(0.54);
+              expect(peak.height - between.height).toBeGreaterThan(0.00025);
+              expect(between.roughness - peak.roughness).toBeGreaterThan(0.11);
+              expect(peak.occlusion - between.occlusion).toBeGreaterThan(0.029);
+              expect(peak.metallic).toBe(0);
+            }
+        }
+    },
+  );
+  it('keeps tapered outlines, annular angular creases, clipped seed owners and periodic wrap C1', () => {
+    // Tiny seed bevels have high finite curvature; use a smaller step to
+    // distinguish converging gradients from an actual owner-boundary jump.
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Black oxide L-shaped hex keys with flat rod facets', () => {
   const p = proceduralMaterialPresets.hexkeys;
