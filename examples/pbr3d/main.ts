@@ -610,6 +610,7 @@ try {
     'waxseals',
     'cottonbolls',
     'carabiners',
+    'pencilends',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -1279,6 +1279,84 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pencilends': {
+        const p = proceduralMaterialPresets.pencilends;
+        const axes = new Float64Array(6),
+          phases = new Float64Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < 3; i++) {
+          const angle = (Math.PI * i) / 3;
+          axes[i * 2] = Math.cos(angle);
+          axes[i * 2 + 1] = Math.sin(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col;
+            phases[i] = TAU * hash(col, row, seed ^ 0x10191);
+            tones[i] = hash(col, row, seed ^ 0x10193);
+          }
+        const inverseOuter = 1 / p.outerBevel,
+          inverseWood = 1 / p.woodBevel,
+          coreSquared = p.coreRadius * p.coreRadius,
+          inverseCore = 1 / (coreSquared - p.coreInner * p.coreInner),
+          turnCos = Math.cos(p.turn),
+          turnSin = Math.sin(p.turn),
+          fineField = cachedNoise(96, 96, seed ^ 0x10195);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? turnCos * dx + turnSin * dy : dx,
+            y = turn ? turnCos * dy - turnSin * dx : dy;
+          let outer = 1,
+            wood = 1;
+          for (let i = 0; i < axes.length; i += 2) {
+            const plane = Math.abs(x * axes[i] + y * axes[i + 1]);
+            outer *= smooth(clamp((p.apothem - plane) * inverseOuter));
+            wood *= smooth(clamp((p.woodApothem - plane) * inverseWood));
+          }
+          color = 0.055;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.38;
+          if (outer === 0) return;
+          const i = row * p.cells + col,
+            fine = fineField(u, v),
+            grain =
+              0.5 +
+              0.5 *
+                Math.sin(
+                  TAU *
+                    (p.grainFrequency * y +
+                      p.grainWarp * Math.sin(TAU * 2 * x + phases[i])) +
+                    phases[i],
+                ),
+            pores = grain ** 8,
+            core =
+              wood * smooth(clamp((coreSquared - x * x - y * y) * inverseCore));
+          color += outer * (0.22 + 0.025 * tones[i] + 0.01 * fine - color);
+          height += outer * (0.58 - height);
+          roughness += outer * (p.paintRoughness - roughness);
+          occlusion += outer * (0.96 - occlusion);
+          // The pale wood is a cut face, not a sharpened cone; the dark
+          // graphite is a slightly lower opaque core rather than an empty bore.
+          color +=
+            wood *
+            (0.72 + 0.09 * grain + 0.035 * tones[i] - 0.035 * pores - color);
+          height += wood * (0.54 + 0.003 * fine - 0.002 * pores - height);
+          roughness += wood * (p.roughness + 0.035 * pores - roughness);
+          occlusion += wood * (0.97 - occlusion);
+          color += core * (0.035 + 0.015 * fine - color);
+          height += core * (0.525 + 0.001 * fine - height);
+          roughness += core * (p.coreRoughness - roughness);
+          occlusion += core * (0.95 - occlusion);
+          return;
+        };
+      }
       case 'carabiners': {
         const p = proceduralMaterialPresets.carabiners;
         const segments = new Float64Array(p.vertices.length * 7),
@@ -19441,6 +19519,7 @@ export function createSurfaceSampler(
     kind === 'waxseals' ||
     kind === 'cottonbolls' ||
     kind === 'carabiners' ||
+    kind === 'pencilends' ||
     fabricated ||
     botanical ||
     packaging ||

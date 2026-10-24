@@ -4607,6 +4607,24 @@ export const proceduralMaterialPresets = Object.freeze({
     pinAt: 0.73,
     pinRadius: 0.012,
   }),
+  pencilends: Object.freeze({
+    dark: [24, 22, 20] as const,
+    light: [224, 190, 131] as const,
+    roughness: 0.76,
+    relief: 0.006,
+    cells: 4,
+    turn: Math.PI / 6,
+    apothem: 0.3,
+    woodApothem: 0.272,
+    outerBevel: 0.018,
+    woodBevel: 0.012,
+    coreRadius: 0.074,
+    coreInner: 0.059,
+    grainFrequency: 12,
+    grainWarp: 0.13,
+    paintRoughness: 0.31,
+    coreRoughness: 0.86,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5142,4 +5160,5 @@ export const proceduralTileMeters = Object.freeze({
   waxseals: 0.16,
   cottonbolls: 0.24,
   carabiners: 0.32,
+  pencilends: 0.04,
 });

@@ -4499,6 +4499,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         pinAt: 0.73;
         pinRadius: 0.012;
     }>;
+    pencilends: Readonly<{
+        dark: readonly [24, 22, 20];
+        light: readonly [224, 190, 131];
+        roughness: 0.76;
+        relief: 0.006;
+        cells: 4;
+        turn: number;
+        apothem: 0.3;
+        woodApothem: 0.272;
+        outerBevel: 0.018;
+        woodBevel: 0.012;
+        coreRadius: 0.074;
+        coreInner: 0.059;
+        grainFrequency: 12;
+        grainWarp: 0.13;
+        paintRoughness: 0.31;
+        coreRoughness: 0.86;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5033,4 +5051,5 @@ export declare const proceduralTileMeters: Readonly<{
     waxseals: 0.16;
     cottonbolls: 0.24;
     carabiners: 0.32;
+    pencilends: 0.04;
 }>;

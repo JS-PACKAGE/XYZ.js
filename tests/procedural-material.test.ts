@@ -569,7 +569,112 @@ const kinds: ProceduralMaterialKind[] = [
   'waxseals',
   'cottonbolls',
   'carabiners',
+  'pencilends',
 ];
+
+describe('Hexagonal pencil ends with pale wood and opaque graphite cores', () => {
+  const p = proceduralMaterialPresets.pencilends;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pencilends', seed),
+      c = Math.cos(p.turn),
+      s = Math.sin(p.turn);
+    return (
+      col: number,
+      row: number,
+      r: number,
+      angle: number,
+    ): SurfaceSample => {
+      const turn = (col + row) & 1,
+        x = r * Math.cos(angle),
+        y = r * Math.sin(angle),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (turn ? c * x - s * y : x)) / p.cells,
+        (row + 0.5 + (turn ? s * x + c * y : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains six painted sides and corners, pale cut wood, a lower solid graphite core and clear backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let i = 0; i < 6; i++) {
+            const angle = (i * Math.PI) / 3,
+              paint = at(col, row, 0.28, angle),
+              wood = at(col, row, 0.23, angle),
+              core = at(col, row, 0.05, angle),
+              coreEdge = at(col, row, 0.08, angle),
+              corner = at(
+                col,
+                row,
+                (p.apothem / Math.cos(Math.PI / 6)) * 0.935,
+                angle + Math.PI / 6,
+              ),
+              outside = at(col, row, 0.32, angle);
+            expect(paint.height - wood.height).toBeGreaterThan(0.00022);
+            expect(wood.height - core.height).toBeGreaterThan(0.00007);
+            expect(wood.color - paint.color).toBeGreaterThan(0.45);
+            expect(wood.color - core.color).toBeGreaterThan(0.65);
+            expect(coreEdge.color - core.color).toBeGreaterThan(0.65);
+            expect(wood.roughness - paint.roughness).toBeGreaterThan(0.44);
+            expect(core.roughness - wood.roughness).toBeGreaterThan(0.06);
+            expect(core.height).toBeGreaterThan(0.0031);
+            expect(core.occlusion).toBeCloseTo(0.95, 12);
+            expect(core.metallic).toBe(0);
+            expect(corner.height).toBeCloseTo(0.58 * p.relief, 12);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.38, 12);
+          }
+    },
+  );
+  it('keeps six multiplied paint/wood planes, graphite shoulders, alternating orientations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pencilends', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Rounded aluminum D-shaped carabiners with slanted gates', () => {
   const p = proceduralMaterialPresets.carabiners;
