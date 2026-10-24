@@ -4734,6 +4734,29 @@ export const proceduralMaterialPresets = Object.freeze({
     rayWidth: 0.07,
     crownShoulder: 0.25,
   }),
+  leatherbookspines: Object.freeze({
+    dark: [25, 12, 6] as const,
+    light: [181, 113, 57] as const,
+    roughness: 0.68,
+    relief: 0.008,
+    columns: 8,
+    halfWidth: 0.45,
+    halfHeight: 0.46,
+    edge: 0.02,
+    bands: [-0.32, -0.18, 0.18, 0.32] as const,
+    bandWidth: 0.014,
+    bandCurve: 0.018,
+    bandLift: 0.045,
+    frameHalfWidth: 0.31,
+    frameHalfHeight: 0.12,
+    panelHalfWidth: 0.265,
+    panelHalfHeight: 0.1,
+    frameShoulder: 0.2,
+    frameLift: 0.02,
+    panelDepth: 0.025,
+    poreThreshold: 0.6,
+    poreShoulder: 0.3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5276,4 +5299,5 @@ export const proceduralTileMeters = Object.freeze({
   musselshells: 0.32,
   safetypins: 0.16,
   poppyseedpods: 0.24,
+  leatherbookspines: 0.32,
 });

@@ -576,7 +576,106 @@ const kinds: ProceduralMaterialKind[] = [
   'musselshells',
   'safetypins',
   'poppyseedpods',
+  'leatherbookspines',
 ];
+
+describe('Convex leather book spines with curved raised bands and blind-stamped frames', () => {
+  const p = proceduralMaterialPresets.leatherbookspines;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('leatherbookspines', seed);
+    return (col: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.columns, 0.5 + y, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains convex spines, four curved binding bands, depressed cartouches, raised rims and separate book seams for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let col = 0; col < p.columns; col++) {
+        const center = at(col, 0, 0.23),
+          side = at(col, 0.34, 0.23),
+          floor = at(col, 0, 0),
+          rim = at(col, 0.29, 0),
+          plainBesideRim = at(col, 0.29, 0.23),
+          seam = at(col, 0.49, 0);
+        expect(center.height - side.height).toBeGreaterThan(0.0007);
+        expect(center.height - floor.height).toBeGreaterThan(0.00015);
+        expect(rim.height - plainBesideRim.height).toBeGreaterThan(0.00011);
+        expect(center.color - seam.color).toBeGreaterThan(0.31);
+        expect(seam.roughness - center.roughness).toBeGreaterThan(0.16);
+        expect(center.metallic).toBe(0);
+        for (const band of p.bands)
+          for (const x of [0, 0.3]) {
+            const y = band - p.bandCurve * (x / p.halfWidth) ** 2,
+              ridge = at(col, x, y),
+              plain = at(col, x, 0.23);
+            expect(ridge.height - plain.height).toBeGreaterThan(0.00031);
+            expect(ridge.occlusion - plain.occlusion).toBeGreaterThan(0.009);
+            if (x === 0) {
+              expect(ridge.height).toBeGreaterThan(0.00498);
+              expect(ridge.height).toBeLessThan(0.005025);
+            }
+          }
+        for (const [x, y] of [
+          [-0.49, 0],
+          [0.49, 0],
+          [0, -0.48],
+          [0, 0.48],
+        ]) {
+          const gap = at(col, x, y);
+          expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+          expect(gap.occlusion).toBeCloseTo(0.3, 12);
+          expect(gap.metallic).toBe(0);
+        }
+      }
+    },
+  );
+  it('keeps curved bands, rounded blind-stamp frames, grain shoulders, book owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('leatherbookspines', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dry poppy seed capsules with fluted bodies and eight-lobed stigma crowns', () => {
   const p = proceduralMaterialPresets.poppyseedpods;

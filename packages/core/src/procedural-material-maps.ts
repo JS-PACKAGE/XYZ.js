@@ -1280,6 +1280,102 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'leatherbookspines': {
+        const p = proceduralMaterialPresets.leatherbookspines;
+        const tones = new Float64Array(p.columns);
+        for (let col = 0; col < p.columns; col++)
+          tones[col] = hash(col, 0, seed ^ 0x10811);
+        const inverseEdge = 1 / p.edge,
+          inverseWidth = 1 / p.halfWidth,
+          inverseBand = 1 / p.bandWidth,
+          inverseFrameX = 1 / p.frameHalfWidth,
+          inverseFrameY = 1 / p.frameHalfHeight,
+          inversePanelX = 1 / p.panelHalfWidth,
+          inversePanelY = 1 / p.panelHalfHeight,
+          inverseFrameShoulder = 1 / p.frameShoulder,
+          inversePoreShoulder = 1 / p.poreShoulder,
+          grainField = cachedNoise(128, 256, seed ^ 0x10813),
+          poreField = cachedNoise(256, 256, seed ^ 0x10815);
+        return () => {
+          const uc = u * p.columns,
+            col = Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = v - 0.5,
+            face =
+              smooth(clamp((p.halfWidth - Math.abs(x)) * inverseEdge)) *
+              smooth(clamp((p.halfHeight - Math.abs(y)) * inverseEdge));
+          color = 0.045;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.3;
+          if (face === 0) return;
+          const nx = x * inverseWidth,
+            dome = smooth(clamp(1 - nx * nx)),
+            by = y + p.bandCurve * nx * nx;
+          let outsideBands = 1;
+          for (const center of p.bands) {
+            const d = (by - center) * inverseBand;
+            outsideBands *= 1 - smooth(clamp(1 - d * d));
+          }
+          const bands = 1 - outsideBands,
+            fx = x * inverseFrameX,
+            fy = y * inverseFrameY,
+            px = x * inversePanelX,
+            py = y * inversePanelY,
+            frame = smooth(
+              clamp((1 - fx ** 4 - fy ** 4) * inverseFrameShoulder),
+            ),
+            panel = smooth(
+              clamp((1 - px ** 4 - py ** 4) * inverseFrameShoulder),
+            ),
+            rim = frame * (1 - panel),
+            grain = grainField(u, v),
+            pores = smooth(
+              clamp((poreField(u, v) - p.poreThreshold) * inversePoreShoulder),
+            );
+          // Curved raised bands follow each convex spine. The central blind
+          // stamp has a shallow floor and raised rim, not text or metal foil.
+          color +=
+            face *
+            (0.28 +
+              0.35 * tones[col] +
+              0.12 * dome +
+              0.04 * bands +
+              0.018 * grain -
+              0.035 * pores +
+              0.06 * rim -
+              0.035 * panel -
+              color);
+          height +=
+            face *
+            (0.42 +
+              0.16 * dome +
+              p.bandLift * bands +
+              p.frameLift * rim -
+              p.panelDepth * panel +
+              0.003 * grain -
+              0.002 * pores -
+              height);
+          roughness +=
+            face *
+            (p.roughness +
+              0.07 * pores -
+              0.06 * panel -
+              0.035 * rim +
+              0.02 * grain -
+              roughness);
+          occlusion +=
+            face *
+            (0.88 +
+              0.09 * dome +
+              0.025 * bands +
+              0.01 * rim -
+              0.035 * panel -
+              0.015 * pores -
+              occlusion);
+          return;
+        };
+      }
       case 'poppyseedpods': {
         const p = proceduralMaterialPresets.poppyseedpods;
         const axes = new Float64Array(p.lobes * 2),
@@ -19960,6 +20056,7 @@ export function createSurfaceSampler(
     kind === 'musselshells' ||
     kind === 'safetypins' ||
     kind === 'poppyseedpods' ||
+    kind === 'leatherbookspines' ||
     fabricated ||
     botanical ||
     packaging ||

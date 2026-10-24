@@ -748,6 +748,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `poppyseedpods`（乾燥罌粟蒴果）：4×4 交替水平／垂直封閉凸果身、縱向細肋、較低細梗及較高扁平八瓣柱頭盤。正橫向寬度 floor 讓 cosine 縱肋在果端保持有限；扁橢圓 crown 座標合併中央圓面與預算 radial ellipse masks，畫八瓣缺刻及凸起柱頭放射紋，無 atan2-origin seam。Bounded coverage unions 不把 rays 疊高，梗／果身／柱頭盤逐層替換而不相加；crown bounds 與零 support 先剔除，預算 axes／tones、96×96 grain，採樣無配置／hash／sqrt，僅有效果身用 cos。使用 `await ProceduralMaterial.create('poppyseedpods', { seed: 7 })`；0.24 m opaque dielectric tile、metallic 0，沿既有 maps／選用 height／ownership。不新增蒴果 geometry、透明果皮、開裂、種子散播或植物模擬。
 
+種類另支援 `leatherbookspines`（壓紋皮革書脊）：8 本平行棕色凸弧書背，各有四道彎曲 raised bands 與圓角 blind-stamped frame／淺凹 panel floor。Compact face shoulder 在書縫與上下空隙隱藏 column owners，smooth squared 橫向 cap 畫凸冠，quadratic 長軸 warp 讓 compact bands 彎曲，nested superellipse masks 畫凸 rim／壓低面。預算 spine tones、128×256 grain 與 256×256 pores，零 face 不採細節，採樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('leatherbookspines', { seed: 7 })`；0.32 m opaque dielectric tile、metallic 0，沿既有 maps／選用 height／ownership。無金屬 foil／文字，不新增書本 geometry、文字排版、翻頁或裝訂物理。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

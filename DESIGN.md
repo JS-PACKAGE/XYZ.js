@@ -625,6 +625,8 @@
 
 `poppyseedpods` 預算八組 radial axes、16 組 tone 與 96×96 grain；compact ellipse 畫封閉凸果身，正寬度 floor 的 cosine 縱肋避免果端頻率發散，細梗用 compact bands。柱頭盤在扁橢圓座標合併中央圓面與八組徑向橢圓 lobes／rays，全用 bounded coverage unions、無 atan2 origin seam；梗→果身→柱頭盤逐層替換高度，不疊加厚度。Crown bounds／全零 support 先剔除，採樣無配置／hash／sqrt，只有有效果面用 cos；opaque dielectric，不新增植物 geometry、開裂或散播物理。
 
+`leatherbookspines` 預算 8 組 spine tones、128×256 grain 與 256×256 pores；compact half-plane face 在書縫／上下端隱藏 owners，smooth squared transverse cap 畫凸弧書背。四道 compact squared-distance bands 用 quadratic y warp 隨弧面彎曲，superellipse 外框／內 panel 形成淺凹面與凸 rim；bounded bands union 不交疊增厚。Grain／pore shoulder 同為 C1，零 face 不採細節，採樣無配置／hash／sqrt／trig。純 opaque dielectric，無金屬 foil／文字，不新增書本 geometry、排版或翻頁物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

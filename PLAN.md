@@ -617,6 +617,8 @@
 
 同輪追加 `poppyseedpods`（乾燥罌粟蒴果），目錄 537→538 種：4×4 交替水平／垂直乾燥封閉果身、縱向細肋與較低細梗，頂端較高的扁平八瓣柱頭盤有凸起放射紋與瓣間缺刻；區別 lotusseedpod 的多孔種室與 cardamompods 的尖細橢圓。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增蒴果 geometry、透明果皮、開裂、種子散播或植物模擬；依功能驗證提交、不 push。
 
+同輪追加 `leatherbookspines`（壓紋皮革書脊），目錄 538→539 種：8 本平行棕色凸弧書背、四道隨弧面彎曲的 raised bands、中央圓角 blind-stamped frame 與較低 panel floor，保留細孔與深書縫；區別 tooledleather 圓章與 shiplap 木板。0.32 m opaque dielectric tile、metallic 0，無文字／燙金；沿四圖／選用 height／ownership，不新增書本 geometry、文字排版、翻頁或裝訂物理；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
