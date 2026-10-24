@@ -6812,3 +6812,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐格檢查雙色三角 face／grout 的 color／height／AO／roughness／metallic／mortar、五條邊線各 33 點的連續灰縫、斜縫兩側三階 bevel 高度及與直縫等法向距離的高度近似；另掃描 diagonal half-planes／seeded owners／交替反射／grid corners／wrap C1。四項針對測試通過，既有 508 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6234 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 righttriangletiles，509 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。build 已先完成，兩 backend 於同一 Eval lifecycle 驗證；首個 WebGL2 分頁截圖仍發生工具 20000 ms timeout、errors 空，已回報並釋放，新分頁完成畫面與 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認雙色三角磚、交替斜縫及連續灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：五瓣櫻花（cherryblossom）
+
+- 目錄 509→510 種；0.24 m tile，4×4 stylized 粉色五瓣花，每瓣末端缺刻分成兩個圓瓣尖，較低花心與十二個淺色凸起花粉點，交替 36° 朝向及 seeded 花色／微紋。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增花朵 geometry、透明孔洞、植物生長、風動或次表面散射模擬。
+- 三 seed（0／1／`0xffffffff`）逐花檢查五組雙瓣尖／缺刻的 height／color／AO／metallic 差、花瓣間隙回到 backing、中央至各瓣身各 33 點連通、花心低於內部瓣面及十二個 pollen dots／間隙的 height／color／AO 差；另掃描 petal unions／tip subtractions／pollen support gate／heart／wrap C1。四項針對測試通過，既有 509 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6239 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cherryblossom，510 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認粉色五瓣花、瓣尖缺刻、花心及環列淺色花粉點，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱植物學精確模型、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

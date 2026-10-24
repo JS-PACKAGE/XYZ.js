@@ -4215,6 +4215,26 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.025,
     bevel: 0.045,
   }),
+  cherryblossom: Object.freeze({
+    dark: [112, 24, 64] as const,
+    light: [255, 236, 219] as const,
+    roughness: 0.72,
+    relief: 0.02,
+    cells: 4,
+    petals: 5,
+    petalCenter: 0.15,
+    petalLength: 0.22,
+    petalWidth: 0.125,
+    notchCenter: 0.37,
+    notchLength: 0.06,
+    notchWidth: 0.035,
+    shoulder: 0.2,
+    centerRadius: 0.045,
+    centerShoulder: 0.0008,
+    pollenCount: 12,
+    pollenDistance: 0.065,
+    pollenRadius: 0.009,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4728,4 +4748,5 @@ export const proceduralTileMeters = Object.freeze({
   hinges: 0.4,
   coins: 0.12,
   righttriangletiles: 1,
+  cherryblossom: 0.24,
 });

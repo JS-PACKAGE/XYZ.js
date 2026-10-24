@@ -1274,6 +1274,113 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cherryblossom': {
+        const p = proceduralMaterialPresets.cherryblossom;
+        const axes = new Float64Array(p.petals * 2),
+          pollenSites = new Float64Array(p.pollenCount * 2),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.petals; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.petals);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.petals);
+        }
+        for (let i = 0; i < p.pollenCount; i++) {
+          pollenSites[i * 2] =
+            p.pollenDistance * Math.cos((i * TAU) / p.pollenCount);
+          pollenSites[i * 2 + 1] =
+            p.pollenDistance * Math.sin((i * TAU) / p.pollenCount);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xabd1);
+        const inverseLength = 1 / (p.petalLength * p.petalLength),
+          inverseWidth = 1 / (p.petalWidth * p.petalWidth),
+          inverseNotchLength = 1 / (p.notchLength * p.notchLength),
+          inverseNotchWidth = 1 / (p.notchWidth * p.notchWidth),
+          inverseShoulder = 1 / p.shoulder,
+          centerSquared = p.centerRadius * p.centerRadius,
+          inverseCenterShoulder = 1 / p.centerShoulder,
+          inversePollen = 1 / (p.pollenRadius * p.pollenRadius),
+          pollenReachSquared = (p.pollenDistance + p.pollenRadius) ** 2,
+          turnCos = Math.cos(Math.PI / p.petals),
+          turnSin = Math.sin(Math.PI / p.petals),
+          grainField = cachedNoise(96, 96, seed ^ 0xabd3);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc);
+          let x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if ((col + row) & 1) {
+            const rx = x * turnCos + y * turnSin;
+            y = -x * turnSin + y * turnCos;
+            x = rx;
+          }
+          const r2 = x * x + y * y;
+          let outside = 1,
+            outsideDome = 1,
+            outsidePollen = 1;
+          for (let i = 0; i < p.petals; i++) {
+            const c = axes[i * 2],
+              s = axes[i * 2 + 1],
+              along = x * c + y * s,
+              across = -x * s + y * c,
+              dx = along - p.petalCenter,
+              nx = along - p.notchCenter,
+              cap = clamp(
+                1 - dx * dx * inverseLength - across * across * inverseWidth,
+              ),
+              notch = smooth(
+                clamp(
+                  (1 -
+                    nx * nx * inverseNotchLength -
+                    across * across * inverseNotchWidth) *
+                    inverseShoulder,
+                ),
+              );
+            outside *= 1 - smooth(clamp(cap * inverseShoulder)) * (1 - notch);
+            outsideDome *= 1 - smooth(cap) * (1 - notch);
+          }
+          // All pollen support vanishes before this gate, including its slope.
+          if (r2 < pollenReachSquared)
+            for (let i = 0; i < p.pollenCount; i++) {
+              const dx = x - pollenSites[i * 2],
+                dy = y - pollenSites[i * 2 + 1];
+              outsidePollen *=
+                1 -
+                smooth(
+                  clamp(
+                    (1 - (dx * dx + dy * dy) * inversePollen) * inverseShoulder,
+                  ),
+                );
+            }
+          const flower = 1 - outside,
+            dome = 1 - outsideDome,
+            pollen = 1 - outsidePollen,
+            center = smooth(
+              clamp((centerSquared - r2) * inverseCenterShoulder),
+            ),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color =
+            0.03 +
+            flower * (0.62 + 0.12 * tone + 0.015 * grain) +
+            0.1 * dome -
+            0.2 * center +
+            0.2 * pollen;
+          height =
+            0.04 +
+            0.35 * flower +
+            0.12 * dome -
+            0.13 * center +
+            0.08 * pollen +
+            0.003 * grain * flower;
+          roughness +=
+            0.18 * (1 - flower) - 0.1 * flower + 0.1 * center - 0.05 * pollen;
+          occlusion = 0.38 + 0.56 * flower - 0.16 * center + 0.04 * pollen;
+          return;
+        };
+      }
       case 'righttriangletiles': {
         const p = proceduralMaterialPresets.righttriangletiles;
         const tones = new Float64Array(p.cells * p.cells * 2),
@@ -17645,6 +17752,7 @@ export function createSurfaceSampler(
     kind === 'hinges' ||
     kind === 'coins' ||
     kind === 'righttriangletiles' ||
+    kind === 'cherryblossom' ||
     fabricated ||
     botanical ||
     packaging ||

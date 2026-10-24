@@ -559,6 +559,8 @@
 
 同輪追加 `righttriangletiles`（直角三角釉面磚），目錄 508→509 種：4×4 方格各分成兩塊直角等腰三角磚，共 32 塊藍灰／乳白 seeded 磚面，斜縫方向逐格交替；外框與斜縫有等法向寬度的灰縫／倒角。1 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增磚體 geometry、位移或透明度；逐功能驗證提交、不 push。
 
+同輪追加 `cherryblossom`（五瓣櫻花），目錄 509→510 種：4×4 粉色五瓣花，每瓣末端淺缺刻分成兩圓瓣尖，花心較低、十二個淺色凸起花粉點，交替 36° 朝向並帶 seeded 花色／微紋。0.24 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增花朵 geometry、透明孔洞、植物生長、風動或散射模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

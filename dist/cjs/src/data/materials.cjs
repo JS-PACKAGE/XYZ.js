@@ -8578,6 +8578,34 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 4,
 		grout: .025,
 		bevel: .045
+	}),
+	cherryblossom: Object.freeze({
+		dark: [
+			112,
+			24,
+			64
+		],
+		light: [
+			255,
+			236,
+			219
+		],
+		roughness: .72,
+		relief: .02,
+		cells: 4,
+		petals: 5,
+		petalCenter: .15,
+		petalLength: .22,
+		petalWidth: .125,
+		notchCenter: .37,
+		notchLength: .06,
+		notchWidth: .035,
+		shoulder: .2,
+		centerRadius: .045,
+		centerShoulder: 8e-4,
+		pollenCount: 12,
+		pollenDistance: .065,
+		pollenRadius: .009
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9089,7 +9117,8 @@ var proceduralTileMeters = Object.freeze({
 	cashews: .16,
 	hinges: .4,
 	coins: .12,
-	righttriangletiles: 1
+	righttriangletiles: 1,
+	cherryblossom: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

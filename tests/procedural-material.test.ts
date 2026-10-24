@@ -547,7 +547,108 @@ const kinds: ProceduralMaterialKind[] = [
   'hinges',
   'coins',
   'righttriangletiles',
+  'cherryblossom',
 ];
+
+describe('Five-petal cherry blossoms with notched tips and pollen dots', () => {
+  const p = proceduralMaterialPresets.cherryblossom;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cherryblossom', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five connected split-tip petals, intervening gaps, a lower heart and twelve raised pale pollen dots for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (((col + row) & 1) * Math.PI) / p.petals,
+            c = Math.cos(turn),
+            s = Math.sin(turn),
+            local = (x: number, y: number) =>
+              at(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c),
+            backing = local(0.44, 0),
+            center = local(0, 0);
+          expect(local(0.18, 0).height - center.height).toBeGreaterThan(0.0024);
+          for (let i = 0; i < p.petals; i++) {
+            const a = (i * 2 * Math.PI) / p.petals,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              petal = (x: number, y: number) =>
+                local(x * c - y * s, x * s + y * c),
+              notch = petal(0.34, 0),
+              gap = local(
+                0.3 * Math.cos(a + Math.PI / p.petals),
+                0.3 * Math.sin(a + Math.PI / p.petals),
+              );
+            expect(notch.height).toBe(backing.height);
+            expect(gap.height).toBe(backing.height);
+            for (const side of [-1, 1]) {
+              const lobe = petal(0.3, 0.045 * side);
+              expect(lobe.height - notch.height).toBeGreaterThan(0.007);
+              expect(lobe.color - notch.color).toBeGreaterThan(0.6);
+              expect(lobe.occlusion - notch.occlusion).toBeGreaterThan(0.55);
+              expect(lobe.metallic).toBe(0);
+            }
+            for (let j = 0; j <= 32; j++)
+              expect(
+                petal((0.28 * j) / 32, 0).height - backing.height,
+              ).toBeGreaterThan(0.006);
+          }
+          for (let i = 0; i < p.pollenCount; i++) {
+            const a = (i * 2 * Math.PI) / p.pollenCount,
+              b = a + Math.PI / p.pollenCount,
+              dot = local(
+                p.pollenDistance * Math.cos(a),
+                p.pollenDistance * Math.sin(a),
+              ),
+              gap = local(
+                p.pollenDistance * Math.cos(b),
+                p.pollenDistance * Math.sin(b),
+              );
+            expect(dot.height - gap.height).toBeGreaterThan(0.0013);
+            expect(dot.color - gap.color).toBeGreaterThan(0.18);
+            expect(dot.occlusion - gap.occlusion).toBeGreaterThan(0.039);
+          }
+        }
+    },
+  );
+  it('keeps petal unions, split tip subtractions, pollen support gate, heart and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Blue-grey and cream right-triangle glazed tiles', () => {
   const p = proceduralMaterialPresets.righttriangletiles;
