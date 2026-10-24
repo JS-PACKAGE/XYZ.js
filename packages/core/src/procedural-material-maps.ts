@@ -1242,6 +1242,7 @@ export function createSurfaceSampler(
     kind === 'circlips' ||
     kind === 'fivebarplate' ||
     kind === 'scalemail' ||
+    kind === 'slottedmetal' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1266,6 +1267,31 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'slottedmetal': {
+        const p = proceduralMaterialPresets.slottedmetal;
+        const grainField = cachedNoise(128, 8, seed ^ 0x7b53);
+        const outerSquared = p.outerRadius * p.outerRadius,
+          wallRange = outerSquared - p.coreRadius * p.coreRadius,
+          aspect = p.columns / p.rows;
+        return () => {
+          const row = Math.floor(v * p.rows);
+          const x = fract(u * p.columns - (row & 1) * 0.5) - 0.5,
+            y = (fract(v * p.rows) - 0.5) * aspect;
+          // Match both axes in column-cell units: rectangular slot pitch must
+          // not stretch the machined semicircular ends into ellipses.
+          const end = Math.max(0, Math.abs(y) - p.spine);
+          const hole = smooth(
+            clamp((outerSquared - end * end - x * x) / wallRange),
+          );
+          const bevel = 4 * hole * (1 - hole),
+            grain = grainField(u, v);
+          color = 0.64 + 0.07 * grain - 0.57 * hole + 0.11 * bevel;
+          height = 0.64 + 0.008 * grain - 0.49 * hole + 0.03 * bevel;
+          roughness += 0.42 * hole - 0.06 * bevel + 0.02 * grain;
+          occlusion = 0.99 - 0.64 * hole;
+          return;
+        };
+      }
       case 'burlwood': {
         const p = proceduralMaterialPresets.burlwood;
         const coarseField = cachedNoise(3, 3, seed ^ 0x4f69),
@@ -16027,6 +16053,7 @@ export function createSurfaceSampler(
     kind === 'scalemail' ||
     kind === 'trihexagonaltiles' ||
     kind === 'burlwood' ||
+    kind === 'slottedmetal' ||
     fabricated ||
     botanical ||
     packaging ||

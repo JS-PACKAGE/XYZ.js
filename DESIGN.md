@@ -509,6 +509,8 @@
 
 `burlwood` 將 3×3／7×7／96×96 seeded periodic lattice 組成扭曲相位，以窄深色 latewood 等高線取代直木紋。九個靜態偏置橢圓瘤眼在各 cell 內 compact 支撐結束，局部環相位變形在髓心與邊緣消失；支撐外不計算環 cos。髓心較暗、微凹、較粗糙且 AO 稍低，整體保留平整鋸切面的微小高度變化。0.24 m tile、metallic 0、maps／選用 height／ownership 不變，目錄增為 480 種；不新增 geometry、樹種鑑定、年輪測年或生長模擬。
 
+`slottedmetal` 沿用既有 capsule 平方距離與 staggered row 模式，但採縱向長槽；以 columns／rows 比將兩軸轉為相同 column-cell 單位，讓方形 UV tile 上兩端仍為真圓弧。兩半徑間 smooth 過渡形成凹壁，4h(1−h) 增亮加工斜壁；128×8 seeded periodic 拉絲沿既有管線。8×4 槽、0.4 m tile、含暗槽底皆 metallic 1、maps／選用 height／ownership 不變，目錄增為 481 種；不新增 geometry、透明孔洞、通風或承載模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

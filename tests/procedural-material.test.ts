@@ -518,7 +518,83 @@ const kinds: ProceduralMaterialKind[] = [
   'scalemail',
   'trihexagonaltiles',
   'burlwood',
+  'slottedmetal',
 ];
+
+describe('Round-ended slotted metal sheet', () => {
+  const p = proceduralMaterialPresets.slottedmetal;
+  const aspect = p.columns / p.rows;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('slottedmetal', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps staggered long wells, machined walls and circular end caps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + (row & 1) * 0.5 + x, row + 0.5 + y / aspect);
+          const base = local(0.36, 0),
+            well = local(0, 0),
+            wall = local(0.155, 0);
+          expect(base.height - well.height).toBeGreaterThan(0.0105);
+          expect(base.color - well.color).toBeGreaterThan(0.49);
+          expect(base.occlusion - well.occlusion).toBeGreaterThan(0.63);
+          expect(well.roughness - base.roughness).toBeGreaterThan(0.39);
+          expect(wall.height - well.height).toBeGreaterThan(0.0045);
+          expect(base.height - wall.height).toBeGreaterThan(0.0047);
+          for (const sign of [-1, 1]) {
+            const end = local(0, sign * (p.spine + 0.08)),
+              outside = local(0, sign * (p.spine + p.outerRadius + 0.02)),
+              diagonal = local(0.14, sign * (p.spine + 0.14));
+            expect(base.height - end.height).toBeGreaterThan(0.0105);
+            expect(outside.height - end.height).toBeGreaterThan(0.0105);
+            expect(diagonal.height - end.height).toBeGreaterThan(0.0105);
+            expect(diagonal.occlusion - end.occlusion).toBeGreaterThan(0.63);
+          }
+          expect(base.metallic).toBe(1);
+          expect(well.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps straight-to-round joins, slot bevels, stagger changes and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Contoured burl wood with dark pith eyes', () => {
   const p = proceduralMaterialPresets.burlwood;
@@ -16463,6 +16539,7 @@ describe('periodic procedural material fields', () => {
           kind === 'circlips' ||
           kind === 'fivebarplate' ||
           kind === 'scalemail' ||
+          kind === 'slottedmetal' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -25903,6 +25980,7 @@ describe('procedural preset acquisition and ownership', () => {
     'circlips',
     'fivebarplate',
     'scalemail',
+    'slottedmetal',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -25936,6 +26014,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'circlips' ||
           kind === 'fivebarplate' ||
           kind === 'scalemail' ||
+          kind === 'slottedmetal' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
