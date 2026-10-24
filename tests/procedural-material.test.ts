@@ -508,7 +508,90 @@ const kinds: ProceduralMaterialKind[] = [
   'clovebuds',
   'starcrosstiles',
   'maplesamara',
+  'lenoweave',
 ];
+
+describe('Leno weave paired warp locks', () => {
+  const p = proceduralMaterialPresets.lenoweave;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('lenoweave', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'twists paired warps between wefts and alternates which yarn passes above the weft for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cx = col + 0.5;
+          const direction = row & 1 ? -1 : 1;
+          const a = at(cx + p.warpOffset * direction, row),
+            b = at(cx - p.warpOffset * direction, row),
+            weft = at(cx, row),
+            lock = at(cx, row + 0.5),
+            gap = at(cx + 0.3, row + 0.5);
+          const over = row & 1 ? b : a,
+            under = row & 1 ? a : b;
+          expect(over.height - weft.height).toBeGreaterThan(0.001);
+          expect(over.height - under.height).toBeGreaterThan(0.001);
+          expect(lock.height - gap.height).toBeGreaterThan(0.0083);
+          expect(lock.occlusion - gap.occlusion).toBeGreaterThan(0.63);
+          expect(gap.roughness - lock.roughness).toBeGreaterThan(0.13);
+          expect(lock.metallic).toBe(0);
+          if (row & 1) {
+            expect(over.color).toBeLessThan(weft.color - 0.15);
+            expect(lock.color).toBeLessThan(0.54);
+          } else {
+            expect(over.color).toBeGreaterThan(weft.color + 0.15);
+            expect(lock.color).toBeGreaterThan(0.85);
+          }
+          const spread = p.warpOffset * Math.SQRT1_2;
+          expect(at(cx - spread, row + 0.25).height).toBeGreaterThan(
+            gap.height + 0.006,
+          );
+          expect(at(cx + spread, row + 0.25).height).toBeGreaterThan(
+            gap.height + 0.006,
+          );
+          expect(at(cx, row + 0.25).height).toBeCloseTo(gap.height, 12);
+        }
+    },
+  );
+  it('keeps twist overlaps, weft locks, yarn rims and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Paired maple samaras', () => {
   const p = proceduralMaterialPresets.maplesamara;

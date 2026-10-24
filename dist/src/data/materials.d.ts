@@ -3553,6 +3553,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.42;
         veins: 3;
     }>;
+    lenoweave: Readonly<{
+        dark: readonly [29, 25, 19];
+        light: readonly [232, 218, 179];
+        roughness: 0.8;
+        relief: 0.012;
+        columns: 6;
+        rows: 6;
+        warpOffset: 0.18;
+        warpWidth: 0.05;
+        weftWidth: 0.055;
+        fibers: 96;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4026,4 +4038,5 @@ export declare const proceduralTileMeters: Readonly<{
     clovebuds: 0.08;
     starcrosstiles: 0.8;
     maplesamara: 0.2;
+    lenoweave: 0.06;
 }>;

@@ -6539,3 +6539,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查種仁高於翅膜、薄翅外展、中央 V 形留白、連柄及翅端／外側的高度／色差／AO／roughness／metallic 與 180° 方向；另掃描種仁接合、翅緣、細脈及 tile wrap 的 C1。既有 469 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6026 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 maplesamara，25 球與四圖預覽正常，errors 空。另以公開 API size 512／seed 7／heightMap true 將 baseColor 畫到等比例臨時 canvas，可辨成對寬翅與根部種仁；height true、metallic 0、destroyed true。WebGPU 離頁 cleanup 無錯誤、臨時 canvas 隨頁清除；較早的 WebGL2 tab 即使 persist true 仍 detached，已回報工具問題並直接釋放，未宣稱該 tab 的離頁 cleanup。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：紗羅織（lenoweave）
+
+- 目錄 470→471 種；0.06 m tile，六組奶油／赭色成對經線在六條緯線間扭交，經經／經緯上下次序交替；網眼為低而不透明的暗底。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增紗線 geometry、透明網眼或布料模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查上層經線高於緯線與下層交點、經線交點的顏色／次序交替、兩股分離段與網眼的高度／AO／roughness／metallic；另掃描扭交、經緯接點、線緣與 tile wrap 的 C1。首輪測試錯把不同座標的 weft grain 視為近乎同色同高；刪除不成立的色值相等斷言，將高度相等改為真正的上下次序比較，未修改實作或放寬形態／C1 門檻。既有 470 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6031 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 lenoweave，25 球與四圖預覽正常，可辨成對扭經與橫向緯線，errors 空；各 backend 檢視後立即離頁，cleanup errors 皆空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

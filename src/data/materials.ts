@@ -3615,6 +3615,18 @@ export const proceduralMaterialPresets = Object.freeze({
     shoulder: 0.42,
     veins: 3,
   }),
+  lenoweave: Object.freeze({
+    dark: [29, 25, 19] as const,
+    light: [232, 218, 179] as const,
+    roughness: 0.8,
+    relief: 0.012,
+    columns: 6,
+    rows: 6,
+    warpOffset: 0.18,
+    warpWidth: 0.05,
+    weftWidth: 0.055,
+    fibers: 96,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4089,4 +4101,5 @@ export const proceduralTileMeters = Object.freeze({
   clovebuds: 0.08,
   starcrosstiles: 0.8,
   maplesamara: 0.2,
+  lenoweave: 0.06,
 });

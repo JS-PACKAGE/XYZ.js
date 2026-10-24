@@ -7560,6 +7560,26 @@ var proceduralMaterialPresets = Object.freeze({
 		stalkHeight: .018,
 		shoulder: .42,
 		veins: 3
+	}),
+	lenoweave: Object.freeze({
+		dark: [
+			29,
+			25,
+			19
+		],
+		light: [
+			232,
+			218,
+			179
+		],
+		roughness: .8,
+		relief: .012,
+		columns: 6,
+		rows: 6,
+		warpOffset: .18,
+		warpWidth: .05,
+		weftWidth: .055,
+		fibers: 96
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8032,7 +8052,8 @@ var proceduralTileMeters = Object.freeze({
 	brogueleather: .18,
 	clovebuds: .08,
 	starcrosstiles: .8,
-	maplesamara: .2
+	maplesamara: .2,
+	lenoweave: .06
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

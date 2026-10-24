@@ -1263,6 +1263,47 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'lenoweave': {
+        const p = proceduralMaterialPresets.lenoweave;
+        const grainField = cachedNoise(128, 128, seed ^ 0xc607);
+        return () => {
+          const x = fract(u * p.columns) - 0.5,
+            y = v * p.rows;
+          const sin = Math.sin(Math.PI * y),
+            cos = Math.cos(Math.PI * y);
+          const a = smooth(
+            clamp(1 - ((x - p.warpOffset * cos) / p.warpWidth) ** 2),
+          );
+          const b = smooth(
+            clamp(1 - ((x + p.warpOffset * cos) / p.warpWidth) ** 2),
+          );
+          const weftDistance = fract(y + 0.5) - 0.5;
+          const weft = smooth(clamp(1 - (weftDistance / p.weftWidth) ** 2));
+          const aOverB = smooth(clamp(0.5 + 2 * sin));
+          const aOverWeft = smooth(clamp(0.5 + 2 * cos));
+          // Warp-pair crossings and weft crossings have disjoint supports.
+          const wa = a * (1 - b * (1 - aOverB)) * (1 - weft * (1 - aOverWeft));
+          const wb = b * (1 - a * aOverB) * (1 - weft * aOverWeft);
+          const ww = weft * (1 - a * aOverWeft) * (1 - b * (1 - aOverWeft));
+          const body = wa + wb + ww;
+          const grain = grainField(u, v);
+          const warpFiber = 0.5 + 0.5 * Math.cos(TAU * u * p.fibers),
+            weftFiber = 0.5 + 0.5 * Math.cos(TAU * v * p.fibers);
+          color =
+            0.04 + 0.82 * wa + 0.48 * wb + 0.65 * ww + 0.015 * grain * body;
+          height =
+            0.06 +
+            0.62 * (wa + wb) +
+            0.52 * ww +
+            0.08 * (wa - wb) * sin +
+            0.008 * ((wa + wb) * warpFiber + ww * weftFiber) +
+            0.005 * grain * body;
+          roughness +=
+            0.12 * (1 - body) - 0.08 * wa - 0.04 * wb + 0.02 * grain * body;
+          occlusion = 0.34 + 0.64 * body;
+          return;
+        };
+      }
       case 'maplesamara': {
         const p = proceduralMaterialPresets.maplesamara;
         const grainField = cachedNoise(64, 64, seed ^ 0xb5f3);
@@ -15524,6 +15565,7 @@ export function createSurfaceSampler(
     kind === 'clovebuds' ||
     kind === 'starcrosstiles' ||
     kind === 'maplesamara' ||
+    kind === 'lenoweave' ||
     fabricated ||
     botanical ||
     packaging ||

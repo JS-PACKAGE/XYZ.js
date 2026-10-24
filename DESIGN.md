@@ -489,6 +489,8 @@
 
 `maplesamara` 在兩個鏡像 45° 基底上計算外展寬度的 compact smooth 橢圓翅與較高的根部橢圓種仁，再與短橢圓柄作乘積聯集；細脈餘弦乘上各自翅遮罩，離開翅緣即歸零。棋盤 parity 對局部座標翻轉 180°，所有支撐都在 cell 內結束，grain 取 seeded periodic lattice。4×4 對翅果、0.2 m tile、metallic 0、既有 maps／選用 height／ownership 不變；目錄增為 470 種，不新增 geometry、透明薄膜或飛行模擬。
 
+`lenoweave` 以 `±offset×cos(πy)` 定義成對經線軌跡，compact 平方距離場形成圓線及水平緯線；`sin(πy)` 控制經線交點次序，`cos(πy)` 控制經緯次序。兩種交點支撐分離，以 smooth 權重遮蔽下層線而非相加，避免交點高度鼓包；偶數 rows 保持完整 tile 的相位週期。細纖維與 grain 僅乘可見線權重。6 組×6 緯、0.06 m tile、metallic 0、既有 maps／選用 height／ownership 不變；目錄增為 471 種，不新增 geometry、透明網眼或布料模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
