@@ -1280,6 +1280,86 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dominoes': {
+        const p = proceduralMaterialPresets.dominoes;
+        const tones = new Float64Array(p.cells * p.cells),
+          masks = new Uint8Array(p.cells * p.cells * 2),
+          layouts = [0, 8, 65, 73, 99, 107, 119],
+          pipX = [-p.pipX, p.pipX, -p.pipX, 0, p.pipX, -p.pipX, p.pipX],
+          pipY = [-p.pipY, -p.pipY, 0, 0, 0, p.pipY, p.pipY],
+          inverseWidth = 1 / p.halfWidth,
+          inverseHeight = 1 / p.halfHeight,
+          inverseShoulder = 1 / p.shoulder,
+          inversePipRadiusSquared = 1 / (p.pipRadius * p.pipRadius),
+          inversePipShoulder = 1 / p.pipShoulder,
+          inverseDividerWidthSquared =
+            1 / (p.dividerHalfWidth * p.dividerHalfWidth),
+          inverseDividerHeightSquared =
+            1 / (p.dividerHalfHeight * p.dividerHalfHeight),
+          grainField = cachedNoise(96, 96, seed ^ 0x10b17);
+        for (let cell = 0; cell < tones.length; cell++) {
+          tones[cell] = hash(cell, 0, seed ^ 0x10b11);
+          masks[cell * 2] =
+            layouts[Math.floor(hash(cell, 0, seed ^ 0x10b13) * 7)];
+          masks[cell * 2 + 1] =
+            layouts[Math.floor(hash(cell, 1, seed ^ 0x10b15) * 7)];
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col,
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            nx = x * inverseWidth,
+            ny = y * inverseHeight,
+            xx = nx * nx,
+            yy = ny * ny,
+            face = smooth(
+              clamp(
+                (1 - xx * xx * xx * xx - yy * yy * yy * yy) * inverseShoulder,
+              ),
+            );
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            half = y < 0 ? 0 : 1,
+            localY = y + (half === 0 ? p.halfCenter : -p.halfCenter),
+            mask = masks[cell * 2 + half],
+            divider =
+              smooth(clamp(1 - x * x * inverseDividerWidthSquared)) *
+              smooth(clamp(1 - y * y * inverseDividerHeightSquared));
+          let pips = 0;
+          for (let index = 0; index < 7; index++) {
+            if ((mask & (1 << index)) === 0) continue;
+            const dx = x - pipX[index],
+              dy = localY - pipY[index],
+              pit = smooth(
+                clamp(
+                  (1 - (dx * dx + dy * dy) * inversePipRadiusSquared) *
+                    inversePipShoulder,
+                ),
+              );
+            pips += (1 - pips) * pit;
+          }
+          // Recesses remain filled above the backing; they are not alpha holes.
+          const ivory = 0.83 + 0.035 * tones[cell] + 0.006 * grain,
+            faceColor = ivory + divider * (0.34 - ivory),
+            faceHeight = 0.62 + 0.001 * grain - 0.035 * divider;
+          color += face * (faceColor + pips * (0.055 - faceColor) - color);
+          height += face * (faceHeight + pips * (0.515 - faceHeight) - height);
+          roughness +=
+            face *
+            (0.31 + 0.01 * grain + 0.15 * divider + 0.23 * pips - roughness);
+          occlusion += face * (0.99 - 0.12 * divider - 0.26 * pips - occlusion);
+          return;
+        };
+      }
       case 'porcelaininsulators': {
         const p = proceduralMaterialPresets.porcelaininsulators;
         const tones = new Float64Array(p.cells * p.cells);
@@ -20201,6 +20281,7 @@ export function createSurfaceSampler(
     kind === 'leatherbookspines' ||
     kind === 'matchsticks' ||
     kind === 'porcelaininsulators' ||
+    kind === 'dominoes' ||
     fabricated ||
     botanical ||
     packaging ||

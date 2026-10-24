@@ -579,7 +579,137 @@ const kinds: ProceduralMaterialKind[] = [
   'leatherbookspines',
   'matchsticks',
   'porcelaininsulators',
+  'dominoes',
 ];
+
+describe('Ivory dominoes with standard recessed pip layouts', () => {
+  const p = proceduralMaterialPresets.dominoes;
+  it('keeps all seven standard pip arrangements, filled recesses, a shallow divider and opaque raised rounded faces', () => {
+    const seen = new Set<number>();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dominoes', seed);
+      const at = (
+        col: number,
+        row: number,
+        x: number,
+        y: number,
+      ): SurfaceSample => {
+        const vertical = (row + col) & 1,
+          out = {
+            color: 0,
+            height: 0,
+            roughness: 0,
+            occlusion: 0,
+            mortar: 0,
+            metallic: 0,
+          };
+        sample(
+          (col + 0.5 + (vertical ? x : y)) / p.cells,
+          (row + 0.5 + (vertical ? y : x)) / p.cells,
+          out,
+        );
+        return out;
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const face = at(col, row, 0.12, 0.19),
+            divider = at(col, row, 0, 0),
+            backing = at(col, row, 0.23, 0);
+          expect(face.height - backing.height).toBeGreaterThan(0.00237);
+          expect(face.color - backing.color).toBeGreaterThan(0.79);
+          expect(face.roughness).toBeLessThan(0.321);
+          expect(face.height - divider.height).toBeGreaterThan(0.000135);
+          expect(face.height - divider.height).toBeLessThan(0.000145);
+          expect(divider.height - backing.height).toBeGreaterThan(0.00223);
+          expect(divider.color).toBeCloseTo(0.34, 12);
+          expect(face.metallic).toBe(0);
+          for (const half of [-1, 1]) {
+            const positions = [
+              [-p.pipX, -p.pipY],
+              [p.pipX, -p.pipY],
+              [-p.pipX, 0],
+              [0, 0],
+              [p.pipX, 0],
+              [-p.pipX, p.pipY],
+              [p.pipX, p.pipY],
+            ];
+            let mask = 0;
+            for (let i = 0; i < positions.length; i++) {
+              const pit = at(
+                col,
+                row,
+                positions[i][0],
+                half * p.halfCenter + positions[i][1],
+              );
+              if (face.height - pit.height > 0.0003) {
+                mask |= 1 << i;
+                expect(face.color - pit.color).toBeGreaterThan(0.77);
+                expect(pit.height - backing.height).toBeGreaterThan(0.00195);
+                expect(pit.roughness - face.roughness).toBeGreaterThan(0.22);
+                expect(pit.occlusion).toBeCloseTo(0.73, 12);
+              } else {
+                expect(Math.abs(face.height - pit.height)).toBeLessThan(
+                  0.0000041,
+                );
+                expect(pit.color).toBeGreaterThan(0.82);
+              }
+            }
+            expect([0, 8, 65, 73, 99, 107, 119]).toContain(mask);
+            seen.add(mask);
+          }
+          for (const [x, y] of [
+            [-0.23, 0],
+            [0, -0.43],
+            [0, 0.43],
+            [0.17, 0.37],
+          ]) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(backing.height, 12);
+            expect(gap.occlusion).toBeCloseTo(0.35, 12);
+          }
+        }
+    }
+    expect([...seen].sort((a, b) => a - b)).toEqual([
+      0, 8, 65, 73, 99, 107, 119,
+    ]);
+  });
+  it('keeps rounded corners, recessed pip shoulders, half ownership, divider ends, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dominoes', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Glazed porcelain insulators with five rounded skirts and lower necks', () => {
   const p = proceduralMaterialPresets.porcelaininsulators;

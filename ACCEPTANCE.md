@@ -7056,3 +7056,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 540 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 porcelaininsulators，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6401 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 porcelaininsulators，541 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認五層圓弧傘裙、連續細芯、圓帽／短柄與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱實際 geometry、電場／漏電模擬、絕緣／電氣安全性能、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：骨牌（dominoes）
+
+- 目錄 541→542 種；0.24 m tile，4×4 交替水平／垂直象牙白圓角牌面，兩半獨立 seeded 標準 0–6 黑色凹點與中央較淺分隔槽，保持填實凹面、較高牌面與不透明 backing。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增骨牌 geometry、遊戲規則或物理。
+- 三 seed（0／1／`0xffffffff`）逐 16 牌／兩半／七個點位識別並驗證標準排列，合計涵蓋全部七種布局；凹點較低／較暗／較粗糙、底面高於 backing，中央槽較淺、四角與外側 backing、交替方向、非金屬。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；兩項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共三項針對測試首次通過。
+- 既有 541 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 dominoes，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6404 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 dominoes，542 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現兩半標準黑點、淺分隔槽、圓角牌面、空白半面與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、遊戲規則、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
