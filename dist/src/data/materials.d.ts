@@ -3788,6 +3788,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         creaseLength: 0.08;
         twists: 8;
     }>;
+    fiddleheads: Readonly<{
+        dark: readonly [17, 30, 11];
+        light: readonly [143, 188, 78];
+        roughness: 0.79;
+        relief: 0.023;
+        cells: 4;
+        outerRadius: 0.23;
+        innerRadius: 0.04;
+        coilY: -0.1;
+        turns: 1.5;
+        coilSegments: 72;
+        stemSegments: 24;
+        width: 0.028;
+        taper: 0.4;
+        shoulder: 0.7;
+        stemControlY: 0.04;
+        stemBendX: 0.16;
+        stemBendY: 0.2;
+        stemEndX: 0.12;
+        stemEndY: 0.36;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4278,4 +4299,5 @@ export declare const proceduralTileMeters: Readonly<{
     cardamompods: 0.08;
     brickarches: 2.4;
     knottednet: 0.3;
+    fiddleheads: 0.24;
 }>;

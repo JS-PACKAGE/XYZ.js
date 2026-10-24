@@ -515,6 +515,8 @@
 
 同輪追加 `knottednet`（打結繩網），目錄 486→487 種：6×6 隆起繩結與弧形鬆垂繩段，結部交疊帶收緊凹痕，暗色網孔底層；區別直線金屬 wiremesh、對角 lace 與錯列 macrame。0.3 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增繩網 geometry、透明孔洞、受力或布料物理；逐功能驗證提交、不 push。
 
+同輪追加 `fiddleheads`（蕨類捲芽），目錄 487→488 種：4×4 鏡向交替綠色捲芽，逐漸收細的一圈半螺旋芽頭、開放圈間隙與相連彎莖，區別 fernleaf 展開羽葉。0.24 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增植物 geometry、透明度、生長或枝葉物理；風格化而非植物辨識或寫實掃描，逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

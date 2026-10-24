@@ -6658,3 +6658,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐 36 節點檢查繩結／橫縱弧段／網孔／直線位置的 height／color／AO／roughness／metallic，兩方向各 41 點連通檢查；另掃描弧繩肩部、交疊繩結、凹痕與 wrap C1。既有 486 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6116 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 knottednet，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認弧形網格、隆起結點與暗孔，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：蕨類捲芽（fiddleheads）
+
+- 目錄 487→488 種；0.24 m tile，4×4 鏡向交替綠色捲芽圖案，一圈半漸細螺旋、開放圈間隙與相連彎莖。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增植物 geometry、透明度、生長或枝葉物理；為風格化而非植物辨識或寫實掃描。
+- 三 seed（0／1／`0xffffffff`）逐捲芽檢查 33 點 coil／17 點 stem 連通、圈間留白／中心留白、height／color／AO／roughness／metallic、外圈與內端同偏移寬度差；另掃描 capsule 肩部、段落 union、彎莖與 wrap C1。既有 487 種 size 64／seed 7 四圖 SHA256 changed 0。首次 build 因 frozen preset 的 literal type 窄化 curve accumulators 失敗，明確標示為 number 後完整 gates 通過；未將失敗記為通過。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6121 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 fiddleheads，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認鏡向螺旋捲芽、較細內端與相連彎莖，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

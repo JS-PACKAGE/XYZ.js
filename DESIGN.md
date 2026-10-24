@@ -523,6 +523,8 @@
 
 `knottednet` 以 squared-sine 位移使橫／縱繩段在節點間鬆垂，wrapped 距離的 smooth squared cap 形成圓繩；兩個 ±45° 橢圓帶 product union 成隆起繩結，compact 收緊凹痕覆在結部，繩段在結下方淡出。弧線、繩結與纖維週期一致且無每取樣配置；6×6 結、96×96 seeded grain、0.3 m tile、metallic 0，目錄增為 487 種。既有 maps／height／ownership 不變，不新增 geometry、透明度或受力／布料模擬。
 
+`fiddleheads` 在 sampler 建立時將一圈半 tapering spiral 與 cubic Bézier 彎莖預計算為 72＋24 個 capsule segments，儲存端點、方向、倒長度平方、倒寬度平方與 AABB；取樣先剔除 box 外段，再以 squared-distance smooth cap 的 product union 合成，不切換角度 owner、不建立逐取樣陣列。交替 cell 鏡向，96×96 seeded grain、4×4 捲芽、0.24 m tile、metallic 0，目錄增為 488 種。既有 maps／height／ownership 不變，不新增 geometry、透明度或生長模擬；造型為風格化表面圖案。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

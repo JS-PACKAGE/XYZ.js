@@ -525,7 +525,105 @@ const kinds: ProceduralMaterialKind[] = [
   'cardamompods',
   'brickarches',
   'knottednet',
+  'fiddleheads',
 ];
+
+describe('Tapered coiled fern fiddleheads', () => {
+  const p = proceduralMaterialPresets.fiddleheads;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('fiddleheads', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps mirrored spiral stems connected while retaining open coil gaps and a tapered inner tip for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const theta = -2 * Math.PI * p.turns * 0.2;
+      const gapRadius =
+        p.outerRadius + (p.innerRadius - p.outerRadius) * (0.2 + 0.5 / p.turns);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + flip * x, row + 0.5 + y);
+          const gap = local(
+            gapRadius * Math.cos(theta),
+            p.coilY + gapRadius * Math.sin(theta),
+          );
+          const center = local(0, p.coilY);
+          for (let i = 0; i <= 32; i++) {
+            const t = i / 32,
+              radius = p.outerRadius + (p.innerRadius - p.outerRadius) * t,
+              angle = -2 * Math.PI * p.turns * t;
+            const coil = local(
+              radius * Math.cos(angle),
+              p.coilY + radius * Math.sin(angle),
+            );
+            expect(coil.height - gap.height).toBeGreaterThan(0.0142);
+            expect(coil.color - gap.color).toBeGreaterThan(0.46);
+            expect(coil.occlusion - gap.occlusion).toBeGreaterThan(0.599);
+            expect(gap.roughness - coil.roughness).toBeGreaterThan(0.059);
+            expect(coil.height - center.height).toBeGreaterThan(0.0142);
+            expect(coil.metallic).toBe(0);
+          }
+          for (let i = 0; i <= 16; i++) {
+            const t = i / 16,
+              s = 1 - t;
+            const x =
+              s * s * s * p.outerRadius +
+              3 * s * s * t * p.outerRadius +
+              3 * s * t * t * p.stemBendX +
+              t * t * t * p.stemEndX;
+            const y =
+              s * s * s * p.coilY +
+              3 * s * s * t * p.stemControlY +
+              3 * s * t * t * p.stemBendY +
+              t * t * t * p.stemEndY;
+            expect(local(x, y).height - gap.height).toBeGreaterThan(0.0142);
+          }
+          const outerFlank = local(p.outerRadius + p.width * 0.65, p.coilY);
+          const innerFlank = local(-p.innerRadius - p.width * 0.65, p.coilY);
+          expect(outerFlank.height - innerFlank.height).toBeGreaterThan(0.008);
+          expect(gap.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps capsule shoulders, spiral joins, attached bent stems and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Sagging cord net with raised tied knots', () => {
   const p = proceduralMaterialPresets.knottednet;

@@ -1268,6 +1268,104 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'fiddleheads': {
+        const p = proceduralMaterialPresets.fiddleheads;
+        const segments = new Float64Array(
+          (p.coilSegments + p.stemSegments) * 10,
+        );
+        const store = (
+          index: number,
+          ax: number,
+          ay: number,
+          bx: number,
+          by: number,
+          width: number,
+        ): void => {
+          const i = index * 10,
+            dx = bx - ax,
+            dy = by - ay;
+          segments[i] = ax;
+          segments[i + 1] = ay;
+          segments[i + 2] = dx;
+          segments[i + 3] = dy;
+          segments[i + 4] = 1 / (dx * dx + dy * dy);
+          segments[i + 5] = 1 / (width * width);
+          segments[i + 6] = Math.min(ax, bx) - width;
+          segments[i + 7] = Math.max(ax, bx) + width;
+          segments[i + 8] = Math.min(ay, by) - width;
+          segments[i + 9] = Math.max(ay, by) + width;
+        };
+        let ax: number = p.outerRadius,
+          ay: number = p.coilY;
+        for (let i = 0; i < p.coilSegments; i++) {
+          const t = (i + 1) / p.coilSegments,
+            radius = p.outerRadius + (p.innerRadius - p.outerRadius) * t,
+            angle = -TAU * p.turns * t;
+          const bx = radius * Math.cos(angle),
+            by = p.coilY + radius * Math.sin(angle);
+          store(i, ax, ay, bx, by, p.width * (1 - p.taper * t));
+          ax = bx;
+          ay = by;
+        }
+        ax = p.outerRadius;
+        ay = p.coilY;
+        for (let i = 0; i < p.stemSegments; i++) {
+          const t = (i + 1) / p.stemSegments,
+            s = 1 - t;
+          const bx =
+            s * s * s * p.outerRadius +
+            3 * s * s * t * p.outerRadius +
+            3 * s * t * t * p.stemBendX +
+            t * t * t * p.stemEndX;
+          const by =
+            s * s * s * p.coilY +
+            3 * s * s * t * p.stemControlY +
+            3 * s * t * t * p.stemBendY +
+            t * t * t * p.stemEndY;
+          store(p.coilSegments + i, ax, ay, bx, by, p.width);
+          ax = bx;
+          ay = by;
+        }
+        const grainField = cachedNoise(96, 96, seed ^ 0x6a95);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const flip = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = (fract(uc) - 0.5) * flip,
+            y = fract(vc) - 0.5;
+          let outside = 1;
+          for (let i = 0; i < segments.length; i += 10) {
+            if (
+              x < segments[i + 6] ||
+              x > segments[i + 7] ||
+              y < segments[i + 8] ||
+              y > segments[i + 9]
+            )
+              continue;
+            const dx = x - segments[i],
+              dy = y - segments[i + 1];
+            const t = clamp(
+              (dx * segments[i + 2] + dy * segments[i + 3]) * segments[i + 4],
+            );
+            const qx = dx - t * segments[i + 2],
+              qy = dy - t * segments[i + 3];
+            outside *=
+              1 -
+              smooth(
+                clamp((1 - (qx * qx + qy * qy) * segments[i + 5]) / p.shoulder),
+              );
+          }
+          // Product-union caps keep joins smooth without angular ownership
+          // switches or per-sample geometry/arrays.
+          const body = 1 - outside,
+            grain = grainField(u, v);
+          color = 0.04 + body * (0.47 + 0.18 * grain);
+          height = 0.05 + body * (0.62 + 0.03 * grain);
+          roughness += body * (-0.09 + 0.03 * grain);
+          occlusion = 0.36 + 0.6 * body;
+          return;
+        };
+      }
       case 'knottednet': {
         const p = proceduralMaterialPresets.knottednet;
         const grainField = cachedNoise(96, 96, seed ^ 0x5f83);
@@ -16359,6 +16457,7 @@ export function createSurfaceSampler(
     kind === 'cardamompods' ||
     kind === 'brickarches' ||
     kind === 'knottednet' ||
+    kind === 'fiddleheads' ||
     fabricated ||
     botanical ||
     packaging ||
