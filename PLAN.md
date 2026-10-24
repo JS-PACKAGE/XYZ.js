@@ -491,6 +491,8 @@
 
 同輪追加 `fivebarplate`（五條筋花紋板），目錄 474→475 種：十六組各五條銀色平行圓端凸筋，沿 ±45° 交錯方向排列，筋間與組間保留較粗糙平板；區別既有單菱紋板。0.6 m tile、opaque metal、metallic map／預設 factor 1，沿既有四圖／選用 height／options／ownership，不新增板材 geometry、實際止滑或承載物理；逐功能驗證提交、不 push。
 
+同輪追加 `cinnamonswirl`（肉桂捲切面），目錄 475→476 種：十六個金黃圓麵團切面，連續深褐肉桂螺旋內餡凹於麵團、中心餡核及較深烤色外緣，相鄰轉 180°。0.32 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增食品 geometry、透明度或烘焙模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

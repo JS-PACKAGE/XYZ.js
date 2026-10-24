@@ -3621,6 +3621,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         radius: 0.018;
         shoulder: 0.0002;
     }>;
+    cinnamonswirl: Readonly<{
+        dark: readonly [66, 28, 12];
+        light: readonly [247, 211, 147];
+        roughness: 0.74;
+        relief: 0.026;
+        cells: 4;
+        radius: 0.4;
+        shoulder: 0.016;
+        pitch: 0.095;
+        core: 0.04;
+        fillingRadius: 0.35;
+        fillingShoulder: 0.015;
+        crustStrength: 0.24;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4099,4 +4113,5 @@ export declare const proceduralTileMeters: Readonly<{
     tuliptiles: 0.6;
     gingerslice: 0.2;
     fivebarplate: 0.6;
+    cinnamonswirl: 0.32;
 }>;

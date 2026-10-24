@@ -1265,6 +1265,44 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cinnamonswirl': {
+        const p = proceduralMaterialPresets.cinnamonswirl;
+        const crumbField = cachedNoise(96, 96, seed ^ 0x6c25);
+        const radiusSquared = p.radius * p.radius,
+          coreSquared = p.core * p.core,
+          fillingSquared = p.fillingRadius * p.fillingRadius;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = (fract(uc) - 0.5) * (turn ? -1 : 1),
+            y = (fract(vc) - 0.5) * (turn ? -1 : 1);
+          const r2 = x * x + y * y,
+            r = Math.sqrt(r2);
+          const bun = smooth(clamp((radiusSquared - r2) / p.shoulder));
+          const phase = (TAU * r) / p.pitch;
+          // Cartesian angle components avoid an atan2 branch seam. A flat core
+          // replaces the singular center before its angular contribution begins.
+          const wave =
+            r > 0 ? (Math.cos(phase) * x + Math.sin(phase) * y) / r : 1;
+          const core =
+            1 - smooth(clamp((r2 - coreSquared / 4) / (coreSquared * 0.75)));
+          const spiral = smooth(clamp((wave - 0.83) / 0.14));
+          const filling =
+            (core + (1 - core) * spiral) *
+            smooth(clamp((fillingSquared - r2) / p.fillingShoulder));
+          const crust = 1 - smooth(clamp((radiusSquared - r2) / 0.04));
+          const crumb = crumbField(u, v);
+          color =
+            0.08 +
+            bun *
+              (0.76 - 0.5 * filling - p.crustStrength * crust + 0.04 * crumb);
+          height = 0.1 + bun * (0.58 - 0.16 * filling + 0.012 * crumb);
+          roughness += bun * (0.02 * crumb - 0.08 * filling);
+          occlusion = 0.62 + bun * (0.37 - 0.12 * filling);
+          return;
+        };
+      }
       case 'fivebarplate': {
         const p = proceduralMaterialPresets.fivebarplate;
         const grainField = cachedNoise(128, 8, seed ^ 0x2b61);
@@ -15750,6 +15788,7 @@ export function createSurfaceSampler(
     kind === 'tuliptiles' ||
     kind === 'gingerslice' ||
     kind === 'fivebarplate' ||
+    kind === 'cinnamonswirl' ||
     fabricated ||
     botanical ||
     packaging ||

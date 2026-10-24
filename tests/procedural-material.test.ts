@@ -513,7 +513,85 @@ const kinds: ProceduralMaterialKind[] = [
   'tuliptiles',
   'gingerslice',
   'fivebarplate',
+  'cinnamonswirl',
 ];
+
+describe('Cinnamon spiral bun cross sections', () => {
+  const p = proceduralMaterialPresets.cinnamonswirl;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cinnamonswirl', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a continuous recessed cinnamon spiral between raised dough bands for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const sign = (col + row) & 1 ? -1 : 1;
+          const local = (r: number, angle: number) =>
+            at(
+              col + 0.5 + sign * r * Math.cos(angle),
+              row + 0.5 + sign * r * Math.sin(angle),
+            );
+          for (let i = 0; i <= 128; i++) {
+            const r = 0.06 + (i / 128) * 0.24,
+              angle = (2 * Math.PI * r) / p.pitch;
+            const filling = local(r, angle),
+              dough = local(r, angle + Math.PI);
+            expect(dough.color - filling.color).toBeGreaterThan(0.45);
+            expect(dough.height - filling.height).toBeGreaterThan(0.0038);
+            expect(dough.occlusion - filling.occlusion).toBeGreaterThan(0.11);
+            expect(dough.roughness - filling.roughness).toBeGreaterThan(0.055);
+            expect(dough.metallic).toBe(0);
+            expect(filling.metallic).toBe(0);
+          }
+          const core = local(0, 0),
+            dough = local(0.2, (2 * Math.PI * 0.2) / p.pitch + Math.PI),
+            rim = local(0.38, 0),
+            outside = local(0.43, 0);
+          expect(dough.color - core.color).toBeGreaterThan(0.45);
+          expect(dough.color - rim.color).toBeGreaterThan(0.08);
+          expect(rim.height - outside.height).toBeGreaterThan(0.014);
+        }
+    },
+  );
+  it('keeps the spiral center, angle seam, shoulder and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Five-bar metal tread plate', () => {
   const p = proceduralMaterialPresets.fivebarplate;
