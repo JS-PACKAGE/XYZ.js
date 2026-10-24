@@ -3788,6 +3788,16 @@ export const proceduralMaterialPresets = Object.freeze({
     outerRadius: 0.18,
     coreRadius: 0.13,
   }),
+  peppercorns: Object.freeze({
+    dark: [10, 8, 6] as const,
+    light: [119, 94, 65] as const,
+    roughness: 0.87,
+    relief: 0.022,
+    cells: 5,
+    radius: 0.35,
+    shoulder: 0.16,
+    scarRadius: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4273,4 +4283,5 @@ export const proceduralTileMeters = Object.freeze({
   trihexagonaltiles: 0.84,
   burlwood: 0.24,
   slottedmetal: 0.4,
+  peppercorns: 0.08,
 });

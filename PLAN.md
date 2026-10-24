@@ -503,6 +503,8 @@
 
 同輪追加 `slottedmetal`（圓端長槽金屬板），目錄 480→481 種：八列四行交錯縱向長槽、圓弧端與加工斜壁，底板低幅拉絲，區別圓孔金屬與橫向木質長槽。0.4 m tile、opaque metal、metallic map／預設 factor 1，凹槽保留不透明鋼底；沿既有四圖／選用 height／options／ownership，不新增通孔 geometry、透明度、通風或承載物理；逐功能驗證提交、不 push。
 
+同輪追加 `peppercorns`（黑胡椒粒），目錄 481→482 種：二十五顆暗褐乾果粒，隆起果身、淺皺皮與中央較粗糙凹陷果梗疤；區別丁香的細梗萼片與咖啡豆縱裂。0.08 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增果粒 geometry、透明度、食品或植物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

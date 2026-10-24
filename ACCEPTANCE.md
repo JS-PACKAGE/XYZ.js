@@ -6616,3 +6616,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐槽檢查底板／槽底／斜壁，以及兩端內側／端外／對角外側的高度／色差／AO／roughness／metallic，對角探針區分真圓端與方角。另掃描直圓交界、斜壁、stagger row 變更與 tile wrap C1。既有 480 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6085 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 slottedmetal，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認縱向長槽、圓弧端與交錯排列，height true、metallic 1、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：黑胡椒粒（peppercorns）
+
+- 目錄 481→482 種；0.08 m tile，二十五顆暗褐風格化乾果、隆起果身、淺皺皮與中央凹陷果梗疤。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增果粒 geometry、透明度或食品／植物模擬。
+- 三 seed（0／1／`0xffffffff`）逐果檢查果身／果疤／近緣／底層的高度／色差／AO／roughness／metallic，等半徑 128 點確認表皮非光滑圓頂，另掃描輪廓、圓頂、皺皮、果疤與 tile wrap C1。最初果疤 roughness 差三 seed 未達要求，原因為皺皮變化幅度大於果疤附加量；提高果疤粗糙度、維持原門檻後通過。既有 481 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6090 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 peppercorns，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認暗色果身與果梗疤，表皮起伏為低對比淺紋，非寫實掃描；height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -519,7 +519,84 @@ const kinds: ProceduralMaterialKind[] = [
   'trihexagonaltiles',
   'burlwood',
   'slottedmetal',
+  'peppercorns',
 ];
+
+describe('Wrinkled dried black peppercorns', () => {
+  const p = proceduralMaterialPresets.peppercorns;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('peppercorns', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps domed wrinkled berries and recessed stalk scars distinct from the backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + x, row + 0.5 + y);
+          const scar = local(0, 0),
+            inner = local(0.08, 0),
+            rim = local(0.3, 0),
+            base = local(0.4, 0);
+          expect(inner.height - base.height).toBeGreaterThan(0.013);
+          expect(inner.height - rim.height).toBeGreaterThan(0.005);
+          expect(inner.color - base.color).toBeGreaterThan(0.4);
+          expect(inner.occlusion - base.occlusion).toBeGreaterThan(0.48);
+          expect(inner.height - scar.height).toBeGreaterThan(0.0003);
+          expect(inner.color - scar.color).toBeGreaterThan(0.015);
+          expect(scar.roughness - inner.roughness).toBeGreaterThan(0.015);
+          let low = Infinity,
+            high = -Infinity;
+          for (let i = 0; i < 128; i++) {
+            const angle = (2 * Math.PI * i) / 128;
+            const skin = local(0.18 * Math.cos(angle), 0.18 * Math.sin(angle));
+            low = Math.min(low, skin.height);
+            high = Math.max(high, skin.height);
+          }
+          expect(high - low).toBeGreaterThan(0.00025);
+          expect(scar.metallic).toBe(0);
+          expect(inner.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps circular outlines, domes, dried wrinkles, stalk scars and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Round-ended slotted metal sheet', () => {
   const p = proceduralMaterialPresets.slottedmetal;

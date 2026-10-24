@@ -511,6 +511,8 @@
 
 `slottedmetal` 沿用既有 capsule 平方距離與 staggered row 模式，但採縱向長槽；以 columns／rows 比將兩軸轉為相同 column-cell 單位，讓方形 UV tile 上兩端仍為真圓弧。兩半徑間 smooth 過渡形成凹壁，4h(1−h) 增亮加工斜壁；128×8 seeded periodic 拉絲沿既有管線。8×4 槽、0.4 m tile、含暗槽底皆 metallic 1、maps／選用 height／ownership 不變，目錄增為 481 種；不新增 geometry、透明孔洞、通風或承載模擬。
 
+`peppercorns` 以 compact smooth 圓場與 squared-radius dome 建立乾果粒，中央小圓場下凹為果梗疤；40×40 seeded periodic lattice 的對稱平方 fold 形成淺皺皮凸脊，128×128 grain 增加細節，全部在果形支撐內作用。果疤 roughness 差須大於皺皮變化幅度，避免鄰近凸脊反轉粗糙度關係。5×5 顆、0.08 m tile、metallic 0、maps／選用 height／ownership 不變，目錄增為 482 種；不新增 geometry 或食品／植物模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

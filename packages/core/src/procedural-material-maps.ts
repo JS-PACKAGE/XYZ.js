@@ -1267,6 +1267,40 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'peppercorns': {
+        const p = proceduralMaterialPresets.peppercorns;
+        const wrinkleField = cachedNoise(40, 40, seed ^ 0x3e79),
+          grainField = cachedNoise(128, 128, seed ^ 0x6d43);
+        const radiusSquared = p.radius * p.radius,
+          scarSquared = p.scarRadius * p.scarRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const r2 = x * x + y * y,
+            cap = clamp(1 - r2 / radiusSquared);
+          const berry = smooth(clamp(cap / p.shoulder)),
+            dome = smooth(cap),
+            scar = smooth(clamp((1 - r2 / scarSquared) / p.shoulder));
+          const fold = 2 * wrinkleField(u, v) - 1;
+          const ridges = fold * fold,
+            grain = grainField(u, v);
+          color =
+            0.035 +
+            berry *
+              (0.18 + 0.24 * dome + 0.16 * ridges + 0.03 * grain - 0.19 * scar);
+          height =
+            0.07 +
+            berry *
+              (0.25 +
+                0.42 * dome +
+                0.11 * ridges +
+                0.008 * grain -
+                0.14 * scar);
+          roughness += 0.06 * berry - 0.04 * ridges * berry + 0.065 * scar;
+          occlusion = 0.4 + berry * (0.49 + 0.09 * ridges - 0.12 * scar);
+          return;
+        };
+      }
       case 'slottedmetal': {
         const p = proceduralMaterialPresets.slottedmetal;
         const grainField = cachedNoise(128, 8, seed ^ 0x7b53);
@@ -16054,6 +16088,7 @@ export function createSurfaceSampler(
     kind === 'trihexagonaltiles' ||
     kind === 'burlwood' ||
     kind === 'slottedmetal' ||
+    kind === 'peppercorns' ||
     fabricated ||
     botanical ||
     packaging ||
