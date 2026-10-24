@@ -7274,6 +7274,31 @@ var proceduralMaterialPresets = Object.freeze({
 		taper: .45,
 		band: .3,
 		threads: 96
+	}),
+	wingnuts: Object.freeze({
+		dark: [
+			49,
+			57,
+			65
+		],
+		light: [
+			220,
+			228,
+			234
+		],
+		roughness: .3,
+		relief: .028,
+		cells: 4,
+		hubRadius: .19,
+		hubShoulder: .018,
+		boreRadius: .075,
+		boreShoulder: .003,
+		wingOffset: .24,
+		wingLift: .08,
+		wingLength: .21,
+		wingWidth: .105,
+		wingAngle: .5,
+		wingShoulder: .45
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7736,7 +7761,8 @@ var proceduralTileMeters = Object.freeze({
 	eggcarton: .16,
 	greekkey: .45,
 	seedbeads: .06,
-	chainstitch: .12
+	chainstitch: .12,
+	wingnuts: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -3397,6 +3397,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         band: 0.3;
         threads: 96;
     }>;
+    wingnuts: Readonly<{
+        dark: readonly [49, 57, 65];
+        light: readonly [220, 228, 234];
+        roughness: 0.3;
+        relief: 0.028;
+        cells: 4;
+        hubRadius: 0.19;
+        hubShoulder: 0.018;
+        boreRadius: 0.075;
+        boreShoulder: 0.003;
+        wingOffset: 0.24;
+        wingLift: 0.08;
+        wingLength: 0.21;
+        wingWidth: 0.105;
+        wingAngle: 0.5;
+        wingShoulder: 0.45;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3860,4 +3877,5 @@ export declare const proceduralTileMeters: Readonly<{
     greekkey: 0.45;
     seedbeads: 0.06;
     chainstitch: 0.12;
+    wingnuts: 0.12;
 }>;

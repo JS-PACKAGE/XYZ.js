@@ -1238,6 +1238,7 @@ export function createSurfaceSampler(
     kind === 'guilloche' ||
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
+    kind === 'wingnuts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
     kind === 'rollerchain' ||
@@ -1261,6 +1262,43 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'wingnuts': {
+        const p = proceduralMaterialPresets.wingnuts;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6f43);
+        const cos = Math.cos(p.wingAngle),
+          sin = Math.sin(p.wingAngle);
+        const hubSquared = p.hubRadius * p.hubRadius;
+        const boreSquared = p.boreRadius * p.boreRadius;
+        return () => {
+          const cx = u * p.cells,
+            cy = v * p.cells;
+          const fx = fract(cx) - 0.5,
+            fy = fract(cy) - 0.5;
+          const turned = (Math.floor(cx) + Math.floor(cy)) & 1;
+          const x = turned ? fy : fx,
+            y = turned ? -fx : fy;
+          const r2 = x * x + y * y;
+          const hub = smooth(clamp((hubSquared - r2) / p.hubShoulder));
+          const bore = smooth(clamp((boreSquared - r2) / p.boreShoulder));
+          let outside = 1;
+          for (let side = -1; side <= 1; side += 2) {
+            const dx = side * x - p.wingOffset,
+              dy = y + p.wingLift;
+            const ax = (dx * cos - dy * sin) / p.wingLength;
+            const ay = (dx * sin + dy * cos) / p.wingWidth;
+            outside *=
+              1 - smooth(clamp((1 - ax * ax - ay * ay) / p.wingShoulder));
+          }
+          const wings = 1 - outside;
+          const face = (1 - (1 - hub) * (1 - wings)) * (1 - bore);
+          const grain = grainField(u, v);
+          color = 0.08 + 0.7 * face + 0.08 * wings + 0.025 * grain;
+          height = 0.06 + 0.62 * face + 0.12 * wings + 0.004 * grain;
+          roughness += 0.24 * (1 - face) + 0.02 * grain;
+          occlusion = 0.35 + 0.62 * face;
+          return;
+        };
+      }
       case 'chainstitch': {
         const p = proceduralMaterialPresets.chainstitch;
         const grainField = cachedNoise(96, 96, seed ^ 0x5d39);
@@ -15044,6 +15082,7 @@ export function createSurfaceSampler(
     kind === 'greekkey' ||
     kind === 'seedbeads' ||
     kind === 'chainstitch' ||
+    kind === 'wingnuts' ||
     fabricated ||
     botanical ||
     packaging ||

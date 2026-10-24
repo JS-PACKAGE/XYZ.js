@@ -6469,3 +6469,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增三個 seed（0／1／`0xffffffff`）的輪廓回歸測試：環緣與相扣處高於中空布底，顏色／AO／roughness 對比及上窄下寬形態；另掃描環帶支撐、交會處與 tile wrap 的 C1。以 v1.22.1 dist 為基準比對既有 459 種 size 64／seed 7 四圖 SHA256，changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／5974 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結檢查無失效。
 - managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各選取 chainstitch：25 個球體與四圖預覽正常，畫面可辨識連續金色鏈環、深藍底與凹入環心，兩頁 errors 為空；WebGL2 另以公開 API 建立 size 64／heightMap true，height 存在、metallic 0、destroyed true。離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：蝶形螺帽（wingnuts）
+
+- 目錄 460→461 種；0.12 m tile，十六個交替旋轉 90° 的銀色蝶形螺帽，圓 hub 與中央凹孔兩側帶斜向隆起扁翼，翼冠高於 hub，孔底及間隙保留低暗鋼底。opaque metal，metallic map／預設 factor 1，沿既有四圖／選用 height／ownership，不新增螺帽 geometry、透明孔洞、實際螺紋或機械模擬。
+- 新增三個 seed（0／1／`0xffffffff`）的逐格形態回歸，檢查雙翼／hub／bore／缺口的高度、色差、AO、roughness、方向交替與 metallic；另掃描翼根聯集、孔緣及 tile wrap 的 C1。既有 460 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／5980 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 wingnuts，25 球與四圖預覽正常，可辨識雙翼、中央暗孔與交替方向，errors 皆為空。WebGPU 公開 API 建立 size 64／heightMap true，預設與借用材質 metallic 皆為 1、height 存在、destroyed true；離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

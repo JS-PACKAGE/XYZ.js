@@ -475,7 +475,8 @@ export type ProceduralMaterialKind =
   | 'eggcarton'
   | 'greekkey'
   | 'seedbeads'
-  | 'chainstitch';
+  | 'chainstitch'
+  | 'wingnuts';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1185,6 +1186,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'greekkey',
   'seedbeads',
   'chainstitch',
+  'wingnuts',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1393,6 +1395,7 @@ export class ProceduralMaterial {
         this.kind === 'guilloche' ||
         this.kind === 'splitlockwashers' ||
         this.kind === 'hexnuts' ||
+        this.kind === 'wingnuts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||
         this.kind === 'rollerchain' ||

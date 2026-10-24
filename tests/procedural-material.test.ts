@@ -498,7 +498,80 @@ const kinds: ProceduralMaterialKind[] = [
   'greekkey',
   'seedbeads',
   'chainstitch',
+  'wingnuts',
 ];
+
+describe('Wing nuts', () => {
+  const p = proceduralMaterialPresets.wingnuts;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('wingnuts', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises paired wings around a recessed central bore for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turned = (col + row) & 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + (turned ? -y : x), row + 0.5 + (turned ? x : y));
+          const bore = local(0, 0),
+            ring = local(0, 0.12);
+          const backing = local(0.45, 0.4);
+          expect(ring.height - bore.height).toBeGreaterThan(0.016);
+          expect(ring.color - bore.color).toBeGreaterThan(0.65);
+          expect(ring.occlusion - bore.occlusion).toBeGreaterThan(0.6);
+          expect(Math.abs(bore.height - backing.height)).toBeLessThan(0.0002);
+          for (const side of [-1, 1]) {
+            const wing = local(side * p.wingOffset, -p.wingLift);
+            const notch = local(side * p.wingOffset, 0.16);
+            expect(wing.height - ring.height).toBeGreaterThan(0.003);
+            expect(wing.height - notch.height).toBeGreaterThan(0.019);
+            expect(wing.color - notch.color).toBeGreaterThan(0.7);
+            expect(notch.roughness - wing.roughness).toBeGreaterThan(0.22);
+            expect(wing.metallic).toBe(1);
+            expect(notch.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps wing joins, bore bevels and alternating tile wrap C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Chain stitch embroidery', () => {
   const p = proceduralMaterialPresets.chainstitch;
@@ -14799,6 +14872,7 @@ describe('periodic procedural material fields', () => {
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
+          kind === 'wingnuts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
           kind === 'rollerchain' ||
@@ -24234,6 +24308,7 @@ describe('procedural preset acquisition and ownership', () => {
     'guilloche',
     'splitlockwashers',
     'hexnuts',
+    'wingnuts',
     'sawblades',
     'countersunkmetal',
     'rollerchain',
@@ -24262,6 +24337,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'guilloche' ||
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
+          kind === 'wingnuts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
           kind === 'rollerchain'
