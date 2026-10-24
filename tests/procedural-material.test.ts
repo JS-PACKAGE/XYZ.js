@@ -506,7 +506,96 @@ const kinds: ProceduralMaterialKind[] = [
   'sanddollar',
   'brogueleather',
   'clovebuds',
+  'starcrosstiles',
 ];
+
+describe('Eight-pointed star and cross glazed tiles', () => {
+  const p = proceduralMaterialPresets.starcrosstiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('starcrosstiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates eight teal points and ivory cross arms with recessed grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const center = at(cx, cy),
+            cross = at(col, row);
+          expect(cross.color - center.color).toBeGreaterThan(0.7);
+          expect(cross.height).toBeCloseTo(center.height, 3);
+          for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4;
+            const point = at(
+              cx + 0.42 * Math.cos(angle),
+              cy + 0.42 * Math.sin(angle),
+            );
+            const notch = at(
+              cx + 0.42 * Math.cos(angle + Math.PI / 8),
+              cy + 0.42 * Math.sin(angle + Math.PI / 8),
+            );
+            expect(notch.color - point.color).toBeGreaterThan(0.7);
+            expect(point.mortar).toBe(0);
+            expect(notch.mortar).toBe(0);
+            expect(point.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [p.halfSquare, 0.24],
+            [0.42, 0.08],
+            [p.halfSquare, 0.5 - p.halfSquare],
+            [0.5, 0],
+          ]) {
+            const grout = at(cx + x, cy + y);
+            expect(grout.mortar).toBeGreaterThan(0.99);
+            expect(center.height - grout.height).toBeGreaterThan(0.0087);
+            expect(grout.roughness - center.roughness).toBeGreaterThan(0.39);
+            expect(center.occlusion - grout.occlusion).toBeGreaterThan(0.5);
+          }
+          expect(at(col, row + 0.4).mortar).toBe(0);
+          expect(at(col + 0.4, row).mortar).toBe(0);
+        }
+    },
+  );
+  it('keeps concave joins, both polygon edges, neighbor guards and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dried clove buds', () => {
   const p = proceduralMaterialPresets.clovebuds;

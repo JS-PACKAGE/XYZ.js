@@ -3522,6 +3522,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         sepalWidth: 0.027;
         shoulder: 0.42;
     }>;
+    starcrosstiles: Readonly<{
+        dark: readonly [10, 56, 61];
+        light: readonly [240, 231, 205];
+        roughness: 0.27;
+        relief: 0.016;
+        cells: 4;
+        halfSquare: number;
+        grout: 0.008;
+        bevel: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3993,4 +4003,5 @@ export declare const proceduralTileMeters: Readonly<{
     sanddollar: 0.3;
     brogueleather: 0.18;
     clovebuds: 0.08;
+    starcrosstiles: 0.8;
 }>;

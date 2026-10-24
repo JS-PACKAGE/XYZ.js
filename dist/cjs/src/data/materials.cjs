@@ -7513,6 +7513,24 @@ var proceduralMaterialPresets = Object.freeze({
 		sepalLength: .075,
 		sepalWidth: .027,
 		shoulder: .42
+	}),
+	starcrosstiles: Object.freeze({
+		dark: [
+			10,
+			56,
+			61
+		],
+		light: [
+			240,
+			231,
+			205
+		],
+		roughness: .27,
+		relief: .016,
+		cells: 4,
+		halfSquare: Math.SQRT1_2 / 2,
+		grout: .008,
+		bevel: .012
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7983,7 +8001,8 @@ var proceduralTileMeters = Object.freeze({
 	starsocketbolts: .12,
 	sanddollar: .3,
 	brogueleather: .18,
-	clovebuds: .08
+	clovebuds: .08,
+	starcrosstiles: .8
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

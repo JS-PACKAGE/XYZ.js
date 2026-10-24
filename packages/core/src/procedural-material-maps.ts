@@ -1263,6 +1263,55 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'starcrosstiles': {
+        const p = proceduralMaterialPresets.starcrosstiles;
+        const grainField = cachedNoise(64, 64, seed ^ 0xa4e1);
+        const inner = p.halfSquare - p.grout,
+          outer = p.halfSquare + p.grout + p.bevel;
+        const innerSquared = inner * inner,
+          outerSquared = outer * outer;
+        const innerShoulder = p.bevel * (2 * inner - p.bevel),
+          outerShoulder = p.bevel * (2 * outer - p.bevel);
+        const neighborStart = 1 - Math.SQRT2 * outer;
+        const starAt = (
+          x: number,
+          y: number,
+          squared: number,
+          shoulder: number,
+        ): number => {
+          const square =
+            smooth(clamp((squared - x * x) / shoulder)) *
+            smooth(clamp((squared - y * y) / shoulder));
+          const a = (x + y) * Math.SQRT1_2,
+            b = (x - y) * Math.SQRT1_2;
+          const diamond =
+            smooth(clamp((squared - a * a) / shoulder)) *
+            smooth(clamp((squared - b * b) / shoulder));
+          return 1 - (1 - square) * (1 - diamond);
+        };
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const star = starAt(x, y, innerSquared, innerShoulder);
+          let outside = 1 - starAt(x, y, outerSquared, outerShoulder);
+          // Expanded star tips cross cells; include their neighbors before taking the complement.
+          if (Math.abs(x) > neighborStart)
+            outside *=
+              1 - starAt(x - Math.sign(x), y, outerSquared, outerShoulder);
+          if (Math.abs(y) > neighborStart)
+            outside *=
+              1 - starAt(x, y - Math.sign(y), outerSquared, outerShoulder);
+          const cross = outside,
+            face = star + cross;
+          const grain = grainField(u, v);
+          color = 0.14 * star + 0.88 * cross + 0.025 * grain * face;
+          height = 0.08 + 0.55 * face + 0.003 * grain * face;
+          mortar = clamp(1 - face);
+          roughness += 0.42 * mortar + 0.025 * grain;
+          occlusion = 0.48 + 0.51 * face;
+          return;
+        };
+      }
       case 'clovebuds': {
         const p = proceduralMaterialPresets.clovebuds;
         const grainField = cachedNoise(96, 96, seed ^ 0xf3df);
@@ -15398,6 +15447,7 @@ export function createSurfaceSampler(
     kind === 'sanddollar' ||
     kind === 'brogueleather' ||
     kind === 'clovebuds' ||
+    kind === 'starcrosstiles' ||
     fabricated ||
     botanical ||
     packaging ||

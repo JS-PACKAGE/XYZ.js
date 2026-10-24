@@ -3584,6 +3584,16 @@ export const proceduralMaterialPresets = Object.freeze({
     sepalWidth: 0.027,
     shoulder: 0.42,
   }),
+  starcrosstiles: Object.freeze({
+    dark: [10, 56, 61] as const,
+    light: [240, 231, 205] as const,
+    roughness: 0.27,
+    relief: 0.016,
+    cells: 4,
+    halfSquare: Math.SQRT1_2 / 2,
+    grout: 0.008,
+    bevel: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4056,4 +4066,5 @@ export const proceduralTileMeters = Object.freeze({
   sanddollar: 0.3,
   brogueleather: 0.18,
   clovebuds: 0.08,
+  starcrosstiles: 0.8,
 });

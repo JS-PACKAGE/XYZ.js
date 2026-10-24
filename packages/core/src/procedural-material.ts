@@ -483,7 +483,8 @@ export type ProceduralMaterialKind =
   | 'starsocketbolts'
   | 'sanddollar'
   | 'brogueleather'
-  | 'clovebuds';
+  | 'clovebuds'
+  | 'starcrosstiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1201,6 +1202,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sanddollar',
   'brogueleather',
   'clovebuds',
+  'starcrosstiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
