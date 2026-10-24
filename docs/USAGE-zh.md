@@ -737,6 +737,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `farfalle`（蝴蝶義大利麵），金黃麵片帶聚攏窄腰、展翼褶痕與波齒切邊。使用 `await ProceduralMaterial.create('farfalle', { seed: 7 })`；0.16 m tile 有 4×4 交替方向麵片，opaque dielectric、metallic 0，既有 maps／選用 height／ownership 不變，不新增麵片 geometry、透明度、烹飪或柔體物理。
 
+另支援 `cardamompods`（綠豆蔻莢），風格化綠色閉合香料果莢帶收束尖端、縱向稜脊與相連短梗。使用 `await ProceduralMaterial.create('cardamompods', { seed: 7 })`；0.08 m tile 有 4×4 交替斜向果莢，opaque dielectric、metallic 0，既有 maps／選用 height／ownership 不變，不新增果莢 geometry、透明度、開莢動畫或植物／食品模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

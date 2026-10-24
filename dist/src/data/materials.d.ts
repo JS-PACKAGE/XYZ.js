@@ -3745,6 +3745,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         teeth: 20;
         pinchRadius: 0.08;
     }>;
+    cardamompods: Readonly<{
+        dark: readonly [25, 29, 9];
+        light: readonly [183, 187, 99];
+        roughness: 0.76;
+        relief: 0.023;
+        cells: 4;
+        halfLength: 0.34;
+        halfWidth: 0.15;
+        shoulder: 0.12;
+        tipFloor: 0.04;
+        stemCenter: 0.32;
+        stemLength: 0.1;
+        stemWidth: 0.018;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4232,4 +4246,5 @@ export declare const proceduralTileMeters: Readonly<{
     peppercorns: 0.08;
     castellatednuts: 0.08;
     farfalle: 0.16;
+    cardamompods: 0.08;
 }>;

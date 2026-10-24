@@ -6637,3 +6637,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐麵片檢查窄腰外留白／展翼寬度、褶峰相對谷的高度／色差／AO／roughness、端切齒峰與齒谷、25 點中心軸連通與 metallic；另掃描收腰、翼面、褶痕、端齒與 wrap C1。既有 483 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6101 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 farfalle，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替方向蝴蝶輪廓、收腰褶痕與齒邊，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：綠豆蔻莢（cardamompods）
+
+- 目錄 484→485 種；0.08 m tile，4×4 交替斜向風格化橄欖綠閉合果莢，收束尖端、隆起果身、縱向稜脊／凹道與相連短梗。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增果莢 geometry、透明度、開莢動畫或植物／食品模擬。
+- 三 seed（0／1／`0xffffffff`）逐果莢檢查果身／收束端旁留白／梗與梗旁空隙、三個長軸位置的稜脊／凹道高度／色差／AO／roughness、18 點果身至短梗連通與 metallic；另掃描尖端、稜脊匯聚、梗 union 與 wrap C1。既有 484 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6106 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cardamompods，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向尖莢、縱脊與短梗，為風格化而非植物辨識或寫實掃描，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

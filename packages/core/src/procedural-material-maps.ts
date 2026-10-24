@@ -1268,6 +1268,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cardamompods': {
+        const p = proceduralMaterialPresets.cardamompods;
+        const grainField = cachedNoise(96, 96, seed ^ 0x7c45);
+        const cos = Math.SQRT1_2;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const sign = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = cos * (dx + sign * dy),
+            y = cos * (dy - sign * dx);
+          const cap = clamp(1 - (y / p.halfLength) ** 2);
+          const lens = cap * cap - (x / p.halfWidth) ** 2;
+          const pod = smooth(clamp(lens / p.shoulder));
+          const stem = smooth(
+            clamp(
+              (1 -
+                (x / p.stemWidth) ** 2 -
+                ((y - p.stemCenter) / p.stemLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const body = 1 - (1 - pod) * (1 - stem);
+          // The positive width floor keeps the converging ribs finite at
+          // pointed tips; the compact pod mask removes them outside the skin.
+          const width = p.halfWidth * (cap + p.tipFloor);
+          const rib = 0.5 + 0.5 * Math.cos((TAU * 2 * x) / width);
+          const dome = smooth(clamp(lens)),
+            grain = grainField(u, v);
+          color =
+            0.025 + 0.25 * body + pod * (0.23 + 0.23 * rib + 0.03 * grain);
+          height =
+            0.06 +
+            0.28 * body +
+            pod * (0.33 * dome + 0.13 * rib + 0.008 * grain);
+          roughness +=
+            0.1 * (1 - body) + pod * (0.04 * (1 - rib) + 0.02 * grain);
+          occlusion = 0.36 + 0.27 * body + pod * (0.21 + 0.14 * rib);
+          return;
+        };
+      }
       case 'farfalle': {
         const p = proceduralMaterialPresets.farfalle;
         const grainField = cachedNoise(128, 128, seed ^ 0x6e39);
@@ -16177,6 +16219,7 @@ export function createSurfaceSampler(
     kind === 'peppercorns' ||
     kind === 'castellatednuts' ||
     kind === 'farfalle' ||
+    kind === 'cardamompods' ||
     fabricated ||
     botanical ||
     packaging ||

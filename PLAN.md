@@ -509,6 +509,8 @@
 
 同輪追加 `farfalle`（蝴蝶義大利麵），目錄 483→484 種：4×4 交替直橫金黃麵片，連續收腰、展翼、放射褶痕與波齒端切邊，區別填餡 ravioli 與中空 macaroni。0.16 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增麵片 geometry、透明度、烹飪或柔體物理；逐功能驗證提交、不 push。
 
+同輪追加 `cardamompods`（綠豆蔻莢），目錄 484→485 種：4×4 交替斜向橄欖綠果莢，雙端收束、隆起果身、縱向稜脊與通向尖端的凹道，短果梗與果身相連；區別丁香梗萼與開口開心果。0.08 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增果莢 geometry、透明度、開莢或植物／食品模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

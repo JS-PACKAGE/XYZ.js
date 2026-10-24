@@ -522,7 +522,89 @@ const kinds: ProceduralMaterialKind[] = [
   'peppercorns',
   'castellatednuts',
   'farfalle',
+  'cardamompods',
 ];
+
+describe('Tapered ribbed green cardamom pods', () => {
+  const p = proceduralMaterialPresets.cardamompods;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cardamompods', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps longitudinal ribs above channels, narrowed tips and an attached short stem for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const sign = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number) =>
+            at(
+              col + 0.5 + Math.SQRT1_2 * (x - sign * y),
+              row + 0.5 + Math.SQRT1_2 * (y + sign * x),
+            );
+          const center = local(0, 0),
+            flank = local(0.09, 0),
+            outsideTip = local(0.09, -0.29),
+            stem = local(0, 0.38),
+            outsideStem = local(0.04, 0.38);
+          expect(center.height - outsideTip.height).toBeGreaterThan(0.0169);
+          expect(flank.height - outsideTip.height).toBeGreaterThan(0.007);
+          expect(stem.height - outsideStem.height).toBeGreaterThan(0.0063);
+          for (const y of [-0.14, 0, 0.14]) {
+            const cap = 1 - (y / p.halfLength) ** 2;
+            const width = p.halfWidth * (cap + p.tipFloor);
+            const ridge = local(0, y),
+              channel = local(width / 4, y);
+            expect(ridge.height - channel.height).toBeGreaterThan(0.0029);
+            expect(ridge.color - channel.color).toBeGreaterThan(0.2);
+            expect(ridge.occlusion - channel.occlusion).toBeGreaterThan(0.139);
+            expect(channel.roughness - ridge.roughness).toBeGreaterThan(0.02);
+            expect(ridge.metallic).toBe(0);
+          }
+          for (let i = 22; i <= 39; i++)
+            expect(
+              local(0, i * 0.01).height - outsideTip.height,
+            ).toBeGreaterThan(0.006);
+        }
+    },
+  );
+  it('keeps tapered skins, converging ribs, stem unions and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pinched and pleated farfalle pasta', () => {
   const p = proceduralMaterialPresets.farfalle;

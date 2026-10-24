@@ -3828,6 +3828,20 @@ export const proceduralMaterialPresets = Object.freeze({
     teeth: 20,
     pinchRadius: 0.08,
   }),
+  cardamompods: Object.freeze({
+    dark: [25, 29, 9] as const,
+    light: [183, 187, 99] as const,
+    roughness: 0.76,
+    relief: 0.023,
+    cells: 4,
+    halfLength: 0.34,
+    halfWidth: 0.15,
+    shoulder: 0.12,
+    tipFloor: 0.04,
+    stemCenter: 0.32,
+    stemLength: 0.1,
+    stemWidth: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4316,4 +4330,5 @@ export const proceduralTileMeters = Object.freeze({
   peppercorns: 0.08,
   castellatednuts: 0.08,
   farfalle: 0.16,
+  cardamompods: 0.08,
 });
