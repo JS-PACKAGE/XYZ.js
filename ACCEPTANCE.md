@@ -6686,3 +6686,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐針檢查正反針沿兩方向交錯、V 形雙臂／頂點／中央開口與橫凸結／平底的 height／color／AO／roughness／metallic；另掃描 capsule 肩部、V 頂點、針目邊界與 wrap C1。既有 490 種 size 64／seed 7 四圖 SHA256 changed 0。
 - 初輪 lint 指出分支前 `yarn = 0` 未使用，改為明確型別的分支賦值；最終 build、typecheck、lint、format:check、完整 Vitest（179 檔／6137 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 seedstitch，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認灰綠底上的 V 形正針與橫凸反針沿兩方向交錯，height true、metallic 0、destroyed true，預覽隨頁清除。一次驗證頁因 managed browser 凍結而無法恢復，已回報工具問題並在新頁完成；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：山竹切面（mangosteenslice）
+
+- 目錄 491→492 種；0.32 m tile，4×4 厚紫紅果皮與六瓣乳白隆起果肉，中央相連、瓣間徑向凹縫，相鄰旋轉 30°。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增果實 geometry、透明度或植物學模擬。
+- 三 seed（0／1／`0xffffffff`）逐果瓣檢查果肉／瓣間凹縫／厚果皮／平底的 height／color／AO／roughness／metallic，六瓣各 17 點驗證接至中心；另掃描橢圓肩部、中心 union、果皮內外緣、cell 與 wrap C1。既有 491 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6142 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 mangosteenslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認紫紅厚果皮、中央相連乳白六瓣與交替朝向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

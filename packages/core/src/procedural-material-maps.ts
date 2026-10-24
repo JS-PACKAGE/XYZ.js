@@ -1269,6 +1269,68 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'mangosteenslice': {
+        const p = proceduralMaterialPresets.mangosteenslice;
+        const grainField = cachedNoise(96, 96, seed ^ 0x6e25);
+        const axes = new Float64Array(p.lobes * 2);
+        for (let i = 0; i < p.lobes; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.lobes);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.lobes);
+        }
+        const inverseLengthSquared = 1 / (p.lobeLength * p.lobeLength),
+          inverseWidthSquared = 1 / (p.lobeWidth * p.lobeWidth),
+          inverseHubSquared = 1 / (p.hubRadius * p.hubRadius),
+          radiusSquared = p.radius * p.radius,
+          innerSquared = p.innerRadius * p.innerRadius,
+          outerShoulder = radiusSquared - (p.radius - p.rimShoulder) ** 2,
+          innerShoulder = innerSquared - (p.innerRadius - p.rimShoulder) ** 2,
+          turnCos = Math.cos(Math.PI / p.lobes),
+          turnSin = Math.sin(Math.PI / p.lobes);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          let x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if ((Math.floor(uc) + Math.floor(vc)) & 1) {
+            const rx = x * turnCos + y * turnSin;
+            y = -x * turnSin + y * turnCos;
+            x = rx;
+          }
+          const r2 = x * x + y * y,
+            body = smooth(clamp((radiusSquared - r2) / outerShoulder)),
+            inside = smooth(clamp((innerSquared - r2) / innerShoulder)),
+            rind = body * (1 - inside);
+          const hub = smooth(clamp(1 - r2 * inverseHubSquared));
+          let outside = 1 - hub,
+            outsideDome = 1 - hub;
+          for (let i = 0; i < p.lobes; i++) {
+            const c = axes[i * 2],
+              s = axes[i * 2 + 1],
+              lx = x * c + y * s - p.lobeCenter,
+              ly = -x * s + y * c;
+            const cap = clamp(
+              1 -
+                lx * lx * inverseLengthSquared -
+                ly * ly * inverseWidthSquared,
+            );
+            outside *= 1 - smooth(clamp(cap / p.shoulder));
+            outsideDome *= 1 - smooth(cap);
+          }
+          const flesh = 1 - outside,
+            dome = 1 - outsideDome,
+            grain = grainField(u, v);
+          color =
+            0.04 + 0.12 * body + 0.06 * rind + flesh * (0.76 + 0.02 * grain);
+          height = 0.04 + 0.16 * body + 0.15 * rind + 0.3 * flesh + 0.16 * dome;
+          roughness +=
+            0.24 * rind +
+            0.15 * (1 - body) -
+            0.12 * flesh +
+            0.02 * grain * body;
+          occlusion = 0.4 + 0.25 * body + 0.32 * flesh;
+          return;
+        };
+      }
       case 'seedstitch': {
         const p = proceduralMaterialPresets.seedstitch;
         const grainField = cachedNoise(96, 96, seed ^ 0x4dcb);
@@ -16625,6 +16687,7 @@ export function createSurfaceSampler(
     kind === 'cowrieshells' ||
     kind === 'cotterpins' ||
     kind === 'seedstitch' ||
+    kind === 'mangosteenslice' ||
     fabricated ||
     botanical ||
     packaging ||
