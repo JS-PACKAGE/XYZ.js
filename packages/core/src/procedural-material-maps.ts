@@ -1268,6 +1268,94 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'brickarches': {
+        const p = proceduralMaterialPresets.brickarches;
+        const planes = new Float64Array(p.voussoirs * 2);
+        for (let i = 0; i < p.voussoirs; i++) {
+          const angle = Math.PI + ((i + 0.5) * Math.PI) / p.voussoirs;
+          planes[i * 2] = Math.cos(angle);
+          planes[i * 2 + 1] = Math.sin(angle);
+        }
+        const stride = p.voussoirs + 2 * p.pierRows;
+        const tones = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let brick = 0; brick < stride; brick++)
+              tones[(row * p.cells + col) * stride + brick] =
+                0.5 + 0.5 * hash(col * stride + brick, row, seed ^ 0x3d67);
+        const sinHalf = Math.sin(Math.PI / (2 * p.voussoirs)),
+          cosHalf = Math.cos(Math.PI / (2 * p.voussoirs));
+        const halfWidth = (p.outerRadius - p.innerRadius) / 2,
+          pierX = (p.outerRadius + p.innerRadius) / 2;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4e79);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const cell = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride;
+          const x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5 - p.centerY;
+          const radius = Math.hypot(x, y);
+          const radial =
+            smooth(clamp((p.outerRadius - p.gap - radius) / p.bevel)) *
+            smooth(clamp((radius - p.innerRadius - p.gap) / p.bevel));
+          let outline =
+            smooth(clamp((p.outerRadius - radius) / p.bevel)) *
+            smooth(clamp((radius - p.innerRadius) / p.bevel)) *
+            smooth(clamp((p.bevel - y) / p.bevel));
+          let face = 0,
+            pigment = 0;
+          for (let i = 0; i < p.voussoirs; i++) {
+            const along = x * planes[i * 2] + y * planes[i * 2 + 1],
+              across = y * planes[i * 2] - x * planes[i * 2 + 1];
+            const wedge =
+              radial *
+              smooth(
+                clamp(
+                  (sinHalf * along - cosHalf * Math.abs(across) - p.gap) /
+                    p.bevel,
+                ),
+              );
+            face += wedge;
+            pigment += wedge * tones[cell + i];
+          }
+          for (let side = 0; side < 2; side++) {
+            const dx = x - (side ? pierX : -pierX);
+            const pier =
+              smooth(clamp((halfWidth - Math.abs(dx)) / p.bevel)) *
+              smooth(clamp((y + p.bevel) / p.bevel)) *
+              smooth(clamp((p.pierRows * p.courseHeight - y) / p.bevel));
+            outline = 1 - (1 - outline) * (1 - pier);
+            for (let row = 0; row < p.pierRows; row++) {
+              const brick =
+                smooth(clamp((halfWidth - p.gap - Math.abs(dx)) / p.bevel)) *
+                smooth(
+                  clamp(
+                    (p.courseHeight / 2 -
+                      p.gap -
+                      Math.abs(y - (row + 0.5) * p.courseHeight)) /
+                      p.bevel,
+                  ),
+                );
+              face += brick;
+              pigment +=
+                brick * tones[cell + p.voussoirs + side * p.pierRows + row];
+            }
+          }
+          const grain = grainField(u, v);
+          // Radial and bed joints share recessed mortar; the opening remains
+          // an opaque shaded surface, not an actual doorway or cutout.
+          mortar = outline - face;
+          color =
+            0.045 * (1 - outline) +
+            0.62 * pigment +
+            0.08 * grain * face +
+            0.5 * mortar;
+          height = 0.06 + 0.1 * outline + 0.6 * face + 0.01 * grain * face;
+          roughness += 0.12 * (1 - face) + 0.04 * grain * face;
+          occlusion = 0.32 + 0.18 * outline + 0.48 * face;
+          return;
+        };
+      }
       case 'cardamompods': {
         const p = proceduralMaterialPresets.cardamompods;
         const grainField = cachedNoise(96, 96, seed ^ 0x7c45);
@@ -16220,6 +16308,7 @@ export function createSurfaceSampler(
     kind === 'castellatednuts' ||
     kind === 'farfalle' ||
     kind === 'cardamompods' ||
+    kind === 'brickarches' ||
     fabricated ||
     botanical ||
     packaging ||

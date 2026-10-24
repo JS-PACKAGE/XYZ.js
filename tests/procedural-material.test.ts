@@ -523,7 +523,100 @@ const kinds: ProceduralMaterialKind[] = [
   'castellatednuts',
   'farfalle',
   'cardamompods',
+  'brickarches',
 ];
+
+describe('Red brick semicircular arches', () => {
+  const p = proceduralMaterialPresets.brickarches;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('brickarches', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine raised voussoirs around opaque openings and three bed-jointed courses per pier for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const radius = (p.outerRadius + p.innerRadius) / 2;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + x, row + 0.5 + p.centerY + y);
+          const opening = local(0, 0);
+          for (let i = 0; i < p.voussoirs; i++) {
+            const angle = Math.PI + ((i + 0.5) * Math.PI) / p.voussoirs;
+            const brick = local(
+              radius * Math.cos(angle),
+              radius * Math.sin(angle),
+            );
+            expect(brick.height - opening.height).toBeGreaterThan(0.0209);
+            expect(brick.occlusion - opening.occlusion).toBeGreaterThan(0.659);
+            expect(brick.mortar).toBe(0);
+            expect(brick.metallic).toBe(0);
+            if (i > 0) {
+              const boundary = Math.PI + (i * Math.PI) / p.voussoirs;
+              const joint = local(
+                radius * Math.cos(boundary),
+                radius * Math.sin(boundary),
+              );
+              expect(joint.mortar).toBeCloseTo(1, 10);
+              expect(brick.height - joint.height).toBeGreaterThan(0.0179);
+              expect(brick.occlusion - joint.occlusion).toBeGreaterThan(0.479);
+              expect(joint.roughness - brick.roughness).toBeGreaterThan(0.079);
+            }
+          }
+          for (const sign of [-1, 1])
+            for (let course = 0; course < p.pierRows; course++) {
+              const brick = local(
+                sign * radius,
+                (course + 0.5) * p.courseHeight,
+              );
+              const joint = local(sign * radius, course * p.courseHeight);
+              expect(brick.mortar).toBe(0);
+              expect(joint.mortar).toBeCloseTo(1, 10);
+              expect(brick.height - joint.height).toBeGreaterThan(0.0179);
+            }
+          expect(opening.mortar).toBe(0);
+          expect(opening.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps wedge corners, circular bevels, pier bed joints, springing unions and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Tapered ribbed green cardamom pods', () => {
   const p = proceduralMaterialPresets.cardamompods;

@@ -6644,3 +6644,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐果莢檢查果身／收束端旁留白／梗與梗旁空隙、三個長軸位置的稜脊／凹道高度／色差／AO／roughness、18 點果身至短梗連通與 metallic；另掃描尖端、稜脊匯聚、梗 union 與 wrap C1。既有 484 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6106 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cardamompods，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向尖莢、縱脊與短梗，為風格化而非植物辨識或寫實掃描，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：紅磚半圓拱（brickarches）
+
+- 目錄 485→486 種；2.4 m tile，4×4 裝飾半圓拱，每拱九塊楔磚、放射灰縫與兩側各三層砌磚拱腳，開口為暗色不透明底層。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增建築 geometry、透明門洞、承載或碰撞物理。
+- 三 seed（0／1／`0xffffffff`）逐拱逐九楔磚檢查相對開口與八條內放射縫的 height／AO／roughness、灰縫歸屬與 metallic，兩側各三層檢查床縫／拱起點；另掃描楔角、圓形 bevel、拱腳、springing union、mortar 與 wrap C1。既有 485 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6111 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 brickarches，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認九塊紅色楔磚、放射灰縫與兩側三層拱腳，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

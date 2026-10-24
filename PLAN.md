@@ -511,6 +511,8 @@
 
 同輪追加 `cardamompods`（綠豆蔻莢），目錄 484→485 種：4×4 交替斜向橄欖綠果莢，雙端收束、隆起果身、縱向稜脊與通向尖端的凹道，短果梗與果身相連；區別丁香梗萼與開口開心果。0.08 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增果莢 geometry、透明度、開莢或植物／食品模擬；逐功能驗證提交、不 push。
 
+同輪追加 `brickarches`（紅磚半圓拱），目錄 485→486 種：4×4 裝飾拱形，每拱九塊楔磚、放射灰縫、兩側各三層砌磚拱腳與不透明暗色開口底層，區別同心 circularpavers 與平砌磚牆。2.4 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增建築 geometry、透明門洞、承載或碰撞物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
