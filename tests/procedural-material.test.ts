@@ -565,7 +565,111 @@ const kinds: ProceduralMaterialKind[] = [
   'greenpeapods',
   'beltbuckles',
   'hextruchettiles',
+  'scoredmango',
 ];
+
+describe('Cross-scored mango cheeks with rounded flesh blocks', () => {
+  const p = proceduralMaterialPresets.scoredmango;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('scoredmango', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const turn = (col + row) & 1;
+      sample(
+        (col + 0.5 + (turn ? -y : x)) / p.cells,
+        (row + 0.5 + (turn ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains convex flesh cubes over crossing cut floors, an intact oval skin rim and clear backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const sx of [-1, 1])
+            for (const iy of [-1, 0, 1]) {
+              const x = (sx * p.pitchX) / 2,
+                y = iy * p.pitchY,
+                cube = at(col, row, x, y),
+                shoulder = at(col, row, x + sx * 0.025, y),
+                vertical = at(col, row, 0, y),
+                horizontal = at(col, row, x, y + p.pitchY / 2);
+              expect(cube.height - shoulder.height).toBeGreaterThan(0.00035);
+              for (const floor of [vertical, horizontal]) {
+                expect(cube.height - floor.height).toBeGreaterThan(0.0043);
+                expect(cube.color - floor.color).toBeGreaterThan(0.32);
+                expect(floor.roughness - cube.roughness).toBeGreaterThan(0.2);
+                expect(cube.occlusion - floor.occlusion).toBeGreaterThan(0.23);
+              }
+              expect(cube.metallic).toBe(0);
+            }
+          const floor = at(col, row, 0, 0),
+            rim = at(col, row, 0.25, 0),
+            clipped = at(col, row, 0.21, 0.21);
+          expect(floor.height - rim.height).toBeGreaterThan(0.0015);
+          expect(rim.height).toBeGreaterThan(0.002);
+          expect(floor.color - rim.color).toBeGreaterThan(0.27);
+          expect(clipped.height).toBeLessThan(0.0025);
+          for (const [x, y] of [
+            [0.3, 0],
+            [-0.3, 0],
+            [0, 0.43],
+            [0, -0.43],
+          ] as const) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.38, 12);
+          }
+        }
+    },
+  );
+  it('keeps skin and flesh ellipses, crossing cut shoulders, hidden grid wraps, cell owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('scoredmango', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Hexagonal Truchet glaze tiles with three alternating vertex arcs', () => {
   const p = proceduralMaterialPresets.hextruchettiles;

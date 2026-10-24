@@ -1278,6 +1278,71 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'scoredmango': {
+        const p = proceduralMaterialPresets.scoredmango;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xfd91);
+        const inverseSkinX = 1 / p.skinWidth,
+          inverseSkinY = 1 / p.skinLength,
+          inverseFleshX = 1 / p.fleshWidth,
+          inverseFleshY = 1 / p.fleshLength,
+          inverseShoulder = 1 / p.shoulder,
+          inversePitchX = 1 / p.pitchX,
+          inversePitchY = 1 / p.pitchY,
+          inverseCut = 1 / p.cutShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0xfd93);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            skinDome = clamp(
+              1 - (x * inverseSkinX) ** 2 - (y * inverseSkinY) ** 2,
+            ),
+            skin = smooth(clamp(skinDome * inverseShoulder)),
+            fleshDome = clamp(
+              1 - (x * inverseFleshX) ** 2 - (y * inverseFleshY) ** 2,
+            ),
+            flesh = smooth(clamp(fleshDome * inverseShoulder)),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color = 0.055 + skin * (0.125 + 0.06 * grain);
+          height = 0.025 + skin * (0.145 + 0.05 * skinDome);
+          roughness = 0.94 + skin * (0.76 - 0.94);
+          occlusion = 0.38 + skin * 0.42;
+          color +=
+            flesh *
+            (0.48 + 0.03 * fleshDome + 0.03 * tone + 0.015 * grain - color);
+          height += flesh * (0.27 + 0.06 * fleshDome - height);
+          roughness += flesh * (p.roughness + 0.14 - roughness);
+          occlusion += flesh * (0.74 - occlusion);
+          const gx = fract(x * inversePitchX) - 0.5,
+            gy = fract(y * inversePitchY + 0.5) - 0.5,
+            cube =
+              flesh *
+              smooth(clamp((0.5 - Math.abs(gx) - p.cutGap) * inverseCut)) *
+              smooth(clamp((0.5 - Math.abs(gy) - p.cutGap) * inverseCut)),
+            crown = clamp(1 - 4 * gx * gx) * clamp(1 - 4 * gy * gy);
+          // Raised flesh blocks stop at the inner ellipse, leaving an intact
+          // skin rim and a continuous lower floor beneath the cross cuts.
+          color +=
+            cube * (0.72 + 0.15 * crown + 0.03 * tone + 0.015 * grain - color);
+          height +=
+            cube *
+            (0.48 + 0.24 * crown + 0.03 * fleshDome + 0.002 * grain - height);
+          roughness +=
+            cube * (p.roughness - 0.075 * crown + 0.01 * grain - roughness);
+          occlusion += cube * (0.96 + 0.02 * crown - occlusion);
+          return;
+        };
+      }
       case 'hextruchettiles': {
         const p = proceduralMaterialPresets.hextruchettiles;
         const turns = new Uint8Array(p.columns * p.rows),
@@ -19080,6 +19145,7 @@ export function createSurfaceSampler(
     kind === 'greenpeapods' ||
     kind === 'beltbuckles' ||
     kind === 'hextruchettiles' ||
+    kind === 'scoredmango' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -542,7 +542,8 @@ export type ProceduralMaterialKind =
   | 'togglebuttons'
   | 'greenpeapods'
   | 'beltbuckles'
-  | 'hextruchettiles';
+  | 'hextruchettiles'
+  | 'scoredmango';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1319,6 +1320,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'greenpeapods',
   'beltbuckles',
   'hextruchettiles',
+  'scoredmango',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

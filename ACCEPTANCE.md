@@ -6942,3 +6942,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 526 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6329 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 hextruchettiles，527 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深藍六角磚、每片三段象牙弧、六邊中點接續及灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 釉色表面，不宣稱量測級幾何、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：十字劃切芒果果頰（scoredmango）
+
+- 目錄 527→528 種；0.48 m tile，4×4 橫直交替橢圓芒果果頰，完整薄皮邊、十字凹切線與圓潤金黃果肉方塊，區別 chocolate 的全平面模製塊及 avocadoflesh 的種核凹穴。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增翻開／分離果塊 geometry、透明度或切割物理。
+- 三 seed（0／1／`0xffffffff`）逐果頰六個內部方塊檢查 crown 高於 shoulder，方塊與橫／直 cut floors 的 height／color／roughness／AO 差距、果肉 floor 高於完整薄皮、外側矩形裁切及四側 backing；129×129 網格、三 seed、雙方向四欄位 C1 檢查內外橢圓、cut shoulders、grid owners 與 wrap，四項針對測試皆通過。
+- 既有 527 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6334 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 scoredmango，528 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認橢圓金黃果頰、橫直劃線、圓潤方塊與薄皮邊，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 果肉表面浮雕，不宣稱真正翻開果塊、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

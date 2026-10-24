@@ -595,6 +595,8 @@
 
 同輪追加 `hextruchettiles`（六角三弧 Truchet 釉面磚），目錄 526→527 種：56 片深藍六角釉面磚，各三段象牙弧以兩種 seeded 方向排列，六邊中點對接、凹灰縫，區別 truchettiles 的方磚雙弧。0.7 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，弧為平面釉色而非凸管，不新增拼磚 geometry 或路徑／拼圖遊戲；逐功能驗證提交、不 push。
 
+同輪追加 `scoredmango`（十字劃切芒果果頰），目錄 527→528 種：4×4 橫直交替的橢圓果頰，完整薄皮邊、十字凹切線及圓潤金黃果肉方塊；不是 chocolate 的全平面模製塊，也不是 avocadoflesh 的中央種核凹穴。0.48 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增水果 geometry、真正翻開／分離果塊、透明度或切割物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

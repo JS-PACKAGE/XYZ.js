@@ -603,6 +603,8 @@
 
 `hextruchettiles` 沿 staggered triangular lattice 比較兩個 bracketing rows 的最近 column，七列八行 wrap owner 預算兩種 arc turns／tones。六條邊以三組相反半平面的 compact masks 相乘，避免 max-edge 在 bevel 角平分線產生 cusp；owner 更換位於完整凹灰縫。兩組各三個交替 hex vertices 預算為 circle centers，squared-radius compact bands 形成三段不相交弧，於六邊中點成對接續；flat face height 不含 motif 起伏。64×64 grain，採樣無配置、hash／trig 預算；0.7 m square UV 對 canonical 7×4√3 lattice 約 1% 軸伸縮，不作量測級正六角幾何宣稱。
 
+`scoredmango` 用兩層 compact elliptical masks 保留外皮邊與內果肉；橫直交替 cell 內的兩組周期 cut masks 相乘為果肉方塊，方塊以正向凸冠抬高，十字切線保留較低連續果肉 floor，不切穿外皮。方塊 support 先乘 flesh mask，橢圓外不漏出矩形；內部 grid wrap 更換前已退回相同 cut floor，C1 不受 fract owner 影響。預算 16 組 tones、96×96 grain，採樣無配置、不跑 hash 或 trig；只是 opaque 表面浮雕，不建立翻開果塊 geometry。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
