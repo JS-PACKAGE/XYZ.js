@@ -1272,6 +1272,49 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ribknit': {
+        const p = proceduralMaterialPresets.ribknit;
+        const grainField = cachedNoise(96, 96, seed ^ 0xb7f5);
+        const sy = p.armTop - p.armBottom,
+          inverseArmSquared = 1 / (p.armX * p.armX + sy * sy),
+          inverseYarnSquared = 1 / (p.yarnWidth * p.yarnWidth),
+          inversePurlSquared = 1 / (p.purlWidth * p.purlWidth);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            purl = Math.floor(uc) & 1;
+          let yarn: number;
+          if (purl) {
+            const qx = x - Math.max(-p.purlLength, Math.min(p.purlLength, x));
+            yarn = smooth(
+              clamp(1 - (qx * qx + (y - p.purlY) ** 2) * inversePurlSquared),
+            );
+          } else {
+            let outside = 1;
+            for (let sign = -1; sign <= 1; sign += 2) {
+              const sx = sign * p.armX,
+                dy = y - p.armBottom;
+              const t = clamp((x * sx + dy * sy) * inverseArmSquared),
+                qx = x - t * sx,
+                qy = dy - t * sy;
+              outside *=
+                1 - smooth(clamp(1 - (qx * qx + qy * qy) * inverseYarnSquared));
+            }
+            yarn = 1 - outside;
+          }
+          const grain = grainField(u, v);
+          // Column-only ownership keeps the knit ribs vertical rather than
+          // alternating their positions on each row as in seed stitch.
+          color = 0.1 + yarn * (0.62 - 0.18 * purl + 0.05 * grain);
+          height = 0.07 + yarn * (0.7 - 0.26 * purl + 0.02 * grain);
+          roughness +=
+            0.06 * (1 - yarn) + 0.04 * purl * yarn + 0.02 * grain * yarn;
+          occlusion = 0.45 + yarn * (0.53 - 0.08 * purl);
+          return;
+        };
+      }
       case 'ivyleaf': {
         const p = proceduralMaterialPresets.ivyleaf;
         const lobes = new Float64Array(p.lobes.length * 6),
@@ -17259,6 +17302,7 @@ export function createSurfaceSampler(
     kind === 'appleslice' ||
     kind === 'paperclips' ||
     kind === 'ivyleaf' ||
+    kind === 'ribknit' ||
     fabricated ||
     botanical ||
     packaging ||

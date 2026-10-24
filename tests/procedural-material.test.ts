@@ -540,7 +540,102 @@ const kinds: ProceduralMaterialKind[] = [
   'appleslice',
   'paperclips',
   'ivyleaf',
+  'ribknit',
 ];
+
+describe('One-by-one rib knit with raised knit and recessed purl columns', () => {
+  const p = proceduralMaterialPresets.ribknit;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ribknit', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves twelve rows of alternating vertical V-knit and lower horizontal purl columns for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col += 2) {
+          const knit = (x: number, y: number) =>
+              at(col + 0.5 + x, row + 0.5 + y),
+            purl = (x: number, y: number) => at(col + 1.5 + x, row + 0.5 + y),
+            gap = knit(0.43, 0.43),
+            arm = knit(0.115, 0),
+            bar = purl(0, 0);
+          expect(arm.height - bar.height).toBeGreaterThan(0.0059);
+          expect(arm.color - bar.color).toBeGreaterThan(0.129);
+          expect(arm.occlusion - bar.occlusion).toBeGreaterThan(0.079);
+          expect(bar.roughness - arm.roughness).toBeGreaterThan(0.019);
+          expect(knit(0, 0).height).toBe(gap.height);
+          expect(purl(0, 0.24).height).toBe(gap.height);
+          expect(arm.metallic).toBe(0);
+          expect(bar.metallic).toBe(0);
+          for (let i = 0; i <= 32; i++) {
+            const t = i / 32;
+            for (const sign of [-1, 1])
+              expect(
+                knit(
+                  sign * p.armX * t,
+                  p.armBottom + t * (p.armTop - p.armBottom),
+                ).height - gap.height,
+              ).toBeGreaterThan(0.0174);
+            expect(
+              purl((2 * t - 1) * p.purlLength, 0).height - gap.height,
+            ).toBeGreaterThan(0.0109);
+          }
+        }
+    },
+  );
+  it('retains visible recessed purl yarn at the minimum 32 pixel map size', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const { baseColor } = generateProceduralMaps('ribknit', 32, seed);
+      const yarn = (32 + 3) * 4,
+        gap = 3 * 4;
+      for (const [c, minimum] of [
+        [0, 20],
+        [1, 15],
+        [2, 15],
+      ])
+        expect(baseColor[yarn + c] - baseColor[gap + c]).toBeGreaterThan(
+          minimum,
+        );
+    }
+  });
+  it('keeps both yarn capsule profiles, knit unions, column ownership and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Three-lobed ivy leaves with raised palmate veins and attached petioles', () => {
   const p = proceduralMaterialPresets.ivyleaf;

@@ -553,6 +553,8 @@
 
 `ivyleaf` 以三個預算軸的 pointed quadratic-envelope squared caps 作 smooth product union，形成三尖裂葉與兩道凹缺；三條由共同葉柄根指向裂尖的投影 capsule 葉脈由 leaf mask 限定，獨立短 capsule 葉柄與葉面 union。4×4 葉、交替 ±45°、96×96 seeded grain、0.32 m tile、metallic 0，目錄增為 502 種；旋轉、投影與尺度／shoulder 倒數在建立時預算，取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明度、風動或植物學模擬。
 
+`ribknit` 沿用 knit／seedstitch 的 capsule 針目模式；偶數欄兩段有限線段作 smooth product union 畫 V，奇數欄單一水平 capsule 畫反針，column-only owner 保持垂直羅紋，反針高度／明度低於正針。所有支撐在 cell 邊界前歸零，grain 僅乘在紗線 coverage 上。12×12 針目、96×96 seeded grain、0.12 m tile、metallic 0，目錄增為 503 種；投影與平方尺度倒數預算，取樣無 trig、sqrt 或陣列配置。保留最低 32×32 的反針像素對比回歸；既有 maps／height／ownership 不變，不新增 geometry、透明度、彈性或布料模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
