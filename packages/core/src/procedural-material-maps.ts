@@ -1247,6 +1247,7 @@ export function createSurfaceSampler(
     kind === 'cotterpins' ||
     kind === 'squarewashers' ||
     kind === 'spurgears' ||
+    kind === 'paperclips' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1271,6 +1272,77 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'paperclips': {
+        const p = proceduralMaterialPresets.paperclips;
+        const segments = new Float64Array(p.legs.length * 5),
+          bends = new Float64Array(p.bends.length * 5);
+        for (let i = 0; i < p.legs.length; i++) {
+          const [ax, ay, bx, by] = p.legs[i],
+            dx = bx - ax,
+            dy = by - ay;
+          segments[i * 5] = ax;
+          segments[i * 5 + 1] = ay;
+          segments[i * 5 + 2] = dx;
+          segments[i * 5 + 3] = dy;
+          segments[i * 5 + 4] = 1 / (dx * dx + dy * dy);
+        }
+        for (let i = 0; i < p.bends.length; i++) {
+          const [x, y, radius, direction] = p.bends[i];
+          bends[i * 5] = x;
+          bends[i * 5 + 1] = y;
+          bends[i * 5 + 2] = radius * radius;
+          bends[i * 5 + 3] = 1 / (2 * radius * p.wireWidth);
+          bends[i * 5 + 4] = direction;
+        }
+        const inverseWireSquared = 1 / (p.wireWidth * p.wireWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inverseArcFade = 1 / p.arcFade;
+        const grainField = cachedNoise(96, 96, seed ^ 0x95d7);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1 ? 1 : -1;
+          const x = (dx + turn * dy) * Math.SQRT1_2,
+            y = (dy - turn * dx) * Math.SQRT1_2;
+          let outside = 1;
+          for (let i = 0; i < segments.length; i += 5) {
+            const sx = x - segments[i],
+              sy = y - segments[i + 1];
+            const t = clamp(
+              (sx * segments[i + 2] + sy * segments[i + 3]) * segments[i + 4],
+            );
+            const qx = sx - t * segments[i + 2],
+              qy = sy - t * segments[i + 3];
+            outside *=
+              1 -
+              smooth(
+                clamp(
+                  (1 - (qx * qx + qy * qy) * inverseWireSquared) *
+                    inverseShoulder,
+                ),
+              );
+          }
+          for (let i = 0; i < bends.length; i += 5) {
+            const bx = x - bends[i],
+              by = y - bends[i + 1];
+            const ring = (bx * bx + by * by - bends[i + 2]) * bends[i + 3];
+            // A compact half-plane shoulder overlaps each capsule endpoint;
+            // a hard semicircle cut would jump across its wire profile.
+            const half = smooth(clamp(1 + by * bends[i + 4] * inverseArcFade));
+            outside *=
+              1 - half * smooth(clamp((1 - ring * ring) * inverseShoulder));
+          }
+          const face = 1 - outside,
+            grain = grainField(u, v);
+          color = 0.05 + 0.77 * face + 0.02 * grain;
+          height = 0.06 + 0.64 * face + 0.004 * grain;
+          roughness += 0.3 * (1 - face) + 0.02 * grain;
+          occlusion = 0.33 + 0.65 * face;
+          return;
+        };
+      }
       case 'appleslice': {
         const p = proceduralMaterialPresets.appleslice;
         const grainField = cachedNoise(96, 96, seed ^ 0x84c3);
@@ -17103,6 +17175,7 @@ export function createSurfaceSampler(
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
     kind === 'appleslice' ||
+    kind === 'paperclips' ||
     fabricated ||
     botanical ||
     packaging ||

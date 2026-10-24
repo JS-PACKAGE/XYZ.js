@@ -6749,3 +6749,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐切面逐種室檢查果肉／果皮／平底、籽／室底／種室間隔的 height／color／AO／roughness／metallic，以及每面 32 個方位的完整薄果皮與相鄰果肉；另掃描果皮／果肉／核心 bevel、種室／籽 unions、交替旋轉與 wrap C1。既有 499 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6185 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 appleslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認薄紅褐環包覆淡色圓果肉、五個分離種室及深色籽，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：鋼製迴紋針（paperclips）
+
+- 目錄 500→501 種；0.24 m tile，4×4 銀色迴紋針交替 ±45°，三段線身與兩道嵌套回彎連通，兩個線端及內槽保持開口。opaque metallic maps／預設 factor 1；沿四圖／選用 height／ownership，內槽為暗色不透明鋼底，不新增線材 geometry、透明度或夾持模擬。
+- 三 seed（0／1／`0xffffffff`）逐線夾每段直線及半圓回彎各 33 點檢查連通 wire 的 height／color／AO／roughness／metallic，並檢查內槽、回彎內側與兩線端外側未封口；另掃描 capsule shoulder、implicit rings、half-plane overlaps、交替斜向與 wrap C1。既有 500 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6191 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 paperclips，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向銀色三段線身、兩道回彎與內槽／線端開口，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

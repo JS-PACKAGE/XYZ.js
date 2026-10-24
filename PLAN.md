@@ -541,6 +541,8 @@
 
 同輪追加 `appleslice`（蘋果橫切面），目錄 499→500 種：4×4 圓切面交替轉 36°，薄紅褐果皮、淡色果肉與五個含深色籽的獨立凹種室，區別 appleskin 的完整外皮。0.4 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增果實 geometry、透明種室、切割、汁液或植物學模擬；逐功能驗證提交、不 push。
 
+同輪追加 `paperclips`（鋼製迴紋針），目錄 500→501 種：4×4 交替 ±45° 的銀色線夾，三段線身與兩道嵌套回彎保持連通、兩個線端與內槽保留開口；區別 cotterpins 的單眼與外彎分腳。0.24 m tile、opaque metallic maps／預設 factor 1，沿四圖／選用 height／ownership，槽隙為暗色不透明鋼底，不新增線材 geometry、透明度或夾持模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
