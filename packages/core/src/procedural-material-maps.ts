@@ -1279,6 +1279,67 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'musselshells': {
+        const p = proceduralMaterialPresets.musselshells;
+        const shells = new Float64Array(p.cells * p.cells * 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            shells[i] = TAU * hash(col, row, seed ^ 0x10501);
+            shells[i + 1] = hash(col, row, seed ^ 0x10503);
+          }
+        const inverseLength = 1 / (2 * p.halfLength),
+          inverseWidth = 1 / (p.maxHalfWidth * p.maxHalfWidth),
+          inverseEdge = 1 / p.edge,
+          growthScale =
+            (TAU * p.growthBands) / (4 * p.halfLength * p.halfLength),
+          grainField = cachedNoise(96, 96, seed ^ 0x10507);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy;
+          color = 0.045;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.33;
+          if (y <= -p.halfLength || y >= p.halfLength) return;
+          const hinge = y + p.halfLength,
+            t = hinge * inverseLength,
+            cap = (27 / 4) * t * t * (1 - t) - x * x * inverseWidth;
+          if (cap <= 0) return;
+          const face = smooth(clamp(cap * inverseEdge)),
+            dome = smooth(clamp(cap)),
+            i = (row * p.cells + col) * 2,
+            // Squared hinge distance gives curved, variably spaced growth
+            // fronts without a radial singularity at the pointed hinge.
+            wave =
+              0.5 +
+              0.5 * Math.cos(growthScale * (x * x + hinge * hinge) + shells[i]),
+            growth = wave ** 8,
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.32 +
+              0.16 * dome +
+              0.08 * shells[i + 1] -
+              0.085 * growth +
+              0.015 * grain -
+              color);
+          height +=
+            face *
+            (0.37 + 0.31 * dome - p.incision * growth + 0.003 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.035 * growth + 0.02 * grain - roughness);
+          occlusion += face * (0.84 + 0.13 * dome - 0.025 * growth - occlusion);
+          return;
+        };
+      }
       case 'blackberries': {
         const p = proceduralMaterialPresets.blackberries;
         const middle = (p.rows - 1) * 0.5,
@@ -19685,6 +19746,7 @@ export function createSurfaceSampler(
     kind === 'corrugatedplasticedge' ||
     kind === 'haircombs' ||
     kind === 'blackberries' ||
+    kind === 'musselshells' ||
     fabricated ||
     botanical ||
     packaging ||

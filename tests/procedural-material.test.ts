@@ -573,7 +573,128 @@ const kinds: ProceduralMaterialKind[] = [
   'corrugatedplasticedge',
   'haircombs',
   'blackberries',
+  'musselshells',
 ];
+
+describe('Blue-black mussel shells with pointed hinges and curved growth channels', () => {
+  const p = proceduralMaterialPresets.musselshells;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('musselshells', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains narrow pointed hinges, wider rounded ends, convex solid crowns and at least eight incised growth channels for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0, 0.36),
+            crown = at(col, row, 0, p.halfLength / 3),
+            edge = at(col, row, p.maxHalfWidth * 0.93, p.halfLength / 3),
+            narrowOutside = at(col, row, 0.15, -0.2),
+            broadInside = at(col, row, 0.15, 0.1),
+            hinge = at(col, row, 0, -0.3),
+            hingeOutside = at(col, row, 0.05, -0.3);
+          expect(crown.height).toBeGreaterThan(0.00523);
+          expect(crown.height - edge.height).toBeGreaterThan(0.002);
+          expect(crown.occlusion).toBeGreaterThan(0.944);
+          expect(crown.roughness).toBeLessThan(0.35);
+          expect(crown.metallic).toBe(0);
+          expect(broadInside.height - narrowOutside.height).toBeGreaterThan(
+            0.0037,
+          );
+          expect(narrowOutside.height).toBeCloseTo(backing.height, 12);
+          expect(hinge.height).toBeGreaterThan(0.0003);
+          expect(hinge.height).toBeLessThan(0.0005);
+          expect(hingeOutside.height).toBeCloseTo(backing.height, 12);
+          for (const y of [-0.1, 0, 0.1, 0.2]) {
+            const solid = at(col, row, 0, y);
+            expect(solid.height).toBeGreaterThan(0.003);
+            expect(solid.occlusion).toBeGreaterThan(0.8);
+          }
+          for (const [x, y] of [
+            [-0.23, 0.1],
+            [0.23, 0.1],
+            [0, -0.36],
+            [0, 0.36],
+          ]) {
+            const outside = at(col, row, x, y);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.33, 12);
+          }
+        }
+      const heights = new Float64Array(2049);
+      for (let i = 0; i < heights.length; i++)
+        heights[i] = at(
+          0,
+          0,
+          0,
+          -0.1 + (0.39 * i) / (heights.length - 1),
+        ).height;
+      let channels = 0;
+      for (let i = 10; i < heights.length - 10; i++)
+        if (
+          heights[i] < heights[i - 1] &&
+          heights[i] <= heights[i + 1] &&
+          Math.min(heights[i - 10], heights[i + 10]) - heights[i] > 0.00001
+        )
+          channels++;
+      expect(channels).toBeGreaterThanOrEqual(8);
+    },
+  );
+  it('keeps pointed hinges, convex crowns, growth fronts, outer shoulders, rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('musselshells', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Glossy blackberries with nineteen convex drupelets', () => {
   const p = proceduralMaterialPresets.blackberries;

@@ -7008,3 +7008,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 534 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 blackberries，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6370 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 blackberries，535 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深紫聚合果、19 個凸圓小核果、低接縫與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 果面，不宣稱果實 geometry、植物／食物物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：淡菜貝殼（musselshells）
+
+- 目錄 535→536 種；0.32 m tile，4×4 交替水平／垂直藍黑淚滴殼，窄鉸端、圓寬尾、實心凸冠與可變間距曲線細生長槽，非 scallopshell 放射肋、oystershell 不規則層階或 cowrieshells 齒口。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增貝殼 geometry、雙殼開合、透明殼或生物模擬。
+- 三 seed（0／1／`0xffffffff`）逐殼檢查窄鉸端／圓寬尾、凸冠高於外肩、中心無開口、半光澤 roughness、外部 backing 與 metallic；中央 transect 要有至少八條 prominence >0.00001 m 的獨立細凹槽，防止退為光滑殼。129×129 網格、三 seed、雙方向四欄位 C1 檢查 hinge／crown／growth fronts／shoulders／rotation／wrap，h 1e-8、上限 0.02；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試皆首次通過。
+- 既有 535 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 musselshells，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6375 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 musselshells，536 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 預覽確認交替淚滴輪廓、窄鉸端與圓寬尾，height true、metallic 0、destroyed true；另取實際左上 128×128 texels 的 pigment／tangent normal 等比例放大裁切，清楚確認細曲線凹槽與凸冠，未改造貼圖值，該次 errors／cleanup 亦空且 destroy，臨時預覽隨頁清除。不宣稱貝殼 geometry、生物物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
