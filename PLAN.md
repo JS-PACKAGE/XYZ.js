@@ -641,6 +641,8 @@
 
 同輪追加 `spaltedwood`（分區線淺木），目錄 549→550 種：淺色縱向木紋與細而彎曲的深色真菌分區線，色素線不刻成裂縫，區別 woodworm 蟲道／burlwood 渦旋瘤紋。0.6 m opaque dielectric tile、metallic 0，沿既有 cached anisotropic wood grain、四圖／選用 height／ownership，不新增木 geometry、腐朽／真菌生長／生物模擬或結構安全判定；依功能驗證提交、不 push。
 
+同輪追加 `canlids`（金屬易拉罐蓋），目錄 550→551 種：圓蓋沖壓補強環、細凹刻線、上層雙孔拉環與更高鉚釘；拉環孔露出完整蓋面，不是假通透洞，區別 crowncaps 齒裙瓶蓋。0.28 m opaque metallic tile、metallic 1，沿四圖／選用 height／ownership，不新增罐蓋 geometry、開罐／撕裂／變形或力學模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

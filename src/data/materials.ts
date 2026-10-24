@@ -4968,6 +4968,31 @@ export const proceduralMaterialPresets = Object.freeze({
     lineWidth: 0.018,
     lineWidthVariation: 0.006,
   }),
+  canlids: Object.freeze({
+    dark: [24, 27, 30] as const,
+    light: [215, 222, 227] as const,
+    roughness: 0.38,
+    relief: 0.004,
+    cells: 4,
+    radius: 0.34,
+    edgeBevel: 0.012,
+    beadRadius: 0.29,
+    beadWidth: 0.018,
+    scoreRadius: 0.235,
+    scoreWidth: 0.004,
+    tabWidth: 0.08,
+    tabLength: 0.14,
+    tabCenter: -0.06,
+    gripWidth: 0.044,
+    gripLength: 0.052,
+    gripCenter: -0.115,
+    slotWidth: 0.034,
+    slotLength: 0.032,
+    slotCenter: 0.027,
+    rivetRadius: 0.018,
+    rivetCenter: 0.03,
+    shoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5522,4 +5547,5 @@ export const proceduralTileMeters = Object.freeze({
   grinderburrs: 0.4,
   cowhide: 0.8,
   spaltedwood: 0.6,
+  canlids: 0.28,
 });

@@ -7130,3 +7130,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 549 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 spaltedwood，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 spaltedwood，550 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認淺色縱向木紋、細而彎曲／變寬的深色分區線、大片未著線木面與連續微木紋，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、腐朽／真菌生長／生物模擬、結構安全判定、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6446 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：金屬易拉罐蓋（canlids）
+
+- 目錄 550→551 種；0.28 m opaque metallic tile、metallic 1，圓蓋補強凸環、細凹刻線、上層雙孔拉環與更高鉚釘。孔露下方完整蓋面、交點 height 不疊加；區別 crowncaps 齒裙瓶蓋。不新增 geometry、開罐／撕裂／變形或力學模擬。
+- 三 seed（0／1／`0xffffffff`）各 16 蓋面驗證補強環高於平面且較光滑、凹 score 較低／粗糙／低 AO、拉環高於蓋面 >0.001 m、兩孔保留蓋面高度／AO 而非背底、鉚釘更高 >0.0004 m 且不堆高、各區 metallic 1。初次三項形態測試的 roughness 差門檻未扣不同點 grain 最大 0.03 差（觀察 0.04799／0.05036／0.05230）；修正回必保留 smoother／rougher 行為且涵蓋 noise 範圍的下界，非更改 sampler。四項形態／C1（129×129 網格、三 seed、雙方向四欄位 h 1e-9、上限 0.02）、size 32 deterministic／seeded／distinct／periodic 與公開 API material ownership 共六項針對測試通過。
+- 既有 550 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 canlids，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 canlids，551 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認交替直橫圓蓋、補強環／刻線、兩孔拉環與鉚釘，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱 geometry、開罐／撕裂／變形／力學模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6452 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

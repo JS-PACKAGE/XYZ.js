@@ -565,7 +565,8 @@ export type ProceduralMaterialKind =
   | 'sharkteeth'
   | 'grinderburrs'
   | 'cowhide'
-  | 'spaltedwood';
+  | 'spaltedwood'
+  | 'canlids';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1365,6 +1366,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'grinderburrs',
   'cowhide',
   'spaltedwood',
+  'canlids',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1592,6 +1594,7 @@ export class ProceduralMaterial {
         this.kind === 'carabiners' ||
         this.kind === 'safetypins' ||
         this.kind === 'grinderburrs' ||
+        this.kind === 'canlids' ||
         this.kind === 'hexkeys' ||
         this.kind === 'starsocketbolts' ||
         this.kind === 'sawblades' ||

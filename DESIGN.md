@@ -649,6 +649,8 @@
 
 `spaltedwood` 沿 cached anisotropic wood pattern 預算 96×4 grain／192×8 fiber，加 4×5 zone／8×8 variation；smooth compact isoband 與正值變動寬度畫深色分區線，coarse field 混入弱 variation 避免規整邊界。Line 僅影響 color，不參與 height／roughness／AO；木紋微起伏連續，不挖真裂縫。採樣無配置／hash／sqrt／trig；不新增 geometry、腐朽／真菌生長／生物模擬或結構安全判定。
 
+`canlids` 預算 16 cell tones 與 96×96 grain；4×4 交替直橫圓蓋以 squared-radius compact support、compact annular band 畫補強凸環／細凹 score。上層橢圓 tab 扣兩橢圓孔，獨立凸圓鉚釘最後 replace；孔露下方蓋面，層相交不疊加 height，roughness／AO 同步刻線與金屬拋光。所有空隙有 opaque metallic backing，採樣無配置／hash／sqrt／trig；不新增 geometry、開罐／撕裂／變形或力學模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

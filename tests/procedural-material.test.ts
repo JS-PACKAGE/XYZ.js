@@ -588,7 +588,115 @@ const kinds: ProceduralMaterialKind[] = [
   'grinderburrs',
   'cowhide',
   'spaltedwood',
+  'canlids',
 ];
+
+describe('Stamped can lids with raised twin-hole pull tabs and rivets', () => {
+  const p = proceduralMaterialPresets.canlids;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('canlids', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const turn = (col + row) & 1;
+      sample(
+        (col + 0.5 + (turn ? y : x)) / p.cells,
+        (row + 0.5 + (turn ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves raised stamped beads, recessed scoring, two lid-backed tab openings and a higher rivet for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0.4, 0),
+            face = at(col, row, 0.18, 0),
+            bead = at(col, row, 0.29, 0),
+            score = at(col, row, 0.235, 0),
+            bridge = at(col, row, 0, -0.035),
+            grip = at(col, row, 0, -0.115),
+            slot = at(col, row, 0.026, 0.027),
+            rivet = at(col, row, 0, 0.03);
+          expect(backing.height).toBeCloseTo(0.025 * p.relief, 12);
+          expect(face.height).toBeGreaterThan(0.379 * p.relief);
+          expect(face.height).toBeLessThan(0.384 * p.relief);
+          expect(bead.height - face.height).toBeGreaterThan(0.00037);
+          expect(face.roughness - bead.roughness).toBeGreaterThan(0.039);
+          expect(face.height - score.height).toBeGreaterThan(0.00012);
+          expect(score.roughness - face.roughness).toBeGreaterThan(0.069);
+          expect(face.occlusion - score.occlusion).toBeGreaterThan(0.095);
+          expect(bridge.height - face.height).toBeGreaterThan(0.001);
+          expect(face.roughness - bridge.roughness).toBeGreaterThan(0.08);
+          for (const opening of [grip, slot]) {
+            expect(opening.height).toBeGreaterThan(0.379 * p.relief);
+            expect(opening.height).toBeLessThan(0.384 * p.relief);
+            expect(bridge.height - opening.height).toBeGreaterThan(0.001);
+            expect(opening.occlusion).toBeCloseTo(0.96, 12);
+          }
+          expect(rivet.height - bridge.height).toBeGreaterThan(0.0004);
+          expect(rivet.height).toBeLessThan(0.772 * p.relief);
+          expect(rivet.roughness).toBeLessThan(bridge.roughness);
+          for (const point of [
+            backing,
+            face,
+            bead,
+            score,
+            bridge,
+            grip,
+            slot,
+            rivet,
+          ])
+            expect(point.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps lid bevels, stamped rings, tab holes, rivet joins, grain and tile wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('canlids', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pale spalted wood with dark zone lines and continuous grain', () => {
   const p = proceduralMaterialPresets.spaltedwood;
@@ -23421,6 +23529,7 @@ describe('periodic procedural material fields', () => {
           kind === 'carabiners' ||
           kind === 'safetypins' ||
           kind === 'grinderburrs' ||
+          kind === 'canlids' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -32879,6 +32988,7 @@ describe('procedural preset acquisition and ownership', () => {
     'carabiners',
     'safetypins',
     'grinderburrs',
+    'canlids',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -32928,6 +33038,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'carabiners' ||
           kind === 'safetypins' ||
           kind === 'grinderburrs' ||
+          kind === 'canlids' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

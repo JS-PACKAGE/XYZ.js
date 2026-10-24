@@ -1271,6 +1271,7 @@ export function createSurfaceSampler(
     kind === 'carabiners' ||
     kind === 'safetypins' ||
     kind === 'grinderburrs' ||
+    kind === 'canlids' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1292,6 +1293,105 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'canlids': {
+        const p = proceduralMaterialPresets.canlids;
+        const tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBevel = 1 / (radiusSquared - (p.radius - p.edgeBevel) ** 2),
+          beadSquared = p.beadRadius * p.beadRadius,
+          inverseBead = 1 / ((p.beadRadius + p.beadWidth) ** 2 - beadSquared),
+          scoreSquared = p.scoreRadius * p.scoreRadius,
+          inverseScore =
+            1 / ((p.scoreRadius + p.scoreWidth) ** 2 - scoreSquared),
+          grainField = cachedNoise(96, 96, seed ^ 0x11411);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x11413);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? dx : dy,
+            squared = x * x + y * y,
+            face = smooth(clamp((radiusSquared - squared) * inverseBevel));
+          color = 0.07;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col],
+            beadDistance = (squared - beadSquared) * inverseBead,
+            bead = smooth(clamp(1 - beadDistance * beadDistance)),
+            scoreDistance = (squared - scoreSquared) * inverseScore,
+            score = smooth(clamp(1 - scoreDistance * scoreDistance)),
+            tabCap =
+              1 -
+              (x / p.tabWidth) ** 2 -
+              ((y - p.tabCenter) / p.tabLength) ** 2,
+            outerTab = smooth(clamp(tabCap / p.shoulder)),
+            grip = smooth(
+              clamp(
+                (1 -
+                  (x / p.gripWidth) ** 2 -
+                  ((y - p.gripCenter) / p.gripLength) ** 2) /
+                  p.shoulder,
+              ),
+            ),
+            slot = smooth(
+              clamp(
+                (1 -
+                  (x / p.slotWidth) ** 2 -
+                  ((y - p.slotCenter) / p.slotLength) ** 2) /
+                  p.shoulder,
+              ),
+            ),
+            tab = outerTab * (1 - grip) * (1 - slot),
+            rivetCap =
+              1 -
+              (x / p.rivetRadius) ** 2 -
+              ((y - p.rivetCenter) / p.rivetRadius) ** 2,
+            rivet = smooth(clamp(rivetCap / p.shoulder));
+          color +=
+            face *
+            (0.52 +
+              0.1 * bead -
+              0.12 * score +
+              0.025 * tone +
+              0.01 * grain -
+              color);
+          height +=
+            face * (0.38 + 0.1 * bead - 0.035 * score + 0.003 * grain - height);
+          roughness +=
+            face *
+            (p.roughness +
+              0.03 * grain +
+              0.1 * score -
+              0.07 * bead -
+              roughness);
+          occlusion += face * (0.96 - 0.1 * score - occlusion);
+          // Holes in the raised tab expose the intact lid, not the backing.
+          // Replacing each layer prevents intersection height from stacking.
+          color += tab * (0.68 + 0.025 * tone + 0.008 * grain - color);
+          height +=
+            tab *
+            (0.64 + 0.025 * smooth(clamp(tabCap)) + 0.001 * grain - height);
+          roughness += tab * (0.27 + 0.01 * grain - roughness);
+          occlusion += tab * (0.99 - occlusion);
+          color += rivet * (0.78 + 0.02 * tone + 0.008 * grain - color);
+          height +=
+            rivet *
+            (0.74 + 0.03 * smooth(clamp(rivetCap)) + 0.001 * grain - height);
+          roughness += rivet * (0.24 + 0.01 * grain - roughness);
+          occlusion += rivet * (1 - occlusion);
+          return;
+        };
+      }
       case 'spaltedwood': {
         const p = proceduralMaterialPresets.spaltedwood;
         const zoneField = cachedNoise(
@@ -20890,6 +20990,7 @@ export function createSurfaceSampler(
     kind === 'sharkteeth' ||
     kind === 'grinderburrs' ||
     kind === 'spaltedwood' ||
+    kind === 'canlids' ||
     fabricated ||
     botanical ||
     packaging ||
