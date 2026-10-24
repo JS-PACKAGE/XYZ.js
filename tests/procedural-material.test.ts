@@ -511,7 +511,95 @@ const kinds: ProceduralMaterialKind[] = [
   'lenoweave',
   'circlips',
   'tuliptiles',
+  'gingerslice',
 ];
+
+describe('Knobbly ginger rhizome slices', () => {
+  const p = proceduralMaterialPresets.gingerslice;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('gingerslice', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins four unequal flesh lobes inside a darker raised rind for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number): SurfaceSample =>
+            (col + row) & 1
+              ? at(col + 0.5 - y, row + 0.5 + x)
+              : at(col + 0.5 + x, row + 0.5 + y);
+          const backing = local(0.36, 0.3);
+          const rims = [
+            [-0.301, -0.08],
+            [0.261, -0.04],
+            [0.04, 0.271],
+            [-0.191, 0.13],
+          ];
+          for (let i = 0; i < p.lobes.length; i++) {
+            const flesh = local(p.lobes[i][0], p.lobes[i][1]),
+              rind = local(rims[i][0], rims[i][1]);
+            expect(flesh.color - rind.color).toBeGreaterThan(0.59);
+            expect(flesh.height - rind.height).toBeGreaterThan(0.0039);
+            expect(rind.height - backing.height).toBeGreaterThan(0.0157);
+            expect(rind.roughness - flesh.roughness).toBeGreaterThan(0.21);
+            expect(flesh.occlusion - backing.occlusion).toBeGreaterThan(0.59);
+            expect(flesh.metallic).toBe(0);
+            expect(rind.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [0, -0.06],
+            [0.08, 0.05],
+            [-0.06, 0.17],
+          ])
+            expect(local(x, y).color).toBeGreaterThan(0.88);
+          for (let iy = 0; iy <= 16; iy++)
+            for (let ix = 0; ix <= 16; ix++)
+              expect(
+                local(-0.12 + (0.1 * ix) / 16, 0.04 + (0.08 * iy) / 16).color,
+              ).toBeGreaterThan(0.88);
+          expect(local(0.12, 0.27).color).toBeLessThan(0.06);
+          expect(local(-0.33, -0.08).height).toBeCloseTo(backing.height, 12);
+        }
+    },
+  );
+  it('keeps rind shoulders, flesh necks, fiber fields and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cobalt tulip glazed tiles', () => {
   const p = proceduralMaterialPresets.tuliptiles;

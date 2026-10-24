@@ -1264,6 +1264,58 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'gingerslice': {
+        const p = proceduralMaterialPresets.gingerslice;
+        const grainField = cachedNoise(64, 64, seed ^ 0xf93d);
+        const fiberField = cachedNoise(128, 12, seed ^ 0x1a4f);
+        const lobes = new Float64Array(p.lobes.length * 4);
+        for (let i = 0; i < p.lobes.length; i++) {
+          const lobe = p.lobes[i],
+            j = i * 4;
+          lobes[j] = lobe[0];
+          lobes[j + 1] = lobe[1];
+          lobes[j + 2] = 1 / (lobe[2] * lobe[2]);
+          lobes[j + 3] = 1 / (lobe[2] - p.rindWidth) ** 2;
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? dy : dx,
+            y = turn ? -dx : dy;
+          let outside = 1,
+            outsideFlesh = 1;
+          for (let i = 0; i < lobes.length; i += 4) {
+            const lx = x - lobes[i],
+              ly = y - lobes[i + 1];
+            const r2 = lx * lx + ly * ly;
+            outside *= 1 - smooth(clamp((1 - r2 * lobes[i + 2]) / p.shoulder));
+            outsideFlesh *=
+              1 - smooth(clamp((1 - r2 * lobes[i + 3]) / p.shoulder));
+          }
+          const face = 1 - outside,
+            flesh = 1 - outsideFlesh;
+          const grain = grainField(u, v),
+            fibers = fiberField(u, v);
+          color =
+            0.05 +
+            0.22 * face +
+            0.62 * flesh +
+            0.025 * fibers * flesh +
+            0.015 * grain * face;
+          height =
+            0.05 +
+            0.46 * face +
+            0.12 * flesh +
+            0.007 * fibers * flesh +
+            0.003 * grain * face;
+          roughness += 0.15 * (1 - face) - 0.25 * flesh + 0.03 * grain * face;
+          occlusion = 0.36 + 0.6 * face;
+          return;
+        };
+      }
       case 'tuliptiles': {
         const p = proceduralMaterialPresets.tuliptiles;
         const grainField = cachedNoise(64, 64, seed ^ 0xe82b);
@@ -15660,6 +15712,7 @@ export function createSurfaceSampler(
     kind === 'lenoweave' ||
     kind === 'circlips' ||
     kind === 'tuliptiles' ||
+    kind === 'gingerslice' ||
     fabricated ||
     botanical ||
     packaging ||

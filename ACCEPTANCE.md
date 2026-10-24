@@ -6560,3 +6560,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查三瓣內部／上部、花瓣間凹口、細莖寬度、雙葉與莖葉間留白，及灰縫的高度／色差／AO／roughness／metallic；另掃描尖端、連接、釉面邊界與 tile wrap 的 C1。首輪上瓣探針落在淡出肩部，卻套用完全著色門檻；實際 size 512 畫面確認三瓣輪廓後，移至瓣內部，門檻及實作不變。既有 472 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6042 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 tuliptiles，25 球與四圖預覽正常、errors 空，離頁 cleanup errors 空。WebGL2 另以公開 API size 512 的 baseColor 等比例臨時 canvas 看清三瓣、細莖、雙葉；預覽隨頁清除。一次新開 WebGL2 tab 的 Frame 立即 detached，釋放後以新分頁成功完成，不把該失敗算 runtime 通過。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：多瓣薑切片（gingerslice）
+
+- 目錄 473→474 種；0.2 m tile，十六片四個不等連接瓣的根莖切面，淡黃細纖維肉面高於薄褐色粗糙皮緣，相鄰方向轉 90°。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增根莖 geometry、透明度或食品／植物模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查四瓣肉面／外露皮緣、連接頸與外側凹口的高度／色差／AO／roughness／metallic；另掃描皮緣、頸部、纖維與 tile wrap 的 C1。size 512 視覺檢查找到原圓瓣內縮聯集留下的內部皮斑，新增探針重現三 seed 失敗；單純擴大末瓣只縮小皮斑，401×401 覆蓋調查仍見未覆蓋區。最終保留四個不同半徑，將小瓣向頸部移近，使該調查區 flesh 最低值達 1，並以每格 17×17 的完整頸區回歸防止小孔漏網。舊兩輪整合檢查已取消，僅採最終結果。既有 473 種 size 64／seed 7 四圖 SHA256 changed 0。
+- 最終 build、typecheck、lint、format:check、完整 Vitest（179 檔／6047 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- 最終 managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 gingerslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認接合肉面連續且無內部皮斑，height true、metallic 0、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

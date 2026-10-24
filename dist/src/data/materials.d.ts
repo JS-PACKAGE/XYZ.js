@@ -3599,6 +3599,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         stemWidth: 0.012;
         lobes: readonly [readonly [0, -0.18, 0.068, 0.17, 0], readonly [0.085, -0.16, 0.068, 0.17, 0.35], readonly [-0.085, -0.16, 0.068, 0.17, -0.35], readonly [0.075, 0.19, 0.04, 0.15, 0.65], readonly [-0.075, 0.19, 0.04, 0.15, -0.65]];
     }>;
+    gingerslice: Readonly<{
+        dark: readonly [69, 36, 10];
+        light: readonly [244, 215, 141];
+        roughness: 0.76;
+        relief: 0.035;
+        cells: 4;
+        rindWidth: 0.02;
+        shoulder: 0.06;
+        lobes: readonly [readonly [-0.12, -0.08, 0.19], readonly [0.12, -0.04, 0.15], readonly [0.04, 0.14, 0.14], readonly [-0.1, 0.13, 0.1]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4075,4 +4085,5 @@ export declare const proceduralTileMeters: Readonly<{
     lenoweave: 0.06;
     circlips: 0.08;
     tuliptiles: 0.6;
+    gingerslice: 0.2;
 }>;

@@ -552,6 +552,7 @@ try {
     'lenoweave',
     'circlips',
     'tuliptiles',
+    'gingerslice',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

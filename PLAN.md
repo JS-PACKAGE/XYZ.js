@@ -487,6 +487,8 @@
 
 同輪追加 `tuliptiles`（鬱金香花磚），目錄 472→473 種：十六片象牙白釉面方磚，各帶鈷藍三瓣尖端花冠、細莖與兩片尖葉，圖案略高於釉面，磚間為低粗糙灰縫。0.6 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增花卉或磚 geometry、透明縫或植物模擬；逐功能驗證提交、不 push。
 
+同輪追加 `gingerslice`（多瓣薑切片），目錄 473→474 種：十六片四個大小不等連接瓣構成的薑根莖切面，淡黃纖維肉高於較粗糙的薄褐皮，輪廓留凹頸、相鄰方向轉 90°，不是圓形切片或有孔蓮藕。0.2 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增根莖 geometry、透明度或食品／植物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
