@@ -610,6 +610,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `starcrosstiles`（八角星十字磚）：深青色八角星與象牙白十字交錯，正方及斜向邊皆有低而粗糙的中性灰縫；外擴星尖納入鄰 cell，讓十字補集在接點保持平滑。`await ProceduralMaterial.create('starcrosstiles', { seed: 7 })`；0.8 m tile 含十六顆星、opaque dielectric、metallic 0，沿既有 maps／選用 height／借用／destroy 契約，不新增磚 geometry 或鋪設模擬。
 
+種類另支援 `maplesamara`（成對楓翅果）：十六對金褐色 V 形翅，外展薄翅帶細脈，根部深色種仁高於翅面，短柄連接兩果，相鄰方向翻轉 180°。`await ProceduralMaterial.create('maplesamara', { seed: 7 })`；0.2 m tile、opaque dielectric、metallic 0，沿既有 maps／選用 height／借用／destroy 契約。薄翅是不透明表面 shading，不新增翅果 geometry、透明薄膜、飛行或生物模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

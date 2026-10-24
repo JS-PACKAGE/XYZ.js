@@ -479,6 +479,8 @@
 
 同輪追加 `starcrosstiles`（八角星十字磚），目錄 468→469 種：十六片深青色八角星與象牙白十字磚交錯，正方與斜向邊皆有低而粗糙的中性灰縫，凹角與相鄰星尖接點平滑。0.8 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增磚 geometry、透明縫或鋪設模擬；逐功能驗證提交、不 push。
 
+同輪追加 `maplesamara`（成對楓翅果），目錄 469→470 種：十六對金褐色 V 形薄翅，外端較寬、根部收窄且各帶隆起的深色種仁，短柄連接兩果，翅間留低暗底；相鄰方向翻轉 180°。0.2 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增翅果 geometry、透明薄膜、飛行或生物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

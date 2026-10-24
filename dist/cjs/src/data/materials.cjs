@@ -7531,6 +7531,35 @@ var proceduralMaterialPresets = Object.freeze({
 		halfSquare: Math.SQRT1_2 / 2,
 		grout: .008,
 		bevel: .012
+	}),
+	maplesamara: Object.freeze({
+		dark: [
+			37,
+			23,
+			10
+		],
+		light: [
+			218,
+			179,
+			102
+		],
+		roughness: .72,
+		relief: .04,
+		cells: 4,
+		angle: Math.PI / 4,
+		originX: .035,
+		originY: .18,
+		wingCenter: .22,
+		wingLength: .21,
+		wingBaseWidth: .035,
+		wingFlare: .07,
+		seedCenter: .04,
+		seedLength: .065,
+		seedWidth: .045,
+		stalkWidth: .09,
+		stalkHeight: .018,
+		shoulder: .42,
+		veins: 3
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8002,7 +8031,8 @@ var proceduralTileMeters = Object.freeze({
 	sanddollar: .3,
 	brogueleather: .18,
 	clovebuds: .08,
-	starcrosstiles: .8
+	starcrosstiles: .8,
+	maplesamara: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

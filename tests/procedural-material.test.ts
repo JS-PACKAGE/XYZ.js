@@ -507,7 +507,91 @@ const kinds: ProceduralMaterialKind[] = [
   'brogueleather',
   'clovebuds',
   'starcrosstiles',
+  'maplesamara',
 ];
+
+describe('Paired maple samaras', () => {
+  const p = proceduralMaterialPresets.maplesamara;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('maplesamara', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises paired kernels above flared wing membranes and leaves a central V gap for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number): SurfaceSample =>
+            at(col + 0.5 + x * flip, row + 0.5 + y * flip);
+          const backing = local(0, -0.1),
+            stalk = local(0, p.originY);
+          expect(stalk.height - backing.height).toBeGreaterThan(0.012);
+          for (const side of [-1, 1]) {
+            const wingAt = (along: number, across: number): SurfaceSample =>
+              local(
+                side *
+                  (p.originX +
+                    along * Math.sin(p.angle) +
+                    across * Math.cos(p.angle)),
+                p.originY -
+                  along * Math.cos(p.angle) +
+                  across * Math.sin(p.angle),
+              );
+            const kernel = wingAt(p.seedCenter, 0),
+              wing = wingAt(0.27, 0),
+              flared = wingAt(0.27, 0.05),
+              narrowBase = wingAt(0.05, 0.05);
+            expect(kernel.height - wing.height).toBeGreaterThan(0.013);
+            expect(wing.height - backing.height).toBeGreaterThan(0.012);
+            expect(wing.color - kernel.color).toBeGreaterThan(0.28);
+            expect(flared.height - narrowBase.height).toBeGreaterThan(0.01);
+            expect(wing.occlusion - backing.occlusion).toBeGreaterThan(0.63);
+            expect(wing.roughness - kernel.roughness).toBeGreaterThan(0.06);
+            expect(kernel.metallic).toBe(0);
+            expect(wingAt(0.45, 0).height).toBeCloseTo(backing.height, 12);
+          }
+          expect(local(0.3, 0.3).height).toBeCloseTo(backing.height, 12);
+        }
+    },
+  );
+  it('keeps seed joins, flared wing rims, veins and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Eight-pointed star and cross glazed tiles', () => {
   const p = proceduralMaterialPresets.starcrosstiles;

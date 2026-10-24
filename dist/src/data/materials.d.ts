@@ -3532,6 +3532,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.008;
         bevel: 0.012;
     }>;
+    maplesamara: Readonly<{
+        dark: readonly [37, 23, 10];
+        light: readonly [218, 179, 102];
+        roughness: 0.72;
+        relief: 0.04;
+        cells: 4;
+        angle: number;
+        originX: 0.035;
+        originY: 0.18;
+        wingCenter: 0.22;
+        wingLength: 0.21;
+        wingBaseWidth: 0.035;
+        wingFlare: 0.07;
+        seedCenter: 0.04;
+        seedLength: 0.065;
+        seedWidth: 0.045;
+        stalkWidth: 0.09;
+        stalkHeight: 0.018;
+        shoulder: 0.42;
+        veins: 3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4004,4 +4025,5 @@ export declare const proceduralTileMeters: Readonly<{
     brogueleather: 0.18;
     clovebuds: 0.08;
     starcrosstiles: 0.8;
+    maplesamara: 0.2;
 }>;

@@ -6532,3 +6532,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查八個星尖、八個凹角間十字面、十字長臂、兩類邊／凹角／相鄰星尖的灰縫高度／AO／roughness／metallic；掃描 C1，另以建置產物對精確鄰星 guard 作 15420 次拋棄式導數探測，最大誤差 0.0002011（容差 0.02）。既有 468 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6021 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。首輪 format:check 指出新增 HTML option 超行，僅格式化該檔後續跑剩餘檢查通過。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 starcrosstiles，25 球與四圖預覽正常，可辨青星、白十字與灰縫，errors 空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤；較早的 WebGL2 tab 已 detached，直接釋放，未宣稱該 tab 的離頁 cleanup。無像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：成對楓翅果（maplesamara）
+
+- 目錄 469→470 種；0.2 m tile，十六對金褐色 V 形外展薄翅、根部隆起深色種仁與短連柄，相鄰方向翻轉 180°；細脈限於翅面。opaque dielectric、metallic 0、低暗底；沿四圖／選用 height／ownership，不新增翅果 geometry、透明薄膜、飛行或生物模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查種仁高於翅膜、薄翅外展、中央 V 形留白、連柄及翅端／外側的高度／色差／AO／roughness／metallic 與 180° 方向；另掃描種仁接合、翅緣、細脈及 tile wrap 的 C1。既有 469 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6026 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 maplesamara，25 球與四圖預覽正常，errors 空。另以公開 API size 512／seed 7／heightMap true 將 baseColor 畫到等比例臨時 canvas，可辨成對寬翅與根部種仁；height true、metallic 0、destroyed true。WebGPU 離頁 cleanup 無錯誤、臨時 canvas 隨頁清除；較早的 WebGL2 tab 即使 persist true 仍 detached，已回報工具問題並直接釋放，未宣稱該 tab 的離頁 cleanup。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

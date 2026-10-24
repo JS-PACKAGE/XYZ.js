@@ -1263,6 +1263,81 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'maplesamara': {
+        const p = proceduralMaterialPresets.maplesamara;
+        const grainField = cachedNoise(64, 64, seed ^ 0xb5f3);
+        const cos = Math.cos(p.angle),
+          sin = Math.sin(p.angle);
+        const wingEnd = p.wingCenter + p.wingLength;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const flip = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = (fract(uc) - 0.5) * flip,
+            y = (fract(vc) - 0.5) * flip;
+          let outsideWings = 1,
+            outsideSeeds = 1,
+            veins = 0;
+          for (let side = -1; side <= 1; side += 2) {
+            const dx = x * side - p.originX,
+              dy = p.originY - y;
+            const along = dx * sin + dy * cos,
+              across = dx * cos - dy * sin;
+            const width =
+              p.wingBaseWidth + p.wingFlare * smooth(clamp(along / wingEnd));
+            const wing = smooth(
+              clamp(
+                (1 -
+                  ((along - p.wingCenter) / p.wingLength) ** 2 -
+                  (across / width) ** 2) /
+                  p.shoulder,
+              ),
+            );
+            const kernel = smooth(
+              clamp(
+                (1 -
+                  ((along - p.seedCenter) / p.seedLength) ** 2 -
+                  (across / p.seedWidth) ** 2) /
+                  p.shoulder,
+              ),
+            );
+            outsideWings *= 1 - wing;
+            outsideSeeds *= 1 - kernel;
+            veins +=
+              wing *
+              (0.5 +
+                0.5 *
+                  Math.cos(TAU * ((across / width) * p.veins + along * 0.8)));
+          }
+          const stalk = smooth(
+            clamp(
+              (1 -
+                (x / p.stalkWidth) ** 2 -
+                ((y - p.originY) / p.stalkHeight) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const wings = 1 - outsideWings,
+            kernels = 1 - outsideSeeds;
+          const body = 1 - outsideWings * outsideSeeds * (1 - stalk);
+          const grain = grainField(u, v);
+          color =
+            0.04 +
+            0.63 * wings * (1 - kernels) +
+            0.32 * kernels +
+            0.2 * stalk * (1 - wings) * (1 - kernels) +
+            0.015 * grain * body;
+          height =
+            0.04 +
+            0.31 * body +
+            0.37 * kernels +
+            0.025 * veins +
+            0.01 * grain * body;
+          roughness += 0.1 * (1 - body) - 0.08 * kernels + 0.02 * grain;
+          occlusion = 0.32 + 0.64 * body;
+          return;
+        };
+      }
       case 'starcrosstiles': {
         const p = proceduralMaterialPresets.starcrosstiles;
         const grainField = cachedNoise(64, 64, seed ^ 0xa4e1);
@@ -15448,6 +15523,7 @@ export function createSurfaceSampler(
     kind === 'brogueleather' ||
     kind === 'clovebuds' ||
     kind === 'starcrosstiles' ||
+    kind === 'maplesamara' ||
     fabricated ||
     botanical ||
     packaging ||
