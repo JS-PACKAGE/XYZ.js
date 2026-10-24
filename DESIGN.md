@@ -557,6 +557,8 @@
 
 `pillowtiles` 用四次 superellipse compact smooth mask 畫圓角正方磚，以獨立 squared-radius quadratic cap 的 smooth profile 畫連續中央凸面，而非只有外緣 bevel。36 組 seeded owner tones 預算，所有色差與 grain 由 face mask 限定，灰縫先回到共用 pigment 再由既有 mortar 路徑混色。6×6 磚、96×96 grain、0.6 m tile、metallic 0，目錄增為 504 種；取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、位移或透明度。
 
+`coffeerings` 預算九組 seeded 中心偏移、旋轉、橢圓半徑倒數與濃度；squared-radius implicit ring 受連續 warp 微擾，compact smooth ring profile 乘局部 fade，另以獨立 smooth inside mask 畫淡浸染。各軸最外支撐小於 0.42 cell，owner 邊界前歸零；12×12 warp／24×24 fade／96×96 paper grain 皆 periodic。3×3 杯圈、0.36 m tile、metallic 0，目錄增為 505 種；色漬只改 pigment／roughness 及極輕微乾燥沉積，AO 不挖洞，取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明度、流體、吸收或乾燥模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

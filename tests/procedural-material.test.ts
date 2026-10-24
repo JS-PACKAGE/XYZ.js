@@ -542,7 +542,85 @@ const kinds: ProceduralMaterialKind[] = [
   'ivyleaf',
   'ribknit',
   'pillowtiles',
+  'coffeerings',
 ];
+
+describe('Dried coffee cup ring stains on pale paper', () => {
+  const p = proceduralMaterialPresets.coffeerings;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('coffeerings', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains nine irregular dark annular tide marks around lightly stained interiors without carving paper cavities for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+              at(col + 0.5 + x, row + 0.5 + y),
+            paper = local(0.47, 0.47),
+            inner = local(0, 0);
+          expect(paper.color - inner.color).toBeGreaterThan(0.04);
+          for (let i = 0; i < 32; i++) {
+            const angle = (i * 2 * Math.PI) / 32;
+            let darkest = paper;
+            for (let j = 0; j <= 96; j++) {
+              const radius = 0.2 + (0.23 * j) / 96,
+                sample = local(
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                );
+              if (sample.color < darkest.color) darkest = sample;
+            }
+            expect(paper.color - darkest.color).toBeGreaterThan(0.14);
+            expect(inner.color - darkest.color).toBeGreaterThan(0.09);
+            expect(paper.roughness - darkest.roughness).toBeGreaterThan(0.009);
+            expect(Math.abs(darkest.height - paper.height)).toBeLessThan(
+              0.000032,
+            );
+            expect(darkest.occlusion).toBe(paper.occlusion);
+            expect(darkest.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps elliptical ring shoulders, faded pigment, inner absorption and periodic paper grain C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Domed glazed pillow tiles with rounded square corners', () => {
   const p = proceduralMaterialPresets.pillowtiles;

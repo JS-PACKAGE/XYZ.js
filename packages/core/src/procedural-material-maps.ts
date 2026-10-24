@@ -1272,6 +1272,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'coffeerings': {
+        const p = proceduralMaterialPresets.coffeerings;
+        const sites = new Float64Array(p.cells * p.cells * 7);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x3e81),
+              major =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x4f93),
+              minor =
+                major *
+                (p.minorRatio +
+                  (1 - p.minorRatio) * hash(col, row, seed ^ 0x50a5)),
+              cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            sites[i] =
+              0.5 + p.centerJitter * (hash(col, row, seed ^ 0x61b7) - 0.5);
+            sites[i + 1] =
+              0.5 + p.centerJitter * (hash(col, row, seed ^ 0x72c9) - 0.5);
+            sites[i + 2] = cos / major;
+            sites[i + 3] = sin / major;
+            sites[i + 4] = cos / minor;
+            sites[i + 5] = sin / minor;
+            sites[i + 6] = 0.55 + 0.25 * hash(col, row, seed ^ 0x83db);
+          }
+        const grainField = cachedNoise(96, 96, seed ^ 0xd91d),
+          warpField = cachedNoise(12, 12, seed ^ 0xea2f),
+          fadeField = cachedNoise(24, 24, seed ^ 0xfb41),
+          inverseBand = 1 / p.ringBand,
+          inverseInnerShoulder = 1 / p.innerShoulder;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 7;
+          const dx = fract(uc) - sites[i],
+            dy = fract(vc) - sites[i + 1],
+            along = dx * sites[i + 2] + dy * sites[i + 3],
+            across = dy * sites[i + 4] - dx * sites[i + 5];
+          const r2 =
+              along * along +
+              across * across +
+              p.warp * (warpField(u, v) - 0.5),
+            edge = (r2 - 1) * inverseBand;
+          const ring = smooth(clamp(1 - edge * edge)),
+            inner = smooth(clamp((1 - r2) * inverseInnerShoulder)),
+            fade = 0.45 + 0.55 * fadeField(u, v),
+            stain = sites[i + 6] * ring * fade + 0.08 * inner,
+            grain = grainField(u, v);
+          // Dried pigment changes paper color, not a deep cavity or its AO.
+          color = 0.94 - 0.68 * stain + 0.012 * grain;
+          height = 0.12 + 0.006 * grain + 0.002 * stain;
+          roughness += -0.1 * stain + 0.015 * grain;
+          occlusion = 0.99;
+          return;
+        };
+      }
       case 'pillowtiles': {
         const p = proceduralMaterialPresets.pillowtiles;
         const grainField = cachedNoise(96, 96, seed ^ 0xc809);
@@ -17333,6 +17389,7 @@ export function createSurfaceSampler(
     kind === 'ivyleaf' ||
     kind === 'ribknit' ||
     kind === 'pillowtiles' ||
+    kind === 'coffeerings' ||
     fabricated ||
     botanical ||
     packaging ||
