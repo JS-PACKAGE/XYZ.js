@@ -571,7 +571,108 @@ const kinds: ProceduralMaterialKind[] = [
   'carabiners',
   'pencilends',
   'corrugatedplasticedge',
+  'haircombs',
 ];
+
+describe('Amber plastic hair combs with fourteen tapered teeth', () => {
+  const p = proceduralMaterialPresets.haircombs;
+  const pitch = p.toothSpan / (p.teeth - 1);
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('haircombs', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves a flat spine, fourteen distinct narrowing tines, flush roots and open-ended opaque gaps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0, 0.3),
+            spine = at(col, row, 0, -0.1);
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const x = p.firstTooth + tooth * pitch,
+              middle = at(col, row, x, 0.05),
+              root = at(col, row, x, -0.075),
+              broadSide = at(col, row, x + 0.013, -0.02),
+              narrowSide = at(col, row, x + 0.013, 0.19),
+              tipEnd = at(col, row, x, 0.28);
+            expect(middle.height - backing.height).toBeGreaterThan(0.00237);
+            expect(middle.color - backing.color).toBeGreaterThan(0.62);
+            expect(backing.roughness - middle.roughness).toBeGreaterThan(0.68);
+            expect(middle.occlusion).toBeCloseTo(0.98, 12);
+            expect(middle.metallic).toBe(0);
+            expect(Math.abs(root.height - spine.height)).toBeLessThan(0.000009);
+            expect(broadSide.height - backing.height).toBeGreaterThan(0.0001);
+            expect(narrowSide.height).toBeCloseTo(backing.height, 12);
+            expect(tipEnd.height).toBeCloseTo(backing.height, 12);
+            if (tooth < p.teeth - 1)
+              for (const y of [-0.025, 0.08, 0.2, 0.28]) {
+                const gap = at(col, row, x + pitch * 0.5, y);
+                expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+                expect(gap.occlusion).toBeCloseTo(0.4, 12);
+              }
+          }
+          for (const x of [-0.35, 0.35])
+            expect(at(col, row, x, -0.1).height).toBeCloseTo(
+              backing.height,
+              12,
+            );
+        }
+    },
+  );
+  it('keeps tapered tine shoulders, nearest-tooth owners, spine roots, rotations and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('haircombs', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Twin-wall corrugated plastic cut edges with straight ribs', () => {
   const p = proceduralMaterialPresets.corrugatedplasticedge;

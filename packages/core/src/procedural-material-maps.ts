@@ -1279,6 +1279,58 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'haircombs': {
+        const p = proceduralMaterialPresets.haircombs;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x10321);
+        const pitch = p.toothSpan / (p.teeth - 1),
+          inversePitch = 1 / pitch,
+          inverseWidth = 1 / p.toothHalfWidth,
+          inverseLength = 1 / (p.tipY - p.rootY),
+          inverseTip = 1 / p.tipShoulder,
+          inverseBevel = 1 / p.bevel,
+          grainField = cachedNoise(96, 96, seed ^ 0x10323);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            vertical = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = vertical ? dy : dx,
+            y = vertical ? -dx : dy,
+            spine =
+              smooth(clamp((p.spineHalfWidth - Math.abs(x)) * inverseBevel)) *
+              smooth(clamp((y - p.spineTop) * inverseBevel)) *
+              smooth(clamp((p.spineBottom - y) * inverseBevel)),
+            tooth = Math.floor((x - p.firstTooth) * inversePitch + 0.5);
+          let tines = 0;
+          // One nearest tooth suffices: both support edges end before its
+          // ownership boundary. The tapered width and rounded tip are C1.
+          if (tooth >= 0 && tooth < p.teeth && y > p.rootY && y < p.tipY) {
+            const t = smooth(clamp((y - p.rootY) * inverseLength)),
+              across =
+                ((x - p.firstTooth - tooth * pitch) * inverseWidth) /
+                (1 - p.taper * t);
+            tines =
+              smooth(clamp(1 - across * across)) *
+              smooth(clamp((y - p.rootY) * inverseBevel)) *
+              smooth(clamp((p.tipY - y) * inverseTip));
+          }
+          const face = 1 - (1 - spine) * (1 - tines),
+            grain = grainField(u, v);
+          color =
+            0.055 +
+            face * (0.63 + 0.08 * tones[row * p.cells + col] + 0.015 * grain);
+          height = 0.025 + face * (0.595 + 0.002 * grain);
+          roughness = 0.94 + face * (p.roughness - 0.94 + 0.018 * grain);
+          occlusion = 0.4 + 0.58 * face;
+          return;
+        };
+      }
       case 'corrugatedplasticedge': {
         const p = proceduralMaterialPresets.corrugatedplasticedge;
         const tones = new Float64Array(p.rows);
@@ -19557,6 +19609,7 @@ export function createSurfaceSampler(
     kind === 'carabiners' ||
     kind === 'pencilends' ||
     kind === 'corrugatedplasticedge' ||
+    kind === 'haircombs' ||
     fabricated ||
     botanical ||
     packaging ||

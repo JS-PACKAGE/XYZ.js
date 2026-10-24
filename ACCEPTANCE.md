@@ -6992,3 +6992,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 修正後完整 build、typecheck、lint、format:check、179 檔／6360 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 corrugatedplasticedge，533 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認兩層水平面皮、筆直肋、交錯矩形槽與板間 backing，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱透明中空 geometry、結構／塑膠性能認證、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 面皮修正後重跑同一分頁的兩個強制 backend／512 公開 API 預覽與離頁 cleanup，errors 仍皆空。瀏覽器公開 API size 32 實際生成 seed 123／124，baseColor bytes 不同，左上皮面像素分別為 [94,135,166,255]／[92,133,164,255]，不再整張漏取為暗 backing；各資源皆 destroy。
+
+## 2026-10-25 程序材質：塑膠髮梳（haircombs）
+
+- 目錄 533→534 種；0.48 m tile，4×4 交替水平／垂直琥珀色梳子，每把平背連接 14 根漸細、圓鈍收尾的梳齒，齒間低暗槽連通外部 backing。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增梳子 geometry、透明塑膠、頭髮交互或變形模擬。
+- 三 seed（0／1／`0xffffffff`）逐把逐齒檢查 spine／14 tines、同高 root、不透明齒間槽的連通、齒寬漸縮、末端與側面外 backing，涵蓋 height／color／roughness／AO／metallic；129×129 網格、三 seed、雙方向四欄位 C1 檢查 taper／owner／root／rotation／wrap。h 1e-8 初次步長差 0.0249655，fresh Bun 診斷在 1e-7／1e-8／1e-9／1e-10 收斂為 0.249655／0.0249655／0.00249652／0.00024987，左右 color slope 趨近約 113.518，屬薄齒有限曲率而非 cusp；h 改為 1e-9、保留 0.02 上限。四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試通過。
+- 既有 533 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 haircombs，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6365 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 haircombs，534 種與 plain、25 球及四圖預覽正常、兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替方向、平背、14 根漸細齒與連通外部的暗槽，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱透明塑膠／髮梳 geometry、頭髮交互、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

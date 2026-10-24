@@ -607,6 +607,8 @@
 
 同輪追加 `corrugatedplasticedge`（中空塑膠板切邊），目錄 532→533 種：8 排交錯半格的藍色板切邊，每排 8 格矩形中空槽，上下平面皮與筆直肋板同高相接，區別 cardboardedge 的正弦紙波與 closedcellfoam 的閉孔凹點。0.064 m opaque dielectric tile、metallic 0，中空部位是低暗 backing 而非透明孔；沿既有四圖／選用 height／ownership，不新增板 geometry、結構力學或塑膠性能認證；依功能驗證提交、不 push。
 
+同輪追加 `haircombs`（塑膠髮梳），目錄 533→534 種：4×4 交替水平／垂直琥珀色髮梳，平整梳背連接 14 根漸細、圓鈍收尾的梳齒，齒間凹槽連通至外部低暗 backing；區別 doorkeys 的金屬孔／單邊 bitting 與 sawblades 的圓形齒刃。0.48 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增梳子 geometry、透明塑膠、頭髮交互或變形模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
