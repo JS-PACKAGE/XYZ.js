@@ -514,7 +514,89 @@ const kinds: ProceduralMaterialKind[] = [
   'gingerslice',
   'fivebarplate',
   'cinnamonswirl',
+  'wheatears',
 ];
+
+describe('Golden awned wheat ears', () => {
+  const p = proceduralMaterialPresets.wheatears;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('wheatears', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'distinguishes paired grooved kernels, slender awns and the rachis for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const sign = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + sign * x, row + 0.5 + sign * y);
+          const base = local(0.3, 0.3),
+            stalk = local(0, 0.27);
+          expect(stalk.height - base.height).toBeGreaterThan(0.005);
+          for (let i = 0; i < p.pairs; i++)
+            for (const side of [-1, 1]) {
+              const cy = (i - (p.pairs - 1) / 2) * p.spacing;
+              const grain = (along: number, across: number) =>
+                local(
+                  side * (p.offset + (along + across) * Math.SQRT1_2),
+                  cy + (across - along) * Math.SQRT1_2,
+                );
+              const groove = grain(0, 0),
+                flank = grain(0, 0.011),
+                awn = grain(p.awnCenter + 0.02, 0),
+                besideAwn = grain(p.awnCenter + 0.02, 0.01);
+              expect(groove.height - stalk.height).toBeGreaterThan(0.009);
+              expect(groove.color - base.color).toBeGreaterThan(0.6);
+              expect(groove.occlusion - stalk.occlusion).toBeGreaterThan(0.1);
+              expect(stalk.roughness - groove.roughness).toBeGreaterThan(0.075);
+              expect(flank.height - groove.height).toBeGreaterThan(0.0008);
+              expect(flank.color - groove.color).toBeGreaterThan(0.02);
+              expect(awn.height - besideAwn.height).toBeGreaterThan(0.005);
+              expect(awn.height - base.height).toBeGreaterThan(0.005);
+              expect(groove.metallic).toBe(0);
+              expect(awn.metallic).toBe(0);
+            }
+        }
+    },
+  );
+  it('keeps grain edges, grooves, thin awns, stalk and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cinnamon spiral bun cross sections', () => {
   const p = proceduralMaterialPresets.cinnamonswirl;

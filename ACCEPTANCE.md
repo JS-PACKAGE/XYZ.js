@@ -6581,3 +6581,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐格沿螺旋取 129 個半徑，確認餡／麵團的高度／色差／AO／roughness／metallic，另查中心餡核、烤色外緣與外側；掃描中心、角度縫、邊緣與 tile wrap C1。初次烤色邊緣色差檢查三 seed 失敗（最低觀測 0.0638，要求 >0.08），size 512 檢視後加深外皮烤色，保持測試門檻不變後通過。既有 475 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6058 項）、check:api-compatibility、check:distribution 通過。初次 format:check 報兩份修改檔案格式，修正後重建並完成餘下檢查；中間被取消的一輪不計成功。八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cinnamonswirl，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認連續螺旋、中心餡核與烤色邊緣，height true、metallic 0、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：金黃麥穗（wheatears）
+
+- 目錄 476→477 種；0.24 m tile，十六支風格化麥穗，每支五對隆起穀粒、粒面縱溝、十根細穗芒與中央穗軸，相鄰轉 180°。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增植物 geometry、透明度、生長或風場模擬。
+- 三 seed（0／1／`0xffffffff`）逐格逐對檢查穀粒／縱溝、粒面肩部、細芒／芒外、穗軸／底層的高度／色差／AO／roughness／metallic，另掃描粒緣、縱溝、細芒、穗軸與 tile wrap C1。既有 476 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6063 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 wheatears，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認成對穀粒、中央穗軸、細芒與轉向，height true、metallic 0、destroyed true；預覽隨頁清除。文件建議較大貼圖／預覽以看清細芒與縱溝。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

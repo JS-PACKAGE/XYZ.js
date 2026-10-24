@@ -1265,6 +1265,81 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'wheatears': {
+        const p = proceduralMaterialPresets.wheatears;
+        const grainField = cachedNoise(96, 96, seed ^ 0x8d31);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const flip = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = (fract(uc) - 0.5) * flip,
+            y = (fract(vc) - 0.5) * flip;
+          let outsideKernels = 1,
+            outsideCrowns = 1,
+            outsideGrooves = 1,
+            outsideAwns = 1;
+          for (let i = 0; i < p.pairs; i++)
+            for (let side = -1; side <= 1; side += 2) {
+              const dx = x * side - p.offset,
+                dy = y - (i - (p.pairs - 1) / 2) * p.spacing;
+              const along = (dx - dy) * Math.SQRT1_2,
+                across = (dx + dy) * Math.SQRT1_2;
+              const cap =
+                1 -
+                (along / p.kernelLength) ** 2 -
+                (across / p.kernelWidth) ** 2;
+              const kernel = smooth(clamp(cap / p.shoulder));
+              outsideKernels *= 1 - kernel;
+              outsideCrowns *= 1 - kernel * smooth(clamp(cap));
+              outsideGrooves *=
+                1 -
+                kernel *
+                  smooth(
+                    clamp((1 - (across / p.grooveWidth) ** 2) / p.shoulder),
+                  );
+              outsideAwns *=
+                1 -
+                smooth(
+                  clamp(
+                    (1 -
+                      ((along - p.awnCenter) / p.awnLength) ** 2 -
+                      (across / p.awnWidth) ** 2) /
+                      p.shoulder,
+                  ),
+                );
+            }
+          const stalk = smooth(
+            clamp(
+              (1 -
+                (x / p.stalkWidth) ** 2 -
+                ((y - p.stalkCenter) / p.stalkLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const kernels = 1 - outsideKernels,
+            crowns = 1 - outsideCrowns,
+            grooves = 1 - outsideGrooves;
+          const shape = 1 - outsideKernels * outsideAwns * (1 - stalk);
+          const grain = grainField(u, v);
+          color =
+            0.08 +
+            0.25 * shape +
+            0.38 * kernels +
+            0.08 * crowns -
+            0.06 * grooves +
+            0.03 * shape * grain;
+          height =
+            0.1 +
+            0.22 * shape +
+            0.34 * kernels +
+            0.1 * crowns -
+            0.05 * grooves +
+            0.004 * shape * grain;
+          roughness += 0.04 * shape - 0.1 * kernels + 0.02 * shape * grain;
+          occlusion = 0.62 + 0.21 * shape + 0.16 * kernels - 0.05 * grooves;
+          return;
+        };
+      }
       case 'cinnamonswirl': {
         const p = proceduralMaterialPresets.cinnamonswirl;
         const crumbField = cachedNoise(96, 96, seed ^ 0x6c25);
@@ -15789,6 +15864,7 @@ export function createSurfaceSampler(
     kind === 'gingerslice' ||
     kind === 'fivebarplate' ||
     kind === 'cinnamonswirl' ||
+    kind === 'wheatears' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -7747,6 +7747,34 @@ var proceduralMaterialPresets = Object.freeze({
 		fillingRadius: .35,
 		fillingShoulder: .015,
 		crustStrength: .24
+	}),
+	wheatears: Object.freeze({
+		dark: [
+			55,
+			36,
+			16
+		],
+		light: [
+			234,
+			195,
+			106
+		],
+		roughness: .8,
+		relief: .025,
+		cells: 4,
+		pairs: 5,
+		spacing: .07,
+		offset: .055,
+		kernelLength: .073,
+		kernelWidth: .027,
+		grooveWidth: .006,
+		awnCenter: .13,
+		awnLength: .105,
+		awnWidth: .0035,
+		stalkWidth: .009,
+		stalkLength: .3,
+		stalkCenter: .06,
+		shoulder: .2
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8225,7 +8253,8 @@ var proceduralTileMeters = Object.freeze({
 	tuliptiles: .6,
 	gingerslice: .2,
 	fivebarplate: .6,
-	cinnamonswirl: .32
+	cinnamonswirl: .32,
+	wheatears: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

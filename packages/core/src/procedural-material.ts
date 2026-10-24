@@ -491,7 +491,8 @@ export type ProceduralMaterialKind =
   | 'tuliptiles'
   | 'gingerslice'
   | 'fivebarplate'
-  | 'cinnamonswirl';
+  | 'cinnamonswirl'
+  | 'wheatears';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1217,6 +1218,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gingerslice',
   'fivebarplate',
   'cinnamonswirl',
+  'wheatears',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
