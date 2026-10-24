@@ -38,7 +38,7 @@ src/index.ts                    統一 ESM／TypeScript API
   ├─ packages/assets           AssetLoader／Texture／AssetError
   ├─ packages/input            Keyboard／Pointer／Gamepad
   └─ packages/audio            AudioManager／Asset／Channel／OPMAdapter
-       └─ vendor/opm           官方 OPM.js v1.13.0（tag v1.13.0）
+       └─ vendor/opm           官方 OPM.js v1.13.1（tag v1.13.1）
 
 requestAnimationFrame(timestamp)
   → 同步 DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
@@ -259,14 +259,14 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 ## 15. Audio
 
 - `game.audio.load(url)` 共享 canonical URL（忽略 fragment）的 pending/cache；失敗會逐出，destroy 立即取消等待。JSON 必須含官方可解析 `voice` 及非空 `notes`，每音符 MIDI 0–127、time ≥ 0、duration (0,60] 秒。可選 channel（music/sfx/ui）、loop、duration（loop period，不能短於最後音符結束）。載入後 voice/notes immutable；格式示例見 [sfx.json](../examples/sprite/sfx.json) 與 [music.json](../examples/sprite/music.json)。
-- Voice 驗證在內部透過官方 v7 格式正規化，仍接受 legacy v1 輸入。引擎公開的 `OPMVoice` 保留已發佈的 `version: 1` 契約，不暴露 native v7 representation；歷史驗收與升級驗證紀錄不改寫。
+- Voice 驗證在內部透過官方 v8 格式正規化，仍接受 legacy v1 輸入。引擎公開的 `OPMVoice` 保留已發佈的 `version: 1` 契約，不暴露 native v8 representation；歷史驗收與升級驗證紀錄不改寫。
 - 在使用者 click 等手勢內 `await game.audio.unlock()`；之前 play 拋 AudioError，不偷偷建立 AudioContext 或排隊。OPMAdapter 在 load 驗證 voice 時可先 import 官方模組，但只有 unlock 建立音訊。P137 起由 AudioManager 擁有單一 AudioContext，在呼叫者同一 turn 內建立並 resume；OPM、sample、stream、effects、ducking 與 3D listener 全部共用，unlock 後 `audioContextCount` 為 1。八個 OPM slot 透過官方 `context` 選項借用它（同一 context 上八個 AudioWorkletNode）；OPM 不會 suspend／close 借用的 context，因此 pause／resume／destroy 由 manager 負責。每 slot 保留一個聲部，含 ADSR release 與 guard；master/channel volume 0–1 經 GainNode 相乘。
 - OPM 可能單獨失敗：非安全來源（沒有 AudioWorklet）、vendor 檔案缺漏或 worklet 被擋。此時只要共用 context 能運作，`unlock()` 仍會 resolve，並經 Game `error` event 回報 `AudioError('OPM synthesizer is unavailable.')`（官方錯誤為 `cause`），公開 `game.audio.opmState`（`'locked' | 'starting' | 'ready' | 'failed'`）與 `game.audio.opmError`。Sample 與 stream 仍可播放；播放 OPM asset 拋出帶相同 cause 的 AudioError。再次明確呼叫 `unlock()` 會在同一 context 重試 OPM。無法建立或 resume AudioContext 時 `unlock()` 仍會 reject，並關閉不完整的 context。
-- 官方 OPM.js v1.13.0（tag `v1.13.0`）可選聲部數，但 XYZ.js 仍維持八個隔離 instance，每 slot 保留一個聲部。soft stop 仍有 release，隔離可在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以透過官方 `opm.panic()` 清除音符，保留 managed node／routing；teardown 使用官方 `opm.dispose()`。沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。此 vendor 升級不新增引擎功能或擴大認證範圍。
+- 官方 OPM.js v1.13.1（tag `v1.13.1`）可選聲部數，但 XYZ.js 仍維持八個隔離 instance，每 slot 保留一個聲部。soft stop 仍有 release，隔離可在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以透過官方 `opm.panic()` 清除音符，保留 managed node／routing；teardown 使用官方 `opm.dispose()`。沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。此 vendor 升級不新增引擎功能或擴大認證範圍。
 - 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
 - `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。預設關聯當前 Scene，也可指定 `scene`；沒有 Scene 時由 stop／結束／Game destroy 管理。Scene destroy hard-cancel 非 persistent 排程與 release；`persistent:true` 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是由第一個官方 instance 支援的進階 legacy compatibility facade，並非 native instance 本身；`opmState` 不是 `'ready'` 時為 `undefined`。它保留可寫 context／node handles 與可變的 voice `Map`，聲部仍使用已發佈的 v1 契約；其 `context` 是 manager 的共用 context，所以它的 `close()` 只釋放該 slot 的 worklet，不影響 sample／stream。直接操作會繞過預算／lifecycle。Managed playback／teardown 在內部使用官方 native `panic()`／`dispose()`。獨立 `new OPMAdapter()` 會自行建立並擁有一個 context 給八個 slot，`destroy()` 時關閉。
 - [來源與 SHA256 manifest](../vendor/opm/manifest.json)、[官方 Apache-2.0 LICENSE](../vendor/opm/LICENSE) 位於 vendor，沒有私人 patch；根套件另以 Apache-2.0 授權。build 複製完整 vendor 到 dist，保留 modules／worklet 的相對 URL；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
-- 選用的 `Game.create({ opmModuleUrl })`（P138）改從另一個 `dist/api/index.js` 載入官方 OPM.js，例如以 commit 釘住的 jsDelivr：`https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@d6b2780d6fca5475dfde3ea0f73767aa091f32f0/dist/api/index.js`（tag `v1.13.0`；tag 可被移動，請釘 commit）。只接受 HTTPS，或與頁面同源的 HTTP(S)，且不可含帳密或 fragment；否則 `Game.create` 在建立 renderer 前以 AudioError 拒絕。Worklet 會從該模組旁邊解析，主機必須以 CORS 提供兩者。Voice 驗證與 unlock 都使用它，而且模組匯出的 `VERSION` 必須等於 vendor 版本（`src/data/opm.ts`），否則載入以 AudioError 失敗（unlock 時即 `opmState: 'failed'`）。這只是版本檢查，不是完整性驗證：`import()` 與 AudioWorklet 模組無法做 hash 釘選，CDN 副本是 vendor SHA256 保證之外的受信任程式碼。頁面 CSP 必須允許該來源（`script-src`，也管 worklet），離線快取也不包含它。Vendor 副本仍是預設，也仍隨套件發佈。
+- 選用的 `Game.create({ opmModuleUrl })`（P138）改從另一個 `dist/api/index.js` 載入官方 OPM.js，例如以 commit 釘住的 jsDelivr：`https://cdn.jsdelivr.net/gh/JS-PACKAGE/OPM.js@4fdbff0f2d6a509763e3bef0066c059ba88ad154/dist/api/index.js`（tag `v1.13.1`；tag 可被移動，請釘 commit）。只接受 HTTPS，或與頁面同源的 HTTP(S)，且不可含帳密或 fragment；否則 `Game.create` 在建立 renderer 前以 AudioError 拒絕。Worklet 會從該模組旁邊解析，主機必須以 CORS 提供兩者。Voice 驗證與 unlock 都使用它，而且模組匯出的 `VERSION` 必須等於 vendor 版本（`src/data/opm.ts`），否則載入以 AudioError 失敗（unlock 時即 `opmState: 'failed'`）。這只是版本檢查，不是完整性驗證：`import()` 與 AudioWorklet 模組無法做 hash 釘選，CDN 副本是 vendor SHA256 保證之外的受信任程式碼。頁面 CSP 必須允許該來源（`script-src`，也管 worklet），離線快取也不包含它。Vendor 副本仍是預設，也仍隨套件發佈。
 
 ## 16. Logging 與 hardening
 

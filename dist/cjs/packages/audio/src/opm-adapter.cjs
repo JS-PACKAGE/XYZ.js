@@ -17,14 +17,14 @@ function engineVoice(e) {
 	};
 	return i.set(t, {
 		...t,
-		version: 7
+		version: e.version
 	}), t;
 }
 function nativeVoice(e) {
 	let t = i.get(e);
 	return t ? Object.isFrozen(e) ? t : {
 		...e,
-		version: 7
+		version: t.version
 	} : e;
 }
 function legacyOPM(e) {

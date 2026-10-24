@@ -6449,3 +6449,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 程序 height 以 `(h-min)/(max-min)` 正規化(平面 0.5),只在 `heightMap: true` 時配置;`createMaterial()` 綁為 `opticalMaps.heightTexture` 並套用相同 repeat,不會自行開啟 parallax;納入快取 key/bytes 與 worker 驗證,隨 preset destroy。`heightMap` 省略時,與前一個提交的 dist 比對 459 種 size 64/seed 7 四圖 SHA256 changed 0。
 - 在只含已提交原始碼的乾淨 worktree 執行 build、typecheck、lint、format:check、完整 Vitest(179 檔/5969 項)、check:api-compatibility、check:distribution 通過;dist 取自該 worktree。
 - managed headless Chromium 以公開 API 在 WebGPU 與 WebGL2 各建立 `cobblestone`(`heightMap: true`)立方體並設 `finish.heightScale 0.08`,兩者正常顯示、`textures.height` 存在、Game 與頁面皆無錯誤。僅為目視與錯誤檢查,未做像素級 parallax 正確性比對;不擴大 Canvas2D 3D、Safari、實機或效能認證範圍;未 push。
+
+## 2026-10-24 官方 OPM.js 更新至 v1.13.1
+
+- vendor 改為官方 release `v1.13.1`(tag commit `4fdbff0f`)archive 的完整 `dist/` 與 LICENSE,未修改;archive SHA256 `f8004aa8468c371d1522c5e2671e4a08b5c6eee7071573c426c49e564c7a29e3` 與 GitHub release digest 相同,`vendor/opm/dist` 與解開的官方 `package/dist` 逐檔比對無差異(162 檔,package inventory 164 筆不變)。`src/data/opm.ts` 的版本釘選與 P138 CDN 範例 commit 同步更新,該 CDN URL 回報 `VERSION` 1.13.1。
+- 上游 voice 格式改為 v8,且 v1–v7 會拒絕新欄位(`adsr.sr`、voice `pan`、noise LFO)。adapter 原本把 native voice 一律標成 `version: 7` 傳回,以官方 API 實測 v8 voice 重標 7 會被拒絕(`voice pan requires voice version 8`)。已改為保留 native voice 的版本;公開 `OPMVoice` 型別仍為 `version: 1`,不公開 v8 新欄位。
+- build、typecheck、lint、完整 Vitest(179 檔/5969 項)、check:distribution(實際呼叫官方 validateVoice)、check:api-compatibility 通過。`audio:native-load` 在 Chromium 與 Firefox PASS;WebKit FAIL(control-arrival reference difference 0.1262),以乾淨 worktree 的 v1.13.0 基準重跑得到相同失敗(0.1263),為既有問題,非本次更新造成。未做可聽輸出或實機認證;未 push。
+- `dist/vendor/opm/` 內另有 532 個 `* 2.js`、`LICENSE 5` 一類的重複檔,於先前 commit `95bb40f0`、`dce0799b` 被追蹤;package inventory 為明確清單,不會進入發佈包。本次未刪除,待使用者決定。
