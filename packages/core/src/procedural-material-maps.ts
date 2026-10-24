@@ -1263,6 +1263,47 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'brogueleather': {
+        const p = proceduralMaterialPresets.brogueleather;
+        const grainField = cachedNoise(96, 96, seed ^ 0xe2cd);
+        const axes = new Float64Array(p.petals * 2);
+        for (let i = 0; i < p.petals; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.petals);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.petals);
+        }
+        const centerSquared = p.centerRadius * p.centerRadius;
+        const borderSquared = p.borderRadius * p.borderRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5;
+          const y = fract(v * p.cells) - 0.5;
+          let outside =
+            1 -
+            smooth(clamp((1 - (x * x + y * y) / centerSquared) / p.shoulder));
+          for (let i = 0; i < axes.length; i += 2) {
+            const ax =
+              (x * axes[i] + y * axes[i + 1] - p.petalDistance) / p.petalLong;
+            const ay = (y * axes[i] - x * axes[i + 1]) / p.petalShort;
+            outside *= 1 - smooth(clamp((1 - ax * ax - ay * ay) / p.shoulder));
+          }
+          const bx =
+            (fract(u * p.cells * p.borderColumns) - 0.5) / p.borderColumns;
+          for (const row of p.borderRows) {
+            const by = Math.abs(y) - row;
+            outside *=
+              1 -
+              smooth(
+                clamp((1 - (bx * bx + by * by) / borderSquared) / p.shoulder),
+              );
+          }
+          const holes = 1 - outside,
+            grain = grainField(u, v);
+          color = (0.48 + 0.18 * grain) * (1 - holes) + 0.03 * holes;
+          height = (0.55 + 0.016 * grain) * (1 - holes) + 0.08 * holes;
+          roughness += 0.34 * holes + 0.04 * grain * (1 - holes);
+          occlusion = 0.98 - 0.72 * holes;
+          return;
+        };
+      }
       case 'sanddollar': {
         const p = proceduralMaterialPresets.sanddollar;
         const grainField = cachedNoise(96, 96, seed ^ 0xd1bb);
@@ -15299,6 +15340,7 @@ export function createSurfaceSampler(
     kind === 'dovetailjoint' ||
     kind === 'starsocketbolts' ||
     kind === 'sanddollar' ||
+    kind === 'brogueleather' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -6511,3 +6511,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格驗證五瓣左右凹線、橢圓長短軸、五個 lunule／殼肩的高度、色差、AO、roughness 與封閉暗底；另掃描花瓣線、孔壁、殼緣及 tile wrap 的 C1。首輪 h=1e-7 的有限差分以 color 0.0294 超過 0.02；定位至薄花瓣帶的高曲率點，h=1e-5→1e-9 誤差依序 2.9438／0.2944／0.02944／0.002944／0.000295，線性收斂而非導數跳躍。改用 h=1e-8，原容差不變後通過。既有 465 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6006 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 sanddollar，25 球與四圖預覽正常、errors 空。預設縮圖的細花瓣線不易辨識；另以公開 API size 512 生成 baseColor／normal，從 Texture.image 畫至等比例 canvas 實際檢視，可辨五瓣閉線、五狹孔及扁橢圓殼，已將解析度限制記於文件。WebGPU size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤；拋棄式預覽已隨分頁關閉。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：雕花皮革（brogueleather）
+
+- 目錄 466→467 種；0.18 m tile，暖棕皮面上九朵六瓣橢圓沖孔花飾、中央圓孔與雙排細邊孔。孔底低於皮面且更粗糙，為 opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增皮革 geometry、透明孔或皮料模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查六瓣與中央孔、雙排邊孔、花瓣間與邊孔間完整皮面的高度／色差／AO／roughness／metallic；另掃描孔壁、支撐邊界與 tile wrap 的 C1。既有 466 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6011 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 brogueleather，25 球與四圖預覽正常，可辨六孔花飾與雙排邊孔，errors 空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
