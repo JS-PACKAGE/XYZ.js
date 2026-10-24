@@ -6966,3 +6966,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 529 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6344 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 cottonbolls，530 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四團象牙棉絮、較低中央交接、尖褐苞片與交替轉向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 不透明纖維表面，不宣稱真實纖維 geometry、植物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：鋁色 D 型登山扣（carabiners）
+
+- 目錄 530→531 種；0.32 m tile，4×4 橫直交替不對稱圓角框、斜門閂、兩端凹接縫與凸鉸釘，區別 beltbuckles 的中柱／扣舌與 paperclips 的開放線圈。Opaque metallic、factor／map 1 含暗低 backing，沿四圖／選用 height／ownership，不新增扣環 geometry、透明孔、開合機構、碰撞或承重認證。
+- 三 seed（0／1／`0xffffffff`）逐扣四角各九點檢查 tangent frame 的 height／AO／metallic，門閂／框／bevel／鉸釘與兩端 joint 的高度、顏色及 AO 關係，內部與四側 backing。初始 C1 `h=1e-8` 失敗；fresh Bun 找到最差 roughness gradient difference 隨 h 從 `1e-7`、`1e-8`、`1e-9` 到 `1e-10` 為 0.890039、0.089004、0.008900、0.000890，左右梯度收斂至約 11.8076，屬細外框 shoulder 的有限曲率；改用 `h=1e-9`、維持 0.02 門檻。129×129 網格、三 seed、雙方向四欄位 C1 與形態四項針對測試皆通過，金屬 map／factor／ownership 矩陣同步擴充。
+- 完整 build 已通過；首次 typecheck 發現測試 helper 的預設 `offset` 被推導成 literal `0.055`，補明確 `number` 型別後繼續完整驗證。既有 530 種 size 64／seed 7 四圖 SHA256 changed 0，八份修改文件相對連結無失效。
+- 修正測試 helper 型別後，typecheck、lint、format:check、179 檔／6350 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；先前 build 產物未受 test-only 修正影響，版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 carabiners，531 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認不對稱圓角 D 框、斜門閂與接縫，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 金屬表面浮雕，不宣稱透明開口、開合或承重、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

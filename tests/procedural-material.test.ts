@@ -568,7 +568,141 @@ const kinds: ProceduralMaterialKind[] = [
   'scoredmango',
   'waxseals',
   'cottonbolls',
+  'carabiners',
 ];
+
+describe('Rounded aluminum D-shaped carabiners with slanted gates', () => {
+  const p = proceduralMaterialPresets.carabiners;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('carabiners', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const turn = (col + row) & 1;
+      sample(
+        (col + 0.5 + (turn ? -y : x)) / p.cells,
+        (row + 0.5 + (turn ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  const normal = (i: number) => {
+    const a = p.vertices[i]!,
+      b = p.vertices[(i + 1) % p.vertices.length]!,
+      dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      length = Math.hypot(dx, dy);
+    return [-dy / length, dx / length] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains tangent rounded corners, a slanted raised gate, two recessed joints, hinge pin and opaque opening for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let i = 0; i < p.vertices.length; i++) {
+            const v = p.vertices[i]!,
+              before = normal((i + p.vertices.length - 1) % p.vertices.length),
+              after = normal(i),
+              start = Math.atan2(before[1], before[0]);
+            let end = Math.atan2(after[1], after[0]);
+            while (end > start) end -= Math.PI * 2;
+            for (let j = 0; j <= 8; j++) {
+              const angle = start + ((end - start) * j) / 8,
+                corner = at(
+                  col,
+                  row,
+                  v[0] + p.rounding * Math.cos(angle),
+                  v[1] + p.rounding * Math.sin(angle),
+                );
+              expect(corner.height).toBeCloseTo(0.52 * p.relief, 12);
+              expect(corner.occlusion).toBeCloseTo(0.96, 12);
+              expect(corner.metallic).toBe(1);
+            }
+          }
+          const a = p.vertices[p.gateEdge],
+            b = p.vertices[p.gateEdge + 1],
+            n = normal(p.gateEdge),
+            gateAt = (t: number, offset: number = p.rounding) =>
+              at(
+                col,
+                row,
+                a[0] + t * (b[0] - a[0]) + n[0] * offset,
+                a[1] + t * (b[1] - a[1]) + n[1] * offset,
+              ),
+            gate = gateAt(0.5),
+            body = gateAt(0.1),
+            bevel = gateAt(0.5, p.rounding + 0.012),
+            pin = gateAt(p.pinAt);
+          expect(gate.height - body.height).toBeCloseTo(0.00035, 12);
+          expect(gate.height - bevel.height).toBeGreaterThan(0.0004);
+          expect(pin.height - gate.height).toBeGreaterThan(0.0016);
+          for (const t of [p.gateStart, p.gateEnd]) {
+            const joint = gateAt(t);
+            expect(gate.height - joint.height).toBeCloseTo(0.00105, 12);
+            expect(gate.color - joint.color).toBeGreaterThan(0.3);
+            expect(gate.occlusion - joint.occlusion).toBeCloseTo(0.12, 12);
+          }
+          for (const [x, y] of [
+            [0, 0],
+            [0.4, 0],
+            [-0.4, 0],
+            [0, 0.4],
+            [0, -0.4],
+          ] as const) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.36, 12);
+          }
+        }
+    },
+  );
+  it('keeps exterior segment/corner joins, hidden polygon exclusion and gate owner ties, joints, pin and wrap C1', () => {
+    // The narrow outer tube shoulder has finite high curvature; this step
+    // resolves its converging slopes without relaxing the continuity bound.
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('carabiners', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Open cotton bolls with four convex fiber tufts', () => {
   const p = proceduralMaterialPresets.cottonbolls;
@@ -21136,6 +21270,7 @@ describe('periodic procedural material fields', () => {
           kind === 'ballchain' ||
           kind === 'doorkeys' ||
           kind === 'beltbuckles' ||
+          kind === 'carabiners' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -30591,6 +30726,7 @@ describe('procedural preset acquisition and ownership', () => {
     'ballchain',
     'doorkeys',
     'beltbuckles',
+    'carabiners',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -30637,6 +30773,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'ballchain' ||
           kind === 'doorkeys' ||
           kind === 'beltbuckles' ||
+          kind === 'carabiners' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

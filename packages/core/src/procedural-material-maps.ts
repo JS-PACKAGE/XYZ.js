@@ -1257,6 +1257,7 @@ export function createSurfaceSampler(
     kind === 'ballchain' ||
     kind === 'doorkeys' ||
     kind === 'beltbuckles' ||
+    kind === 'carabiners' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1278,6 +1279,128 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'carabiners': {
+        const p = proceduralMaterialPresets.carabiners;
+        const segments = new Float64Array(p.vertices.length * 7),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.vertices.length; i++) {
+          const a = p.vertices[i],
+            b = p.vertices[(i + 1) % p.vertices.length],
+            dx = b[0] - a[0],
+            dy = b[1] - a[1],
+            inverseLength = 1 / Math.sqrt(dx * dx + dy * dy),
+            j = i * 7;
+          segments[j] = a[0];
+          segments[j + 1] = a[1];
+          segments[j + 2] = dx;
+          segments[j + 3] = dy;
+          segments[j + 4] = inverseLength * inverseLength;
+          segments[j + 5] = -dy * inverseLength;
+          segments[j + 6] = dx * inverseLength;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x10091);
+        const roundingSquared = p.rounding * p.rounding,
+          inverseBand = 1 / p.frameBand,
+          inverseShoulder = 1 / p.shoulder,
+          inverseGate = 1 / p.gateShoulder,
+          inverseJoint = 1 / p.jointWidth,
+          inversePin = 1 / (p.pinRadius * p.pinRadius),
+          gateIndex = p.gateEdge * 7,
+          pinX =
+            segments[gateIndex] +
+            p.pinAt * segments[gateIndex + 2] +
+            p.rounding * segments[gateIndex + 5],
+          pinY =
+            segments[gateIndex + 1] +
+            p.pinAt * segments[gateIndex + 3] +
+            p.rounding * segments[gateIndex + 6],
+          grainField = cachedNoise(8, 128, seed ^ 0x10093);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy;
+          color = 0.055;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.36;
+          let outside = false,
+            best = Infinity,
+            owner = 0,
+            along = 0;
+          for (let i = 0; i < segments.length; i += 7) {
+            const sx = x - segments[i],
+              sy = y - segments[i + 1],
+              ex = segments[i + 2],
+              ey = segments[i + 3],
+              t = clamp((sx * ex + sy * ey) * segments[i + 4]),
+              qx = sx - t * ex,
+              qy = sy - t * ey,
+              q = qx * qx + qy * qy;
+            if (ex * sy - ey * sx > 0) outside = true;
+            if (q < best) {
+              best = q;
+              owner = i;
+              along = t;
+            }
+          }
+          // The inner exclusion is hidden in a zero-support strip around
+          // the polygon. Its exterior offset has tangent segment/corner joins.
+          if (!outside) return;
+          const distance = (best - roundingSquared) * inverseBand,
+            dome = clamp(1 - distance * distance),
+            face = smooth(clamp(dome * inverseShoulder));
+          if (face === 0) return;
+          let gate = 0,
+            joints = 0;
+          if (owner === gateIndex) {
+            gate =
+              smooth(clamp((along - p.gateStart) * inverseGate)) *
+              smooth(clamp((p.gateEnd - along) * inverseGate));
+            const start = (along - p.gateStart) * inverseJoint,
+              end = (along - p.gateEnd) * inverseJoint;
+            joints =
+              smooth(clamp(1 - start * start)) + smooth(clamp(1 - end * end));
+          }
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color +=
+            face *
+            (0.56 +
+              0.2 * dome +
+              0.03 * tone +
+              0.012 * grain +
+              0.12 * gate -
+              0.2 * joints -
+              color);
+          height +=
+            face * (0.4 + 0.12 * dome + 0.035 * gate - 0.07 * joints - height);
+          roughness +=
+            face *
+            (p.roughness -
+              0.05 * dome -
+              0.025 * gate +
+              0.12 * joints -
+              roughness);
+          occlusion += face * (0.96 - 0.12 * joints - occlusion);
+          const px = x - pinX,
+            py = y - pinY,
+            pinDome = clamp(1 - (px * px + py * py) * inversePin),
+            pin = face * smooth(clamp(pinDome * inverseShoulder));
+          color += pin * (0.9 - color);
+          height += pin * (0.68 + 0.04 * pinDome - height);
+          roughness += pin * (0.21 - roughness);
+          occlusion += pin * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'cottonbolls': {
         const p = proceduralMaterialPresets.cottonbolls;
         const axes = new Float64Array(p.tufts * 4),
@@ -19317,6 +19440,7 @@ export function createSurfaceSampler(
     kind === 'scoredmango' ||
     kind === 'waxseals' ||
     kind === 'cottonbolls' ||
+    kind === 'carabiners' ||
     fabricated ||
     botanical ||
     packaging ||

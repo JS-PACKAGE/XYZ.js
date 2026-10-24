@@ -609,6 +609,8 @@
 
 `cottonbolls` 預算四組 tuft／45° bract axes 與 16 組 tones，compact 圓棉團 union 覆蓋 compact pointed-lens 苞片。棉團高度以 tuft 權重正規化 dome，不相加或硬 max；四個峰冠高於共享中心，重疊處無 owner 跳動。256×256 fine／96×96 nap 僅添加不透明纖維斑理，高 roughness，不代表真實毛線 geometry。Cell 交替轉 45°，所有 support 在邊界前退回固定 backing；採樣無配置、hash、trig 或 sqrt，非透明纖維或植物模擬。
 
+`carabiners` 預算 clockwise 凸四邊形四段端點、向量、逆長平方及外法線；compact squared-distance offset band 畫出直段與頂點圓角相切的框。Inside exclusion 位於零 support strip 內，避免內部 polygon 距離也形成一圈；nearest-segment ties 在圓角共享同一頂點，gate 只在斜邊中段生效、owner 更換前已歸零。Gate window／兩個 compact 接縫調整金屬門閂，鉸釘最後混合、不累加底框厚度。16 組預算 tones、8×128 brush，取樣無配置、hash、trig 或 sqrt；metallic 1 含 opaque backing，非真實機構或承重模型。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -4481,6 +4481,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         bractWidth: 0.045;
         bractShoulder: 0.18;
     }>;
+    carabiners: Readonly<{
+        dark: readonly [35, 40, 47];
+        light: readonly [211, 220, 225];
+        roughness: 0.29;
+        relief: 0.01;
+        cells: 4;
+        vertices: readonly [readonly [-0.16, -0.25], readonly [-0.16, 0.25], readonly [0.14, 0.19], readonly [0.2, -0.22]];
+        rounding: 0.055;
+        frameBand: 0.0022;
+        shoulder: 0.35;
+        gateEdge: 2;
+        gateStart: 0.22;
+        gateEnd: 0.78;
+        gateShoulder: 0.04;
+        jointWidth: 0.018;
+        pinAt: 0.73;
+        pinRadius: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5014,4 +5032,5 @@ export declare const proceduralTileMeters: Readonly<{
     scoredmango: 0.48;
     waxseals: 0.16;
     cottonbolls: 0.24;
+    carabiners: 0.32;
 }>;
