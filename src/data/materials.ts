@@ -4126,6 +4126,15 @@ export const proceduralMaterialPresets = Object.freeze({
     purlWidth: 0.09,
     purlY: 0,
   }),
+  pillowtiles: Object.freeze({
+    dark: [64, 71, 70] as const,
+    light: [226, 224, 200] as const,
+    roughness: 0.27,
+    relief: 0.018,
+    cells: 6,
+    halfWidth: 0.45,
+    shoulder: 0.18,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4633,4 +4642,5 @@ export const proceduralTileMeters = Object.freeze({
   paperclips: 0.24,
   ivyleaf: 0.32,
   ribknit: 0.12,
+  pillowtiles: 0.6,
 });

@@ -1272,6 +1272,35 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pillowtiles': {
+        const p = proceduralMaterialPresets.pillowtiles;
+        const grainField = cachedNoise(96, 96, seed ^ 0xc809);
+        const tones = new Float64Array(p.cells * p.cells),
+          inverseWidth = 1 / p.halfWidth,
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x2d79);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const x = (fract(uc) - 0.5) * inverseWidth,
+            y = (fract(vc) - 0.5) * inverseWidth,
+            xx = x * x,
+            yy = y * y;
+          const face = smooth(clamp((1 - xx * xx - yy * yy) * inverseShoulder)),
+            dome = smooth(clamp(1 - 0.5 * (xx + yy)));
+          const tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)],
+            grain = grainField(u, v);
+          color =
+            0.45 + face * (0.2 + 0.12 * dome + 0.08 * tone + 0.015 * grain);
+          height = 0.04 + face * (0.42 + 0.3 * dome + 0.005 * grain);
+          mortar = 1 - face;
+          roughness += 0.5 * mortar - 0.04 * dome * face + 0.02 * grain * face;
+          occlusion = 0.5 + 0.48 * face;
+          return;
+        };
+      }
       case 'ribknit': {
         const p = proceduralMaterialPresets.ribknit;
         const grainField = cachedNoise(96, 96, seed ^ 0xb7f5);
@@ -17303,6 +17332,7 @@ export function createSurfaceSampler(
     kind === 'paperclips' ||
     kind === 'ivyleaf' ||
     kind === 'ribknit' ||
+    kind === 'pillowtiles' ||
     fabricated ||
     botanical ||
     packaging ||

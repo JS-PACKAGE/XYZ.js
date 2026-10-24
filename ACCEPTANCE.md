@@ -6770,3 +6770,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐列逐正／反針欄檢查 height／color／AO／roughness／metallic 差、V 中空與反針外側間隙、兩 V 臂及橫向反針各 33 點連通；另保留最低 32×32 反針對比與 capsule profiles／knit unions／column owner／wrap C1 回歸。既有 502 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6202 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 ribknit，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替 V／橫針直列，height true、metallic 0、destroyed true；另生成 32×32／seed 7，反針與同欄間隙 RGB 差為 [37, 33, 27]、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：枕形釉面磚（pillowtiles）
+
+- 目錄 503→504 種；0.6 m tile，6×6 象牙白圓角正方磚，連續凸面由中央向四邊降低，圓角退入低陷中性灰縫，帶 seeded 磚面色差。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增磚體 geometry、位移或透明度。
+- 三 seed（0／1／`0xffffffff`）逐磚檢查四方向 center／inner／shoulder 的連續高度層次、face／灰縫的 height／color／AO／roughness／metallic 及四外角回到灰縫；另掃描 superellipse bevel、quadratic dome、seeded owner 與 wrap C1。既有 503 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6207 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pillowtiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖時發生工具 `Target closed`，已回報並釋放；新分頁重新完成上述畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認象牙白圓角方磚、中性灰縫與柔和中央亮度，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

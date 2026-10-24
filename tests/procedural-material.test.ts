@@ -541,7 +541,94 @@ const kinds: ProceduralMaterialKind[] = [
   'paperclips',
   'ivyleaf',
   'ribknit',
+  'pillowtiles',
 ];
+
+describe('Domed glazed pillow tiles with rounded square corners', () => {
+  const p = proceduralMaterialPresets.pillowtiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pillowtiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises a continuous cushion center above the inner face while rounding away all four corners into recessed grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+              at(col + 0.5 + x, row + 0.5 + y),
+            center = local(0, 0),
+            grout = local(0.49, 0);
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const inner = local(dx * 0.25, dy * 0.25),
+              shoulder = local(dx * 0.37, dy * 0.37),
+              side = local(dx * 0.4, dy * 0.4);
+            expect(center.height - inner.height).toBeGreaterThan(0.00024);
+            expect(inner.height - shoulder.height).toBeGreaterThan(0.00099);
+            expect(center.color - shoulder.color).toBeGreaterThan(0.016);
+            expect(side.height - grout.height).toBeGreaterThan(0.0109);
+            expect(side.occlusion - grout.occlusion).toBeGreaterThan(0.479);
+            expect(grout.roughness - side.roughness).toBeGreaterThan(0.479);
+            expect(side.mortar).toBe(0);
+            expect(side.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [0.4, 0.4],
+            [-0.4, 0.4],
+            [0.4, -0.4],
+            [-0.4, -0.4],
+          ]) {
+            const corner = local(x, y);
+            expect(corner.height).toBe(grout.height);
+            expect(corner.mortar).toBe(1);
+          }
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps superellipse bevels, quadratic cushion profiles, seeded tile ownership and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('One-by-one rib knit with raised knit and recessed purl columns', () => {
   const p = proceduralMaterialPresets.ribknit;
