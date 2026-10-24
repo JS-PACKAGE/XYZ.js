@@ -1258,6 +1258,7 @@ export function createSurfaceSampler(
     kind === 'doorkeys' ||
     kind === 'beltbuckles' ||
     kind === 'carabiners' ||
+    kind === 'safetypins' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1279,6 +1280,96 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'safetypins': {
+        const p = proceduralMaterialPresets.safetypins;
+        const segments = new Float64Array(p.legs.length * 5),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.legs.length; i++) {
+          const [ax, ay, bx, by] = p.legs[i],
+            dx = bx - ax,
+            dy = by - ay;
+          segments[i * 5] = ax;
+          segments[i * 5 + 1] = ay;
+          segments[i * 5 + 2] = dx;
+          segments[i * 5 + 3] = dy;
+          segments[i * 5 + 4] = 1 / (dx * dx + dy * dy);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x10611);
+        const inverseWire = 1 / (p.wireRadius * p.wireRadius),
+          coilSquared = p.coilRadius * p.coilRadius,
+          inverseCoil = 1 / (2 * p.coilRadius * p.wireRadius),
+          inverseShoulder = 1 / p.shoulder,
+          inverseGuardX = 1 / p.guardHalfWidth,
+          inverseGuardY = 1 / p.guardHalfHeight,
+          inverseGuardShoulder = 1 / p.guardShoulder,
+          inverseSlotX = 1 / p.slotHalfWidth,
+          inverseSlotY = 1 / p.slotHalfHeight,
+          grainField = cachedNoise(96, 96, seed ^ 0x10613);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            ey = y - p.coilY,
+            ring = (x * x + ey * ey - coilSquared) * inverseCoil,
+            ringDome = clamp(1 - ring * ring),
+            coil = smooth(clamp(ringDome * inverseShoulder));
+          let outside = 1 - coil,
+            outsideCrown = 1 - coil * smooth(ringDome);
+          for (let i = 0; i < segments.length; i += 5) {
+            const ex = x - segments[i],
+              sy = y - segments[i + 1],
+              t = clamp(
+                (ex * segments[i + 2] + sy * segments[i + 3]) * segments[i + 4],
+              ),
+              qx = ex - t * segments[i + 2],
+              qy = sy - t * segments[i + 3],
+              dome = clamp(1 - (qx * qx + qy * qy) * inverseWire),
+              leg = smooth(clamp(dome * inverseShoulder));
+            outside *= 1 - leg;
+            outsideCrown *= 1 - leg * smooth(dome);
+          }
+          const gx = (x - p.guardX) * inverseGuardX,
+            gy = (y - p.guardY) * inverseGuardY,
+            guard = smooth(
+              clamp((1 - gx * gx - gy * gy) * inverseGuardShoulder),
+            ),
+            wire = 1 - outside;
+          color = 0.045;
+          height = 0.035;
+          roughness = 0.94;
+          occlusion = 0.3;
+          if (wire === 0 && guard === 0) return;
+          const crown = 1 - outsideCrown,
+            tone = tones[row * p.cells + col],
+            grain = grainField(u, v),
+            sx = (x - p.slotX) * inverseSlotX,
+            sy = (y - p.guardY) * inverseSlotY,
+            slot = smooth(clamp(1 - sx * sx - sy * sy));
+          // Bounded coverage/crown unions cannot double wire thickness where
+          // legs touch the coil. The solid folded guard covers the needle tip.
+          color +=
+            wire * (0.52 + 0.21 * crown + 0.05 * tone + 0.015 * grain - color);
+          height += wire * (0.485 + 0.2 * crown + 0.003 * grain - height);
+          roughness +=
+            wire * (p.roughness - 0.045 * crown + 0.02 * grain - roughness);
+          occlusion += wire * (0.72 + 0.26 * crown - occlusion);
+          color +=
+            guard * (0.78 + 0.04 * tone + 0.015 * grain - 0.18 * slot - color);
+          height +=
+            guard * (0.78 + 0.002 * grain - p.slotDepth * slot - height);
+          roughness += guard * (p.roughness + 0.04 + 0.08 * slot - roughness);
+          occlusion += guard * (0.98 - 0.09 * slot - occlusion);
+          return;
+        };
+      }
       case 'musselshells': {
         const p = proceduralMaterialPresets.musselshells;
         const shells = new Float64Array(p.cells * p.cells * 2);
@@ -19747,6 +19838,7 @@ export function createSurfaceSampler(
     kind === 'haircombs' ||
     kind === 'blackberries' ||
     kind === 'musselshells' ||
+    kind === 'safetypins' ||
     fabricated ||
     botanical ||
     packaging ||

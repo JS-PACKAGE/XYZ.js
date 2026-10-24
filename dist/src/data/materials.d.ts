@@ -4572,6 +4572,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         growthBands: 18;
         incision: 0.025;
     }>;
+    safetypins: Readonly<{
+        dark: readonly [12, 15, 20];
+        light: readonly [206, 210, 216];
+        roughness: 0.26;
+        relief: 0.006;
+        cells: 4;
+        wireRadius: 0.012;
+        shoulder: 0.3;
+        coilY: -0.24;
+        coilRadius: 0.045;
+        legs: readonly [readonly [-0.045, -0.24, -0.045, 0.205], readonly [0.045, -0.24, 0.075, 0.225]];
+        guardX: 0.015;
+        guardY: 0.23;
+        guardHalfWidth: 0.095;
+        guardHalfHeight: 0.045;
+        guardShoulder: 0.22;
+        slotX: 0.04;
+        slotHalfWidth: 0.065;
+        slotHalfHeight: 0.0075;
+        slotDepth: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5111,4 +5132,5 @@ export declare const proceduralTileMeters: Readonly<{
     haircombs: 0.48;
     blackberries: 0.16;
     musselshells: 0.32;
+    safetypins: 0.16;
 }>;

@@ -574,7 +574,122 @@ const kinds: ProceduralMaterialKind[] = [
   'haircombs',
   'blackberries',
   'musselshells',
+  'safetypins',
 ];
+
+describe('Closed steel safety pins with spring coils and recessed clasp seams', () => {
+  const p = proceduralMaterialPresets.safetypins;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('safetypins', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves round spring loops, two convex wire legs, a covered needle tip and a raised slotted guard for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0, 0),
+            guard = at(col, row, p.guardX, p.guardY + 0.02),
+            seam = at(col, row, p.slotX, p.guardY),
+            needleTip = at(col, row, p.legs[1][2], p.legs[1][3]);
+          for (let i = 0; i < 16; i++) {
+            const angle = (Math.PI * 2 * i) / 16,
+              coil = at(
+                col,
+                row,
+                p.coilRadius * Math.cos(angle),
+                p.coilY + p.coilRadius * Math.sin(angle),
+              );
+            expect(coil.height).toBeGreaterThan(0.004109);
+            expect(coil.height).toBeLessThan(0.004129);
+            expect(coil.occlusion).toBeCloseTo(0.98, 12);
+            expect(coil.metallic).toBe(1);
+          }
+          for (const [ax, ay, bx, by] of p.legs)
+            for (const t of [0.2, 0.5, 0.8]) {
+              const wire = at(col, row, ax + (bx - ax) * t, ay + (by - ay) * t);
+              expect(wire.height - backing.height).toBeGreaterThan(0.00389);
+              expect(wire.color - backing.color).toBeGreaterThan(0.68);
+              expect(backing.roughness - wire.roughness).toBeGreaterThan(0.7);
+              expect(wire.occlusion).toBeCloseTo(0.98, 12);
+              expect(wire.metallic).toBe(1);
+            }
+          expect(guard.height - seam.height).toBeGreaterThan(0.00025);
+          expect(guard.occlusion - seam.occlusion).toBeCloseTo(0.09, 12);
+          expect(seam.roughness - guard.roughness).toBeCloseTo(0.08, 12);
+          expect(needleTip.height).toBeGreaterThan(0.00458);
+          expect(seam.height).toBeGreaterThan(0.0044);
+          for (const [x, y] of [
+            [0, p.coilY],
+            [0, -0.1],
+            [0, 0],
+            [0, 0.1],
+            [-0.065, 0],
+            [0, -0.31],
+            [0, 0.29],
+          ]) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.035 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            expect(gap.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps coil/leg joins, bounded wire crowns, clasp shoulders, recessed seams, rotations and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('safetypins', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Blue-black mussel shells with pointed hinges and curved growth channels', () => {
   const p = proceduralMaterialPresets.musselshells;
@@ -21805,6 +21920,7 @@ describe('periodic procedural material fields', () => {
           kind === 'doorkeys' ||
           kind === 'beltbuckles' ||
           kind === 'carabiners' ||
+          kind === 'safetypins' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -31261,6 +31377,7 @@ describe('procedural preset acquisition and ownership', () => {
     'doorkeys',
     'beltbuckles',
     'carabiners',
+    'safetypins',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -31308,6 +31425,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'doorkeys' ||
           kind === 'beltbuckles' ||
           kind === 'carabiners' ||
+          kind === 'safetypins' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

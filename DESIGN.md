@@ -621,6 +621,8 @@
 
 `musselshells` 預算 16 組 phase／tone 與 96×96 grain；normalized `(27/4)*t²*(1-t)-x²/width²` 畫窄鉸端與圓寬尾，compact shoulder／smooth cap 形成 C1 外緣與凸冠。以鉸端 squared Cartesian distance 驅動 18-cycle 參數的 chirped cosine 細槽，曲線間距可變且無 radial origin singularity，非放射肋；零 support 先剔除，採樣無配置／hash／sqrt，僅有效殼面用 cos 與 grain。Opaque dielectric，不新增貝殼 geometry、開合或生物物理。
 
+`safetypins` 預算兩段 capsule 資料、16 組 tone 與 96×96 grain；squared annulus 畫完整彈簧圈，point-to-segment squared distance 畫兩針腳，bounded coverage／crown unions 讓線圈接點不超過同一線徑頂高。較高 compact ellipse 護扣覆蓋針尖，再在護扣上混合低淺橢圓凹縫，非切穿孔；零 wire／guard support 不採 grain，採樣無配置／hash／sqrt／trig。Opaque metallic，factor／map 1 含 backing；不新增別針 geometry、開合、彈簧或穿刺物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

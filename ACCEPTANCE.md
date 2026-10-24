@@ -7016,3 +7016,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 535 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 musselshells，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6375 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 musselshells，536 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 預覽確認交替淚滴輪廓、窄鉸端與圓寬尾，height true、metallic 0、destroyed true；另取實際左上 128×128 texels 的 pigment／tangent normal 等比例放大裁切，清楚確認細曲線凹槽與凸冠，未改造貼圖值，該次 errors／cleanup 亦空且 destroy，臨時預覽隨頁清除。不宣稱貝殼 geometry、生物物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：閉合金屬別針（safetypins）
+
+- 目錄 536→537 種；0.16 m tile，4×4 交替水平／垂直鋼色別針，圓線圈、兩凸圓針腳、蓋住針尖的較高實心護扣與淺凹縫，區別 paperclips／cotterpins。Opaque metallic、factor／map 1 含低暗 backing，孔非透明；沿四圖／選用 height／ownership，不新增別針 geometry、開合、彈簧物理或穿刺功能。
+- 三 seed（0／1／`0xffffffff`）逐針檢查線圈 16 方位同高且接點不疊高、兩針腳 crown、護扣高於淺凹縫與覆蓋針尖、線圈孔／針腳間／外部 backing，涵蓋 height／color／roughness／AO／metallic。129×129 網格、三 seed、雙方向四欄位 C1 初始 h 1e-8 失敗，fresh Bun 完整掃描最大 roughness 步長差 0.141972；h 1e-7／1e-8／1e-9／1e-10 收斂為 1.41972／0.141972／0.0141972／0.00141887，左右 slope 趨近約 102.733，屬薄 wire shoulder 有限曲率而非 cusp。改 h 1e-9、保留 0.02 上限後，四項形態／C1、既有 size 32 deterministic／seeded／distinct／periodic 與 metallic factor／map／ownership 矩陣共六項針對測試通過。
+- 既有 536 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 safetypins，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6381 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 safetypins，537 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認完整彈簧線圈、兩針腳、閉合護扣與凹縫及交替方向，height true、metallic 1、destroyed true，預覽隨頁清除。屬鋼色別針表面，不宣稱別針 geometry、開合／彈簧／穿刺物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
