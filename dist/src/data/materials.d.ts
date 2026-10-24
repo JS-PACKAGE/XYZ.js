@@ -3892,6 +3892,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         holeRadius: 0.12;
         holeBevel: 0.025;
     }>;
+    eucalyptusleaf: Readonly<{
+        dark: readonly [20, 39, 37];
+        light: readonly [142, 176, 161];
+        roughness: 0.64;
+        relief: 0.018;
+        cells: 4;
+        centerY: 0.02;
+        halfLength: 0.34;
+        halfWidth: 0.105;
+        bend: 0.035;
+        shoulder: 0.12;
+        stemStart: -0.4;
+        stemEnd: -0.26;
+        stemWidth: 0.012;
+        stemShoulder: 0.02;
+        midribWidth: 0.007;
+        midribLength: 0.31;
+        midribFade: 0.045;
+        veinPairs: 5;
+        veinSpacing: 0.1;
+        veinSlope: 0.8;
+        veinWidth: 0.005;
+        veinAxisFade: 0.02;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4389,4 +4413,5 @@ export declare const proceduralTileMeters: Readonly<{
     mangosteenslice: 0.32;
     pickettiles: 0.9;
     squarewashers: 0.16;
+    eucalyptusleaf: 0.48;
 }>;

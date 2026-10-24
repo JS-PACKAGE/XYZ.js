@@ -6707,3 +6707,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐墊圈檢查 32 方向圓孔／周圍完整鋼框對孔心／孔內／外底的 height／color／AO／roughness／metallic，四角與每側 17 點保持連通；另掃描圓孔 bevel、外框 plane products、四角、旋轉 owner 與 wrap C1。既有 493 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6153 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 squarewashers，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替正方／菱形鋼框與完整圓孔，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：尤加利葉（eucalyptusleaf）
+
+- 目錄 494→495 種；0.48 m tile，4×4 灰藍綠狹長葉交替 ±45°，葉身與中肋微彎、兩端漸尖、五對斜側脈與相連短葉柄。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增葉片 geometry、透明度、風動或植物學模擬。
+- 三 seed（0／1／`0xffffffff`）逐葉檢查葉身／平底的 height／color／AO／roughness／metallic、中肋較葉身隆起、左右側脈對離脈點的 height 差、兩端寬度收窄、短柄與連向葉身的 33 點；另掃描漸尖葉端、彎曲中肋、側脈中軸 fade、柄葉 union 與 wrap C1。既有 494 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6158 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 eucalyptusleaf，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向灰藍綠葉、細中肋／側脈與相連葉柄，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非植物學掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -532,7 +532,101 @@ const kinds: ProceduralMaterialKind[] = [
   'mangosteenslice',
   'pickettiles',
   'squarewashers',
+  'eucalyptusleaf',
 ];
+
+describe('Curved blue-green lanceolate eucalyptus leaves', () => {
+  const p = proceduralMaterialPresets.eucalyptusleaf;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('eucalyptusleaf', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  const curve = (y: number) =>
+    p.bend * Math.max(0, 1 - ((y - p.centerY) / p.halfLength) ** 2);
+  it.each([0, 1, 0xffffffff])(
+    'keeps tapered curved blades, raised midribs, paired veins and connected short stalks for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = (((row + col) & 1 ? 1 : -1) * Math.PI) / 4;
+          const local = (x: number, y: number) =>
+            at(
+              col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle),
+              row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle),
+            );
+          const background = local(0.22, p.centerY),
+            blade = local(curve(p.centerY) + 0.025, p.centerY),
+            midrib = local(curve(p.centerY), p.centerY),
+            stalk = local(0, -0.36);
+          expect(blade.height - background.height).toBeGreaterThan(0.0094);
+          expect(blade.color - background.color).toBeGreaterThan(0.519);
+          expect(blade.occlusion - background.occlusion).toBeGreaterThan(0.639);
+          expect(background.roughness - blade.roughness).toBeGreaterThan(0.239);
+          expect(midrib.height - blade.height).toBeGreaterThan(0.001);
+          expect(stalk.height - background.height).toBeGreaterThan(0.0049);
+          expect(blade.metallic).toBe(0);
+          for (const sign of [-1, 1]) {
+            const y = p.centerY + p.veinSlope * 0.06;
+            const x = curve(y) + sign * 0.06;
+            expect(
+              local(x, y).height - local(x, y + 0.015).height,
+            ).toBeGreaterThan(0.0003);
+          }
+          for (const y of [-0.25, 0.29]) {
+            expect(
+              local(curve(y), y).height - background.height,
+            ).toBeGreaterThan(0.003);
+            expect(local(curve(y) + 0.08, y).height).toBeCloseTo(
+              background.height,
+              12,
+            );
+          }
+          for (let i = 0; i <= 32; i++) {
+            const y = -0.385 + (i * 0.145) / 32;
+            expect(
+              local(y < -0.3 ? 0 : curve(y), y).height - background.height,
+            ).toBeGreaterThan(0.0025);
+          }
+        }
+    },
+  );
+  it('keeps tapered tips, curved midrib, secondary veins, petiole union and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Closed square steel washers with round center bores', () => {
   const p = proceduralMaterialPresets.squarewashers;

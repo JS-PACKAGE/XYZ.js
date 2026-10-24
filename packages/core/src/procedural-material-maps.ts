@@ -1270,6 +1270,74 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'eucalyptusleaf': {
+        const p = proceduralMaterialPresets.eucalyptusleaf;
+        const grainField = cachedNoise(96, 96, seed ^ 0x79d1);
+        const roots = new Float64Array(p.veinPairs);
+        for (let i = 0; i < p.veinPairs; i++)
+          roots[i] = p.centerY + (i - (p.veinPairs - 1) * 0.5) * p.veinSpacing;
+        const turn = Math.SQRT1_2,
+          inverseLength = 1 / p.halfLength,
+          inverseWidthSquared = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inverseStemSquared = 1 / (p.stemWidth * p.stemWidth),
+          inverseStemShoulder = 1 / p.stemShoulder,
+          inverseMidribSquared = 1 / (p.midribWidth * p.midribWidth),
+          inverseMidribFade = 1 / p.midribFade,
+          inverseVeinSquared = 1 / (p.veinWidth * p.veinWidth),
+          inverseAxisFade = 1 / p.veinAxisFade;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            sign = (Math.floor(uc) + Math.floor(vc)) & 1 ? 1 : -1;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * turn,
+            y = (dy - sign * dx) * turn;
+          const ny = (y - p.centerY) * inverseLength,
+            envelope = clamp(1 - ny * ny),
+            wx = x - p.bend * envelope,
+            a = Math.abs(wx);
+          const blade = smooth(
+            clamp(
+              (envelope * envelope - wx * wx * inverseWidthSquared) *
+                inverseShoulder,
+            ),
+          );
+          const stem =
+            smooth(clamp((y - p.stemStart) * inverseStemShoulder)) *
+            smooth(clamp((p.stemEnd - y) * inverseStemShoulder)) *
+            smooth(clamp(1 - x * x * inverseStemSquared));
+          const midrib =
+            smooth(clamp(1 - wx * wx * inverseMidribSquared)) *
+            smooth(
+              clamp(
+                (p.midribLength - Math.abs(y - p.centerY)) * inverseMidribFade,
+              ),
+            );
+          const veinY = y - p.veinSlope * a;
+          let branches = 0;
+          for (let i = 0; i < p.veinPairs; i++) {
+            const d = veinY - roots[i];
+            branches += smooth(clamp(1 - d * d * inverseVeinSquared));
+          }
+          branches *= smooth(clamp(a * inverseAxisFade));
+          const grain = grainField(u, v),
+            coverage = 1 - (1 - blade) * (1 - stem);
+          color =
+            0.1 +
+            blade * (0.52 + 0.06 * grain + 0.1 * (midrib + 0.5 * branches)) +
+            (1 - blade) * 0.32 * stem;
+          height =
+            0.05 +
+            blade * (0.53 + 0.015 * grain + 0.075 * midrib + 0.035 * branches) +
+            (1 - blade) * 0.28 * stem;
+          roughness +=
+            0.26 * (1 - blade) + blade * (0.02 * grain - 0.03 * midrib);
+          occlusion = 0.34 + 0.64 * coverage;
+          return;
+        };
+      }
       case 'squarewashers': {
         const p = proceduralMaterialPresets.squarewashers;
         const grainField = cachedNoise(96, 96, seed ^ 0x57b3);
@@ -16777,6 +16845,7 @@ export function createSurfaceSampler(
     kind === 'mangosteenslice' ||
     kind === 'pickettiles' ||
     kind === 'squarewashers' ||
+    kind === 'eucalyptusleaf' ||
     fabricated ||
     botanical ||
     packaging ||

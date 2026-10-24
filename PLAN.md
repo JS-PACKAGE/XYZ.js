@@ -529,6 +529,8 @@
 
 同輪追加 `squarewashers`（鋼製方墊圈），目錄 493→494 種：4×4 交替旋轉 45° 的完整方框，四個角、直線倒角外緣與圓形凹陷孔眼；區別 splitlockwashers 的開口螺旋環與 circlips 的開口止動環。0.16 m tile、opaque metallic maps／預設 factor 1，沿四圖／選用 height／ownership，孔眼保留暗色不透明鋼底，不新增墊圈 geometry、透明孔洞、緊固或荷重模擬；逐功能驗證提交、不 push。
 
+同輪追加 `eucalyptusleaf`（尤加利葉），目錄 494→495 種：4×4 灰藍綠狹長葉片，交替傾斜 ±45°，彎曲中肋、尖端、五對斜側脈與相連短葉柄；區別 hollyleaf 的帶刺寬葉與 oakleaf 的分瓣葉緣。0.48 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增葉片 geometry、透明度、風動或植物學模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

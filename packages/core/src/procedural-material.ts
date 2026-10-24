@@ -509,7 +509,8 @@ export type ProceduralMaterialKind =
   | 'seedstitch'
   | 'mangosteenslice'
   | 'pickettiles'
-  | 'squarewashers';
+  | 'squarewashers'
+  | 'eucalyptusleaf';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1253,6 +1254,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mangosteenslice',
   'pickettiles',
   'squarewashers',
+  'eucalyptusleaf',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
