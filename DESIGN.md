@@ -573,6 +573,8 @@
 
 `braidedcord` 三股相位差 1/3 的 C2 quartic periodic waves 畫橫向路徑，雙倍相位深度形成 figure-eight flat plait，而非三條同向 helices。截面用切線斜率平方近似法向寬度；C2 路徑使該寬度在半週期接點仍 C1。三股 compact coverage／convex domes 暫存在 sampler 初始化配置的九個 Float64 值，以 smooth depth ownership 遮蔽交叉下股，避免硬排序／max 接縫；十二組 seeded strand tones 預算。四條辮帶×四週期、96×96 grain、0.08 m tile、metallic 0，目錄增為 512 種；取樣無 trig、sqrt 或陣列配置，所有支撐在 column owner 邊界前歸零。既有 maps／height／ownership 不變，不新增 geometry、透明孔洞、編繩製程或布料物理。
 
+`crossbeddedsandstone` 預算四組 seeded 交替正／負 dip、quadratic curvature、phase 與染色深度；整數 UV 頻率沿 x 重複，compact smooth lamina profile 在 horizontal bed 邊界前漸消，獨立共用 contact profile 保持 owner 切換與 wrap C1。傾斜細層理微量低陷、表面 sandy grain 連續；黑箱回歸從 AO 尋找細紋並追蹤兩側位移／二階彎曲，不複製 seeded 參數計算。四層岩床、96×96 grain、1.2 m tile、metallic 0，目錄增為 513 種；取樣無 trig、sqrt 或陣列配置，既有 maps／height／ownership 不變，不新增 geometry、位移、地層生成、沉積或侵蝕模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

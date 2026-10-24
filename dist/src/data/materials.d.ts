@@ -4168,6 +4168,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.2;
         layerBand: 0.2;
     }>;
+    crossbeddedsandstone: Readonly<{
+        dark: readonly [112, 70, 35];
+        light: readonly [225, 196, 145];
+        roughness: 0.9;
+        relief: 0.015;
+        beds: 4;
+        laminaFrequency: 12;
+        laminaWidth: 0.14;
+        dip: 5;
+        dipVariation: 0.8;
+        curvature: 0.4;
+        curvatureVariation: 0.2;
+        fadeStart: 0.05;
+        fadeBand: 0.08;
+        contactWidth: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4683,4 +4699,5 @@ export declare const proceduralTileMeters: Readonly<{
     cherryblossom: 0.24;
     punchcard: 0.44;
     braidedcord: 0.08;
+    crossbeddedsandstone: 1.2;
 }>;

@@ -6833,3 +6833,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐辮帶逐週期檢查三個連續 crossing 的前景色身分順序、crown／isolated strand／backing 的 height／AO／roughness／metallic、兩側 column seams 各 33 點無起伏洩漏，以及十六條橫截面各保留二至三個繩股群；另掃描 C2 quartic plait paths／tangent-corrected widths／convex profiles／smooth depth ownership／wrap C1。四項針對測試通過，既有 511 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6249 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 braidedcord，512 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四條疏編扁辮、交替穿越與繩股深淺差，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面，不宣稱真實繩股接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：交錯層理砂岩（crossbeddedsandstone）
+
+- 目錄 512→513 種；1.2 m tile，四層砂岩中的彎曲細層理交替傾向，在共用水平接觸帶前漸消截斷，帶連續砂粒微紋與微量低陷細紋。區別 sandstone 的近水平平行層理及 rammedearth 的夯築帶；opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增岩體 geometry、位移、地層生成、沉積或侵蝕模擬。
+- 三 seed（0／1／`0xffffffff`）逐層從 AO 黑箱搜尋細紋，追蹤上下兩側位移確認交替 dip 及二階彎曲，檢查 lamina／host 的 color／height／roughness／AO／metallic；各層界 33 點確認共用 contact／截斷帶與 height／color／roughness 差，另掃描 compact inclined profiles／curvature／bed owners／contacts／wrap C1。四項針對測試通過，既有 512 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6254 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 crossbeddedsandstone，513 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四組交替傾向細紋及水平截斷，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 地質表面，不宣稱地層模型精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

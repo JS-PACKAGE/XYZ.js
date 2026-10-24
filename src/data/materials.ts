@@ -4267,6 +4267,22 @@ export const proceduralMaterialPresets = Object.freeze({
     shoulder: 0.2,
     layerBand: 0.2,
   }),
+  crossbeddedsandstone: Object.freeze({
+    dark: [112, 70, 35] as const,
+    light: [225, 196, 145] as const,
+    roughness: 0.9,
+    relief: 0.015,
+    beds: 4,
+    laminaFrequency: 12,
+    laminaWidth: 0.14,
+    dip: 5,
+    dipVariation: 0.8,
+    curvature: 0.4,
+    curvatureVariation: 0.2,
+    fadeStart: 0.05,
+    fadeBand: 0.08,
+    contactWidth: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4783,4 +4799,5 @@ export const proceduralTileMeters = Object.freeze({
   cherryblossom: 0.24,
   punchcard: 0.44,
   braidedcord: 0.08,
+  crossbeddedsandstone: 1.2,
 });

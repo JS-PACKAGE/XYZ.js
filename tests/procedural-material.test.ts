@@ -550,7 +550,110 @@ const kinds: ProceduralMaterialKind[] = [
   'cherryblossom',
   'punchcard',
   'braidedcord',
+  'crossbeddedsandstone',
 ];
+
+describe('Cross-bedded sandstone with alternating curved dip sets', () => {
+  const p = proceduralMaterialPresets.crossbeddedsandstone;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('crossbeddedsandstone', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x, y / p.beds, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains inclined curved laminae with alternating dip, recessed fine bands and common horizontal terminations for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.beds; row++) {
+        const sign = row & 1 ? -1 : 1,
+          minimum = (
+            y: number,
+            center: number,
+            radius: number,
+            steps: number,
+          ) => {
+            let x = center - radius,
+              sample = at(x, row + 0.5 + y);
+            for (let i = 1; i <= steps; i++) {
+              const nextX = center - radius + (2 * radius * i) / steps,
+                next = at(nextX, row + 0.5 + y);
+              if (next.occlusion < sample.occlusion) {
+                x = nextX;
+                sample = next;
+              }
+            }
+            return { x, sample };
+          },
+          center = minimum(
+            0,
+            0.5 / p.laminaFrequency,
+            0.5 / p.laminaFrequency,
+            1024,
+          ),
+          upper = minimum(0.06, center.x, 0.04, 512),
+          lower = minimum(-0.06, center.x, 0.04, 512),
+          upperCurve = minimum(0.12, center.x - sign * 0.054, 0.015, 512),
+          lowerCurve = minimum(-0.12, center.x + sign * 0.054, 0.015, 512),
+          curvature = sign * (upperCurve.x + lowerCurve.x - 2 * center.x),
+          flat = at(center.x + 0.5 / p.laminaFrequency, row + 0.5);
+        expect(sign * (upper.x - center.x)).toBeLessThan(-0.023);
+        expect(sign * (upper.x - center.x)).toBeGreaterThan(-0.031);
+        expect(sign * (lower.x - center.x)).toBeGreaterThan(0.023);
+        expect(sign * (lower.x - center.x)).toBeLessThan(0.031);
+        expect(curvature).toBeLessThan(-0.0005);
+        expect(curvature).toBeGreaterThan(-0.002);
+        expect(flat.color - center.sample.color).toBeGreaterThan(0.16);
+        expect(flat.height - center.sample.height).toBeGreaterThan(0.00054);
+        expect(center.sample.roughness - flat.roughness).toBeGreaterThan(0.014);
+        expect(flat.occlusion - center.sample.occlusion).toBeGreaterThan(0.034);
+        expect(center.sample.metallic).toBe(0);
+        for (let i = 0; i <= 32; i++) {
+          const horizon = at(i / 32, row),
+            host = at(i / 32, row + 0.045);
+          expect(host.occlusion).toBe(0.97);
+          expect(horizon.occlusion).toBe(0.95);
+          expect(host.color - horizon.color).toBeGreaterThan(0.06);
+          expect(host.height - horizon.height).toBeGreaterThan(0.00024);
+          expect(horizon.roughness - host.roughness).toBeGreaterThan(0.024);
+        }
+      }
+    },
+  );
+  it('keeps compact inclined laminae, curved dip profiles, truncated bed owners, contacts and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = (y * p.beds) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Three-strand flat braided cords with alternating over-under crossings', () => {
   const p = proceduralMaterialPresets.braidedcord;

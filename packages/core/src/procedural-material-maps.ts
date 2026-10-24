@@ -1274,6 +1274,52 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'crossbeddedsandstone': {
+        const p = proceduralMaterialPresets.crossbeddedsandstone;
+        const beds = new Float64Array(p.beds * 4);
+        for (let row = 0; row < p.beds; row++) {
+          const i = row * 4,
+            sign = row & 1 ? -1 : 1;
+          beds[i] =
+            sign * (p.dip + p.dipVariation * hash(row, 0, seed ^ 0xdef1));
+          beds[i + 1] =
+            sign *
+            (p.curvature + p.curvatureVariation * hash(row, 0, seed ^ 0xdef3));
+          beds[i + 2] = hash(row, 0, seed ^ 0xdef5);
+          beds[i + 3] = 0.19 + 0.04 * hash(row, 0, seed ^ 0xdef7);
+        }
+        const inverseWidthSquared = 1 / (p.laminaWidth * p.laminaWidth),
+          inverseFade = 1 / p.fadeBand,
+          inverseContact = 1 / p.contactWidth,
+          grainField = cachedNoise(96, 96, seed ^ 0xdef9);
+        return () => {
+          const vc = v * p.beds,
+            row = Math.floor(vc),
+            f = fract(vc),
+            y = f - 0.5,
+            distance = Math.min(f, 1 - f),
+            coverage = smooth(clamp((distance - p.fadeStart) * inverseFade)),
+            contact = smooth(
+              clamp((p.contactWidth - distance) * inverseContact),
+            ),
+            i = row * 4,
+            phase =
+              u * p.laminaFrequency +
+              beds[i] * y +
+              beds[i + 1] * y * y +
+              beds[i + 2],
+            d = fract(phase) - 0.5,
+            lamina = smooth(clamp(1 - d * d * inverseWidthSquared)) * coverage,
+            grain = grainField(u, v);
+          // Each dip set terminates before the next horizontal bed owner;
+          // common contact fields avoid seeded normal seams at the truncation.
+          color = 0.73 + 0.025 * grain - beds[i + 3] * lamina - 0.09 * contact;
+          height = 0.28 + 0.008 * grain - 0.045 * lamina - 0.025 * contact;
+          roughness += 0.015 * grain + 0.03 * lamina + 0.04 * contact;
+          occlusion = 0.97 - 0.035 * lamina - 0.02 * contact;
+          return;
+        };
+      }
       case 'braidedcord': {
         const p = proceduralMaterialPresets.braidedcord;
         const tones = new Float64Array(p.columns * p.strands),
@@ -17918,6 +17964,7 @@ export function createSurfaceSampler(
     kind === 'cherryblossom' ||
     kind === 'punchcard' ||
     kind === 'braidedcord' ||
+    kind === 'crossbeddedsandstone' ||
     fabricated ||
     botanical ||
     packaging ||

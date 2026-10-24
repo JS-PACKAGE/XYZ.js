@@ -527,7 +527,8 @@ export type ProceduralMaterialKind =
   | 'righttriangletiles'
   | 'cherryblossom'
   | 'punchcard'
-  | 'braidedcord';
+  | 'braidedcord'
+  | 'crossbeddedsandstone';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1289,6 +1290,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cherryblossom',
   'punchcard',
   'braidedcord',
+  'crossbeddedsandstone',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
