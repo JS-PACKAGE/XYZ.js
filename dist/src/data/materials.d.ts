@@ -3841,6 +3841,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.25;
         legs: readonly (readonly [-0.035, -0.08, -0.035, 0.17] | readonly [-0.035, 0.17, -0.12, 0.32] | readonly [0.035, -0.08, 0.035, 0.26] | readonly [0.035, 0.26, 0.15, 0.36])[];
     }>;
+    seedstitch: Readonly<{
+        dark: readonly [20, 34, 27];
+        light: readonly [143, 173, 138];
+        roughness: 0.9;
+        relief: 0.012;
+        cells: 12;
+        armX: 0.23;
+        armTop: -0.25;
+        armBottom: 0.25;
+        yarnWidth: 0.07;
+        purlLength: 0.24;
+        purlWidth: 0.09;
+        purlY: -0.02;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4334,4 +4348,5 @@ export declare const proceduralTileMeters: Readonly<{
     fiddleheads: 0.24;
     cowrieshells: 0.2;
     cotterpins: 0.12;
+    seedstitch: 0.12;
 }>;

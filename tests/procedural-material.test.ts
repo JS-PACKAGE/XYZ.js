@@ -528,7 +528,83 @@ const kinds: ProceduralMaterialKind[] = [
   'fiddleheads',
   'cowrieshells',
   'cotterpins',
+  'seedstitch',
 ];
+
+describe('Alternating knit and purl seed stitch', () => {
+  const p = proceduralMaterialPresets.seedstitch;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('seedstitch', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'alternates open V arms with raised horizontal purl bumps in both directions for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + x, row + 0.5 + y);
+          const center = local(0, p.purlY),
+            tip = local(0, p.armBottom),
+            arm = local(p.armX, p.armTop),
+            backing = local(0.42, 0.42);
+          const purl = (row + col) & 1;
+          for (const yarn of purl
+            ? [center, local(-0.2, p.purlY), local(0.2, p.purlY)]
+            : [tip, arm, local(-p.armX, p.armTop)]) {
+            expect(yarn.height - backing.height).toBeGreaterThan(0.0067);
+            expect(yarn.color - backing.color).toBeGreaterThan(0.54);
+            expect(yarn.occlusion - backing.occlusion).toBeGreaterThan(0.489);
+            expect(backing.roughness - yarn.roughness).toBeGreaterThan(0.019);
+            expect(yarn.metallic).toBe(0);
+          }
+          if (purl) {
+            expect(center.height - tip.height).toBeGreaterThan(0.0079);
+            expect(center.height - arm.height).toBeGreaterThan(0.0079);
+          } else {
+            expect(tip.height - center.height).toBeGreaterThan(0.0067);
+            expect(arm.height - center.height).toBeGreaterThan(0.0067);
+          }
+        }
+    },
+  );
+  it('keeps V tips, rounded arms, purl ends, cell ownership and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Loop-eyed steel cotter pins with split bent legs', () => {
   const p = proceduralMaterialPresets.cotterpins;

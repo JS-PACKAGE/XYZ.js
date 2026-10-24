@@ -6679,3 +6679,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐銷檢查環眼／環邊／分離雙腳的 height／color／AO／roughness／metallic，四段腳各 17 點連通、兩尾端偏離直線的位置差；另掃描橢圓 bevel、腳肩部、彎折 union 與 wrap C1。既有 489 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6132 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cotterpins，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認正反交替環眼、腳間隙與外彎尾端，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：米粒針織（seedstitch）
+
+- 目錄 490→491 種；0.12 m tile，12×12 灰綠毛線針目，開口 V 形正針與橫向反針凸結沿行列交錯，區別既有全 V 形 knit／扭絞 cableknit。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增毛線 geometry、透明度或布料模擬。
+- 三 seed（0／1／`0xffffffff`）逐針檢查正反針沿兩方向交錯、V 形雙臂／頂點／中央開口與橫凸結／平底的 height／color／AO／roughness／metallic；另掃描 capsule 肩部、V 頂點、針目邊界與 wrap C1。既有 490 種 size 64／seed 7 四圖 SHA256 changed 0。
+- 初輪 lint 指出分支前 `yarn = 0` 未使用，改為明確型別的分支賦值；最終 build、typecheck、lint、format:check、完整 Vitest（179 檔／6137 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 seedstitch，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認灰綠底上的 V 形正針與橫凸反針沿兩方向交錯，height true、metallic 0、destroyed true，預覽隨頁清除。一次驗證頁因 managed browser 凍結而無法恢復，已回報工具問題並在新頁完成；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -1269,6 +1269,46 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'seedstitch': {
+        const p = proceduralMaterialPresets.seedstitch;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4dcb);
+        const sy = p.armTop - p.armBottom,
+          inverseArmSquared = 1 / (p.armX * p.armX + sy * sy),
+          inverseYarnSquared = 1 / (p.yarnWidth * p.yarnWidth),
+          inversePurlSquared = 1 / (p.purlWidth * p.purlWidth);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          const purl = (Math.floor(uc) + Math.floor(vc)) & 1;
+          let yarn: number;
+          if (purl) {
+            const qx = x - Math.max(-p.purlLength, Math.min(p.purlLength, x));
+            yarn = smooth(
+              clamp(1 - (qx * qx + (y - p.purlY) ** 2) * inversePurlSquared),
+            );
+          } else {
+            let outside = 1;
+            for (let sign = -1; sign <= 1; sign += 2) {
+              const sx = sign * p.armX,
+                dy = y - p.armBottom;
+              const t = clamp((x * sx + dy * sy) * inverseArmSquared);
+              const qx = x - t * sx,
+                qy = dy - t * sy;
+              outside *=
+                1 - smooth(clamp(1 - (qx * qx + qy * qy) * inverseYarnSquared));
+            }
+            yarn = 1 - outside;
+          }
+          const grain = grainField(u, v);
+          color = 0.12 + yarn * (0.55 + 0.06 * purl + 0.07 * grain);
+          height = 0.09 + yarn * (0.56 + 0.1 * purl + 0.025 * grain);
+          roughness += 0.04 * (1 - yarn) + 0.02 * grain * yarn;
+          occlusion = 0.49 + 0.49 * yarn;
+          return;
+        };
+      }
       case 'cotterpins': {
         const p = proceduralMaterialPresets.cotterpins;
         const segments = new Float64Array(p.legs.length * 5);
@@ -16584,6 +16624,7 @@ export function createSurfaceSampler(
     kind === 'fiddleheads' ||
     kind === 'cowrieshells' ||
     kind === 'cotterpins' ||
+    kind === 'seedstitch' ||
     fabricated ||
     botanical ||
     packaging ||
