@@ -526,7 +526,85 @@ const kinds: ProceduralMaterialKind[] = [
   'brickarches',
   'knottednet',
   'fiddleheads',
+  'cowrieshells',
 ];
+
+describe('Cowrie shell undersides with paired aperture teeth', () => {
+  const p = proceduralMaterialPresets.cowrieshells;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cowrieshells', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine teeth on each lip above their gaps and a recessed unbridged aperture for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (col + row) & 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + (turn ? y : x), row + 0.5 + (turn ? x : y));
+          const mouth = local(0, 0),
+            flank = local(0.16, 0),
+            outside = local(0.3, 0);
+          expect(flank.height - mouth.height).toBeGreaterThan(0.0075);
+          expect(flank.color - mouth.color).toBeGreaterThan(0.46);
+          expect(flank.occlusion - mouth.occlusion).toBeGreaterThan(0.379);
+          expect(mouth.roughness - flank.roughness).toBeGreaterThan(0.099);
+          expect(flank.height - outside.height).toBeGreaterThan(0.012);
+          for (const sign of [-1, 1])
+            for (let i = 0; i < p.teeth; i++) {
+              const y = (i - (p.teeth - 1) / 2) * p.toothPitch;
+              const tooth = local(sign * p.toothX, y),
+                gap = local(sign * p.toothX, y + p.toothPitch / 2),
+                slit = local(0, y);
+              expect(tooth.height - gap.height).toBeGreaterThan(0.0022);
+              expect(tooth.color - gap.color).toBeGreaterThan(0.08);
+              expect(tooth.occlusion - gap.occlusion).toBeGreaterThan(0.029);
+              expect(gap.roughness - tooth.roughness).toBeGreaterThan(0.019);
+              expect(tooth.height - slit.height).toBeGreaterThan(0.01);
+              expect(tooth.metallic).toBe(0);
+              expect(slit.metallic).toBe(0);
+            }
+        }
+    },
+  );
+  it('keeps oval shoulders, domes, aperture ends, paired teeth and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Tapered coiled fern fiddleheads', () => {
   const p = proceduralMaterialPresets.fiddleheads;

@@ -1268,6 +1268,67 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cowrieshells': {
+        const p = proceduralMaterialPresets.cowrieshells;
+        const grainField = cachedNoise(96, 96, seed ^ 0x7ba7);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? dy : dx,
+            y = turn ? dx : dy;
+          const cap = clamp(
+            1 - (x / p.halfWidth) ** 2 - (y / p.halfLength) ** 2,
+          );
+          const body = smooth(clamp(cap / p.shoulder));
+          const opening = smooth(
+            clamp(
+              (1 - (x / p.apertureWidth) ** 2 - (y / p.apertureLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          let outsideTeeth = 1;
+          for (let side = -1; side <= 1; side += 2)
+            for (let i = 0; i < p.teeth; i++) {
+              const ty = (i - (p.teeth - 1) / 2) * p.toothPitch;
+              outsideTeeth *=
+                1 -
+                smooth(
+                  clamp(
+                    1 -
+                      ((x - side * p.toothX) / p.toothLength) ** 2 -
+                      ((y - ty) / p.toothWidth) ** 2,
+                  ),
+                );
+            }
+          const teeth = 1 - outsideTeeth,
+            dome = smooth(cap),
+            grain = grainField(u, v);
+          // The two tooth rows flank, rather than bridge, the opaque aperture.
+          color =
+            0.035 +
+            body *
+              (0.6 +
+                0.12 * dome -
+                0.56 * opening +
+                0.13 * teeth +
+                0.03 * grain);
+          height =
+            0.06 +
+            body *
+              (0.32 +
+                0.36 * dome -
+                0.48 * opening +
+                0.13 * teeth +
+                0.008 * grain);
+          roughness +=
+            body * (-0.14 + 0.12 * opening - 0.04 * teeth + 0.02 * grain);
+          occlusion = 0.35 + body * (0.62 - 0.38 * opening + 0.03 * teeth);
+          return;
+        };
+      }
       case 'fiddleheads': {
         const p = proceduralMaterialPresets.fiddleheads;
         const segments = new Float64Array(
@@ -16458,6 +16519,7 @@ export function createSurfaceSampler(
     kind === 'brickarches' ||
     kind === 'knottednet' ||
     kind === 'fiddleheads' ||
+    kind === 'cowrieshells' ||
     fabricated ||
     botanical ||
     packaging ||

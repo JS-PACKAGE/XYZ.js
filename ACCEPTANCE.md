@@ -6665,3 +6665,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐捲芽檢查 33 點 coil／17 點 stem 連通、圈間留白／中心留白、height／color／AO／roughness／metallic、外圈與內端同偏移寬度差；另掃描 capsule 肩部、段落 union、彎莖與 wrap C1。既有 487 種 size 64／seed 7 四圖 SHA256 changed 0。首次 build 因 frozen preset 的 literal type 窄化 curve accumulators 失敗，明確標示為 number 後完整 gates 通過；未將失敗記為通過。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6121 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 fiddleheads，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認鏡向螺旋捲芽、較細內端與相連彎莖，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：寶螺腹面（cowrieshells）
+
+- 目錄 488→489 種；0.2 m tile，4×4 交替直橫象牙色橢圓殼面、狹長暗色凹口與兩側各九條較光滑隆起齒脊。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增貝殼 geometry、透明殼口或海洋生物模擬。
+- 三 seed（0／1／`0xffffffff`）逐殼檢查外側殼面／凹口／底層的 height／color／AO／roughness、逐十八齒脊相對齒間與凹口的高度、色差、AO、roughness 與 metallic；另掃描橢圓 shoulder、dome、開口兩端、成對齒列與 wrap C1。既有 488 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6126 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cowrieshells，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替方向象牙色殼面、狹長殼口與兩側齒列，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

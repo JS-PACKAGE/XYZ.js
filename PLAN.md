@@ -517,6 +517,8 @@
 
 同輪追加 `fiddleheads`（蕨類捲芽），目錄 487→488 種：4×4 鏡向交替綠色捲芽，逐漸收細的一圈半螺旋芽頭、開放圈間隙與相連彎莖，區別 fernleaf 展開羽葉。0.24 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增植物 geometry、透明度、生長或枝葉物理；風格化而非植物辨識或寫實掃描，逐功能驗證提交、不 push。
 
+同輪追加 `cowrieshells`（寶螺腹面），目錄 488→489 種：4×4 交替直橫象牙色橢圓殼面、中央狹長凹口與兩側各九條較光滑隆起齒脊；區別扇貝放射肋與鸚鵡螺螺旋外殼。0.2 m tile、opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增貝殼 geometry、透明殼口或海洋生物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

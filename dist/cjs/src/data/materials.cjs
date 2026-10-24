@@ -8027,6 +8027,31 @@ var proceduralMaterialPresets = Object.freeze({
 		stemBendY: .2,
 		stemEndX: .12,
 		stemEndY: .36
+	}),
+	cowrieshells: Object.freeze({
+		dark: [
+			45,
+			31,
+			19
+		],
+		light: [
+			241,
+			222,
+			186
+		],
+		roughness: .53,
+		relief: .025,
+		cells: 4,
+		halfWidth: .23,
+		halfLength: .36,
+		shoulder: .16,
+		apertureWidth: .035,
+		apertureLength: .27,
+		teeth: 9,
+		toothPitch: .048,
+		toothX: .08,
+		toothLength: .055,
+		toothWidth: .016
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8517,7 +8542,8 @@ var proceduralTileMeters = Object.freeze({
 	cardamompods: .08,
 	brickarches: 2.4,
 	knottednet: .3,
-	fiddleheads: .24
+	fiddleheads: .24,
+	cowrieshells: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
