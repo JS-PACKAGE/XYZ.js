@@ -565,6 +565,7 @@ try {
     'farfalle',
     'cardamompods',
     'brickarches',
+    'knottednet',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

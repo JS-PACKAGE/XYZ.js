@@ -3857,6 +3857,20 @@ export const proceduralMaterialPresets = Object.freeze({
     gap: 0.004,
     bevel: 0.01,
   }),
+  knottednet: Object.freeze({
+    dark: [20, 21, 13] as const,
+    light: [201, 177, 118] as const,
+    roughness: 0.83,
+    relief: 0.022,
+    cells: 6,
+    sag: 0.13,
+    cordWidth: 0.033,
+    knotLength: 0.13,
+    knotWidth: 0.055,
+    creaseWidth: 0.017,
+    creaseLength: 0.08,
+    twists: 8,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4347,4 +4361,5 @@ export const proceduralTileMeters = Object.freeze({
   farfalle: 0.16,
   cardamompods: 0.08,
   brickarches: 2.4,
+  knottednet: 0.3,
 });

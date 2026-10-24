@@ -1268,6 +1268,55 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'knottednet': {
+        const p = proceduralMaterialPresets.knottednet;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5f83);
+        return () => {
+          const xc = u * p.cells - 0.5,
+            yc = v * p.cells - 0.5;
+          const sagX = p.sag * Math.sin(Math.PI * xc) ** 2,
+            sagY = p.sag * Math.sin(Math.PI * yc) ** 2;
+          const qh = fract(yc - sagX + 0.5) - 0.5,
+            qv = fract(xc - sagY + 0.5) - 0.5;
+          const horizontal = smooth(clamp(1 - (qh / p.cordWidth) ** 2)),
+            vertical = smooth(clamp(1 - (qv / p.cordWidth) ** 2));
+          const cord = 1 - (1 - horizontal) * (1 - vertical);
+          const dx = fract(xc + 0.5) - 0.5,
+            dy = fract(yc + 0.5) - 0.5;
+          const a = Math.SQRT1_2 * (dx + dy),
+            b = Math.SQRT1_2 * (dy - dx);
+          const first = smooth(
+            clamp(1 - (a / p.knotLength) ** 2 - (b / p.knotWidth) ** 2),
+          );
+          const second = smooth(
+            clamp(1 - (b / p.knotLength) ** 2 - (a / p.knotWidth) ** 2),
+          );
+          const knot = 1 - (1 - first) * (1 - second);
+          const crease =
+            smooth(clamp(1 - (dx / p.creaseWidth) ** 2)) *
+            smooth(clamp(1 - (dy / p.creaseLength) ** 2));
+          const exposed = cord * (1 - knot),
+            net = exposed + knot;
+          const twist =
+            0.5 +
+            0.25 * Math.cos(TAU * p.twists * xc) +
+            0.25 * Math.cos(TAU * p.twists * yc);
+          const grain = grainField(u, v);
+          color =
+            0.04 +
+            0.48 * exposed +
+            knot * (0.68 - 0.13 * crease) +
+            0.04 * grain * net;
+          height =
+            0.04 +
+            0.35 * exposed +
+            knot * (0.71 - 0.07 * crease) +
+            (0.025 * twist + 0.006 * grain) * net;
+          roughness += 0.06 * (1 - net) - 0.04 * exposed + 0.05 * crease * knot;
+          occlusion = 0.35 + 0.5 * exposed + knot * (0.61 - 0.09 * crease);
+          return;
+        };
+      }
       case 'brickarches': {
         const p = proceduralMaterialPresets.brickarches;
         const planes = new Float64Array(p.voussoirs * 2);
@@ -16309,6 +16358,7 @@ export function createSurfaceSampler(
     kind === 'farfalle' ||
     kind === 'cardamompods' ||
     kind === 'brickarches' ||
+    kind === 'knottednet' ||
     fabricated ||
     botanical ||
     packaging ||

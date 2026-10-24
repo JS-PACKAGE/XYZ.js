@@ -3774,6 +3774,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         gap: 0.004;
         bevel: 0.01;
     }>;
+    knottednet: Readonly<{
+        dark: readonly [20, 21, 13];
+        light: readonly [201, 177, 118];
+        roughness: 0.83;
+        relief: 0.022;
+        cells: 6;
+        sag: 0.13;
+        cordWidth: 0.033;
+        knotLength: 0.13;
+        knotWidth: 0.055;
+        creaseWidth: 0.017;
+        creaseLength: 0.08;
+        twists: 8;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4263,4 +4277,5 @@ export declare const proceduralTileMeters: Readonly<{
     farfalle: 0.16;
     cardamompods: 0.08;
     brickarches: 2.4;
+    knottednet: 0.3;
 }>;
