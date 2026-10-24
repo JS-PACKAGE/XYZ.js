@@ -82,6 +82,7 @@ struct MeshUniforms {
   iridescenceMapSettings: vec4f,
   iridescenceThicknessMapSettings: vec4f,
   iridescenceThicknessRange: vec4f,
+  heightMapSettings: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -446,7 +447,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   }
   if (mesh.finish[0].x + mesh.finish[0].z + mesh.finish[1].w + mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w + mesh.finish[3].x + mesh.finish[3].y > 0.0) {
     let view = safeNormal(scene.camera.xyz - input.world);
-    if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5) {
+    if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0) {
       let uv = materialUV(input, 0u);
       let dir = mappedNormal.xy * mesh.finish[1].w;
       var best = uv;
@@ -459,6 +460,29 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       // Sample outside the data-dependent branch: textureSample needs uniform control flow.
       let parallaxBase = decodeSRGB(textureSample(baseMap, materialSampler, best).rgb) * mesh.tint.rgb * input.color.rgb;
       base = select(base, parallaxBase, bestH < 1.0);
+    }
+    if (mesh.finish[1].w > 0.0 && mesh.heightMapSettings.x > 0.0) {
+      let uv = materialUV(input,0u);
+      let heightUV = materialUV(input,17u);
+      let dx = dpdx(input.world); let dy = -dpdy(input.world);
+      let du = dpdx(heightUV); let dv = -dpdy(heightUV);
+      let geometricNormal = safeNormal(input.normal);
+      let py = cross(dy,geometricNormal); let px = cross(geometricNormal,dx);
+      let tangent = py*du.x + px*dv.x;
+      let bitangent = (py*du.y + px*dv.y)*mesh.fade.z;
+      let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),1e-30));
+      let tangentView = transpose(mat3x3f(tangent*scale,bitangent*scale,geometricNormal))*view;
+      let direction = select(-tangentView.xy/max(abs(tangentView.z),0.1),mappedNormal.xy,mesh.maps.y > 0.5);
+      let dir = direction*mesh.finish[1].w;
+      var best = uv;
+      var bestH = 1.0;
+      for (var step = 0; step < 4; step++) {
+        let offset = dir*(f32(step)/3.0);
+        let h = opticalSample(heightUV + offset,mesh.heightMapSettings,5).r;
+        if (h < bestH) { bestH = h; best = uv + offset; }
+      }
+      let parallaxBase = decodeSRGB(textureSample(baseMap,materialSampler,best).rgb)*mesh.tint.rgb*input.color.rgb;
+      base = select(base,parallaxBase,bestH < 1.0);
     }
     if (mesh.finish[3].y > 0.0) {
       let weight = abs(n);
@@ -775,7 +799,17 @@ export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
     'if (mesh.finish[1].y > 0.0)',
     'fn diffusionProfile(',
   ]);
-  remove(features.height, ['if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)']);
+  remove(features.height && !features.heightMap, [
+    'if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0)',
+  ]);
+  remove(features.heightMap, [
+    'if (mesh.finish[1].w > 0.0 && mesh.heightMapSettings.x > 0.0)',
+  ]);
+  if (!features.heightMap)
+    source = source.replace(
+      'if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0)',
+      'if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)',
+    );
   remove(features.triplanar, ['if (mesh.finish[3].y > 0.0)']);
   remove(features.detail, ['if (mesh.finish[3].x > 0.0)']);
   remove(features.weathering, [
@@ -797,7 +831,8 @@ export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
     if (
       features.anisotropyMap ||
       features.iridescenceMap ||
-      features.iridescenceThicknessMap
+      features.iridescenceThicknessMap ||
+      features.heightMap
     )
       remove(false, ['fn opaqueColor(', 'fn roughTransmission(']);
     else source = source.replace(transmissionWGSL, '');

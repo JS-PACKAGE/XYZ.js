@@ -18,6 +18,7 @@ fn pack(id: vec3u, layer: i32) {
 @compute @workgroup_size(8,8) fn anisotropy(@builtin(global_invocation_id) id: vec3u) { pack(id,2); }
 @compute @workgroup_size(8,8) fn iridescence(@builtin(global_invocation_id) id: vec3u) { pack(id,3); }
 @compute @workgroup_size(8,8) fn iridescenceThickness(@builtin(global_invocation_id) id: vec3u) { pack(id,4); }
+@compute @workgroup_size(8,8) fn height(@builtin(global_invocation_id) id: vec3u) { pack(id,5); }
 `;
 var opticalPackGLSL = `#version 300 es
 precision highp float;

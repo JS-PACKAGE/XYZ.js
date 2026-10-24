@@ -15065,6 +15065,7 @@ export interface ProceduralMaps {
   normal: Uint8ClampedArray;
   metallicRoughness: Uint8ClampedArray;
   occlusion: Uint8ClampedArray;
+  height?: Uint8ClampedArray;
 }
 
 /** Normal derivatives wrap and divide by UV spacing, not texture resolution. */
@@ -15103,6 +15104,7 @@ export function generateProceduralMaps(
     contrast?: number;
     roughnessBias?: number;
     tint?: readonly [number, number, number];
+    heightMap?: boolean;
   } = {},
 ): ProceduralMaps {
   const maps: ProceduralMaps = {
@@ -15149,5 +15151,22 @@ export function generateProceduralMaps(
       maps.metallicRoughness[p + 3] = 255;
     }
   writeNormals(heights, size, maps.normal);
+  if (controls.heightMap) {
+    const height = new Uint8ClampedArray(size * size * 4);
+    let minimum = Infinity;
+    let maximum = -Infinity;
+    for (const value of heights) {
+      minimum = Math.min(minimum, value);
+      maximum = Math.max(maximum, value);
+    }
+    const range = maximum - minimum;
+    for (let i = 0; i < heights.length; i++) {
+      const value = byte(range > 0 ? (heights[i] - minimum) / range : 0.5);
+      const p = i * 4;
+      height[p] = height[p + 1] = height[p + 2] = value;
+      height[p + 3] = 255;
+    }
+    maps.height = height;
+  }
   return maps;
 }

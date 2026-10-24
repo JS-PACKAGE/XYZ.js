@@ -13,6 +13,7 @@ export interface MeshShaderFeatures {
     anisotropyMap: boolean;
     iridescenceMap: boolean;
     iridescenceThicknessMap: boolean;
+    heightMap: boolean;
     subsurface: boolean;
     height: boolean;
     weathering: boolean;

@@ -14,6 +14,7 @@ export interface ProceduralMaps {
     normal: Uint8ClampedArray;
     metallicRoughness: Uint8ClampedArray;
     occlusion: Uint8ClampedArray;
+    height?: Uint8ClampedArray;
 }
 /** Normal derivatives wrap and divide by UV spacing, not texture resolution. */
 export declare function writeNormals(height: Float32Array, size: number, normal: Uint8ClampedArray): void;
@@ -21,4 +22,5 @@ export declare function generateProceduralMaps(kind: ProceduralMaterialKind, siz
     contrast?: number;
     roughnessBias?: number;
     tint?: readonly [number, number, number];
+    heightMap?: boolean;
 }): ProceduralMaps;

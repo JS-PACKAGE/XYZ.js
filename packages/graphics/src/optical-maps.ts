@@ -12,10 +12,11 @@ export const mappedMaterialTextureSlots = Object.freeze([
   'anisotropy',
   'iridescence',
   'iridescenceThickness',
+  'height',
 ] as const);
 export const mappedMaterialUVFloatCount = mappedMaterialTextureSlots.length * 8;
 
-/** Five optical layers share one binding inside the 16-slot baseline.
+/** Six optical layers share one binding inside the 16-slot baseline.
  * Native texels are flattened into compact square layers without resampling;
  * shader texel addressing preserves independent filtering and wrap modes. */
 export function fillOpticalMapSettings(
@@ -57,6 +58,7 @@ export function opticalMapSources(
     maps.anisotropyTexture,
     maps.iridescenceTexture,
     maps.iridescenceThicknessTexture,
+    maps.heightTexture,
   ];
 }
 
@@ -69,7 +71,8 @@ export function hasOpticalMapSources(material: PBRMaterial): boolean {
     legacy.thicknessTexture ||
     maps.anisotropyTexture ||
     maps.iridescenceTexture ||
-    maps.iridescenceThicknessTexture
+    maps.iridescenceThicknessTexture ||
+    maps.heightTexture
   );
 }
 
@@ -105,4 +108,11 @@ export function fillMappedOpticalSettings(
   data[offset + 13] = maps.iridescenceThicknessMaximum;
   data[offset + 14] = 0;
   data[offset + 15] = 0;
+  fillOpticalMapSettings(
+    data,
+    offset + 16,
+    maps.heightTexture,
+    maps.heightSampler,
+    maxAnisotropy,
+  );
 }

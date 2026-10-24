@@ -166,6 +166,7 @@ uniform vec4 anisotropyMapSettings;
 uniform vec4 iridescenceMapSettings;
 uniform vec4 iridescenceThicknessMapSettings;
 uniform vec4 iridescenceThicknessRange;
+uniform vec4 heightMapSettings;
 vec3 opticalFinish;
 uniform highp sampler2DArray opticalMaps;
 uniform sampler2D opaqueScene;
@@ -392,7 +393,7 @@ void shadeMesh() {
     }
     coatRoughness = clamp(coatRoughness,.04,1.0);
     if (finish0.x + finish0.z + finish1.w + finish2.x + finish2.y + finish2.z + finish2.w + finish3.x + finish3.y > 0.0) {
-      if (finish1.w > 0.0 && maps.y != 0) {
+      if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0) {
         vec2 uv = materialUV(0);
         vec2 dir = mappedNormal.xy * finish1.w;
         vec2 best = uv;
@@ -403,6 +404,22 @@ void shadeMesh() {
           if (h < bestH) { bestH = h; best = sampleUV; }
         }
         vec3 parallaxBase = decodeSRGB(texture(image, best).rgb) * tint.rgb * vColor.rgb;
+        base = bestH < 1.0 ? parallaxBase : base;
+      }
+      if (finish1.w > 0.0 && heightMapSettings.x > 0.0) {
+        vec2 uv = materialUV(0);
+        vec2 heightUV = materialUV(17);
+        vec3 tangentView = transpose(materialNormalFrame(normalize(vNormal),17))*v;
+        vec2 direction = maps.y != 0 ? mappedNormal.xy : -tangentView.xy / max(abs(tangentView.z),0.1);
+        vec2 dir = direction * finish1.w;
+        vec2 best = uv;
+        float bestH = 1.0;
+        for (int step = 0; step < 4; step++) {
+          vec2 offset = dir * (float(step) / 3.0);
+          float h = opticalSample(heightUV + offset,heightMapSettings,5).r;
+          if (h < bestH) { bestH = h; best = uv + offset; }
+        }
+        vec3 parallaxBase = decodeSRGB(texture(image,best).rgb) * tint.rgb * vColor.rgb;
         base = bestH < 1.0 ? parallaxBase : base;
       }
       if (finish3.y > 0.0) {
@@ -718,7 +735,19 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
     'if (finish1.y > 0.0)',
     'vec3 diffusionProfile(',
   ]);
-  remove(features.height, ['if (finish1.w > 0.0 && maps.y != 0)']);
+  remove(features.height && !features.heightMap, [
+    'if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0)',
+  ]);
+  remove(features.heightMap, [
+    'if (finish1.w > 0.0 && heightMapSettings.x > 0.0)',
+  ]);
+  if (!features.heightMap)
+    source = source
+      .replace('uniform vec4 heightMapSettings;\n', '')
+      .replace(
+        'if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0)',
+        'if (finish1.w > 0.0 && maps.y != 0)',
+      );
   remove(features.triplanar, ['if (finish3.y > 0.0)']);
   remove(features.detail, ['if (finish3.x > 0.0)']);
   remove(features.weathering, [
@@ -738,7 +767,8 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
     if (
       features.anisotropyMap ||
       features.iridescenceMap ||
-      features.iridescenceThicknessMap
+      features.iridescenceThicknessMap ||
+      features.heightMap
     )
       remove(false, ['vec3 opaqueColor(', 'vec3 roughTransmission(']);
     else source = source.replace(transmissionGLSL, '');

@@ -9,14 +9,15 @@ var trustedProceduralMapsJob = {
 		let n = require_procedural_material_maps.generateProceduralMaps(t.kind, t.size, t.seed, {
 			contrast: t.contrast,
 			roughnessBias: t.roughnessBias,
-			tint: t.tint
+			tint: t.tint,
+			heightMap: t.heightMap
 		}), r = [
 			n.baseColor,
 			n.normal,
 			n.metallicRoughness,
 			n.occlusion
 		];
-		return {
+		return n.height && r.push(n.height), {
 			value: n,
 			transfer: r.map((e) => e.buffer),
 			byteLength: r.reduce((e, t) => e + t.byteLength, 0)

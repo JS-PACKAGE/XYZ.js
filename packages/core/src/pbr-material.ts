@@ -373,6 +373,7 @@ function textureCoordinates(
     'anisotropy',
     'iridescence',
     'iridescenceThickness',
+    'height',
   ];
   if (options !== undefined) {
     if (!options || typeof options !== 'object' || Array.isArray(options))

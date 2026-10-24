@@ -59,6 +59,7 @@ struct MeshUniforms {
   iridescenceMapSettings: vec4f,
   iridescenceThicknessMapSettings: vec4f,
   iridescenceThicknessRange: vec4f,
+  heightMapSettings: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -423,7 +424,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   }
   if (mesh.finish[0].x + mesh.finish[0].z + mesh.finish[1].w + mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w + mesh.finish[3].x + mesh.finish[3].y > 0.0) {
     let view = safeNormal(scene.camera.xyz - input.world);
-    if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5) {
+    if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0) {
       let uv = materialUV(input, 0u);
       let dir = mappedNormal.xy * mesh.finish[1].w;
       var best = uv;
@@ -436,6 +437,29 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       // Sample outside the data-dependent branch: textureSample needs uniform control flow.
       let parallaxBase = decodeSRGB(textureSample(baseMap, materialSampler, best).rgb) * mesh.tint.rgb * input.color.rgb;
       base = select(base, parallaxBase, bestH < 1.0);
+    }
+    if (mesh.finish[1].w > 0.0 && mesh.heightMapSettings.x > 0.0) {
+      let uv = materialUV(input,0u);
+      let heightUV = materialUV(input,17u);
+      let dx = dpdx(input.world); let dy = -dpdy(input.world);
+      let du = dpdx(heightUV); let dv = -dpdy(heightUV);
+      let geometricNormal = safeNormal(input.normal);
+      let py = cross(dy,geometricNormal); let px = cross(geometricNormal,dx);
+      let tangent = py*du.x + px*dv.x;
+      let bitangent = (py*du.y + px*dv.y)*mesh.fade.z;
+      let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),1e-30));
+      let tangentView = transpose(mat3x3f(tangent*scale,bitangent*scale,geometricNormal))*view;
+      let direction = select(-tangentView.xy/max(abs(tangentView.z),0.1),mappedNormal.xy,mesh.maps.y > 0.5);
+      let dir = direction*mesh.finish[1].w;
+      var best = uv;
+      var bestH = 1.0;
+      for (var step = 0; step < 4; step++) {
+        let offset = dir*(f32(step)/3.0);
+        let h = opticalSample(heightUV + offset,mesh.heightMapSettings,5).r;
+        if (h < bestH) { bestH = h; best = uv + offset; }
+      }
+      let parallaxBase = decodeSRGB(textureSample(baseMap,materialSampler,best).rgb)*mesh.tint.rgb*input.color.rgb;
+      base = select(base,parallaxBase,bestH < 1.0);
     }
     if (mesh.finish[3].y > 0.0) {
       let weight = abs(n);
@@ -696,7 +720,7 @@ struct SkyOutput {
 `;export function buildWebGPUMeshShader(e){if(!e||e.native)return webgpuMeshShader;let t=webgpuMeshShader;e.contactShadows||(t=t.replace(m,``).replace(`*contactVisibility(input.world,input.normal)`,``).replace(`  contactParams: vec4f,
   contactStrength: vec4f,
 `,``));let remove=(e,n)=>{if(!e)for(let e of n)t=h(t,e)};if(e.pbr)remove(!1,[`if (mesh.material.x < 0.5)`]);else{let e=t.indexOf(`fn shadeMesh(`),n=t.indexOf(`  var mr = vec4f(1.0);`,e),r=t.slice(e,n).replace(`  if (mesh.material.x < 0.5) {
-`,``);t=h(t,`fn shadeMesh(`);let i=t.indexOf(`@fragment fn fragmentMain(`);t=t.slice(0,i)+r+t.slice(i),t=t.replace(s,``).replace(l,``).replace(u,``).replace(d,``).replace(f,``).replace(c,``),remove(!1,[`fn brdf(`,`fn clearcoatLobe(`,`fn filteredMaterialNormal(`,`fn xyzPhysical(`])}return e.bakedIrradiance||(remove(!1,[`if (mesh.bakedParams.x > 0.5)`]),t=t.replace(f,``).replace(`*select(1.0,0.0,mesh.bakedParams.x > 0.5)`,``)),remove(e.anisotropy,[`if (optics.x > 0.0)`,`fn anisotropicGGX(`]),remove(e.iridescence,[`if (optics.y > 0.0)`,`fn thinFilm(`]),remove(e.anisotropyMap,[`if (mesh.anisotropyMapSettings.x > 0.0)`]),remove(e.iridescenceMap,[`if (mesh.iridescenceMapSettings.x > 0.0)`]),remove(e.iridescenceThicknessMap,[`if (mesh.iridescenceThicknessMapSettings.x > 0.0)`]),remove(e.subsurface,[`if (mesh.finish[1].y > 0.0)`,`fn diffusionProfile(`]),remove(e.height,[`if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)`]),remove(e.triplanar,[`if (mesh.finish[3].y > 0.0)`]),remove(e.detail,[`if (mesh.finish[3].x > 0.0)`]),remove(e.weathering,[`if (mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w > 0.0)`]),remove(e.dispersion,[`if (mesh.finish[1].z > 0.0 && thickness > 0.0)`]),e.bakedLightmap||(remove(!1,[`if (mesh.bakedParams.y > 0.5)`]),t=t.replace(`*select(1.0,0.0,mesh.bakedParams.y > 0.5)`,``)),remove(e.lightmap,[`if (mesh.maps.w > 1.5)`]),e.transmission||(remove(!1,[`if (mesh.transmission.x > 0.0)`,`if (transmission > 0.0 && metal < 1.0)`]),e.anisotropyMap||e.iridescenceMap||e.iridescenceThicknessMap?remove(!1,[`fn opaqueColor(`,`fn roughTransmission(`]):t=t.replace(u,``)),e.sheen||(remove(!1,[`if (any(mesh.sheen.rgb > vec3f(0.0)))`,`if (sheenMax > 0.0)`,`if(sheenMax>0.0)`]),t=t.replace(c,``).replace(s,`fn sheenLightRetention(nl:f32, rough:f32, strength:f32, energy:f32)->f32 { return 1.0; }`)),e.clearcoat||remove(!1,[`if (coatWeight > 0.0)`,`if(coatWeight>0.0)`,`if (mesh.clearcoat.x > 0.0)`,`if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)`,`fn clearcoatLobe(`]),e.environment||(remove(!1,[`if (useEnvironment)`]),t=t.replace(d,``).replace(`let probeWeights = reflectionWeights(input.world);`,`let probeWeights = vec4f(0.0);`).replace(`let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;`,`let useEnvironment = false;`).replace(c,``)),e.shadows||(remove(!1,[`@vertex fn shadowVertex(`]),t=t.replace(a,`fn directionalShadow(world:vec3f, normal:vec3f)->f32 { return 1.0; }
+`,``);t=h(t,`fn shadeMesh(`);let i=t.indexOf(`@fragment fn fragmentMain(`);t=t.slice(0,i)+r+t.slice(i),t=t.replace(s,``).replace(l,``).replace(u,``).replace(d,``).replace(f,``).replace(c,``),remove(!1,[`fn brdf(`,`fn clearcoatLobe(`,`fn filteredMaterialNormal(`,`fn xyzPhysical(`])}return e.bakedIrradiance||(remove(!1,[`if (mesh.bakedParams.x > 0.5)`]),t=t.replace(f,``).replace(`*select(1.0,0.0,mesh.bakedParams.x > 0.5)`,``)),remove(e.anisotropy,[`if (optics.x > 0.0)`,`fn anisotropicGGX(`]),remove(e.iridescence,[`if (optics.y > 0.0)`,`fn thinFilm(`]),remove(e.anisotropyMap,[`if (mesh.anisotropyMapSettings.x > 0.0)`]),remove(e.iridescenceMap,[`if (mesh.iridescenceMapSettings.x > 0.0)`]),remove(e.iridescenceThicknessMap,[`if (mesh.iridescenceThicknessMapSettings.x > 0.0)`]),remove(e.subsurface,[`if (mesh.finish[1].y > 0.0)`,`fn diffusionProfile(`]),remove(e.height&&!e.heightMap,[`if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0)`]),remove(e.heightMap,[`if (mesh.finish[1].w > 0.0 && mesh.heightMapSettings.x > 0.0)`]),e.heightMap||(t=t.replace(`if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5 && mesh.heightMapSettings.x <= 0.0)`,`if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)`)),remove(e.triplanar,[`if (mesh.finish[3].y > 0.0)`]),remove(e.detail,[`if (mesh.finish[3].x > 0.0)`]),remove(e.weathering,[`if (mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w > 0.0)`]),remove(e.dispersion,[`if (mesh.finish[1].z > 0.0 && thickness > 0.0)`]),e.bakedLightmap||(remove(!1,[`if (mesh.bakedParams.y > 0.5)`]),t=t.replace(`*select(1.0,0.0,mesh.bakedParams.y > 0.5)`,``)),remove(e.lightmap,[`if (mesh.maps.w > 1.5)`]),e.transmission||(remove(!1,[`if (mesh.transmission.x > 0.0)`,`if (transmission > 0.0 && metal < 1.0)`]),e.anisotropyMap||e.iridescenceMap||e.iridescenceThicknessMap||e.heightMap?remove(!1,[`fn opaqueColor(`,`fn roughTransmission(`]):t=t.replace(u,``)),e.sheen||(remove(!1,[`if (any(mesh.sheen.rgb > vec3f(0.0)))`,`if (sheenMax > 0.0)`,`if(sheenMax>0.0)`]),t=t.replace(c,``).replace(s,`fn sheenLightRetention(nl:f32, rough:f32, strength:f32, energy:f32)->f32 { return 1.0; }`)),e.clearcoat||remove(!1,[`if (coatWeight > 0.0)`,`if(coatWeight>0.0)`,`if (mesh.clearcoat.x > 0.0)`,`if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)`,`fn clearcoatLobe(`]),e.environment||(remove(!1,[`if (useEnvironment)`]),t=t.replace(d,``).replace(`let probeWeights = reflectionWeights(input.world);`,`let probeWeights = vec4f(0.0);`).replace(`let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;`,`let useEnvironment = false;`).replace(c,``)),e.shadows||(remove(!1,[`@vertex fn shadowVertex(`]),t=t.replace(a,`fn directionalShadow(world:vec3f, normal:vec3f)->f32 { return 1.0; }
 fn pointShadow(i:u32, world:vec3f, p:vec3f, normal:vec3f)->f32 { return 1.0; }
 fn spotShadow(i:u32, world:vec3f, normal:vec3f)->f32 { return 1.0; }`)),t}function definesHook(e,t){return RegExp(`(?:^|[;{}\\n])\\s*(?:fn\\s+${t}|(?:void|vec[234]|float|XYZVertex|XYZPhysical)\\s+${t})\\s*\\(`,`m`).test(e)}export function nativeMeshWGSL(e,t=!1,n=webgpuMeshShader){let marker=e=>{let t=n.indexOf(`/* XYZ_${e} */`),r=n.indexOf(`/* XYZ_${e}_END */`);if(t<0||r<0)throw new o(`Mesh shader lacks the ${e} native marker.`);return{start:t,end:r+`/* XYZ_${e}_END */`.length}},r=marker(`NATIVE_HOOKS`),i=marker(`PHYSICAL_DEFAULT`);if(t&&!definesHook(e,`xyzPhysical`))throw new o(`NativePBRMaterial requires a xyzPhysical native hook.`);let a=t?`${definesHook(e,`xyzDeform`)?``:`fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
   return XYZVertex(position, normal);

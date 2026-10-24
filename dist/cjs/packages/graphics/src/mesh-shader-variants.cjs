@@ -18,6 +18,7 @@ function meshShaderFeatures(e, t, n) {
 		anisotropyMap: (r & c.anisotropyMap) !== 0,
 		iridescenceMap: (r & c.iridescenceMap) !== 0,
 		iridescenceThicknessMap: (r & c.iridescenceThicknessMap) !== 0,
+		heightMap: (r & c.heightMap) !== 0,
 		subsurface: (r & c.subsurface) !== 0,
 		height: (r & c.height) !== 0,
 		weathering: (r & c.weathering) !== 0,
@@ -35,33 +36,8 @@ function meshShaderFeatures(e, t, n) {
 		native: (r & c.native) !== 0
 	};
 }
-var c = Object.fromEntries([
-	`pbr`,
-	`clearcoat`,
-	`sheen`,
-	`transmission`,
-	`dispersion`,
-	`anisotropy`,
-	`iridescence`,
-	`subsurface`,
-	`height`,
-	`weathering`,
-	`detail`,
-	`triplanar`,
-	`lightmap`,
-	`bakedIrradiance`,
-	`bakedLightmap`,
-	`skinned`,
-	`instanced`,
-	`morph`,
-	`shadows`,
-	`contactShadows`,
-	`environment`,
-	`native`,
-	`anisotropyMap`,
-	`iridescenceMap`,
-	`iridescenceThicknessMap`
-].map((e, t) => [e, 1 << t]));
+var s = `pbr.clearcoat.sheen.transmission.dispersion.anisotropy.iridescence.subsurface.height.weathering.detail.triplanar.lightmap.bakedIrradiance.bakedLightmap.skinned.instanced.morph.shadows.contactShadows.environment.native.anisotropyMap.iridescenceMap.iridescenceThicknessMap.heightMap`.split(`.`);
+var c = Object.fromEntries(s.map((e, t) => [e, 1 << t]));
 function meshShaderVariantBits(s, l, u) {
 	let d = 0, f = s instanceof require_pbr_material.PBRMaterial ? s : void 0;
 	if (f) {
@@ -75,7 +51,7 @@ function meshShaderVariantBits(s, l, u) {
 		let t = f.finish;
 		if (t) {
 			let e = require_optical_material_maps.opticalMaterialMaps(f);
-			t.dispersion > 0 && (d |= c.dispersion), t.anisotropy > 0 && (d |= c.anisotropy, e.anisotropyTexture && (d |= c.anisotropyMap)), t.iridescence > 0 && (d |= c.iridescence, e.iridescenceTexture && (d |= c.iridescenceMap), e.iridescenceThicknessTexture && (d |= c.iridescenceThicknessMap)), t.subsurface > 0 && (d |= c.subsurface), t.heightScale > 0 && (d |= c.height), t.wetness + t.snow + t.dirt + t.damage > 0 && (d |= c.weathering), t.detailStrength > 0 && (d |= c.detail), t.triplanar > 0 && (d |= c.triplanar);
+			t.dispersion > 0 && (d |= c.dispersion), t.anisotropy > 0 && (d |= c.anisotropy, e.anisotropyTexture && (d |= c.anisotropyMap)), t.iridescence > 0 && (d |= c.iridescence, e.iridescenceTexture && (d |= c.iridescenceMap), e.iridescenceThicknessTexture && (d |= c.iridescenceThicknessMap)), t.subsurface > 0 && (d |= c.subsurface), t.heightScale > 0 && (d |= c.height), t.heightScale > 0 && e.heightTexture && (d |= c.heightMap), t.wetness + t.snow + t.dirt + t.damage > 0 && (d |= c.weathering), t.detailStrength > 0 && (d |= c.detail), t.triplanar > 0 && (d |= c.triplanar);
 		}
 		f.lightmap && (d |= c.lightmap, require_baked_lighting.isBakedLightmap(f.lightmap) && (d |= c.bakedLightmap)), l && require_baked_lighting.meshIrradianceVolume(l) && (d |= c.bakedIrradiance);
 	}

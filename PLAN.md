@@ -465,6 +465,8 @@
 
 追加呼叫者擁有的 `ProceduralMapCache`（`ProceduralMaterialOptions.cache`）：以完整生成參數為 key 的有界 LRU（預設 64 MiB／32 筆，上限 1 GiB／4096 筆，常數在 `src/data/materials.ts`），合併同時發出的相同請求、失敗不快取；只快取 CPU maps，貼圖 ownership 不變。逐功能驗證提交、不 push。
 
+追加 `OpticalMaterialMaps.heightTexture`／`heightSampler` 與 `ProceduralMaterialOptions.heightMap`：height 佔既有 optical array 第 6 層（layer 5、UV slot 17），不新增 binding；有 height map 時 parallax 改讀它（無 normal map 時以視線投影到 height UV 切線空間），沒有時維持原本讀 normal.z 的 shader 文字。glTF 匯出不含 height（無對應 Khronos 擴充）。逐功能驗證提交、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -479,6 +479,8 @@ export type ProceduralMaterialKind =
 export interface ProceduralMaterialOptions {
   size?: number;
   seed?: number;
+  /** Generate a linear height map; parallax still requires finish.heightScale. */
+  heightMap?: boolean;
   /** 1 keeps the authored contrast. Finite and at least 0. */
   contrast?: number;
   /** Added to authored roughness, then clamped. Default 0. */
@@ -498,7 +500,7 @@ export interface ProceduralMaterialOptions {
   workerPool?: NativeWorkerPool;
   /**
    * Reuses generated CPU maps for identical kind/size/seed/contrast/
-   * roughnessBias/tint. Every preset still owns its own textures.
+   * roughnessBias/tint/heightMap. Every preset still owns its own textures.
    */
   cache?: ProceduralMapCache;
 }
@@ -511,6 +513,7 @@ export interface ProceduralMapsRequest {
   readonly contrast: number;
   readonly roughnessBias: number;
   readonly tint?: readonly [number, number, number];
+  readonly heightMap?: boolean;
 }
 
 function decodeProceduralMaps(value: unknown): ProceduralMaps {
@@ -532,7 +535,10 @@ function decodeProceduralMaps(value: unknown): ProceduralMaps {
     ].every(
       (stream) =>
         stream instanceof Uint8ClampedArray && stream.length === length,
-    )
+    ) ||
+    (maps.height !== undefined &&
+      (!(maps.height instanceof Uint8ClampedArray) ||
+        maps.height.length !== length))
   )
     throw new RangeError('Worker procedural maps do not match their size.');
   return maps;
@@ -575,7 +581,7 @@ export function createProceduralWorkerPool(
 }
 
 export interface ProceduralMapCacheOptions {
-  /** Retained map bytes (four RGBA maps per entry). Default 64 MiB. */
+  /** Retained map bytes, including optional RGBA height maps. Default 64 MiB. */
   maxBytes?: number;
   /** Retained entries. Default 32. */
   maxEntries?: number;
@@ -651,6 +657,7 @@ export class ProceduralMapCache {
       request.contrast,
       request.roughnessBias,
       request.tint?.join(',') ?? '',
+      request.heightMap ? 1 : 0,
     ].join('|');
     const cached = this.entries.get(key);
     if (cached) {
@@ -678,7 +685,8 @@ export class ProceduralMapCache {
   }
 
   private store(key: string, maps: ProceduralMaps): void {
-    const bytes = maps.baseColor.byteLength * 4;
+    const bytes =
+      maps.baseColor.byteLength * 4 + (maps.height?.byteLength ?? 0);
     if (bytes > this.maxBytes || this.maxEntries === 0) return;
     this.entries.set(key, maps);
     this.retained += bytes;
@@ -689,7 +697,8 @@ export class ProceduralMapCache {
       )
         break;
       this.entries.delete(oldest);
-      this.retained -= old.baseColor.byteLength * 4;
+      this.retained -=
+        old.baseColor.byteLength * 4 + (old.height?.byteLength ?? 0);
     }
   }
 }
@@ -711,6 +720,7 @@ interface ProceduralTextures {
   readonly normal: Texture;
   readonly metallicRoughness: Texture;
   readonly occlusion: Texture;
+  readonly height?: Texture;
 }
 
 const kinds: readonly ProceduralMaterialKind[] = [
@@ -1255,6 +1265,11 @@ export class ProceduralMaterial {
       throw new RangeError(
         'Procedural tint must be three finite multipliers within 0..4.',
       );
+    if (
+      options.heightMap !== undefined &&
+      typeof options.heightMap !== 'boolean'
+    )
+      throw new TypeError('Procedural heightMap must be a boolean.');
     const pool = options.workerPool;
     if (pool !== undefined && !(pool instanceof NativeWorkerPool))
       throw new TypeError('Procedural workerPool must be a NativeWorkerPool.');
@@ -1267,6 +1282,7 @@ export class ProceduralMaterial {
       seed,
       contrast,
       roughnessBias,
+      heightMap: options.heightMap ?? false,
       ...(tint === undefined ? {} : { tint: [tint[0], tint[1], tint[2]] }),
     };
     const generate = async (): Promise<ProceduralMaps> => {
@@ -1275,12 +1291,16 @@ export class ProceduralMaterial {
           contrast,
           roughnessBias,
           tint,
+          heightMap: request.heightMap,
         });
       const generated = (
         await pool.submit(proceduralMapsJob, request, { requestBytes: 0 })
           .promise
       ).value;
-      if (generated.baseColor.length !== size * size * 4)
+      if (
+        generated.baseColor.length !== size * size * 4 ||
+        (request.heightMap && generated.height?.length !== size * size * 4)
+      )
         throw new RangeError('Worker procedural maps do not match their size.');
       return generated;
     };
@@ -1296,6 +1316,7 @@ export class ProceduralMaterial {
         maps.normal,
         maps.metallicRoughness,
         maps.occlusion,
+        ...(maps.height === undefined ? [] : [maps.height]),
       ]) {
         const image = new ImageData(size, size);
         image.data.set(pixels);
@@ -1308,6 +1329,7 @@ export class ProceduralMaterial {
           normal: acquired[1]!,
           metallicRoughness: acquired[2]!,
           occlusion: acquired[3]!,
+          ...(acquired[4] === undefined ? {} : { height: acquired[4] }),
         },
         repeats,
       );
@@ -1329,6 +1351,14 @@ export class ProceduralMaterial {
       normalTexture: this.textures.normal,
       metallicRoughnessTexture: this.textures.metallicRoughness,
       occlusionTexture: this.textures.occlusion,
+      ...(this.textures.height === undefined
+        ? {}
+        : {
+            opticalMaps: {
+              heightTexture: this.textures.height,
+              heightSampler: repeatSampler,
+            },
+          }),
       textureCoordinates:
         this.repeats === 1
           ? undefined
@@ -1337,6 +1367,9 @@ export class ProceduralMaterial {
               metallicRoughness: { scale },
               normal: { scale },
               occlusion: { scale },
+              ...(this.textures.height === undefined
+                ? {}
+                : { height: { scale } }),
             },
       metallic:
         this.kind === 'metal' ||
@@ -1396,5 +1429,6 @@ export class ProceduralMaterial {
     this.textures.normal.destroy();
     this.textures.metallicRoughness.destroy();
     this.textures.occlusion.destroy();
+    this.textures.height?.destroy();
   }
 }

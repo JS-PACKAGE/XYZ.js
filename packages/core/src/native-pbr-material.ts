@@ -64,7 +64,8 @@ export class NativePBRMaterial extends PBRMaterial {
     if (
       optical.anisotropyTexture?.destroyed ||
       optical.iridescenceTexture?.destroyed ||
-      optical.iridescenceThicknessTexture?.destroyed
+      optical.iridescenceThicknessTexture?.destroyed ||
+      optical.heightTexture?.destroyed
     )
       throw new Error(
         'NativePBRMaterial references a destroyed borrowed texture.',

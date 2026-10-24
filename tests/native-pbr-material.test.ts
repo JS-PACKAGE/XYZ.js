@@ -24,6 +24,7 @@ describe('native physical material hooks', () => {
     'anisotropyTexture',
     'iridescenceTexture',
     'iridescenceThicknessTexture',
+    'heightTexture',
   ] as const)(
     'validates borrowed optical %s without taking ownership',
     (key) => {

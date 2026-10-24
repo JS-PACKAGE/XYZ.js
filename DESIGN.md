@@ -473,6 +473,8 @@ Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執�
 
 `ProceduralMapCache` 只保存 CPU 端的四個 `Uint8ClampedArray`，從不交給呼叫者；`create()` 每次仍以 `ImageData` 複製進新的貼圖，所以 destroy 一個 preset 不影響其他 preset 或快取。key 由 kind／size／seed／contrast／roughnessBias／tint 串成，Map 插入順序即 LRU 順序（命中時重新插入）；超過 bytes 或 entries 上限時從最舊的淘汰，單筆超過上限則不保留。進行中的生成以 pending promise 共用，失敗時移除且不寫入。
 
+Height map 走 optical texture array 第 6 層（`opticalSample(..., 5).r`），WGSL 在 MeshUniforms 末尾、GLSL 以 `heightMapSettings` uniform 加一個 vec4，mapped UV 區塊增為 18 slot／144 floats、atlas residency 每 texel 24 bytes。shader variant `heightMap` 只在材質有 height map 時保留新的 parallax 分支並移除舊的 normal.z 分支；沒有時還原原本的條件字串，舊材質 shader 文字不變（但共用 uniform 版面變大）。程序 height 以 `(h-min)/(max-min)` 正規化，平面為 0.5。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.22.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

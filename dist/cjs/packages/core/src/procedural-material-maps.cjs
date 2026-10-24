@@ -3738,7 +3738,17 @@ function generateProceduralMaps(t, n, r, i = {}) {
 		}
 		a.baseColor[f + 3] = a.occlusion[f + 3] = 255, a.metallicRoughness[f] = 255, a.metallicRoughness[f + 1] = byte(l.roughness + u), a.metallicRoughness[f + 2] = byte(l.metallic), a.metallicRoughness[f + 3] = 255;
 	}
-	return writeNormals(o, n, a.normal), a;
+	if (writeNormals(o, n, a.normal), i.heightMap) {
+		let e = new Uint8ClampedArray(n * n * 4), t = 1 / 0, r = -1 / 0;
+		for (let e of o) t = Math.min(t, e), r = Math.max(r, e);
+		let i = r - t;
+		for (let n = 0; n < o.length; n++) {
+			let r = byte(i > 0 ? (o[n] - t) / i : .5), a = n * 4;
+			e[a] = e[a + 1] = e[a + 2] = r, e[a + 3] = 255;
+		}
+		a.height = e;
+	}
+	return a;
 }
 //#endregion
 exports.createSurfaceSampler = createSurfaceSampler;

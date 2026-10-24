@@ -41,12 +41,12 @@ const require_webgpu_object_motion = require("./webgpu-object-motion.cjs");
 var Me = [];
 var Ne = [];
 var q = /* @__PURE__ */ new WeakMap();
-var J = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_optical_maps.mappedMaterialUVFloatCount + 20 + 40 + 16;
+var J = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_optical_maps.mappedMaterialUVFloatCount + 20 + 40 + 20;
 var Y = 336;
 var X = Y + require_rendering.nativeMaterial3DLimits.uniformFloats + 4;
-var Z = J - 16 - 40 - 20;
-var Q = J - 16 - 40;
-var $ = J - 16;
+var Z = J - 20 - 40 - 20;
+var Q = J - 20 - 40;
+var $ = J - 20;
 var Pe = { uvs1: /* @__PURE__ */ new Float32Array() };
 function sameSelection(e, t) {
 	let n = t.pointLights, r = t.spotLights;
@@ -337,7 +337,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			size: [
 				1,
 				1,
-				5
+				6
 			],
 			format: `rgba8unorm`,
 			usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
@@ -385,7 +385,8 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			`thickness`,
 			`anisotropy`,
 			`iridescence`,
-			`iridescenceThickness`
+			`iridescenceThickness`,
+			`height`
 		].map((t) => e.createComputePipeline({
 			layout: p,
 			compute: {
@@ -1865,7 +1866,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		if (n && t.every((e, t) => n.sources?.[t] === e && n.sourceVersions?.[t] === r[t])) return n.allocation.touch(), n.seen = this.frame, n.view;
 		let i = Math.ceil(Math.sqrt(Math.max(...t.map((e) => e ? e.width * e.height : 1))));
 		n && n.resource.width !== i && (n.allocation.destroy(), n = void 0);
-		let a = n?.allocation ?? this.residency.textures.allocate(i * i * 20, () => {
+		let a = n?.allocation ?? this.residency.textures.allocate(i * i * 24, () => {
 			this.opticalTextures.get(e)?.resource.destroy(), this.opticalTextures.delete(e), this.textureEpoch++;
 		}), o = n?.resource;
 		try {
@@ -1873,13 +1874,13 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				size: [
 					i,
 					i,
-					5
+					6
 				],
 				format: `rgba8unorm`,
 				usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING
 			});
 			let s = n?.view ?? o.createView({ dimension: `2d-array` }), c = this.device.createCommandEncoder();
-			for (let e = 0; e < 5; e++) {
+			for (let e = 0; e < 6; e++) {
 				let n = t[e];
 				if (!n) continue;
 				let r = this.device.createBindGroup({

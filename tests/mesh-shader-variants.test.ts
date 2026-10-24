@@ -324,7 +324,7 @@ describe('mesh shader source variants', () => {
     expect(meshShaderFeatures(material).skinned).toBe(false);
   });
 
-  it('packs independent optical map settings and all five atlas layers', () => {
+  it('packs independent optical map settings and all six atlas layers', () => {
     const second = new Texture({
       width: 2,
       height: 3,
@@ -348,11 +348,12 @@ describe('mesh shader source variants', () => {
           magFilter: 'nearest',
         },
         iridescenceThicknessTexture: texture,
+        heightTexture: second,
         iridescenceThicknessMinimum: 50,
         iridescenceThicknessMaximum: 950,
       },
     });
-    const packed = new Float32Array(20).fill(-1);
+    const packed = new Float32Array(24).fill(-1);
     fillMappedOpticalSettings(material, packed, 4);
     expect(Array.from(packed.subarray(0, 4))).toEqual([-1, -1, -1, -1]);
     expect(Array.from(packed.subarray(4, 8))).toEqual([4, 5, 1, 2]);
@@ -360,14 +361,16 @@ describe('mesh shader source variants', () => {
     expect(Array.from(packed.subarray(12, 20))).toEqual([
       1, 1, 0, 3, 50, 950, 0, 0,
     ]);
+    expect(Array.from(packed.subarray(20, 24))).toEqual([2, 3, 0, 3]);
     expect(opticalMapSources(material)).toEqual([
       texture,
       second,
       third,
       second,
       texture,
+      second,
     ]);
-    for (let layer = 0; layer < 5; layer++)
+    for (let layer = 0; layer < 6; layer++)
       expect(opticalPackWGSL).toContain(`pack(id,${layer});`);
   });
 
@@ -407,15 +410,16 @@ describe('mesh shader source variants', () => {
       'anisotropy',
       'iridescence',
       'iridescenceThickness',
+      'height',
     ]);
-    expect(mappedMaterialUVFloatCount).toBe(17 * 8);
-    expect(buildMeshFragment(features)).toContain('materialCoordinates[34]');
+    expect(mappedMaterialUVFloatCount).toBe(18 * 8);
+    expect(buildMeshFragment(features)).toContain('materialCoordinates[36]');
     expect(buildWebGPUMeshShader(features)).toContain(
-      'coordinates: array<vec4f, 34>',
+      'coordinates: array<vec4f, 36>',
     );
     const plain = meshShaderFeatures(new PBRMaterial({ texture }));
     expect(buildWebGPUMeshShader(plain)).toContain(
-      'coordinates: array<vec4f, 34>',
+      'coordinates: array<vec4f, 36>',
     );
     expect(meshShaderVariantKey(features)).not.toBe(
       meshShaderVariantKey({ ...features, anisotropyMap: false }),
@@ -436,6 +440,47 @@ describe('mesh shader source variants', () => {
       expect(source).not.toContain('opticalSample(');
       expect(source).not.toContain('anisotropicGGX(');
       expect(source).not.toContain('thinFilm(');
+    }
+  });
+
+  it('uses the sixth optical layer for height with or without a normal map', () => {
+    for (const normalTexture of [undefined, texture]) {
+      const material = new PBRMaterial({
+        texture,
+        normalTexture,
+        finish: { heightScale: 0.2 },
+        opticalMaps: { heightTexture: texture },
+        textureCoordinates: { height: { scale: [2, 3] } },
+      });
+      const features = meshShaderFeatures(material);
+      expect(features.heightMap).toBe(true);
+      const glsl = buildMeshFragment(features);
+      const wgsl = buildWebGPUMeshShader(features);
+      expect(glsl).toContain(
+        'opticalSample(heightUV + offset,heightMapSettings,5).r',
+      );
+      expect(wgsl).toContain(
+        'opticalSample(heightUV + offset,mesh.heightMapSettings,5).r',
+      );
+      expect(glsl).toContain('materialUV(17)');
+      expect(wgsl).toContain('materialUV(input,17u)');
+      const legacy = meshShaderFeatures(
+        new PBRMaterial({
+          texture,
+          normalTexture,
+          finish: { heightScale: 0.2 },
+        }),
+      );
+      expect(buildMeshFragment(legacy)).not.toContain('heightMapSettings');
+      expect(buildWebGPUMeshShader(legacy)).not.toContain(
+        'opticalSample(heightUV',
+      );
+      expect(buildMeshFragment(legacy)).toContain(
+        'float h = texture(normalMap, sampleUV).z;',
+      );
+      expect(buildWebGPUMeshShader(legacy)).toContain(
+        'let h = textureSample(normalMap, normalSampler, sampleUV).z;',
+      );
     }
   });
 

@@ -8,6 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
+import { opticalMaterialMaps } from '../packages/core/src/optical-material-maps.js';
 import { proceduralMaterialPresets } from '../src/data/materials.js';
 import {
   ProceduralMaterial,
@@ -23944,6 +23945,57 @@ describe('periodic procedural material fields', () => {
     }
   });
 
+  it('adds only an opt-in height stream normalized from the sampled field', () => {
+    const plain = generateProceduralMaps('brick', 32, 7);
+    expect(
+      generateProceduralMaps('brick', 32, 7, { heightMap: false }),
+    ).toEqual(plain);
+    expect(Object.keys(plain)).toEqual([
+      'baseColor',
+      'normal',
+      'metallicRoughness',
+      'occlusion',
+    ]);
+    const maps = generateProceduralMaps('brick', 32, 7, { heightMap: true });
+    for (const key of [
+      'baseColor',
+      'normal',
+      'metallicRoughness',
+      'occlusion',
+    ] as const)
+      expect(maps[key]).toEqual(plain[key]);
+    const sample = createSurfaceSampler('brick', 7);
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const heights = new Float32Array(32 * 32);
+    for (let y = 0; y < 32; y++)
+      for (let x = 0; x < 32; x++) {
+        sample((x + 0.5) / 32, (y + 0.5) / 32, out);
+        heights[y * 32 + x] = out.height;
+      }
+    const minimum = Math.min(...heights),
+      maximum = Math.max(...heights);
+    for (let i = 0; i < heights.length; i++) {
+      const value = Math.round(
+        ((heights[i] - minimum) / (maximum - minimum)) * 255,
+      );
+      expect(Array.from(maps.height!.subarray(i * 4, i * 4 + 4))).toEqual([
+        value,
+        value,
+        value,
+        255,
+      ]);
+    }
+    expect(Math.min(...maps.height!)).toBe(0);
+    expect(Math.max(...maps.height!)).toBe(255);
+  });
+
   it('wraps normal neighbors and uses negative slopes along both image UV axes', () => {
     const size = 32,
       heights = new Float32Array(size * size),
@@ -23975,6 +24027,47 @@ describe('periodic procedural material fields', () => {
 });
 
 describe('procedural preset acquisition and ownership', () => {
+  it('wires owned height textures, UV repeats and cache accounting without enabling parallax', async () => {
+    const cache = new ProceduralMapCache();
+    const plain = await ProceduralMaterial.create('brick', { size: 32, cache });
+    const first = await ProceduralMaterial.create('brick', {
+      size: 32,
+      cache,
+      heightMap: true,
+      repeats: 3,
+    });
+    const second = await ProceduralMaterial.create('brick', {
+      size: 32,
+      cache,
+      heightMap: true,
+    });
+    expect([cache.hits, cache.misses, cache.bytes]).toEqual([
+      1,
+      2,
+      32 * 32 * 4 * 9,
+    ]);
+    expect(plain.textures.height).toBeUndefined();
+    expect(opticalMaterialMaps(first.material).heightTexture).toBe(
+      first.textures.height,
+    );
+    expect(opticalMaterialMaps(first.material).heightSampler).toMatchObject({
+      addressModeU: 'repeat',
+      addressModeV: 'repeat',
+    });
+    expect(first.material.textureCoordinates).toMatchObject({
+      height: { texCoord: 0, transform: [3, 0, -0, 3, 0, 0] },
+    });
+    expect(first.material.finish.heightScale).toBe(0);
+    expect(
+      first.createMaterial({ finish: { heightScale: 0.2 } }).finish.heightScale,
+    ).toBe(0.2);
+    first.destroy();
+    expect(first.textures.height!.destroyed).toBe(true);
+    expect(second.textures.height!.destroyed).toBe(false);
+    plain.destroy();
+    second.destroy();
+    cache.clear();
+  });
   it('rejects invalid kinds and dimensions/seeds before bitmap acquisition', async () => {
     await expect(
       ProceduralMaterial.create('glass' as ProceduralMaterialKind),
@@ -24173,7 +24266,12 @@ describe('procedural preset acquisition and ownership', () => {
       workerFactory: () => new BridgedWorker() as unknown as Worker,
     });
     try {
-      const options = { size: 32, seed: 9, tint: [1.2, 1, 0.8] } as const;
+      const options = {
+        size: 32,
+        seed: 9,
+        tint: [1.2, 1, 0.8],
+        heightMap: true,
+      } as const;
       const pooled = await ProceduralMaterial.create('tiles', {
         ...options,
         workerPool: pool,
@@ -24181,12 +24279,14 @@ describe('procedural preset acquisition and ownership', () => {
       const pooledPixels = decoded.map((bitmap) => bitmap.pixels);
       const local = generateProceduralMaps('tiles', 32, 9, {
         tint: [1.2, 1, 0.8],
+        heightMap: true,
       });
       expect(pooledPixels).toEqual([
         local.baseColor,
         local.normal,
         local.metallicRoughness,
         local.occlusion,
+        local.height,
       ]);
       expect(pool.stats.completed).toBe(1);
       pooled.destroy();
@@ -24205,6 +24305,23 @@ describe('procedural preset acquisition and ownership', () => {
         ProceduralMaterial.create('tiles', { size: 32, workerPool: pool }),
       ).rejects.toThrow();
       expect(decoded).toHaveLength(0);
+      for (const height of [undefined, new Uint8ClampedArray(4)]) {
+        tamper = (message) =>
+          message.type === 'result'
+            ? {
+                ...message,
+                value: { ...(message.value as object), height },
+              }
+            : message;
+        await expect(
+          ProceduralMaterial.create('tiles', {
+            size: 32,
+            workerPool: pool,
+            heightMap: true,
+          }),
+        ).rejects.toThrow();
+        expect(decoded).toHaveLength(0);
+      }
       await expect(
         ProceduralMaterial.create('tiles', {
           workerPool: {} as NativeWorkerPool,

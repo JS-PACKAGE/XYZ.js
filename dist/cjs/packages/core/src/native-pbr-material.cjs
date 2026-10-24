@@ -29,7 +29,7 @@ var NativePBRMaterial = class extends require_pbr_material.PBRMaterial {
 		let e = require_pbr_material.pbrTextureSources(this);
 		for (let n of require_pbr_material.pbrTextureKeys) if (e[n]?.destroyed) throw Error(`NativePBRMaterial references a destroyed borrowed texture.`);
 		let i = require_optical_material_maps.opticalMaterialMaps(this);
-		if (i.anisotropyTexture?.destroyed || i.iridescenceTexture?.destroyed || i.iridescenceThicknessTexture?.destroyed) throw Error(`NativePBRMaterial references a destroyed borrowed texture.`);
+		if (i.anisotropyTexture?.destroyed || i.iridescenceTexture?.destroyed || i.iridescenceThicknessTexture?.destroyed || i.heightTexture?.destroyed) throw Error(`NativePBRMaterial references a destroyed borrowed texture.`);
 	}
 	onDestroy(e) {
 		return this.state.onDestroy(e);

@@ -27,13 +27,16 @@ function registerOpticalMaterialMaps(i, a) {
 		iridescenceThicknessTexture: !0,
 		iridescenceThicknessSampler: !0,
 		iridescenceThicknessMinimum: !0,
-		iridescenceThicknessMaximum: !0
+		iridescenceThicknessMaximum: !0,
+		heightTexture: !0,
+		heightSampler: !0
 	};
 	for (let e of Object.keys(a)) if (!Object.hasOwn(o, e)) throw TypeError(`Unknown optical map option ${e}.`);
 	for (let n of [
 		`anisotropyTexture`,
 		`iridescenceTexture`,
-		`iridescenceThicknessTexture`
+		`iridescenceThicknessTexture`,
+		`heightTexture`
 	]) {
 		let r = a[n];
 		if (r !== void 0 && !(r instanceof require_texture.Texture) && !(r instanceof require_texture2d.CanvasTexture2D)) throw TypeError(`${n} must be a Texture or CanvasTexture2D.`);
@@ -47,6 +50,8 @@ function registerOpticalMaterialMaps(i, a) {
 		iridescenceSampler: require_texture_sampler.samplerOptions(a.iridescenceSampler),
 		iridescenceThicknessTexture: a.iridescenceThicknessTexture,
 		iridescenceThicknessSampler: require_texture_sampler.samplerOptions(a.iridescenceThicknessSampler),
+		heightTexture: a.heightTexture,
+		heightSampler: require_texture_sampler.samplerOptions(a.heightSampler),
 		iridescenceThicknessMinimum: s,
 		iridescenceThicknessMaximum: c
 	}));

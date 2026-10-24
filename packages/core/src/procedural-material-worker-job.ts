@@ -24,6 +24,7 @@ export const trustedProceduralMapsJob: TrustedWorkerJob<
         contrast: request.contrast,
         roughnessBias: request.roughnessBias,
         tint: request.tint,
+        heightMap: request.heightMap,
       },
     );
     const streams = [
@@ -32,6 +33,7 @@ export const trustedProceduralMapsJob: TrustedWorkerJob<
       value.metallicRoughness,
       value.occlusion,
     ];
+    if (value.height) streams.push(value.height);
     return {
       value,
       transfer: streams.map((stream) => stream.buffer as ArrayBuffer),

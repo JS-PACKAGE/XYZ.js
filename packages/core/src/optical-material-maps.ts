@@ -11,7 +11,7 @@ import {
 } from './texture-sampler.js';
 
 export type MaterialOpticalTextureSlot =
-  'anisotropy' | 'iridescence' | 'iridescenceThickness';
+  'anisotropy' | 'iridescence' | 'iridescenceThickness' | 'height';
 export type MaterialMappedTextureSlot =
   MaterialTextureSlot | MaterialOpticalTextureSlot;
 
@@ -32,6 +32,9 @@ export interface OpticalMaterialMapsOptions {
   iridescenceThicknessSampler?: TextureSamplerOptions;
   iridescenceThicknessMinimum?: number;
   iridescenceThicknessMaximum?: number;
+  /** Linear R channel: 0 is deepest, 1 is highest. Borrowed, not owned. */
+  heightTexture?: Texture | CanvasTexture2D;
+  heightSampler?: TextureSamplerOptions;
 }
 
 export interface OpticalMaterialMaps {
@@ -43,6 +46,8 @@ export interface OpticalMaterialMaps {
   readonly iridescenceThicknessSampler?: Readonly<TextureSamplerOptions>;
   readonly iridescenceThicknessMinimum: number;
   readonly iridescenceThicknessMaximum: number;
+  readonly heightTexture?: Texture | CanvasTexture2D;
+  readonly heightSampler?: Readonly<TextureSamplerOptions>;
 }
 
 const registry = new WeakMap<object, OpticalMaterialMaps>();
@@ -78,6 +83,8 @@ export function registerOpticalMaterialMaps(
     iridescenceThicknessSampler: true,
     iridescenceThicknessMinimum: true,
     iridescenceThicknessMaximum: true,
+    heightTexture: true,
+    heightSampler: true,
   };
   for (const key of Object.keys(options))
     if (!Object.hasOwn(allowed, key))
@@ -86,6 +93,7 @@ export function registerOpticalMaterialMaps(
     'anisotropyTexture',
     'iridescenceTexture',
     'iridescenceThicknessTexture',
+    'heightTexture',
   ] as const) {
     const texture = options[key];
     if (
@@ -117,6 +125,8 @@ export function registerOpticalMaterialMaps(
       iridescenceThicknessSampler: samplerOptions(
         options.iridescenceThicknessSampler,
       ),
+      heightTexture: options.heightTexture,
+      heightSampler: samplerOptions(options.heightSampler),
       iridescenceThicknessMinimum: minimum,
       iridescenceThicknessMaximum: maximum,
     }),

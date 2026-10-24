@@ -6,6 +6,8 @@ export type ProceduralMaterialKind = 'wood' | 'brick' | 'stone' | 'metal' | 'fab
 export interface ProceduralMaterialOptions {
     size?: number;
     seed?: number;
+    /** Generate a linear height map; parallax still requires finish.heightScale. */
+    heightMap?: boolean;
     /** 1 keeps the authored contrast. Finite and at least 0. */
     contrast?: number;
     /** Added to authored roughness, then clamped. Default 0. */
@@ -25,7 +27,7 @@ export interface ProceduralMaterialOptions {
     workerPool?: NativeWorkerPool;
     /**
      * Reuses generated CPU maps for identical kind/size/seed/contrast/
-     * roughnessBias/tint. Every preset still owns its own textures.
+     * roughnessBias/tint/heightMap. Every preset still owns its own textures.
      */
     cache?: ProceduralMapCache;
 }
@@ -37,6 +39,7 @@ export interface ProceduralMapsRequest {
     readonly contrast: number;
     readonly roughnessBias: number;
     readonly tint?: readonly [number, number, number];
+    readonly heightMap?: boolean;
 }
 export declare const proceduralMapsJob: WorkerJobDefinition<ProceduralMapsRequest, ProceduralMaps>;
 /** Resolves to a real emitted .js module in the published dist tree. */
@@ -44,7 +47,7 @@ export declare function proceduralWorkerURL(): URL;
 /** Static native Worker construction is visible to bundlers. */
 export declare function createProceduralWorkerPool(options?: Omit<NativeWorkerPoolOptions, 'moduleURL' | 'workerFactory'>): NativeWorkerPool;
 export interface ProceduralMapCacheOptions {
-    /** Retained map bytes (four RGBA maps per entry). Default 64 MiB. */
+    /** Retained map bytes, including optional RGBA height maps. Default 64 MiB. */
     maxBytes?: number;
     /** Retained entries. Default 32. */
     maxEntries?: number;
@@ -82,6 +85,7 @@ interface ProceduralTextures {
     readonly normal: Texture;
     readonly metallicRoughness: Texture;
     readonly occlusion: Texture;
+    readonly height?: Texture;
 }
 /** Owns four generated maps. Materials, meshes and scenes only borrow them. */
 export declare class ProceduralMaterial {

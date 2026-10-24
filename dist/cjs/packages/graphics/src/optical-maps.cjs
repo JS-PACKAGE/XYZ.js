@@ -6,7 +6,8 @@ var mappedMaterialTextureSlots = Object.freeze([
 	...require_rendering.materialTextureSlots,
 	`anisotropy`,
 	`iridescence`,
-	`iridescenceThickness`
+	`iridescenceThickness`,
+	`height`
 ]);
 var mappedMaterialUVFloatCount = mappedMaterialTextureSlots.length * 8;
 function fillOpticalMapSettings(e, t, n, r, i = 16) {
@@ -21,16 +22,17 @@ function opticalMapSources(n) {
 		r.thicknessTexture,
 		i.anisotropyTexture,
 		i.iridescenceTexture,
-		i.iridescenceThicknessTexture
+		i.iridescenceThicknessTexture,
+		i.heightTexture
 	];
 }
 function hasOpticalMapSources(n) {
 	let r = require_pbr_material.pbrTextureSources(n), i = require_optical_material_maps.opticalMaterialMaps(n);
-	return !!(r.transmissionTexture || r.thicknessTexture || i.anisotropyTexture || i.iridescenceTexture || i.iridescenceThicknessTexture);
+	return !!(r.transmissionTexture || r.thicknessTexture || i.anisotropyTexture || i.iridescenceTexture || i.iridescenceThicknessTexture || i.heightTexture);
 }
 function fillMappedOpticalSettings(e, n, r, i = 16) {
 	let a = require_optical_material_maps.opticalMaterialMaps(e);
-	fillOpticalMapSettings(n, r, a.anisotropyTexture, a.anisotropySampler, i), fillOpticalMapSettings(n, r + 4, a.iridescenceTexture, a.iridescenceSampler, i), fillOpticalMapSettings(n, r + 8, a.iridescenceThicknessTexture, a.iridescenceThicknessSampler, i), n[r + 12] = a.iridescenceThicknessMinimum, n[r + 13] = a.iridescenceThicknessMaximum, n[r + 14] = 0, n[r + 15] = 0;
+	fillOpticalMapSettings(n, r, a.anisotropyTexture, a.anisotropySampler, i), fillOpticalMapSettings(n, r + 4, a.iridescenceTexture, a.iridescenceSampler, i), fillOpticalMapSettings(n, r + 8, a.iridescenceThicknessTexture, a.iridescenceThicknessSampler, i), n[r + 12] = a.iridescenceThicknessMinimum, n[r + 13] = a.iridescenceThicknessMaximum, n[r + 14] = 0, n[r + 15] = 0, fillOpticalMapSettings(n, r + 16, a.heightTexture, a.heightSampler, i);
 }
 //#endregion
 exports.fillMappedOpticalSettings = fillMappedOpticalSettings;

@@ -13,7 +13,7 @@ function decodeProceduralMaps(e) {
 		n.normal,
 		n.metallicRoughness,
 		n.occlusion
-	].every((e) => e instanceof Uint8ClampedArray && e.length === r)) throw RangeError(`Worker procedural maps do not match their size.`);
+	].every((e) => e instanceof Uint8ClampedArray && e.length === r) || n.height !== void 0 && (!(n.height instanceof Uint8ClampedArray) || n.height.length !== r)) throw RangeError(`Worker procedural maps do not match their size.`);
 	return n;
 }
 var proceduralMapsJob = {
@@ -67,7 +67,8 @@ var ProceduralMapCache = class {
 			e.seed,
 			e.contrast,
 			e.roughnessBias,
-			e.tint?.join(`,`) ?? ``
+			e.tint?.join(`,`) ?? ``,
+			+!!e.heightMap
 		].join(`|`), r = this.entries.get(n);
 		if (r) return this.hitCount++, this.entries.delete(n), this.entries.set(n, r), r;
 		let i = this.pending.get(n);
@@ -83,12 +84,12 @@ var ProceduralMapCache = class {
 		}
 	}
 	store(e, t) {
-		let n = t.baseColor.byteLength * 4;
+		let n = t.baseColor.byteLength * 4 + (t.height?.byteLength ?? 0);
 		if (!(n > this.maxBytes || this.maxEntries === 0)) {
 			this.entries.set(e, t), this.retained += n;
 			for (let [e, t] of this.entries) {
 				if (this.retained <= this.maxBytes && this.entries.size <= this.maxEntries) break;
-				this.entries.delete(e), this.retained -= t.baseColor.byteLength * 4;
+				this.entries.delete(e), this.retained -= t.baseColor.byteLength * 4 + (t.height?.byteLength ?? 0);
 			}
 		}
 	}
@@ -121,6 +122,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 		if (!Number.isFinite(l) || l < 0 || !Number.isFinite(u) || u < -1 || u > 1 || !Number.isFinite(d) || d <= 0) throw RangeError(`Procedural contrast must be finite and nonnegative, roughnessBias within -1..1, and repeats finite and positive.`);
 		let f = i.tint;
 		if (f !== void 0 && (!Array.isArray(f) || f.length !== 3 || !f.every((e) => typeof e == `number` && Number.isFinite(e) && e >= 0 && e <= 4))) throw RangeError(`Procedural tint must be three finite multipliers within 0..4.`);
+		if (i.heightMap !== void 0 && typeof i.heightMap != `boolean`) throw TypeError(`Procedural heightMap must be a boolean.`);
 		let p = i.workerPool;
 		if (p !== void 0 && !(p instanceof require_worker_jobs.NativeWorkerPool)) throw TypeError(`Procedural workerPool must be a NativeWorkerPool.`);
 		let m = i.cache;
@@ -131,6 +133,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 			seed: c,
 			contrast: l,
 			roughnessBias: u,
+			heightMap: i.heightMap ?? !1,
 			...f === void 0 ? {} : { tint: [
 				f[0],
 				f[1],
@@ -140,10 +143,11 @@ var ProceduralMaterial = class ProceduralMaterial {
 			if (p === void 0) return require_procedural_material_maps.generateProceduralMaps(n, a, c, {
 				contrast: l,
 				roughnessBias: u,
-				tint: f
+				tint: f,
+				heightMap: h.heightMap
 			});
 			let e = (await p.submit(proceduralMapsJob, h, { requestBytes: 0 }).promise).value;
-			if (e.baseColor.length !== a * a * 4) throw RangeError(`Worker procedural maps do not match their size.`);
+			if (e.baseColor.length !== a * a * 4 || h.heightMap && e.height?.length !== a * a * 4) throw RangeError(`Worker procedural maps do not match their size.`);
 			return e;
 		}, g = m === void 0 ? await generate() : await m.acquire(h, generate), _ = [];
 		try {
@@ -151,7 +155,8 @@ var ProceduralMaterial = class ProceduralMaterial {
 				g.baseColor,
 				g.normal,
 				g.metallicRoughness,
-				g.occlusion
+				g.occlusion,
+				...g.height === void 0 ? [] : [g.height]
 			]) {
 				let n = new ImageData(a, a);
 				n.data.set(t), _.push(await require_texture.Texture.fromImage(n));
@@ -160,7 +165,8 @@ var ProceduralMaterial = class ProceduralMaterial {
 				baseColor: _[0],
 				normal: _[1],
 				metallicRoughness: _[2],
-				occlusion: _[3]
+				occlusion: _[3],
+				..._[4] === void 0 ? {} : { height: _[4] }
 			}, d);
 		} catch (e) {
 			for (let e of _) e.destroy();
@@ -175,11 +181,16 @@ var ProceduralMaterial = class ProceduralMaterial {
 			normalTexture: this.textures.normal,
 			metallicRoughnessTexture: this.textures.metallicRoughness,
 			occlusionTexture: this.textures.occlusion,
+			...this.textures.height === void 0 ? {} : { opticalMaps: {
+				heightTexture: this.textures.height,
+				heightSampler: c
+			} },
 			textureCoordinates: this.repeats === 1 ? void 0 : {
 				texture: { scale: t },
 				metallicRoughness: { scale: t },
 				normal: { scale: t },
-				occlusion: { scale: t }
+				occlusion: { scale: t },
+				...this.textures.height === void 0 ? {} : { height: { scale: t } }
 			},
 			metallic: +(this.kind === `metal` || this.kind === `rust` || this.kind === `copperpatina` || this.kind === `chippedenamel` || this.kind === `gabion` || this.kind === `diamondplate` || this.kind === `hammeredmetal` || this.kind === `galvanized` || this.kind === `corrugatedmetal` || this.kind === `standingseam` || this.kind === `damascus` || this.kind === `castiron` || this.kind === `pressedtin` || this.kind === `louveredmetal` || this.kind === `crowncaps` || this.kind === `rebar` || this.kind === `guilloche` || this.kind === `splitlockwashers` || this.kind === `hexnuts` || this.kind === `sawblades` || this.kind === `countersunkmetal` || this.kind === `rollerchain` || this.kind === `perforatedmetal` || this.kind === `expandedmetal` || this.kind === `wiremesh` || this.kind === `draincover` || this.kind === `pyrite` || this.kind === `knurledmetal` || this.kind === `engineturned` || this.kind === `goldleaf` || this.kind === `chainmail` || this.kind === `rivetedmetal` || this.kind === `weldedmetal`),
 			roughness: 1,
@@ -195,7 +206,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 		return this.disposed;
 	}
 	destroy() {
-		this.disposed || (this.disposed = !0, this.textures.baseColor.destroy(), this.textures.normal.destroy(), this.textures.metallicRoughness.destroy(), this.textures.occlusion.destroy());
+		this.disposed || (this.disposed = !0, this.textures.baseColor.destroy(), this.textures.normal.destroy(), this.textures.metallicRoughness.destroy(), this.textures.occlusion.destroy(), this.textures.height?.destroy());
 	}
 };
 //#endregion

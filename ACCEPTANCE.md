@@ -6442,3 +6442,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   - 同源假模組（`VERSION` 1.12.0）：load 與 unlock 都回報版本不符，`opmState` 為 failed，error 事件 1 次。
   - 預設 vendor 模式：ready，8 次 processor 都來自本機 origin。
 - 未驗證：嚴格 CSP 頁面配合 CDN、離線部署配合 CDN、CDN 中斷或回應遲緩時的行為、Safari 與實機。CDN 內容完整性無法由引擎驗證，屬設計限制。未 push。
+
+## 2026-10-24 程序材質與 PBR:height map parallax
+
+- 新增 `OpticalMaterialMaps.heightTexture`/`heightSampler`(借用,線性 R,0 最低、1 最高)與 `ProceduralMaterialOptions.heightMap`。height 使用既有 optical texture array 第 6 層(layer 5、UV slot 17),不新增 binding;有 height map 時 WebGPU/WebGL2 parallax 改讀它,無 normal map 時把視線投影到 height UV 的切線空間決定位移方向;沒有 height map 時保留原本讀 normal.z 的分支與條件字串。共用 uniform 版面增加一個 vec4、mapped UV 區塊增為 144 floats。glTF 匯出不包含 height(無對應 Khronos 擴充)。
+- 程序 height 以 `(h-min)/(max-min)` 正規化(平面 0.5),只在 `heightMap: true` 時配置;`createMaterial()` 綁為 `opticalMaps.heightTexture` 並套用相同 repeat,不會自行開啟 parallax;納入快取 key/bytes 與 worker 驗證,隨 preset destroy。`heightMap` 省略時,與前一個提交的 dist 比對 459 種 size 64/seed 7 四圖 SHA256 changed 0。
+- 在只含已提交原始碼的乾淨 worktree 執行 build、typecheck、lint、format:check、完整 Vitest(179 檔/5969 項)、check:api-compatibility、check:distribution 通過;dist 取自該 worktree。
+- managed headless Chromium 以公開 API 在 WebGPU 與 WebGL2 各建立 `cobblestone`(`heightMap: true`)立方體並設 `finish.heightScale 0.08`,兩者正常顯示、`textures.height` 存在、Game 與頁面皆無錯誤。僅為目視與錯誤檢查,未做像素級 parallax 正確性比對;不擴大 Canvas2D 3D、Safari、實機或效能認證範圍;未 push。

@@ -138,13 +138,13 @@ const meshUniformFloats =
   MATERIAL_UV_FLOAT_COUNT +
   PBR_FINISH_FLOATS +
   40 +
-  16;
+  20;
 /** Mesh uniform sections from the native-material words onward; see updateMesh. */
 const nativeOffset = 76 + REFLECTION_FLOAT_COUNT,
   uvOffset = nativeOffset + nativeMaterial3DLimits.uniformFloats + 4,
-  finishOffset = meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
-  irradianceOffset = meshUniformFloats - 16 - 40,
-  opticalOffset = meshUniformFloats - 16;
+  finishOffset = meshUniformFloats - 20 - 40 - PBR_FINISH_FLOATS,
+  irradianceOffset = meshUniformFloats - 20 - 40,
+  opticalOffset = meshUniformFloats - 20;
 /** Lets the shared PBR block fill UV transforms; each mesh still checks its own UV1. */
 const anyUV1: Pick<Geometry, 'uvs1'> = { uvs1: new Float32Array(0) };
 /** One render's material-derived uniform words for every mesh using a PBRMaterial. */
@@ -690,7 +690,7 @@ export class WebGPUMeshPipeline {
     this.stats.upload(4);
     this.whiteView = this.whiteTexture.createView();
     this.emptyOptical = device.createTexture({
-      size: [1, 1, 5],
+      size: [1, 1, 6],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
@@ -800,6 +800,7 @@ export class WebGPUMeshPipeline {
       'anisotropy',
       'iridescence',
       'iridescenceThickness',
+      'height',
     ].map((entryPoint) =>
       device.createComputePipeline({
         layout: packLayout,
@@ -3428,7 +3429,7 @@ export class WebGPUMeshPipeline {
     }
     const allocation =
       existing?.allocation ??
-      this.residency.textures.allocate(side * side * 20, () => {
+      this.residency.textures.allocate(side * side * 24, () => {
         this.opticalTextures.get(material)?.resource.destroy();
         this.opticalTextures.delete(material);
         this.textureEpoch++;
@@ -3436,7 +3437,7 @@ export class WebGPUMeshPipeline {
     let resource: GPUTexture | undefined = existing?.resource;
     try {
       resource ??= this.device.createTexture({
-        size: [side, side, 5],
+        size: [side, side, 6],
         format: 'rgba8unorm',
         usage:
           GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
@@ -3444,7 +3445,7 @@ export class WebGPUMeshPipeline {
       const view =
         existing?.view ?? resource.createView({ dimension: '2d-array' });
       const encoder = this.device.createCommandEncoder();
-      for (let layer = 0; layer < 5; layer++) {
+      for (let layer = 0; layer < 6; layer++) {
         const source = sources[layer];
         if (!source) continue;
         const group = this.device.createBindGroup({

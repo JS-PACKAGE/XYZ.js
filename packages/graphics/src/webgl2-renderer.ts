@@ -265,6 +265,7 @@ const meshUniformNames = [
   'iridescenceMapSettings',
   'iridescenceThicknessMapSettings',
   'iridescenceThicknessRange',
+  'heightMapSettings',
   'finish0',
   'finish1',
   'finish2',
@@ -978,7 +979,7 @@ export class WebGL2Renderer implements Renderer {
       sources: readonly (MaterialTexture | undefined)[];
     }
   >();
-  private readonly opticalSettings = new Float32Array(24);
+  private readonly opticalSettings = new Float32Array(28);
   private emptyOptical: WebGLTexture | undefined;
   private opticalPackProgram: WebGLProgram | undefined;
   private opticalPackFramebuffer: WebGLFramebuffer | undefined;
@@ -1271,7 +1272,7 @@ export class WebGL2Renderer implements Renderer {
         );
       gl.activeTexture(gl.TEXTURE0 + 14);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical);
-      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 5);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 6);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram);
@@ -2395,7 +2396,7 @@ export class WebGL2Renderer implements Renderer {
     }
     const allocation =
       existing?.allocation ??
-      this.residency.textures.allocate(side * side * 20, () => {
+      this.residency.textures.allocate(side * side * 24, () => {
         const cached = this.opticalTextures.get(material);
         if (cached) gl.deleteTexture(cached.resource);
         this.opticalTextures.delete(material);
@@ -2411,7 +2412,7 @@ export class WebGL2Renderer implements Renderer {
       gl.bindSampler(14, null);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, resource);
       if (!existing)
-        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 5);
+        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 6);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram!);
@@ -2427,7 +2428,7 @@ export class WebGL2Renderer implements Renderer {
       gl.bindVertexArray(this.triangleVAO!);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindSampler(0, null);
-      for (let layer = 0; layer < 5; layer++) {
+      for (let layer = 0; layer < 6; layer++) {
         const source = sources[layer];
         if (!source) continue;
         const entry = this.cacheTexture(source);
@@ -3029,6 +3030,14 @@ export class WebGL2Renderer implements Renderer {
             optical[21]!,
             optical[22]!,
             optical[23]!,
+          );
+          this.uniformValues.uniform4f(
+            gl,
+            uniforms.heightMapSettings,
+            optical[24]!,
+            optical[25]!,
+            optical[26]!,
+            optical[27]!,
           );
           this.bindUnit(
             14,

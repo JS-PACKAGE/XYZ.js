@@ -136,7 +136,8 @@ function textureCoordinates(e) {
 		`thickness`,
 		`anisotropy`,
 		`iridescence`,
-		`iridescenceThickness`
+		`iridescenceThickness`,
+		`height`
 	];
 	if (e !== void 0) {
 		if (!e || typeof e != `object` || Array.isArray(e)) throw TypeError(`Texture coordinates must be a per-map object.`);

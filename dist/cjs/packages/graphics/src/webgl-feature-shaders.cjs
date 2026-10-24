@@ -151,6 +151,7 @@ uniform vec4 anisotropyMapSettings;
 uniform vec4 iridescenceMapSettings;
 uniform vec4 iridescenceThicknessMapSettings;
 uniform vec4 iridescenceThicknessRange;
+uniform vec4 heightMapSettings;
 vec3 opticalFinish;
 uniform highp sampler2DArray opticalMaps;
 uniform sampler2D opaqueScene;
@@ -377,7 +378,7 @@ void shadeMesh() {
     }
     coatRoughness = clamp(coatRoughness,.04,1.0);
     if (finish0.x + finish0.z + finish1.w + finish2.x + finish2.y + finish2.z + finish2.w + finish3.x + finish3.y > 0.0) {
-      if (finish1.w > 0.0 && maps.y != 0) {
+      if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0) {
         vec2 uv = materialUV(0);
         vec2 dir = mappedNormal.xy * finish1.w;
         vec2 best = uv;
@@ -388,6 +389,22 @@ void shadeMesh() {
           if (h < bestH) { bestH = h; best = sampleUV; }
         }
         vec3 parallaxBase = decodeSRGB(texture(image, best).rgb) * tint.rgb * vColor.rgb;
+        base = bestH < 1.0 ? parallaxBase : base;
+      }
+      if (finish1.w > 0.0 && heightMapSettings.x > 0.0) {
+        vec2 uv = materialUV(0);
+        vec2 heightUV = materialUV(17);
+        vec3 tangentView = transpose(materialNormalFrame(normalize(vNormal),17))*v;
+        vec2 direction = maps.y != 0 ? mappedNormal.xy : -tangentView.xy / max(abs(tangentView.z),0.1);
+        vec2 dir = direction * finish1.w;
+        vec2 best = uv;
+        float bestH = 1.0;
+        for (int step = 0; step < 4; step++) {
+          vec2 offset = dir * (float(step) / 3.0);
+          float h = opticalSample(heightUV + offset,heightMapSettings,5).r;
+          if (h < bestH) { bestH = h; best = uv + offset; }
+        }
+        vec3 parallaxBase = decodeSRGB(texture(image,best).rgb) * tint.rgb * vColor.rgb;
         base = bestH < 1.0 ? parallaxBase : base;
       }
       if (finish3.y > 0.0) {
@@ -641,7 +658,8 @@ function buildMeshFragment(e) {
 float pointShadow(int i,vec3 p) { return 1.0; }
 float spotShadow(int i) { return 1.0; }`)), t;
 	}
-	return e.bakedIrradiance || (remove(!1, [`if (bakedParams.x > .5)`]), t = t.replace(require_reflection_probe_shaders.bakedIrradianceGLSL, ``).replace(`*(bakedParams.x > .5 ? 0.0 : 1.0)`, ``)), remove(e.anisotropy, [`if (opticalFinish.x > 0.0)`, `float anisotropicGGX(`]), remove(e.iridescence, [`if (opticalFinish.y > 0.0)`, `vec3 thinFilm(`]), remove(e.anisotropyMap, [`if (anisotropyMapSettings.x > 0.0)`]), remove(e.iridescenceMap, [`if (iridescenceMapSettings.x > 0.0)`]), remove(e.iridescenceThicknessMap, [`if (iridescenceThicknessMapSettings.x > 0.0)`]), remove(e.subsurface, [`if (finish1.y > 0.0)`, `vec3 diffusionProfile(`]), remove(e.height, [`if (finish1.w > 0.0 && maps.y != 0)`]), remove(e.triplanar, [`if (finish3.y > 0.0)`]), remove(e.detail, [`if (finish3.x > 0.0)`]), remove(e.weathering, [`if (finish2.x + finish2.y + finish2.z + finish2.w > 0.0)`]), remove(e.dispersion, [`if (finish1.z > 0.0 && thickness > 0.0)`]), e.bakedLightmap || (remove(!1, [`if (bakedParams.y > .5)`]), t = t.replace(`*(bakedParams.y > .5 ? 0.0 : 1.0)`, ``)), remove(e.lightmap, [`if (maps.w == 2)`]), e.transmission || (remove(!1, [`if (transmission.x > 0.0)`, `if (transmissionWeight > 0.0 && metallic < 1.0)`]), e.anisotropyMap || e.iridescenceMap || e.iridescenceThicknessMap ? remove(!1, [`vec3 opaqueColor(`, `vec3 roughTransmission(`]) : t = t.replace(require_transmission_shaders.transmissionGLSL, ``)), e.sheen || (remove(!1, [`if (any(greaterThan(sheen.rgb,vec3(0.0))))`, `if (sheenMax > 0.0)`]), t = t.replace(require_sheen_shaders.sheenEnvironmentGLSL, ``).replace(require_sheen_shaders.sheenGLSL, `float sheenAlbedo(float nv,float rough) { return 0.0; }
+	return e.bakedIrradiance || (remove(!1, [`if (bakedParams.x > .5)`]), t = t.replace(require_reflection_probe_shaders.bakedIrradianceGLSL, ``).replace(`*(bakedParams.x > .5 ? 0.0 : 1.0)`, ``)), remove(e.anisotropy, [`if (opticalFinish.x > 0.0)`, `float anisotropicGGX(`]), remove(e.iridescence, [`if (opticalFinish.y > 0.0)`, `vec3 thinFilm(`]), remove(e.anisotropyMap, [`if (anisotropyMapSettings.x > 0.0)`]), remove(e.iridescenceMap, [`if (iridescenceMapSettings.x > 0.0)`]), remove(e.iridescenceThicknessMap, [`if (iridescenceThicknessMapSettings.x > 0.0)`]), remove(e.subsurface, [`if (finish1.y > 0.0)`, `vec3 diffusionProfile(`]), remove(e.height && !e.heightMap, [`if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0)`]), remove(e.heightMap, [`if (finish1.w > 0.0 && heightMapSettings.x > 0.0)`]), e.heightMap || (t = t.replace(`uniform vec4 heightMapSettings;
+`, ``).replace(`if (finish1.w > 0.0 && maps.y != 0 && heightMapSettings.x <= 0.0)`, `if (finish1.w > 0.0 && maps.y != 0)`)), remove(e.triplanar, [`if (finish3.y > 0.0)`]), remove(e.detail, [`if (finish3.x > 0.0)`]), remove(e.weathering, [`if (finish2.x + finish2.y + finish2.z + finish2.w > 0.0)`]), remove(e.dispersion, [`if (finish1.z > 0.0 && thickness > 0.0)`]), e.bakedLightmap || (remove(!1, [`if (bakedParams.y > .5)`]), t = t.replace(`*(bakedParams.y > .5 ? 0.0 : 1.0)`, ``)), remove(e.lightmap, [`if (maps.w == 2)`]), e.transmission || (remove(!1, [`if (transmission.x > 0.0)`, `if (transmissionWeight > 0.0 && metallic < 1.0)`]), e.anisotropyMap || e.iridescenceMap || e.iridescenceThicknessMap || e.heightMap ? remove(!1, [`vec3 opaqueColor(`, `vec3 roughTransmission(`]) : t = t.replace(require_transmission_shaders.transmissionGLSL, ``)), e.sheen || (remove(!1, [`if (any(greaterThan(sheen.rgb,vec3(0.0))))`, `if (sheenMax > 0.0)`]), t = t.replace(require_sheen_shaders.sheenEnvironmentGLSL, ``).replace(require_sheen_shaders.sheenGLSL, `float sheenAlbedo(float nv,float rough) { return 0.0; }
 float sheenLightRetention(float nl,float rough,float strength,float energy) { return 1.0; }`)), e.clearcoat || remove(!1, [
 		`if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5)`,
 		`if (coatWeight > 0.0)`,

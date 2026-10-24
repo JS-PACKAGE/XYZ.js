@@ -23,6 +23,7 @@ export interface MeshShaderFeatures {
   anisotropyMap: boolean;
   iridescenceMap: boolean;
   iridescenceThicknessMap: boolean;
+  heightMap: boolean;
   subsurface: boolean;
   height: boolean;
   weathering: boolean;
@@ -57,6 +58,7 @@ export function meshShaderFeatures(
     anisotropyMap: (bits & BIT.anisotropyMap) !== 0,
     iridescenceMap: (bits & BIT.iridescenceMap) !== 0,
     iridescenceThicknessMap: (bits & BIT.iridescenceThicknessMap) !== 0,
+    heightMap: (bits & BIT.heightMap) !== 0,
     subsurface: (bits & BIT.subsurface) !== 0,
     height: (bits & BIT.height) !== 0,
     weathering: (bits & BIT.weathering) !== 0,
@@ -101,6 +103,7 @@ const featureOrder: readonly (keyof MeshShaderFeatures)[] = [
   'anisotropyMap',
   'iridescenceMap',
   'iridescenceThicknessMap',
+  'heightMap',
 ];
 const BIT = Object.fromEntries(
   featureOrder.map((name, index) => [name, 1 << index]),
@@ -143,6 +146,8 @@ export function meshShaderVariantBits(
       }
       if (finish.subsurface > 0) bits |= BIT.subsurface;
       if (finish.heightScale > 0) bits |= BIT.height;
+      if (finish.heightScale > 0 && optical.heightTexture)
+        bits |= BIT.heightMap;
       if (finish.wetness + finish.snow + finish.dirt + finish.damage > 0)
         bits |= BIT.weathering;
       if (finish.detailStrength > 0) bits |= BIT.detail;
