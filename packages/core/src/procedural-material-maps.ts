@@ -1422,6 +1422,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tangramtiles': {
+        const p = proceduralMaterialPresets.tangramtiles,
+          count = p.pieces.length,
+          offsets = new Uint8Array(count + 1),
+          tones = new Float64Array(p.cells * p.cells * count),
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(64, 64, seed ^ 0x11911);
+        let edgeCount = 0;
+        for (const piece of p.pieces) edgeCount += piece.length;
+        const planes = new Float64Array(edgeCount * 3);
+        let edge = 0;
+        // Counterclockwise polygons partition a square into the standard
+        // 2 large, 1 medium, 2 small triangles, square and parallelogram.
+        for (let i = 0; i < count; i++) {
+          offsets[i] = edge;
+          const piece = p.pieces[i];
+          for (let j = 0; j < piece.length; j++, edge++) {
+            const a = piece[j],
+              b = piece[(j + 1) % piece.length],
+              inverse = 1 / Math.hypot(b[0] - a[0], b[1] - a[1]),
+              nx = (a[1] - b[1]) * inverse,
+              ny = (b[0] - a[0]) * inverse,
+              at = edge * 3;
+            planes[at] = nx;
+            planes[at + 1] = ny;
+            planes[at + 2] = -nx * a[0] - ny * a[1];
+          }
+        }
+        offsets[count] = edge;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let i = 0; i < count; i++)
+              tones[(row * p.cells + col) * count + i] =
+                0.18 + 0.11 * i + 0.03 * hash(col, row, seed ^ (0x11913 + i));
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc),
+            y = fract(vc),
+            owner = (Math.floor(vc) * p.cells + Math.floor(uc)) * count;
+          let face = 0,
+            pigment = 0;
+          for (let i = 0; i < count; i++) {
+            let cover = 1;
+            for (let e = offsets[i]; e < offsets[i + 1] && cover > 0; e++) {
+              const at = e * 3;
+              cover *= smooth(
+                clamp(
+                  (planes[at] * x +
+                    planes[at + 1] * y +
+                    planes[at + 2] -
+                    p.grout) *
+                    inverseShoulder,
+                ),
+              );
+            }
+            face += cover;
+            pigment += cover * tones[owner + i];
+          }
+          const grain = face > 0 ? grainField(u, v) : 0;
+          mortar = 1 - face;
+          color = pigment + 0.015 * grain * face;
+          height = (0.65 + 0.003 * grain) * face;
+          roughness = p.roughness + 0.015 * grain * face + 0.6 * mortar;
+          occlusion = 0.5 + 0.49 * face;
+        };
+      }
       case 'pythagoreantiles': {
         const p = proceduralMaterialPresets.pythagoreantiles;
         const a = p.smallSide,
@@ -21332,6 +21399,7 @@ export function createSurfaceSampler(
     kind === 'pythagoreantiles' ||
     kind === 'dinnerforks' ||
     kind === 'mudtiretracks' ||
+    kind === 'tangramtiles' ||
     fabricated ||
     botanical ||
     packaging ||

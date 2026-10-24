@@ -7187,3 +7187,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 556 種（含共享羽毛／魚鱗分支）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 peacockfeathers，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 peacockfeathers，557 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認交錯金綠眼斑、深 pupil、羽軸羽枝與覆疊羽端，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、透洞、梳理／鳥類／生物／虹彩光學模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 完整 build、typecheck、lint、format:check、179 檔／6487 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。
+
+## 2026-10-25 程序材質：標準七巧板釉面瓷磚（tangramtiles）
+
+- 目錄 557→558 種；0.6 m opaque dielectric tile、metallic 0，2×2 拼板各有兩大／一中／兩小直角等腰三角形、一正方形、一平行四邊形，沿四圖／選用 height／ownership。Throwaway source 計算七個 CCW polygons signed areas 為 0.25／0.25／0.125／0.125／0.0625／0.0625／0.125、總和 1，不是 righttriangletiles 對角二分。
+- 三 seed（0／1／`0xffffffff`）各四拼板，192×192 非整數格點 flood-fill 恰七個獨立 face：兩個大面積、三個中面積、兩個小面積；平行四邊形斜側界內外對比、另六片平面高度／低粗糙度、交點凹灰縫／高粗糙度／AO 驗證。初次內點誤落在 bevel（mortar 0.00305）而非平面，移至真正內點，未放寬斷言。129×129 網格／三 seed／雙方向五欄位及所有 23 edges 兩端精確 grout shoulders C1 h 1e-9，初次確實抓到 grain early-out 的 roughness 跳變（3.94e6 >0.02）；grain 項乘 face 後保留同一 0.02 上限通過。四項形態／C1 加既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試通過。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 tangramtiles，558 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 可見每格完整七片、菱向正方形、五片三角形、斜平行四邊形與連續灰縫，metallic 0、height true、destroyed true，預覽隨頁清除。僅 surface maps，不新增磚塊 geometry、互動拼圖／物理模擬或擴大瀏覽器認證；依功能提交、不 push。
+- 既有 557 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 tangramtiles，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6492 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。

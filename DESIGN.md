@@ -663,6 +663,8 @@
 
 `peacockfeathers` 沿既有 armorCells 與 feathers shared branch：8×4 seeded variation／lean、同一 periodic back-to-front vane coverage、rounded barbs／shaft relief。僅此 kind 預算眼斑 ellipse inverses，以 compact outer／inner／offset pupil 三層 pigment 畫金綠眼斑；不改 height／roughness／AO／metallic，避免假環槽或瞳孔凹洞。不另建羽毛 sampler 或新增採樣配置／hash／sqrt／trig；不新增 geometry、透洞、梳理／鳥類／生物或虹彩光學模擬。
 
+`tangramtiles` 沿 cairotiles convex half-plane 慣例，預算七片 CCW polygons 共 23 個 normalized planes／8 offsets、2×2×7 seeded tones 與 64×64 grain；形狀面積為 1/4×2、1/8×3、1/16×2，包含傾斜平行四邊形。各 plane 的實際垂直距離 smooth shoulder 相乘，正值 grout inset 保留七片獨立面，支撐在 cell owner 交界前歸零；顆粒項皆乘 face，避免 roughness 在 grain early-out 邊界跳變。取樣逐片 plane 支撐歸零即停止，無配置／hash／sqrt／trig，不新增 geometry、互動拼圖或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

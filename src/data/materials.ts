@@ -5083,6 +5083,54 @@ export const proceduralMaterialPresets = Object.freeze({
     pupilLength: 0.1,
     pupilShoulder: 0.2,
   }),
+  tangramtiles: Object.freeze({
+    dark: [28, 54, 63] as const,
+    light: [218, 221, 188] as const,
+    roughness: 0.26,
+    relief: 0.009,
+    cells: 2,
+    grout: 0.008,
+    shoulder: 0.01,
+    pieces: [
+      [
+        [0, 0],
+        [1, 0],
+        [0.5, 0.5],
+      ],
+      [
+        [0, 0],
+        [0.5, 0.5],
+        [0, 1],
+      ],
+      [
+        [1, 1],
+        [0.5, 1],
+        [1, 0.5],
+      ],
+      [
+        [0.5, 0.5],
+        [0.75, 0.25],
+        [1, 0.5],
+        [0.75, 0.75],
+      ],
+      [
+        [1, 0],
+        [1, 0.5],
+        [0.75, 0.25],
+      ],
+      [
+        [0.5, 0.5],
+        [0.75, 0.75],
+        [0.25, 0.75],
+      ],
+      [
+        [0, 1],
+        [0.25, 0.75],
+        [0.75, 0.75],
+        [0.5, 1],
+      ],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5644,4 +5692,5 @@ export const proceduralTileMeters = Object.freeze({
   goldbrocade: 0.24,
   mudtiretracks: 3,
   peacockfeathers: 0.64,
+  tangramtiles: 0.6,
 });

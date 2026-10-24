@@ -595,7 +595,145 @@ const kinds: ProceduralMaterialKind[] = [
   'goldbrocade',
   'mudtiretracks',
   'peacockfeathers',
+  'tangramtiles',
 ];
+
+describe('Standard seven-piece tangram glazed tiles', () => {
+  const p = proceduralMaterialPresets.tangramtiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('tangramtiles', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + x) / p.cells, (row + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates exactly seven connected faces into two large, three medium-area and two small pieces, including the slanted parallelogram for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const size = 192,
+            mask = new Uint8Array(size * size),
+            queue = new Uint32Array(size * size);
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++)
+              mask[y * size + x] =
+                at(col, row, (x + 0.37) / size, (y + 0.43) / size).mortar < 0.5
+                  ? 1
+                  : 0;
+          const areas: number[] = [];
+          for (let index = 0; index < mask.length; index++) {
+            if (mask[index] !== 1) continue;
+            mask[index] = 2;
+            let end = 1;
+            queue[0] = index;
+            for (let start = 0; start < end; start++) {
+              const i = queue[start],
+                x = i % size,
+                y = Math.floor(i / size);
+              for (const next of [
+                x ? i - 1 : -1,
+                x + 1 < size ? i + 1 : -1,
+                y ? i - size : -1,
+                y + 1 < size ? i + size : -1,
+              ]) {
+                if (next >= 0 && mask[next] === 1) {
+                  mask[next] = 2;
+                  queue[end++] = next;
+                }
+              }
+            }
+            areas.push(end / mask.length);
+          }
+          expect(areas).toHaveLength(7);
+          expect(areas.filter((a) => a > 0.2 && a < 0.26)).toHaveLength(2);
+          expect(areas.filter((a) => a > 0.075 && a < 0.13)).toHaveLength(3);
+          expect(areas.filter((a) => a > 0.025 && a < 0.065)).toHaveLength(2);
+          for (const [x, y] of [
+            [0.14, 0.9],
+            [0.55, 0.9],
+            [0.6, 0.8],
+          ]) {
+            const face = at(col, row, x, y);
+            expect(face.color).toBeGreaterThan(0.83);
+            expect(face.height).toBeGreaterThan(0.64 * p.relief);
+            expect(face.mortar).toBe(0);
+            expect(face.metallic).toBe(0);
+          }
+          expect(at(col, row, 0.125, 0.8).color).toBeLessThan(0.4);
+          expect(at(col, row, 0.65, 0.9).color).toBeLessThan(0.5);
+          for (const [x, y] of [
+            [0.5, 0.15],
+            [0.15, 0.5],
+            [0.85, 0.85],
+            [0.75, 0.5],
+            [0.94, 0.25],
+            [0.5, 0.66],
+          ]) {
+            const face = at(col, row, x, y);
+            expect(face.mortar).toBe(0);
+            expect(face.height).toBeGreaterThan(0.64 * p.relief);
+            expect(face.roughness).toBeLessThan(0.3);
+          }
+          const joint = at(col, row, 0.75, 0.25);
+          expect(joint.mortar).toBe(1);
+          expect(joint.height).toBe(0);
+          expect(joint.roughness).toBeGreaterThan(0.8);
+          expect(joint.occlusion).toBeLessThan(0.6);
+        }
+    },
+  );
+  it('keeps polygon corners, both exact grout shoulders and periodic cell ownership C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(0, 0, x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(0, 0, x, y),
+            c = at(0, 0, x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'mortar',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check((p.cells * x) / 128, (p.cells * y) / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const piece of p.pieces)
+            for (let i = 0; i < piece.length; i++) {
+              const a = piece[i],
+                b = piece[(i + 1) % piece.length],
+                length = Math.hypot(b[0] - a[0], b[1] - a[1]),
+                nx = (a[1] - b[1]) / length,
+                ny = (b[0] - a[0]) / length;
+              for (const inset of [p.grout, p.grout + p.shoulder])
+                check(
+                  col + (a[0] + b[0]) / 2 + nx * inset,
+                  row + (a[1] + b[1]) / 2 + ny * inset,
+                );
+            }
+    }
+  });
+});
 
 describe('Peacock feather ocelli over continuous shafts and barbs', () => {
   const p = proceduralMaterialPresets.peacockfeathers;

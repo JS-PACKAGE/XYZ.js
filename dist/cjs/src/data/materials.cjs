@@ -9859,6 +9859,62 @@ var proceduralMaterialPresets = Object.freeze({
 		pupilWidth: .075,
 		pupilLength: .1,
 		pupilShoulder: .2
+	}),
+	tangramtiles: Object.freeze({
+		dark: [
+			28,
+			54,
+			63
+		],
+		light: [
+			218,
+			221,
+			188
+		],
+		roughness: .26,
+		relief: .009,
+		cells: 2,
+		grout: .008,
+		shoulder: .01,
+		pieces: [
+			[
+				[0, 0],
+				[1, 0],
+				[.5, .5]
+			],
+			[
+				[0, 0],
+				[.5, .5],
+				[0, 1]
+			],
+			[
+				[1, 1],
+				[.5, 1],
+				[1, .5]
+			],
+			[
+				[.5, .5],
+				[.75, .25],
+				[1, .5],
+				[.75, .75]
+			],
+			[
+				[1, 0],
+				[1, .5],
+				[.75, .25]
+			],
+			[
+				[.5, .5],
+				[.75, .75],
+				[.25, .75]
+			],
+			[
+				[0, 1],
+				[.25, .75],
+				[.75, .75],
+				[.5, 1]
+			]
+		]
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10418,7 +10474,8 @@ var proceduralTileMeters = Object.freeze({
 	dinnerforks: .96,
 	goldbrocade: .24,
 	mudtiretracks: 3,
-	peacockfeathers: .64
+	peacockfeathers: .64,
+	tangramtiles: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

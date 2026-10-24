@@ -4971,6 +4971,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         pupilLength: 0.1;
         pupilShoulder: 0.2;
     }>;
+    tangramtiles: Readonly<{
+        dark: readonly [28, 54, 63];
+        light: readonly [218, 221, 188];
+        roughness: 0.26;
+        relief: 0.009;
+        cells: 2;
+        grout: 0.008;
+        shoulder: 0.01;
+        pieces: readonly [readonly [readonly [0, 0], readonly [1, 0], readonly [0.5, 0.5]], readonly [readonly [0, 0], readonly [0.5, 0.5], readonly [0, 1]], readonly [readonly [1, 1], readonly [0.5, 1], readonly [1, 0.5]], readonly [readonly [0.5, 0.5], readonly [0.75, 0.25], readonly [1, 0.5], readonly [0.75, 0.75]], readonly [readonly [1, 0], readonly [1, 0.5], readonly [0.75, 0.25]], readonly [readonly [0.5, 0.5], readonly [0.75, 0.75], readonly [0.25, 0.75]], readonly [readonly [0, 1], readonly [0.25, 0.75], readonly [0.75, 0.75], readonly [0.5, 1]]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5531,4 +5541,5 @@ export declare const proceduralTileMeters: Readonly<{
     goldbrocade: 0.24;
     mudtiretracks: 3;
     peacockfeathers: 0.64;
+    tangramtiles: 0.6;
 }>;
