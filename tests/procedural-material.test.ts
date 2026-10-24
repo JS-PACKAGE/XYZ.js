@@ -517,7 +517,72 @@ const kinds: ProceduralMaterialKind[] = [
   'wheatears',
   'scalemail',
   'trihexagonaltiles',
+  'burlwood',
 ];
+
+describe('Contoured burl wood with dark pith eyes', () => {
+  const p = proceduralMaterialPresets.burlwood;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('burlwood', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps darker, slightly recessed and rougher piths inside the surrounding figured wood for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = p.centers[row * p.cells + col];
+          const core = at(col + center[0], row + center[1]);
+          const outside = at(
+            col + center[0] + p.radiusX + 0.02,
+            row + center[1],
+          );
+          expect(outside.color - core.color).toBeGreaterThan(0.19);
+          expect(outside.height - core.height).toBeGreaterThan(0.00002);
+          expect(core.roughness - outside.roughness).toBeGreaterThan(0.02);
+          expect(outside.occlusion - core.occlusion).toBeGreaterThan(0.03);
+          expect(core.metallic).toBe(0);
+          expect(outside.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps pith centers, eye support boundaries, contour grain and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Trihexagonal glazed hexagon and triangle tiles', () => {
   const p = proceduralMaterialPresets.trihexagonaltiles;

@@ -3755,6 +3755,28 @@ export const proceduralMaterialPresets = Object.freeze({
     grout: 0.025,
     bevel: 0.018,
   }),
+  burlwood: Object.freeze({
+    dark: [50, 23, 10] as const,
+    light: [199, 132, 63] as const,
+    roughness: 0.43,
+    relief: 0.004,
+    cells: 3,
+    radiusX: 0.34,
+    radiusY: 0.29,
+    core: 0.035,
+    rings: 3,
+    centers: [
+      [0.44, 0.51],
+      [0.55, 0.45],
+      [0.48, 0.56],
+      [0.56, 0.54],
+      [0.43, 0.44],
+      [0.51, 0.49],
+      [0.47, 0.43],
+      [0.54, 0.56],
+      [0.45, 0.53],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4238,4 +4260,5 @@ export const proceduralTileMeters = Object.freeze({
   wheatears: 0.24,
   scalemail: 0.24,
   trihexagonaltiles: 0.84,
+  burlwood: 0.24,
 });

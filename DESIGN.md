@@ -507,6 +507,8 @@
 
 `trihexagonaltiles` 以七列八行 staggered lattice 的三組平行半平面 smooth 乘積建立六邊面，擴張所有鄰近六邊遮罩後取補集形成兩方向三角面；縮入面與擴張面之間保留中性凹灰縫，避免 nearest-owner 或 polygon max 折線導數。鄰域 bounding 只在支撐已零值零斜率外跳過；96×96 seeded periodic grain 沿既有管線。56 六邊面／112 三角面、0.84 m tile、metallic 0、maps／選用 height／ownership 不變，目錄增為 479 種；不新增 geometry、碰撞或施工模擬。
 
+`burlwood` 將 3×3／7×7／96×96 seeded periodic lattice 組成扭曲相位，以窄深色 latewood 等高線取代直木紋。九個靜態偏置橢圓瘤眼在各 cell 內 compact 支撐結束，局部環相位變形在髓心與邊緣消失；支撐外不計算環 cos。髓心較暗、微凹、較粗糙且 AO 稍低，整體保留平整鋸切面的微小高度變化。0.24 m tile、metallic 0、maps／選用 height／ownership 不變，目錄增為 480 種；不新增 geometry、樹種鑑定、年輪測年或生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

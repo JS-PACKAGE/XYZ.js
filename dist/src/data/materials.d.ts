@@ -3682,6 +3682,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.025;
         bevel: 0.018;
     }>;
+    burlwood: Readonly<{
+        dark: readonly [50, 23, 10];
+        light: readonly [199, 132, 63];
+        roughness: 0.43;
+        relief: 0.004;
+        cells: 3;
+        radiusX: 0.34;
+        radiusY: 0.29;
+        core: 0.035;
+        rings: 3;
+        centers: readonly [readonly [0.44, 0.51], readonly [0.55, 0.45], readonly [0.48, 0.56], readonly [0.56, 0.54], readonly [0.43, 0.44], readonly [0.51, 0.49], readonly [0.47, 0.43], readonly [0.54, 0.56], readonly [0.45, 0.53]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4164,4 +4176,5 @@ export declare const proceduralTileMeters: Readonly<{
     wheatears: 0.24;
     scalemail: 0.24;
     trihexagonaltiles: 0.84;
+    burlwood: 0.24;
 }>;

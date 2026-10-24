@@ -6602,3 +6602,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐格檢查六邊中心／六角內側、上下兩方向三角面、六條邊與六個多 owner 接點的 mortar／高度／色差／AO／roughness／metallic；另掃描共用邊、接點、三角角落與 tile wrap C1。既有 478 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6074 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 trihexagonaltiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認六邊／兩方向三角交錯與連續共用灰縫，height true、metallic 0、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：瘤木紋（burlwood）
+
+- 目錄 479→480 種；0.24 m tile，棕金色扭曲閉合等高木紋，九個固定偏置橢圓瘤眼、深色微凹髓心與環紋，木紋隨 seed 變化。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增木材 geometry、樹種鑑定、年輪測年或生長模擬。
+- 三 seed（0／1／`0xffffffff`）逐眼比較髓心／周邊木面的色差、微小高度差、roughness／AO／metallic，另掃描髓心、compact 瘤眼邊界、等高木紋與 tile wrap C1。既有 479 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6079 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 burlwood，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認非直線等高木紋與深色瘤眼，height true、metallic 0、destroyed true；預覽隨頁清除。是風格化程序紋理，不宣稱特定樹種或寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -499,6 +499,8 @@
 
 同輪追加 `trihexagonaltiles`（六邊三角釉面磚），目錄 478→479 種：56 塊藍色六邊磚與 112 塊象牙白三角磚交錯，共用凹陷中性灰縫，六邊磚略高且較平滑。0.84 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增磚塊 geometry、碰撞或施工模擬；逐功能驗證提交、不 push。
 
+同輪追加 `burlwood`（瘤木紋），目錄 479→480 種：棕金色扭曲閉合等高木紋，九個偏置橢圓瘤眼帶深色微凹髓心與環紋，區別直木纖維與細密鳥眼楓木。0.24 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增木材 geometry、樹種鑑定、年輪測年或生長模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

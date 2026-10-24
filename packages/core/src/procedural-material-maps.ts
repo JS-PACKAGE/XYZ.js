@@ -1266,6 +1266,42 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'burlwood': {
+        const p = proceduralMaterialPresets.burlwood;
+        const coarseField = cachedNoise(3, 3, seed ^ 0x4f69),
+          swirlField = cachedNoise(7, 7, seed ^ 0x9d35),
+          grainField = cachedNoise(96, 96, seed ^ 0x1b47);
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells;
+          const center = p.centers[Math.floor(y) * p.cells + Math.floor(x)];
+          const dx = (fract(x) - center[0]) / p.radiusX,
+            dy = (fract(y) - center[1]) / p.radiusY;
+          const q = dx * dx + dy * dy;
+          const support = smooth(clamp(1 - q)),
+            core = smooth(clamp((p.core - q) / p.core));
+          const swirl = swirlField(u, v),
+            grain = grainField(u, v);
+          // Closed contour grain replaces straight plank fibers. Local eye
+          // distortion vanishes at both the pith and the compact support edge.
+          const contour = 3 * coarseField(u, v) + 0.8 * swirl + 0.08 * grain;
+          const latewood = (0.5 + 0.5 * Math.cos(TAU * contour)) ** 4;
+          const eye =
+            support > 0
+              ? support *
+                (0.5 +
+                  0.5 *
+                    Math.cos(
+                      TAU * (p.rings * q + 0.2 * (swirl - 0.5) * q * support),
+                    ))
+              : 0;
+          color = 0.74 - 0.26 * latewood - 0.36 * core - 0.12 * eye;
+          height = 0.46 - 0.008 * latewood - 0.018 * core + 0.003 * grain;
+          roughness += 0.06 * core + 0.025 * latewood + 0.012 * grain;
+          occlusion = 0.99 - 0.05 * core - 0.015 * latewood;
+          return;
+        };
+      }
       case 'trihexagonaltiles': {
         const p = proceduralMaterialPresets.trihexagonaltiles;
         const grainField = cachedNoise(96, 96, seed ^ 0x5c47);
@@ -15990,6 +16026,7 @@ export function createSurfaceSampler(
     kind === 'wheatears' ||
     kind === 'scalemail' ||
     kind === 'trihexagonaltiles' ||
+    kind === 'burlwood' ||
     fabricated ||
     botanical ||
     packaging ||
