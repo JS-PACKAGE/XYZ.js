@@ -509,7 +509,84 @@ const kinds: ProceduralMaterialKind[] = [
   'starcrosstiles',
   'maplesamara',
   'lenoweave',
+  'circlips',
 ];
+
+describe('Open retaining circlips', () => {
+  const p = proceduralMaterialPresets.circlips;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('circlips', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'opens one side of the annulus and bores both terminal lugs for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number): SurfaceSample =>
+            at(col + 0.5 + x * flip, row + 0.5 + y * flip);
+          const arc = local(0, -0.27),
+            gap = local(0, 0.27),
+            center = local(0, 0);
+          for (const recess of [gap, center, local(0.36, 0)]) {
+            expect(arc.height - recess.height).toBeGreaterThan(0.0242);
+            expect(arc.color - recess.color).toBeGreaterThan(0.73);
+            expect(arc.occlusion - recess.occlusion).toBeGreaterThan(0.64);
+            expect(recess.roughness - arc.roughness).toBeGreaterThan(0.27);
+            expect(recess.metallic).toBe(1);
+          }
+          for (const side of [-1, 1]) {
+            const bore = local(side * p.lugX, p.lugY),
+              lug = local(side * (p.lugX + 0.04), p.lugY),
+              join = local(side * p.lugX, p.lugY - 0.04);
+            expect(lug.height - bore.height).toBeGreaterThan(0.0242);
+            expect(join.height - bore.height).toBeGreaterThan(0.0242);
+            expect(lug.color - bore.color).toBeGreaterThan(0.73);
+            expect(bore.occlusion).toBeLessThan(0.34);
+            expect(lug.metallic).toBe(1);
+          }
+          expect(local(0.27, 0).height - center.height).toBeGreaterThan(0.0242);
+        }
+    },
+  );
+  it('keeps inner and outer rims, the open gap, lug joins, bores and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Leno weave paired warp locks', () => {
   const p = proceduralMaterialPresets.lenoweave;
@@ -15745,6 +15822,7 @@ describe('periodic procedural material fields', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
+          kind === 'circlips' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -25182,6 +25260,7 @@ describe('procedural preset acquisition and ownership', () => {
     'splitlockwashers',
     'hexnuts',
     'wingnuts',
+    'circlips',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -25212,6 +25291,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
+          kind === 'circlips' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

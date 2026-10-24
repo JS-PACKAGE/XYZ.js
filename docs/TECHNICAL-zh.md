@@ -614,6 +614,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `lenoweave`（紗羅織）：六組奶油／赭色成對經線在六條緯線間扭交，經經／經緯交點的上下次序交替；可見權重遮住下層線，偶數列維持跨 tile 相位。`await ProceduralMaterial.create('lenoweave', { seed: 7 })`；0.06 m tile、opaque dielectric、metallic 0，沿既有 maps／選用 height／借用／destroy 契約。網眼是不透明暗底，不新增紗線 geometry、透明孔或布料模擬。
 
+種類另支援 `circlips`（開口止動環）：十六枚銀色 C 形平環，兩個圓耳各有鉗孔凹點，相鄰開口方向翻轉 180°。`await ProceduralMaterial.create('circlips', { seed: 7 })`；0.08 m tile、opaque metal、metallic map／預設 factor 1，沿既有 maps／選用 height／借用／destroy 契約。中央、缺口與耳孔皆是不透明暗鋼底，不新增止動環 geometry、透明孔、彈性或機械模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

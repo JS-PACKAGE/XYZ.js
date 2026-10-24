@@ -483,6 +483,8 @@
 
 同輪追加 `lenoweave`（紗羅織），目錄 470→471 種：六組成對奶油／赭色經線在六條水平緯線之間扭交，經線彼此及穿越緯線的上下次序交替，網眼露出低暗底而非透明。0.06 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增紗線 geometry、透明孔或布料模擬；逐功能驗證提交、不 push。
 
+同輪追加 `circlips`（開口止動環），目錄 471→472 種：十六枚銀色 C 形平環，端部兩個圓耳各帶小凹孔，相鄰開口方向翻轉 180°；中央、開口與耳孔皆露低暗鋼底。0.08 m tile、opaque metal、metallic map／預設 factor 1，沿既有四圖／選用 height／options／ownership，不新增止動環 geometry、透明孔、彈性或機械模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

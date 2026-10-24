@@ -1239,6 +1239,7 @@ export function createSurfaceSampler(
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
     kind === 'wingnuts' ||
+    kind === 'circlips' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1263,6 +1264,46 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'circlips': {
+        const p = proceduralMaterialPresets.circlips;
+        const grainField = cachedNoise(96, 96, seed ^ 0xd719);
+        const innerSquared = p.innerRadius * p.innerRadius,
+          outerSquared = p.outerRadius * p.outerRadius;
+        const gapSquared = p.gapWidth * p.gapWidth,
+          lugSquared = p.lugRadius * p.lugRadius,
+          boreSquared = p.boreRadius * p.boreRadius;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const flip = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = (fract(uc) - 0.5) * flip,
+            y = (fract(vc) - 0.5) * flip;
+          const r2 = x * x + y * y;
+          const ring =
+            smooth(clamp((outerSquared - r2) / p.ringShoulder)) *
+            (1 - smooth(clamp((innerSquared - r2) / p.ringShoulder)));
+          const gap =
+            smooth(clamp((gapSquared - x * x) / p.gapShoulder)) *
+            smooth(clamp((y - p.gapStart) / p.gapFade));
+          let outside = 1 - ring * (1 - gap),
+            outsideBores = 1;
+          for (let side = -1; side <= 1; side += 2) {
+            const dx = x - side * p.lugX,
+              dy = y - p.lugY;
+            const d2 = dx * dx + dy * dy;
+            outside *= 1 - smooth(clamp((lugSquared - d2) / p.lugShoulder));
+            outsideBores *=
+              1 - smooth(clamp((boreSquared - d2) / p.boreShoulder));
+          }
+          const face = (1 - outside) * outsideBores;
+          const grain = grainField(u, v);
+          color = 0.06 + 0.76 * face + 0.02 * grain;
+          height = 0.06 + 0.62 * face + 0.004 * grain;
+          roughness += 0.3 * (1 - face) + 0.02 * grain;
+          occlusion = 0.33 + 0.65 * face;
+          return;
+        };
+      }
       case 'lenoweave': {
         const p = proceduralMaterialPresets.lenoweave;
         const grainField = cachedNoise(128, 128, seed ^ 0xc607);
@@ -15566,6 +15607,7 @@ export function createSurfaceSampler(
     kind === 'starcrosstiles' ||
     kind === 'maplesamara' ||
     kind === 'lenoweave' ||
+    kind === 'circlips' ||
     fabricated ||
     botanical ||
     packaging ||
