@@ -4043,6 +4043,15 @@ export const proceduralMaterialPresets = Object.freeze({
     toothHalfWidth: 0.038,
     toothBevel: 0.012,
   }),
+  diamondcheckertiles: Object.freeze({
+    dark: [18, 20, 24] as const,
+    light: [239, 232, 209] as const,
+    roughness: 0.25,
+    relief: 0.02,
+    cells: 4,
+    grout: 0.012,
+    bevel: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4545,4 +4554,5 @@ export const proceduralTileMeters = Object.freeze({
   twillweave: 0.16,
   pumpkinseeds: 0.12,
   spurgears: 0.2,
+  diamondcheckertiles: 1.2,
 });

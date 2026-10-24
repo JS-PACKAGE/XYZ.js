@@ -537,6 +537,8 @@
 
 同輪追加 `spurgears`（風格化鋼齒輪），目錄 497→498 種：4×4 交替旋轉 15° 的鋼輪，十二個倒角外齒、圓形凹軸孔與隆起輪轂；區別 sawblades 的不對稱鋸齒。0.2 m tile、opaque metallic maps／預設 factor 1，沿四圖／選用 height／ownership，孔／齒隙為暗色不透明鋼底，不新增齒輪 geometry、透明孔洞、漸開線齒形認證或傳動模擬；逐功能驗證提交、不 push。
 
+同輪追加 `diamondcheckertiles`（斜鋪棋盤磚），目錄 498→499 種：32 塊旋轉 45° 的黑／米白正方釉面磚，兩個對角方向都交替深淺色，帶柔化倒角、低陷中性灰縫與 seeded 磚面色差。1.2 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增鋪磚 geometry、透明度或物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

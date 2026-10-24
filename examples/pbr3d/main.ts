@@ -577,6 +577,7 @@ try {
     'twillweave',
     'pumpkinseeds',
     'spurgears',
+    'diamondcheckertiles',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

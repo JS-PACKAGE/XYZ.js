@@ -1271,6 +1271,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'diamondcheckertiles': {
+        const p = proceduralMaterialPresets.diamondcheckertiles;
+        const grainField = cachedNoise(96, 96, seed ^ 0x73a9);
+        const rows = p.cells * 2,
+          tones = new Float64Array(p.cells * rows),
+          inverseBevel = 1 / p.bevel;
+        for (let row = 0; row < rows; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x1c67);
+        return () => {
+          const a = (u + v) * p.cells,
+            b = (u - v) * p.cells;
+          const ia = Math.floor(a),
+            ib = Math.floor(b);
+          const x = fract(a),
+            y = fract(b);
+          const face =
+            smooth(clamp((Math.min(x, 1 - x) - p.grout) * inverseBevel)) *
+            smooth(clamp((Math.min(y, 1 - y) - p.grout) * inverseBevel));
+          // Quotient ownership is invariant under both UV translations
+          // (a,b) → (a+cells,b±cells), including negative diagonal rows.
+          const row = (((ia - ib) % rows) + rows) % rows,
+            col = ia % p.cells;
+          const tone = tones[row * p.cells + col],
+            grain = grainField(u, v);
+          const pigment =
+            ((ia + ib) & 1 ? 0.88 : 0.11) + 0.035 * tone + 0.012 * grain;
+          color = 0.45 + face * (pigment - 0.45);
+          height = 0.06 + face * (0.7 + 0.01 * grain);
+          mortar = 1 - face;
+          roughness += 0.55 * mortar + 0.03 * grain * face;
+          occlusion = 0.52 + 0.46 * face;
+          return;
+        };
+      }
       case 'spurgears': {
         const p = proceduralMaterialPresets.spurgears;
         const grainField = cachedNoise(96, 96, seed ^ 0x68f1);
@@ -16980,6 +17015,7 @@ export function createSurfaceSampler(
     kind === 'twillweave' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
+    kind === 'diamondcheckertiles' ||
     fabricated ||
     botanical ||
     packaging ||

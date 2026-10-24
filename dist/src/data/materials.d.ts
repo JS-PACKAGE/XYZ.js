@@ -3955,6 +3955,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         toothHalfWidth: 0.038;
         toothBevel: 0.012;
     }>;
+    diamondcheckertiles: Readonly<{
+        dark: readonly [18, 20, 24];
+        light: readonly [239, 232, 209];
+        roughness: 0.25;
+        relief: 0.02;
+        cells: 4;
+        grout: 0.012;
+        bevel: 0.018;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4456,4 +4465,5 @@ export declare const proceduralTileMeters: Readonly<{
     twillweave: 0.16;
     pumpkinseeds: 0.12;
     spurgears: 0.2;
+    diamondcheckertiles: 1.2;
 }>;

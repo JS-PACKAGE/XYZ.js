@@ -6735,3 +6735,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐輪逐齒檢查齒／齒谷／軸孔／平底的 height／color／AO／roughness／metallic、輪轂高於輪身與各齒根至齒尖 33 點連通；另掃描方齒 bevel 乘積、輪身 union、輪轂／圓孔 shoulder、旋轉與 wrap C1。既有 497 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6175 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 spurgears，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替旋轉十二齒、完整圓形暗軸孔與較亮輪轂，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：斜鋪黑米白棋盤磚（diamondcheckertiles）
+
+- 目錄 498→499 種；1.2 m tile，32 塊旋轉 45° 的黑／米白正方釉面磚，兩個對角方向皆交替深淺色，帶柔化倒角、低陷中性灰縫與 seeded 磚面色差。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增鋪磚 geometry、透明度或物理。
+- 三 seed（0／1／`0xffffffff`）逐磚檢查兩軸相鄰色差、同高面、四內角完整面與四邊灰縫的 height／AO／roughness／metallic，含負對角座標與兩方向 UV 平移 owner 一致；另掃描 bevel 乘積角落、深淺 owner 邊界與 wrap C1。既有 498 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6180 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 diamondcheckertiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認黑／米白斜向正方棋盤與連續中性灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

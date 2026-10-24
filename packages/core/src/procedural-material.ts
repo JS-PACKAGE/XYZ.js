@@ -513,7 +513,8 @@ export type ProceduralMaterialKind =
   | 'eucalyptusleaf'
   | 'twillweave'
   | 'pumpkinseeds'
-  | 'spurgears';
+  | 'spurgears'
+  | 'diamondcheckertiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1261,6 +1262,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'twillweave',
   'pumpkinseeds',
   'spurgears',
+  'diamondcheckertiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
