@@ -536,7 +536,8 @@ export type ProceduralMaterialKind =
   | 'creamcrackers'
   | 'doorkeys'
   | 'dodecagontiles'
-  | 'ballchain';
+  | 'ballchain'
+  | 'succulentrosettes';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1307,6 +1308,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'doorkeys',
   'dodecagontiles',
   'ballchain',
+  'succulentrosettes',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

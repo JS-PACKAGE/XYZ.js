@@ -583,6 +583,8 @@
 
 同輪追加 `ballchain`（銀色金屬珠鏈），目錄 520→521 種：四條各八珠的實心球珠鏈沿兩週期緩彎路徑排列，相鄰球珠由細直頸連接，球冠覆蓋下層 connector，不沿用 seedbeads 的穿孔橢圓珠或 chainlink 的環鏈。0.064 m tile、opaque metallic、map／預設 factor 皆為 1；沿四圖／選用 height／ownership，不新增珠鏈 geometry、透明度或鏈條物理；逐功能驗證提交、不 push。
 
+同輪追加 `succulentrosettes`（多肉蓮座葉叢），目錄 521→522 種：四乘四不同轉向的灰綠 rosettes，每株三圈各六片肥厚匙形葉，內圈錯位覆蓋外圈葉基並由外向內抬高。區別 artichoke 的平行尖苞片與 daisy 的平面放射花瓣；0.64 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增植物 geometry、透明度、次表面散射或生物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

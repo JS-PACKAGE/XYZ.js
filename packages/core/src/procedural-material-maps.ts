@@ -1277,6 +1277,82 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'succulentrosettes': {
+        const p = proceduralMaterialPresets.succulentrosettes;
+        const stride = p.whorls.length * p.leaves * 7,
+          leaves = new Float64Array(p.cells * p.cells * stride);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const base = (row * p.cells + col) * stride,
+              phase = TAU * hash(col, row, seed ^ 0xf781);
+            for (let ring = 0; ring < p.whorls.length; ring++) {
+              const whorl = p.whorls[ring];
+              for (let leaf = 0; leaf < p.leaves; leaf++) {
+                const i = base + (ring * p.leaves + leaf) * 7,
+                  angle = phase + (TAU * (leaf + whorl[4])) / p.leaves;
+                leaves[i] = Math.cos(angle);
+                leaves[i + 1] = Math.sin(angle);
+                leaves[i + 2] = whorl[0];
+                leaves[i + 3] = 1 / whorl[1];
+                leaves[i + 4] = 1 / whorl[2];
+                leaves[i + 5] = whorl[3];
+                leaves[i + 6] =
+                  0.36 +
+                  0.04 * ring +
+                  0.06 *
+                    hash(
+                      col * p.leaves + leaf,
+                      row * p.whorls.length + ring,
+                      seed ^ 0xf783,
+                    );
+              }
+            }
+          }
+        const inverseShoulder = 1 / p.shoulder,
+          radiusSquared = p.radiusLimit * p.radiusLimit,
+          grainField = cachedNoise(96, 96, seed ^ 0xf785);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          color = 0.07;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.38;
+          if (x * x + y * y >= radiusSquared) return;
+          const base = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride,
+            end = base + stride,
+            grain = grainField(u, v);
+          // Outer leaves first; inner whorls hide their narrow bases. Every
+          // spoon-shaped leaf is compact, including the longitudinal cutoff.
+          for (let i = base; i < end; i += 7) {
+            const along =
+              (x * leaves[i] + y * leaves[i + 1] - leaves[i + 2]) *
+              leaves[i + 3];
+            if (Math.abs(along) >= 1) continue;
+            const across =
+                ((y * leaves[i] - x * leaves[i + 1]) * leaves[i + 4]) /
+                (1 + p.taper * along),
+              q = along * along + across * across,
+              face = smooth(clamp((1 - q) * inverseShoulder));
+            if (face === 0) continue;
+            const dome = smooth(clamp(1 - q)),
+              tip = smooth((along + 1) * 0.5);
+            color =
+              color * (1 - face) +
+              face * (leaves[i + 6] + 0.22 * dome + 0.02 * grain);
+            height =
+              height * (1 - face) +
+              face * (leaves[i + 5] + 0.17 * dome + 0.04 * tip + 0.003 * grain);
+            roughness =
+              roughness * (1 - face) +
+              face * (p.roughness - 0.12 * dome + 0.025 * grain);
+            occlusion = occlusion * (1 - face) + face * (0.84 + 0.14 * dome);
+          }
+          return;
+        };
+      }
       case 'ballchain': {
         const p = proceduralMaterialPresets.ballchain;
         const beads = new Float64Array(p.columns * p.rows * 4);
@@ -18585,6 +18661,7 @@ export function createSurfaceSampler(
     kind === 'doorkeys' ||
     kind === 'dodecagontiles' ||
     kind === 'ballchain' ||
+    kind === 'succulentrosettes' ||
     fabricated ||
     botanical ||
     packaging ||

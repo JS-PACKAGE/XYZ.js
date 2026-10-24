@@ -591,6 +591,8 @@
 
 `ballchain` 預算四條兩週期 meander 的 32 個珠心／tone、逐珠 next-segment dx 與 inverse squared length。每像素取最近珠及跨其上下的單一線段，先混合細頸圓冠、再以 compact sphere coverage 覆蓋球珠，避免 connector 高度穿過珠心；segment owner 轉換位於完整球冠內而被遮蔽。Spherical sqrt 僅在 bead support 內計算，96×96 grain 只取樣可見珠面；珠緣 coverage 以平方階消失，保持 height C1 與連續法線，column 外為定值 backing。4×8 珠、0.064 m tile，目錄 521 種；metallic map／預設 factor 皆為 1，取樣無 trig 或配置，不新增 geometry、透明度或鏈條物理。
 
+`succulentrosettes` 預算 16 株各 18 片葉的 axes／radial offset／inverse dimensions／lift／tone；三圈 leaf whorls 由外往內 painter-blend，各內圈遮住先前狹窄葉基，不把各葉高度相加。橢圓 transverse width 隨 along 增大形成匙形，先剔除 longitudinal support 外取樣以保持分母正值；compact face、convex dome 與抬起的 rounded tip 同步控制 color／height／roughness／AO。外輪六葉、中輪轉半葉距、內輪六葉更高，leaf support 全在 radiusLimit 與 cell seam 前消失。96×96 grain、取樣無 trig／sqrt／配置；4×4、0.64 m tile，目錄 522 種。Opaque dielectric，不新增 geometry、透明度、次表面散射或生物模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -714,6 +714,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `ballchain`（銀色金屬珠鏈）：四條各八顆實心球珠，由細直頸接成兩週期緩彎路徑。Seeded 珠心／tone、segment vectors 與 reciprocal squared lengths 預算；compact 球珠 coverage 遮住珠心處的 connector owner 轉換，細頸高度先在底層混合，不加疊穿過球冠。使用 `await ProceduralMaterial.create('ballchain', { seed: 7 })`；0.064 m opaque tile，metallic map／預設 factor 皆為 1，既有 maps／選用 height／ownership 不變，不新增珠鏈 geometry、透明度或鏈條物理。
 
+種類另支援 `succulentrosettes`（多肉蓮座葉叢）：4×4 灰綠色 rosettes，每株三圈各六片肥厚葉。預算 axes／dimensions／offsets／lifts／tones 的 compact tapered ellipse 形成匙形輪廓；由外向內混合、抬高且錯位的內圈覆蓋外圈狹窄葉基，不加疊多片葉高度。凸冠、抬起的圓葉尖及細粒 grain 沿相同 coverage 更新 color／height／roughness／AO。使用 `await ProceduralMaterial.create('succulentrosettes', { seed: 7 })`；0.64 m opaque dielectric tile、metallic 0，既有 maps／選用 height／ownership 不變，不新增植物 geometry、透明度、次表面散射或生物模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

@@ -600,6 +600,7 @@ try {
     'doorkeys',
     'dodecagontiles',
     'ballchain',
+    'succulentrosettes',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -4424,6 +4424,22 @@ export const proceduralMaterialPresets = Object.freeze({
     neckRadius: 0.024,
     neckBevel: 0.006,
   }),
+  succulentrosettes: Object.freeze({
+    dark: [25, 47, 34] as const,
+    light: [164, 199, 166] as const,
+    roughness: 0.5,
+    relief: 0.03,
+    cells: 4,
+    leaves: 6,
+    taper: 0.35,
+    shoulder: 0.22,
+    radiusLimit: 0.43,
+    whorls: [
+      [0.22, 0.16, 0.09, 0.22, 0],
+      [0.14, 0.13, 0.075, 0.43, 0.5],
+      [0.065, 0.085, 0.05, 0.62, 0],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4949,4 +4965,5 @@ export const proceduralTileMeters = Object.freeze({
   doorkeys: 0.32,
   dodecagontiles: 0.7,
   ballchain: 0.064,
+  succulentrosettes: 0.64,
 });

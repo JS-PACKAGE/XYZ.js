@@ -559,7 +559,111 @@ const kinds: ProceduralMaterialKind[] = [
   'doorkeys',
   'dodecagontiles',
   'ballchain',
+  'succulentrosettes',
 ];
+
+describe('Succulent rosettes with three raised fleshy leaf whorls', () => {
+  const p = proceduralMaterialPresets.succulentrosettes;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('succulentrosettes', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves six outer lobes, staggered taller inner whorls, convex spoon leaves and clear backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const probe = (x: number, y: number) =>
+            at(col + 0.5 + x, row + 0.5 + y);
+          const occupied: boolean[] = [];
+          let peak = -Infinity,
+            phase = 0;
+          for (let i = 0; i < 720; i++) {
+            const a = (i * 2 * Math.PI) / 720,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              value = probe(0.31 * c, 0.31 * s).height;
+            occupied.push(probe(0.32 * c, 0.32 * s).height > 0.004);
+            if (value > peak) {
+              peak = value;
+              phase = a;
+            }
+          }
+          let groups = 0;
+          for (let i = 0; i < occupied.length; i++)
+            if (
+              occupied[i] &&
+              !occupied[(i + occupied.length - 1) % occupied.length]
+            )
+              groups++;
+          expect(groups).toBe(6);
+          for (let i = 0; i < 6; i++) {
+            const a = phase + (i * 2 * Math.PI) / 6,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              ma = a + Math.PI / 6,
+              outer = probe(0.31 * c, 0.31 * s),
+              middle = probe(0.2 * Math.cos(ma), 0.2 * Math.sin(ma)),
+              inner = probe(0.09 * c, 0.09 * s),
+              outside = probe(0.43 * c, 0.43 * s);
+            expect(outer.height).toBeGreaterThan(0.009);
+            expect(outer.height).toBeLessThan(0.013);
+            expect(middle.height - outer.height).toBeGreaterThan(0.004);
+            expect(inner.height - middle.height).toBeGreaterThan(0.004);
+            expect(inner.color - outer.color).toBeGreaterThan(0.025);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.roughness - outer.roughness).toBeGreaterThan(0.48);
+            expect(outer.occlusion - outside.occlusion).toBeGreaterThan(0.55);
+            expect(inner.metallic).toBe(0);
+            for (const side of [-1, 1]) {
+              const flank = probe(
+                0.31 * c - side * 0.05 * s,
+                0.31 * s + side * 0.05 * c,
+              );
+              expect(outer.height - flank.height).toBeGreaterThan(0.0011);
+              expect(outer.occlusion - flank.occlusion).toBeGreaterThan(0.03);
+            }
+          }
+        }
+    },
+  );
+  it('keeps spoon tips, tapered widths, layered whorls, cell owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Meandering spherical metal ball pull chains', () => {
   const p = proceduralMaterialPresets.ballchain;

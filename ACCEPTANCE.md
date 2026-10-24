@@ -6896,3 +6896,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐球以橫向黑箱搜尋定位 crown，32 方位驗證凸球冠與等半徑高度近似一致；各鏈 bead-center 橫向範圍確認實際 meander。逐連接中點（含垂直 wrap）檢查較低細頸、球冠不加疊線段高度、roughness／AO 與兩側 backing，另掃描 sphere rims／hidden connector owners／columns／wrap C1；四項針對測試通過，既有 520 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6298 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 ballchain，521 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四條緩彎銀珠鏈、圓球冠與細直連頸，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱實際珠鏈接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：多肉蓮座葉叢（succulentrosettes）
+
+- 目錄 521→522 種；0.64 m tile，4×4 seeded 轉向的灰綠蓮座，每株三圈各六片肥厚匙形葉；中輪轉半葉距、內圈覆蓋狹窄葉基並逐圈抬高，區別 artichoke 的尖苞片列及 daisy 的平面花瓣。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增植物 geometry、透明度、次表面散射或生物模擬。
+- 三 seed（0／1／`0xffffffff`）逐株沿外圈 720 方位黑箱搜尋葉軸，確認六個分離 lobe；逐六軸驗證三圈高度遞增、內葉色差與外部 backing，兩側 flank 的高度／AO 差確認肥厚凸冠，不是平葉。另掃描 spoon tips／tapered widths／layered whorls／owners／wrap C1；四項針對測試通過，既有 521 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6303 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 succulentrosettes，522 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認三圈錯位灰綠厚葉、六瓣外緣及較亮的內圈，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 植物表面，不宣稱生物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
