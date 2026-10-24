@@ -4981,6 +4981,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.01;
         pieces: readonly [readonly [readonly [0, 0], readonly [1, 0], readonly [0.5, 0.5]], readonly [readonly [0, 0], readonly [0.5, 0.5], readonly [0, 1]], readonly [readonly [1, 1], readonly [0.5, 1], readonly [1, 0.5]], readonly [readonly [0.5, 0.5], readonly [0.75, 0.25], readonly [1, 0.5], readonly [0.75, 0.75]], readonly [readonly [1, 0], readonly [1, 0.5], readonly [0.75, 0.25]], readonly [readonly [0.5, 0.5], readonly [0.75, 0.75], readonly [0.25, 0.75]], readonly [readonly [0, 1], readonly [0.25, 0.75], readonly [0.75, 0.75], readonly [0.5, 1]]];
     }>;
+    batterypositivecaps: Readonly<{
+        dark: readonly [18, 20, 23];
+        light: readonly [225, 226, 218];
+        roughness: 0.25;
+        relief: 0.004;
+        cells: 4;
+        radius: 0.42;
+        outerShoulder: 0.39;
+        insulatorRadius: 0.3;
+        insulatorShoulder: 0.28;
+        buttonRadius: 0.17;
+        buttonShoulder: 0.145;
+        rimRadius: 0.35;
+        rimSquaredWidth: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5542,4 +5557,5 @@ export declare const proceduralTileMeters: Readonly<{
     mudtiretracks: 3;
     peacockfeathers: 0.64;
     tangramtiles: 0.6;
+    batterypositivecaps: 0.12;
 }>;

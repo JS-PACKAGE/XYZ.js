@@ -1422,6 +1422,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'batterypositivecaps': {
+        const p = proceduralMaterialPresets.batterypositivecaps,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseOuter =
+            1 / (radiusSquared - p.outerShoulder * p.outerShoulder),
+          insulatorSquared = p.insulatorRadius * p.insulatorRadius,
+          inverseInsulator =
+            1 / (insulatorSquared - p.insulatorShoulder * p.insulatorShoulder),
+          buttonSquared = p.buttonRadius * p.buttonRadius,
+          inverseButton =
+            1 / (buttonSquared - p.buttonShoulder * p.buttonShoulder),
+          inverseDome = 1 / buttonSquared,
+          rimSquared = p.rimRadius * p.rimRadius,
+          inverseRim = 1 / p.rimSquaredWidth,
+          grainField = cachedNoise(96, 96, seed ^ 0x11a11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x11a13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            squared = x * x + y * y,
+            outer = smooth(clamp((radiusSquared - squared) * inverseOuter));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.4;
+          if (outer === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)],
+            distance = (squared - rimSquared) * inverseRim,
+            rim = smooth(clamp(1 - distance * distance)),
+            insulator = smooth(
+              clamp((insulatorSquared - squared) * inverseInsulator),
+            ),
+            button = smooth(clamp((buttonSquared - squared) * inverseButton)),
+            dome = clamp(1 - squared * inverseDome);
+          color +=
+            outer * (0.72 + 0.07 * tone + 0.02 * grain + 0.055 * rim - color);
+          height += outer * (0.49 + 0.07 * rim + 0.004 * grain - height);
+          roughness +=
+            outer * (p.roughness - 0.04 * rim + 0.015 * grain - roughness);
+          occlusion += outer * (0.99 - occlusion);
+          metallic = outer;
+          // The pale annulus is an insulator, not a second metal ring.
+          // Its center is subsequently covered by the raised metal contact.
+          color += insulator * (0.95 + 0.025 * grain - color);
+          height += insulator * (0.35 + 0.005 * grain - height);
+          roughness += insulator * (0.72 + 0.025 * grain - roughness);
+          occlusion += insulator * (0.94 - occlusion);
+          metallic *= 1 - insulator;
+          color +=
+            button * (0.78 + 0.07 * tone + 0.025 * grain + 0.04 * dome - color);
+          height += button * (0.7 + 0.07 * dome + 0.004 * grain - height);
+          roughness +=
+            button * (p.roughness - 0.03 * dome + 0.015 * grain - roughness);
+          occlusion += button * (0.99 - occlusion);
+          metallic += button * (1 - metallic);
+        };
+      }
       case 'tangramtiles': {
         const p = proceduralMaterialPresets.tangramtiles,
           count = p.pieces.length,
@@ -21400,6 +21463,7 @@ export function createSurfaceSampler(
     kind === 'dinnerforks' ||
     kind === 'mudtiretracks' ||
     kind === 'tangramtiles' ||
+    kind === 'batterypositivecaps' ||
     fabricated ||
     botanical ||
     packaging ||

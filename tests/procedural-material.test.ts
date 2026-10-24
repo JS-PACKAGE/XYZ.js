@@ -596,7 +596,115 @@ const kinds: ProceduralMaterialKind[] = [
   'mudtiretracks',
   'peacockfeathers',
   'tangramtiles',
+  'batterypositivecaps',
 ];
+
+describe('Battery positive cap metal contacts and dielectric annuli', () => {
+  const p = proceduralMaterialPresets.batterypositivecaps;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('batterypositivecaps', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two metal rim crossings and one raised contact separated by two pale nonmetallic insulation crossings for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = at(col, row, 0, 0),
+            rim = at(col, row, 0.35, 0),
+            plate = at(col, row, 0.31, 0),
+            backing = at(col, row, 0.47, 0);
+          expect(center.metallic).toBe(1);
+          expect(rim.metallic).toBe(1);
+          expect(center.height - rim.height).toBeGreaterThan(0.0007);
+          expect(rim.height - plate.height).toBeGreaterThan(0.00025);
+          expect(plate.roughness - rim.roughness).toBeGreaterThan(0.02);
+          expect(backing.metallic).toBe(0);
+          expect(backing.height).toBeLessThan(0.00012);
+          expect(backing.color).toBeLessThan(0.04);
+          for (const sign of [-1, 1]) {
+            const insulation = at(col, row, sign * 0.23, 0);
+            expect(insulation.metallic).toBe(0);
+            expect(insulation.color).toBeGreaterThan(0.94);
+            expect(insulation.color - center.color).toBeGreaterThan(0.025);
+            expect(insulation.roughness).toBeGreaterThan(0.7);
+            expect(center.height - insulation.height).toBeGreaterThan(0.0016);
+            expect(insulation.occlusion).toBeGreaterThan(0.9);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            const point = at(col, row, -0.47 + (0.94 * i) / 1024, 0),
+              metal = point.metallic > 0.5;
+            if (metal && !previous) runs++;
+            previous = metal;
+            expect(point.metallic).toBeGreaterThanOrEqual(0);
+            expect(point.metallic).toBeLessThanOrEqual(1);
+          }
+          expect(runs).toBe(3);
+        }
+    },
+  );
+  it('keeps metal/insulator transitions, raised contact, rolled rim and wrapped ownership C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (col: number, row: number, x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(col, row, x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(col, row, x, y),
+            c = at(col, row, x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'metallic',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check(0, 0, (p.cells * x) / 128 - 0.5, (p.cells * y) / 128 - 0.5);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const radius of [
+            p.radius,
+            p.outerShoulder,
+            p.insulatorRadius,
+            p.insulatorShoulder,
+            p.buttonRadius,
+            p.buttonShoulder,
+            Math.sqrt(p.rimRadius * p.rimRadius - p.rimSquaredWidth),
+            Math.sqrt(p.rimRadius * p.rimRadius + p.rimSquaredWidth),
+          ])
+            for (let i = 0; i < 8; i++) {
+              const angle = (i * Math.PI) / 4;
+              check(
+                col,
+                row,
+                radius * Math.cos(angle),
+                radius * Math.sin(angle),
+              );
+            }
+    }
+  });
+});
 
 describe('Standard seven-piece tangram glazed tiles', () => {
   const p = proceduralMaterialPresets.tangramtiles;
@@ -24397,6 +24505,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'gabion' &&
           kind !== 'grommetcanvas' &&
           kind !== 'goldbrocade' &&
+          kind !== 'batterypositivecaps' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -24411,7 +24520,8 @@ describe('periodic procedural material fields', () => {
         kind === 'chippedenamel' ||
         kind === 'gabion' ||
         kind === 'grommetcanvas' ||
-        kind === 'goldbrocade'
+        kind === 'goldbrocade' ||
+        kind === 'batterypositivecaps'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -33807,6 +33917,7 @@ describe('procedural preset acquisition and ownership', () => {
     'gabion',
     'grommetcanvas',
     'goldbrocade',
+    'batterypositivecaps',
     'standingseam',
     'damascus',
     'castiron',
@@ -33859,6 +33970,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'gabion' ||
           kind === 'grommetcanvas' ||
           kind === 'goldbrocade' ||
+          kind === 'batterypositivecaps' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

@@ -573,7 +573,8 @@ export type ProceduralMaterialKind =
   | 'goldbrocade'
   | 'mudtiretracks'
   | 'peacockfeathers'
-  | 'tangramtiles';
+  | 'tangramtiles'
+  | 'batterypositivecaps';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1381,6 +1382,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mudtiretracks',
   'peacockfeathers',
   'tangramtiles',
+  'batterypositivecaps',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1577,6 +1579,7 @@ export class ProceduralMaterial {
         this.kind === 'gabion' ||
         this.kind === 'grommetcanvas' ||
         this.kind === 'goldbrocade' ||
+        this.kind === 'batterypositivecaps' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

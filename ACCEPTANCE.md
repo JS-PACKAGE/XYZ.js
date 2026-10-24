@@ -7195,3 +7195,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 tangramtiles，558 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 可見每格完整七片、菱向正方形、五片三角形、斜平行四邊形與連續灰縫，metallic 0、height true、destroyed true，預覽隨頁清除。僅 surface maps，不新增磚塊 geometry、互動拼圖／物理模擬或擴大瀏覽器認證；依功能提交、不 push。
 - 既有 557 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 tangramtiles，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6492 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。
+
+## 2026-10-25 程序材質：圓柱電池正極端蓋（batterypositivecaps）
+
+- 目錄 558→559 種；0.12 m opaque mixed-metallic tile、4×4 端蓋，金屬外蓋／捲邊、淡色非金屬絕緣環、凸起金屬接點；material metallic factor 1 保留 authored map、背底非金屬，沿四圖／選用 height／ownership，不新增電池 geometry、導電／電化學／電路或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各 16 端蓋，1025 點橫剖面恰三個 metal runs（兩側外緣與中央接點），兩處 pale dielectric crossings／roughness >0.7、metallic 0，中央 metal 1 高於絕緣環 >0.0016 m／外捲邊 >0.0007 m，捲邊比內蓋高 >0.00025 m、roughness 降 >0.02，背底維持 opaque nonmetallic。129×129 網格、三 seed、雙方向五欄位（含 metallic）及八個精確徑向 shoulder／八方向／所有 cell 的 C1 h 1e-9 均保留 0.02 上限；四項形態／C1、既有 size 32 deterministic／seeded／distinct／periodic 與 material ownership 共六項針對測試首次通過。
+- 既有 558 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 batterypositivecaps，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 batterypositivecaps，559 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認金屬外蓋／捲邊、淡色完整絕緣環與非孔洞中央接點；material metallic 1、實際 metallicRoughness bitmap B min 0／max 255／有中間值，height true、destroyed true，預覽隨頁清除。不宣稱 geometry、真實導電／電化學／電路／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 完整 build、typecheck、lint、format:check、179 檔／6498 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。

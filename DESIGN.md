@@ -665,6 +665,8 @@
 
 `tangramtiles` 沿 cairotiles convex half-plane 慣例，預算七片 CCW polygons 共 23 個 normalized planes／8 offsets、2×2×7 seeded tones 與 64×64 grain；形狀面積為 1/4×2、1/8×3、1/16×2，包含傾斜平行四邊形。各 plane 的實際垂直距離 smooth shoulder 相乘，正值 grout inset 保留七片獨立面，支撐在 cell owner 交界前歸零；顆粒項皆乘 face，避免 roughness 在 grain early-out 邊界跳變。取樣逐片 plane 支撐歸零即停止，無配置／hash／sqrt／trig，不新增 geometry、互動拼圖或物理模擬。
 
+`batterypositivecaps` 沿 grommetcanvas mixed-metallic replacement blending 與 canlids squared-radius shoulder 慣例，預算 16 tones／96×96 grain、三層同心 compact covers。先覆金屬外蓋／捲邊，再覆非金屬淡絕緣環，最後覆高金屬接點；同一 coverage 混合 color／height／roughness／AO／metallic，絕緣環不因 material factor 1 變成金屬。外蓋支撐外直接返回固定 opaque 非金屬背底，內部 grain 隨 compact cover 淡出，cell owner 切換不跳變；採樣無配置／hash／sqrt／trig，不新增 geometry、導電／電化學／電路或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -657,6 +657,8 @@
 
 同輪追加 `tangramtiles`（七巧板釉面瓷磚），目錄 557→558 種：兩大／一中／兩小直角等腰三角形、一正方形、一平行四邊形拼正方格，七片標準面積比例與灰縫，不是 righttriangletiles 的單一對角二分。0.6 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增磚塊 geometry、互動拼圖或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `batterypositivecaps`（圓柱電池正極端蓋），目錄 558→559 種：金屬外蓋與凸接點、中間淡色非金屬絕緣環、外側微凸捲邊，並非全金屬墊圈或通透環孔。0.12 m opaque mixed-metallic tile、material metallic factor 1 保留金屬／絕緣環／背底分區，沿四圖／選用 height／ownership，不新增電池 geometry、導電／電化學／電路或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
