@@ -4815,6 +4815,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         rootHeight: 0.085;
         rootShoulder: 0.25;
     }>;
+    grinderburrs: Readonly<{
+        dark: readonly [31, 34, 37];
+        light: readonly [205, 209, 213];
+        roughness: 0.4;
+        relief: 0.004;
+        cells: 4;
+        outerRadius: 0.31;
+        boreRadius: 0.07;
+        edgeBevel: 0.012;
+        flutes: 6;
+        twist: 6;
+        mountingHoles: 3;
+        holeDistance: 0.24;
+        holeRadius: 0.022;
+        holeCore: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5365,4 +5381,5 @@ export declare const proceduralTileMeters: Readonly<{
     threadspools: 0.24;
     bellpepperslices: 0.32;
     sharkteeth: 0.24;
+    grinderburrs: 0.4;
 }>;

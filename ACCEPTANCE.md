@@ -7105,3 +7105,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 546 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 sharkteeth，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6429 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 sharkteeth，547 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現尖三角冠、兩側細鋸齒、較暗雙葉根、根部中央開口與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、物種／年代鑑定、牙科／生物模擬、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：鋼研磨刃環（grinderburrs）
+
+- 目錄 547→548 種；0.4 m tile，4×4 seeded 鋼圓環、六道較高平滑彎刃、較低粗 filled grooves、中央孔與三安裝孔；區別 spurgears 外周齒／sawblades 圓鋸。Opaque metal、metallic 1 含低 backing，maps／createMaterial factor／ownership 同步，沿四圖／選用 height，不新增研磨 geometry、切削／咖啡研磨模擬或物理。
+- 三 seed（0／1／`0xffffffff`）逐 16 環沿 720 角度辨識六次高低 hysteresis transitions、三個低孔區段，驗證 groove 高於 backing、height span >0.00095 m、roughness span >0.29、AO／metallic 1、中央孔。三 seed 在 radii 0.12／0.21 各 720 點做 height cross-correlation，搜尋 ±60 lag，最佳 lag 位於 -24..-19，證明刃面隨半徑彎曲而非直射線。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；五項形態／曲率／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共六項首次通過；另既有 borrows grinderburrs maps 的 factor／override／ownership／cleanup 一項通過，合計七項針對驗證。
+- 既有 547 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 grinderburrs，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6436 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 grinderburrs，548 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現六道彎曲刃面／槽、中央孔、三安裝孔與 seeded 轉向，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱研磨 geometry、切削／咖啡研磨模擬、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

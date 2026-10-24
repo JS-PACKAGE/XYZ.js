@@ -585,7 +585,158 @@ const kinds: ProceduralMaterialKind[] = [
   'threadspools',
   'bellpepperslices',
   'sharkteeth',
+  'grinderburrs',
 ];
+
+describe('Steel grinding burrs with six curved lands and mounting holes', () => {
+  const p = proceduralMaterialPresets.grinderburrs;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('grinderburrs', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains six raised smoother lands over filled grooves, one central bore and three opaque mounting holes for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0.4, 0),
+            bore = at(col, row, 0, 0),
+            profile: number[] = [];
+          expect(bore.height).toBeCloseTo(backing.height, 12);
+          expect(bore.occlusion).toBeCloseTo(0.35, 12);
+          let minimum = Infinity,
+            maximum = -Infinity,
+            minRoughness = Infinity,
+            maxRoughness = -Infinity,
+            minAO = Infinity,
+            maxAO = -Infinity,
+            holes = 0;
+          const holeFlags: boolean[] = [];
+          for (let i = 0; i < 720; i++) {
+            const angle = (Math.PI * 2 * i) / 720,
+              x = Math.cos(angle),
+              y = Math.sin(angle),
+              land = at(col, row, 0.16 * x, 0.16 * y),
+              opening = at(col, row, p.holeDistance * x, p.holeDistance * y);
+            profile.push(land.height);
+            holeFlags.push(opening.height < 0.0003);
+            minimum = Math.min(minimum, land.height);
+            maximum = Math.max(maximum, land.height);
+            minRoughness = Math.min(minRoughness, land.roughness);
+            maxRoughness = Math.max(maxRoughness, land.roughness);
+            minAO = Math.min(minAO, land.occlusion);
+            maxAO = Math.max(maxAO, land.occlusion);
+            expect(land.metallic).toBe(1);
+            expect(opening.metallic).toBe(1);
+          }
+          for (let i = 0; i < holeFlags.length; i++)
+            if (
+              holeFlags[i] &&
+              !holeFlags[(i + holeFlags.length - 1) % holeFlags.length]
+            )
+              holes++;
+          expect(holes).toBe(3);
+          expect(minimum - backing.height).toBeGreaterThan(0.00165);
+          expect(maximum - minimum).toBeGreaterThan(0.00095);
+          expect(maxRoughness - minRoughness).toBeGreaterThan(0.29);
+          expect(minAO).toBeLessThan(0.761);
+          expect(maxAO).toBeGreaterThan(0.979);
+          const start = profile.indexOf(maximum);
+          let high = true,
+            crests = 0;
+          for (let j = 1; j <= profile.length; j++) {
+            const value = profile[(start + j) % profile.length];
+            if (high && value < 0.47 * p.relief) high = false;
+            else if (!high && value > 0.65 * p.relief) {
+              high = true;
+              crests++;
+            }
+          }
+          expect(crests).toBe(6);
+          expect(backing.metallic).toBe(1);
+        }
+    },
+  );
+  it('curves the six lands in the same direction across radii instead of painting straight radial spokes', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        inner: number[] = [],
+        outer: number[] = [];
+      for (let i = 0; i < 720; i++) {
+        const angle = (Math.PI * 2 * i) / 720,
+          x = Math.cos(angle),
+          y = Math.sin(angle);
+        inner.push(at(0, 0, 0.12 * x, 0.12 * y).height);
+        outer.push(at(0, 0, 0.21 * x, 0.21 * y).height);
+      }
+      const innerMean = inner.reduce((a, b) => a + b) / inner.length,
+        outerMean = outer.reduce((a, b) => a + b) / outer.length;
+      let bestLag = 0,
+        bestScore = -Infinity;
+      for (let lag = -60; lag <= 60; lag++) {
+        let score = 0;
+        for (let i = 0; i < inner.length; i++)
+          score +=
+            (inner[i] - innerMean) *
+            (outer[(i + lag + outer.length) % outer.length] - outerMean);
+        if (score > bestScore) {
+          bestScore = score;
+          bestLag = lag;
+        }
+      }
+      expect(bestLag).toBeGreaterThanOrEqual(-24);
+      expect(bestLag).toBeLessThanOrEqual(-19);
+    }
+  });
+  it('keeps curved land joins, angular branch, masked center, ring bevels, mounting holes, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('grinderburrs', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Serrated ivory shark tooth crowns with rough double roots', () => {
   const p = proceduralMaterialPresets.sharkteeth;
@@ -23079,6 +23230,7 @@ describe('periodic procedural material fields', () => {
           kind === 'beltbuckles' ||
           kind === 'carabiners' ||
           kind === 'safetypins' ||
+          kind === 'grinderburrs' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -32536,6 +32688,7 @@ describe('procedural preset acquisition and ownership', () => {
     'beltbuckles',
     'carabiners',
     'safetypins',
+    'grinderburrs',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -32584,6 +32737,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'beltbuckles' ||
           kind === 'carabiners' ||
           kind === 'safetypins' ||
+          kind === 'grinderburrs' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

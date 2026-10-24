@@ -643,6 +643,8 @@
 
 `sharkteeth` 預算 16 tones／serration phases 與 96×96 grain；三組 compact halfplanes 畫尖三角冠，兩側寬度加入 squared parabolic periodic serrations，tip／base fade 使齒尖與根部平順。Positive dome floor 避免近尖端除以零，只在 crown support 內取樣；低矩形 neck 連接兩個 compact ellipse roots，normalized root dome 不疊高，root 覆蓋低冠／頸。零 support 不採 grain，採樣無配置／hash／sqrt／trig；不新增 geometry、物種／年代鑑定、牙科／生物模擬或物理。
 
+`grinderburrs` 預算 16 tones／phases、三孔中心座標與 96×96 grain；squared-radius annulus／compact hole masks 保留中央與三個低 opaque 金屬孔底。整數六 flutes 使 angle branch 週期閉合，bore 零 support 避開 atan2 原點，angle 加 squared-radius phase 畫彎刃，squared parabolic periodic bump 形成刃／槽高度與粗糙度差。零 face 不採 atan2／grain，採樣無配置／hash／sqrt／sin／cos；沿既有 all-metal 預設契約，不新增研磨 geometry、切削／咖啡研磨模擬或物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

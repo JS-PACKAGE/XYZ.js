@@ -1259,6 +1259,7 @@ export function createSurfaceSampler(
     kind === 'beltbuckles' ||
     kind === 'carabiners' ||
     kind === 'safetypins' ||
+    kind === 'grinderburrs' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1280,6 +1281,81 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'grinderburrs': {
+        const p = proceduralMaterialPresets.grinderburrs;
+        const tones = new Float64Array(p.cells * p.cells),
+          phases = new Float64Array(p.cells * p.cells),
+          holes = new Float64Array(p.cells * p.cells * p.mountingHoles * 2),
+          outerSquared = p.outerRadius * p.outerRadius,
+          boreSquared = p.boreRadius * p.boreRadius,
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseOuterBevel =
+            1 / (outerSquared - (p.outerRadius - p.edgeBevel) ** 2),
+          inverseBoreBevel =
+            1 / ((p.boreRadius + p.edgeBevel) ** 2 - boreSquared),
+          inverseHoleBevel = 1 / (holeSquared - p.holeCore * p.holeCore),
+          inverseTAU = 1 / TAU,
+          grainField = cachedNoise(96, 96, seed ^ 0x11115);
+        for (let cell = 0; cell < tones.length; cell++) {
+          tones[cell] = hash(cell, 0, seed ^ 0x11111);
+          phases[cell] = hash(cell, 0, seed ^ 0x11113);
+          for (let hole = 0; hole < p.mountingHoles; hole++) {
+            const angle = TAU * (phases[cell] + hole / p.mountingHoles),
+              index = (cell * p.mountingHoles + hole) * 2;
+            holes[index] = p.holeDistance * Math.cos(angle);
+            holes[index + 1] = p.holeDistance * Math.sin(angle);
+          }
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            cell = Math.floor(vc) * p.cells + Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            radiusSquared = x * x + y * y,
+            ring =
+              smooth(
+                clamp((outerSquared - radiusSquared) * inverseOuterBevel),
+              ) *
+              smooth(clamp((radiusSquared - boreSquared) * inverseBoreBevel));
+          color = 0.065;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (ring === 0) return;
+          let holeMask = 0;
+          for (let hole = 0; hole < p.mountingHoles; hole++) {
+            const index = (cell * p.mountingHoles + hole) * 2,
+              dx = x - holes[index],
+              dy = y - holes[index + 1],
+              coverage = smooth(
+                clamp((holeSquared - dx * dx - dy * dy) * inverseHoleBevel),
+              );
+            holeMask += (1 - holeMask) * coverage;
+          }
+          const face = ring * (1 - holeMask);
+          if (face === 0) return;
+          // Integer flute count closes the angle branch; the bore masks its
+          // singular center. Squared-radius phase bends lands without sqrt.
+          const phase =
+              fract(
+                p.flutes * (Math.atan2(y, x) * inverseTAU - phases[cell]) +
+                  p.twist * radiusSquared,
+              ) *
+                2 -
+              1,
+            cap = 1 - phase * phase,
+            land = cap * cap,
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.48 + 0.18 * land + 0.03 * tones[cell] + 0.01 * grain - color);
+          height += face * (0.44 + 0.24 * land + 0.001 * grain - height);
+          roughness += face * (0.57 - 0.31 * land + 0.02 * grain - roughness);
+          occlusion += face * (0.76 + 0.22 * land - occlusion);
+          return;
+        };
+      }
       case 'sharkteeth': {
         const p = proceduralMaterialPresets.sharkteeth;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20761,6 +20837,7 @@ export function createSurfaceSampler(
     kind === 'threadspools' ||
     kind === 'bellpepperslices' ||
     kind === 'sharkteeth' ||
+    kind === 'grinderburrs' ||
     fabricated ||
     botanical ||
     packaging ||

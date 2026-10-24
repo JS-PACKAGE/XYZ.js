@@ -635,6 +635,8 @@
 
 同輪追加 `sharkteeth`（鯊齒），目錄 546→547 種：4×4 交替水平／垂直象牙色尖三角琺瑯冠、兩側細鋸齒、較低粗糙雙葉齒根、連續 neck 與根部中央向外開口，區別 sawblades 的金屬圓鋸環。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增牙齒 geometry、物種／年代鑑定、牙科／生物模擬或物理；依功能驗證提交、不 push。
 
+同輪追加 `grinderburrs`（鋼研磨刃環），目錄 547→548 種：4×4 seeded 轉向鋼圓環、六道彎曲較高較平滑刃面／較低較粗槽底、中央孔與三個安裝孔；區別 spurgears 外周齒／sawblades 圓鋸輪廓。0.4 m opaque metal tile、metallic 1（含低金屬 backing），同步 maps／createMaterial factor／ownership／正式圖鑑。沿四圖／選用 height，不新增研磨 geometry、切削／咖啡研磨模擬或物理；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
