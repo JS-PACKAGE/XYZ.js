@@ -1274,6 +1274,61 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'grommetcanvas': {
+        const p = proceduralMaterialPresets.grommetcanvas;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xef01);
+        const outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuterBand =
+            1 / (outerSquared - p.outerShoulder * p.outerShoulder),
+          innerSquared = p.innerRadius * p.innerRadius,
+          inverseInnerBand =
+            1 / (p.innerShoulder * p.innerShoulder - innerSquared),
+          cutSquared = p.fabricCut * p.fabricCut,
+          inverseCutBand =
+            1 / (p.fabricShoulder * p.fabricShoulder - cutSquared),
+          ridgeSquared = p.ridgeRadius * p.ridgeRadius,
+          inverseRidgeBand = 1 / p.ridgeBand,
+          inverseThreadSquared = 1 / (p.threadWidth * p.threadWidth),
+          grainField = cachedNoise(96, 96, seed ^ 0xef03);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            r2 = x * x + y * y,
+            outer = smooth(clamp((outerSquared - r2) * inverseOuterBand)),
+            inner = smooth(clamp((r2 - innerSquared) * inverseInnerBand)),
+            ring = outer * inner,
+            fabric = smooth(clamp((r2 - cutSquared) * inverseCutBand)),
+            d = (r2 - ridgeSquared) * inverseRidgeBand,
+            dome = smooth(clamp(1 - d * d)),
+            tx = fract(u * p.threads) - 0.5,
+            ty = fract(v * p.threads) - 0.5,
+            warp = smooth(clamp(1 - tx * tx * inverseThreadSquared)),
+            weft = smooth(clamp(1 - ty * ty * inverseThreadSquared)),
+            weave = warp + weft - warp * weft,
+            grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)];
+          color = 0.06 + fabric * (0.21 + 0.07 * weave + 0.025 * grain);
+          height = 0.025 + fabric * (0.075 + 0.025 * weave + 0.003 * grain);
+          roughness =
+            0.95 * (1 - fabric) +
+            fabric * (p.roughness + 0.06 * (1 - weave) + 0.025 * grain);
+          occlusion = 0.38 + 0.59 * fabric;
+          color =
+            color * (1 - ring) + ring * (0.76 + 0.14 * dome + 0.025 * tone);
+          height = height * (1 - ring) + ring * (0.46 + 0.14 * dome);
+          roughness = roughness * (1 - ring) + ring * (0.25 - 0.05 * dome);
+          occlusion = occlusion * (1 - ring) + 0.99 * ring;
+          // A factor of one preserves this authored brass/cloth split. Neither
+          // the canvas nor the opaque dark bore backing becomes metallic.
+          metallic = ring;
+          return;
+        };
+      }
       case 'crossbeddedsandstone': {
         const p = proceduralMaterialPresets.crossbeddedsandstone;
         const beds = new Float64Array(p.beds * 4);
@@ -17965,6 +18020,7 @@ export function createSurfaceSampler(
     kind === 'punchcard' ||
     kind === 'braidedcord' ||
     kind === 'crossbeddedsandstone' ||
+    kind === 'grommetcanvas' ||
     fabricated ||
     botanical ||
     packaging ||

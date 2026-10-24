@@ -4283,6 +4283,23 @@ export const proceduralMaterialPresets = Object.freeze({
     fadeBand: 0.08,
     contactWidth: 0.04,
   }),
+  grommetcanvas: Object.freeze({
+    dark: [56, 34, 13] as const,
+    light: [222, 178, 92] as const,
+    roughness: 0.88,
+    relief: 0.02,
+    cells: 4,
+    outerRadius: 0.25,
+    outerShoulder: 0.225,
+    innerRadius: 0.12,
+    innerShoulder: 0.14,
+    fabricCut: 0.135,
+    fabricShoulder: 0.15,
+    ridgeRadius: 0.185,
+    ridgeBand: 0.025,
+    threads: 64,
+    threadWidth: 0.46,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4800,4 +4817,5 @@ export const proceduralTileMeters = Object.freeze({
   punchcard: 0.44,
   braidedcord: 0.08,
   crossbeddedsandstone: 1.2,
+  grommetcanvas: 0.16,
 });

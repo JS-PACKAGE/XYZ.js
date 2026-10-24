@@ -528,7 +528,8 @@ export type ProceduralMaterialKind =
   | 'cherryblossom'
   | 'punchcard'
   | 'braidedcord'
-  | 'crossbeddedsandstone';
+  | 'crossbeddedsandstone'
+  | 'grommetcanvas';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1291,6 +1292,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'punchcard',
   'braidedcord',
   'crossbeddedsandstone',
+  'grommetcanvas',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1485,6 +1487,7 @@ export class ProceduralMaterial {
         this.kind === 'copperpatina' ||
         this.kind === 'chippedenamel' ||
         this.kind === 'gabion' ||
+        this.kind === 'grommetcanvas' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

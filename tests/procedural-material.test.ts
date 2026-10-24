@@ -551,7 +551,84 @@ const kinds: ProceduralMaterialKind[] = [
   'punchcard',
   'braidedcord',
   'crossbeddedsandstone',
+  'grommetcanvas',
 ];
+
+describe('Brass grommet rings on nonmetallic woven canvas', () => {
+  const p = proceduralMaterialPresets.grommetcanvas;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('grommetcanvas', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised convex brass rings metallic while preserving rough dielectric canvas and dark opaque bores for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let i = 0; i < 32; i++) {
+            const a = (i * 2 * Math.PI) / 32,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              radial = (r: number) => at(col + 0.5 + r * c, row + 0.5 + r * s),
+              bore = radial(0.06),
+              inner = radial(0.15),
+              crown = radial(p.ridgeRadius),
+              bevel = radial(0.24),
+              canvas = radial(0.36);
+            expect(crown.metallic).toBe(1);
+            expect(inner.metallic).toBe(1);
+            expect(canvas.metallic).toBe(0);
+            expect(bore.metallic).toBe(0);
+            expect(bevel.metallic).toBeGreaterThan(0);
+            expect(bevel.metallic).toBeLessThan(1);
+            expect(crown.height - inner.height).toBeGreaterThan(0.0003);
+            expect(crown.height - canvas.height).toBeGreaterThan(0.0085);
+            expect(canvas.height - bore.height).toBeGreaterThan(0.0014);
+            expect(crown.color - canvas.color).toBeGreaterThan(0.5);
+            expect(canvas.roughness - crown.roughness).toBeGreaterThan(0.65);
+            expect(canvas.occlusion - bore.occlusion).toBeGreaterThan(0.58);
+            expect(crown.occlusion - canvas.occlusion).toBeGreaterThan(0.015);
+          }
+    },
+  );
+  it('keeps metal fraction, inner and outer ring bevels, canvas cutting, weave and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'metallic',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cross-bedded sandstone with alternating curved dip sets', () => {
   const p = proceduralMaterialPresets.crossbeddedsandstone;
@@ -19382,6 +19459,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'copperpatina' &&
           kind !== 'chippedenamel' &&
           kind !== 'gabion' &&
+          kind !== 'grommetcanvas' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -19394,7 +19472,8 @@ describe('periodic procedural material fields', () => {
         kind === 'rust' ||
         kind === 'copperpatina' ||
         kind === 'chippedenamel' ||
-        kind === 'gabion'
+        kind === 'gabion' ||
+        kind === 'grommetcanvas'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -28788,6 +28867,7 @@ describe('procedural preset acquisition and ownership', () => {
     'copperpatina',
     'chippedenamel',
     'gabion',
+    'grommetcanvas',
     'standingseam',
     'damascus',
     'castiron',
@@ -28829,6 +28909,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'copperpatina' ||
           kind === 'chippedenamel' ||
           kind === 'gabion' ||
+          kind === 'grommetcanvas' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

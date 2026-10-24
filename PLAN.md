@@ -567,6 +567,8 @@
 
 同輪追加 `crossbeddedsandstone`（交錯層理砂岩），目錄 512→513 種：四層砂岩中的彎曲細層理交替傾向，在水平層界前截斷並接回共用接觸帶；區別 sandstone 的近水平平行層理與 rammedearth 的夯築帶。1.2 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增岩體 geometry、位移、地層生成、沉積或侵蝕模擬；逐功能驗證提交、不 push。
 
+同輪追加 `grommetcanvas`（黃銅雞眼扣帆布），目錄 513→514 種：棕色織布上 4×4 凸起黃銅環、暗色孔底及連續內外 bevel；區別 eyeletcotton 的純繡線孔圈。0.16 m tile、opaque mixed brass／canvas，metallic map 僅扣環為 1、帆布與不透明孔底為 0，預設 material factor 1 保留該分區；沿四圖／選用 height／ownership，不新增 geometry、透明鏤空或布料物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -575,6 +575,8 @@
 
 `crossbeddedsandstone` 預算四組 seeded 交替正／負 dip、quadratic curvature、phase 與染色深度；整數 UV 頻率沿 x 重複，compact smooth lamina profile 在 horizontal bed 邊界前漸消，獨立共用 contact profile 保持 owner 切換與 wrap C1。傾斜細層理微量低陷、表面 sandy grain 連續；黑箱回歸從 AO 尋找細紋並追蹤兩側位移／二階彎曲，不複製 seeded 參數計算。四層岩床、96×96 grain、1.2 m tile、metallic 0，目錄增為 513 種；取樣無 trig、sqrt 或陣列配置，既有 maps／height／ownership 不變，不新增 geometry、位移、地層生成、沉積或侵蝕模擬。
 
+`grommetcanvas` 沿 gabion 的混合 metallic 慣例：squared-radius inner／outer compact smooth masks 畫黃銅環、獨立 radial ridge profile 畫凸面，先切除底下帆布再以 ring coverage 混合 pigment／height／roughness／AO，metallic 直接取 ring。預設 material factor 1 僅啟用 authored map，不把布面或 opaque bore backing 改為金屬；bevel 分數金屬值平順銜接兩材質。64×64 warp／weft compact profiles 與 96×96 grain 畫粗帆布，16 組 seeded ring tones 預算。4×4 扣環、0.16 m tile，目錄增為 514 種；取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明鏤空或布料物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

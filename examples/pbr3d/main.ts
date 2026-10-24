@@ -592,6 +592,7 @@ try {
     'punchcard',
     'braidedcord',
     'crossbeddedsandstone',
+    'grommetcanvas',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

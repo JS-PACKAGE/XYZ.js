@@ -6840,3 +6840,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐層從 AO 黑箱搜尋細紋，追蹤上下兩側位移確認交替 dip 及二階彎曲，檢查 lamina／host 的 color／height／roughness／AO／metallic；各層界 33 點確認共用 contact／截斷帶與 height／color／roughness 差，另掃描 compact inclined profiles／curvature／bed owners／contacts／wrap C1。四項針對測試通過，既有 512 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6254 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 crossbeddedsandstone，513 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四組交替傾向細紋及水平截斷，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 地質表面，不宣稱地層模型精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：黃銅雞眼扣帆布（grommetcanvas）
+
+- 目錄 513→514 種；0.16 m tile，四乘四黃銅雞眼扣嵌於棕色細織帆布，保留深色不透明孔底、內緣／凸冠／外倒角；區別 eyeletcotton 的非金屬刺繡孔。沿既有四圖／選用 height／ownership，material metallic factor 為 1，只有扣環在 metallic map 寫入金屬覆蓋，帆布與孔底為 0；不新增鏤空 geometry、透明孔或布料物理。
+- 三 seed（0／1／`0xffffffff`）逐扣環各 32 方位檢查 bore／inner rim／crown／outer bevel／canvas 的 color／height／roughness／AO／metallic，另掃描 squared-radius profiles／weave／owners／wrap 的五欄位 C1（含 metallic）。四項針對測試通過，完整混合金屬範圍及公開 material ownership 測試通過；既有 513 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6260 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 grommetcanvas，514 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認金色扣環、深孔及細織帆布；metallic factor 1、實際 metallic map B 通道 min 0／max 255 並有混合倒角值，height true、destroyed true，預覽隨頁清除。不宣稱真實扣件接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
