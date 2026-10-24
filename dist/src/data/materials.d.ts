@@ -3964,6 +3964,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.012;
         bevel: 0.018;
     }>;
+    appleslice: Readonly<{
+        dark: readonly [115, 24, 15];
+        light: readonly [252, 243, 212];
+        roughness: 0.58;
+        relief: 0.02;
+        cells: 4;
+        radius: 0.38;
+        peelBevel: 0.008;
+        fleshRadius: 0.35;
+        fleshBevel: 0.008;
+        coreRadius: 0.19;
+        coreBevel: 0.015;
+        chambers: 5;
+        chamberCenter: 0.1;
+        chamberLength: 0.065;
+        chamberWidth: 0.038;
+        chamberShoulder: 0.18;
+        seedCenter: 0.105;
+        seedLength: 0.035;
+        seedWidth: 0.014;
+        seedShoulder: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4466,4 +4488,5 @@ export declare const proceduralTileMeters: Readonly<{
     pumpkinseeds: 0.12;
     spurgears: 0.2;
     diamondcheckertiles: 1.2;
+    appleslice: 0.4;
 }>;

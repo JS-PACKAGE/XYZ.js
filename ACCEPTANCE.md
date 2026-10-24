@@ -6742,3 +6742,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐磚檢查兩軸相鄰色差、同高面、四內角完整面與四邊灰縫的 height／AO／roughness／metallic，含負對角座標與兩方向 UV 平移 owner 一致；另掃描 bevel 乘積角落、深淺 owner 邊界與 wrap C1。既有 498 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6180 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 diamondcheckertiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認黑／米白斜向正方棋盤與連續中性灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：五種室蘋果橫切面（appleslice）
+
+- 目錄 499→500 種；0.4 m tile，4×4 圓切面交替轉 36°，薄紅褐果皮、淡色果肉與五個含深色籽的獨立凹種室。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，區別 appleskin 完整外皮，不新增果實 geometry、透明種室、切割、汁液或植物學模擬。
+- 三 seed（0／1／`0xffffffff`）逐切面逐種室檢查果肉／果皮／平底、籽／室底／種室間隔的 height／color／AO／roughness／metallic，以及每面 32 個方位的完整薄果皮與相鄰果肉；另掃描果皮／果肉／核心 bevel、種室／籽 unions、交替旋轉與 wrap C1。既有 499 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6185 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 appleslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認薄紅褐環包覆淡色圓果肉、五個分離種室及深色籽，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

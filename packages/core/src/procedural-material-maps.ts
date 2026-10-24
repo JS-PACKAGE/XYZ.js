@@ -1271,6 +1271,92 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'appleslice': {
+        const p = proceduralMaterialPresets.appleslice;
+        const grainField = cachedNoise(96, 96, seed ^ 0x84c3);
+        const axes = new Float64Array(p.chambers * 2);
+        for (let i = 0; i < p.chambers; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.chambers);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.chambers);
+        }
+        const radiusSquared = p.radius * p.radius,
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          coreSquared = p.coreRadius * p.coreRadius;
+        const inversePeelShoulder =
+            1 / (radiusSquared - (p.radius - p.peelBevel) ** 2),
+          inverseFleshShoulder =
+            1 / (fleshSquared - (p.fleshRadius - p.fleshBevel) ** 2),
+          inverseCoreShoulder =
+            1 / (coreSquared - (p.coreRadius - p.coreBevel) ** 2);
+        const inverseChamberLength = 1 / p.chamberLength,
+          inverseChamberWidth = 1 / p.chamberWidth,
+          inverseSeedLength = 1 / p.seedLength,
+          inverseSeedWidth = 1 / p.seedWidth,
+          inverseChamberShoulder = 1 / p.chamberShoulder,
+          inverseSeedShoulder = 1 / p.seedShoulder;
+        const cosTurn = Math.cos(Math.PI / p.chambers),
+          sinTurn = Math.sin(Math.PI / p.chambers);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? dx * cosTurn + dy * sinTurn : dx,
+            y = turn ? dy * cosTurn - dx * sinTurn : dy;
+          const r2 = x * x + y * y;
+          const face = smooth(
+              clamp((radiusSquared - r2) * inversePeelShoulder),
+            ),
+            flesh = smooth(clamp((fleshSquared - r2) * inverseFleshShoulder)),
+            core = smooth(clamp((coreSquared - r2) * inverseCoreShoulder));
+          let outsideChambers = 1,
+            outsideSeeds = 1;
+          for (let i = 0; i < axes.length; i += 2) {
+            const along = x * axes[i] + y * axes[i + 1],
+              across = y * axes[i] - x * axes[i + 1];
+            const ca = (along - p.chamberCenter) * inverseChamberLength,
+              cb = across * inverseChamberWidth,
+              sa = (along - p.seedCenter) * inverseSeedLength,
+              sb = across * inverseSeedWidth;
+            outsideChambers *=
+              1 -
+              smooth(clamp((1 - ca * ca - cb * cb) * inverseChamberShoulder));
+            outsideSeeds *=
+              1 - smooth(clamp((1 - sa * sa - sb * sb) * inverseSeedShoulder));
+          }
+          const chamber = 1 - outsideChambers,
+            kernel = 1 - outsideSeeds,
+            grain = grainField(u, v);
+          color =
+            0.06 +
+            face *
+              (0.14 +
+                0.74 * flesh -
+                0.06 * core -
+                0.4 * chamber -
+                0.4 * kernel +
+                0.02 * grain);
+          height =
+            0.06 +
+            face *
+              (0.5 +
+                0.05 * flesh -
+                0.05 * core -
+                0.15 * chamber +
+                0.08 * kernel +
+                0.003 * grain);
+          roughness +=
+            0.25 * (1 - face) -
+            0.14 * flesh +
+            0.14 * chamber -
+            0.2 * kernel +
+            0.02 * grain * face;
+          occlusion =
+            0.38 + 0.6 * face - 0.04 * core - 0.18 * chamber + 0.12 * kernel;
+          return;
+        };
+      }
       case 'diamondcheckertiles': {
         const p = proceduralMaterialPresets.diamondcheckertiles;
         const grainField = cachedNoise(96, 96, seed ^ 0x73a9);
@@ -17016,6 +17102,7 @@ export function createSurfaceSampler(
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
+    kind === 'appleslice' ||
     fabricated ||
     botanical ||
     packaging ||

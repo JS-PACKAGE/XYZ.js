@@ -537,7 +537,97 @@ const kinds: ProceduralMaterialKind[] = [
   'pumpkinseeds',
   'spurgears',
   'diamondcheckertiles',
+  'appleslice',
 ];
+
+describe('Apple cross sections with five seeded core chambers', () => {
+  const p = proceduralMaterialPresets.appleslice;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('appleslice', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains a thin dark peel, pale flesh and five separate recessed chambers whose seeds sit above their floors for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (((row + col) & 1) * Math.PI) / p.chambers;
+          const local = (along: number, across: number, angle: number) =>
+            at(
+              col +
+                0.5 +
+                along * Math.cos(angle + turn) -
+                across * Math.sin(angle + turn),
+              row +
+                0.5 +
+                along * Math.sin(angle + turn) +
+                across * Math.cos(angle + turn),
+            );
+          for (let i = 0; i < p.chambers; i++) {
+            const angle = (i * 2 * Math.PI) / p.chambers,
+              flesh = local(0.25, 0, angle),
+              peel = local(0.362, 0, angle),
+              outside = local(0.44, 0, angle),
+              chamber = local(p.seedCenter, 0.027, angle),
+              kernel = local(p.seedCenter, 0, angle),
+              divider = local(p.seedCenter, 0, angle + Math.PI / p.chambers);
+            expect(flesh.color - peel.color).toBeGreaterThan(0.719);
+            expect(flesh.height - outside.height).toBeGreaterThan(0.0109);
+            expect(flesh.height - chamber.height).toBeGreaterThan(0.0039);
+            expect(kernel.height - chamber.height).toBeGreaterThan(0.0015);
+            expect(chamber.color - kernel.color).toBeGreaterThan(0.379);
+            expect(kernel.occlusion - chamber.occlusion).toBeGreaterThan(0.119);
+            expect(chamber.roughness - kernel.roughness).toBeGreaterThan(0.179);
+            expect(divider.height - kernel.height).toBeGreaterThan(0.0013);
+            expect(divider.color - chamber.color).toBeGreaterThan(0.379);
+            for (const s of [flesh, peel, outside, chamber, kernel, divider])
+              expect(s.metallic).toBe(0);
+          }
+          for (let j = 0; j < 32; j++) {
+            const theta = (j * 2 * Math.PI) / 32;
+            expect(local(0.362, 0, theta).color).toBeLessThan(0.23);
+            expect(local(0.33, 0, theta).color).toBeGreaterThan(0.939);
+          }
+        }
+    },
+  );
+  it('keeps concentric peel/flesh/core bevels, all chamber/seed unions, alternating rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Diagonal black and cream ceramic checker tiles', () => {
   const p = proceduralMaterialPresets.diamondcheckertiles;
