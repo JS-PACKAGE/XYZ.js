@@ -8561,6 +8561,23 @@ var proceduralMaterialPresets = Object.freeze({
 		starInnerRadius: .11,
 		starBase: .055,
 		starBevel: .012
+	}),
+	righttriangletiles: Object.freeze({
+		dark: [
+			38,
+			64,
+			83
+		],
+		light: [
+			224,
+			233,
+			230
+		],
+		roughness: .34,
+		relief: .035,
+		cells: 4,
+		grout: .025,
+		bevel: .045
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9071,7 +9088,8 @@ var proceduralTileMeters = Object.freeze({
 	coffeerings: .36,
 	cashews: .16,
 	hinges: .4,
-	coins: .12
+	coins: .12,
+	righttriangletiles: 1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

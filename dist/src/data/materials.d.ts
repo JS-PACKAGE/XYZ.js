@@ -4107,6 +4107,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         starBase: 0.055;
         starBevel: 0.012;
     }>;
+    righttriangletiles: Readonly<{
+        dark: readonly [38, 64, 83];
+        light: readonly [224, 233, 230];
+        roughness: 0.34;
+        relief: 0.035;
+        cells: 4;
+        grout: 0.025;
+        bevel: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4618,4 +4627,5 @@ export declare const proceduralTileMeters: Readonly<{
     cashews: 0.16;
     hinges: 0.4;
     coins: 0.12;
+    righttriangletiles: 1;
 }>;

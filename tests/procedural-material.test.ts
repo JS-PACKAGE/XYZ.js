@@ -546,7 +546,101 @@ const kinds: ProceduralMaterialKind[] = [
   'cashews',
   'hinges',
   'coins',
+  'righttriangletiles',
 ];
+
+describe('Blue-grey and cream right-triangle glazed tiles', () => {
+  const p = proceduralMaterialPresets.righttriangletiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('righttriangletiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps 32 independently shaded triangular faces, alternating diagonals and smooth equal-width grout bevels for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+              at(col + x, row + ((col + row) & 1 ? 1 - y : y)),
+            dark = local(2 / 3, 1 / 3),
+            light = local(1 / 3, 2 / 3),
+            grout = local(0.5, 0.5);
+          expect(light.color - dark.color).toBeGreaterThan(0.29);
+          for (const face of [dark, light]) {
+            expect(face.height - grout.height).toBeGreaterThan(0.02);
+            expect(face.occlusion - grout.occlusion).toBeGreaterThan(0.47);
+            expect(grout.roughness - face.roughness).toBeGreaterThan(0.46);
+            expect(face.mortar).toBe(0);
+            expect(face.metallic).toBe(0);
+          }
+          for (let i = 0; i <= 32; i++) {
+            const t = i / 32;
+            for (const [x, y] of [
+              [t, t],
+              [0, t],
+              [1, t],
+              [t, 0],
+              [t, 1],
+            ] as const) {
+              const seam = local(x, y);
+              expect(seam.height).toBe(grout.height);
+              expect(seam.mortar).toBe(1);
+            }
+          }
+          for (const side of [-1, 1]) {
+            let previous = grout.height;
+            for (const distance of [0.04, 0.055, 0.09]) {
+              const offset = side * distance * Math.SQRT1_2,
+                diagonal = local(0.5 + offset, 0.5 - offset),
+                straight = local(distance, 0.3);
+              expect(diagonal.height - previous).toBeGreaterThan(0.004);
+              expect(Math.abs(diagonal.height - straight.height)).toBeLessThan(
+                0.00018,
+              );
+              previous = diagonal.height;
+            }
+          }
+        }
+    },
+  );
+  it('keeps triangle half-planes, seeded pigments, alternating diagonal owners, grid corners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Gold coins with raised circular rims and five-point star stamps', () => {
   const p = proceduralMaterialPresets.coins;

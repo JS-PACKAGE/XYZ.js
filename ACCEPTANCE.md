@@ -6805,3 +6805,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐幣檢查 32 方向 rim／field／backing 的 height／color／AO／roughness／metallic 層次、五個凹谷回到平面，以及中央至五個尖角各 33 點的浮雕連通與高度／明度／AO；另掃描 disk bevels／annular rims／star spike unions／seeded owners／wrap C1。公開 material metallic 契約同步；四項針對測試通過，既有 507 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6229 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 coins，508 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。兩 backend 前皆呼叫 managed browser close；首個 WebGL2 分頁截圖仍發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認金色圓框、較低平面及五角星浮雕，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：直角三角釉面磚（righttriangletiles）
+
+- 目錄 508→509 種；1 m tile，4×4 方格分成 32 塊藍灰／乳白直角等腰三角磚，獨立 seeded 磚面、交替斜縫方向，外框與斜縫皆有等法向寬度的中性灰縫／倒角。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增磚體 geometry、位移或透明度。
+- 三 seed（0／1／`0xffffffff`）逐格檢查雙色三角 face／grout 的 color／height／AO／roughness／metallic／mortar、五條邊線各 33 點的連續灰縫、斜縫兩側三階 bevel 高度及與直縫等法向距離的高度近似；另掃描 diagonal half-planes／seeded owners／交替反射／grid corners／wrap C1。四項針對測試通過，既有 508 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6234 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 righttriangletiles，509 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。build 已先完成，兩 backend 於同一 Eval lifecycle 驗證；首個 WebGL2 分頁截圖仍發生工具 20000 ms timeout、errors 空，已回報並釋放，新分頁完成畫面與 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認雙色三角磚、交替斜縫及連續灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

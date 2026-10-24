@@ -4206,6 +4206,15 @@ export const proceduralMaterialPresets = Object.freeze({
     starBase: 0.055,
     starBevel: 0.012,
   }),
+  righttriangletiles: Object.freeze({
+    dark: [38, 64, 83] as const,
+    light: [224, 233, 230] as const,
+    roughness: 0.34,
+    relief: 0.035,
+    cells: 4,
+    grout: 0.025,
+    bevel: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4718,4 +4727,5 @@ export const proceduralTileMeters = Object.freeze({
   cashews: 0.16,
   hinges: 0.4,
   coins: 0.12,
+  righttriangletiles: 1,
 });

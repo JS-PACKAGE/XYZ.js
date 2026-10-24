@@ -587,6 +587,7 @@ try {
     'cashews',
     'hinges',
     'coins',
+    'righttriangletiles',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

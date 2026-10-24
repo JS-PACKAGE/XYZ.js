@@ -1274,6 +1274,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'righttriangletiles': {
+        const p = proceduralMaterialPresets.righttriangletiles;
+        const tones = new Float64Array(p.cells * p.cells * 2),
+          inverseBevel = 1 / p.bevel,
+          grainField = cachedNoise(96, 96, seed ^ 0x9ac3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            tones[i] = 0.35 + 0.15 * hash(col, row, seed ^ 0x9ac5);
+            tones[i + 1] = 0.8 + 0.12 * hash(col, row, seed ^ 0x9ac7);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc),
+            rawY = fract(vc),
+            y = (col + row) & 1 ? 1 - rawY : rawY,
+            border =
+              smooth(clamp((Math.min(x, 1 - x) - p.grout) * inverseBevel)) *
+              smooth(clamp((Math.min(y, 1 - y) - p.grout) * inverseBevel)),
+            diagonal = (x - y) * Math.SQRT1_2,
+            a = border * smooth(clamp((diagonal - p.grout) * inverseBevel)),
+            b = border * smooth(clamp((-diagonal - p.grout) * inverseBevel)),
+            face = a + b,
+            i = (row * p.cells + col) * 2,
+            grain = grainField(u, v);
+          // Diagonal distance is perpendicular to the seam, keeping its grout
+          // and bevel widths equal to the horizontal and vertical tile edges.
+          color =
+            0.3 +
+            a * (tones[i] - 0.3) +
+            b * (tones[i + 1] - 0.3) +
+            0.01 * grain * face;
+          height = 0.04 + face * (0.58 + 0.005 * grain);
+          mortar = 1 - face;
+          roughness += 0.42 * mortar - 0.06 * face + 0.015 * grain * face;
+          occlusion = 0.5 + 0.48 * face;
+          return;
+        };
+      }
       case 'coins': {
         const p = proceduralMaterialPresets.coins;
         const axes = new Float64Array(p.points * 2),
@@ -17602,6 +17644,7 @@ export function createSurfaceSampler(
     kind === 'cashews' ||
     kind === 'hinges' ||
     kind === 'coins' ||
+    kind === 'righttriangletiles' ||
     fabricated ||
     botanical ||
     packaging ||
