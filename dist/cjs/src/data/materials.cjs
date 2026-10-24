@@ -9468,6 +9468,34 @@ var proceduralMaterialPresets = Object.freeze({
 		pipShoulder: .4,
 		dividerHalfWidth: .135,
 		dividerHalfHeight: .008
+	}),
+	woodenspoons: Object.freeze({
+		dark: [
+			52,
+			29,
+			15
+		],
+		light: [
+			211,
+			163,
+			98
+		],
+		roughness: .55,
+		relief: .006,
+		cells: 4,
+		bowlY: -.2,
+		bowlWidth: .14,
+		bowlHeight: .19,
+		bowlShoulder: .24,
+		cavityRadiusSquared: .65,
+		neckWidth: .038,
+		handleWidening: .035,
+		handleTop: -.1,
+		handleBottom: .38,
+		handleEndBevel: .02,
+		handleShoulder: .35,
+		wideningStart: -.04,
+		wideningLength: .36
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10012,7 +10040,8 @@ var proceduralTileMeters = Object.freeze({
 	leatherbookspines: .32,
 	matchsticks: .2,
 	porcelaininsulators: .8,
-	dominoes: .24
+	dominoes: .24,
+	woodenspoons: .4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

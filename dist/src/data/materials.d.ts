@@ -4700,6 +4700,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         dividerHalfWidth: 0.135;
         dividerHalfHeight: 0.008;
     }>;
+    woodenspoons: Readonly<{
+        dark: readonly [52, 29, 15];
+        light: readonly [211, 163, 98];
+        roughness: 0.55;
+        relief: 0.006;
+        cells: 4;
+        bowlY: -0.2;
+        bowlWidth: 0.14;
+        bowlHeight: 0.19;
+        bowlShoulder: 0.24;
+        cavityRadiusSquared: 0.65;
+        neckWidth: 0.038;
+        handleWidening: 0.035;
+        handleTop: -0.1;
+        handleBottom: 0.38;
+        handleEndBevel: 0.02;
+        handleShoulder: 0.35;
+        wideningStart: -0.04;
+        wideningLength: 0.36;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5245,4 +5265,5 @@ export declare const proceduralTileMeters: Readonly<{
     matchsticks: 0.2;
     porcelaininsulators: 0.8;
     dominoes: 0.24;
+    woodenspoons: 0.4;
 }>;

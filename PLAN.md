@@ -625,6 +625,8 @@
 
 同輪追加 `dominoes`（骨牌），目錄 541→542 種：4×4 交替水平／垂直象牙白圓角牌面，兩半獨立 seeded 標準 0–6 黑色凹點排列，中央較淺分隔槽，保留 raised face／filled recesses／opaque backing。0.24 m dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增骨牌 geometry、遊戲規則或物理。依功能驗證提交、不 push。
 
+同輪追加 `woodenspoons`（木匙），目錄 542→543 種：4×4 交替水平／垂直木匙，橢圓填實凹碗、高起匙緣、連續細頸與漸寬扁柄、縱向木纖維，區別 cutlery 珠邊拉絲柄面。0.4 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增匙 geometry、容積／流體或食品安全認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -1280,6 +1280,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'woodenspoons': {
+        const p = proceduralMaterialPresets.woodenspoons;
+        const tones = new Float64Array(p.cells * p.cells),
+          inverseBowlWidthSquared = 1 / (p.bowlWidth * p.bowlWidth),
+          inverseBowlHeightSquared = 1 / (p.bowlHeight * p.bowlHeight),
+          inverseBowlShoulder = 1 / p.bowlShoulder,
+          inverseCavity = 1 / p.cavityRadiusSquared,
+          inverseHandleEnd = 1 / p.handleEndBevel,
+          inverseHandleShoulder = 1 / p.handleShoulder,
+          inverseWideningLength = 1 / p.wideningLength,
+          fiberField = cachedNoise(128, 16, seed ^ 0x10c13),
+          grainField = cachedNoise(96, 96, seed ^ 0x10c15);
+        for (let cell = 0; cell < tones.length; cell++)
+          tones[cell] = hash(cell, 0, seed ^ 0x10c11);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col,
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            by = y - p.bowlY,
+            q =
+              x * x * inverseBowlWidthSquared +
+              by * by * inverseBowlHeightSquared,
+            bowl = smooth(clamp((1 - q) * inverseBowlShoulder)),
+            cavity = smooth(clamp(1 - q * inverseCavity)),
+            width =
+              p.neckWidth +
+              p.handleWidening *
+                smooth(clamp((y - p.wideningStart) * inverseWideningLength)),
+            handleDome = clamp(1 - (x * x) / (width * width)),
+            handle =
+              smooth(clamp(handleDome * inverseHandleShoulder)) *
+              smooth(clamp((y - p.handleTop) * inverseHandleEnd)) *
+              smooth(clamp((p.handleBottom - y) * inverseHandleEnd));
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (bowl === 0 && handle === 0) return;
+          const fiber = fiberField(
+              (col + 0.5 + x) / p.cells,
+              (row + 0.5 + y) / p.cells,
+            ),
+            grain = grainField(u, v),
+            wood = 0.72 + 0.06 * tones[cell] + 0.065 * fiber + 0.008 * grain;
+          color += handle * (wood - color);
+          height +=
+            handle *
+            (0.5 + 0.045 * smooth(handleDome) + 0.001 * grain - height);
+          roughness +=
+            handle * (0.55 + 0.025 * fiber + 0.01 * grain - roughness);
+          occlusion += handle * (0.97 - occlusion);
+          // A higher rim surrounds a filled concavity; the bowl replaces the
+          // lower handle where they overlap instead of stacking their relief.
+          color += bowl * (wood - 0.16 * cavity - color);
+          height += bowl * (0.69 - 0.25 * cavity + 0.001 * grain - height);
+          roughness +=
+            bowl *
+            (0.53 + 0.025 * fiber + 0.01 * grain + 0.035 * cavity - roughness);
+          occlusion += bowl * (0.98 - 0.16 * cavity - occlusion);
+          return;
+        };
+      }
       case 'dominoes': {
         const p = proceduralMaterialPresets.dominoes;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20282,6 +20349,7 @@ export function createSurfaceSampler(
     kind === 'matchsticks' ||
     kind === 'porcelaininsulators' ||
     kind === 'dominoes' ||
+    kind === 'woodenspoons' ||
     fabricated ||
     botanical ||
     packaging ||
