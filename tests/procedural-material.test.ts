@@ -586,7 +586,102 @@ const kinds: ProceduralMaterialKind[] = [
   'bellpepperslices',
   'sharkteeth',
   'grinderburrs',
+  'cowhide',
 ];
+
+describe('Irregular black and white cowhide over continuous short hair', () => {
+  const p = proceduralMaterialPresets.cowhide;
+  it.each([0, 1, 0xffffffff])(
+    'retains substantial dark and light patches without carving their pigment boundaries into the short pile for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cowhide', seed),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let darkCount = 0,
+        lightCount = 0,
+        darkHeight = 0,
+        lightHeight = 0,
+        minimumColor = Infinity,
+        maximumColor = -Infinity,
+        minimumHeight = Infinity,
+        maximumHeight = -Infinity;
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.37) / 128, (y + 0.61) / 128, out);
+          minimumColor = Math.min(minimumColor, out.color);
+          maximumColor = Math.max(maximumColor, out.color);
+          minimumHeight = Math.min(minimumHeight, out.height);
+          maximumHeight = Math.max(maximumHeight, out.height);
+          if (out.color < 0.18) {
+            darkCount++;
+            darkHeight += out.height / p.relief;
+          }
+          if (out.color > 0.82) {
+            lightCount++;
+            lightHeight += out.height / p.relief;
+          }
+          expect(out.height).toBeGreaterThanOrEqual(0.28 * p.relief);
+          expect(out.height).toBeLessThanOrEqual(0.555 * p.relief);
+          expect(out.roughness).toBeGreaterThan(0.82);
+          expect(out.roughness).toBeLessThan(0.92);
+          expect(out.occlusion).toBeGreaterThanOrEqual(0.985);
+          expect(out.occlusion).toBeLessThanOrEqual(0.997);
+          expect(out.metallic).toBe(0);
+        }
+      expect(darkCount).toBeGreaterThan(128 * 128 * 0.05);
+      expect(lightCount).toBeGreaterThan(128 * 128 * 0.05);
+      expect(128 * 128 - darkCount - lightCount).toBeLessThan(128 * 128 * 0.08);
+      expect(minimumColor).toBeLessThan(0.07);
+      expect(maximumColor).toBeGreaterThan(0.93);
+      expect(maximumHeight - minimumHeight).toBeGreaterThan(0.0003);
+      expect(
+        Math.abs(darkHeight / darkCount - lightHeight / lightCount),
+      ).toBeLessThan(0.015);
+    },
+  );
+  it('keeps irregular pigment boundaries, individual compact hairs, grain, lookup changes and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cowhide', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Steel grinding burrs with six curved lands and mounting holes', () => {
   const p = proceduralMaterialPresets.grinderburrs;

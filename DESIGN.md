@@ -645,6 +645,8 @@
 
 `grinderburrs` 預算 16 tones／phases、三孔中心座標與 96×96 grain；squared-radius annulus／compact hole masks 保留中央與三個低 opaque 金屬孔底。整數六 flutes 使 angle branch 週期閉合，bore 零 support 避開 atan2 原點，angle 加 squared-radius phase 畫彎刃，squared parabolic periodic bump 形成刃／槽高度與粗糙度差。零 face 不採 atan2／grain，採樣無配置／hash／sqrt／sin／cos；沿既有 all-metal 預設契約，不新增研磨 geometry、切削／咖啡研磨模擬或物理。
 
+`cowhide` 重用 shortFur 的 40×32 seeded 短毛中心／軸與 3×3 compact ellipse lookup、5×7 warp、96×64 grain；僅此 kind 加預算 4×4 pigment noise，以 0.18 warp mix 與 smooth threshold 形成圓潤黑白不規則斑。Pigment 只改 color，既有 pile height／roughness／AO 保持獨立，白黑邊界沒有假凹槽；不為舊 fur kinds 配置新 patch field。沿既有短毛取樣與 ownership，不新增 geometry、梳理／布料／生物或動物模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -394,9 +394,20 @@ export function createSurfaceSampler(
         kiwiHairs[offset + 4] = 0.75 + 0.25 * hash(x, y, seed ^ 0x19d3);
       }
   const shortFur =
-    kind === 'zebrafur' || kind === 'leopardfur' || kind === 'giraffefur';
+    kind === 'zebrafur' ||
+    kind === 'leopardfur' ||
+    kind === 'giraffefur' ||
+    kind === 'cowhide';
   const furWarp = shortFur ? cachedNoise(5, 7, seed ^ 0x72b9) : null;
   const furGrain = shortFur ? cachedNoise(96, 64, seed ^ 0x4c13) : null;
+  const cowPreset =
+      kind === 'cowhide' ? proceduralMaterialPresets.cowhide : null,
+    cowPatches = cowPreset
+      ? cachedNoise(cowPreset.patchColumns, cowPreset.patchRows, seed ^ 0x11211)
+      : null,
+    inverseCowTransition = cowPreset
+      ? 1 / (cowPreset.patchHigh - cowPreset.patchLow)
+      : 0;
   // Each short hair has compact C1 elliptical support strictly inside the
   // neighboring cells. Pigment never participates in the pile's height field.
   const furFibers = shortFur ? new Float64Array(40 * 32 * 4) : null;
@@ -13179,6 +13190,7 @@ export function createSurfaceSampler(
       case 'zebrafur':
       case 'leopardfur':
       case 'giraffefur':
+      case 'cowhide':
         return () => {
           const warp = furWarp!(u, v),
             grain = furGrain!(u, v),
@@ -13203,7 +13215,14 @@ export function createSurfaceSampler(
                 hair = smooth(clamp(1 - along * along - across * across));
               fibers += (1 - fibers) * hair;
             }
-          if (kind === 'zebrafur') {
+          if (kind === 'cowhide') {
+            const p = proceduralMaterialPresets.cowhide,
+              pigment = (1 - p.warpMix) * cowPatches!(u, v) + p.warpMix * warp;
+            color =
+              0.04 +
+              0.92 *
+                smooth(clamp((pigment - p.patchLow) * inverseCowTransition));
+          } else if (kind === 'zebrafur') {
             const bend =
                 0.42 * Math.sin(TAU * 2 * v + phase) + 0.75 * (warp - 0.5),
               carrier = TAU * (8 * u + bend),

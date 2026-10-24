@@ -4831,6 +4831,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         holeRadius: 0.022;
         holeCore: 0.012;
     }>;
+    cowhide: Readonly<{
+        dark: readonly [20, 19, 18];
+        light: readonly [230, 229, 218];
+        roughness: 0.87;
+        relief: 0.002;
+        patchColumns: 4;
+        patchRows: 4;
+        warpMix: 0.18;
+        patchLow: 0.48;
+        patchHigh: 0.5;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5382,4 +5393,5 @@ export declare const proceduralTileMeters: Readonly<{
     bellpepperslices: 0.32;
     sharkteeth: 0.24;
     grinderburrs: 0.4;
+    cowhide: 0.8;
 }>;

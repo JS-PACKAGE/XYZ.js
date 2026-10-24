@@ -7113,3 +7113,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 547 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 grinderburrs，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6436 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 grinderburrs，548 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現六道彎曲刃面／槽、中央孔、三安裝孔與 seeded 轉向，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱研磨 geometry、切削／咖啡研磨模擬、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：黑白斑短毛牛皮（cowhide）
+
+- 目錄 548→549 種；0.8 m tile，不規則圓潤黑白色塊、連續短毛面，區別 zebrafur 分岔條紋／leopardfur 環斑／giraffefur 多邊形斑。重用既有 shortFur compact pile，只為 cowhide 加 coarse pigment field；pigment 不刻進 height。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增毛髮 geometry、梳理／布料／生物或動物模擬。
+- 三 seed（0／1／`0xffffffff`）各 128×128 避開整數格的固定樣點驗證黑／白各 >5%、color min <0.07／max >0.93、短毛 height span >0.0003 m、全表面 height／roughness／AO 範圍與非金屬；黑白區平均 normalized height 差 <0.015，避免斑塊被做成凸片或凹槽。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 第一輪正式 WebGPU／WebGL2 與 size 512 baseColor 觀察到色斑邊界過於模糊：原 threshold 0.42–0.56 跨距 0.14，fresh Bun 256×256 三 seed 的中間灰帶佔 9.6741%／17.8879%／17.3386%。取消尚未完成的第一輪完整 gates，不將其記為通過；加入灰帶 <8% 的可見輪廓 regression，128×128 三 seed 修改前失敗（1586／2924／2845 >1310.72）。維持 midpoint 0.49、縮窄為 0.48–0.50，不改毛面；修正後五項針對測試通過，fresh Bun 256×256 灰帶降至 1.4084%／2.6428%／2.3239%，保留 C1 0.02 上限。
+- 既有 548 種（含三種既有 shortFur）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 修正後新 build 亦生成 cowhide，八份修改文件相對連結無失效。
+- 修正後完整 build、typecheck、lint、format:check、179 檔／6441 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- 修正後 managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 重新驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 cowhide，549 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認圓潤不規則黑白斑的邊界收斂、細毛色澤與連續毛面，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱毛髮 geometry、梳理／布料／生物／動物模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
