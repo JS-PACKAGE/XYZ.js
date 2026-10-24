@@ -553,7 +553,147 @@ const kinds: ProceduralMaterialKind[] = [
   'crossbeddedsandstone',
   'grommetcanvas',
   'fishscaletiles',
+  'hexkeys',
 ];
+
+describe('Black oxide L-shaped hex keys with flat rod facets', () => {
+  const p = proceduralMaterialPresets.hexkeys;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('hexkeys', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps unequal arms, continuous round elbows, flat crowns, two side facets and flat cut ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const candidates = [0, 1, 2, 3].map((turn) => {
+            const a = (turn * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            return (x: number, y: number) =>
+              at(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c);
+          });
+          const poses = candidates.filter(
+            (probe) =>
+              probe(-p.bendRadius, -0.26).height > 0.0049 &&
+              probe(0.14, p.bendY + p.bendRadius).height > 0.0049,
+          );
+          expect(poses).toHaveLength(1);
+          const probe = poses[0];
+          const section = (x: number, y: number, nx: number, ny: number) => {
+            const center = probe(x, y);
+            for (const side of [-1, 1]) {
+              const flat = probe(
+                  x + side * nx * p.width * 0.25,
+                  y + side * ny * p.width * 0.25,
+                ),
+                facet = probe(
+                  x + side * nx * p.width * 0.75,
+                  y + side * ny * p.width * 0.75,
+                ),
+                backing = probe(
+                  x + side * nx * p.width * 1.45,
+                  y + side * ny * p.width * 1.45,
+                );
+              expect(Math.abs(center.height - flat.height)).toBeLessThan(
+                0.00004,
+              );
+              expect(center.height - facet.height).toBeGreaterThan(0.0007);
+              expect(center.color - facet.color).toBeGreaterThan(0.14);
+              expect(center.height - backing.height).toBeGreaterThan(0.0048);
+              expect(backing.roughness - center.roughness).toBeGreaterThan(
+                0.18,
+              );
+              expect(center.occlusion - backing.occlusion).toBeGreaterThan(
+                0.49,
+              );
+              expect(center.metallic).toBe(1);
+              expect(facet.metallic).toBe(1);
+            }
+          };
+          section(-p.bendRadius, -0.12, 1, 0);
+          section(0.13, p.bendY + p.bendRadius, 0, 1);
+          for (let i = 0; i <= 16; i++) {
+            const a = Math.PI * (0.5 + i / 32),
+              c = Math.cos(a),
+              s = Math.sin(a);
+            section(p.bendRadius * c, p.bendY + p.bendRadius * s, c, s);
+          }
+          for (const point of [
+            [-p.bendRadius, p.longEnd],
+            [-p.bendRadius, p.longEnd - 0.03],
+            [p.shortEnd, p.bendY + p.bendRadius],
+            [p.shortEnd + 0.03, p.bendY + p.bendRadius],
+            [0, p.bendY],
+            [0.12, 0],
+          ])
+            expect(probe(point[0], point[1]).height).toBeCloseTo(
+              0.025 * p.relief,
+              12,
+            );
+          expect(probe(-p.bendRadius, p.longEnd + 0.02).height).toBeGreaterThan(
+            0.0049,
+          );
+          expect(
+            probe(p.shortEnd - 0.02, p.bendY + p.bendRadius).height,
+          ).toBeGreaterThan(0.0049);
+        }
+    },
+  );
+  it('keeps facet ramps, straight-to-arc joins, end cuts, owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(x, y),
+            c = at(x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check((x * p.cells) / 128, (y * p.cells) / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let turn = 0; turn < 4; turn++) {
+            const a = (turn * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (let i = -12; i <= 12; i++) {
+              const d = (i * p.width) / 12;
+              for (const [x, y] of [
+                [-p.bendRadius + d, p.bendY],
+                [0, p.bendY + p.bendRadius + d],
+              ])
+                check(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c);
+            }
+          }
+    }
+  });
+});
 
 describe('Interlocking fish-scale glazed mosaic tiles', () => {
   const p = proceduralMaterialPresets.fishscaletiles;
@@ -19531,6 +19671,7 @@ describe('periodic procedural material fields', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -28982,6 +29123,7 @@ describe('procedural preset acquisition and ownership', () => {
     'paperclips',
     'hinges',
     'coins',
+    'hexkeys',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -29024,6 +29166,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

@@ -530,7 +530,8 @@ export type ProceduralMaterialKind =
   | 'braidedcord'
   | 'crossbeddedsandstone'
   | 'grommetcanvas'
-  | 'fishscaletiles';
+  | 'fishscaletiles'
+  | 'hexkeys';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1295,6 +1296,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'crossbeddedsandstone',
   'grommetcanvas',
   'fishscaletiles',
+  'hexkeys',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1516,6 +1518,7 @@ export class ProceduralMaterial {
         this.kind === 'paperclips' ||
         this.kind === 'hinges' ||
         this.kind === 'coins' ||
+        this.kind === 'hexkeys' ||
         this.kind === 'starsocketbolts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||

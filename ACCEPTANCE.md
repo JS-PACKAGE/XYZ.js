@@ -6854,3 +6854,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐磚檢查上、下內部共平面與 tone 一致，17 方位 convex top 的 face／bevel／grout 高度、roughness、AO 及兩側各九點 concave seam／相鄰 tone ownership；另掃描五欄位（含 mortar）的圓弧／nearest-disk ties／row transition／wrap C1。四項針對測試通過，既有 514 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6265 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 fishscaletiles，515 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認互鎖扇形輪廓、雙凹下緣、弧形灰縫及逐磚色差，height true、metallic 0、destroyed true，預覽隨頁清除。僅為表面材質，不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：黑氧化六角扳手（hexkeys）
+
+- 目錄 515→516 種；0.4 m tile，4×4 seeded quarter-turn 的黑氧化 L 形六角扳手，不等長直臂以圓彎肘相切銜接，保留平切端、平頂／雙線性側面與窄帶圓角，區別 paperclips／cotterpins 的圓線材。Opaque metallic、map／預設 factor 皆為 1，沿既有四圖／選用 height／ownership，不新增工具 geometry、機械裝配或物理。
+- 三 seed（0／1／`0xffffffff`）逐工具以兩個實際高度 landmark 搜尋唯一轉向，檢查兩條直臂及彎肘 17 截面的平頂、雙側斜面與兩側 backing 高度／color／roughness／AO／metallic，檢查兩端平切、長短臂保留及 L 內空間無虛假填滿；另掃描全域與逐轉向相切接點的 facet／elbow／end bevel／owners／wrap C1。四項針對測試通過，既有 515 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6271 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 hexkeys，516 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認不同轉向的長短 L 臂、連續彎肘、平切端與側稜，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱 CAD 精度、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

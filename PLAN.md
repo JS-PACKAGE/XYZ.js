@@ -571,6 +571,8 @@
 
 同輪追加 `fishscaletiles`（魚鱗形釉面馬賽克），目錄 514→515 種：四列八錯列青綠色扇形磚，凸半圓上沿與兩條凹弧下沿互鎖，以中性填縫分隔，共平面釉面保留逐磚 seeded 深淺。區別 scallopedslate 的覆疊屋瓦、fishscales 的動物鱗片及 seigaihatiles 的方磚波紋印花。0.4 m tile、opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增 geometry、透明度或鋪磚模擬；逐功能驗證提交、不 push。
 
+同輪追加 `hexkeys`（黑氧化六角扳手），目錄 515→516 種：四乘四不同 quarter-turn 的 L 形工具，長短直臂以圓彎肘相切銜接，六角棒材保留平頂與兩側斜面、小圓角及平切端。區別 paperclips／cotterpins 的圓線材；0.4 m tile、opaque metallic 1，沿四圖／選用 height／ownership，不新增工具 geometry、機械裝配或物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

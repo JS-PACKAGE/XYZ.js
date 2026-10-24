@@ -1254,6 +1254,7 @@ export function createSurfaceSampler(
     kind === 'rollerchain' ||
     kind === 'hinges' ||
     kind === 'coins' ||
+    kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1274,6 +1275,69 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'hexkeys': {
+        const p = proceduralMaterialPresets.hexkeys;
+        const poses = new Float64Array(p.cells * p.cells * 3);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3,
+              turn = Math.floor(4 * hash(col, row, seed ^ 0xf121));
+            poses[i] = turn === 0 ? 1 : turn === 2 ? -1 : 0;
+            poses[i + 1] = turn === 1 ? 1 : turn === 3 ? -1 : 0;
+            poses[i + 2] = hash(col, row, seed ^ 0xf123);
+          }
+        const inverseShoulder = 1 / p.shoulder,
+          inverseEnd = 1 / p.endBevel,
+          flatWidth = p.width * p.flatFraction,
+          inverseFacet = 1 / (p.width - flatWidth),
+          inverseRound = 1 / (2 * p.facetRound),
+          inverseRamp = 1 / (1 - p.facetRound),
+          grainField = cachedNoise(96, 96, seed ^ 0xf127);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 3,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1];
+          let across: number,
+            end = 1;
+          // Tangent straight/quarter-circle joins share distance and gradient.
+          // The arc's radial singularity lies outside the compact rod support.
+          if (y <= p.bendY) {
+            across = Math.abs(x + p.bendRadius);
+            end = smooth(clamp((y - p.longEnd) * inverseEnd));
+          } else if (x >= 0) {
+            across = Math.abs(y - p.bendY - p.bendRadius);
+            end = smooth(clamp((p.shortEnd - x) * inverseEnd));
+          } else {
+            const by = y - p.bendY;
+            across = Math.abs(Math.sqrt(x * x + by * by) - p.bendRadius);
+          }
+          const face =
+              end * smooth(clamp((p.width - across) * inverseShoulder)),
+            t = clamp((across - flatWidth) * inverseFacet);
+          // Keep a flat crown and planar side facets; only their small corner
+          // bands round the linear ramp so normals remain C1 at facet joins.
+          const ramp =
+              t < p.facetRound
+                ? t * t * inverseRound
+                : t > 1 - p.facetRound
+                  ? 1 - p.facetRound - (1 - t) * (1 - t) * inverseRound
+                  : t - p.facetRound * 0.5,
+            facet = 1 - ramp * inverseRamp,
+            grain = grainField(u, v);
+          color =
+            0.08 +
+            face * (0.36 + 0.32 * facet + 0.03 * poses[i + 2] + 0.015 * grain);
+          height = 0.025 + face * (0.5 + 0.25 * facet + 0.006 * grain);
+          roughness +=
+            0.12 * (1 - face) + face * (-0.1 * facet + 0.035 * grain);
+          occlusion = 0.48 + 0.5 * face;
+          return;
+        };
+      }
       case 'fishscaletiles': {
         const p = proceduralMaterialPresets.fishscaletiles;
         const tones = new Float64Array(p.columns * p.rows);
@@ -18078,6 +18142,7 @@ export function createSurfaceSampler(
     kind === 'crossbeddedsandstone' ||
     kind === 'grommetcanvas' ||
     kind === 'fishscaletiles' ||
+    kind === 'hexkeys' ||
     fabricated ||
     botanical ||
     packaging ||
