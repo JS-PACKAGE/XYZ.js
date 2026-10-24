@@ -4466,6 +4466,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         emblemBevel: 0.012;
         emblemGuard: 0.06;
     }>;
+    cottonbolls: Readonly<{
+        dark: readonly [57, 34, 18];
+        light: readonly [246, 241, 217];
+        roughness: 0.9;
+        relief: 0.018;
+        cells: 4;
+        tufts: 4;
+        tuftDistance: 0.13;
+        tuftRadius: 0.155;
+        tuftShoulder: 0.2;
+        bractDistance: 0.14;
+        bractLength: 0.19;
+        bractWidth: 0.045;
+        bractShoulder: 0.18;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4998,4 +5013,5 @@ export declare const proceduralTileMeters: Readonly<{
     hextruchettiles: 0.7;
     scoredmango: 0.48;
     waxseals: 0.16;
+    cottonbolls: 0.24;
 }>;

@@ -599,6 +599,8 @@
 
 同輪追加 `waxseals`（五瓣徽記封蠟印章），目錄 528→529 種：4×4 深紅封蠟，seeded 七／十一波不規則熔邊、圓形壓印凹面、圓環凸緣與五瓣浮雕徽記，區別 candleswax 的垂流蠟滴及 crowncaps 的金屬壓紋。0.16 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增印章 geometry、文字／自訂圖案輸入、熔融動畫或蠟流體；逐功能驗證提交、不 push。
 
+同輪追加 `cottonbolls`（四團棉絮開裂棉鈴），目錄 529→530 種：4×4 交替轉 45° 的開裂棉鈴，四團凸起象牙棉絮、較低中央接縫、露出尖褐苞片與 seeded 細纖維斑理；區別 clover 的三片心形葉與 velvet 的平面絨面。0.24 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增棉纖維 geometry、透明毛邊、次表面散射或植物生長；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

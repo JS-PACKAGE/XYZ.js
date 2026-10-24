@@ -567,7 +567,106 @@ const kinds: ProceduralMaterialKind[] = [
   'hextruchettiles',
   'scoredmango',
   'waxseals',
+  'cottonbolls',
 ];
+
+describe('Open cotton bolls with four convex fiber tufts', () => {
+  const p = proceduralMaterialPresets.cottonbolls;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cottonbolls', seed);
+    return (
+      col: number,
+      row: number,
+      r: number,
+      angle: number,
+    ): SurfaceSample => {
+      const turn = (col + row) & 1,
+        x = r * Math.cos(angle),
+        y = r * Math.sin(angle),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (turn ? (x - y) * Math.SQRT1_2 : x)) / p.cells,
+        (row + 0.5 + (turn ? (x + y) * Math.SQRT1_2 : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains four separate cotton crowns, lower center, exposed pointed bracts and clear backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = at(col, row, 0, 0);
+          for (let i = 0; i < 4; i++) {
+            const angle = (i * Math.PI) / 2,
+              tuft = at(col, row, p.tuftDistance, angle),
+              flank = at(col, row, 0.245, angle),
+              bract = at(col, row, 0.25, angle + Math.PI / 4),
+              tip = at(col, row, 0.295, angle + Math.PI / 4),
+              outside = at(col, row, 0.37, angle);
+            expect(tuft.height - center.height).toBeGreaterThan(0.0025);
+            expect(tuft.height - flank.height).toBeGreaterThan(0.002);
+            expect(tuft.height - bract.height).toBeGreaterThan(0.009);
+            expect(tuft.color - bract.color).toBeGreaterThan(0.58);
+            expect(tuft.roughness).toBeGreaterThan(0.88);
+            expect(tuft.occlusion).toBeCloseTo(0.98, 12);
+            expect(tuft.metallic).toBe(0);
+            expect(tip.height).toBeGreaterThan(0.0015);
+            expect(bract.occlusion).toBeCloseTo(0.9, 12);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.38, 12);
+          }
+          expect(center.color).toBeGreaterThan(0.77);
+          expect(center.height).toBeLessThan(0.0103);
+        }
+    },
+  );
+  it('keeps tuft supports, normalized overlaps, pointed bracts, cell rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottonbolls', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Embossed red wax seals with irregular melted rims', () => {
   const p = proceduralMaterialPresets.waxseals;

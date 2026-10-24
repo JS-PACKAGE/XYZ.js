@@ -1278,6 +1278,83 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cottonbolls': {
+        const p = proceduralMaterialPresets.cottonbolls;
+        const axes = new Float64Array(p.tufts * 4),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.tufts; i++) {
+          const angle = (TAU * i) / p.tufts;
+          axes[i * 4] = Math.cos(angle);
+          axes[i * 4 + 1] = Math.sin(angle);
+          axes[i * 4 + 2] = Math.cos(angle + Math.PI / 4);
+          axes[i * 4 + 3] = Math.sin(angle + Math.PI / 4);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xff91);
+        const inverseTuft = 1 / (p.tuftRadius * p.tuftRadius),
+          inverseTuftShoulder = 1 / p.tuftShoulder,
+          inverseBractLength = 1 / p.bractLength,
+          inverseBractWidth = 1 / p.bractWidth,
+          inverseBractShoulder = 1 / p.bractShoulder,
+          fineField = cachedNoise(256, 256, seed ^ 0xff93),
+          napField = cachedNoise(96, 96, seed ^ 0xff95);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? (dx + dy) * Math.SQRT1_2 : dx,
+            y = turn ? (dy - dx) * Math.SQRT1_2 : dy;
+          let outsideTuft = 1,
+            outsideBract = 1,
+            weight = 0,
+            domeWeight = 0;
+          for (let i = 0; i < axes.length; i += 4) {
+            const tx = x - p.tuftDistance * axes[i],
+              ty = y - p.tuftDistance * axes[i + 1],
+              dome = clamp(1 - (tx * tx + ty * ty) * inverseTuft),
+              tuft = smooth(clamp(dome * inverseTuftShoulder)),
+              along =
+                (x * axes[i + 2] + y * axes[i + 3] - p.bractDistance) *
+                inverseBractLength,
+              across = (y * axes[i + 2] - x * axes[i + 3]) * inverseBractWidth,
+              cap = clamp(1 - along * along),
+              bract = smooth(
+                clamp((cap * cap - across * across) * inverseBractShoulder),
+              );
+            outsideTuft *= 1 - tuft;
+            outsideBract *= 1 - bract;
+            weight += tuft;
+            domeWeight += tuft * dome;
+          }
+          const bract = 1 - outsideBract,
+            fine = fineField(u, v),
+            fiber = 0.65 * fine + 0.35 * napField(u, v);
+          color = 0.055 + bract * (0.18 + 0.05 * fine);
+          height = 0.025 + bract * 0.145;
+          roughness = 0.94 - bract * 0.09;
+          occlusion = 0.38 + bract * 0.52;
+          if (weight > 0) {
+            // Normalize overlapping tufts instead of adding their thickness:
+            // four separate crowns stay above a lower shared center.
+            const cotton = 1 - outsideTuft,
+              dome = domeWeight / weight,
+              tone = tones[row * p.cells + col];
+            color +=
+              cotton *
+              (0.78 + 0.12 * dome + 0.035 * tone - 0.045 * fiber - color);
+            height += cotton * (0.5 + 0.22 * dome + 0.005 * fine - height);
+            roughness +=
+              cotton * (p.roughness - 0.02 + 0.06 * fiber - roughness);
+            occlusion += cotton * (0.86 + 0.12 * dome - occlusion);
+          }
+          return;
+        };
+      }
       case 'waxseals': {
         const p = proceduralMaterialPresets.waxseals;
         const phases = new Float64Array(p.cells * p.cells),
@@ -19239,6 +19316,7 @@ export function createSurfaceSampler(
     kind === 'hextruchettiles' ||
     kind === 'scoredmango' ||
     kind === 'waxseals' ||
+    kind === 'cottonbolls' ||
     fabricated ||
     botanical ||
     packaging ||

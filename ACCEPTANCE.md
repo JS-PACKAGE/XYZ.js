@@ -6958,3 +6958,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 528 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6339 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 waxseals，529 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深紅不規則熔邊、圓形壓印、凸環及五瓣徽記，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 蠟面浮雕，不宣稱真實熔融、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：四團棉絮開裂棉鈴（cottonbolls）
+
+- 目錄 529→530 種；0.24 m tile，4×4 交替轉 45° 開裂棉鈴，四團象牙凸冠、較低中央交接及露出尖褐苞片，區別 clover 的三片心形葉與 velvet 的平面絨面。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增纖維 geometry、透明毛邊、次表面散射或植物生長。
+- 三 seed（0／1／`0xffffffff`）逐鈴四冠檢查 crown 高於中心／側面／苞片、白棉與褐苞 color 分離、高 roughness、AO／metallic、尖苞片仍高於 backing，中心高度有界而非疊高；129×129 網格、三 seed、雙方向四欄位 C1 檢查 tuft supports、normalized overlaps、尖苞片、cell rotations 與 wrap，四項針對測試皆通過。
+- 既有 529 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6344 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 cottonbolls，530 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四團象牙棉絮、較低中央交接、尖褐苞片與交替轉向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 不透明纖維表面，不宣稱真實纖維 geometry、植物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

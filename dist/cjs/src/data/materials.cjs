@@ -9110,6 +9110,29 @@ var proceduralMaterialPresets = Object.freeze({
 		emblemDepth: .046,
 		emblemBevel: .012,
 		emblemGuard: .06
+	}),
+	cottonbolls: Object.freeze({
+		dark: [
+			57,
+			34,
+			18
+		],
+		light: [
+			246,
+			241,
+			217
+		],
+		roughness: .9,
+		relief: .018,
+		cells: 4,
+		tufts: 4,
+		tuftDistance: .13,
+		tuftRadius: .155,
+		tuftShoulder: .2,
+		bractDistance: .14,
+		bractLength: .19,
+		bractWidth: .045,
+		bractShoulder: .18
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9641,7 +9664,8 @@ var proceduralTileMeters = Object.freeze({
 	beltbuckles: .32,
 	hextruchettiles: .7,
 	scoredmango: .48,
-	waxseals: .16
+	waxseals: .16,
+	cottonbolls: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
