@@ -1279,6 +1279,42 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'corrugatedplasticedge': {
+        const p = proceduralMaterialPresets.corrugatedplasticedge;
+        const tones = new Float64Array(p.rows);
+        for (let row = 0; row < p.rows; row++)
+          tones[row] = hash(0, row, seed ^ 0x10291);
+        const inverseLiner = 1 / p.linerHalfWidth,
+          inverseWeb = 1 / p.webHalfWidth,
+          inverseJoint = 1 / p.jointShoulder,
+          grainField = cachedNoise(64, 64, seed ^ 0x10293);
+        return () => {
+          const vc = v * p.rows,
+            row = Math.floor(vc),
+            x = fract(u * p.columns + (row & 1) * 0.5) - 0.5,
+            y = fract(vc) - 0.5,
+            linerDistance = (Math.abs(y) - p.linerCenter) * inverseLiner,
+            liner = smooth(clamp(1 - linerDistance * linerDistance)),
+            webDistance = x * inverseWeb,
+            web =
+              smooth(clamp(1 - webDistance * webDistance)) *
+              smooth(
+                clamp(
+                  (p.linerCenter + p.linerHalfWidth - Math.abs(y)) *
+                    inverseJoint,
+                ),
+              ),
+            face = 1 - (1 - liner) * (1 - web),
+            grain = grainField(u, v);
+          // Straight ribs meet both flat skins on one flush cut face. Their
+          // union never adds a second layer of height at a T-junction.
+          color = 0.045 + face * (0.575 + 0.06 * tones[row] + 0.02 * grain);
+          height = 0.035 + face * (0.645 + 0.003 * grain);
+          roughness = 0.94 + face * (p.roughness - 0.94 + 0.02 * grain);
+          occlusion = 0.26 + 0.71 * face;
+          return;
+        };
+      }
       case 'pencilends': {
         const p = proceduralMaterialPresets.pencilends;
         const axes = new Float64Array(6),
@@ -19520,6 +19556,7 @@ export function createSurfaceSampler(
     kind === 'cottonbolls' ||
     kind === 'carabiners' ||
     kind === 'pencilends' ||
+    kind === 'corrugatedplasticedge' ||
     fabricated ||
     botanical ||
     packaging ||

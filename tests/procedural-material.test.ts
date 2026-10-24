@@ -570,7 +570,103 @@ const kinds: ProceduralMaterialKind[] = [
   'cottonbolls',
   'carabiners',
   'pencilends',
+  'corrugatedplasticedge',
 ];
+
+describe('Twin-wall corrugated plastic cut edges with straight ribs', () => {
+  const p = proceduralMaterialPresets.corrugatedplasticedge;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('corrugatedplasticedge', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(
+        (col + 0.5 - (row & 1) * 0.5 + x) / p.columns,
+        (row + 0.5 + y) / p.rows,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains two flat skins, straight webs, flush T-junctions, rectangular cavities and staggered board stacks for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cavity = at(col, row, 0.25, 0),
+            web = at(col, row, 0, 0);
+          for (const y of [-0.2, 0, 0.2]) {
+            const rib = at(col, row, 0, y);
+            expect(rib.height - cavity.height).toBeGreaterThan(0.00386);
+            expect(rib.color - cavity.color).toBeGreaterThan(0.57);
+            expect(cavity.roughness - rib.roughness).toBeGreaterThan(0.49);
+            expect(rib.occlusion - cavity.occlusion).toBeCloseTo(0.71, 12);
+            expect(rib.metallic).toBe(0);
+          }
+          for (const sign of [-1, 1]) {
+            const skin = at(col, row, 0.23, sign * p.linerCenter),
+              joint = at(col, row, 0, sign * p.linerCenter),
+              betweenBoards = at(col, row, 0, sign * 0.43);
+            expect(Math.abs(joint.height - skin.height)).toBeLessThan(0.000019);
+            expect(Math.abs(joint.height - web.height)).toBeLessThan(0.000019);
+            expect(joint.occlusion).toBeCloseTo(0.97, 12);
+            expect(skin.height - betweenBoards.height).toBeGreaterThan(0.00386);
+            expect(betweenBoards.height).toBeCloseTo(0.035 * p.relief, 12);
+            expect(betweenBoards.occlusion).toBeCloseTo(0.26, 12);
+          }
+          for (const x of [0.15, 0.25, 0.45])
+            for (const y of [-0.22, 0, 0.22]) {
+              const gap = at(col, row, x, y);
+              expect(gap.height).toBeCloseTo(0.035 * p.relief, 12);
+              expect(gap.occlusion).toBeCloseTo(0.26, 12);
+            }
+        }
+    },
+  );
+  it('keeps skin/web shoulders, flush intersections, hidden row owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('corrugatedplasticedge', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Hexagonal pencil ends with pale wood and opaque graphite cores', () => {
   const p = proceduralMaterialPresets.pencilends;

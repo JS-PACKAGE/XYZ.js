@@ -613,6 +613,8 @@
 
 `pencilends` 預算三組相反 hex plane axes、16 組 wood phase／tone 與 30° cell rotation；相乘 compact 半平面分別畫六角漆邊與內木面，避免 max-edge bevel cusp。圓形 squared-radius shoulder 將略低實心石墨芯混合進平木切面，非透明孔；木紋為帶輕彎的細紋與 pores，不假造以筆芯為樹心的年輪。漆／木／芯各有 roughness，96×96 fine，採樣無配置／hash／sqrt，木紋仍用 sin；opaque dielectric，不新增鉛筆 geometry 或操作 API。
 
+`corrugatedplasticedge` 預算 8 組 row tone 與 64×64 grain，交替半格 row offset 隱藏在板外 backing。Compact squared-distance bands 畫兩層平直 liner 與直 web，後者在 liner 外緣前 C1 收尾；以 `1-(1-liner)*(1-web)` 合併同高 cut face，T-junction 不疊加高度。四欄位沿同一 face coverage 混合，矩形槽保留連通低暗 opaque backing；採樣無配置／hash／sqrt／trig。Opaque dielectric，不新增板 geometry、穿孔透明度或結構物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

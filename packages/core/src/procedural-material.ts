@@ -547,7 +547,8 @@ export type ProceduralMaterialKind =
   | 'waxseals'
   | 'cottonbolls'
   | 'carabiners'
-  | 'pencilends';
+  | 'pencilends'
+  | 'corrugatedplasticedge';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1329,6 +1330,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cottonbolls',
   'carabiners',
   'pencilends',
+  'corrugatedplasticedge',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

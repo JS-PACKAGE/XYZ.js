@@ -4625,6 +4625,19 @@ export const proceduralMaterialPresets = Object.freeze({
     paintRoughness: 0.31,
     coreRoughness: 0.86,
   }),
+  corrugatedplasticedge: Object.freeze({
+    dark: [7, 23, 42] as const,
+    light: [135, 188, 225] as const,
+    roughness: 0.42,
+    relief: 0.006,
+    columns: 8,
+    rows: 8,
+    // Skin crests must remain visible on the minimum four-samples-per-cell grid.
+    linerCenter: 0.375,
+    linerHalfWidth: 0.035,
+    webHalfWidth: 0.028,
+    jointShoulder: 0.035,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5161,4 +5174,5 @@ export const proceduralTileMeters = Object.freeze({
   cottonbolls: 0.24,
   carabiners: 0.32,
   pencilends: 0.04,
+  corrugatedplasticedge: 0.064,
 });

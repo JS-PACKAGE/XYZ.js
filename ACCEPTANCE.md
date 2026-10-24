@@ -6982,3 +6982,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 531 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6355 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 pencilends，532 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認六角薄漆邊、淺木紋、圓形暗石墨芯與交替 30° 方向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 木鉛筆橫切表面，不宣稱削尖／書寫能力、物理材質認證、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：中空塑膠板切邊（corrugatedplasticedge）
+
+- 目錄 532→533 種；0.064 m tile，8 排交錯半格藍色板切邊，每排 8 格矩形槽，兩層平面皮與直肋同高相接，區別 cardboardedge 的正弦紙波與 closedcellfoam 的凹點。Opaque dielectric、metallic 0，槽為低暗 backing 而非透明孔；沿四圖／選用 height／ownership，不新增板 geometry、結構力學或塑膠性能認證。
+- 三 seed（0／1／`0xffffffff`）逐排逐格檢查筆直 rib、上下 skins、flush T-junction 不加厚、矩形槽的連通低暗 backing 與板間 backing，涵蓋 height／color／roughness／AO／metallic；129×129 網格、三 seed、雙方向四欄位 C1 檢查 bands、junction、交錯 row owners 與 wrap，四項針對測試皆通過。
+- 既有 532 種 size 64／seed 7 四圖 SHA256 changed 0，並在 fresh Node 由新 build 生成 corrugatedplasticedge size 64；八份修改文件相對連結無失效。
+- 首次完整測試發現 size 32／seed 123 與 124 的 baseColor 相同：每格僅四個取樣點，原 linerCenter 0.34 與薄直肋皆被漏取，整張退為固定 backing。將面皮中心移至 ±0.375，讓最低尺寸取樣落在皮面 crest，未加入依 size／seed 特判或 backing 雜訊掩蓋問題；既有 deterministic／seeded／distinct／periodic consumer contract 保留，修正後連同四項形態／C1 測試共五項通過。
+- 修正後完整 build、typecheck、lint、format:check、179 檔／6360 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 corrugatedplasticedge，533 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認兩層水平面皮、筆直肋、交錯矩形槽與板間 backing，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱透明中空 geometry、結構／塑膠性能認證、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 面皮修正後重跑同一分頁的兩個強制 backend／512 公開 API 預覽與離頁 cleanup，errors 仍皆空。瀏覽器公開 API size 32 實際生成 seed 123／124，baseColor bytes 不同，左上皮面像素分別為 [94,135,166,255]／[92,133,164,255]，不再整張漏取為暗 backing；各資源皆 destroy。
