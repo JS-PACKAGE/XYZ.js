@@ -497,7 +497,85 @@ const kinds: ProceduralMaterialKind[] = [
   'eggcarton',
   'greekkey',
   'seedbeads',
+  'chainstitch',
 ];
+
+describe('Chain stitch embroidery', () => {
+  const p = proceduralMaterialPresets.chainstitch;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('chainstitch', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'links tapered hollow loops above cloth for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const hollow = at(cx, cy);
+          const backing = at(col, cy);
+          const rim = at(cx + p.halfWidth, cy);
+          const link = at(cx + 0.15, cy + 0.5);
+          for (const raised of [rim, link]) {
+            expect(raised.height - hollow.height).toBeGreaterThan(0.01);
+            expect(raised.height - backing.height).toBeGreaterThan(0.01);
+            expect(raised.color - hollow.color).toBeGreaterThan(0.55);
+            expect(raised.occlusion - hollow.occlusion).toBeGreaterThan(0.25);
+            expect(hollow.roughness - raised.roughness).toBeGreaterThan(0.16);
+          }
+          // At matched longitudinal positions the upper half narrows, not a round bead.
+          const upperWidth =
+            p.halfWidth *
+            (1 - p.taper * 0.3) *
+            Math.sqrt(1 - (0.3 / p.halfLength) ** 2);
+          const lowerWidth =
+            p.halfWidth *
+            (1 + p.taper * 0.3) *
+            Math.sqrt(1 - (0.3 / p.halfLength) ** 2);
+          expect(at(cx + upperWidth, cy - 0.3).color).toBeGreaterThan(0.8);
+          expect(at(cx + lowerWidth, cy + 0.3).color).toBeGreaterThan(0.8);
+          expect(at(cx + lowerWidth, cy - 0.3).color).toBeLessThan(0.2);
+        }
+    },
+  );
+  it('keeps loop supports, intersections and tile wrap C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Peyote seed beads', () => {
   const p = proceduralMaterialPresets.seedbeads;

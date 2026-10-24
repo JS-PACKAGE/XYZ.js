@@ -6462,3 +6462,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 使用者授權推送並發佈 `v1.22.1`。相對 `v1.22.0` 納入 9 個 commit:現行契約材質清單補齊、程序材質 `tint`/`workerPool`/`cache`/`heightMap` 與 PBR height map parallax、官方 OPM.js v1.13.1 vendor 與 v8 voice 版本保留修正、移除 `dist/vendor/opm` 重複檔,以及使用者的 P137/P138 音訊變更。root metadata 與 README/PLAN/DESIGN/`docs/` 的目前版本字串由 1.22.0 改為 1.22.1;歷史紀錄保留原版本。
 - 發佈前本機以 1.22.1 重建並驗證:build、typecheck、lint、format:check、完整 Vitest(179 檔/5969 項)、check:api-compatibility、check:distribution 通過;`pnpm pack` 產生 `xyz.js-1.22.1.tgz`,`check-package-hygiene --archive` 回報 `PACKAGE_HYGIENE_OK`,本機 SHA256 `ab78f5a2e88b91bcce16a64b0e06f415b767dc43e29d010a899c9f768e38c903`,archive 內無 vendor 重複檔。未於此輪重跑 starter smoke;不擴大瀏覽器、實機或效能認證範圍。
 - 沿既有 CI/Release workflow(推送 tag 後先跑 verify,再封裝 archive 與 SHA256SUMS 並建立 GitHub release);不做 npm publish,不移動既有 tags。遠端結果以 GitHub 紀錄為準。
+
+## 2026-10-24 程序材質：鏈式針繡（chainstitch）
+
+- 目錄 459→460 種；0.12 m tile，五列各六個上窄下寬的金色中空繡環沿深藍布底相扣，環內外保留細織紋。opaque dielectric、metallic 0，沿用四圖／選用 height、options、repeats 與借用／destroy 契約，不新增紗線 geometry、透明孔洞或布料模擬。
+- 新增三個 seed（0／1／`0xffffffff`）的輪廓回歸測試：環緣與相扣處高於中空布底，顏色／AO／roughness 對比及上窄下寬形態；另掃描環帶支撐、交會處與 tile wrap 的 C1。以 v1.22.1 dist 為基準比對既有 459 種 size 64／seed 7 四圖 SHA256，changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／5974 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結檢查無失效。
+- managed headless Chromium 的正式 `/examples/pbr3d/` 強制 WebGPU、WebGL2 各選取 chainstitch：25 個球體與四圖預覽正常，畫面可辨識連續金色鏈環、深藍底與凹入環心，兩頁 errors 為空；WebGL2 另以公開 API 建立 size 64／heightMap true，height 存在、metallic 0、destroyed true。離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

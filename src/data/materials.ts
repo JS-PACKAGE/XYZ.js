@@ -3428,6 +3428,19 @@ export const proceduralMaterialPresets = Object.freeze({
     holeOffset: 0.4,
     holeRadius: 0.09,
   }),
+  chainstitch: Object.freeze({
+    dark: [22, 37, 53] as const,
+    light: [236, 177, 87] as const,
+    roughness: 0.82,
+    relief: 0.024,
+    columns: 5,
+    rows: 6,
+    halfWidth: 0.24,
+    halfLength: 0.65,
+    taper: 0.45,
+    band: 0.3,
+    threads: 96,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3891,4 +3904,5 @@ export const proceduralTileMeters = Object.freeze({
   eggcarton: 0.16,
   greekkey: 0.45,
   seedbeads: 0.06,
+  chainstitch: 0.12,
 });

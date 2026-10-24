@@ -3384,6 +3384,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         holeOffset: 0.4;
         holeRadius: 0.09;
     }>;
+    chainstitch: Readonly<{
+        dark: readonly [22, 37, 53];
+        light: readonly [236, 177, 87];
+        roughness: 0.82;
+        relief: 0.024;
+        columns: 5;
+        rows: 6;
+        halfWidth: 0.24;
+        halfLength: 0.65;
+        taper: 0.45;
+        band: 0.3;
+        threads: 96;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3846,4 +3859,5 @@ export declare const proceduralTileMeters: Readonly<{
     eggcarton: 0.16;
     greekkey: 0.45;
     seedbeads: 0.06;
+    chainstitch: 0.12;
 }>;

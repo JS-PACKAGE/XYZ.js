@@ -1261,6 +1261,32 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'chainstitch': {
+        const p = proceduralMaterialPresets.chainstitch;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5d39);
+        return () => {
+          const x = fract(u * p.columns) - 0.5;
+          const y = fract(v * p.rows) - 0.5;
+          let outside = 1;
+          // Neighbor loops overlap across cell boundaries; a product union keeps joins C1.
+          for (let offset = -1; offset <= 1; offset++) {
+            const dy = y + offset;
+            const ax = x / (p.halfWidth * (1 + p.taper * dy));
+            const ay = dy / p.halfLength;
+            const d = (ax * ax + ay * ay - 1) / p.band;
+            outside *= 1 - smooth(clamp(1 - d * d));
+          }
+          const stitch = 1 - outside;
+          const weave =
+            Math.sin(TAU * u * p.threads) * Math.sin(TAU * v * p.threads);
+          const grain = grainField(u, v);
+          color = 0.08 + 0.78 * stitch + 0.025 * grain;
+          height = 0.1 + 0.6 * stitch + 0.008 * weave + 0.004 * grain;
+          roughness -= 0.22 * stitch;
+          occlusion = 0.65 + 0.35 * stitch;
+          return;
+        };
+      }
       case 'seedbeads': {
         const p = proceduralMaterialPresets.seedbeads;
         const tones = new Float64Array(p.columns * p.rows);
@@ -15017,6 +15043,7 @@ export function createSurfaceSampler(
     kind === 'eggcarton' ||
     kind === 'greekkey' ||
     kind === 'seedbeads' ||
+    kind === 'chainstitch' ||
     fabricated ||
     botanical ||
     packaging ||
