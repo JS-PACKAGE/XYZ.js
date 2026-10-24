@@ -1253,6 +1253,7 @@ export function createSurfaceSampler(
     kind === 'countersunkmetal' ||
     kind === 'rollerchain' ||
     kind === 'hinges' ||
+    kind === 'coins' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1273,6 +1274,78 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'coins': {
+        const p = proceduralMaterialPresets.coins;
+        const axes = new Float64Array(p.points * 2),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.points; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.points);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.points);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x8fb1);
+        const turnCos = Math.cos(Math.PI / p.points),
+          turnSin = Math.sin(Math.PI / p.points),
+          apothem = p.starInnerRadius * turnCos,
+          slope = (p.starInnerRadius * turnSin) / (p.starRadius - apothem),
+          inverseBevel = 1 / p.starBevel,
+          radiusSquared = p.radius * p.radius,
+          rimInnerSquared = p.rimInner * p.rimInner,
+          rimOuterSquared = p.rimOuter * p.rimOuter,
+          inverseDiskShoulder = 1 / p.diskShoulder,
+          inverseRimShoulder = 1 / p.rimShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x8fb3);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc);
+          let x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if ((col + row) & 1) {
+            const rx = x * turnCos + y * turnSin;
+            y = -x * turnSin + y * turnCos;
+            x = rx;
+          }
+          const r2 = x * x + y * y,
+            face = smooth(clamp((radiusSquared - r2) * inverseDiskShoulder)),
+            rim =
+              smooth(clamp((r2 - rimInnerSquared) * inverseRimShoulder)) *
+              smooth(clamp((rimOuterSquared - r2) * inverseRimShoulder));
+          let hub = 1,
+            outside = 1;
+          for (let i = 0; i < p.points; i++) {
+            const c = axes[i * 2],
+              s = axes[i * 2 + 1],
+              along = x * c + y * s,
+              across = -x * s + y * c,
+              width = (p.starRadius - along) * slope;
+            hub *= smooth(clamp((apothem - along) * inverseBevel));
+            const tip =
+              smooth(clamp((along - p.starBase) * inverseBevel)) *
+              smooth(clamp((width - across) * inverseBevel)) *
+              smooth(clamp((width + across) * inverseBevel));
+            outside *= 1 - tip;
+          }
+          // Overlapping spike bases fill the pentagonal hub without internal
+          // bevel seams; all five outer tips retain compact smooth shoulders.
+          const star = 1 - outside * (1 - hub),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color =
+            0.06 +
+            face * (0.52 + 0.08 * tone + 0.015 * grain) +
+            0.14 * rim +
+            0.14 * star;
+          height =
+            0.05 + 0.3 * face + 0.18 * rim + 0.14 * star + 0.003 * grain * face;
+          roughness +=
+            0.22 * (1 - face) - 0.06 * rim - 0.05 * star + 0.01 * grain * face;
+          occlusion = 0.4 + 0.48 * face + 0.1 * rim + 0.08 * star;
+          return;
+        };
+      }
       case 'hinges': {
         const p = proceduralMaterialPresets.hinges;
         const inverseLeafX = 1 / p.leafHalfWidth,
@@ -17528,6 +17601,7 @@ export function createSurfaceSampler(
     kind === 'coffeerings' ||
     kind === 'cashews' ||
     kind === 'hinges' ||
+    kind === 'coins' ||
     fabricated ||
     botanical ||
     packaging ||

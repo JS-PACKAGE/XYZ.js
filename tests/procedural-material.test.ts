@@ -545,7 +545,96 @@ const kinds: ProceduralMaterialKind[] = [
   'coffeerings',
   'cashews',
   'hinges',
+  'coins',
 ];
+
+describe('Gold coins with raised circular rims and five-point star stamps', () => {
+  const p = proceduralMaterialPresets.coins;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('coins', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised rims around a lower coin field and a connected five-point emboss with open valleys for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (((col + row) & 1) * Math.PI) / p.points,
+            c = Math.cos(turn),
+            s = Math.sin(turn),
+            local = (x: number, y: number) =>
+              at(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c);
+          for (let i = 0; i < 32; i++) {
+            const a = (i * 2 * Math.PI) / 32,
+              rim = local(0.35 * Math.cos(a), 0.35 * Math.sin(a)),
+              field = local(0.29 * Math.cos(a), 0.29 * Math.sin(a)),
+              backing = local(0.46 * Math.cos(a), 0.46 * Math.sin(a));
+            expect(field.height - backing.height).toBeGreaterThan(0.003);
+            expect(rim.height - field.height).toBeGreaterThan(0.0018);
+            expect(rim.color - field.color).toBeGreaterThan(0.12);
+            expect(rim.occlusion - field.occlusion).toBeGreaterThan(0.09);
+            expect(field.roughness - rim.roughness).toBeGreaterThan(0.05);
+            expect(rim.metallic).toBe(1);
+          }
+          for (let i = 0; i < p.points; i++) {
+            const a = (i * 2 * Math.PI) / p.points,
+              valleyAngle = a + Math.PI / p.points,
+              valley = local(
+                0.18 * Math.cos(valleyAngle),
+                0.18 * Math.sin(valleyAngle),
+              ),
+              field = local(0.29 * Math.cos(a), 0.29 * Math.sin(a));
+            expect(Math.abs(valley.height - field.height)).toBeLessThan(
+              0.00004,
+            );
+            for (let j = 0; j <= 32; j++) {
+              const radius = (0.21 * j) / 32,
+                star = local(radius * Math.cos(a), radius * Math.sin(a));
+              expect(star.height - valley.height).toBeGreaterThan(0.0015);
+              expect(star.color - valley.color).toBeGreaterThan(0.12);
+              expect(star.occlusion - valley.occlusion).toBeGreaterThan(0.07);
+            }
+          }
+        }
+    },
+  );
+  it('keeps disk bevels, annular rims, overlapping star spike shoulders, owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Steel hinges with paired mounting leaves and five barrel knuckles', () => {
   const p = proceduralMaterialPresets.hinges;
@@ -18787,6 +18876,7 @@ describe('periodic procedural material fields', () => {
           kind === 'spurgears' ||
           kind === 'paperclips' ||
           kind === 'hinges' ||
+          kind === 'coins' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -28234,6 +28324,7 @@ describe('procedural preset acquisition and ownership', () => {
     'spurgears',
     'paperclips',
     'hinges',
+    'coins',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -28274,6 +28365,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'spurgears' ||
           kind === 'paperclips' ||
           kind === 'hinges' ||
+          kind === 'coins' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

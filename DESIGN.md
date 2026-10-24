@@ -563,6 +563,8 @@
 
 `hinges` 沿 rounded-square／countersink 既有模式，以兩側四次 superellipse 畫圓角葉片，最近三列 screw owner 配合平方半徑 smooth seat／bore profiles 畫六個沉孔。中央五節 barrel 用 compact x cap 與 periodic joint shoulders，較窄且連續的 pin 在四道節縫中保持較低可見高度；以 coverage blends 覆蓋葉片而非直接相加，避免軸筒兩側多出葉片高度。各 owner 邊界前歸零，8×128 seeded grain、4×4 鉸鏈、0.4 m tile、metallic 1，目錄增為 507 種；取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明孔洞、活動關節或剛體物理。
 
+`coins` 用 squared-radius smooth disk／annular profiles 畫圓幣與凸起邊框；中央五角星由五個三角 spike 的三條 smooth 半平面相乘，再與五半平面 pentagonal hub 做 product union。Spike bases 向 hub 內重疊，避免內部 bevel seams；軸向 trig、36° 交替旋轉係數及 16 組 seeded tones 預算，取樣無 trig、sqrt 或陣列配置。4×4 圓幣、96×96 grain、0.12 m tile、metallic 1，目錄增為 508 種；所有支撐在 cell 邊界前歸零，既有 maps／height／ownership 不變，不新增 geometry、文字、透明度、貨幣系統或剛體物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

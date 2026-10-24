@@ -6798,3 +6798,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐鉸鏈檢查六個 bore／seat／face 的 height／color／AO／roughness／metallic 層次、五節軸筒 crown／shoulder／plate 與節縫銷軸高度差、連續銷軸 65 點及葉片外角回到 backing；另掃描 countersinks／leaf bevels／pin blends／knuckle joints／wrap C1。公開 material metallic 契約同步；四項針對測試通過，既有 506 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6223 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGL2／WebGPU 選取 hinges，507 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGPU 分頁截圖發生工具 `Target closed`，新分頁再發生 screenshot timeout／detached frame，兩頁 errors 空，已回報並釋放；關閉本程序擁有的 managed browser 後，新分頁完成上述 WebGPU 畫面與 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認雙葉六孔、五節軸筒與露出的銷軸，height true、metallic 1、destroyed true，預覽隨頁清除。不將工具失敗推定為材質或 backend 原因；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：五角星壓印金色硬幣（coins）
+
+- 目錄 507→508 種；0.12 m tile，4×4 金色圓幣，凸起圓框包圍較低平面及連通五角星浮雕，星形朝向交替差 36°、帶 seeded 色差／細紋。opaque metal、metallic 1；沿四圖／選用 height／ownership，不新增硬幣 geometry、文字、透明度、貨幣系統或剛體物理。
+- 三 seed（0／1／`0xffffffff`）逐幣檢查 32 方向 rim／field／backing 的 height／color／AO／roughness／metallic 層次、五個凹谷回到平面，以及中央至五個尖角各 33 點的浮雕連通與高度／明度／AO；另掃描 disk bevels／annular rims／star spike unions／seeded owners／wrap C1。公開 material metallic 契約同步；四項針對測試通過，既有 507 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6229 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 coins，508 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。兩 backend 前皆呼叫 managed browser close；首個 WebGL2 分頁截圖仍發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認金色圓框、較低平面及五角星浮雕，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
