@@ -1264,6 +1264,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'tuliptiles': {
+        const p = proceduralMaterialPresets.tuliptiles;
+        const grainField = cachedNoise(64, 64, seed ^ 0xe82b);
+        const lobes = new Float64Array(p.lobes.length * 6);
+        for (let i = 0; i < p.lobes.length; i++) {
+          const lobe = p.lobes[i],
+            j = i * 6;
+          lobes[j] = lobe[0];
+          lobes[j + 1] = lobe[1];
+          lobes[j + 2] = 1 / lobe[2];
+          lobes[j + 3] = 1 / lobe[3];
+          lobes[j + 4] = Math.sin(lobe[4]);
+          lobes[j + 5] = Math.cos(lobe[4]);
+        }
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5;
+          const face =
+            smooth(clamp((p.faceSquared - x * x) / p.faceShoulder)) *
+            smooth(clamp((p.faceSquared - y * y) / p.faceShoulder));
+          let outside =
+            1 -
+            smooth(
+              clamp(
+                (1 -
+                  (x / p.stemWidth) ** 2 -
+                  ((y - p.stemY) / p.stemLength) ** 2) /
+                  p.shoulder,
+              ),
+            );
+          for (let i = 0; i < lobes.length; i += 6) {
+            const dx = x - lobes[i],
+              dy = y - lobes[i + 1];
+            const along =
+              (dx * lobes[i + 4] - dy * lobes[i + 5]) * lobes[i + 3];
+            const across =
+              (dx * lobes[i + 5] + dy * lobes[i + 4]) * lobes[i + 2];
+            const bulge = clamp(1 - along * along);
+            outside *=
+              1 - smooth(clamp((bulge * bulge - across * across) / p.shoulder));
+          }
+          const flower = 1 - outside,
+            grain = grainField(u, v);
+          color = 0.93 - 0.78 * flower + 0.02 * grain;
+          height = face * (0.5 + 0.04 * flower + 0.003 * grain);
+          mortar = 1 - face;
+          roughness += 0.45 * mortar + 0.03 * flower;
+          occlusion = 0.55 + 0.43 * face;
+          return;
+        };
+      }
       case 'circlips': {
         const p = proceduralMaterialPresets.circlips;
         const grainField = cachedNoise(96, 96, seed ^ 0xd719);
@@ -15608,6 +15659,7 @@ export function createSurfaceSampler(
     kind === 'maplesamara' ||
     kind === 'lenoweave' ||
     kind === 'circlips' ||
+    kind === 'tuliptiles' ||
     fabricated ||
     botanical ||
     packaging ||

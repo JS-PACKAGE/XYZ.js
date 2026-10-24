@@ -487,7 +487,8 @@ export type ProceduralMaterialKind =
   | 'starcrosstiles'
   | 'maplesamara'
   | 'lenoweave'
-  | 'circlips';
+  | 'circlips'
+  | 'tuliptiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1209,6 +1210,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'maplesamara',
   'lenoweave',
   'circlips',
+  'tuliptiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

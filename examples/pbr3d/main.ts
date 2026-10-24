@@ -551,6 +551,7 @@ try {
     'maplesamara',
     'lenoweave',
     'circlips',
+    'tuliptiles',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

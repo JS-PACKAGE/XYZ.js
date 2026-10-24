@@ -493,6 +493,8 @@
 
 `circlips` 以內外平方圓的 smooth 差構成平環，再以 compact x／smooth y 遮罩開一側缺口；端部圓耳乘積聯集後，扣掉兩個 compact 圓孔，接合與孔壁 C1。棋盤 parity 翻轉局部座標 180°，所有支撐在 cell 內結束；grain 來自 seeded periodic lattice。4×4 環、0.08 m tile、metallic map／預設 factor 1、既有 maps／選用 height／ownership 不變；目錄增為 472 種，不新增 geometry、透明孔或彈性模擬。
 
+`tuliptiles` 預計算三瓣花冠與兩葉的旋轉基底，用縱向平方 bulge 再平方的 compact lens 場形成尖端，與細橢圓莖作乘積聯集；pigment 與低幅浮紋共用遮罩。釉面邊界為兩軸平方 smooth profile 乘積，灰縫沿既有中性色混合；花葉支撐與灰縫分離。4×4 方磚、0.6 m tile、metallic 0、既有 maps／選用 height／ownership 不變；目錄增為 473 種，不新增 geometry 或植物模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

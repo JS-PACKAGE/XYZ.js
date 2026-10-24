@@ -6553,3 +6553,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查完整弧／開口、環心／外部、雙耳孔／耳緣／接合處的高度、色差、AO、roughness 與 metallic；另掃描內外環緣、缺口、圓耳與孔壁及 tile wrap 的 C1。既有 471 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6037 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 circlips，25 球與四圖預覽正常，errors 空；各 backend 檢視後離頁 cleanup errors 空。另以公開 API size 512／seed 7／heightMap true 將 baseColor 畫到等比例臨時 canvas，可辨 C 形開口、兩圓耳及鉗孔；height true、metallic 1、destroyed true，臨時預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：鬱金香花磚（tuliptiles）
+
+- 目錄 472→473 種；0.6 m tile，十六片象牙白釉面方磚，鈷藍三瓣尖端花冠、細莖與兩片尖葉，低幅浮紋高於釉面、灰縫低而粗糙。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增花卉／磚 geometry、透明縫或植物模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查三瓣內部／上部、花瓣間凹口、細莖寬度、雙葉與莖葉間留白，及灰縫的高度／色差／AO／roughness／metallic；另掃描尖端、連接、釉面邊界與 tile wrap 的 C1。首輪上瓣探針落在淡出肩部，卻套用完全著色門檻；實際 size 512 畫面確認三瓣輪廓後，移至瓣內部，門檻及實作不變。既有 472 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6042 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 tuliptiles，25 球與四圖預覽正常、errors 空，離頁 cleanup errors 空。WebGL2 另以公開 API size 512 的 baseColor 等比例臨時 canvas 看清三瓣、細莖、雙葉；預覽隨頁清除。一次新開 WebGL2 tab 的 Frame 立即 detached，釋放後以新分頁成功完成，不把該失敗算 runtime 通過。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

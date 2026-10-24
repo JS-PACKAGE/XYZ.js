@@ -3647,6 +3647,26 @@ export const proceduralMaterialPresets = Object.freeze({
     boreRadius: 0.022,
     boreShoulder: 0.00018,
   }),
+  tuliptiles: Object.freeze({
+    dark: [12, 43, 86] as const,
+    light: [248, 238, 211] as const,
+    roughness: 0.25,
+    relief: 0.016,
+    cells: 4,
+    faceSquared: 0.23,
+    faceShoulder: 0.018,
+    shoulder: 0.35,
+    stemY: 0.13,
+    stemLength: 0.2,
+    stemWidth: 0.012,
+    lobes: [
+      [0, -0.18, 0.068, 0.17, 0],
+      [0.085, -0.16, 0.068, 0.17, 0.35],
+      [-0.085, -0.16, 0.068, 0.17, -0.35],
+      [0.075, 0.19, 0.04, 0.15, 0.65],
+      [-0.075, 0.19, 0.04, 0.15, -0.65],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4123,4 +4143,5 @@ export const proceduralTileMeters = Object.freeze({
   maplesamara: 0.2,
   lenoweave: 0.06,
   circlips: 0.08,
+  tuliptiles: 0.6,
 });

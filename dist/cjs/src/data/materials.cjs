@@ -7608,6 +7608,64 @@ var proceduralMaterialPresets = Object.freeze({
 		lugShoulder: .0014,
 		boreRadius: .022,
 		boreShoulder: 18e-5
+	}),
+	tuliptiles: Object.freeze({
+		dark: [
+			12,
+			43,
+			86
+		],
+		light: [
+			248,
+			238,
+			211
+		],
+		roughness: .25,
+		relief: .016,
+		cells: 4,
+		faceSquared: .23,
+		faceShoulder: .018,
+		shoulder: .35,
+		stemY: .13,
+		stemLength: .2,
+		stemWidth: .012,
+		lobes: [
+			[
+				0,
+				-.18,
+				.068,
+				.17,
+				0
+			],
+			[
+				.085,
+				-.16,
+				.068,
+				.17,
+				.35
+			],
+			[
+				-.085,
+				-.16,
+				.068,
+				.17,
+				-.35
+			],
+			[
+				.075,
+				.19,
+				.04,
+				.15,
+				.65
+			],
+			[
+				-.075,
+				.19,
+				.04,
+				.15,
+				-.65
+			]
+		]
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8082,7 +8140,8 @@ var proceduralTileMeters = Object.freeze({
 	starcrosstiles: .8,
 	maplesamara: .2,
 	lenoweave: .06,
-	circlips: .08
+	circlips: .08,
+	tuliptiles: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

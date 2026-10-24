@@ -3585,6 +3585,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         boreRadius: 0.022;
         boreShoulder: 0.00018;
     }>;
+    tuliptiles: Readonly<{
+        dark: readonly [12, 43, 86];
+        light: readonly [248, 238, 211];
+        roughness: 0.25;
+        relief: 0.016;
+        cells: 4;
+        faceSquared: 0.23;
+        faceShoulder: 0.018;
+        shoulder: 0.35;
+        stemY: 0.13;
+        stemLength: 0.2;
+        stemWidth: 0.012;
+        lobes: readonly [readonly [0, -0.18, 0.068, 0.17, 0], readonly [0.085, -0.16, 0.068, 0.17, 0.35], readonly [-0.085, -0.16, 0.068, 0.17, -0.35], readonly [0.075, 0.19, 0.04, 0.15, 0.65], readonly [-0.075, 0.19, 0.04, 0.15, -0.65]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4060,4 +4074,5 @@ export declare const proceduralTileMeters: Readonly<{
     maplesamara: 0.2;
     lenoweave: 0.06;
     circlips: 0.08;
+    tuliptiles: 0.6;
 }>;
