@@ -3445,6 +3445,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         toes: readonly [readonly [-0.24, -0.11, -0.45], readonly [-0.09, -0.24, -0.15], readonly [0.09, -0.24, 0.15], readonly [0.24, -0.11, 0.45]];
         pads: readonly [readonly [0, 0.06, 0.15], readonly [-0.1, 0.15, 0.09], readonly [0, 0.18, 0.09], readonly [0.1, 0.15, 0.09]];
     }>;
+    dovetailjoint: Readonly<{
+        dark: readonly [53, 25, 11];
+        light: readonly [214, 166, 99];
+        roughness: 0.62;
+        relief: 0.022;
+        columns: 4;
+        rows: 2;
+        seamY: 0.5;
+        tipY: 0.8;
+        neckHalfWidth: 0.14;
+        flare: 0.14;
+        bevel: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3911,4 +3924,5 @@ export declare const proceduralTileMeters: Readonly<{
     wingnuts: 0.12;
     pomegranateslice: 0.15;
     pawprinttiles: 0.6;
+    dovetailjoint: 0.48;
 }>;

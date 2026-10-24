@@ -501,7 +501,89 @@ const kinds: ProceduralMaterialKind[] = [
   'wingnuts',
   'pomegranateslice',
   'pawprinttiles',
+  'dovetailjoint',
 ];
+
+describe('Dovetail wood joinery', () => {
+  const p = proceduralMaterialPresets.dovetailjoint;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('dovetailjoint', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'flares each tongue outward and recesses its straight, oblique and tip seams for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cx = col + 0.5;
+          const tongue = at(cx, row + 0.65);
+          const shoulder = at(cx + 0.4, row + p.seamY - p.bevel / 2);
+          const tip = at(cx, row + p.tipY - p.bevel / 2);
+          const y = 0.65;
+          const sideX =
+            p.neckHalfWidth +
+            (p.flare * (y - p.seamY)) / (p.tipY - p.seamY) -
+            p.bevel / 2;
+          const side = at(cx + sideX, row + y);
+          for (const seam of [shoulder, tip, side]) {
+            expect(tongue.height - seam.height).toBeGreaterThan(0.0055);
+            expect(tongue.color - seam.color).toBeGreaterThan(0.15);
+            expect(tongue.occlusion - seam.occlusion).toBeGreaterThan(0.41);
+            expect(seam.roughness - tongue.roughness).toBeGreaterThan(0.14);
+          }
+          // A point beyond the narrow neck is outside there, but inside the wider tip.
+          const narrowSide =
+            p.neckHalfWidth +
+            (p.flare * 0.03) / (p.tipY - p.seamY) -
+            p.bevel / 2;
+          expect(
+            at(cx + narrowSide, row + 0.75).height -
+              at(cx + narrowSide, row + 0.53).height,
+          ).toBeGreaterThan(0.0055);
+          expect(at(cx - sideX, row + y).occlusion).toBeCloseTo(
+            side.occlusion,
+            10,
+          );
+        }
+    },
+  );
+  it('keeps tongue corners, grain ownership and repeated boards C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Stamped paw print glazed tiles', () => {
   const p = proceduralMaterialPresets.pawprinttiles;

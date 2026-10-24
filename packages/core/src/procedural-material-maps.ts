@@ -1262,6 +1262,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dovetailjoint': {
+        const p = proceduralMaterialPresets.dovetailjoint;
+        const verticalGrain = cachedNoise(96, 4, seed ^ 0x9d73);
+        const horizontalGrain = cachedNoise(4, 96, seed ^ 0xae85);
+        const tones = new Float64Array(p.rows);
+        for (let row = 0; row < p.rows; row++)
+          tones[row] = hash(0, row, seed ^ 0xbf97);
+        return () => {
+          const x = fract(u * p.columns) - 0.5;
+          const cy = v * p.rows,
+            y = fract(cy),
+            row = Math.floor(cy);
+          const flat = 1 - smooth(clamp((y - p.seamY + p.bevel) / p.bevel));
+          const width =
+            p.neckHalfWidth + (p.flare * (y - p.seamY)) / (p.tipY - p.seamY);
+          const tail =
+            smooth(clamp((p.tipY - y) / p.bevel)) *
+            smooth(clamp((width - Math.abs(x)) / p.bevel));
+          const owner = 1 - (1 - flat) * (1 - tail);
+          const seam = 4 * owner * (1 - owner);
+          const vertical = verticalGrain(u, v),
+            horizontal = horizontalGrain(u, v);
+          const top = row & 1 ? horizontal : vertical;
+          const bottom = row & 1 ? vertical : horizontal;
+          // Bottom board is the next row's top board, including grain and seeded tone.
+          const grain = top * owner + bottom * (1 - owner);
+          const tone =
+            tones[row] * owner + tones[(row + 1) % p.rows] * (1 - owner);
+          color = (0.28 + 0.38 * grain + 0.18 * tone) * (1 - 0.78 * seam);
+          height = 0.5 - 0.26 * seam + 0.003 * grain;
+          roughness += 0.18 * seam + 0.035 * grain;
+          occlusion = 0.98 - 0.42 * seam;
+          return;
+        };
+      }
       case 'pawprinttiles': {
         const p = proceduralMaterialPresets.pawprinttiles;
         const grainField = cachedNoise(96, 96, seed ^ 0x8c61);
@@ -15178,6 +15213,7 @@ export function createSurfaceSampler(
     kind === 'wingnuts' ||
     kind === 'pomegranateslice' ||
     kind === 'pawprinttiles' ||
+    kind === 'dovetailjoint' ||
     fabricated ||
     botanical ||
     packaging ||

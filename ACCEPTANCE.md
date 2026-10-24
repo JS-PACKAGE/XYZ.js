@@ -6490,3 +6490,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格驗證四趾、趾間與趾掌間隙、掌墊三葉與缺口、印底／釉面／灰縫的高度、色差、AO、roughness 及 mortar；另掃描印邊、掌墊聯集、灰縫交角與 tile wrap 的 C1。既有 462 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／5990 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pawprinttiles，25 球與四圖預覽正常，爪印四趾、掌墊、白釉及灰縫可辨，errors 皆為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：燕尾榫木拼板（dovetailjoint）
+
+- 目錄 463→464 種；0.48 m tile，兩條接合線各帶四個外寬內窄的梯形榫舌，直肩／斜邊／平榫端為深凹縫，木板縱橫木紋與 seeded tone 依 owner 交替，跨列延續同一片板。opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增榫接 geometry 或結構力學模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查榫舌、直肩／斜邊／榫端縫的高度／色差／AO／roughness，以及頸窄端寬與左右形態；另掃描接點、grain owner 邊界、跨列與 tile wrap 的 C1。既有 463 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／5995 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 dovetailjoint，25 球與四圖預覽正常，可辨梯形接縫、榫端及橫直木紋，errors 皆為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
