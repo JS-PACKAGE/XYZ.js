@@ -583,6 +583,8 @@
 
 `driedfigslice` 以隨縱向縮放的橢圓座標產生收窄輪廓，外皮與果肉皆為 compact squared profiles；整數 angular wrinkles 僅在 rind annulus 評估，避免中心 atan2 singularity。逐果 10×10 籽格預算 jitter／ellipse axis／tone，最大 seed radius 加 jitter 不越 owner cell；以果肉 coverage 裁切外圈籽，確保色、height、roughness、AO 一起退回果皮。96×96 grain 與籽粒微凸面混合，外部 backing 為定值。4×4 切片、0.24 m tile，目錄 517 種；opaque dielectric，不新增 geometry、透明度、食物生成或生物模擬。取樣無配置，籽軸 trig 預算、只有外皮 angular crease 使用 atan2／sin。
 
+`creamcrackers` 以 eighth-power rounded square compact profile 建立外緣與內部，兩組週期 ellipse notches 裁出四側波邊；notch support 在 owner ties 前歸零，中心 abs cusp 被零 coverage 遮蔽。Nearest-hole 索引只接受中央 3×3 格，以 compact squared pit profile 同步降低 pigment／height／AO、提高 roughness，避免壓痕延伸至外緣。32×32 blister field 讓氣泡略凸且烤褐，96×96 grain 與 16 組 seeded tones 微調餅色，所有細節隨 face／interior coverage 消失。4×4、0.24 m tile，目錄 518 種；opaque dielectric、metallic 0，取樣無 trig、sqrt 或配置，不新增 geometry、透明孔、烘焙或食物物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

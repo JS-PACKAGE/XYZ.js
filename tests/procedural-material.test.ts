@@ -555,7 +555,101 @@ const kinds: ProceduralMaterialKind[] = [
   'fishscaletiles',
   'hexkeys',
   'driedfigslice',
+  'creamcrackers',
 ];
+
+describe('Scalloped cream crackers with nine docking pits', () => {
+  const p = proceduralMaterialPresets.creamcrackers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('creamcrackers', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine deep dark docking pits, intact baked faces and four scalloped borders for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const probe = (x: number, y: number) =>
+            at(col + 0.5 + x, row + 0.5 + y);
+          for (let hy = -1; hy <= 1; hy++)
+            for (let hx = -1; hx <= 1; hx++) {
+              const x = hx * p.holePitch,
+                y = hy * p.holePitch,
+                pit = probe(x, y);
+              for (let i = 0; i < 16; i++) {
+                const a = (i * 2 * Math.PI) / 16,
+                  c = Math.cos(a),
+                  s = Math.sin(a),
+                  bevel = probe(
+                    x + p.holeRadius * 0.9 * c,
+                    y + p.holeRadius * 0.9 * s,
+                  ),
+                  face = probe(x + 0.04 * c, y + 0.04 * s);
+                expect(face.height - pit.height).toBeGreaterThan(0.00155);
+                expect(face.color - pit.color).toBeGreaterThan(0.18);
+                expect(pit.roughness - face.roughness).toBeGreaterThan(0.025);
+                expect(face.occlusion - pit.occlusion).toBeGreaterThan(0.33);
+                expect(bevel.height).toBeGreaterThan(pit.height);
+                expect(bevel.height).toBeLessThan(face.height);
+                expect(face.metallic).toBe(0);
+              }
+            }
+          for (let side = 0; side < 4; side++) {
+            const a = (side * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (let i = 2; i <= 5; i++) {
+              const x = (i + 0.5) * p.notchPitch - p.notchOrigin,
+                crestX = x + p.notchPitch * 0.5,
+                valley = probe(x * c - 0.348 * s, x * s + 0.348 * c),
+                crest = probe(crestX * c - 0.348 * s, crestX * s + 0.348 * c);
+              expect(valley.height).toBeCloseTo(0.035 * p.relief, 12);
+              expect(crest.height - valley.height).toBeGreaterThan(0.0059);
+              expect(crest.color - valley.color).toBeGreaterThan(0.48);
+              expect(crest.occlusion - valley.occlusion).toBeGreaterThan(0.51);
+            }
+          }
+          expect(probe(0.4, 0.4).height).toBeCloseTo(0.035 * p.relief, 12);
+        }
+    },
+  );
+  it('keeps scallops, docking-pit owners, baked blisters, cell borders and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Tapered dried fig slices with pale seeds inside wrinkled rind', () => {
   const p = proceduralMaterialPresets.driedfigslice;

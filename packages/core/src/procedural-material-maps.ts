@@ -1275,6 +1275,104 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'creamcrackers': {
+        const p = proceduralMaterialPresets.creamcrackers;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xf341);
+        const inverseOuter = 1 / p.halfWidth ** 8,
+          inverseInner = 1 / p.innerWidth ** 8,
+          inverseEdge = 1 / p.edge,
+          inverseInnerEdge = 1 / p.innerEdge,
+          inversePitch = 1 / p.notchPitch,
+          inverseNotchWidth = 1 / (p.notchWidth * p.notchWidth),
+          inverseNotchDepth = 1 / (p.notchDepth * p.notchDepth),
+          inverseNotchShoulder = 1 / p.notchShoulder,
+          inverseHolePitch = 1 / p.holePitch,
+          inverseHoleRadius = 1 / (p.holeRadius * p.holeRadius),
+          inverseHoleShoulder = 1 / p.holeShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0xf343),
+          blisterField = cachedNoise(32, 32, seed ^ 0xf347);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            xx = x * x,
+            yy = y * y,
+            x4 = xx * xx,
+            y4 = yy * yy,
+            power = x4 * x4 + y4 * y4,
+            nx =
+              (fract((x + p.notchOrigin) * inversePitch) - 0.5) * p.notchPitch,
+            ny =
+              (fract((y + p.notchOrigin) * inversePitch) - 0.5) * p.notchPitch,
+            ex = Math.abs(x) - p.notchCenter,
+            ey = Math.abs(y) - p.notchCenter,
+            horizontal = smooth(
+              clamp(
+                (1 -
+                  nx * nx * inverseNotchWidth -
+                  ey * ey * inverseNotchDepth) *
+                  inverseNotchShoulder,
+              ),
+            ),
+            vertical = smooth(
+              clamp(
+                (1 -
+                  ny * ny * inverseNotchWidth -
+                  ex * ex * inverseNotchDepth) *
+                  inverseNotchShoulder,
+              ),
+            ),
+            face =
+              smooth(clamp((1 - power * inverseOuter) * inverseEdge)) *
+              (1 - horizontal) *
+              (1 - vertical),
+            interior =
+              face *
+              smooth(clamp((1 - power * inverseInner) * inverseInnerEdge)),
+            rim = face - interior,
+            holeX = Math.floor(x * inverseHolePitch + 0.5),
+            holeY = Math.floor(y * inverseHolePitch + 0.5);
+          let holes = 0;
+          // Only the central 3×3 docking grid exists. Its compact pits vanish
+          // before nearest-hole ties, so there are no extra holes in the rim.
+          if (Math.abs(holeX) <= 1 && Math.abs(holeY) <= 1) {
+            const dx = x - holeX * p.holePitch,
+              dy = y - holeY * p.holePitch;
+            holes =
+              interior *
+              smooth(
+                clamp(
+                  (1 - (dx * dx + dy * dy) * inverseHoleRadius) *
+                    inverseHoleShoulder,
+                ),
+              );
+          }
+          const grain = grainField(u, v),
+            blisters =
+              interior * smooth(clamp((blisterField(u, v) - 0.55) * 4)),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)];
+          color =
+            0.08 +
+            face * (0.6 + 0.1 * tone + 0.04 * grain) -
+            0.11 * rim -
+            0.16 * blisters -
+            0.37 * holes;
+          height =
+            0.035 +
+            0.6 * face -
+            0.04 * interior +
+            0.04 * blisters -
+            0.2 * holes;
+          roughness +=
+            0.12 * (1 - face) + 0.06 * rim - 0.05 * blisters + 0.08 * holes;
+          occlusion = 0.46 + 0.52 * face - 0.34 * holes;
+          return;
+        };
+      }
       case 'driedfigslice': {
         const p = proceduralMaterialPresets.driedfigslice;
         const grains = new Float64Array(
@@ -18237,6 +18335,7 @@ export function createSurfaceSampler(
     kind === 'fishscaletiles' ||
     kind === 'hexkeys' ||
     kind === 'driedfigslice' ||
+    kind === 'creamcrackers' ||
     fabricated ||
     botanical ||
     packaging ||

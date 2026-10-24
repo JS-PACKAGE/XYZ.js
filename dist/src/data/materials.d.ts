@@ -4247,6 +4247,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedShort: 0.024;
         seedShoulder: 0.3;
     }>;
+    creamcrackers: Readonly<{
+        dark: readonly [75, 37, 12];
+        light: readonly [245, 213, 148];
+        roughness: 0.79;
+        relief: 0.01;
+        cells: 4;
+        halfWidth: 0.36;
+        innerWidth: 0.31;
+        edge: 0.22;
+        innerEdge: 0.25;
+        notchPitch: 0.1;
+        notchOrigin: 0.4;
+        notchCenter: 0.371;
+        notchWidth: 0.035;
+        notchDepth: 0.027;
+        notchShoulder: 0.2;
+        holePitch: 0.17;
+        holeRadius: 0.016;
+        holeShoulder: 0.35;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4767,4 +4787,5 @@ export declare const proceduralTileMeters: Readonly<{
     fishscaletiles: 0.4;
     hexkeys: 0.4;
     driedfigslice: 0.24;
+    creamcrackers: 0.24;
 }>;

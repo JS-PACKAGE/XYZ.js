@@ -532,7 +532,8 @@ export type ProceduralMaterialKind =
   | 'grommetcanvas'
   | 'fishscaletiles'
   | 'hexkeys'
-  | 'driedfigslice';
+  | 'driedfigslice'
+  | 'creamcrackers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1299,6 +1300,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fishscaletiles',
   'hexkeys',
   'driedfigslice',
+  'creamcrackers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
