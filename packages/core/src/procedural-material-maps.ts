@@ -1269,6 +1269,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pickettiles': {
+        const p = proceduralMaterialPresets.pickettiles;
+        const pitch = Math.sqrt(3) / 2,
+          inverseBevel = 1 / p.bevel;
+        const grainField = cachedNoise(96, 96, seed ^ 0x3a97);
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed);
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * pitch,
+            row = Math.floor(y / pitch);
+          let best = Infinity,
+            dx = 0,
+            dy = 0,
+            ownerX = 0,
+            ownerY = 0;
+          for (let oy = 0; oy <= 1; oy++) {
+            const cy = row + oy,
+              offset = (cy & 1) * 0.5,
+              cx = Math.round(x - offset),
+              px = x - cx - offset,
+              py = y - cy * pitch,
+              distance = px * px + py * py;
+            if (distance < best) {
+              best = distance;
+              dx = px;
+              dy = py;
+              ownerX = ((cx % p.columns) + p.columns) % p.columns;
+              ownerY = ((cy % p.rows) + p.rows) % p.rows;
+            }
+          }
+          const face =
+            smooth(clamp((0.5 - Math.abs(dx) - p.gap) * inverseBevel)) *
+            smooth(
+              clamp(
+                (0.5 - Math.abs(dx * 0.5 + dy * pitch) - p.gap) * inverseBevel,
+              ),
+            ) *
+            smooth(
+              clamp(
+                (0.5 - Math.abs(dx * 0.5 - dy * pitch) - p.gap) * inverseBevel,
+              ),
+            );
+          const tone = tones[ownerY * p.columns + ownerX],
+            grain = grainField(u, v);
+          color = 0.14 + face * (0.35 + 0.38 * tone + 0.03 * grain);
+          height = face * (0.75 + 0.04 * tone + 0.01 * grain);
+          roughness =
+            0.86 + face * (p.roughness - 0.86 + 0.07 * tone + 0.02 * grain);
+          occlusion = 0.5 + 0.49 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'mangosteenslice': {
         const p = proceduralMaterialPresets.mangosteenslice;
         const grainField = cachedNoise(96, 96, seed ^ 0x6e25);
@@ -16688,6 +16744,7 @@ export function createSurfaceSampler(
     kind === 'cotterpins' ||
     kind === 'seedstitch' ||
     kind === 'mangosteenslice' ||
+    kind === 'pickettiles' ||
     fabricated ||
     botanical ||
     packaging ||

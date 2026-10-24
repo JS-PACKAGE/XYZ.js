@@ -530,7 +530,93 @@ const kinds: ProceduralMaterialKind[] = [
   'cotterpins',
   'seedstitch',
   'mangosteenslice',
+  'pickettiles',
 ];
+
+describe('Elongated pointed hexagonal picket tiles', () => {
+  const p = proceduralMaterialPresets.pickettiles;
+  const pitch = Math.sqrt(3) / 2;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pickettiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / (p.rows * pitch), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates all six glazed edges with flat recessed grout and keeps elongated pointed ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const x = col + (row & 1) * 0.5,
+            y = row * pitch;
+          const center = at(x, y);
+          for (let i = 0; i < 6; i++) {
+            const a = (i * Math.PI) / 3;
+            const edge = at(x + 0.5 * Math.cos(a), y + 0.5 * Math.sin(a));
+            const inset = at(x + 0.43 * Math.cos(a), y + 0.43 * Math.sin(a));
+            expect(edge.mortar).toBe(1);
+            expect(edge.height).toBe(0);
+            expect(edge.color).toBeCloseTo(0.14, 12);
+            expect(center.height - edge.height).toBeGreaterThan(0.0059);
+            expect(inset.height - edge.height).toBeGreaterThan(0.0059);
+            expect(inset.color - edge.color).toBeGreaterThan(0.349);
+            expect(edge.roughness - inset.roughness).toBeGreaterThan(0.539);
+            expect(inset.occlusion - edge.occlusion).toBeGreaterThan(0.489);
+            expect(inset.metallic).toBe(0);
+          }
+          expect(at(x, y + 0.49).mortar).toBe(0);
+          expect(at(x, y - 0.49).mortar).toBe(0);
+          expect(at(x, y + 1 / Math.sqrt(3)).mortar).toBe(1);
+          expect(at(x, y - 1 / Math.sqrt(3)).mortar).toBe(1);
+          let horizontal = 0,
+            vertical = 0;
+          for (let j = 1; j <= 320; j++) {
+            const d = j / 500;
+            if (!horizontal && at(x + d, y).mortar > 0.99) horizontal = d;
+            if (!vertical && at(x, y + d).mortar > 0.99) vertical = d;
+          }
+          const ratio = vertical / (p.rows * pitch) / (horizontal / p.columns);
+          expect(ratio).toBeGreaterThan(2.9);
+          expect(ratio).toBeLessThan(3.1);
+        }
+    },
+  );
+  it('keeps six plane bevel products, tile ownership, tips and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows * pitch) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Thick-rind mangosteen slices with six white pulp lobes', () => {
   const p = proceduralMaterialPresets.mangosteenslice;

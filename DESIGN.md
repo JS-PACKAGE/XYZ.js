@@ -533,6 +533,8 @@
 
 `mangosteenslice` 用兩個 squared-radius smooth 圓場定義厚果皮，六個預算方向的橢圓 cap 與中心 smooth hub 以 product union 接成圓潤乳白果瓣，較窄的 dome 場控制果肉隆起，瓣間保留暗紫凹縫。4×4 切面、相鄰旋轉 30°、96×96 seeded grain、0.32 m tile、metallic 0，目錄增為 492 種；取樣無 trig、sqrt 或配置陣列。既有 maps／height／ownership 不變，不新增 geometry、透明度或植物學模擬。
 
+`pickettiles` 在正規化 triangular lattice 的相鄰兩列搜尋最近 owner，再以三組對向 half-plane 的 compact smooth product 畫六邊，避免 min/max bevel 在尖角相交處的導數折線。9 欄×4 交錯列映回方形 UV 後形成長寬比 3 的尖頂長磚；所有 owner 切換前都落入平底灰縫，36 個 seeded tones 與 pitch／bevel 倒數在 sampler 建立時預算。青綠釉面、96×96 grain、0.9 m tile、metallic 0，目錄增為 493 種；既有 maps／height／ownership 不變，不新增 geometry、透明度或建築模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

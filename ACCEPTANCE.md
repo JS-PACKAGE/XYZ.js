@@ -6693,3 +6693,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐果瓣檢查果肉／瓣間凹縫／厚果皮／平底的 height／color／AO／roughness／metallic，六瓣各 17 點驗證接至中心；另掃描橢圓肩部、中心 union、果皮內外緣、cell 與 wrap C1。既有 491 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6142 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 mangosteenslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認紫紅厚果皮、中央相連乳白六瓣與交替朝向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：細長六角釉面磚（pickettiles）
+
+- 目錄 492→493 種；0.9 m tile 有 36 塊交錯青綠尖頂長磚，扣灰縫／bevel 前標稱 0.1×0.3 m，逐磚 seeded 色差、六條直邊與平底凹陷中性灰縫。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增磚 geometry、透明度或建築模擬。
+- 三 seed（0／1／`0xffffffff`）逐磚檢查六邊灰縫／內側釉面的 height／color／AO／roughness／metallic，尖頂內外與掃描得到的實際長寬比 2.9–3.1；另掃描 half-plane bevel products、owner 切換、尖頂與 wrap C1。既有 492 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6147 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pickettiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認青綠長六角磚、尖頂交錯鋪排、逐磚色差與灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
