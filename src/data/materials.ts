@@ -4516,6 +4516,20 @@ export const proceduralMaterialPresets = Object.freeze({
     pivotRadius: 0.034,
     pivotCore: 0.024,
   }),
+  hextruchettiles: Object.freeze({
+    dark: [13, 38, 59] as const,
+    light: [234, 226, 197] as const,
+    roughness: 0.42,
+    relief: 0.005,
+    columns: 7,
+    rows: 8,
+    apothem: 0.5,
+    vertexRadius: 1 / Math.sqrt(3),
+    arcRadius: 1 / (2 * Math.sqrt(3)),
+    arcBand: 0.018,
+    grout: 0.012,
+    shoulder: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5046,4 +5060,5 @@ export const proceduralTileMeters = Object.freeze({
   togglebuttons: 0.32,
   greenpeapods: 0.48,
   beltbuckles: 0.32,
+  hextruchettiles: 0.7,
 });

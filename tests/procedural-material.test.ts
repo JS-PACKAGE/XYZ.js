@@ -564,7 +564,120 @@ const kinds: ProceduralMaterialKind[] = [
   'togglebuttons',
   'greenpeapods',
   'beltbuckles',
+  'hextruchettiles',
 ];
+
+describe('Hexagonal Truchet glaze tiles with three alternating vertex arcs', () => {
+  const p = proceduralMaterialPresets.hextruchettiles;
+  const pitch = Math.sqrt(3) / 2;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('hextruchettiles', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(
+        (col + (row & 1) * 0.5 + x) / p.columns,
+        (row * pitch + y) / (p.rows * pitch),
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains three alternating arcs, six midpoint connections, flat glaze and recessed neutral grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const center = at(col, row, 0, 0),
+            bright: boolean[] = [];
+          for (let i = 0; i < 6; i++) {
+            const angle = Math.PI / 6 + (i * Math.PI) / 3,
+              point = at(
+                col,
+                row,
+                p.arcRadius * Math.cos(angle),
+                p.arcRadius * Math.sin(angle),
+              );
+            bright.push(point.color > 0.5);
+            expect(Math.abs(point.height - center.height)).toBeLessThan(
+              0.000011,
+            );
+            expect(point.mortar).toBe(0);
+            expect(point.metallic).toBe(0);
+            if (point.color > 0.5) {
+              expect(point.color - center.color).toBeGreaterThan(0.6);
+              expect(center.roughness - point.roughness).toBeGreaterThan(0.037);
+            }
+            const normal = (i * Math.PI) / 3,
+              link = at(
+                col,
+                row,
+                (p.apothem - 0.04) * Math.cos(normal),
+                (p.apothem - 0.04) * Math.sin(normal),
+              ),
+              grout = at(
+                col,
+                row,
+                p.apothem * Math.cos(normal),
+                p.apothem * Math.sin(normal),
+              );
+            expect(link.color - center.color).toBeGreaterThan(0.59);
+            expect(link.height).toBeGreaterThan(0.0028);
+            expect(grout.height).toBe(0);
+            expect(grout.mortar).toBe(1);
+            expect(grout.occlusion).toBeCloseTo(0.53, 12);
+          }
+          expect(bright.filter(Boolean)).toHaveLength(3);
+          for (let i = 0; i < 6; i++)
+            expect(bright[i]).not.toBe(bright[(i + 1) % 6]);
+        }
+    },
+  );
+  it('keeps six multiplied bevel planes, arc supports, hex owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hextruchettiles', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Rounded brass belt buckle frames with raised tongues', () => {
   const p = proceduralMaterialPresets.beltbuckles;

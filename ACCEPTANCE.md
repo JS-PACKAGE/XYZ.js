@@ -6934,3 +6934,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 525 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6324 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 beltbuckles，526 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認圓角框、雙腔、中柱、收尖扣舌與樞軸，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 金屬表面浮雕，不宣稱透明開口、機械扣合、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：六角三弧 Truchet 釉面磚（hextruchettiles）
+
+- 目錄 526→527 種；0.7 m tile，56 片深藍六角磚各有三段象牙弧，兩種 seeded 交替頂點方向、六邊中點接續及凹中性灰縫，區別 truchettiles 的方磚雙弧。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增拼磚 geometry 或路徑／拼圖遊戲。Canonical 7×4√3 lattice fitting 到 square UV 約 1% 軸伸縮，不宣稱量測級正六角。
+- 三 seed（0／1／`0xffffffff`）逐 56 片檢查六個候選弧內點恰三明三暗且交替、六邊中點內側連接、弧／底色平面高度差只有 grain、釉色／roughness 差異及六邊灰縫 height／mortar／AO；129×129 網格、三 seed、雙方向五欄位 C1 檢查六 bevel planes、弧 support、owner 與 wrap，四項針對測試皆通過。
+- 既有 526 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6329 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 hextruchettiles，527 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深藍六角磚、每片三段象牙弧、六邊中點接續及灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 釉色表面，不宣稱量測級幾何、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -1278,6 +1278,93 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'hextruchettiles': {
+        const p = proceduralMaterialPresets.hextruchettiles;
+        const turns = new Uint8Array(p.columns * p.rows),
+          tones = new Float64Array(p.columns * p.rows),
+          centers = new Float64Array(12),
+          pitch = Math.sqrt(3) / 2,
+          tileHeight = p.rows * pitch,
+          inversePitch = 1 / pitch,
+          inverseShoulder = 1 / p.shoulder,
+          inverseBand = 1 / p.arcBand,
+          arcSquared = p.arcRadius * p.arcRadius,
+          grainField = cachedNoise(64, 64, seed ^ 0xfc93);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = row * p.columns + col;
+            turns[i] = hash(col, row, seed ^ 0xfc91) < 0.5 ? 0 : 1;
+            tones[i] = hash(col, row, seed ^ 0xfc95);
+          }
+        for (let turn = 0; turn < 2; turn++)
+          for (let arc = 0; arc < 3; arc++) {
+            const angle = Math.PI / 6 + ((2 * arc + turn) * Math.PI) / 3,
+              i = turn * 6 + arc * 2;
+            centers[i] = p.vertexRadius * Math.cos(angle);
+            centers[i + 1] = p.vertexRadius * Math.sin(angle);
+          }
+        return () => {
+          const x = u * p.columns,
+            y = v * tileHeight,
+            row = Math.floor(y * inversePitch);
+          let best = Infinity,
+            dx = 0,
+            dy = 0,
+            owner = 0;
+          // Only the two bracketing rows can own a nearest center; within
+          // either row its rounded column is the closest candidate.
+          for (let oy = 0; oy <= 1; oy++) {
+            const cy = row + oy,
+              offset = (cy & 1) * 0.5,
+              cx = Math.round(x - offset),
+              px = x - cx - offset,
+              py = y - cy * pitch,
+              distance = px * px + py * py;
+            if (distance < best) {
+              best = distance;
+              dx = px;
+              dy = py;
+              owner =
+                (((cy % p.rows) + p.rows) % p.rows) * p.columns +
+                (((cx % p.columns) + p.columns) % p.columns);
+            }
+          }
+          const face =
+              smooth(
+                clamp((p.apothem - Math.abs(dx) - p.grout) * inverseShoulder),
+              ) *
+              smooth(
+                clamp(
+                  (p.apothem - Math.abs(0.5 * dx + pitch * dy) - p.grout) *
+                    inverseShoulder,
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (p.apothem - Math.abs(0.5 * dx - pitch * dy) - p.grout) *
+                    inverseShoulder,
+                ),
+              ),
+            first = turns[owner] * 6;
+          let motif = 0;
+          for (let i = first; i < first + 6; i += 2) {
+            const ax = dx - centers[i],
+              ay = dy - centers[i + 1],
+              d = (ax * ax + ay * ay - arcSquared) * inverseBand;
+            motif += smooth(clamp(1 - d * d));
+          }
+          const grain = grainField(u, v);
+          color =
+            0.2 + face * (0.025 * tones[owner] + 0.61 * motif + 0.008 * grain);
+          // All three arcs are glaze pigment on one flat ceramic face.
+          height = face * (0.58 + 0.002 * grain);
+          roughness =
+            0.83 + face * (p.roughness - 0.83 - 0.045 * motif + 0.008 * grain);
+          occlusion = 0.53 + 0.46 * face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'beltbuckles': {
         const p = proceduralMaterialPresets.beltbuckles;
         const tones = new Float64Array(p.cells * p.cells);
@@ -18992,6 +19079,7 @@ export function createSurfaceSampler(
     kind === 'togglebuttons' ||
     kind === 'greenpeapods' ||
     kind === 'beltbuckles' ||
+    kind === 'hextruchettiles' ||
     fabricated ||
     botanical ||
     packaging ||
