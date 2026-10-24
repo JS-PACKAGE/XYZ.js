@@ -1274,6 +1274,82 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'punchcard': {
+        const p = proceduralMaterialPresets.punchcard;
+        const cardCount = p.columns * p.rows,
+          slotsPerCard = p.punchColumns * p.punchRows,
+          slots = new Uint8Array(cardCount * slotsPerCard),
+          tones = new Float64Array(cardCount);
+        for (let card = 0; card < cardCount; card++) {
+          tones[card] = hash(card, 0, seed ^ 0xbce1);
+          for (let col = 0; col < p.punchColumns; col++) {
+            const first = Math.floor(
+                hash(col, card, seed ^ 0xbce3) * p.punchRows,
+              ),
+              second =
+                (first +
+                  1 +
+                  Math.floor(
+                    hash(col, card, seed ^ 0xbce5) * (p.punchRows - 1),
+                  )) %
+                p.punchRows;
+            slots[card * slotsPerCard + first * p.punchColumns + col] = 1;
+            slots[card * slotsPerCard + second * p.punchColumns + col] = 1;
+          }
+        }
+        const startX = (-(p.punchColumns - 1) * p.pitchX) / 2,
+          startY = (-(p.punchRows - 1) * p.pitchY) / 2,
+          inversePitchX = 1 / p.pitchX,
+          inversePitchY = 1 / p.pitchY,
+          inverseEdge = 1 / p.edge,
+          inversePunchBevel = 1 / p.punchBevel,
+          grainField = cachedNoise(96, 96, seed ^ 0xbce7);
+        return () => {
+          const uc = u * p.columns,
+            vc = v * p.rows,
+            card = Math.floor(vc) * p.columns + Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            face =
+              smooth(clamp((p.halfWidth - Math.abs(x)) * inverseEdge)) *
+              smooth(clamp((p.halfHeight - Math.abs(y)) * inverseEdge)) *
+              smooth(clamp((p.chamfer - x + y) * inverseEdge)),
+            col = Math.max(
+              0,
+              Math.min(
+                p.punchColumns - 1,
+                Math.round((x - startX) * inversePitchX),
+              ),
+            ),
+            row = Math.max(
+              0,
+              Math.min(
+                p.punchRows - 1,
+                Math.round((y - startY) * inversePitchY),
+              ),
+            ),
+            dx = x - startX - col * p.pitchX,
+            dy = y - startY - row * p.pitchY,
+            slot =
+              slots[card * slotsPerCard + row * p.punchColumns + col] *
+              smooth(
+                clamp((p.punchHalfWidth - Math.abs(dx)) * inversePunchBevel),
+              ) *
+              smooth(
+                clamp((p.punchHalfHeight - Math.abs(dy)) * inversePunchBevel),
+              ),
+            paper = face * (1 - slot),
+            grain = grainField(u, v);
+          // Two distinct seeded punches per column suggest data without claiming
+          // a historical encoding. Slots expose opaque backing, not cutout alpha.
+          color = 0.12 + paper * (0.74 + 0.05 * tones[card] + 0.015 * grain);
+          height = 0.04 + paper * (0.06 + 0.001 * grain);
+          roughness +=
+            0.08 * (1 - paper) - 0.04 * paper + 0.015 * grain * paper;
+          occlusion = 0.6 + 0.39 * paper;
+          return;
+        };
+      }
       case 'cherryblossom': {
         const p = proceduralMaterialPresets.cherryblossom;
         const axes = new Float64Array(p.petals * 2),
@@ -17753,6 +17829,7 @@ export function createSurfaceSampler(
     kind === 'coins' ||
     kind === 'righttriangletiles' ||
     kind === 'cherryblossom' ||
+    kind === 'punchcard' ||
     fabricated ||
     botanical ||
     packaging ||

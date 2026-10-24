@@ -8606,6 +8606,33 @@ var proceduralMaterialPresets = Object.freeze({
 		pollenCount: 12,
 		pollenDistance: .065,
 		pollenRadius: .009
+	}),
+	punchcard: Object.freeze({
+		dark: [
+			37,
+			37,
+			32
+		],
+		light: [
+			244,
+			232,
+			194
+		],
+		roughness: .86,
+		relief: .005,
+		columns: 2,
+		rows: 4,
+		halfWidth: .44,
+		halfHeight: .4,
+		chamfer: .7,
+		edge: .015,
+		punchColumns: 20,
+		punchRows: 8,
+		pitchX: .036,
+		pitchY: .07,
+		punchHalfWidth: .008,
+		punchHalfHeight: .026,
+		punchBevel: .003
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9118,7 +9145,8 @@ var proceduralTileMeters = Object.freeze({
 	hinges: .4,
 	coins: .12,
 	righttriangletiles: 1,
-	cherryblossom: .24
+	cherryblossom: .24,
+	punchcard: .44
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

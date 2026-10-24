@@ -561,6 +561,8 @@
 
 同輪追加 `cherryblossom`（五瓣櫻花），目錄 509→510 種：4×4 粉色五瓣花，每瓣末端淺缺刻分成兩圓瓣尖，花心較低、十二個淺色凸起花粉點，交替 36° 朝向並帶 seeded 花色／微紋。0.24 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增花朵 geometry、透明孔洞、植物生長、風動或散射模擬；逐功能驗證提交、不 push。
 
+同輪追加 `punchcard`（打孔資料卡），目錄 510→511 種：2×4 米色薄紙卡、單側上角切角，20×8 矩形孔位每欄兩個不同 seeded 打孔，孔間保留紙橋並帶紙纖維細紋。0.44 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，孔位回到不透明背襯而非透明鏤空；不新增紙卡 geometry、真實資料編碼／讀卡或紙張物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -548,7 +548,108 @@ const kinds: ProceduralMaterialKind[] = [
   'coins',
   'righttriangletiles',
   'cherryblossom',
+  'punchcard',
 ];
+
+describe('Thin punched paper cards with a clipped corner', () => {
+  const p = proceduralMaterialPresets.punchcard;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('punchcard', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.columns, y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains two rectangular punches per column, paper webs, a single clipped upper corner and thin card relief for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let cardRow = 0; cardRow < p.rows; cardRow++)
+        for (let cardCol = 0; cardCol < p.columns; cardCol++) {
+          const local = (x: number, y: number) =>
+              at(cardCol + 0.5 + x, cardRow + 0.5 + y),
+            backing = local(0.48, 0),
+            paper = local(-0.4, -0.36);
+          expect(paper.height - backing.height).toBeGreaterThan(0.00029);
+          expect(paper.height - backing.height).toBeLessThan(0.00031);
+          expect(local(0.4, -0.36).height).toBe(backing.height);
+          expect(local(0.4, 0.36).height - backing.height).toBeGreaterThan(
+            0.00029,
+          );
+          for (let col = 0; col < p.punchColumns; col++) {
+            let punches = 0;
+            const x = (col - (p.punchColumns - 1) / 2) * p.pitchX;
+            for (let row = 0; row < p.punchRows; row++) {
+              const y = (row - (p.punchRows - 1) / 2) * p.pitchY,
+                center = local(x, y),
+                web = local(x + p.pitchX / 2, y);
+              expect(web.height - backing.height).toBeGreaterThan(0.00029);
+              if (center.height === backing.height) {
+                punches++;
+                expect(web.color - center.color).toBeGreaterThan(0.74);
+                expect(web.occlusion - center.occlusion).toBeGreaterThan(0.38);
+                expect(center.roughness - web.roughness).toBeGreaterThan(0.1);
+                expect(center.metallic).toBe(0);
+                for (const [dx, dy] of [
+                  [p.punchHalfWidth * 0.8, 0],
+                  [0, p.punchHalfHeight - p.punchBevel * 0.5],
+                ] as const) {
+                  const edge = local(x + dx, y + dy);
+                  expect(edge.height).toBeGreaterThan(center.height);
+                  expect(edge.height).toBeLessThan(web.height);
+                }
+              } else {
+                expect(center.height - backing.height).toBeGreaterThan(0.00029);
+              }
+            }
+            expect(punches).toBe(2);
+          }
+          for (let i = 0; i <= 32; i++) {
+            const t = i / 32;
+            for (const [x, y] of [
+              [-p.halfWidth, (2 * t - 1) * p.halfHeight],
+              [p.halfWidth, (2 * t - 1) * p.halfHeight],
+              [(2 * t - 1) * p.halfWidth, -p.halfHeight],
+              [(2 * t - 1) * p.halfWidth, p.halfHeight],
+            ] as const)
+              expect(local(x, y).height).toBe(backing.height);
+          }
+        }
+    },
+  );
+  it('keeps clipped paper outlines, thin rectangular punch bevels, nearest-slot owners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns) / 128,
+              v = (y * p.rows) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Five-petal cherry blossoms with notched tips and pollen dots', () => {
   const p = proceduralMaterialPresets.cherryblossom;

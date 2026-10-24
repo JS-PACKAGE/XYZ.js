@@ -4235,6 +4235,25 @@ export const proceduralMaterialPresets = Object.freeze({
     pollenDistance: 0.065,
     pollenRadius: 0.009,
   }),
+  punchcard: Object.freeze({
+    dark: [37, 37, 32] as const,
+    light: [244, 232, 194] as const,
+    roughness: 0.86,
+    relief: 0.005,
+    columns: 2,
+    rows: 4,
+    halfWidth: 0.44,
+    halfHeight: 0.4,
+    chamfer: 0.7,
+    edge: 0.015,
+    punchColumns: 20,
+    punchRows: 8,
+    pitchX: 0.036,
+    pitchY: 0.07,
+    punchHalfWidth: 0.008,
+    punchHalfHeight: 0.026,
+    punchBevel: 0.003,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4749,4 +4768,5 @@ export const proceduralTileMeters = Object.freeze({
   coins: 0.12,
   righttriangletiles: 1,
   cherryblossom: 0.24,
+  punchcard: 0.44,
 });
