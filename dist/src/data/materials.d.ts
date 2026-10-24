@@ -3414,6 +3414,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         wingAngle: 0.5;
         wingShoulder: 0.45;
     }>;
+    pomegranateslice: Readonly<{
+        dark: readonly [112, 7, 29];
+        light: readonly [255, 236, 204];
+        roughness: 0.78;
+        relief: 0.022;
+        cells: 3;
+        radius: 0.44;
+        innerRadius: 0.39;
+        edge: 0.012;
+        chambers: 6;
+        chamberDistance: 0.22;
+        chamberLong: 0.155;
+        chamberShort: 0.09;
+        chamberShoulder: 0.3;
+        arilLong: 0.035;
+        arilShort: 0.023;
+        arils: readonly [readonly [0, 0], readonly [-0.09, 0], readonly [0.09, 0], readonly [-0.045, -0.045], readonly [-0.045, 0.045], readonly [0.045, -0.045], readonly [0.045, 0.045]];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3878,4 +3896,5 @@ export declare const proceduralTileMeters: Readonly<{
     seedbeads: 0.06;
     chainstitch: 0.12;
     wingnuts: 0.12;
+    pomegranateslice: 0.15;
 }>;

@@ -7299,6 +7299,40 @@ var proceduralMaterialPresets = Object.freeze({
 		wingWidth: .105,
 		wingAngle: .5,
 		wingShoulder: .45
+	}),
+	pomegranateslice: Object.freeze({
+		dark: [
+			112,
+			7,
+			29
+		],
+		light: [
+			255,
+			236,
+			204
+		],
+		roughness: .78,
+		relief: .022,
+		cells: 3,
+		radius: .44,
+		innerRadius: .39,
+		edge: .012,
+		chambers: 6,
+		chamberDistance: .22,
+		chamberLong: .155,
+		chamberShort: .09,
+		chamberShoulder: .3,
+		arilLong: .035,
+		arilShort: .023,
+		arils: [
+			[0, 0],
+			[-.09, 0],
+			[.09, 0],
+			[-.045, -.045],
+			[-.045, .045],
+			[.045, -.045],
+			[.045, .045]
+		]
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -7762,7 +7796,8 @@ var proceduralTileMeters = Object.freeze({
 	greekkey: .45,
 	seedbeads: .06,
 	chainstitch: .12,
-	wingnuts: .12
+	wingnuts: .12,
+	pomegranateslice: .15
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

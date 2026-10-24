@@ -540,6 +540,7 @@ try {
     'seedbeads',
     'chainstitch',
     'wingnuts',
+    'pomegranateslice',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

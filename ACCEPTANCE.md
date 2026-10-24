@@ -6476,3 +6476,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增三個 seed（0／1／`0xffffffff`）的逐格形態回歸，檢查雙翼／hub／bore／缺口的高度、色差、AO、roughness、方向交替與 metallic；另掃描翼根聯集、孔緣及 tile wrap 的 C1。既有 460 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／5980 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 wingnuts，25 球與四圖預覽正常，可辨識雙翼、中央暗孔與交替方向，errors 皆為空。WebGPU 公開 API 建立 size 64／heightMap true，預設與借用材質 metallic 皆為 1、height 存在、destroyed true；離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：石榴切片（pomegranateslice）
+
+- 目錄 461→462 種；0.15 m tile，九個紅皮圓形切片，乳白中心與隔膜分出六個凹入果室，每室七顆分開隆起的紅色橢圓果粒。opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增果粒 geometry、透明、transmission、果汁或植物模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格驗證白色中心、紅皮凸環、凹室及全部 42 顆果粒的高度／色差／roughness／AO；另掃描果粒、皮緣、扇區分界與 tile wrap 的 C1。既有 461 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／5985 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pomegranateslice，25 球與四圖預覽正常，可辨紅皮、乳白放射隔膜與六果室，兩頁 errors 為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、透明果粒、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

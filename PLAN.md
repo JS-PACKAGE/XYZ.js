@@ -463,6 +463,8 @@
 
 同輪追加 `wingnuts`（蝶形螺帽），目錄 460→461 種：十六個交替旋轉 90° 的銀色螺帽，圓形 hub、中央凹孔與向兩側斜伸的隆起扁翼，孔底及外側保留暗色鋼底。0.12 m tile、opaque metal、metallic map／預設 factor 1，沿用四圖與選用 height、options／ownership；不新增螺帽 geometry、透明孔洞、實際螺紋或機械模擬，逐功能驗證提交、不 push。
 
+同輪追加 `pomegranateslice`（石榴切片），目錄 461→462 種：九個帶深紅果皮與乳白中心／隔膜的圓形斷面，各有六個果室，每室七顆分開隆起的紅色橢圓果粒；果室較低、果粒較光滑。0.15 m tile、opaque dielectric、metallic 0，沿用四圖與選用 height／options／ownership，不新增果粒 geometry、透明／transmission／果汁或植物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

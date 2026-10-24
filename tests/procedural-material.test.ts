@@ -499,7 +499,108 @@ const kinds: ProceduralMaterialKind[] = [
   'seedbeads',
   'chainstitch',
   'wingnuts',
+  'pomegranateslice',
 ];
+
+describe('Pomegranate cross sections', () => {
+  const p = proceduralMaterialPresets.pomegranateslice;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pomegranateslice', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates six aril clusters with pale pith and a raised red rind for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const pith = at(cx, cy),
+            rind = at(cx + 0.405, cy),
+            gap = at(col, row);
+          expect(pith.color - rind.color).toBeGreaterThan(0.6);
+          expect(rind.height - pith.height).toBeGreaterThan(0.002);
+          expect(rind.height - gap.height).toBeGreaterThan(0.01);
+          for (let chamber = 0; chamber < p.chambers; chamber++) {
+            const a = (chamber * Math.PI * 2) / p.chambers,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            const pocket = at(
+              cx + (p.chamberDistance + 0.045) * c,
+              cy + (p.chamberDistance + 0.045) * s,
+            );
+            for (const [radial, tangent] of p.arils) {
+              const aril = at(
+                cx + (p.chamberDistance + radial) * c - tangent * s,
+                cy + (p.chamberDistance + radial) * s + tangent * c,
+              );
+              expect(aril.height - pocket.height).toBeGreaterThan(0.006);
+              expect(pocket.color - aril.color).toBeGreaterThan(0.3);
+              expect(pith.color - aril.color).toBeGreaterThan(0.7);
+              expect(pocket.roughness - aril.roughness).toBeGreaterThan(0.27);
+              expect(aril.occlusion - pocket.occlusion).toBeGreaterThan(0.22);
+              expect(aril.metallic).toBe(0);
+            }
+          }
+        }
+    },
+  );
+  it('keeps seed domes, rind, sector borders and tile wrap C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+      for (let sector = 0; sector < p.chambers; sector++) {
+        const a = ((sector + 0.5) * Math.PI * 2) / p.chambers;
+        for (let r = 0; r <= 64; r++) {
+          const x = 0.5 + (r * Math.cos(a)) / 128,
+            y = 0.5 + (r * Math.sin(a)) / 128;
+          const left = at(x - h * Math.sin(a), y + h * Math.cos(a));
+          const mid = at(x, y);
+          const right = at(x + h * Math.sin(a), y - h * Math.cos(a));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(
+              Math.abs((left[key] - 2 * mid[key] + right[key]) / h),
+            ).toBeLessThan(0.02);
+        }
+      }
+    }
+  });
+});
 
 describe('Wing nuts', () => {
   const p = proceduralMaterialPresets.wingnuts;

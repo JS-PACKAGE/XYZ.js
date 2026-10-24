@@ -1262,6 +1262,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pomegranateslice': {
+        const p = proceduralMaterialPresets.pomegranateslice;
+        const grainField = cachedNoise(96, 96, seed ^ 0x7b59);
+        const step = TAU / p.chambers;
+        const directions = new Float64Array(p.chambers * 2);
+        for (let i = 0; i < p.chambers; i++) {
+          directions[i * 2] = Math.cos(i * step);
+          directions[i * 2 + 1] = Math.sin(i * step);
+        }
+        const arils = Float64Array.from(p.arils.flat());
+        const outerSquared = p.radius * p.radius;
+        const innerSquared = p.innerRadius * p.innerRadius;
+        return () => {
+          const x = fract(u * p.cells) - 0.5;
+          const y = fract(v * p.cells) - 0.5;
+          const r2 = x * x + y * y;
+          const face = smooth(clamp((outerSquared - r2) / p.edge));
+          const inner = smooth(clamp((innerSquared - r2) / p.edge));
+          // Chamber and aril supports end before sector borders, where pith takes over.
+          const sector =
+            Math.floor((Math.atan2(y, x) + TAU + step / 2) / step) % p.chambers;
+          const c = directions[sector * 2],
+            s = directions[sector * 2 + 1];
+          const radial = x * c + y * s - p.chamberDistance;
+          const tangent = y * c - x * s;
+          const ax = radial / p.chamberLong,
+            ay = tangent / p.chamberShort;
+          const cavity = smooth(
+            clamp((1 - ax * ax - ay * ay) / p.chamberShoulder),
+          );
+          let outside = 1;
+          for (let i = 0; i < arils.length; i += 2) {
+            const dx = (radial - arils[i]) / p.arilLong;
+            const dy = (tangent - arils[i + 1]) / p.arilShort;
+            outside *= 1 - smooth(clamp(1 - dx * dx - dy * dy));
+          }
+          const seeds = 1 - outside;
+          const grain = grainField(u, v);
+          color =
+            0.06 +
+            face * (0.18 + 0.64 * inner - 0.42 * cavity - 0.34 * seeds) +
+            0.02 * grain;
+          height =
+            0.06 +
+            face * (0.36 + 0.12 * (1 - inner) - 0.12 * cavity + 0.3 * seeds) +
+            0.003 * grain;
+          roughness -= 0.12 * face + 0.28 * seeds;
+          occlusion = 0.4 + 0.48 * face - 0.16 * cavity + 0.23 * seeds;
+          return;
+        };
+      }
       case 'wingnuts': {
         const p = proceduralMaterialPresets.wingnuts;
         const grainField = cachedNoise(96, 96, seed ^ 0x6f43);
@@ -15083,6 +15134,7 @@ export function createSurfaceSampler(
     kind === 'seedbeads' ||
     kind === 'chainstitch' ||
     kind === 'wingnuts' ||
+    kind === 'pomegranateslice' ||
     fabricated ||
     botanical ||
     packaging ||
