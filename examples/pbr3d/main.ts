@@ -546,6 +546,7 @@ try {
     'starsocketbolts',
     'sanddollar',
     'brogueleather',
+    'clovebuds',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

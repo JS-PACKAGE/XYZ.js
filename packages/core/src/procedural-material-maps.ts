@@ -1263,6 +1263,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'clovebuds': {
+        const p = proceduralMaterialPresets.clovebuds;
+        const grainField = cachedNoise(96, 96, seed ^ 0xf3df);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? dy : dx,
+            y = turn ? -dx : dy;
+          const stem = smooth(
+            clamp(
+              (1 -
+                (x / p.stemWidth) ** 2 -
+                ((y - p.stemCenter) / p.stemLength) ** 2) /
+                p.shoulder,
+            ),
+          );
+          const head = smooth(
+            clamp(
+              (1 - (x * x + (y - p.headY) ** 2) / p.headRadius ** 2) /
+                p.shoulder,
+            ),
+          );
+          let outsideSepals = 1;
+          for (let i = 0; i < 4; i++) {
+            const sign = i < 2 ? 1 : -1;
+            const along = (i & 1 ? y - p.collarY : x) * sign;
+            const across = i & 1 ? x : y - p.collarY;
+            outsideSepals *=
+              1 -
+              smooth(
+                clamp(
+                  (1 -
+                    ((along - p.sepalDistance) / p.sepalLength) ** 2 -
+                    (across / p.sepalWidth) ** 2) /
+                    p.shoulder,
+                ),
+              );
+          }
+          const sepals = 1 - outsideSepals;
+          const body = 1 - (1 - stem) * (1 - head) * outsideSepals;
+          const grain = grainField(u, v);
+          color = 0.025 + 0.45 * body + 0.17 * head + 0.03 * grain * body;
+          height =
+            0.04 +
+            0.38 * body +
+            0.26 * head +
+            0.08 * sepals +
+            0.02 * grain * body;
+          roughness += 0.12 * (1 - body) + 0.035 * grain;
+          occlusion = 0.3 + 0.65 * body;
+          return;
+        };
+      }
       case 'brogueleather': {
         const p = proceduralMaterialPresets.brogueleather;
         const grainField = cachedNoise(96, 96, seed ^ 0xe2cd);
@@ -15341,6 +15397,7 @@ export function createSurfaceSampler(
     kind === 'starsocketbolts' ||
     kind === 'sanddollar' ||
     kind === 'brogueleather' ||
+    kind === 'clovebuds' ||
     fabricated ||
     botanical ||
     packaging ||

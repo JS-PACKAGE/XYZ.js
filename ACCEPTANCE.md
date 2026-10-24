@@ -6518,3 +6518,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查六瓣與中央孔、雙排邊孔、花瓣間與邊孔間完整皮面的高度／色差／AO／roughness／metallic；另掃描孔壁、支撐邊界與 tile wrap 的 C1。既有 466 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6011 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 brogueleather，25 球與四圖預覽正常，可辨六孔花飾與雙排邊孔，errors 空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：丁香乾香料（clovebuds）
+
+- 目錄 467→468 種；0.08 m tile，十六枚暖褐色乾花蕾帶圓蕾頭、四裂萼托與窄莖，相鄰方向交替 90°。opaque dielectric、metallic 0、低暗底；沿四圖／選用 height／ownership，不新增香料 geometry、生物或食品模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查蕾頭高於細莖、四片萼托、窄莖側面與尾端、色差／AO／roughness／metallic、90° 方向交替；另掃描頭緣、萼托接合、莖尖與 tile wrap 的 C1。既有 467 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6016 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 clovebuds，25 球與四圖預覽正常，可辨圓頭窄莖及方向交替，errors 空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。舊開發伺服器已停止，首次連線 refused 後以既有 dev script 重啟成功；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證。依功能提交，不 push。

@@ -3505,6 +3505,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         borderColumns: 8;
         borderRadius: 0.018;
     }>;
+    clovebuds: Readonly<{
+        dark: readonly [29, 12, 5];
+        light: readonly [151, 89, 42];
+        roughness: 0.82;
+        relief: 0.04;
+        cells: 4;
+        stemCenter: 0.12;
+        stemLength: 0.25;
+        stemWidth: 0.038;
+        headY: -0.235;
+        headRadius: 0.09;
+        collarY: -0.135;
+        sepalDistance: 0.065;
+        sepalLength: 0.075;
+        sepalWidth: 0.027;
+        shoulder: 0.42;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3975,4 +3992,5 @@ export declare const proceduralTileMeters: Readonly<{
     starsocketbolts: 0.12;
     sanddollar: 0.3;
     brogueleather: 0.18;
+    clovebuds: 0.08;
 }>;

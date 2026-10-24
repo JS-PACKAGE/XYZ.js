@@ -475,6 +475,8 @@
 
 同輪追加 `brogueleather`（雕花皮革），目錄 466→467 種：暖棕皮面上九朵六瓣橢圓沖孔花飾、中央圓孔與兩側雙排細邊孔，孔內為低而粗糙的不透明暗底，花瓣與邊孔間保留完整皮面。0.18 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增皮革 geometry、透明孔洞或皮料模擬；逐功能驗證提交、不 push。
 
+同輪追加 `clovebuds`（丁香乾香料），目錄 467→468 種：十六枚暖褐色乾花蕾，圓蕾頭、四裂細長萼托與窄莖明確分層，相鄰方向轉 90°，間隙為低暗底。0.08 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增香料 geometry、生物或食品模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
