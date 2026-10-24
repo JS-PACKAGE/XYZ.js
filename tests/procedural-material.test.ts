@@ -527,7 +527,92 @@ const kinds: ProceduralMaterialKind[] = [
   'knottednet',
   'fiddleheads',
   'cowrieshells',
+  'cotterpins',
 ];
+
+describe('Loop-eyed steel cotter pins with split bent legs', () => {
+  const p = proceduralMaterialPresets.cotterpins;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cotterpins', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves an open eye, split shaft and two connected outward-bent legs for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + flip * x, row + 0.5 + flip * y);
+          const eye = local(0, p.eyeY),
+            rim = local(0.09, p.eyeY),
+            split = local(0, 0.08),
+            left = local(-0.035, 0.08),
+            right = local(0.035, 0.08);
+          for (const metal of [rim, left, right]) {
+            expect(metal.height - eye.height).toBeGreaterThan(0.0158);
+            expect(metal.color - eye.color).toBeGreaterThan(0.73);
+            expect(metal.occlusion - eye.occlusion).toBeGreaterThan(0.649);
+            expect(eye.roughness - metal.roughness).toBeGreaterThan(0.279);
+            expect(metal.height - split.height).toBeGreaterThan(0.0158);
+            expect(metal.metallic).toBe(1);
+          }
+          for (const [ax, ay, bx, by] of p.legs)
+            for (let i = 0; i <= 16; i++) {
+              const t = i / 16;
+              expect(
+                local(ax + (bx - ax) * t, ay + (by - ay) * t).height -
+                  split.height,
+              ).toBeGreaterThan(0.0158);
+            }
+          expect(
+            local(-0.12, 0.32).height - local(-0.035, 0.32).height,
+          ).toBeGreaterThan(0.0158);
+          expect(
+            local(0.15, 0.36).height - local(0.035, 0.36).height,
+          ).toBeGreaterThan(0.0158);
+          expect(eye.metallic).toBe(1);
+          expect(split.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps elliptical eye bevels, shaft shoulders, bent joins and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cowrie shell undersides with paired aperture teeth', () => {
   const p = proceduralMaterialPresets.cowrieshells;
@@ -17201,6 +17286,7 @@ describe('periodic procedural material fields', () => {
           kind === 'scalemail' ||
           kind === 'slottedmetal' ||
           kind === 'castellatednuts' ||
+          kind === 'cotterpins' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -26643,6 +26729,7 @@ describe('procedural preset acquisition and ownership', () => {
     'scalemail',
     'slottedmetal',
     'castellatednuts',
+    'cotterpins',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -26678,6 +26765,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'scalemail' ||
           kind === 'slottedmetal' ||
           kind === 'castellatednuts' ||
+          kind === 'cotterpins' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

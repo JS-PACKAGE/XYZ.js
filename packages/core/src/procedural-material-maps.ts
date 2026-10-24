@@ -1244,6 +1244,7 @@ export function createSurfaceSampler(
     kind === 'scalemail' ||
     kind === 'slottedmetal' ||
     kind === 'castellatednuts' ||
+    kind === 'cotterpins' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1268,6 +1269,68 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cotterpins': {
+        const p = proceduralMaterialPresets.cotterpins;
+        const segments = new Float64Array(p.legs.length * 5);
+        for (let i = 0; i < p.legs.length; i++) {
+          const [ax, ay, bx, by] = p.legs[i],
+            dx = bx - ax,
+            dy = by - ay;
+          segments[i * 5] = ax;
+          segments[i * 5 + 1] = ay;
+          segments[i * 5 + 2] = dx;
+          segments[i * 5 + 3] = dy;
+          segments[i * 5 + 4] = 1 / (dx * dx + dy * dy);
+        }
+        const inverseWireSquared = 1 / (p.wireWidth * p.wireWidth);
+        const grainField = cachedNoise(96, 96, seed ^ 0x3cb9);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const flip = (Math.floor(uc) + Math.floor(vc)) & 1 ? -1 : 1;
+          const x = (fract(uc) - 0.5) * flip,
+            y = (fract(vc) - 0.5) * flip;
+          const ey = y - p.eyeY;
+          const eye =
+            smooth(
+              clamp(
+                (1 - (x / p.outerWidth) ** 2 - (ey / p.outerLength) ** 2) /
+                  p.shoulder,
+              ),
+            ) *
+            (1 -
+              smooth(
+                clamp(
+                  (1 - (x / p.innerWidth) ** 2 - (ey / p.innerLength) ** 2) /
+                    p.shoulder,
+                ),
+              ));
+          let outside = 1 - eye;
+          for (let i = 0; i < segments.length; i += 5) {
+            const dx = x - segments[i],
+              dy = y - segments[i + 1];
+            const t = clamp(
+              (dx * segments[i + 2] + dy * segments[i + 3]) * segments[i + 4],
+            );
+            const qx = dx - t * segments[i + 2],
+              qy = dy - t * segments[i + 3];
+            outside *=
+              1 -
+              smooth(
+                clamp(
+                  (1 - (qx * qx + qy * qy) * inverseWireSquared) / p.shoulder,
+                ),
+              );
+          }
+          const face = 1 - outside,
+            grain = grainField(u, v);
+          color = 0.05 + 0.76 * face + 0.02 * grain;
+          height = 0.06 + 0.64 * face + 0.004 * grain;
+          roughness += 0.3 * (1 - face) + 0.02 * grain;
+          occlusion = 0.33 + 0.65 * face;
+          return;
+        };
+      }
       case 'cowrieshells': {
         const p = proceduralMaterialPresets.cowrieshells;
         const grainField = cachedNoise(96, 96, seed ^ 0x7ba7);
@@ -16520,6 +16583,7 @@ export function createSurfaceSampler(
     kind === 'knottednet' ||
     kind === 'fiddleheads' ||
     kind === 'cowrieshells' ||
+    kind === 'cotterpins' ||
     fabricated ||
     botanical ||
     packaging ||

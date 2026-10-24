@@ -3826,6 +3826,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         toothLength: 0.055;
         toothWidth: 0.016;
     }>;
+    cotterpins: Readonly<{
+        dark: readonly [27, 34, 39];
+        light: readonly [211, 220, 227];
+        roughness: 0.36;
+        relief: 0.025;
+        cells: 4;
+        eyeY: -0.2;
+        outerWidth: 0.115;
+        outerLength: 0.135;
+        innerWidth: 0.065;
+        innerLength: 0.085;
+        wireWidth: 0.022;
+        shoulder: 0.25;
+        legs: readonly (readonly [-0.035, -0.08, -0.035, 0.17] | readonly [-0.035, 0.17, -0.12, 0.32] | readonly [0.035, -0.08, 0.035, 0.26] | readonly [0.035, 0.26, 0.15, 0.36])[];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4318,4 +4333,5 @@ export declare const proceduralTileMeters: Readonly<{
     knottednet: 0.3;
     fiddleheads: 0.24;
     cowrieshells: 0.2;
+    cotterpins: 0.12;
 }>;

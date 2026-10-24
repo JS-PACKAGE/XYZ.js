@@ -650,6 +650,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `cowrieshells`（寶螺腹面）：4×4 交替直橫象牙色橢圓殼面，隆起殼體、狹長凹口與兩側各九條較光滑隆起齒脊。compact 殼面／開口場與十八齒脊 product union 保留 C1 shoulder，齒列不跨接中央凹口。使用 `await ProceduralMaterial.create('cowrieshells', { seed: 7 })`；0.2 m tile、opaque dielectric、metallic 0，既有 maps／選用 height／ownership 不變，不新增貝殼 geometry、透明殼口或海洋生物模擬。
 
+種類另支援 `cotterpins`（開口銷）：4×4 交替正反鋼銷，橢圓環眼、分離雙腳與長短不同的外彎尾端。四段預計算 capsule 與 compact smooth 環眼 product union 相連，孔隙保留暗色不透明鋼底。使用 `await ProceduralMaterial.create('cotterpins', { seed: 7 })`；0.12 m tile、metallic maps／預設 factor 1，既有 maps／選用 height／ownership 不變，不新增五金 geometry、透明度、緊固或彎折物理。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

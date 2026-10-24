@@ -6672,3 +6672,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐殼檢查外側殼面／凹口／底層的 height／color／AO／roughness、逐十八齒脊相對齒間與凹口的高度、色差、AO、roughness 與 metallic；另掃描橢圓 shoulder、dome、開口兩端、成對齒列與 wrap C1。既有 488 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6126 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cowrieshells，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替方向象牙色殼面、狹長殼口與兩側齒列，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：開口銷（cotterpins）
+
+- 目錄 489→490 種；0.12 m tile，4×4 正反交替鋼銷，橢圓環眼、分離雙腳與不等長外彎尾端。opaque metallic maps／預設 factor 1；孔眼／腳間隙為暗色不透明鋼底，沿四圖／選用 height／ownership，不新增五金 geometry、透明孔洞、緊固或彎折物理。
+- 三 seed（0／1／`0xffffffff`）逐銷檢查環眼／環邊／分離雙腳的 height／color／AO／roughness／metallic，四段腳各 17 點連通、兩尾端偏離直線的位置差；另掃描橢圓 bevel、腳肩部、彎折 union 與 wrap C1。既有 489 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6132 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cotterpins，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認正反交替環眼、腳間隙與外彎尾端，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

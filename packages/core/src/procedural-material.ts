@@ -504,7 +504,8 @@ export type ProceduralMaterialKind =
   | 'brickarches'
   | 'knottednet'
   | 'fiddleheads'
-  | 'cowrieshells';
+  | 'cowrieshells'
+  | 'cotterpins';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1243,6 +1244,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'knottednet',
   'fiddleheads',
   'cowrieshells',
+  'cotterpins',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1457,6 +1459,7 @@ export class ProceduralMaterial {
         this.kind === 'scalemail' ||
         this.kind === 'slottedmetal' ||
         this.kind === 'castellatednuts' ||
+        this.kind === 'cotterpins' ||
         this.kind === 'starsocketbolts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||

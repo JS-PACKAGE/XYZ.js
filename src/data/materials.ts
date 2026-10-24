@@ -3909,6 +3909,26 @@ export const proceduralMaterialPresets = Object.freeze({
     toothLength: 0.055,
     toothWidth: 0.016,
   }),
+  cotterpins: Object.freeze({
+    dark: [27, 34, 39] as const,
+    light: [211, 220, 227] as const,
+    roughness: 0.36,
+    relief: 0.025,
+    cells: 4,
+    eyeY: -0.2,
+    outerWidth: 0.115,
+    outerLength: 0.135,
+    innerWidth: 0.065,
+    innerLength: 0.085,
+    wireWidth: 0.022,
+    shoulder: 0.25,
+    legs: Object.freeze([
+      [-0.035, -0.08, -0.035, 0.17] as const,
+      [-0.035, 0.17, -0.12, 0.32] as const,
+      [0.035, -0.08, 0.035, 0.26] as const,
+      [0.035, 0.26, 0.15, 0.36] as const,
+    ]),
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4402,4 +4422,5 @@ export const proceduralTileMeters = Object.freeze({
   knottednet: 0.3,
   fiddleheads: 0.24,
   cowrieshells: 0.2,
+  cotterpins: 0.12,
 });
