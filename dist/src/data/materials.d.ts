@@ -4842,6 +4842,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         patchLow: 0.48;
         patchHigh: 0.5;
     }>;
+    spaltedwood: Readonly<{
+        dark: readonly [28, 19, 10];
+        light: readonly [218, 185, 132];
+        roughness: 0.67;
+        relief: 0.003;
+        zoneColumns: 4;
+        zoneRows: 5;
+        variationColumns: 8;
+        variationRows: 8;
+        variationMix: 0.14;
+        zoneLevel: 0.5;
+        lineWidth: 0.018;
+        lineWidthVariation: 0.006;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5394,4 +5408,5 @@ export declare const proceduralTileMeters: Readonly<{
     sharkteeth: 0.24;
     grinderburrs: 0.4;
     cowhide: 0.8;
+    spaltedwood: 0.6;
 }>;

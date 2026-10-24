@@ -1292,6 +1292,38 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'spaltedwood': {
+        const p = proceduralMaterialPresets.spaltedwood;
+        const zoneField = cachedNoise(
+            p.zoneColumns,
+            p.zoneRows,
+            seed ^ 0x11311,
+          ),
+          variationField = cachedNoise(
+            p.variationColumns,
+            p.variationRows,
+            seed ^ 0x11313,
+          ),
+          grainField = cachedNoise(96, 4, seed ^ 0x11315),
+          fiberField = cachedNoise(192, 8, seed ^ 0x11317);
+        return () => {
+          const variation = variationField(u, v),
+            zone =
+              (1 - p.variationMix) * zoneField(u, v) +
+              p.variationMix * variation,
+            width = p.lineWidth + p.lineWidthVariation * variation,
+            distance = (zone - p.zoneLevel) / width,
+            line = smooth(clamp(1 - distance * distance)),
+            grain = grainField(u, v),
+            fiber = fiberField(u, v);
+          // Spalt zones are pigment, not open cracks or incised galleries.
+          color = 0.78 + 0.12 * grain + 0.045 * fiber - 0.69 * line;
+          height = 0.64 + 0.018 * grain + 0.01 * fiber;
+          roughness = 0.67 + 0.05 * grain + 0.01 * fiber;
+          occlusion = 0.97 + 0.02 * fiber;
+          return;
+        };
+      }
       case 'grinderburrs': {
         const p = proceduralMaterialPresets.grinderburrs;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20857,6 +20889,7 @@ export function createSurfaceSampler(
     kind === 'bellpepperslices' ||
     kind === 'sharkteeth' ||
     kind === 'grinderburrs' ||
+    kind === 'spaltedwood' ||
     fabricated ||
     botanical ||
     packaging ||

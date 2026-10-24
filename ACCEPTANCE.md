@@ -7122,3 +7122,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 548 種（含三種既有 shortFur）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 修正後新 build 亦生成 cowhide，八份修改文件相對連結無失效。
 - 修正後完整 build、typecheck、lint、format:check、179 檔／6441 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - 修正後 managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 重新驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 cowhide，549 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認圓潤不規則黑白斑的邊界收斂、細毛色澤與連續毛面，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱毛髮 geometry、梳理／布料／生物／動物模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：分區線淺木（spaltedwood）
+
+- 目錄 549→550 種；0.6 m tile，淺色縱向木紋與 sparse 深色彎曲真菌分區線，色素不刻成凹裂縫；區別 woodworm 蟲道／burlwood 渦旋瘤紋。Opaque dielectric、metallic 0，沿 cached anisotropic wood grain／四圖／選用 height／ownership，不新增 geometry、腐朽／真菌生長／生物模擬或結構安全判定。
+- 三 seed（0／1／`0xffffffff`）各 128×128 固定非整數格樣點，dark line 面積 0.5–20%、pale grain >70%、color min <0.27／max >0.86；height span >0.00005 m 且 height／roughness／AO 範圍皆連續微木紋，dark／pale 區平均 normalized height 差 <0.008，不形成假裂槽；metallic 0。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 549 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 spaltedwood，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 spaltedwood，550 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認淺色縱向木紋、細而彎曲／變寬的深色分區線、大片未著線木面與連續微木紋，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、腐朽／真菌生長／生物模擬、結構安全判定、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6446 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

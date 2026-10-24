@@ -587,7 +587,102 @@ const kinds: ProceduralMaterialKind[] = [
   'sharkteeth',
   'grinderburrs',
   'cowhide',
+  'spaltedwood',
 ];
+
+describe('Pale spalted wood with dark zone lines and continuous grain', () => {
+  const p = proceduralMaterialPresets.spaltedwood;
+  it.each([0, 1, 0xffffffff])(
+    'retains sparse dark zone lines over pale longitudinal grain without carving deep cracks for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('spaltedwood', seed),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let darkCount = 0,
+        paleCount = 0,
+        darkHeight = 0,
+        paleHeight = 0,
+        minimumColor = Infinity,
+        maximumColor = -Infinity,
+        minimumHeight = Infinity,
+        maximumHeight = -Infinity;
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.37) / 128, (y + 0.61) / 128, out);
+          minimumColor = Math.min(minimumColor, out.color);
+          maximumColor = Math.max(maximumColor, out.color);
+          minimumHeight = Math.min(minimumHeight, out.height);
+          maximumHeight = Math.max(maximumHeight, out.height);
+          if (out.color < 0.35) {
+            darkCount++;
+            darkHeight += out.height / p.relief;
+          }
+          if (out.color > 0.72) {
+            paleCount++;
+            paleHeight += out.height / p.relief;
+          }
+          expect(out.height).toBeGreaterThanOrEqual(0.64 * p.relief);
+          expect(out.height).toBeLessThanOrEqual(0.668 * p.relief);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.67);
+          expect(out.roughness).toBeLessThanOrEqual(0.73);
+          expect(out.occlusion).toBeGreaterThanOrEqual(0.97);
+          expect(out.occlusion).toBeLessThanOrEqual(0.99);
+          expect(out.metallic).toBe(0);
+        }
+      expect(darkCount).toBeGreaterThan(128 * 128 * 0.005);
+      expect(darkCount).toBeLessThan(128 * 128 * 0.2);
+      expect(paleCount).toBeGreaterThan(128 * 128 * 0.7);
+      expect(minimumColor).toBeLessThan(0.27);
+      expect(maximumColor).toBeGreaterThan(0.86);
+      expect(maximumHeight - minimumHeight).toBeGreaterThan(0.00005);
+      expect(
+        Math.abs(darkHeight / darkCount - paleHeight / paleCount),
+      ).toBeLessThan(0.008);
+    },
+  );
+  it('keeps variable-width spalt lines, coarse zone joins, fine longitudinal grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('spaltedwood', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Irregular black and white cowhide over continuous short hair', () => {
   const p = proceduralMaterialPresets.cowhide;
