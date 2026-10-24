@@ -4093,6 +4093,25 @@ export const proceduralMaterialPresets = Object.freeze({
       [0.04, -0.2, 0.09, -1],
     ] as const,
   }),
+  ivyleaf: Object.freeze({
+    dark: [17, 45, 22] as const,
+    light: [139, 180, 91] as const,
+    roughness: 0.59,
+    relief: 0.02,
+    cells: 4,
+    shoulder: 0.06,
+    lobes: [
+      [0, -0.02, 0.16, 0.31, 0],
+      [-0.1, 0.05, 0.14, 0.27, (55 * Math.PI) / 180],
+      [0.1, 0.05, 0.14, 0.27, (-55 * Math.PI) / 180],
+    ] as const,
+    veinRoot: 0.18,
+    veinWidth: 0.009,
+    stemStart: 0.18,
+    stemEnd: 0.36,
+    stemWidth: 0.014,
+    stemShoulder: 0.35,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4598,4 +4617,5 @@ export const proceduralTileMeters = Object.freeze({
   diamondcheckertiles: 1.2,
   appleslice: 0.4,
   paperclips: 0.24,
+  ivyleaf: 0.32,
 });

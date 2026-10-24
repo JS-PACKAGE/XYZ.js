@@ -543,6 +543,8 @@
 
 同輪追加 `paperclips`（鋼製迴紋針），目錄 500→501 種：4×4 交替 ±45° 的銀色線夾，三段線身與兩道嵌套回彎保持連通、兩個線端與內槽保留開口；區別 cotterpins 的單眼與外彎分腳。0.24 m tile、opaque metallic maps／預設 factor 1，沿四圖／選用 height／ownership，槽隙為暗色不透明鋼底，不新增線材 geometry、透明度或夾持模擬；逐功能驗證提交、不 push。
 
+同輪追加 `ivyleaf`（三裂常春藤葉），目錄 501→502 種：4×4 交替 ±45° 的綠葉，三個尖裂片與兩道深缺刻、三條隆起掌狀葉脈及連通短葉柄，區別 mapleleaf 的五裂輪廓。0.32 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增葉片 geometry、透明度、風動或植物學模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

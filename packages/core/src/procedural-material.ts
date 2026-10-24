@@ -516,7 +516,8 @@ export type ProceduralMaterialKind =
   | 'spurgears'
   | 'diamondcheckertiles'
   | 'appleslice'
-  | 'paperclips';
+  | 'paperclips'
+  | 'ivyleaf';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1267,6 +1268,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'diamondcheckertiles',
   'appleslice',
   'paperclips',
+  'ivyleaf',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

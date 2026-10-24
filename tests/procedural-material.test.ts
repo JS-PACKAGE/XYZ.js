@@ -539,7 +539,106 @@ const kinds: ProceduralMaterialKind[] = [
   'diamondcheckertiles',
   'appleslice',
   'paperclips',
+  'ivyleaf',
 ];
+
+describe('Three-lobed ivy leaves with raised palmate veins and attached petioles', () => {
+  const p = proceduralMaterialPresets.ivyleaf;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('ivyleaf', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates three pointed leaf lobes with deep notches, raises all three palmate veins and connects the petiole for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = (((row + col) & 1 ? 1 : -1) * Math.PI) / 4;
+          const local = (x: number, y: number) =>
+            at(
+              col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle),
+              row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle),
+            );
+          const background = local(0.4, 0);
+          for (const [x, y] of [
+            [0, -0.27],
+            [-0.275, -0.07],
+            [0.275, -0.07],
+          ]) {
+            const lobe = local(x, y);
+            expect(lobe.height - background.height).toBeGreaterThan(0.0099);
+            expect(lobe.color - background.color).toBeGreaterThan(0.619);
+            expect(lobe.occlusion - background.occlusion).toBeGreaterThan(
+              0.599,
+            );
+            expect(lobe.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [-0.19, -0.23],
+            [0.19, -0.23],
+            [-0.04, 0.34],
+            [0.04, 0.34],
+            [0, 0.395],
+          ]) {
+            expect(local(x, y).height).toBe(background.height);
+          }
+          for (const [cx, cy, , length, turn] of p.lobes) {
+            const vx = cx - length * Math.sin(turn),
+              vy = cy - length * Math.cos(turn) - p.veinRoot,
+              norm = Math.hypot(vx, vy);
+            const x = 0.55 * vx,
+              y = p.veinRoot + 0.55 * vy,
+              vein = local(x, y),
+              blade = local(x - (0.025 * vy) / norm, y + (0.025 * vx) / norm);
+            expect(vein.height - blade.height).toBeGreaterThan(0.0016);
+            expect(vein.color - blade.color).toBeGreaterThan(0.154);
+            expect(vein.occlusion - blade.occlusion).toBeGreaterThan(0.0199);
+            expect(blade.roughness - vein.roughness).toBeGreaterThan(0.099);
+          }
+          for (let i = 0; i <= 32; i++)
+            expect(
+              local(0, 0.18 + (0.18 * i) / 32).height - background.height,
+            ).toBeGreaterThan(0.0099);
+        }
+    },
+  );
+  it('keeps pointed polynomial lobe unions, masked veins, capsule petiole joins, rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Nested steel paper clips with two return bends', () => {
   const p = proceduralMaterialPresets.paperclips;

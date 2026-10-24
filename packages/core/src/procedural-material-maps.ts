@@ -1272,6 +1272,88 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'ivyleaf': {
+        const p = proceduralMaterialPresets.ivyleaf;
+        const lobes = new Float64Array(p.lobes.length * 6),
+          veins = new Float64Array(p.lobes.length * 3);
+        for (let i = 0; i < p.lobes.length; i++) {
+          const [cx, cy, width, length, angle] = p.lobes[i],
+            cos = Math.cos(angle),
+            sin = Math.sin(angle);
+          lobes[i * 6] = cx;
+          lobes[i * 6 + 1] = cy;
+          lobes[i * 6 + 2] = 1 / width;
+          lobes[i * 6 + 3] = 1 / length;
+          lobes[i * 6 + 4] = cos;
+          lobes[i * 6 + 5] = sin;
+          const vx = cx - length * sin,
+            vy = cy - length * cos - p.veinRoot;
+          veins[i * 3] = vx;
+          veins[i * 3 + 1] = vy;
+          veins[i * 3 + 2] = 1 / (vx * vx + vy * vy);
+        }
+        const inverseShoulder = 1 / p.shoulder,
+          inverseVeinSquared = 1 / (p.veinWidth * p.veinWidth),
+          inverseStemSquared = 1 / (p.stemWidth * p.stemWidth),
+          inverseStemShoulder = 1 / p.stemShoulder,
+          stemLength = p.stemEnd - p.stemStart,
+          inverseStemLength = 1 / stemLength;
+        const grainField = cachedNoise(96, 96, seed ^ 0xa6e1);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1 ? 1 : -1;
+          const x = (dx + turn * dy) * Math.SQRT1_2,
+            y = (dy - turn * dx) * Math.SQRT1_2,
+            rootY = y - p.veinRoot;
+          let outsideLeaf = 1,
+            outsideVeins = 1;
+          for (let i = 0; i < p.lobes.length; i++) {
+            const j = i * 6,
+              k = i * 3,
+              lx = x - lobes[j],
+              ly = y - lobes[j + 1];
+            const across =
+                (lx * lobes[j + 4] - ly * lobes[j + 5]) * lobes[j + 2],
+              along = (lx * lobes[j + 5] + ly * lobes[j + 4]) * lobes[j + 3];
+            const cap = clamp(1 - along * along);
+            outsideLeaf *=
+              1 -
+              smooth(clamp((cap * cap - across * across) * inverseShoulder));
+            const t = clamp(
+                (x * veins[k] + rootY * veins[k + 1]) * veins[k + 2],
+              ),
+              vx = x - t * veins[k],
+              vy = rootY - t * veins[k + 1];
+            outsideVeins *=
+              1 - smooth(clamp(1 - (vx * vx + vy * vy) * inverseVeinSquared));
+          }
+          const leaf = 1 - outsideLeaf,
+            vein = (1 - outsideVeins) * leaf;
+          const t = clamp((y - p.stemStart) * inverseStemLength),
+            sy = y - p.stemStart - t * stemLength;
+          const stem = smooth(
+            clamp(
+              (1 - (x * x + sy * sy) * inverseStemSquared) *
+                inverseStemShoulder,
+            ),
+          );
+          const face = 1 - (1 - leaf) * (1 - stem),
+            grain = grainField(u, v);
+          color =
+            0.06 +
+            0.55 * face +
+            0.07 * leaf +
+            0.18 * vein +
+            0.025 * grain * face;
+          height = 0.06 + 0.5 * face + 0.09 * vein + 0.007 * grain * face;
+          roughness += 0.2 * (1 - face) - 0.12 * vein + 0.02 * grain * face;
+          occlusion = 0.36 + 0.6 * face + 0.02 * vein;
+          return;
+        };
+      }
       case 'paperclips': {
         const p = proceduralMaterialPresets.paperclips;
         const segments = new Float64Array(p.legs.length * 5),
@@ -17176,6 +17258,7 @@ export function createSurfaceSampler(
     kind === 'diamondcheckertiles' ||
     kind === 'appleslice' ||
     kind === 'paperclips' ||
+    kind === 'ivyleaf' ||
     fabricated ||
     botanical ||
     packaging ||

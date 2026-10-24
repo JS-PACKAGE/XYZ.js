@@ -3998,6 +3998,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         legs: readonly [readonly [-0.13, -0.1, -0.13, 0.22], readonly [0.13, 0.22, 0.13, -0.2], readonly [-0.05, -0.2, -0.05, 0.15]];
         bends: readonly [readonly [0, 0.22, 0.13, 1], readonly [0.04, -0.2, 0.09, -1]];
     }>;
+    ivyleaf: Readonly<{
+        dark: readonly [17, 45, 22];
+        light: readonly [139, 180, 91];
+        roughness: 0.59;
+        relief: 0.02;
+        cells: 4;
+        shoulder: 0.06;
+        lobes: readonly [readonly [0, -0.02, 0.16, 0.31, 0], readonly [-0.1, 0.05, 0.14, 0.27, number], readonly [0.1, 0.05, 0.14, 0.27, number]];
+        veinRoot: 0.18;
+        veinWidth: 0.009;
+        stemStart: 0.18;
+        stemEnd: 0.36;
+        stemWidth: 0.014;
+        stemShoulder: 0.35;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4502,4 +4517,5 @@ export declare const proceduralTileMeters: Readonly<{
     diamondcheckertiles: 1.2;
     appleslice: 0.4;
     paperclips: 0.24;
+    ivyleaf: 0.32;
 }>;

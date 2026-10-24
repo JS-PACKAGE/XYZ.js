@@ -6756,3 +6756,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐線夾每段直線及半圓回彎各 33 點檢查連通 wire 的 height／color／AO／roughness／metallic，並檢查內槽、回彎內側與兩線端外側未封口；另掃描 capsule shoulder、implicit rings、half-plane overlaps、交替斜向與 wrap C1。既有 500 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6191 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 paperclips，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向銀色三段線身、兩道回彎與內槽／線端開口，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：三裂常春藤葉（ivyleaf）
+
+- 目錄 501→502 種；0.32 m tile，4×4 綠葉交替 ±45°，三個尖裂片與兩道深缺刻、三條隆起掌狀葉脈及連通短葉柄。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增葉片 geometry、透明度、風動或植物學模擬。
+- 三 seed（0／1／`0xffffffff`）逐葉檢查三裂尖內部／兩缺刻／柄側與柄末端、掌狀葉脈對鄰近葉肉的 height／color／AO／roughness／metallic，以及葉柄 33 點連通；另掃描 pointed polynomial lobe unions、masked veins、capsule 葉柄接點、交替旋轉與 wrap C1。既有 501 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6196 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 ivyleaf，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向三裂綠葉、較淺掌狀葉脈與連通葉柄，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
