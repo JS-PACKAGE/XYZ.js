@@ -1280,6 +1280,126 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'poppyseedpods': {
+        const p = proceduralMaterialPresets.poppyseedpods;
+        const axes = new Float64Array(p.lobes * 2),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let i = 0; i < p.lobes; i++) {
+          const angle = (TAU * i) / p.lobes;
+          axes[i * 2] = Math.cos(angle);
+          axes[i * 2 + 1] = Math.sin(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x10711);
+        const inverseBodyX = 1 / p.bodyWidth,
+          inverseBodyY = 1 / p.bodyLength,
+          inverseBodyShoulder = 1 / p.bodyShoulder,
+          inverseStemWidth = 1 / p.stemWidth,
+          inverseStemBevel = 1 / p.stemBevel,
+          inverseCrownX = 1 / p.crownWidth,
+          inverseCrownY = 1 / p.crownHeight,
+          coreSquared = p.crownCore * p.crownCore,
+          crownBoundSquared = (p.lobeDistance + p.lobeLength) ** 2,
+          inverseLobeLength = 1 / p.lobeLength,
+          inverseLobeWidth = 1 / p.lobeWidth,
+          inverseRayLength = 1 / p.rayLength,
+          inverseRayWidth = 1 / p.rayWidth,
+          inverseCrownShoulder = 1 / p.crownShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x10713);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            bx = x * inverseBodyX,
+            by = (y - p.bodyY) * inverseBodyY,
+            cap = clamp(1 - bx * bx - by * by),
+            body = smooth(clamp(cap * inverseBodyShoulder)),
+            sx = x * inverseStemWidth,
+            stem =
+              smooth(clamp(1 - sx * sx)) *
+              smooth(clamp((y - p.stemTop) * inverseStemBevel)) *
+              smooth(clamp((p.stemBottom - y) * inverseStemBevel)),
+            cx = x * inverseCrownX,
+            cy = (y - p.crownY) * inverseCrownY,
+            cq = cx * cx + cy * cy;
+          let crown = 0,
+            rays = 0;
+          if (cq < crownBoundSquared) {
+            let outside =
+                1 - smooth(clamp((coreSquared - cq) * inverseCrownShoulder)),
+              outsideRays = 1;
+            for (let i = 0; i < axes.length; i += 2) {
+              const along = cx * axes[i] + cy * axes[i + 1],
+                across = cy * axes[i] - cx * axes[i + 1],
+                la = (along - p.lobeDistance) * inverseLobeLength,
+                lb = across * inverseLobeWidth,
+                ra = (along - p.rayDistance) * inverseRayLength,
+                rb = across * inverseRayWidth;
+              outside *=
+                1 -
+                smooth(clamp((1 - la * la - lb * lb) * inverseCrownShoulder));
+              outsideRays *=
+                1 -
+                smooth(clamp((1 - ra * ra - rb * rb) * inverseCrownShoulder));
+            }
+            crown = 1 - outside;
+            rays = 1 - outsideRays;
+          }
+          color = 0.045;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.34;
+          if (stem === 0 && body === 0 && crown === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color += stem * (0.34 + 0.04 * tone + 0.02 * grain - color);
+          height += stem * (0.22 + 0.002 * grain - height);
+          roughness += stem * (0.85 - roughness);
+          occlusion += stem * (0.93 - occlusion);
+          if (body > 0) {
+            // A positive width floor keeps the converging longitudinal flutes
+            // finite. Body/plate layers replace, rather than stack on, the stem.
+            const dome = smooth(cap),
+              profile = smooth(clamp(1 - by * by)),
+              width = p.widthFloor + (1 - p.widthFloor) * profile,
+              rib = 0.5 + 0.5 * Math.cos((TAU * p.ribs * bx) / width);
+            color +=
+              body *
+              (0.58 +
+                0.13 * dome +
+                0.06 * tone +
+                0.02 * grain -
+                0.07 * dome * (1 - rib) -
+                color);
+            height +=
+              body *
+              (0.39 +
+                0.23 * dome +
+                0.035 * dome * rib +
+                0.003 * grain -
+                height);
+            roughness +=
+              body *
+              (p.roughness + 0.035 * (1 - rib) + 0.015 * grain - roughness);
+            occlusion +=
+              body *
+              (0.85 + 0.12 * dome - 0.025 * dome * (1 - rib) - occlusion);
+          }
+          color +=
+            crown * (0.68 + 0.04 * tone + 0.015 * grain + 0.1 * rays - color);
+          height += crown * (0.77 + 0.02 * rays + 0.002 * grain - height);
+          roughness += crown * (0.76 - 0.045 * rays + 0.02 * grain - roughness);
+          occlusion += crown * (0.95 + 0.03 * rays - occlusion);
+          return;
+        };
+      }
       case 'safetypins': {
         const p = proceduralMaterialPresets.safetypins;
         const segments = new Float64Array(p.legs.length * 5),
@@ -19839,6 +19959,7 @@ export function createSurfaceSampler(
     kind === 'blackberries' ||
     kind === 'musselshells' ||
     kind === 'safetypins' ||
+    kind === 'poppyseedpods' ||
     fabricated ||
     botanical ||
     packaging ||

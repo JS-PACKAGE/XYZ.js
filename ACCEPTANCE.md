@@ -7024,3 +7024,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 536 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 safetypins，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6381 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 safetypins，537 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認完整彈簧線圈、兩針腳、閉合護扣與凹縫及交替方向，height true、metallic 1、destroyed true，預覽隨頁清除。屬鋼色別針表面，不宣稱別針 geometry、開合／彈簧／穿刺物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：乾燥罌粟蒴果（poppyseedpods）
+
+- 目錄 537→538 種；0.24 m tile，4×4 交替水平／垂直封閉凸果身、縱肋、低細梗及較高扁平八瓣柱頭盤，凸起放射紋與瓣間缺刻區別 lotusseedpod 多孔種室／cardamompods 尖橢圓。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增蒴果 geometry、透明果皮、開裂、種子散播或植物模擬。
+- 三 seed（0／1／`0xffffffff`）逐果檢查凸果身細肋／低槽的 height／color／roughness／AO、實心果面、低細梗與周圍 backing，逐八瓣檢查 scallop／notch、ray 高於 inter-ray plate、峰值上限不疊高與 metallic。129×129 網格、三 seed、雙方向四欄位 C1 檢查 finite-width flutes／stalk joins／scallops／rays／rotation／wrap，h 1e-9、上限 0.02；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試皆首次通過。
+- 既有 537 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 poppyseedpods，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6386 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 poppyseedpods，538 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認乾燥圓凸果身縱肋、細梗、頂端扁平 scalloped 柱頭盤及交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 蒴果表面，不宣稱植物 geometry、生長／開裂／散播物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

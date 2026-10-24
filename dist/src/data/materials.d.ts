@@ -4593,6 +4593,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         slotHalfHeight: 0.0075;
         slotDepth: 0.045;
     }>;
+    poppyseedpods: Readonly<{
+        dark: readonly [30, 23, 14];
+        light: readonly [195, 171, 120];
+        roughness: 0.79;
+        relief: 0.008;
+        cells: 4;
+        bodyY: 0.03;
+        bodyWidth: 0.18;
+        bodyLength: 0.24;
+        bodyShoulder: 0.14;
+        ribs: 3;
+        widthFloor: 0.75;
+        stemTop: 0.18;
+        stemBottom: 0.39;
+        stemWidth: 0.023;
+        stemBevel: 0.02;
+        crownY: -0.2;
+        crownWidth: 0.2;
+        crownHeight: 0.05;
+        crownCore: 0.78;
+        lobes: 8;
+        lobeDistance: 0.72;
+        lobeLength: 0.3;
+        lobeWidth: 0.18;
+        rayDistance: 0.4;
+        rayLength: 0.5;
+        rayWidth: 0.07;
+        crownShoulder: 0.25;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5133,4 +5162,5 @@ export declare const proceduralTileMeters: Readonly<{
     blackberries: 0.16;
     musselshells: 0.32;
     safetypins: 0.16;
+    poppyseedpods: 0.24;
 }>;

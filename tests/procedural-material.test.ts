@@ -575,7 +575,131 @@ const kinds: ProceduralMaterialKind[] = [
   'blackberries',
   'musselshells',
   'safetypins',
+  'poppyseedpods',
 ];
+
+describe('Dry poppy seed capsules with fluted bodies and eight-lobed stigma crowns', () => {
+  const p = proceduralMaterialPresets.poppyseedpods;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('poppyseedpods', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains a closed fluted capsule, lower thin stalk, eight scallops and raised stigma rays without stacked crowns for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = at(col, row, 0, p.bodyY),
+            flute = at(col, row, 0.03, p.bodyY),
+            sideRib = at(col, row, 0.06, p.bodyY),
+            stem = at(col, row, 0, 0.34),
+            besideStem = at(col, row, 0.04, 0.34);
+          expect(center.height - flute.height).toBeGreaterThan(0.00025);
+          expect(sideRib.height - flute.height).toBeGreaterThan(0.00018);
+          expect(center.color - flute.color).toBeGreaterThan(0.045);
+          expect(flute.roughness - center.roughness).toBeGreaterThan(0.019);
+          expect(center.occlusion - flute.occlusion).toBeGreaterThan(0.02);
+          expect(center.height).toBeGreaterThan(0.00523);
+          expect(center.occlusion).toBeCloseTo(0.97, 12);
+          expect(center.metallic).toBe(0);
+          expect(center.height - stem.height).toBeGreaterThan(0.00345);
+          expect(stem.height - besideStem.height).toBeGreaterThan(0.00155);
+          for (let i = 0; i < p.lobes; i++) {
+            const angle = (Math.PI * 2 * i) / p.lobes,
+              between = angle + Math.PI / p.lobes,
+              ray = at(
+                col,
+                row,
+                0.8 * p.crownWidth * Math.cos(angle),
+                p.crownY + 0.8 * p.crownHeight * Math.sin(angle),
+              ),
+              flat = at(
+                col,
+                row,
+                0.5 * p.crownWidth * Math.cos(between),
+                p.crownY + 0.5 * p.crownHeight * Math.sin(between),
+              ),
+              notch = at(
+                col,
+                row,
+                0.96 * p.crownWidth * Math.cos(between),
+                p.crownY + 0.96 * p.crownHeight * Math.sin(between),
+              );
+            expect(ray.height).toBeGreaterThan(0.00631);
+            expect(ray.height).toBeLessThan(0.006337);
+            expect(ray.height - flat.height).toBeGreaterThan(0.00014);
+            expect(ray.height - notch.height).toBeGreaterThan(0.0011);
+            expect(flat.roughness - ray.roughness).toBeGreaterThan(0.024);
+            expect(ray.occlusion - flat.occlusion).toBeCloseTo(0.03, 12);
+            expect(ray.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [-0.23, 0.03],
+            [0.23, 0.03],
+            [0, -0.27],
+            [0, 0.42],
+          ]) {
+            const outside = at(col, row, x, y);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.34, 12);
+          }
+        }
+    },
+  );
+  it('keeps finite-width body flutes, stalk joins, scallops, stigma rays, rotations and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poppyseedpods', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Closed steel safety pins with spring coils and recessed clasp seams', () => {
   const p = proceduralMaterialPresets.safetypins;

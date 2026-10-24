@@ -615,6 +615,8 @@
 
 同輪追加 `safetypins`（閉合金屬別針），目錄 536→537 種：4×4 交替水平／垂直鋼色別針，圓形彈簧線圈、兩條凸圓針腳、蓋住針尖的較高實心護扣與淺凹縫，區別 paperclips 內外折線與 cotterpins 開叉尾。0.16 m opaque metallic tile、factor／map 1（含低暗 backing），孔非透明；沿四圖／選用 height／ownership，不新增別針 geometry、開合、彈簧物理或穿刺功能；依功能驗證提交、不 push。
 
+同輪追加 `poppyseedpods`（乾燥罌粟蒴果），目錄 537→538 種：4×4 交替水平／垂直乾燥封閉果身、縱向細肋與較低細梗，頂端較高的扁平八瓣柱頭盤有凸起放射紋與瓣間缺刻；區別 lotusseedpod 的多孔種室與 cardamompods 的尖細橢圓。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增蒴果 geometry、透明果皮、開裂、種子散播或植物模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

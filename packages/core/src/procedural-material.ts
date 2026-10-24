@@ -552,7 +552,8 @@ export type ProceduralMaterialKind =
   | 'haircombs'
   | 'blackberries'
   | 'musselshells'
-  | 'safetypins';
+  | 'safetypins'
+  | 'poppyseedpods';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1339,6 +1340,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'blackberries',
   'musselshells',
   'safetypins',
+  'poppyseedpods',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
