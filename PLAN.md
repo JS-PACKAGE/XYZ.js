@@ -587,6 +587,8 @@
 
 同輪追加 `foldingfans`（紙摺扇），目錄 522→523 種：四乘四交替轉向的 140° 扇面，十二道放射紙摺痕、十三根露出木扇骨、兩側護骨及圓扇釘，區別 pleats 的直向布摺與 origami 的平面摺紙網格。1 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增扇子 geometry、透明孔、開合動畫或摺紙物理；逐功能驗證提交、不 push。
 
+同輪追加 `togglebuttons`（雙孔木製牛角扣），目錄 523→524 種：4×4 交替橫直的長桶形木扣，圓滑收束的兩端、凸起桶腹、兩個凹陷穿繩孔與彎曲順向木紋，區別 button 的四孔圓形有框鈕扣。0.32 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增鈕扣 geometry、透明孔、繩索或衣物物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

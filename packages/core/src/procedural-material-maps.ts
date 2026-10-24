@@ -1277,6 +1277,77 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'togglebuttons': {
+        const p = proceduralMaterialPresets.togglebuttons;
+        const tones = new Float64Array(p.cells * p.cells),
+          phases = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col;
+            tones[i] = hash(col, row, seed ^ 0xf991);
+            phases[i] = TAU * hash(col, row, seed ^ 0xf993);
+          }
+        const inverseLength = 1 / p.halfLength,
+          inverseWidth = 1 / p.halfWidth,
+          inverseShoulder = 1 / p.shoulder,
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            along = x * inverseLength,
+            across = y * inverseWidth,
+            q = along ** 4 + across * across,
+            face = smooth(clamp((1 - q) * inverseShoulder));
+          color = 0.06;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.38;
+          if (face === 0) return;
+          const i = row * p.cells + col,
+            crown = clamp(1 - q),
+            grain =
+              0.5 +
+              0.5 *
+                Math.sin(
+                  TAU *
+                    (p.grainFrequency * y +
+                      0.12 * Math.sin(TAU * 1.8 * x + phases[i])) +
+                    phases[i],
+                ),
+            pores = grain ** 10;
+          color +=
+            face *
+            (0.39 +
+              0.14 * grain +
+              0.05 * tones[i] +
+              0.12 * crown -
+              0.07 * pores -
+              color);
+          height += face * (0.2 + 0.46 * crown + 0.006 * grain - height);
+          roughness +=
+            face * (p.roughness - 0.05 * crown + 0.025 * pores - roughness);
+          occlusion += face * (0.86 + 0.12 * crown - occlusion);
+          // The nearest bore changes only on the solid middle of the barrel,
+          // well outside either compact hole; the pit never leaks past the wood.
+          const hx = Math.abs(x) - p.holeOffset,
+            hole =
+              face *
+              smooth(clamp((holeSquared - hx * hx - y * y) * inverseHole));
+          color += hole * (0.075 - color);
+          height += hole * (0.06 - height);
+          roughness += hole * (0.9 - roughness);
+          occlusion += hole * (0.23 - occlusion);
+          return;
+        };
+      }
       case 'foldingfans': {
         const p = proceduralMaterialPresets.foldingfans;
         const axes = new Float64Array((p.folds + 1) * 2),
@@ -18755,6 +18826,7 @@ export function createSurfaceSampler(
     kind === 'ballchain' ||
     kind === 'succulentrosettes' ||
     kind === 'foldingfans' ||
+    kind === 'togglebuttons' ||
     fabricated ||
     botanical ||
     packaging ||

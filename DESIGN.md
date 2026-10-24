@@ -595,6 +595,8 @@
 
 `foldingfans` 預算十三條 ray axes 與 16 組 paper tones；nearest-ray compact capsule 畫木扇骨，annular squared-radius／sector 半平面覆蓋紙面，angular cos 畫十二道起伏摺痕。中心完整 pivot cap 遮住 atan2 singularity 與近根部 ray ties；扇釘外各木骨 support 分離，nearest-ray 更換前已退回 backing。紙面後混合遮住上段扇骨，保留較低露出骨架與兩側護骨，不加疊骨架厚度。圓釘最後覆蓋所有根部，孔間為 opaque backing。4×4、1 m tile，目錄 523 種；96×96 grain，取樣無配置、ray trig 預算，紙面 angular fold 使用 atan2／cos；opaque dielectric，不新增 geometry、透明孔、開合動畫或摺紙物理。
 
+`togglebuttons` 預算 16 組木色與 grain phase，checker-quarter-turn cell 內用長向四次方／橫向平方的 compact barrel mask，保留拉長桶腹與圓滑收束端部。凸冠抬高中心、縱向彎曲 sine grain 加入細木孔；兩個 squared-circle bore shoulders 混合較暗較低的 opaque pit，不穿透到透明。nearest-bore 在兩孔 support 外換 owner，cell 與 wrap 邊界全部退回固定 backing；採樣不建物件、不跑 hash 或 trig axes，不改既有 kind 輸出。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
