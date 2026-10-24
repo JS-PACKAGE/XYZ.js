@@ -512,7 +512,8 @@ export type ProceduralMaterialKind =
   | 'squarewashers'
   | 'eucalyptusleaf'
   | 'twillweave'
-  | 'pumpkinseeds';
+  | 'pumpkinseeds'
+  | 'spurgears';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1259,6 +1260,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'eucalyptusleaf',
   'twillweave',
   'pumpkinseeds',
+  'spurgears',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1475,6 +1477,7 @@ export class ProceduralMaterial {
         this.kind === 'castellatednuts' ||
         this.kind === 'cotterpins' ||
         this.kind === 'squarewashers' ||
+        this.kind === 'spurgears' ||
         this.kind === 'starsocketbolts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||

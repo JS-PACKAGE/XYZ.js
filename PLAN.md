@@ -535,6 +535,8 @@
 
 同輪追加 `pumpkinseeds`（帶殼南瓜籽），目錄 496→497 種：4×4 乳白尖橢圓籽殼交替 ±45°，隆起外殼邊緣包覆完整且較低的中央殼面；區別 pistachios 的開裂殼與綠色果仁、almondshell 的密集凹孔表面。0.12 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增種籽 geometry、透明殼、開裂或植物學模擬；逐功能驗證提交、不 push。
 
+同輪追加 `spurgears`（風格化鋼齒輪），目錄 497→498 種：4×4 交替旋轉 15° 的鋼輪，十二個倒角外齒、圓形凹軸孔與隆起輪轂；區別 sawblades 的不對稱鋸齒。0.2 m tile、opaque metallic maps／預設 factor 1，沿四圖／選用 height／ownership，孔／齒隙為暗色不透明鋼底，不新增齒輪 geometry、透明孔洞、漸開線齒形認證或傳動模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

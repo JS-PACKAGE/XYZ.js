@@ -1246,6 +1246,7 @@ export function createSurfaceSampler(
     kind === 'castellatednuts' ||
     kind === 'cotterpins' ||
     kind === 'squarewashers' ||
+    kind === 'spurgears' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1270,6 +1271,66 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'spurgears': {
+        const p = proceduralMaterialPresets.spurgears;
+        const grainField = cachedNoise(96, 96, seed ^ 0x68f1);
+        const axes = new Float64Array(p.teeth * 2);
+        for (let i = 0; i < p.teeth; i++) {
+          axes[i * 2] = Math.cos((i * TAU) / p.teeth);
+          axes[i * 2 + 1] = Math.sin((i * TAU) / p.teeth);
+        }
+        const bodySquared = p.bodyRadius * p.bodyRadius,
+          inverseBodyShoulder =
+            1 / (bodySquared - (p.bodyRadius - p.bodyBevel) ** 2),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBoreShoulder =
+            1 / ((p.boreRadius + p.boreBevel) ** 2 - boreSquared),
+          hubSquared = p.hubRadius * p.hubRadius,
+          inverseHubShoulder =
+            1 / (hubSquared - (p.hubRadius - p.hubBevel) ** 2),
+          inverseToothBevel = 1 / p.toothBevel,
+          turnCos = Math.cos(Math.PI / p.teeth),
+          turnSin = Math.sin(Math.PI / p.teeth);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          let x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if ((Math.floor(uc) + Math.floor(vc)) & 1) {
+            const rx = x * turnCos + y * turnSin;
+            y = -x * turnSin + y * turnCos;
+            x = rx;
+          }
+          const r2 = x * x + y * y,
+            body = smooth(clamp((bodySquared - r2) * inverseBodyShoulder)),
+            holeWall = smooth(clamp((r2 - boreSquared) * inverseBoreShoulder));
+          let outside = 1 - body;
+          for (let i = 0; i < p.teeth; i++) {
+            const c = axes[i * 2],
+              s = axes[i * 2 + 1],
+              along = x * c + y * s,
+              across = -x * s + y * c;
+            const tooth =
+              smooth(clamp((along - p.toothRoot) * inverseToothBevel)) *
+              smooth(clamp((p.toothTip - along) * inverseToothBevel)) *
+              smooth(
+                clamp(
+                  (p.toothHalfWidth - Math.abs(across)) * inverseToothBevel,
+                ),
+              );
+            outside *= 1 - tooth;
+          }
+          const face = (1 - outside) * holeWall,
+            hub =
+              smooth(clamp((hubSquared - r2) * inverseHubShoulder)) * holeWall,
+            grain = grainField(u, v);
+          color = 0.06 + 0.73 * face + 0.07 * hub + 0.02 * grain;
+          height = 0.05 + 0.48 * face + 0.18 * hub + 0.003 * grain;
+          roughness += 0.25 * (1 - face) - 0.04 * hub + 0.02 * grain;
+          occlusion = 0.35 + 0.62 * face + 0.02 * hub;
+          return;
+        };
+      }
       case 'pumpkinseeds': {
         const p = proceduralMaterialPresets.pumpkinseeds;
         const grainField = cachedNoise(96, 96, seed ^ 0x4ba9);
@@ -16918,6 +16979,7 @@ export function createSurfaceSampler(
     kind === 'eucalyptusleaf' ||
     kind === 'twillweave' ||
     kind === 'pumpkinseeds' ||
+    kind === 'spurgears' ||
     fabricated ||
     botanical ||
     packaging ||

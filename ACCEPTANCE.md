@@ -6728,3 +6728,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐籽檢查殼緣／中央／平底的 height／color／AO／roughness／metallic、兩端寬度收窄與軸線各 33 點保留連通實心殼面；另掃描外殼 shoulder、殼緣／中央轉換、漸尖端與 wrap C1。既有 496 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6169 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pumpkinseeds，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向乳白漸尖籽殼、淺亮外緣與完整稍暗中央，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：十二齒鋼齒輪（spurgears）
+
+- 目錄 497→498 種；0.2 m tile，4×4 十二個風格化方齒的鋼齒輪交替轉 15°，圓形軸孔、隆起輪轂與齒間凹底。opaque metallic 1；沿四圖／選用 height／ownership，不新增 geometry、透明孔、漸開線精密齒形或傳動模擬。
+- 三 seed（0／1／`0xffffffff`）逐輪逐齒檢查齒／齒谷／軸孔／平底的 height／color／AO／roughness／metallic、輪轂高於輪身與各齒根至齒尖 33 點連通；另掃描方齒 bevel 乘積、輪身 union、輪轂／圓孔 shoulder、旋轉與 wrap C1。既有 497 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6175 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 spurgears，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替旋轉十二齒、完整圓形暗軸孔與較亮輪轂，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

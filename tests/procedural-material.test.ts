@@ -535,7 +535,90 @@ const kinds: ProceduralMaterialKind[] = [
   'eucalyptusleaf',
   'twillweave',
   'pumpkinseeds',
+  'spurgears',
 ];
+
+describe('Stylized twelve-tooth steel spur gears with raised hubs', () => {
+  const p = proceduralMaterialPresets.spurgears;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('spurgears', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twelve connected block teeth separated by open-looking recesses and raises the hub around a circular bore for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (((row + col) & 1) * Math.PI) / p.teeth;
+          const polar = (r: number, a: number) =>
+            at(
+              col + 0.5 + r * Math.cos(a + turn),
+              row + 0.5 + r * Math.sin(a + turn),
+            );
+          for (let i = 0; i < p.teeth; i++) {
+            const a = (i * 2 * Math.PI) / p.teeth;
+            const tooth = polar(0.31, a),
+              gullet = polar(0.31, a + Math.PI / p.teeth),
+              bore = polar(0.07, a),
+              outside = polar(0.44, a),
+              plate = polar(0.2, a),
+              hub = polar(0.14, a);
+            for (const gap of [gullet, bore, outside]) {
+              expect(tooth.height - gap.height).toBeGreaterThan(0.0118);
+              expect(tooth.color - gap.color).toBeGreaterThan(0.709);
+              expect(tooth.occlusion - gap.occlusion).toBeGreaterThan(0.619);
+              expect(gap.roughness - tooth.roughness).toBeGreaterThan(0.229);
+              expect(gap.metallic).toBe(1);
+            }
+            expect(hub.height - plate.height).toBeGreaterThan(0.0044);
+            expect(hub.color - plate.color).toBeGreaterThan(0.049);
+            expect(plate.roughness - hub.roughness).toBeGreaterThan(0.019);
+            expect(tooth.metallic).toBe(1);
+            for (let j = 0; j <= 32; j++)
+              expect(
+                polar(0.24 + (j * 0.1) / 32, a).height - outside.height,
+              ).toBeGreaterThan(0.0118);
+          }
+        }
+    },
+  );
+  it('keeps tooth bevel products, body union, hub and circular bore shoulders, rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pale tapered pumpkin seed hulls with raised perimeter rims', () => {
   const p = proceduralMaterialPresets.pumpkinseeds;
@@ -17871,6 +17954,7 @@ describe('periodic procedural material fields', () => {
           kind === 'castellatednuts' ||
           kind === 'cotterpins' ||
           kind === 'squarewashers' ||
+          kind === 'spurgears' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -27315,6 +27399,7 @@ describe('procedural preset acquisition and ownership', () => {
     'castellatednuts',
     'cotterpins',
     'squarewashers',
+    'spurgears',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -27352,6 +27437,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'castellatednuts' ||
           kind === 'cotterpins' ||
           kind === 'squarewashers' ||
+          kind === 'spurgears' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
