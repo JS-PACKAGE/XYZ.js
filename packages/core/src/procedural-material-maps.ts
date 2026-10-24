@@ -1270,6 +1270,34 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pumpkinseeds': {
+        const p = proceduralMaterialPresets.pumpkinseeds;
+        const grainField = cachedNoise(96, 96, seed ^ 0x4ba9);
+        const turn = Math.SQRT1_2,
+          inverseLengthSquared = 1 / (p.halfLength * p.halfLength),
+          inverseWidthSquared = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            sign = (Math.floor(uc) + Math.floor(vc)) & 1 ? 1 : -1;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * turn,
+            y = (dy - sign * dx) * turn;
+          const envelope = clamp(1 - y * y * inverseLengthSquared),
+            cap = envelope * envelope - x * x * inverseWidthSquared,
+            face = smooth(clamp(cap * inverseShoulder)),
+            inner = smooth(clamp((cap - p.rimInset) * inverseShoulder)),
+            rim = face - inner,
+            grain = grainField(u, v);
+          color = 0.06 + 0.74 * face - 0.16 * inner + 0.02 * grain * face;
+          height = 0.05 + 0.25 * inner + 0.5 * rim + 0.003 * grain * face;
+          roughness += 0.22 * (1 - face) + 0.06 * rim + 0.02 * grain * face;
+          occlusion = 0.4 + 0.42 * inner + 0.54 * rim;
+          return;
+        };
+      }
       case 'twillweave': {
         const p = proceduralMaterialPresets.twillweave;
         const grainField = cachedNoise(128, 128, seed ^ 0x2f65);
@@ -16889,6 +16917,7 @@ export function createSurfaceSampler(
     kind === 'squarewashers' ||
     kind === 'eucalyptusleaf' ||
     kind === 'twillweave' ||
+    kind === 'pumpkinseeds' ||
     fabricated ||
     botanical ||
     packaging ||

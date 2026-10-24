@@ -534,7 +534,94 @@ const kinds: ProceduralMaterialKind[] = [
   'squarewashers',
   'eucalyptusleaf',
   'twillweave',
+  'pumpkinseeds',
 ];
+
+describe('Pale tapered pumpkin seed hulls with raised perimeter rims', () => {
+  const p = proceduralMaterialPresets.pumpkinseeds;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pumpkinseeds', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps the pale rim raised above an intact lower center while tapering both hull ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = (((row + col) & 1 ? 1 : -1) * Math.PI) / 4;
+          const local = (x: number, y: number) =>
+            at(
+              col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle),
+              row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle),
+            );
+          const center = local(0, 0),
+            background = local(0.22, 0);
+          expect(center.height - background.height).toBeGreaterThan(0.0044);
+          expect(center.color - background.color).toBeGreaterThan(0.579);
+          for (const [x, y] of [
+            [0.135, 0],
+            [-0.135, 0],
+            [0, 0.24],
+            [0, -0.24],
+          ]) {
+            const rim = local(x, y);
+            expect(rim.height - center.height).toBeGreaterThan(0.0044);
+            expect(rim.color - center.color).toBeGreaterThan(0.139);
+            expect(rim.occlusion - center.occlusion).toBeGreaterThan(0.119);
+            expect(rim.roughness - center.roughness).toBeGreaterThan(0.039);
+            expect(rim.height - background.height).toBeGreaterThan(0.0089);
+            expect(rim.metallic).toBe(0);
+          }
+          for (const sign of [-1, 1]) {
+            expect(local(0.08, sign * 0.24).height).toBe(background.height);
+            expect(local(0, sign * 0.32).height).toBe(background.height);
+            for (let i = 0; i <= 32; i++) {
+              const y = (sign * i * 0.24) / 32;
+              expect(local(0, y).height - background.height).toBeGreaterThan(
+                0.0044,
+              );
+            }
+          }
+        }
+    },
+  );
+  it('keeps hull shoulders, raised rim and lower center transitions, tapered tips and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Balanced two-over-two diagonal twill weave', () => {
   const p = proceduralMaterialPresets.twillweave;

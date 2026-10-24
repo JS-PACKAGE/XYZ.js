@@ -3926,6 +3926,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         exposureHalf: 0.42;
         exposureShoulder: 0.08;
     }>;
+    pumpkinseeds: Readonly<{
+        dark: readonly [48, 43, 29];
+        light: readonly [242, 234, 203];
+        roughness: 0.64;
+        relief: 0.018;
+        cells: 4;
+        halfLength: 0.3;
+        halfWidth: 0.15;
+        shoulder: 0.1;
+        rimInset: 0.32;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4425,4 +4436,5 @@ export declare const proceduralTileMeters: Readonly<{
     squarewashers: 0.16;
     eucalyptusleaf: 0.48;
     twillweave: 0.16;
+    pumpkinseeds: 0.12;
 }>;

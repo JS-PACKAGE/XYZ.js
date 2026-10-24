@@ -533,6 +533,8 @@
 
 同輪追加 `twillweave`（二上二下斜紋織物），目錄 495→496 種：16×16 平衡斜紋，淺褐緯線與深棕經線各連續跨兩針，逐列偏移一針形成連續斜向交織；區別 satinweave 的四上一下與 herringbone 的反向人字紋。0.16 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增毛線 geometry、透明孔隙或布料模擬；逐功能驗證提交、不 push。
 
+同輪追加 `pumpkinseeds`（帶殼南瓜籽），目錄 496→497 種：4×4 乳白尖橢圓籽殼交替 ±45°，隆起外殼邊緣包覆完整且較低的中央殼面；區別 pistachios 的開裂殼與綠色果仁、almondshell 的密集凹孔表面。0.12 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增種籽 geometry、透明殼、開裂或植物學模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

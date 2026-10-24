@@ -4014,6 +4014,17 @@ export const proceduralMaterialPresets = Object.freeze({
     exposureHalf: 0.42,
     exposureShoulder: 0.08,
   }),
+  pumpkinseeds: Object.freeze({
+    dark: [48, 43, 29] as const,
+    light: [242, 234, 203] as const,
+    roughness: 0.64,
+    relief: 0.018,
+    cells: 4,
+    halfLength: 0.3,
+    halfWidth: 0.15,
+    shoulder: 0.1,
+    rimInset: 0.32,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4514,4 +4525,5 @@ export const proceduralTileMeters = Object.freeze({
   squarewashers: 0.16,
   eucalyptusleaf: 0.48,
   twillweave: 0.16,
+  pumpkinseeds: 0.12,
 });
