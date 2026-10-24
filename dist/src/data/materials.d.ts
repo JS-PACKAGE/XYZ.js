@@ -4201,6 +4201,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         threads: 64;
         threadWidth: 0.46;
     }>;
+    fishscaletiles: Readonly<{
+        dark: readonly [24, 62, 71];
+        light: readonly [177, 217, 216];
+        roughness: 0.23;
+        relief: 0.008;
+        columns: 4;
+        rows: 8;
+        grout: 0.03;
+        bevel: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4718,4 +4728,5 @@ export declare const proceduralTileMeters: Readonly<{
     braidedcord: 0.08;
     crossbeddedsandstone: 1.2;
     grommetcanvas: 0.16;
+    fishscaletiles: 0.4;
 }>;

@@ -1274,6 +1274,62 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'fishscaletiles': {
+        const p = proceduralMaterialPresets.fishscaletiles;
+        const tones = new Float64Array(p.columns * p.rows);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] =
+              0.38 + 0.48 * hash(col, row, seed ^ 0xf013);
+        const innerSquared = (1 - p.grout) ** 2,
+          outerSquared = (1 + p.grout) ** 2,
+          inverseBevel = 1 / (innerSquared - (1 - p.grout - p.bevel) ** 2),
+          grainField = cachedNoise(96, 96, seed ^ 0xf017);
+        return () => {
+          const x = u * p.columns * 2,
+            y = v * p.rows,
+            baseRow = Math.floor(y);
+          let clear = 1,
+            coverage = 0,
+            pigment = 0;
+          // Subtract the next course's expanded disks from each face, rather
+          // than stacking shingles. The extra course keeps grout continuous
+          // before a row enters; both neighboring disks preserve C1 at ties.
+          for (let oy = 2; oy >= 0; oy--) {
+            const row = baseRow + oy,
+              shifted = x - (row & 1),
+              col = Math.floor((shifted + 1) * 0.5),
+              dx = shifted - col * 2,
+              dy = y - row,
+              d2 = dx * dx + dy * dy;
+            if (oy < 2) {
+              const face =
+                  clear * smooth(clamp((innerSquared - d2) * inverseBevel)),
+                wrappedRow = ((row % p.rows) + p.rows) % p.rows,
+                wrappedCol = ((col % p.columns) + p.columns) % p.columns;
+              coverage += face;
+              pigment += face * tones[wrappedRow * p.columns + wrappedCol];
+            }
+            if (oy > 0) {
+              const other = 2 - Math.abs(dx);
+              clear *=
+                smooth(clamp((d2 - outerSquared) * inverseBevel)) *
+                smooth(
+                  clamp(
+                    (other * other + dy * dy - outerSquared) * inverseBevel,
+                  ),
+                );
+            }
+          }
+          const grain = grainField(u, v);
+          color = 0.3 + pigment - 0.3 * coverage + 0.012 * grain * coverage;
+          height = (0.62 + 0.004 * grain) * coverage;
+          roughness += 0.48 * (1 - coverage) + 0.015 * grain * coverage;
+          occlusion = 0.5 + 0.49 * coverage;
+          mortar = 1 - coverage;
+          return;
+        };
+      }
       case 'grommetcanvas': {
         const p = proceduralMaterialPresets.grommetcanvas;
         const tones = new Float64Array(p.cells * p.cells);
@@ -18021,6 +18077,7 @@ export function createSurfaceSampler(
     kind === 'braidedcord' ||
     kind === 'crossbeddedsandstone' ||
     kind === 'grommetcanvas' ||
+    kind === 'fishscaletiles' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -552,7 +552,99 @@ const kinds: ProceduralMaterialKind[] = [
   'braidedcord',
   'crossbeddedsandstone',
   'grommetcanvas',
+  'fishscaletiles',
 ];
+
+describe('Interlocking fish-scale glazed mosaic tiles', () => {
+  const p = proceduralMaterialPresets.fishscaletiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('fishscaletiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / (p.columns * 2), y / p.rows, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves convex fan tops, two concave lower grout arcs and coplanar seeded glaze for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const x = col * 2 + (row & 1),
+            face = at(x, row - 0.35),
+            lower = at(x, row + 0.35);
+          expect(face.mortar).toBe(0);
+          expect(lower.mortar).toBe(0);
+          expect(Math.abs(face.color - lower.color)).toBeLessThan(0.013);
+          expect(Math.abs(face.height - lower.height)).toBeLessThan(0.00004);
+          expect(face.metallic).toBe(0);
+          for (let i = 0; i <= 16; i++) {
+            const a = Math.PI * (1.1 + (0.8 * i) / 16),
+              c = Math.cos(a),
+              s = Math.sin(a),
+              inner = at(x + 0.84 * c, row + 0.84 * s),
+              bevel = at(x + 0.95 * c, row + 0.95 * s),
+              grout = at(x + c, row + s);
+            expect(inner.mortar).toBe(0);
+            expect(bevel.mortar).toBeGreaterThan(0);
+            expect(bevel.mortar).toBeLessThan(1);
+            expect(grout.mortar).toBe(1);
+            expect(inner.height - grout.height).toBeGreaterThan(0.0049);
+            expect(grout.roughness - inner.roughness).toBeGreaterThan(0.46);
+            expect(inner.occlusion - grout.occlusion).toBeGreaterThan(0.48);
+          }
+          for (const side of [-1, 1])
+            for (let i = 0; i <= 8; i++) {
+              const a = Math.PI * (7 / 6 + i / 48),
+                c = Math.cos(a),
+                s = Math.sin(a),
+                next = at(x + side, row + 0.65),
+                seam = at(x + side * (1 + c), row + 1 + s),
+                original = at(x + side * (1 + 1.12 * c), row + 1 + 1.12 * s),
+                neighbor = at(x + side * (1 + 0.85 * c), row + 1 + 0.85 * s);
+              expect(seam.mortar).toBe(1);
+              expect(original.mortar).toBe(0);
+              expect(neighbor.mortar).toBe(0);
+              expect(Math.abs(original.color - face.color)).toBeLessThan(0.013);
+              expect(Math.abs(neighbor.color - next.color)).toBeLessThan(0.013);
+            }
+        }
+    },
+  );
+  it('keeps curved grout, nearest-disk ties, row ownership and periodic wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns * 2) / 128,
+              v = (y * p.rows) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Brass grommet rings on nonmetallic woven canvas', () => {
   const p = proceduralMaterialPresets.grommetcanvas;

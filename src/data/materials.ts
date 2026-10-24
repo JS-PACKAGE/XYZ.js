@@ -4300,6 +4300,16 @@ export const proceduralMaterialPresets = Object.freeze({
     threads: 64,
     threadWidth: 0.46,
   }),
+  fishscaletiles: Object.freeze({
+    dark: [24, 62, 71] as const,
+    light: [177, 217, 216] as const,
+    roughness: 0.23,
+    relief: 0.008,
+    columns: 4,
+    rows: 8,
+    grout: 0.03,
+    bevel: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4818,4 +4828,5 @@ export const proceduralTileMeters = Object.freeze({
   braidedcord: 0.08,
   crossbeddedsandstone: 1.2,
   grommetcanvas: 0.16,
+  fishscaletiles: 0.4,
 });

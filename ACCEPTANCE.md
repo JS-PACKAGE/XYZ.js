@@ -6847,3 +6847,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐扣環各 32 方位檢查 bore／inner rim／crown／outer bevel／canvas 的 color／height／roughness／AO／metallic，另掃描 squared-radius profiles／weave／owners／wrap 的五欄位 C1（含 metallic）。四項針對測試通過，完整混合金屬範圍及公開 material ownership 測試通過；既有 513 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6260 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 grommetcanvas，514 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖發生工具 `Target closed`、errors 空，已回報並釋放，新分頁完成畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認金色扣環、深孔及細織帆布；metallic factor 1、實際 metallic map B 通道 min 0／max 255 並有混合倒角值，height true、destroyed true，預覽隨頁清除。不宣稱真實扣件接觸力學、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：魚鱗形釉面馬賽克（fishscaletiles）
+
+- 目錄 514→515 種；0.4 m tile，四列八錯列青綠色扇形釉面磚以凸半圓上沿及兩條凹弧下沿互鎖，中性弧形填縫分隔，共平面磚面保留逐磚 seeded 深淺。區別 scallopedslate 的覆疊屋瓦、fishscales 的鱗片及 seigaihatiles 的方磚印花；opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增 geometry、透明度或鋪磚模擬。
+- 三 seed（0／1／`0xffffffff`）逐磚檢查上、下內部共平面與 tone 一致，17 方位 convex top 的 face／bevel／grout 高度、roughness、AO 及兩側各九點 concave seam／相鄰 tone ownership；另掃描五欄位（含 mortar）的圓弧／nearest-disk ties／row transition／wrap C1。四項針對測試通過，既有 514 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6265 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 fishscaletiles，515 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認互鎖扇形輪廓、雙凹下緣、弧形灰縫及逐磚色差，height true、metallic 0、destroyed true，預覽隨頁清除。僅為表面材質，不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

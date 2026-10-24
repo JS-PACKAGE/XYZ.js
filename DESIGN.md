@@ -577,6 +577,8 @@
 
 `grommetcanvas` 沿 gabion 的混合 metallic 慣例：squared-radius inner／outer compact smooth masks 畫黃銅環、獨立 radial ridge profile 畫凸面，先切除底下帆布再以 ring coverage 混合 pigment／height／roughness／AO，metallic 直接取 ring。預設 material factor 1 僅啟用 authored map，不把布面或 opaque bore backing 改為金屬；bevel 分數金屬值平順銜接兩材質。64×64 warp／weft compact profiles 與 96×96 grain 畫粗帆布，16 組 seeded ring tones 預算。4×4 扣環、0.16 m tile，目錄增為 514 種；取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明鏤空或布料物理。
 
+`fishscaletiles` 以錯列單位圓的 compact 內縮 face 與下一錯列外擴 disk 相減，形成凸半圓／雙凹弧的平面互鎖扇形。兩個相鄰遮罩的乘積避免 nearest-disk ties 產生 derivative cusp；額外一個前景 course 先處理即將入列的 grout band，row owner 變換前後仍同值同斜率。面積權重不覆疊，統一低填縫、共平面釉面高度／roughness／AO 與逐磚 tone，沿既有 mortar 欄位保持填縫不受 tint 染色。32 組 seeded tones 與 96×96 grain 預算；4 columns／8 rows、0.4 m tile，目錄 515 種。取樣無 trig、sqrt 或配置；opaque dielectric，不新增 geometry、透明度或鋪磚模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
