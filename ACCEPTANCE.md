@@ -6700,3 +6700,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐磚檢查六邊灰縫／內側釉面的 height／color／AO／roughness／metallic，尖頂內外與掃描得到的實際長寬比 2.9–3.1；另掃描 half-plane bevel products、owner 切換、尖頂與 wrap C1。既有 492 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6147 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pickettiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認青綠長六角磚、尖頂交錯鋪排、逐磚色差與灰縫，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：鋼製方墊圈（squarewashers）
+
+- 目錄 493→494 種；0.16 m tile，4×4 完整鋼方框交替旋轉 45°，四角、直線倒角外緣與圓形凹陷孔眼。opaque metallic maps／預設 factor 1；孔眼保留暗色不透明鋼底，沿四圖／選用 height／ownership，不新增墊圈 geometry、透明度、緊固或荷重模擬。
+- 三 seed（0／1／`0xffffffff`）逐墊圈檢查 32 方向圓孔／周圍完整鋼框對孔心／孔內／外底的 height／color／AO／roughness／metallic，四角與每側 17 點保持連通；另掃描圓孔 bevel、外框 plane products、四角、旋轉 owner 與 wrap C1。既有 493 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6153 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 squarewashers，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替正方／菱形鋼框與完整圓孔，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

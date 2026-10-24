@@ -1245,6 +1245,7 @@ export function createSurfaceSampler(
     kind === 'slottedmetal' ||
     kind === 'castellatednuts' ||
     kind === 'cotterpins' ||
+    kind === 'squarewashers' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1269,6 +1270,36 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'squarewashers': {
+        const p = proceduralMaterialPresets.squarewashers;
+        const grainField = cachedNoise(96, 96, seed ^ 0x57b3);
+        const turn = Math.SQRT1_2,
+          inverseBevel = 1 / p.bevel,
+          innerSquared = p.holeRadius * p.holeRadius,
+          inverseHoleShoulder =
+            1 / ((p.holeRadius + p.holeBevel) ** 2 - innerSquared);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          let x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if ((Math.floor(uc) + Math.floor(vc)) & 1) {
+            const rx = (x + y) * turn;
+            y = (y - x) * turn;
+            x = rx;
+          }
+          const face =
+            smooth(clamp((p.halfWidth - Math.abs(x)) * inverseBevel)) *
+            smooth(clamp((p.halfWidth - Math.abs(y)) * inverseBevel)) *
+            smooth(clamp((x * x + y * y - innerSquared) * inverseHoleShoulder));
+          const grain = grainField(u, v);
+          color = 0.06 + 0.74 * face + 0.02 * grain;
+          height = 0.05 + 0.62 * face + 0.004 * grain;
+          roughness += 0.28 * (1 - face) + 0.03 * grain;
+          occlusion = 0.36 + 0.62 * face;
+          return;
+        };
+      }
       case 'pickettiles': {
         const p = proceduralMaterialPresets.pickettiles;
         const pitch = Math.sqrt(3) / 2,
@@ -16745,6 +16776,7 @@ export function createSurfaceSampler(
     kind === 'seedstitch' ||
     kind === 'mangosteenslice' ||
     kind === 'pickettiles' ||
+    kind === 'squarewashers' ||
     fabricated ||
     botanical ||
     packaging ||

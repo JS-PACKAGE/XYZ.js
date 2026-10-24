@@ -531,7 +531,89 @@ const kinds: ProceduralMaterialKind[] = [
   'seedstitch',
   'mangosteenslice',
   'pickettiles',
+  'squarewashers',
 ];
+
+describe('Closed square steel washers with round center bores', () => {
+  const p = proceduralMaterialPresets.squarewashers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('squarewashers', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected square frame around the circular recessed bore at both orientations for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = (((row + col) & 1) * Math.PI) / 4;
+          const local = (x: number, y: number) =>
+            at(
+              col + 0.5 + x * Math.cos(angle) - y * Math.sin(angle),
+              row + 0.5 + x * Math.sin(angle) + y * Math.cos(angle),
+            );
+          const center = local(0, 0),
+            outside = local(0.32, 0);
+          for (let i = 0; i < 32; i++) {
+            const a = (i * 2 * Math.PI) / 32;
+            const frame = local(0.19 * Math.cos(a), 0.19 * Math.sin(a));
+            const bore = local(0.1 * Math.cos(a), 0.1 * Math.sin(a));
+            for (const gap of [center, bore, outside]) {
+              expect(frame.height - gap.height).toBeGreaterThan(0.0153);
+              expect(frame.color - gap.color).toBeGreaterThan(0.719);
+              expect(frame.occlusion - gap.occlusion).toBeGreaterThan(0.619);
+              expect(gap.roughness - frame.roughness).toBeGreaterThan(0.249);
+            }
+            expect(frame.metallic).toBe(1);
+          }
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1]) {
+              const corner = local(sx * 0.23, sy * 0.23);
+              expect(corner.height - center.height).toBeGreaterThan(0.0153);
+              for (let i = 0; i <= 16; i++) {
+                const edge = local(sx * 0.23, sy * (-0.23 + (i * 0.46) / 16));
+                expect(edge.height - center.height).toBeGreaterThan(0.0153);
+              }
+            }
+        }
+    },
+  );
+  it('keeps circular hole bevel, square side products, corners, rotation ownership and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Elongated pointed hexagonal picket tiles', () => {
   const p = proceduralMaterialPresets.pickettiles;
@@ -17528,6 +17610,7 @@ describe('periodic procedural material fields', () => {
           kind === 'slottedmetal' ||
           kind === 'castellatednuts' ||
           kind === 'cotterpins' ||
+          kind === 'squarewashers' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -26971,6 +27054,7 @@ describe('procedural preset acquisition and ownership', () => {
     'slottedmetal',
     'castellatednuts',
     'cotterpins',
+    'squarewashers',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -27007,6 +27091,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'slottedmetal' ||
           kind === 'castellatednuts' ||
           kind === 'cotterpins' ||
+          kind === 'squarewashers' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

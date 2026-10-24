@@ -3881,6 +3881,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         gap: 0.018;
         bevel: 0.045;
     }>;
+    squarewashers: Readonly<{
+        dark: readonly [25, 32, 38];
+        light: readonly [213, 222, 227];
+        roughness: 0.34;
+        relief: 0.025;
+        cells: 4;
+        halfWidth: 0.28;
+        bevel: 0.025;
+        holeRadius: 0.12;
+        holeBevel: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4377,4 +4388,5 @@ export declare const proceduralTileMeters: Readonly<{
     seedstitch: 0.12;
     mangosteenslice: 0.32;
     pickettiles: 0.9;
+    squarewashers: 0.16;
 }>;
