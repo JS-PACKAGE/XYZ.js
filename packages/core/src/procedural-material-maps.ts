@@ -1293,6 +1293,73 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pythagoreantiles': {
+        const p = proceduralMaterialPresets.pythagoreantiles;
+        const a = p.smallSide,
+          b = p.largeSide,
+          period = a * a + b * b,
+          largeHalf = b / 2,
+          smallHalf = a / 2,
+          offsetX = (b - a) / 2,
+          offsetY = (a + b) / 2,
+          inverseShoulder = 1 / p.shoulder,
+          tones = new Float64Array(period * 2),
+          grainField = cachedNoise(64, 64, seed ^ 0x11611);
+        for (let type = 0; type < 2; type++)
+          for (let i = 0; i < period; i++)
+            tones[type * period + i] = hash(i, type, seed ^ 0x11613);
+        return () => {
+          const x = u * period,
+            y = v * period,
+            column = Math.floor(b * u + a * v),
+            row = Math.floor(-a * u + b * v);
+          let face = 0,
+            pigment = 0;
+          // Lattice vectors (b,a),(-a,b) tile the plane with two square sizes.
+          // Their square-period translations preserve (a*i+b*j) modulo period.
+          for (let oy = 0; oy <= 1; oy++)
+            for (let ox = 0; ox <= 1; ox++) {
+              const i = column + ox,
+                j = row + oy,
+                dx = x - (b * i - a * j),
+                dy = y - (a * i + b * j),
+                cover =
+                  smooth(
+                    clamp(
+                      (largeHalf - Math.abs(dx) - p.grout) * inverseShoulder,
+                    ),
+                  ) *
+                  smooth(
+                    clamp(
+                      (largeHalf - Math.abs(dy) - p.grout) * inverseShoulder,
+                    ),
+                  );
+              if (cover === 0) continue;
+              const id = (a * i + b * j + period) % period;
+              face += cover;
+              pigment += cover * (0.32 + 0.08 * tones[id]);
+            }
+          const sx = x - (b * column - a * row + offsetX),
+            sy = y - (a * column + b * row + offsetY),
+            small =
+              smooth(
+                clamp((smallHalf - Math.abs(sx) - p.grout) * inverseShoulder),
+              ) *
+              smooth(
+                clamp((smallHalf - Math.abs(sy) - p.grout) * inverseShoulder),
+              ),
+            id = (a * column + b * row + period) % period;
+          face += small;
+          pigment += small * (0.78 + 0.06 * tones[period + id]);
+          const grain = face > 0 ? grainField(u, v) : 0;
+          mortar = 1 - face;
+          color = pigment + 0.02 * grain * face;
+          height = (0.65 + 0.003 * grain) * face;
+          roughness = p.roughness + 0.015 * grain + 0.7 * mortar;
+          occlusion = 0.5 + 0.49 * face;
+          return;
+        };
+      }
       case 'crinoidossicles': {
         const p = proceduralMaterialPresets.crinoidossicles;
         const fossils = new Float64Array(p.cells * p.cells * 4),
@@ -21068,6 +21135,7 @@ export function createSurfaceSampler(
     kind === 'spaltedwood' ||
     kind === 'canlids' ||
     kind === 'crinoidossicles' ||
+    kind === 'pythagoreantiles' ||
     fabricated ||
     botanical ||
     packaging ||

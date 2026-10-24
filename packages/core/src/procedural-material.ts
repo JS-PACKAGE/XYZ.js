@@ -567,7 +567,8 @@ export type ProceduralMaterialKind =
   | 'cowhide'
   | 'spaltedwood'
   | 'canlids'
-  | 'crinoidossicles';
+  | 'crinoidossicles'
+  | 'pythagoreantiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1369,6 +1370,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'spaltedwood',
   'canlids',
   'crinoidossicles',
+  'pythagoreantiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

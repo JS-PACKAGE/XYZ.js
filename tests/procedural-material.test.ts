@@ -590,7 +590,140 @@ const kinds: ProceduralMaterialKind[] = [
   'spaltedwood',
   'canlids',
   'crinoidossicles',
+  'pythagoreantiles',
 ];
+
+describe('Pythagorean tiling with two square sizes and shared grout', () => {
+  const p = proceduralMaterialPresets.pythagoreantiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pythagoreantiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / 5, y / 5, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps five large and five small square interiors unbroken by owner changes, with shared recessed joints for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (const [x, y] of [
+        [0, 0],
+        [2, 1],
+        [4, 2],
+        [1, 3],
+        [3, 4],
+      ]) {
+        for (const dx of [-0.75, 0, 0.75])
+          for (const dy of [-0.75, 0, 0.75]) {
+            const large = at(x + dx, y + dy);
+            expect(large.mortar).toBe(0);
+            expect(large.color).toBeGreaterThan(0.319);
+            expect(large.color).toBeLessThan(0.421);
+            expect(large.height).toBeGreaterThan(0.649 * p.relief);
+            expect(large.height).toBeLessThan(0.654 * p.relief);
+            expect(large.metallic).toBe(0);
+          }
+        for (const dx of [-0.3, 0, 0.3])
+          for (const dy of [-0.3, 0, 0.3]) {
+            const small = at(x + 0.5 + dx, y + 1.5 + dy);
+            expect(small.mortar).toBe(0);
+            expect(small.color).toBeGreaterThan(0.779);
+            expect(small.color).toBeLessThan(0.861);
+            expect(small.height).toBeGreaterThan(0.649 * p.relief);
+            expect(small.height).toBeLessThan(0.654 * p.relief);
+            expect(small.metallic).toBe(0);
+          }
+        const face = at(x, y),
+          edge = at(x + 0.9775, y + 0.25);
+        expect(edge.height).toBeGreaterThan(0.0005);
+        expect(edge.height).toBeLessThan(0.0015);
+        expect(edge.mortar).toBeGreaterThan(0);
+        expect(edge.mortar).toBeLessThan(1);
+        for (const joint of [at(x + 1, y), at(x + 1, y + 1.5)]) {
+          expect(joint.mortar).toBe(1);
+          expect(joint.height).toBe(0);
+          expect(joint.occlusion).toBeCloseTo(0.5, 12);
+          expect(joint.roughness - face.roughness).toBeGreaterThan(0.65);
+        }
+      }
+    },
+  );
+  it('covers the periodic plane with both square sizes without overlaps or large missing regions', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      let large = 0,
+        small = 0,
+        grout = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const point = at(((x + 0.371) * 5) / 256, ((y + 0.619) * 5) / 256),
+            cover = 1 - point.mortar;
+          expect(point.mortar).toBeGreaterThanOrEqual(0);
+          expect(point.mortar).toBeLessThanOrEqual(1);
+          expect(point.height).toBeGreaterThanOrEqual(0);
+          expect(point.height).toBeLessThan(0.654 * p.relief);
+          if (cover > 0) {
+            if (point.color / cover < 0.6) large += cover;
+            else small += cover;
+          }
+          grout += point.mortar;
+        }
+      expect(large / 65536).toBeGreaterThan(0.75);
+      expect(large / 65536).toBeLessThan(0.8);
+      expect(small / 65536).toBeGreaterThan(0.17);
+      expect(small / 65536).toBeLessThan(0.2);
+      expect(grout / 65536).toBeGreaterThan(0.04);
+      expect(grout / 65536).toBeLessThan(0.09);
+      expect(large / small).toBeGreaterThan(4);
+      expect(large / small).toBeLessThan(4.7);
+    }
+  });
+  it('keeps square corners, grout T-junctions, lattice owner changes, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pythagoreantiles', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Crinoid fossil ossicles with five-lobed lumens and radial ribs', () => {
   const p = proceduralMaterialPresets.crinoidossicles;

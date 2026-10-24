@@ -7147,3 +7147,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 crinoidossicles，552 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認淺圓盤與五瓣填充管腔，height true、metallic 0、destroyed true。另取真正 512 圖的原生 128×128 單格 color／normal／height crop，CSS 放大 3× 確認 height 中 20 道淺放射細脊與低管腔，不以放大冒充高解析；預覽隨頁清除。
 - 額外 detail 分頁第一次 blank-first 導航遇 managed browser detached Frame；關閉後新 blank-first 分頁成功，已回報工具；成功 detail 的 errors／離頁 cleanup errors 皆空、destroyed true。不是引擎失敗或擴大認證；不宣稱 geometry、透明孔洞、物種鑑定、古生物／生物模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證，依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6457 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：畢氏雙尺寸方磚（pythagoreantiles）
+
+- 目錄 552→553 種；0.4 m opaque dielectric tile、metallic 0，邊長 2:1 深大／淺小方磚，每 UV tile 各五塊、共用凹灰縫，區別 windmillpavers 四長磚包方塊。不新增 geometry、施工／結構或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各五大／五小方磚、九點內部取樣皆無假縫、同高平面／可區分色階、partial bevel 與完整凹縫；三 seed 各 256×256 非整數格取樣，mortar 與 height 無負值／超界，large 面積 75–80%／small 17–20%／grout 4–9%、large:small 4–4.7，避免重疊／漏鋪。129×129 網格、三 seed、雙方向五欄位（含 mortar）C1 h 1e-9 保留 0.02 上限；五項形態／覆蓋／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共六項針對測試首次通過。
+- 既有 552 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 pythagoreantiles，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 pythagoreantiles，553 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認 2:1 雙尺寸深淺方磚、完整磚面、連續灰縫與 T 接點，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、施工／結構／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6463 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

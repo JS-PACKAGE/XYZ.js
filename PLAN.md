@@ -645,6 +645,8 @@
 
 同輪追加 `crinoidossicles`（海百合莖節化石），目錄 551→552 種：連續石灰質基質、淺色圓盤、中央五瓣星狀沉積物填充管腔與 20 道淺放射關節細脊，區別 fossillimestone 平切螺旋腔室／sanddollar 外圈花瓣孔。0.08 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增化石 geometry、透明孔洞、物種鑑定或古生物／生物模擬；依功能驗證提交、不 push。
 
+同輪追加 `pythagoreantiles`（畢氏雙尺寸方磚），目錄 552→553 種：邊長 2:1 的深淺方磚由斜晶格交錯鋪滿平面，單 UV tile 各五大／小方磚、灰縫深度一致，區別 windmillpavers 四長磚包小方磚。0.4 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增鋪磚 geometry、施工／結構或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

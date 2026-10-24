@@ -4898,6 +4898,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribOuterRadius: 0.29;
         ribFade: 0.02;
     }>;
+    pythagoreantiles: Readonly<{
+        dark: readonly [14, 53, 44];
+        light: readonly [224, 224, 185];
+        roughness: 0.23;
+        relief: 0.003;
+        largeSide: 2;
+        smallSide: 1;
+        grout: 0.015;
+        shoulder: 0.015;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5453,4 +5463,5 @@ export declare const proceduralTileMeters: Readonly<{
     spaltedwood: 0.6;
     canlids: 0.28;
     crinoidossicles: 0.08;
+    pythagoreantiles: 0.4;
 }>;
