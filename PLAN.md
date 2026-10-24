@@ -621,6 +621,8 @@
 
 同輪追加 `matchsticks`（木火柴），目錄 539→540 種：4×4 交替水平／垂直淺木方截面棒身、直向木紋與較高暗紅粗圓塗層頭，塗頭比棒身寬且 roughness 不同；區別 pencilends 六角橫切面與 candleswax 滴蠟。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增火柴 geometry、點火、燃燒、發光或化學模擬；依功能驗證提交、不 push。
 
+同輪追加 `porcelaininsulators`（瓷質絕緣子），目錄 540→541 種：4×4 交替水平／垂直乳白釉面絕緣子側面，五層圓弧傘裙包住較低連續細芯、裙間外側空隙、圓帽與短柄；區別 flutedceramic 連續細槽／radiator 金屬管。0.8 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增實際 geometry、金屬接頭、電場／漏電模擬或絕緣性能認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

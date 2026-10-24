@@ -578,7 +578,114 @@ const kinds: ProceduralMaterialKind[] = [
   'poppyseedpods',
   'leatherbookspines',
   'matchsticks',
+  'porcelaininsulators',
 ];
+
+describe('Glazed porcelain insulators with five rounded skirts and lower necks', () => {
+  const p = proceduralMaterialPresets.porcelaininsulators;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('porcelaininsulators', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five glazed convex skirts, lower connected necks, exposed side gaps, domed caps and short stems for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0.21, 0),
+            stem = at(col, row, 0, 0.35),
+            cap = at(col, row, 0, p.capY);
+          expect(stem.height).toBeGreaterThan(0.00319);
+          expect(stem.height).toBeLessThan(0.00322);
+          expect(cap.height - stem.height).toBeGreaterThan(0.00214);
+          for (let i = 0; i < p.skirts; i++) {
+            const y = p.firstSkirt + i * p.skirtPitch,
+              crown = at(col, row, 0, y),
+              wing = at(col, row, 0.13, y);
+            expect(crown.height).toBeGreaterThan(0.005839);
+            expect(crown.height).toBeLessThan(0.005857);
+            expect(crown.height - wing.height).toBeGreaterThan(0.0007);
+            expect(wing.height - backing.height).toBeGreaterThan(0.00489);
+            expect(crown.color - backing.color).toBeGreaterThan(0.79);
+            expect(crown.roughness).toBeLessThan(0.216);
+            expect(crown.occlusion).toBeCloseTo(0.98, 12);
+            expect(crown.metallic).toBe(0);
+            if (i < p.skirts - 1) {
+              const neck = at(col, row, 0, y + p.skirtPitch * 0.5),
+                gap = at(col, row, 0.12, y + p.skirtPitch * 0.5);
+              expect(crown.height - neck.height).toBeGreaterThan(0.0023);
+              expect(neck.height).toBeGreaterThan(0.00319);
+              expect(neck.occlusion).toBeGreaterThan(0.84);
+              expect(gap.height).toBeCloseTo(backing.height, 12);
+            }
+          }
+          for (const [x, y] of [
+            [-0.21, 0],
+            [0.21, 0],
+            [0, -0.41],
+            [0, 0.42],
+          ]) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+    },
+  );
+  it('keeps five skirt shoulders, neck transitions, cap blends, glaze grain, rotations and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('porcelaininsulators', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Wooden matchsticks with rough red rounded coating heads', () => {
   const p = proceduralMaterialPresets.matchsticks;

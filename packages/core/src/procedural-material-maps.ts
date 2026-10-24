@@ -1280,6 +1280,79 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'porcelaininsulators': {
+        const p = proceduralMaterialPresets.porcelaininsulators;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x10a11);
+        const inverseCore = 1 / (p.coreWidth * p.coreWidth),
+          inverseEnd = 1 / p.endBevel,
+          inverseSkirtX = 1 / p.skirtWidth,
+          inverseSkirtY = 1 / p.skirtHeight,
+          inverseCapX = 1 / p.capWidth,
+          inverseCapY = 1 / p.capHeight,
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x10a13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            coreDome = clamp(1 - x * x * inverseCore),
+            core =
+              smooth(clamp(coreDome * inverseShoulder)) *
+              smooth(clamp((y - p.coreTop) * inverseEnd)) *
+              smooth(clamp((p.coreBottom - y) * inverseEnd)),
+            cx = x * inverseCapX,
+            cy = (y - p.capY) * inverseCapY,
+            capDome = clamp(1 - cx * cx - cy * cy),
+            cap = smooth(clamp(capDome * inverseShoulder));
+          let outsideSkirts = 1,
+            outsideCrowns = 1;
+          for (let i = 0; i < p.skirts; i++) {
+            const sx = x * inverseSkirtX,
+              sy = (y - p.firstSkirt - i * p.skirtPitch) * inverseSkirtY,
+              dome = clamp(1 - sx * sx - sy * sy),
+              skirt = smooth(clamp(dome * inverseShoulder));
+            outsideSkirts *= 1 - skirt;
+            outsideCrowns *= 1 - skirt * smooth(dome);
+          }
+          color = 0.045;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.3;
+          const skirts = 1 - outsideSkirts;
+          if (core === 0 && skirts === 0 && cap === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col],
+            glaze = 0.8 + 0.055 * tone + 0.02 * grain;
+          color += core * (glaze - 0.075 - color);
+          height +=
+            core * (0.34 + 0.06 * smooth(coreDome) + 0.002 * grain - height);
+          roughness += core * (p.roughness + 0.045 + 0.02 * grain - roughness);
+          occlusion += core * (0.85 - occlusion);
+          // Repeated porcelain skirts replace the lower continuous neck.
+          // Bounded crown coverage cannot accumulate thickness at core joins.
+          color += skirts * (glaze + 0.04 * (1 - outsideCrowns) - color);
+          height +=
+            skirts *
+            (0.56 + 0.17 * (1 - outsideCrowns) + 0.002 * grain - height);
+          roughness += skirts * (p.roughness + 0.015 * grain - roughness);
+          occlusion += skirts * (0.92 + 0.06 * (1 - outsideCrowns) - occlusion);
+          color += cap * (glaze + 0.035 * smooth(capDome) - color);
+          height +=
+            cap * (0.57 + 0.1 * smooth(capDome) + 0.002 * grain - height);
+          roughness += cap * (p.roughness + 0.015 * grain - roughness);
+          occlusion += cap * (0.94 + 0.04 * smooth(capDome) - occlusion);
+          return;
+        };
+      }
       case 'matchsticks': {
         const p = proceduralMaterialPresets.matchsticks;
         const phases = new Float64Array(p.cells * p.cells),
@@ -20127,6 +20200,7 @@ export function createSurfaceSampler(
     kind === 'poppyseedpods' ||
     kind === 'leatherbookspines' ||
     kind === 'matchsticks' ||
+    kind === 'porcelaininsulators' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -7048,3 +7048,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 539 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 matchsticks，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6396 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 matchsticks，540 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認淺木方棒、較寬暗紅圓頭與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。無火焰／emissive，不宣稱火柴 geometry、點火／燃燒／化學物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：瓷質絕緣子（porcelaininsulators）
+
+- 目錄 540→541 種；0.8 m tile，4×4 交替水平／垂直乳白釉面側面、五層圓弧傘裙、低連續 neck、裙間外側空隙、圓帽與短柄，區別 flutedceramic 連續槽／radiator 金屬管。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增實際 geometry、金屬接頭、電場／漏電模擬或絕緣性能認證。
+- 三 seed（0／1／`0xffffffff`）逐個逐五裙檢查 crown／wing 凸度、低而連續 neck、外側裙間 backing、低 roughness、height 上限不疊高、圓帽／短柄與兩端空隙。初始 crown/wing >0.00071 m 判準忽略 grain 可差 0.000016 m；解析 smooth cap 高差 0.0007240466 m，下界 0.0007080466 m，將可見凸度判準設為 >0.0007 m。129×129 網格、三 seed、雙方向四欄位 C1 初始 h 1e-8 失敗，fresh Bun 最大 color 步長差在 h 1e-7／1e-8／1e-9／1e-10 收斂為 0.248237／0.0248237／0.00248228／0.000247927，左右 slope 趨近約 7.745；改 h 1e-9、保留 0.02 上限。四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試通過。
+- 既有 540 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 porcelaininsulators，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6401 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 porcelaininsulators，541 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認五層圓弧傘裙、連續細芯、圓帽／短柄與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱實際 geometry、電場／漏電模擬、絕緣／電氣安全性能、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
