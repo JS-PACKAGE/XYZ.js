@@ -1270,6 +1270,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'twillweave': {
+        const p = proceduralMaterialPresets.twillweave;
+        const grainField = cachedNoise(128, 128, seed ^ 0x2f65);
+        const inverseWidthSquared = 1 / (p.halfWidth * p.halfWidth),
+          inverseExposure = 1 / p.exposureShoulder;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          const warp = smooth(clamp(1 - x * x * inverseWidthSquared)),
+            weft = smooth(clamp(1 - y * y * inverseWidthSquared));
+          const exposure =
+            ((col - row) & 3) < 2
+              ? smooth(
+                  clamp((p.exposureHalf - Math.abs(x)) * inverseExposure),
+                ) *
+                smooth(clamp((p.exposureHalf - Math.abs(y)) * inverseExposure))
+              : 0;
+          const warpTop = 0.46 * warp + 0.18 * weft * (1 - warp),
+            weftTop = 0.46 * weft + 0.18 * warp * (1 - weft),
+            warpColor = 0.08 + 0.2 * warp + 0.65 * weft * (1 - warp),
+            weftColor = 0.08 + 0.65 * weft + 0.2 * warp * (1 - weft),
+            dominant = warp * (1 - exposure) + weft * exposure,
+            coverage = 1 - (1 - warp) * (1 - weft),
+            grain = grainField(u, v);
+          color =
+            warpColor * (1 - exposure) +
+            weftColor * exposure +
+            0.03 * grain * coverage;
+          height =
+            0.05 +
+            warpTop * (1 - exposure) +
+            weftTop * exposure +
+            0.006 * grain * coverage;
+          roughness += 0.08 * (1 - dominant) + 0.02 * grain * coverage;
+          occlusion = 0.5 + 0.48 * coverage;
+          return;
+        };
+      }
       case 'eucalyptusleaf': {
         const p = proceduralMaterialPresets.eucalyptusleaf;
         const grainField = cachedNoise(96, 96, seed ^ 0x79d1);
@@ -16846,6 +16888,7 @@ export function createSurfaceSampler(
     kind === 'pickettiles' ||
     kind === 'squarewashers' ||
     kind === 'eucalyptusleaf' ||
+    kind === 'twillweave' ||
     fabricated ||
     botanical ||
     packaging ||

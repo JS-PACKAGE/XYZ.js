@@ -539,6 +539,8 @@
 
 `eucalyptusleaf` 以 clamp 後的縱向二次 envelope 平方與橫向 squared cap 形成兩端漸尖的狹長葉，二次彎曲中心線承接中肋；側脈使用五組預算根部與對稱斜線，靠中軸的 smooth fade 消除 absolute 座標折線，所有脈紋都由 blade coverage 遮罩。短葉柄與 blade 以 coverage union 接合，4×4 葉、交替 ±45°、96×96 grain、0.48 m tile、metallic 0，目錄增為 495 種；取樣不配置陣列。既有 maps／height／ownership 不變，不新增 geometry、透明度、風動或植物學模擬。
 
+`twillweave` 沿用 satinweave 的連續 warp／weft rounded profile 與 compact crossing exposure 慣例，但使用四針週期的二上二下平衡斜紋；每列偏移一針，16×16 為四針週期的整數倍，可完整 wrap。紗線半寬 0.32 cell，讓最低 32×32 貼圖每針僅兩個 pixel 的中心取樣仍命中紗線，而非全落入間隙。深棕 warp／淺褐 weft 的色場與高度前後順序一同切換，exposure 在 cell 邊界前歸零以保持 C1，128×128 seeded grain、0.16 m tile、metallic 0，目錄增為 496 種；取樣不配置陣列。既有 maps／height／ownership 不變，不新增 geometry、透明度或布料模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

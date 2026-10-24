@@ -533,7 +533,86 @@ const kinds: ProceduralMaterialKind[] = [
   'pickettiles',
   'squarewashers',
   'eucalyptusleaf',
+  'twillweave',
 ];
+
+describe('Balanced two-over-two diagonal twill weave', () => {
+  const p = proceduralMaterialPresets.twillweave;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('twillweave', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'shifts paired light weft and dark warp crossings diagonally while reversing their raised shoulder directions for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const rows = ['LLDD', 'DLLD', 'DDLL', 'LDDL'];
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const x = col + 0.5,
+            y = row + 0.5,
+            center = at(x, y),
+            acrossX = at(x + 0.2, y),
+            acrossY = at(x, y + 0.2),
+            gap = at(x + 0.49, y + 0.49);
+          if (rows[row % 4][col % 4] === 'L') {
+            expect(center.color).toBeGreaterThan(0.72);
+            expect(acrossX.height - acrossY.height).toBeGreaterThan(0.0008);
+          } else {
+            expect(center.color).toBeLessThan(0.311);
+            expect(acrossY.height - acrossX.height).toBeGreaterThan(0.0008);
+          }
+          expect(center.height - gap.height).toBeGreaterThan(0.0054);
+          expect(center.occlusion - gap.occlusion).toBeGreaterThan(0.479);
+          expect(gap.roughness - center.roughness).toBeGreaterThan(0.059);
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('retains visible light and dark crossings at the minimum 32×32 pixel size', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const { baseColor } = generateProceduralMaps('twillweave', 32, seed);
+      expect(baseColor[0] - baseColor[4 * 4]).toBeGreaterThanOrEqual(5);
+      expect(baseColor[1] - baseColor[4 * 4 + 1]).toBeGreaterThanOrEqual(5);
+      expect(baseColor[2] - baseColor[4 * 4 + 2]).toBeGreaterThanOrEqual(3);
+    }
+  });
+  it('keeps rounded yarn profiles, localized over-under exposure, ownership and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Curved blue-green lanceolate eucalyptus leaves', () => {
   const p = proceduralMaterialPresets.eucalyptusleaf;

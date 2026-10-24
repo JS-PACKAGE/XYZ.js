@@ -6714,3 +6714,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐葉檢查葉身／平底的 height／color／AO／roughness／metallic、中肋較葉身隆起、左右側脈對離脈點的 height 差、兩端寬度收窄、短柄與連向葉身的 33 點；另掃描漸尖葉端、彎曲中肋、側脈中軸 fade、柄葉 union 與 wrap C1。既有 494 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6158 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 eucalyptusleaf，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替斜向灰藍綠葉、細中肋／側脈與相連葉柄，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非植物學掃描；不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：二上二下斜紋織物（twillweave）
+
+- 目錄 495→496 種；0.16 m tile，16×16 平衡斜紋，淺褐緯線／深棕經線各跨兩針、逐列偏一針形成連續斜向交織。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增毛線 geometry、透明孔隙或布料模擬。
+- 三 seed（0／1／`0xffffffff`）逐交織點檢查四列 `LLDD／DLLD／DDLL／LDDL` 深淺排列、經緯隆起肩部方向反轉、交織點／間隙的 height／AO／roughness／metallic；另掃描紗線邊緣、compact exposure、owner 與 wrap C1。既有 495 種 size 64／seed 7 四圖 SHA256 changed 0。
+- 初輪完整測試發現 32×32 pixel centers 全落入半寬 0.22 cell 的紗線間隙，導致 seeded baseColor 全為底色；半寬改為 0.32，保留原肩部高度差門檻並將探點移至新肩部，新增最低尺寸深淺交織 RGB 對比回歸。最終 build、typecheck、lint、format:check、完整 Vitest（179 檔／6164 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- 修正後 managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 twillweave，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深棕／淺褐二上二下交織，height true、metallic 0、destroyed true；另經公開 API 生成 32×32／seed 7 貼圖，深淺交織 RGB 差為 [9, 8, 6]、destroyed true。預覽隨頁清除，不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

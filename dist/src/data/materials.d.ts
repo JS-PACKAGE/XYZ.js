@@ -3916,6 +3916,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         veinWidth: 0.005;
         veinAxisFade: 0.02;
     }>;
+    twillweave: Readonly<{
+        dark: readonly [45, 29, 22];
+        light: readonly [220, 190, 142];
+        roughness: 0.86;
+        relief: 0.012;
+        cells: 16;
+        halfWidth: 0.32;
+        exposureHalf: 0.42;
+        exposureShoulder: 0.08;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4414,4 +4424,5 @@ export declare const proceduralTileMeters: Readonly<{
     pickettiles: 0.9;
     squarewashers: 0.16;
     eucalyptusleaf: 0.48;
+    twillweave: 0.16;
 }>;
