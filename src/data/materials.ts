@@ -5047,6 +5047,12 @@ export const proceduralMaterialPresets = Object.freeze({
     wideningStart: 0.19,
     wideningLength: 0.13,
   }),
+  goldbrocade: Object.freeze({
+    dark: [17, 31, 55] as const,
+    light: [238, 194, 77] as const,
+    roughness: 0.72,
+    relief: 0.002,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5605,4 +5611,5 @@ export const proceduralTileMeters = Object.freeze({
   crinoidossicles: 0.08,
   pythagoreantiles: 0.4,
   dinnerforks: 0.96,
+  goldbrocade: 0.24,
 });

@@ -119,7 +119,7 @@ function createSurfaceSampler(t, r) {
 	}
 	let be = t === `endgrain` ? hash(0, 0, r ^ 15127) : 0, xe = t === `endgrain` ? hash(0, 0, r ^ 23849) : 0, Se = t === `houndstooth` ? /* @__PURE__ */ new Float64Array(64) : null;
 	if (Se) for (let e = 0; e < 8; e++) for (let t = 0; t < 8; t++) Se[e * 8 + t] = ((t - e + 8) % 4 < 2 ? t : e) < 4 ? 0 : 1;
-	let Ce = t === `damask` ? /* @__PURE__ */ new Float64Array(72) : null;
+	let Ce = t === `damask` || t === `goldbrocade` ? /* @__PURE__ */ new Float64Array(72) : null;
 	if (Ce) for (let e = 0; e < 12; e++) {
 		let t = 0, r = -.18, i = 0, a = .065, o = .065;
 		if (e < 6) i = n * e / 6 + Math.PI / 2, t = .085 * Math.cos(i), r += .085 * Math.sin(i), a = .12, o = .055;
@@ -3915,14 +3915,23 @@ function createSurfaceSampler(t, r) {
 				let e = 2 * G, t = 2 * K, r = smooth(clamp((Math.cos(n * e) + .15) / .55)), i = smooth(clamp((Math.cos(n * t) + .15) / .55)), a = smooth(clamp((Math.cos(n * (e + .25)) - .96) / .04)), o = smooth(clamp((Math.cos(n * (t + .25)) - .96) / .04)), s = smooth(clamp((Math.cos(n * 2 * e) - .9) / .1)), c = smooth(clamp((Math.cos(n * 2 * t) - .9) / .1)), l = .13 + .35 * r + .36 * a + .1 * s, u = .13 + .35 * i + .36 * o + .1 * c, d = smooth(clamp(.5 + .8 * Math.cos(Math.PI * 64 * (G + K)))), f = .5 + .5 * Math.cos(n * 64 * G), p = .5 + .5 * Math.cos(n * 64 * K), m = f * d + p * (1 - d);
 				Y = l * d + u * (1 - d) + .045 * m + .025 * q, X = .2 + .16 * m + .025 * q, Z += .04 * (q - .5) + .03 * (1 - m), Q = .85 + .13 * m;
 			};
+			case `goldbrocade`:
 			case `damask`: return () => {
-				let e = fract(2 * G + .5) - .5, t = fract(2 * K + .5) - .5, r = 1, i = 1;
-				for (let n = 0; n < 12; n++) {
-					let a = n * 6, o = e - Ce[a], s = t - Ce[a + 1], c = Ce[a + 2], l = Ce[a + 3], u = (o * c + s * l) * Ce[a + 4], d = (s * c - o * l) * Ce[a + 5], f = clamp(1 - u * u - d * d);
-					r *= 1 - smooth(clamp(f / .28)), i *= 1 - f * f;
+				let e = fract(2 * G + .5) - .5, r = fract(2 * K + .5) - .5, i = 1, o = 1;
+				for (let t = 0; t < 12; t++) {
+					let n = t * 6, a = e - Ce[n], s = r - Ce[n + 1], c = Ce[n + 2], l = Ce[n + 3], u = (a * c + s * l) * Ce[n + 4], d = (s * c - a * l) * Ce[n + 5], f = clamp(1 - u * u - d * d);
+					i *= 1 - smooth(clamp(f / .28)), o *= 1 - f * f;
 				}
-				let o = 1 - r, s = 1 - i, c = .5 + .5 * Math.cos(n * 64 * G), l = .5 + .5 * Math.cos(n * 64 * K), u = .5 + .5 * Math.cos(n * (16 * G - 16 * K) + a), d = (c + l) * .5;
-				Y = .19 + .48 * o + .08 * s + .07 * d + .025 * q, X = .18 + .3 * o + .13 * s + .025 * d + .015 * o * u, Z += .055 * (1 - o) - .035 * o * u + .025 * (q - .5), Q = .88 + .07 * o + .03 * d;
+				let s = 1 - i, c = 1 - o, l = .5 + .5 * Math.cos(n * 64 * G), u = .5 + .5 * Math.cos(n * 64 * K), d = (l + u) * .5;
+				if (t === `goldbrocade`) {
+					let e = l + u - l * u, t = s * e;
+					if (Y = .03 + .025 * e + .01 * q, X = .12 + .04 * e + .004 * q, Z += .08 * (1 - e) + .025 * q, Q = .85 + .1 * e, Xt = t, t === 0) return;
+					let r = .5 + .5 * Math.cos(n * (16 * G - 16 * K) + a);
+					Y += t * (.9 + .07 * c + .02 * d - Y), X += t * (.4 + .12 * c + .02 * d + .01 * r - X), Z += t * (.25 - .04 * c + .015 * r - Z), Q += t * (.99 - Q);
+					return;
+				}
+				let f = .5 + .5 * Math.cos(n * (16 * G - 16 * K) + a);
+				Y = .19 + .48 * s + .08 * c + .07 * d + .025 * q, X = .18 + .3 * s + .13 * c + .025 * d + .015 * s * f, Z += .055 * (1 - s) - .035 * s * f + .025 * (q - .5), Q = .88 + .07 * s + .03 * d;
 			};
 			case `herringbone`: return () => {
 				let e = 32 * G, t = 32 * K, i = Math.acos(.995 * Math.cos(n * 2 * G)) / Math.PI, o = smooth(clamp((.5 + .5 * Math.cos(n * (2 * i - 8 * K) + a) - .2) / .6)), s = .5 + .5 * Math.cos(n * e), c = .5 + .5 * Math.cos(n * t), l = s * (1 - o) + c * o, u = (.5 + .5 * Math.sin(n * 128 * G + a)) * (1 - o) + (.5 + .5 * Math.sin(n * 128 * K - a)) * o, d = noise(G, K, 16, 8, r ^ 15385);

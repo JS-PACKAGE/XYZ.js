@@ -4935,6 +4935,12 @@ export declare const proceduralMaterialPresets: Readonly<{
         wideningStart: 0.19;
         wideningLength: 0.13;
     }>;
+    goldbrocade: Readonly<{
+        dark: readonly [17, 31, 55];
+        light: readonly [238, 194, 77];
+        roughness: 0.72;
+        relief: 0.002;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5492,4 +5498,5 @@ export declare const proceduralTileMeters: Readonly<{
     crinoidossicles: 0.08;
     pythagoreantiles: 0.4;
     dinnerforks: 0.96;
+    goldbrocade: 0.24;
 }>;

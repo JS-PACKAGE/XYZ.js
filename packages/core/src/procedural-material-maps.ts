@@ -472,7 +472,10 @@ export function createSurfaceSampler(
       for (let x = 0; x < 8; x++)
         toothYarns[y * 8 + x] = ((x - y + 8) % 4 < 2 ? x : y) < 4 ? 0 : 1;
   // Compact Cartesian petals and paired leaves; transforms are sampler-owned.
-  const damaskLobes = kind === 'damask' ? new Float64Array(12 * 6) : null;
+  const damaskLobes =
+    kind === 'damask' || kind === 'goldbrocade'
+      ? new Float64Array(12 * 6)
+      : null;
   if (damaskLobes) {
     for (let i = 0; i < 12; i++) {
       let x = 0,
@@ -15229,6 +15232,7 @@ export function createSurfaceSampler(
           occlusion = 0.85 + 0.13 * thread;
           return;
         };
+      case 'goldbrocade':
       case 'damask':
         return () => {
           const x = fract(2 * u + 0.5) - 0.5,
@@ -15253,8 +15257,29 @@ export function createSurfaceSampler(
             crown = 1 - rounded,
             warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
             weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
-            satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase),
             thread = (warp + weft) * 0.5;
+          if (kind === 'goldbrocade') {
+            const weave = warp + weft - warp * weft,
+              gold = motif * weave;
+            color = 0.03 + 0.025 * weave + 0.01 * detail;
+            height = 0.12 + 0.04 * weave + 0.004 * detail;
+            roughness += 0.08 * (1 - weave) + 0.025 * detail;
+            occlusion = 0.85 + 0.1 * weave;
+            // Only exposed supplementary gold threads are metallic; cloth and
+            // woven interstices keep their dielectric response.
+            metallic = gold;
+            if (gold === 0) return;
+            const satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase);
+            color += gold * (0.9 + 0.07 * crown + 0.02 * thread - color);
+            height +=
+              gold *
+              (0.4 + 0.12 * crown + 0.02 * thread + 0.01 * satin - height);
+            roughness +=
+              gold * (0.25 - 0.04 * crown + 0.015 * satin - roughness);
+            occlusion += gold * (0.99 - occlusion);
+            return;
+          }
+          const satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase);
           color =
             0.19 + 0.48 * motif + 0.08 * crown + 0.07 * thread + 0.025 * detail;
           height =

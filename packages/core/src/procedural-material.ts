@@ -569,7 +569,8 @@ export type ProceduralMaterialKind =
   | 'canlids'
   | 'crinoidossicles'
   | 'pythagoreantiles'
-  | 'dinnerforks';
+  | 'dinnerforks'
+  | 'goldbrocade';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1373,6 +1374,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'crinoidossicles',
   'pythagoreantiles',
   'dinnerforks',
+  'goldbrocade',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1568,6 +1570,7 @@ export class ProceduralMaterial {
         this.kind === 'chippedenamel' ||
         this.kind === 'gabion' ||
         this.kind === 'grommetcanvas' ||
+        this.kind === 'goldbrocade' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

@@ -592,7 +592,107 @@ const kinds: ProceduralMaterialKind[] = [
   'crinoidossicles',
   'pythagoreantiles',
   'dinnerforks',
+  'goldbrocade',
 ];
+
+describe('Gold-thread floral brocade over dielectric woven cloth', () => {
+  const p = proceduralMaterialPresets.goldbrocade;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('goldbrocade', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised smoother gold threads localized to floral motifs while the dark majority cloth remains dielectric for seed %s',
+    (seed) => {
+      const at = field(seed);
+      let gold = 0,
+        cloth = 0,
+        partial = 0,
+        minGoldColor = Infinity,
+        maxClothColor = -Infinity,
+        maxGoldRoughness = -Infinity,
+        minClothRoughness = Infinity,
+        minGoldHeight = Infinity,
+        maxClothHeight = -Infinity;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const point = at(x / 256, y / 256);
+          expect(point.metallic).toBeGreaterThanOrEqual(0);
+          expect(point.metallic).toBeLessThanOrEqual(1);
+          expect(point.height).toBeGreaterThan(0.119 * p.relief);
+          expect(point.height).toBeLessThan(0.551 * p.relief);
+          if (point.metallic > 0.95) {
+            gold++;
+            minGoldColor = Math.min(minGoldColor, point.color);
+            maxGoldRoughness = Math.max(maxGoldRoughness, point.roughness);
+            minGoldHeight = Math.min(minGoldHeight, point.height);
+          } else if (point.metallic < 0.005) {
+            cloth++;
+            maxClothColor = Math.max(maxClothColor, point.color);
+            minClothRoughness = Math.min(minClothRoughness, point.roughness);
+            maxClothHeight = Math.max(maxClothHeight, point.height);
+          } else partial++;
+        }
+      expect(gold / 65536).toBeGreaterThan(0.01);
+      expect(gold / 65536).toBeLessThan(0.3);
+      expect(cloth / 65536).toBeGreaterThan(0.5);
+      expect(partial / 65536).toBeGreaterThan(0.02);
+      expect(minGoldColor).toBeGreaterThan(0.85);
+      expect(maxClothColor).toBeLessThan(0.075);
+      expect(maxGoldRoughness).toBeLessThan(0.32);
+      expect(minClothRoughness).toBeGreaterThan(0.7);
+      expect(minGoldHeight - maxClothHeight).toBeGreaterThan(0.00035);
+    },
+  );
+  it('exposes nonmetallic cloth between gold yarns inside a flower instead of painting a solid metallic plaque', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed),
+        gap = at(0.0078125, 0.9140625),
+        thread = at(0.015625, 0.9140625);
+      expect(gap.metallic).toBeCloseTo(0, 12);
+      expect(thread.metallic).toBeCloseTo(1, 12);
+      expect(thread.color - gap.color).toBeGreaterThan(0.8);
+      expect(thread.height - gap.height).toBeGreaterThan(0.0004);
+      expect(gap.roughness - thread.roughness).toBeGreaterThan(0.4);
+    }
+  });
+  it('keeps floral unions, woven crossings, exposed metal boundaries and tile wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'metallic',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Metal dinner forks with four tapered tines and continuous handles', () => {
   const p = proceduralMaterialPresets.dinnerforks;
@@ -23931,6 +24031,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'chippedenamel' &&
           kind !== 'gabion' &&
           kind !== 'grommetcanvas' &&
+          kind !== 'goldbrocade' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -23944,7 +24045,8 @@ describe('periodic procedural material fields', () => {
         kind === 'copperpatina' ||
         kind === 'chippedenamel' ||
         kind === 'gabion' ||
-        kind === 'grommetcanvas'
+        kind === 'grommetcanvas' ||
+        kind === 'goldbrocade'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -33339,6 +33441,7 @@ describe('procedural preset acquisition and ownership', () => {
     'chippedenamel',
     'gabion',
     'grommetcanvas',
+    'goldbrocade',
     'standingseam',
     'damascus',
     'castiron',
@@ -33390,6 +33493,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'chippedenamel' ||
           kind === 'gabion' ||
           kind === 'grommetcanvas' ||
+          kind === 'goldbrocade' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

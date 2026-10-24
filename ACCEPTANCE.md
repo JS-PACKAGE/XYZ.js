@@ -7163,3 +7163,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 553 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 dinnerforks，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 dinnerforks，554 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認四根漸細圓端叉齒、三道槽、連續寬頭細頸柄與交替直橫排列，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱 geometry、通透孔洞、食物接觸／變形／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6469 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：金線花葉織錦（goldbrocade）
+
+- 目錄 554→555 種；0.24 m opaque mixed-metallic tile，重用 damask compact 花葉，凸金線與暗底布分開 PBR。Metallic map 只在暴露金線高、花內織縫仍非金屬；material factor 1 保留 authored map，不把全布變金屬。不新增 geometry、透洞、紡織／布料／光譜或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各 256×256 native-grid 樣點，metallic 範圍 0–1、高金線佔 1–30%／dielectric cloth >50%／partial mask >2%，金線 color >0.85／roughness <0.32、布 color <0.075／roughness >0.7、金線最小高度高於布最大高度 >0.00035 m。三 seed 另在同朵花內確認 yarn metallic 1／interstice 0、高度／顏色／roughness 同步分開，避免實心金牌。129×129 網格、三 seed、雙方向五欄位（含 metallic）C1 h 1e-9 保留 0.02 上限；五項形態／織隙／C1、既有 size 32 deterministic／seeded／distinct／periodic 與 API material ownership 共七項針對測試首次通過，新增 plain-cloth early exit 後七項再通過。
+- 既有 554 種（含共享形態 damask）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 goldbrocade，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 goldbrocade，555 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認深底布上金線花葉、花內織縫仍露暗布；實際 metallicRoughness bitmap 的 B 通道 min 0／max 255／有中間值，material metallic factor 1、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透洞、紡織／布料／光譜／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6476 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

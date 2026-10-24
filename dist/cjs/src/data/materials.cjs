@@ -9799,6 +9799,20 @@ var proceduralMaterialPresets = Object.freeze({
 		handleWidening: .018,
 		wideningStart: .19,
 		wideningLength: .13
+	}),
+	goldbrocade: Object.freeze({
+		dark: [
+			17,
+			31,
+			55
+		],
+		light: [
+			238,
+			194,
+			77
+		],
+		roughness: .72,
+		relief: .002
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10355,7 +10369,8 @@ var proceduralTileMeters = Object.freeze({
 	canlids: .28,
 	crinoidossicles: .08,
 	pythagoreantiles: .4,
-	dinnerforks: .96
+	dinnerforks: .96,
+	goldbrocade: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
