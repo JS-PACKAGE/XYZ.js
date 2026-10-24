@@ -582,7 +582,122 @@ const kinds: ProceduralMaterialKind[] = [
   'dominoes',
   'woodenspoons',
   'chessrooks',
+  'threadspools',
 ];
+
+describe('Red wound thread spools with broad wooden end flanges', () => {
+  const p = proceduralMaterialPresets.threadspools;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('threadspools', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? x : y)) / p.cells,
+        (row + 0.5 + (vertical ? y : x)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains repeated thread relief, contrasting rough red barrel, higher broad wooden flanges and continuous core for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const barrel = at(col, row, 0, 0),
+            wing = at(col, row, 0.1, 0),
+            gap = at(col, row, 0.22, 0);
+          expect(barrel.height - wing.height).toBeGreaterThan(0.00025);
+          expect(barrel.roughness).toBeGreaterThan(0.759);
+          expect(barrel.metallic).toBe(0);
+          for (const sign of [-1, 1]) {
+            const flange = at(col, row, 0, sign * p.flangeCenter),
+              edge = at(col, row, 0.15, sign * p.flangeCenter);
+            expect(flange.height - barrel.height).toBeGreaterThan(0.00044);
+            expect(flange.color - barrel.color).toBeGreaterThan(0.55);
+            expect(barrel.roughness - flange.roughness).toBeGreaterThan(0.23);
+            expect(edge.height - gap.height).toBeGreaterThan(0.00386);
+          }
+          let peaks = 0,
+            minimum = Infinity,
+            maximum = -Infinity,
+            previous = at(col, row, 0, -0.19).height,
+            beforePrevious = previous;
+          for (let i = 1; i <= 512; i++) {
+            const value = at(col, row, 0, -0.19 + (0.38 * i) / 512).height;
+            minimum = Math.min(minimum, value);
+            maximum = Math.max(maximum, value);
+            if (previous > beforePrevious && previous > value) peaks++;
+            beforePrevious = previous;
+            previous = value;
+          }
+          expect(peaks).toBeGreaterThanOrEqual(10);
+          expect(peaks).toBeLessThanOrEqual(11);
+          expect(maximum - minimum).toBeGreaterThan(0.00014);
+          for (let i = 0; i <= 50; i++) {
+            const connected = at(col, row, 0, -0.25 + i * 0.01);
+            expect(connected.height - gap.height).toBeGreaterThan(0.00307);
+            expect(connected.height).toBeLessThan(0.004267);
+          }
+          for (const [x, y] of [
+            [0.15, 0],
+            [-0.22, 0],
+            [0, -0.34],
+            [0, 0.34],
+          ]) {
+            const backing = at(col, row, x, y);
+            expect(backing.height).toBeCloseTo(gap.height, 12);
+            expect(backing.occlusion).toBeCloseTo(0.35, 12);
+          }
+        }
+    },
+  );
+  it('keeps winding joins, barrel ends, wooden flange blends, core transitions, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('threadspools', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Ivory chess rooks with crenellated crowns and continuous shafts', () => {
   const p = proceduralMaterialPresets.chessrooks;

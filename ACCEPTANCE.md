@@ -7080,3 +7080,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 543 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 chessrooks，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6414 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 chessrooks，544 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現三齒冠、兩道向外開口、連續柱身、collars、寬圓底座與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱棋子 geometry、棋盤／棋規／棋力、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：木軸紅線捲（threadspools）
+
+- 目錄 544→545 種；0.24 m tile，4×4 交替水平／垂直暗紅捲線筒、連續低木 core、較寬較高雙木端盤、細密 winding relief 與較粗糙線面，區別 braidedcord 交錯編織／porcelaininsulators 五裙釉面。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增線軸／紗線 geometry、解捲／張力或布料物理。
+- 三 seed（0／1／`0xffffffff`）逐 16 軸確認凸線筒、木盤更高／更寬／更亮、線面較粗糙、非金屬；中央 0.38 局部長度 512 段取樣辨識 10–11 個 winding peaks 且 height span >0.00014 m；51 點核心／線筒／木盤連續且不疊高，四側空隙。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 544 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 threadspools，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6419 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 threadspools，545 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認暗紅線筒、較寬淺木端盤與交替方向，height true、metallic 0、destroyed true。另做實際 512 圖左上 128×128 原生 crop 的 baseColor／normal／height 三圖並排、CSS 3× nearest-neighbor 檢視，height 可見密集 winding relief、normal 顯示線筒與木盤輪廓，非提高生成解析度。Detail tab 首次 open 後 waitForText 出現 detached Frame，既有 tab 的 blank navigation 亦失敗；關閉後改 blank-first 新 tab 導向正式頁成功，detail errors／cleanup errors 皆空且 destroy／close／臨時預覽清除。不宣稱 geometry、解捲／張力／布料物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

@@ -637,6 +637,8 @@
 
 `chessrooks` 預算 16 tones 與 96×96 grain；compact rectangular crown 扣除兩道向外 notch，正寬度 tapered squared dome 畫收腰 shaft，三個 compact ellipses 畫上下 collars 與寬 base。Bounded coverage union 配合 normalized component relief，接點不疊高且 shaft 連續；零 weight 不採 grain。採樣無配置／hash／sqrt／trig，不新增棋子 geometry、棋盤／棋規／棋力或物理。
 
+`threadspools` 預算 16 tones／phases 與 96×96 grain；compact squared-width core／thread barrel 配合兩端 bands，兩個對稱 compact ellipse flanges 蓋住低線筒。Squared parabolic periodic bump 在 winding 接縫斜率歸零，十二週期跨 windingLength，保留弱斜向繞線；thread 與 flange 依 coverage 替換而不疊高。零 support 不採 grain，零 thread 不算 winding，採樣無配置／hash／sqrt／trig；不新增 geometry、解捲／張力或布料物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

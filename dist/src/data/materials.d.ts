@@ -4751,6 +4751,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         baseHeight: 0.065;
         ellipseShoulder: 0.25;
     }>;
+    threadspools: Readonly<{
+        dark: readonly [70, 24, 19];
+        light: readonly [224, 190, 135];
+        roughness: 0.76;
+        relief: 0.006;
+        cells: 4;
+        coreWidth: 0.06;
+        coreHalfHeight: 0.3;
+        threadWidth: 0.12;
+        threadHalfHeight: 0.225;
+        endBevel: 0.02;
+        flangeCenter: 0.255;
+        flangeWidth: 0.18;
+        flangeHeight: 0.045;
+        shoulder: 0.25;
+        turns: 12;
+        windingLength: 0.42;
+        windingSlope: 0.4;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5298,4 +5317,5 @@ export declare const proceduralTileMeters: Readonly<{
     dominoes: 0.24;
     woodenspoons: 0.4;
     chessrooks: 0.24;
+    threadspools: 0.24;
 }>;

@@ -1280,6 +1280,95 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'threadspools': {
+        const p = proceduralMaterialPresets.threadspools;
+        const tones = new Float64Array(p.cells * p.cells),
+          phases = new Float64Array(p.cells * p.cells),
+          inverseCoreWidthSquared = 1 / (p.coreWidth * p.coreWidth),
+          inverseThreadWidthSquared = 1 / (p.threadWidth * p.threadWidth),
+          inverseFlangeWidthSquared = 1 / (p.flangeWidth * p.flangeWidth),
+          inverseFlangeHeightSquared = 1 / (p.flangeHeight * p.flangeHeight),
+          inverseEnd = 1 / p.endBevel,
+          inverseShoulder = 1 / p.shoulder,
+          windingFrequency = p.turns / p.windingLength,
+          grainField = cachedNoise(96, 96, seed ^ 0x10e15);
+        for (let cell = 0; cell < tones.length; cell++) {
+          tones[cell] = hash(cell, 0, seed ^ 0x10e11);
+          phases[cell] = hash(cell, 0, seed ^ 0x10e13);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col,
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            coreDome = clamp(1 - x * x * inverseCoreWidthSquared),
+            core =
+              smooth(clamp(coreDome * inverseShoulder)) *
+              smooth(clamp((p.coreHalfHeight - Math.abs(y)) * inverseEnd)),
+            threadDome = clamp(1 - x * x * inverseThreadWidthSquared),
+            thread =
+              smooth(clamp(threadDome * inverseShoulder)) *
+              smooth(clamp((p.threadHalfHeight - Math.abs(y)) * inverseEnd)),
+            flangeY = Math.abs(y) - p.flangeCenter,
+            flangeDome = clamp(
+              1 -
+                x * x * inverseFlangeWidthSquared -
+                flangeY * flangeY * inverseFlangeHeightSquared,
+            ),
+            flange = smooth(clamp(flangeDome * inverseShoulder));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (core === 0 && thread === 0 && flange === 0) return;
+          const grain = grainField(u, v),
+            wood = 0.76 + 0.05 * tones[cell] + 0.03 * grain;
+          color += core * (wood - color);
+          height += core * (0.37 + 0.02 * smooth(coreDome) - height);
+          roughness += core * (0.5 + 0.02 * grain - roughness);
+          occlusion += core * (0.97 - occlusion);
+          if (thread > 0) {
+            // Squared parabolic windings have zero slope at each periodic join.
+            const phase =
+                fract(
+                  y * windingFrequency + p.windingSlope * x + phases[cell],
+                ) *
+                  2 -
+                1,
+              cap = 1 - phase * phase,
+              ridge = cap * cap;
+            color +=
+              thread *
+              (0.13 +
+                0.04 * tones[cell] +
+                0.025 * ridge +
+                0.008 * grain -
+                color);
+            height +=
+              thread *
+              (0.52 +
+                0.09 * smooth(threadDome) +
+                0.025 * ridge +
+                0.001 * grain -
+                height);
+            roughness +=
+              thread * (0.76 + 0.02 * grain + 0.02 * (1 - ridge) - roughness);
+            occlusion += thread * (0.92 + 0.04 * ridge - occlusion);
+          }
+          // Higher wooden flanges replace the lower wound barrel at its ends.
+          color += flange * (wood - color);
+          height +=
+            flange *
+            (0.66 + 0.05 * smooth(flangeDome) + 0.001 * grain - height);
+          roughness += flange * (0.5 + 0.02 * grain - roughness);
+          occlusion += flange * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'chessrooks': {
         const p = proceduralMaterialPresets.chessrooks;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20465,6 +20554,7 @@ export function createSurfaceSampler(
     kind === 'dominoes' ||
     kind === 'woodenspoons' ||
     kind === 'chessrooks' ||
+    kind === 'threadspools' ||
     fabricated ||
     botanical ||
     packaging ||
