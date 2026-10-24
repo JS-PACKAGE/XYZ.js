@@ -551,6 +551,8 @@
 
 同輪追加 `coffeerings`（紙面咖啡杯圈），目錄 504→505 種：3×3 seeded 輕微偏心橢圓乾燥褐圈，濃淡不均的杯底環包圍較淡內部浸染，紙纖維微起伏而非深凹槽。0.36 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增紙／杯 geometry、透明液體、流體、吸收或乾燥模擬；逐功能驗證提交、不 push。
 
+同輪追加 `cashews`（腰果仁），目錄 505→506 種：4×4 奶油色 C 形厚實果仁，中央與側邊開口連通，兩個圓鈍端部大小不對稱、交替 ±45° 排列並帶 seeded 色差。0.16 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增果仁 geometry、透明孔洞、散射或食物物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

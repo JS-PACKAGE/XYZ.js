@@ -559,6 +559,8 @@
 
 `coffeerings` 預算九組 seeded 中心偏移、旋轉、橢圓半徑倒數與濃度；squared-radius implicit ring 受連續 warp 微擾，compact smooth ring profile 乘局部 fade，另以獨立 smooth inside mask 畫淡浸染。各軸最外支撐小於 0.42 cell，owner 邊界前歸零；12×12 warp／24×24 fade／96×96 paper grain 皆 periodic。3×3 杯圈、0.36 m tile、metallic 0，目錄增為 505 種；色漬只改 pigment／roughness 及極輕微乾燥沉積，AO 不挖洞，取樣無 trig、sqrt 或陣列配置。既有 maps／height／ownership 不變，不新增 geometry、透明度、流體、吸收或乾燥模擬。
 
+`cashews` 以外橢圓 compact smooth cap 減去偏心橢圓內口形成 crescent，兩個不同半徑的圓端用 smooth product union 接合，保留 C 形開口而不形成閉環。獨立 dome unions 畫厚實凸面；預算 16 組 seeded tones、平方尺度倒數與 ±45° 旋轉係數，grain 只乘 kernel coverage，各 owner 邊界前歸零。4×4 果仁、96×96 grain、0.16 m tile、metallic 0，目錄增為 506 種；取樣無 trig、sqrt 或陣列配置。回歸覆蓋弧身至端部的連通厚度及不對稱圓端，既有 maps／height／ownership 不變，不新增 geometry、透明孔洞、散射或食物物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

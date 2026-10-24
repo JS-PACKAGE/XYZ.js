@@ -6784,3 +6784,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐杯圈檢查 32 方向的深色環、較淡內部及外部紙面、roughness 差、微量高度差而非深槽、AO 不變及 metallic 0；另掃描 ellipse ring／inner shoulder／owner／wrap C1。既有 504 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6212 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 coffeerings，505 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖時發生工具 `Target closed`，errors 空，已回報並釋放；新分頁重新完成上述畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認九個不均勻褐色杯圈、淡內部與乳白紙面，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：腰果仁（cashews）
+
+- 目錄 505→506 種；0.16 m tile，4×4 奶油色 C 形厚實果仁、大小不對稱的圓鈍端部、與中央連通的側邊開口，交替 ±45° 排列並帶 seeded 色差／微紋。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增果仁 geometry、透明孔洞、次表面散射或食物物理。
+- 三 seed（0／1／`0xffffffff`）逐果仁檢查弧身至兩端各 65 點連通與 height／color／AO／roughness／metallic 差、中央及側邊開口回到 backing、圓端 center／shoulder／outside 高度層次、端部不對稱與外緣厚度；另掃描 crescent subtraction／tip unions／seeded owner／wrap C1。初次形態回歸揭露小端連接處過薄，已調整偏心內口並保留原連通厚度斷言；四項針對測試通過。既有 505 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6217 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 cashews，506 種與 plain、25 球及四圖預覽正常、errors 空、離頁 cleanup errors 空。首個 WebGL2 分頁截圖時發生工具 `Target closed`，errors 空，已回報並釋放；新分頁重新完成上述畫面及 cleanup 驗證。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替朝向的奶油色開口果仁與不對稱圓端，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面而非寫實掃描，不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

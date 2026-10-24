@@ -1272,6 +1272,66 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'cashews': {
+        const p = proceduralMaterialPresets.cashews;
+        const tones = new Float64Array(p.cells * p.cells),
+          inverseTips = new Float64Array(p.tipRadii.length);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] =
+              0.9 + 0.1 * hash(col, row, seed ^ 0x6dc1);
+        for (let i = 0; i < p.tipRadii.length; i++)
+          inverseTips[i] = 1 / (p.tipRadii[i] * p.tipRadii[i]);
+        const inverseOuterX = 1 / (p.outerX * p.outerX),
+          inverseOuterY = 1 / (p.outerY * p.outerY),
+          inverseOpeningX = 1 / (p.openingRadiusX * p.openingRadiusX),
+          inverseOpeningY = 1 / (p.openingRadiusY * p.openingRadiusY),
+          inverseShoulder = 1 / p.shoulder,
+          turnCos = Math.cos(p.turn),
+          turnSin = Math.sin(p.turn),
+          grainField = cachedNoise(96, 96, seed ^ 0x6dc3);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            sign = (col + row) & 1 ? -1 : 1,
+            lx = x * turnCos + y * turnSin * sign,
+            ly = -x * turnSin * sign + y * turnCos,
+            cap = clamp(1 - lx * lx * inverseOuterX - ly * ly * inverseOuterY),
+            dx = lx - p.openingX,
+            opening = smooth(
+              clamp(
+                (1 - dx * dx * inverseOpeningX - ly * ly * inverseOpeningY) *
+                  inverseShoulder,
+              ),
+            ),
+            crescent = smooth(clamp(cap * inverseShoulder)) * (1 - opening);
+          let outside = 1 - crescent,
+            outsideDome = 1 - smooth(cap) * (1 - opening);
+          // Rounded end lobes blunt the two ellipse-intersection cusps without
+          // bridging the mouth: the kernel is a C, not a closed nut ring.
+          for (let i = 0; i < p.tipRadii.length; i++) {
+            const tx = lx - p.tipX,
+              ty = ly - (i === 0 ? p.tipY : -p.tipY),
+              tip = clamp(1 - (tx * tx + ty * ty) * inverseTips[i]);
+            outside *= 1 - smooth(clamp(tip * inverseShoulder));
+            outsideDome *= 1 - smooth(tip);
+          }
+          const kernel = 1 - outside,
+            dome = 1 - outsideDome,
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color = 0.06 + kernel * (0.7 * tone + 0.02 * grain) + 0.12 * dome;
+          height = 0.06 + 0.4 * kernel + 0.24 * dome + 0.004 * grain * kernel;
+          roughness +=
+            0.16 * (1 - kernel) - 0.06 * kernel + 0.015 * grain * kernel;
+          occlusion = 0.43 + 0.53 * kernel;
+          return;
+        };
+      }
       case 'coffeerings': {
         const p = proceduralMaterialPresets.coffeerings;
         const sites = new Float64Array(p.cells * p.cells * 7);
@@ -17390,6 +17450,7 @@ export function createSurfaceSampler(
     kind === 'ribknit' ||
     kind === 'pillowtiles' ||
     kind === 'coffeerings' ||
+    kind === 'cashews' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -520,7 +520,8 @@ export type ProceduralMaterialKind =
   | 'ivyleaf'
   | 'ribknit'
   | 'pillowtiles'
-  | 'coffeerings';
+  | 'coffeerings'
+  | 'cashews';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1275,6 +1276,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ribknit',
   'pillowtiles',
   'coffeerings',
+  'cashews',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

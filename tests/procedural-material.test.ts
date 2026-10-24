@@ -543,7 +543,99 @@ const kinds: ProceduralMaterialKind[] = [
   'ribknit',
   'pillowtiles',
   'coffeerings',
+  'cashews',
 ];
+
+describe('Cream cashew kernels with open kidney-shaped bodies', () => {
+  const p = proceduralMaterialPresets.cashews;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('cashews', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected raised C, two blunt asymmetric tips and an open mouth in every cell for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = ((col + row) & 1 ? -1 : 1) * p.turn,
+            c = Math.cos(angle),
+            s = Math.sin(angle),
+            local = (x: number, y: number) =>
+              at(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c),
+            backing = local(0.42, 0),
+            core = local(-0.17, 0);
+          for (const [x, y] of [
+            [0, 0],
+            [0.22, 0],
+            [0.35, 0],
+          ] as const) {
+            const gap = local(x, y);
+            expect(gap.height).toBe(backing.height);
+            expect(gap.color).toBe(backing.color);
+            expect(gap.occlusion).toBe(backing.occlusion);
+          }
+          for (let i = 0; i <= 64; i++) {
+            const theta = Math.PI / 3 + (4 * Math.PI * i) / (3 * 64),
+              kernel = local(0.17 * Math.cos(theta), 0.24 * Math.sin(theta));
+            expect(kernel.height - backing.height).toBeGreaterThan(0.01);
+            expect(kernel.color - backing.color).toBeGreaterThan(0.5);
+            expect(kernel.occlusion - backing.occlusion).toBeGreaterThan(0.4);
+            expect(backing.roughness - kernel.roughness).toBeGreaterThan(0.15);
+            expect(kernel.metallic).toBe(0);
+          }
+          for (let i = 0; i < p.tipRadii.length; i++) {
+            const y = i === 0 ? p.tipY : -p.tipY,
+              tip = local(p.tipX, y),
+              shoulder = local(p.tipX + p.tipRadii[i] * 0.86, y),
+              outside = local(p.tipX + p.tipRadii[i] * 1.1, y);
+            expect(tip.height - shoulder.height).toBeGreaterThan(0.003);
+            expect(shoulder.height - outside.height).toBeGreaterThan(0.008);
+            expect(outside.height).toBe(backing.height);
+          }
+          expect(core.height - local(-0.255, 0).height).toBeGreaterThan(0.006);
+          expect(local(p.tipX + 0.085, p.tipY).height).toBeGreaterThan(
+            local(p.tipX + 0.085, -p.tipY).height,
+          );
+        }
+    },
+  );
+  it('keeps crescent shoulders, rounded tip unions, seeded owners and periodic grain C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dried coffee cup ring stains on pale paper', () => {
   const p = proceduralMaterialPresets.coffeerings;
