@@ -513,6 +513,8 @@
 
 `peppercorns` 以 compact smooth 圓場與 squared-radius dome 建立乾果粒，中央小圓場下凹為果梗疤；40×40 seeded periodic lattice 的對稱平方 fold 形成淺皺皮凸脊，128×128 grain 增加細節，全部在果形支撐內作用。果疤 roughness 差須大於皺皮變化幅度，避免鄰近凸脊反轉粗糙度關係。5×5 顆、0.08 m tile、metallic 0、maps／選用 height／ownership 不變，目錄增為 482 種；不新增 geometry 或食品／植物模擬。
 
+`castellatednuts` 用六個 smooth half-plane 乘積建構六角外形，中央圓孔 bevel 乘上外形形成環體；六個 compact elliptical radial slots 的 complement 乘積保留冠齒，凹槽下方仍有較低鋼面，內環不被切斷。交替 cell 將局部座標旋轉 30°，plane normals 僅在建立 sampler 時預計算，取樣不配置陣列。96×96 seeded periodic grain、0.08 m tile、4×4 螺帽，metallic 1，目錄增為 483 種；maps／height／ownership 不變，無 geometry、透明度或緊固物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

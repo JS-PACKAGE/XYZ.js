@@ -520,7 +520,84 @@ const kinds: ProceduralMaterialKind[] = [
   'burlwood',
   'slottedmetal',
   'peppercorns',
+  'castellatednuts',
 ];
+
+describe('Six-slot castellated steel nuts', () => {
+  const p = proceduralMaterialPresets.castellatednuts;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('castellatednuts', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six recessed radial slots between crown segments and preserves the inner ring for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const rotation = (col + row) & 1 ? Math.PI / 6 : 0;
+          const local = (r: number, angle: number) =>
+            at(
+              col + 0.5 + r * Math.cos(angle + rotation),
+              row + 0.5 + r * Math.sin(angle + rotation),
+            );
+          const bore = local(0, 0),
+            outside = local(0.43, 0);
+          for (let i = 0; i < 6; i++) {
+            const angle = (2 * Math.PI * i) / 6;
+            const slot = local(0.29, angle),
+              crown = local(0.29, angle + Math.PI / 6),
+              inner = local(0.17, angle);
+            expect(crown.height - slot.height).toBeGreaterThan(0.0084);
+            expect(crown.color - slot.color).toBeGreaterThan(0.36);
+            expect(crown.occlusion - slot.occlusion).toBeGreaterThan(0.31);
+            expect(slot.roughness - crown.roughness).toBeGreaterThan(0.14);
+            expect(slot.height - bore.height).toBeGreaterThan(0.0064);
+            expect(inner.height - slot.height).toBeGreaterThan(0.0084);
+            expect(crown.height - outside.height).toBeGreaterThan(0.0149);
+            expect(crown.metallic).toBe(1);
+            expect(slot.metallic).toBe(1);
+            expect(bore.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps hexagonal bevels, central bores, slot ends, shoulders and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Wrinkled dried black peppercorns', () => {
   const p = proceduralMaterialPresets.peppercorns;
@@ -16617,6 +16694,7 @@ describe('periodic procedural material fields', () => {
           kind === 'fivebarplate' ||
           kind === 'scalemail' ||
           kind === 'slottedmetal' ||
+          kind === 'castellatednuts' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -26058,6 +26136,7 @@ describe('procedural preset acquisition and ownership', () => {
     'fivebarplate',
     'scalemail',
     'slottedmetal',
+    'castellatednuts',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -26092,6 +26171,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'fivebarplate' ||
           kind === 'scalemail' ||
           kind === 'slottedmetal' ||
+          kind === 'castellatednuts' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

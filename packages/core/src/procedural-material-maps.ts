@@ -1243,6 +1243,7 @@ export function createSurfaceSampler(
     kind === 'fivebarplate' ||
     kind === 'scalemail' ||
     kind === 'slottedmetal' ||
+    kind === 'castellatednuts' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1267,6 +1268,56 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'castellatednuts': {
+        const p = proceduralMaterialPresets.castellatednuts;
+        const planes = new Float64Array(12);
+        for (let side = 0; side < 6; side++) {
+          planes[side * 2] = Math.cos((TAU * side) / 6);
+          planes[side * 2 + 1] = Math.sin((TAU * side) / 6);
+        }
+        const grainField = cachedNoise(96, 96, seed ^ 0x5d73);
+        const cos = Math.sqrt(3) / 2;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? cos * dx + 0.5 * dy : dx,
+            y = turn ? cos * dy - 0.5 * dx : dy;
+          let outer = 1,
+            outsideSlots = 1;
+          for (let side = 0; side < 6; side++) {
+            const nx = planes[side * 2],
+              ny = planes[side * 2 + 1];
+            const along = x * nx + y * ny,
+              across = y * nx - x * ny;
+            outer *= smooth(clamp((p.inradius - along) / p.outerBevel));
+            outsideSlots *=
+              1 -
+              smooth(
+                clamp(
+                  (1 -
+                    ((along - p.slotCenter) / p.slotLength) ** 2 -
+                    (across / p.slotWidth) ** 2) /
+                    p.shoulder,
+                ),
+              );
+          }
+          const radius = Math.hypot(x, y);
+          const ring =
+            outer * smooth(clamp((radius - p.boreRadius) / p.boreBevel));
+          // Slots lower the crown to a steel floor, not transparent cutouts;
+          // the continuous inner ring remains below the six raised segments.
+          const crown = ring * outsideSlots,
+            grain = grainField(u, v);
+          color = 0.1 + 0.21 * ring + 0.4 * crown + 0.03 * grain;
+          height = 0.07 + 0.3 * ring + 0.39 * crown + 0.004 * grain;
+          roughness += 0.32 * (1 - ring) + 0.17 * (ring - crown) + 0.02 * grain;
+          occlusion = 0.4 + 0.26 * ring + 0.32 * crown;
+          return;
+        };
+      }
       case 'peppercorns': {
         const p = proceduralMaterialPresets.peppercorns;
         const wrinkleField = cachedNoise(40, 40, seed ^ 0x3e79),
@@ -16089,6 +16140,7 @@ export function createSurfaceSampler(
     kind === 'burlwood' ||
     kind === 'slottedmetal' ||
     kind === 'peppercorns' ||
+    kind === 'castellatednuts' ||
     fabricated ||
     botanical ||
     packaging ||

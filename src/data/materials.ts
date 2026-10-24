@@ -3798,6 +3798,21 @@ export const proceduralMaterialPresets = Object.freeze({
     shoulder: 0.16,
     scarRadius: 0.045,
   }),
+  castellatednuts: Object.freeze({
+    dark: [33, 40, 45] as const,
+    light: [220, 226, 230] as const,
+    roughness: 0.37,
+    relief: 0.022,
+    cells: 4,
+    inradius: 0.33,
+    outerBevel: 0.018,
+    boreRadius: 0.13,
+    boreBevel: 0.018,
+    slotCenter: 0.34,
+    slotLength: 0.15,
+    slotWidth: 0.028,
+    shoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4284,4 +4299,5 @@ export const proceduralTileMeters = Object.freeze({
   burlwood: 0.24,
   slottedmetal: 0.4,
   peppercorns: 0.08,
+  castellatednuts: 0.08,
 });
