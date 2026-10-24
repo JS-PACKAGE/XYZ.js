@@ -7138,3 +7138,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 550 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 canlids，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 canlids，551 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認交替直橫圓蓋、補強環／刻線、兩孔拉環與鉚釘，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱 geometry、開罐／撕裂／變形／力學模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6452 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：海百合莖節化石（crinoidossicles）
+
+- 目錄 551→552 種；0.08 m opaque dielectric tile、metallic 0，石灰質基質內變半徑淺圓盤、五瓣星狀沉積填充管腔與 20 道淺放射關節細脊。區別 fossillimestone 平切螺旋腔室／sanddollar 外圈花瓣孔；不新增 geometry、透明孔洞、物種鑑定或古生物／生物模擬。
+- 三 seed（0／1／`0xffffffff`）各 16 盤面、720 角樣點，中央填充低於基質但高於零、五瓣低管腔區、20 個 hysteresis 細脊、淺環面高於基質 >0.00017 m、細脊高度 span >0.000095 m／roughness span >0.029／AO span >0.024、星狀 height span >0.00025 m、各區 metallic 0。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 551 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 crinoidossicles，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 crinoidossicles，552 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認淺圓盤與五瓣填充管腔，height true、metallic 0、destroyed true。另取真正 512 圖的原生 128×128 單格 color／normal／height crop，CSS 放大 3× 確認 height 中 20 道淺放射細脊與低管腔，不以放大冒充高解析；預覽隨頁清除。
+- 額外 detail 分頁第一次 blank-first 導航遇 managed browser detached Frame；關閉後新 blank-first 分頁成功，已回報工具；成功 detail 的 errors／離頁 cleanup errors 皆空、destroyed true。不是引擎失敗或擴大認證；不宣稱 geometry、透明孔洞、物種鑑定、古生物／生物模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證，依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6457 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

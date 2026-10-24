@@ -774,6 +774,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `canlids`（金屬易拉罐蓋）：圓形沖壓蓋面、補強凸環、細凹刻線、雙孔拉環與更高鉚釘。預算 16 seeded cell tones／96×96 grain，4×4 交替直橫排列；compact squared-radius disk／annular bands 與橢圓 tab／holes／rivet supports 採樣無配置／hash／sqrt／trig。Replace layers 避免交點 height 疊加，兩孔露下方完整蓋面，非通透洞。使用 `await ProceduralMaterial.create('canlids', { seed: 7 })`；0.28 m opaque metallic tile、metallic 1，沿 maps／選用 height／ownership；不新增 geometry、開罐／撕裂／變形或力學模擬。
 
+種類另支援 `crinoidossicles`（海百合莖節化石）：石灰質基質內淺圓盤、五瓣星狀沉積填充管腔與 20 道淺放射關節細脊。預算 16 份 tone／phase／radius²／inverse bevel、96×96 grain／16×16 sediment；飽和中心遮 angular pole，單一五次角 cosine 畫 lumen，以其 T4 harmonic 共用計算 20 道細脊，compact squared-radius annular fade 避免中心奇點。採樣無配置／hash／sqrt，僅盤內非飽和中心區需 atan2／一次 cosine。使用 `await ProceduralMaterial.create('crinoidossicles', { seed: 7 })`；0.08 m opaque dielectric tile、metallic 0，沿 maps／選用 height／ownership；不新增 geometry、透明孔洞、物種鑑定或古生物／生物模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

@@ -1293,6 +1293,82 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'crinoidossicles': {
+        const p = proceduralMaterialPresets.crinoidossicles;
+        const fossils = new Float64Array(p.cells * p.cells * 4),
+          coreSquared =
+            (p.lumenRadius - p.lobeDepth) ** 2 - p.lumenSquaredShoulder,
+          innerSquared = p.ribInnerRadius * p.ribInnerRadius,
+          outerSquared = p.ribOuterRadius * p.ribOuterRadius,
+          inverseInnerFade =
+            1 / ((p.ribInnerRadius + p.ribFade) ** 2 - innerSquared),
+          inverseOuterFade =
+            1 / (outerSquared - (p.ribOuterRadius - p.ribFade) ** 2),
+          inverseLumenShoulder = 1 / p.lumenSquaredShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11511),
+          sedimentField = cachedNoise(16, 16, seed ^ 0x11513);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              radius =
+                p.radius +
+                p.radiusVariation * (2 * hash(col, row, seed ^ 0x11515) - 1);
+            fossils[i] = hash(col, row, seed ^ 0x11517);
+            fossils[i + 1] = TAU * hash(col, row, seed ^ 0x11519);
+            fossils[i + 2] = radius * radius;
+            fossils[i + 3] =
+              1 / (radius * radius - (radius - p.edgeBevel) ** 2);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            squared = x * x + y * y,
+            face = smooth(clamp((fossils[i + 2] - squared) * fossils[i + 3])),
+            grain = grainField(u, v),
+            sediment = sedimentField(u, v);
+          color = 0.4 + 0.08 * sediment + 0.03 * grain;
+          height = 0.36 + 0.012 * grain;
+          roughness = p.roughness + 0.05 * grain;
+          occlusion = 0.99;
+          if (face === 0) return;
+          let lumen = 1,
+            ridge = 0;
+          // The saturated filled center masks the angular pole completely.
+          if (squared > coreSquared) {
+            const angle = Math.atan2(y, x) - fossils[i + 1],
+              lobe = Math.cos(p.lobes * angle),
+              lumenRadius = p.lumenRadius + p.lobeDepth * lobe;
+            lumen = smooth(
+              clamp(
+                (lumenRadius * lumenRadius - squared) * inverseLumenShoulder,
+              ),
+            );
+            // T4(cos(5θ)) supplies 20 fine ribs without a second cosine.
+            const lobeSquared = lobe * lobe,
+              wave = 1 + 4 * lobeSquared * (lobeSquared - 1);
+            ridge =
+              wave *
+              wave *
+              smooth(clamp((squared - innerSquared) * inverseInnerFade)) *
+              smooth(clamp((outerSquared - squared) * inverseOuterFade));
+          }
+          color +=
+            face *
+            (0.82 + 0.06 * fossils[i] + 0.02 * grain + 0.035 * ridge - color);
+          height += face * (0.49 + 0.07 * ridge + 0.005 * grain - height);
+          roughness += face * (0.64 + 0.04 * grain - 0.07 * ridge - roughness);
+          occlusion += face * (0.96 + 0.025 * ridge - occlusion);
+          const filled = face * lumen;
+          color += filled * (0.31 + 0.035 * sediment + 0.025 * grain - color);
+          height += filled * (0.31 + 0.01 * grain - height);
+          roughness += filled * (0.86 + 0.04 * grain - roughness);
+          occlusion += filled * (0.72 - occlusion);
+          return;
+        };
+      }
       case 'canlids': {
         const p = proceduralMaterialPresets.canlids;
         const tones = new Float64Array(p.cells * p.cells),
@@ -20991,6 +21067,7 @@ export function createSurfaceSampler(
     kind === 'grinderburrs' ||
     kind === 'spaltedwood' ||
     kind === 'canlids' ||
+    kind === 'crinoidossicles' ||
     fabricated ||
     botanical ||
     packaging ||

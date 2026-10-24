@@ -589,7 +589,129 @@ const kinds: ProceduralMaterialKind[] = [
   'cowhide',
   'spaltedwood',
   'canlids',
+  'crinoidossicles',
 ];
+
+describe('Crinoid fossil ossicles with five-lobed lumens and radial ribs', () => {
+  const p = proceduralMaterialPresets.crinoidossicles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('crinoidossicles', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five filled lumen lobes, twenty shallow articular ribs and a continuous stone matrix for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const matrix = at(col, row, 0.42, 0),
+            center = at(col, row, 0, 0),
+            lobes: boolean[] = [],
+            profile: number[] = [];
+          let minStar = Infinity,
+            maxStar = -Infinity,
+            minRoughness = Infinity,
+            maxRoughness = -Infinity,
+            minAO = Infinity,
+            maxAO = -Infinity;
+          expect(matrix.height - center.height).toBeGreaterThan(0.000059);
+          expect(center.height).toBeGreaterThan(0.309 * p.relief);
+          expect(center.occlusion).toBeCloseTo(0.72, 12);
+          expect(center.roughness - matrix.roughness).toBeGreaterThan(0.05);
+          for (let j = 0; j < 720; j++) {
+            const angle = (Math.PI * 2 * j) / 720,
+              x = Math.cos(angle),
+              y = Math.sin(angle),
+              star = at(col, row, 0.1 * x, 0.1 * y),
+              ring = at(col, row, 0.22 * x, 0.22 * y);
+            lobes.push(star.height < 0.34 * p.relief);
+            profile.push(ring.height);
+            minStar = Math.min(minStar, star.height);
+            maxStar = Math.max(maxStar, star.height);
+            minRoughness = Math.min(minRoughness, ring.roughness);
+            maxRoughness = Math.max(maxRoughness, ring.roughness);
+            minAO = Math.min(minAO, ring.occlusion);
+            maxAO = Math.max(maxAO, ring.occlusion);
+            expect(ring.height - matrix.height).toBeGreaterThan(0.00017);
+            expect(star.metallic).toBe(0);
+            expect(ring.metallic).toBe(0);
+          }
+          let lumenLobes = 0;
+          for (let j = 0; j < lobes.length; j++)
+            if (lobes[j] && !lobes[(j + lobes.length - 1) % lobes.length])
+              lumenLobes++;
+          expect(lumenLobes).toBe(5);
+          expect(maxStar - minStar).toBeGreaterThan(0.00025);
+          expect(maxRoughness - minRoughness).toBeGreaterThan(0.029);
+          expect(maxAO - minAO).toBeGreaterThan(0.024);
+          const maximum = Math.max(...profile),
+            minimum = Math.min(...profile),
+            start = profile.indexOf(maximum);
+          expect(maximum - minimum).toBeGreaterThan(0.000095);
+          let high = true,
+            ribs = 0;
+          for (let j = 1; j <= profile.length; j++) {
+            const value = profile[(start + j) % profile.length];
+            if (high && value < 0.51 * p.relief) high = false;
+            else if (!high && value > 0.55 * p.relief) {
+              high = true;
+              ribs++;
+            }
+          }
+          expect(ribs).toBe(20);
+          expect(matrix.metallic).toBe(0);
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps the masked angular pole, star lumen, radial ribs, disc bevels, matrix and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('crinoidossicles', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Stamped can lids with raised twin-hole pull tabs and rivets', () => {
   const p = proceduralMaterialPresets.canlids;
