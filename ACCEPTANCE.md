@@ -7000,3 +7000,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 533 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 haircombs，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6365 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 haircombs，534 種與 plain、25 球及四圖預覽正常、兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替方向、平背、14 根漸細齒與連通外部的暗槽，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱透明塑膠／髮梳 geometry、頭髮交互、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：黑莓聚合果（blackberries）
+
+- 目錄 534→535 種；0.16 m tile，4×4 交替水平／垂直深紫光澤橢圓果實，各以 3／4／5／4／3 交錯列排 19 顆凸圓小核果，較低雙顆／三顆接縫仍填實，區別 grapeskin 果粉與 lychee 果殼。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增果實 geometry、透明果肉、植物生長或食物物理。
+- 三 seed（0／1／`0xffffffff`）逐果逐小核果檢查 19 個獨立凸頂、height 上限、光澤 roughness、同列低接縫不加高／不穿洞、填實三向接縫與橢圓外 backing，涵蓋 height／color／roughness／AO／metallic；129×129 網格、三 seed、雙方向四欄位 C1 檢查 convex／pair／triple joins／support bounds／rotation／wrap，h 1e-8、上限 0.02；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試皆首次通過。
+- 既有 534 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 blackberries，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6370 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 blackberries，535 種與 plain、25 球及四圖預覽正常，兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深紫聚合果、19 個凸圓小核果、低接縫與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 果面，不宣稱果實 geometry、植物／食物物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。

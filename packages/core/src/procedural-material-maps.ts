@@ -1279,6 +1279,80 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'blackberries': {
+        const p = proceduralMaterialPresets.blackberries;
+        const middle = (p.rows - 1) * 0.5,
+          rowStep = p.pitch * Math.sqrt(3) * 0.5;
+        let count = 0;
+        for (let row = 0; row < p.rows; row++)
+          count += p.rows - Math.abs(row - middle);
+        const centers = new Float64Array(count * 2),
+          tones = new Float64Array(p.cells * p.cells * count);
+        let next = 0;
+        for (let row = 0; row < p.rows; row++) {
+          const columns = p.rows - Math.abs(row - middle);
+          for (let col = 0; col < columns; col++) {
+            centers[next++] = (col - (columns - 1) * 0.5) * p.pitch;
+            centers[next++] = (row - middle) * rowStep;
+          }
+        }
+        for (let cell = 0; cell < p.cells * p.cells; cell++)
+          for (let i = 0; i < count; i++)
+            tones[cell * count + i] = hash(i, cell, seed ^ 0x10411);
+        const halfWidth = middle * p.pitch + p.drupeRadius,
+          halfHeight = middle * rowStep + p.drupeRadius,
+          inverseRadius = 1 / (p.drupeRadius * p.drupeRadius),
+          inverseStretch = 1 / p.stretch,
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x10413);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = (turn ? -dx : dy) * inverseStretch;
+          color = 0.055;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.33;
+          if (Math.abs(x) >= halfWidth || Math.abs(y) >= halfHeight) return;
+          let outside = 1,
+            weight = 0,
+            domeWeight = 0,
+            toneWeight = 0;
+          const offset = (row * p.cells + col) * count;
+          for (let i = 0; i < count; i++) {
+            const ex = x - centers[i * 2],
+              ey = y - centers[i * 2 + 1],
+              dome = 1 - (ex * ex + ey * ey) * inverseRadius;
+            if (dome <= 0) continue;
+            const drupe = smooth(clamp(dome * inverseShoulder));
+            outside *= 1 - drupe;
+            weight += drupe;
+            domeWeight += drupe * dome;
+            toneWeight += drupe * tones[offset + i];
+          }
+          if (weight > 0) {
+            // Normalize the individual convex crowns, rather than stacking
+            // overlapping drupelets or introducing a hard nearest-lobe seam.
+            const berry = 1 - outside,
+              dome = domeWeight / weight,
+              tone = toneWeight / weight,
+              grain = grainField(u, v);
+            color +=
+              berry * (0.44 + 0.3 * dome + 0.08 * tone + 0.015 * grain - color);
+            height += berry * (0.38 + 0.35 * dome + 0.003 * grain - height);
+            roughness +=
+              berry * (p.roughness - 0.06 * dome + 0.025 * grain - roughness);
+            occlusion += berry * (0.62 + 0.36 * dome - occlusion);
+          }
+          return;
+        };
+      }
       case 'haircombs': {
         const p = proceduralMaterialPresets.haircombs;
         const tones = new Float64Array(p.cells * p.cells);
@@ -19610,6 +19684,7 @@ export function createSurfaceSampler(
     kind === 'pencilends' ||
     kind === 'corrugatedplasticedge' ||
     kind === 'haircombs' ||
+    kind === 'blackberries' ||
     fabricated ||
     botanical ||
     packaging ||

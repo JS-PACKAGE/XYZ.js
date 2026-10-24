@@ -572,7 +572,118 @@ const kinds: ProceduralMaterialKind[] = [
   'pencilends',
   'corrugatedplasticedge',
   'haircombs',
+  'blackberries',
 ];
+
+describe('Glossy blackberries with nineteen convex drupelets', () => {
+  const p = proceduralMaterialPresets.blackberries;
+  const rowStep = p.pitch * Math.sqrt(3) * 0.5;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('blackberries', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        ey = y * p.stretch,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -ey : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : ey)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains nineteen separate glossy crowns, lower filled two/three-way joints and oval silhouettes for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0.31, 0),
+            center = at(col, row, 0, 0),
+            junction = at(col, row, p.pitch * 0.5, -rowStep / 3);
+          expect(junction.height).toBeGreaterThan(0.0033);
+          expect(center.height - junction.height).toBeGreaterThan(0.002);
+          expect(junction.occlusion).toBeGreaterThan(0.66);
+          expect(junction.occlusion).toBeLessThan(0.75);
+          for (let band = 0; band < p.rows; band++) {
+            const columns = p.rows - Math.abs(band - (p.rows - 1) * 0.5),
+              y = (band - (p.rows - 1) * 0.5) * rowStep;
+            for (let i = 0; i < columns; i++) {
+              const x = (i - (columns - 1) * 0.5) * p.pitch,
+                crest = at(col, row, x, y);
+              expect(crest.height).toBeGreaterThan(0.00583);
+              expect(crest.height).toBeLessThan(0.005865);
+              expect(crest.color - backing.color).toBeGreaterThan(0.68);
+              expect(crest.roughness).toBeLessThan(0.24);
+              expect(crest.occlusion).toBeCloseTo(0.98, 12);
+              expect(crest.metallic).toBe(0);
+              if (i < columns - 1) {
+                const joint = at(col, row, x + p.pitch * 0.5, y);
+                expect(crest.height - joint.height).toBeGreaterThan(0.00165);
+                expect(crest.color - joint.color).toBeGreaterThan(0.12);
+                expect(joint.roughness - crest.roughness).toBeGreaterThan(0.01);
+                expect(crest.occlusion - joint.occlusion).toBeGreaterThan(0.21);
+                expect(joint.height).toBeGreaterThan(0.004);
+              }
+            }
+          }
+          for (const [x, y] of [
+            [-0.31, 0],
+            [0.31, 0],
+            [0, -0.28],
+            [0, 0.28],
+          ]) {
+            const outside = at(col, row, x, y);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.33, 12);
+          }
+        }
+    },
+  );
+  it('keeps convex crowns, lower pair/triple joins, support bounds, rotations and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blackberries', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Amber plastic hair combs with fourteen tapered teeth', () => {
   const p = proceduralMaterialPresets.haircombs;

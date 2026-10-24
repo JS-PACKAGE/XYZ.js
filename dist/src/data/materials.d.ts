@@ -4548,6 +4548,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         spineBottom: -0.055;
         bevel: 0.016;
     }>;
+    blackberries: Readonly<{
+        dark: readonly [10, 5, 14];
+        light: readonly [83, 43, 88];
+        roughness: 0.27;
+        relief: 0.008;
+        cells: 4;
+        rows: 5;
+        pitch: 0.105;
+        drupeRadius: 0.067;
+        stretch: 1.5;
+        shoulder: 0.3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5085,4 +5097,5 @@ export declare const proceduralTileMeters: Readonly<{
     pencilends: 0.04;
     corrugatedplasticedge: 0.064;
     haircombs: 0.48;
+    blackberries: 0.16;
 }>;
