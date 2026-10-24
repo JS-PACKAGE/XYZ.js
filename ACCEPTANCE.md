@@ -6918,3 +6918,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 523 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6313 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 togglebuttons，524 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認雙孔、長桶圓端、順向木紋及交替橫直排列，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 木扣表面浮雕，不宣稱透明穿孔、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：封閉青豌豆莢（greenpeapods）
+
+- 目錄 524→525 種；0.48 m tile，4×4 交替斜向彎曲尖端莢殼，雙側縫脊、短柄及五顆覆殼豌豆隆起，區別 cardamompods 的縱向多肋與 lotusseedpod 的圓形凹穴。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增豆莢 geometry、透明外殼、剝莢動畫或植物模擬。
+- 三 seed（0／1／`0xffffffff`）逐莢逐五顆檢查冠／間隙的 height／color／roughness／AO，雙縫脊高於殼面、短柄及尖端外 backing；初始縫脊高度差不足，增加 seam relief 後通過。短柄 probe 移到莢殼接合外以隔離柄面。初始 C1 `h=1e-8` 差分失敗；fresh Bun 診斷最差 AO gradient difference 隨 h 從 `1e-7`、`1e-8`、`1e-9` 到 `1e-10` 為 0.328841、0.032885、0.003296、0.000325，左右梯度收斂至約 440.874；細柄 shoulder 有限曲率，改用 `h=1e-9`、維持 0.02 門檻。129×129 網格、三 seed、雙方向四欄位 C1 與形態四項針對測試皆通過。
+- 既有 524 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效；CURRENT 的 union 完整列舉與數量同步為 525 種。
+- 完整 build、typecheck、lint、format:check、179 檔／6318 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 greenpeapods，525 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認彎曲尖端莢形、五粒覆殼隆起、雙縫脊與短柄，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 植物表面，不宣稱生物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

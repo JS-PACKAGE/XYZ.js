@@ -1277,6 +1277,91 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'greenpeapods': {
+        const p = proceduralMaterialPresets.greenpeapods;
+        const tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xfa91);
+        const inverseLength = 1 / p.halfLength,
+          inverseWidth = 1 / p.halfWidth,
+          inverseShoulder = 1 / p.shoulder,
+          inverseSeam = 1 / p.seamRange,
+          inversePitch = 1 / p.peaPitch,
+          inversePeaWidth = 1 / p.peaWidth,
+          inversePeaLength = 1 / p.peaLength,
+          inverseStemLength = 1 / p.stemLength,
+          inverseStemWidth = 1 / p.stemWidth,
+          middle = (p.peas - 1) / 2,
+          grainField = cachedNoise(96, 96, seed ^ 0xfa93);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            sign = (col + row) & 1 ? -1 : 1,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            cap = clamp(1 - (y * inverseLength) ** 2),
+            across = x - p.curve * cap,
+            lens = cap * cap - (across * inverseWidth) ** 2,
+            pod = smooth(clamp(lens * inverseShoulder)),
+            stem = smooth(
+              clamp(
+                (1 -
+                  (x * inverseStemWidth) ** 2 -
+                  ((y - p.stemY) * inverseStemLength) ** 2) *
+                  inverseShoulder,
+              ),
+            );
+          color = 0.055 + stem * 0.3;
+          height = 0.025 + stem * 0.165;
+          roughness = 0.94 - stem * 0.21;
+          occlusion = 0.38 + stem * 0.52;
+          if (pod === 0) return;
+          // The five compact pea bulges stay covered by the shell; nearest
+          // centers change in the clear gaps between their supports.
+          const owner = Math.max(
+              0,
+              Math.min(p.peas - 1, Math.floor(y * inversePitch + middle + 0.5)),
+            ),
+            peaY = (y - (owner - middle) * p.peaPitch) * inversePeaLength,
+            peaX = across * inversePeaWidth,
+            pea = smooth(clamp(1 - peaX * peaX - peaY * peaY)),
+            seam = 1 - smooth(clamp(lens * inverseSeam)),
+            dome = clamp(lens),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color +=
+            pod *
+            (0.38 +
+              0.14 * dome +
+              0.18 * pea +
+              0.15 * seam +
+              0.04 * tone +
+              0.015 * grain -
+              color);
+          height +=
+            pod *
+            (0.28 +
+              0.16 * dome +
+              0.24 * pea +
+              0.14 * seam +
+              0.003 * grain -
+              height);
+          roughness +=
+            pod *
+            (p.roughness -
+              0.065 * pea -
+              0.04 * seam +
+              0.015 * grain -
+              roughness);
+          occlusion += pod * (0.87 + 0.1 * pea + 0.08 * seam - occlusion);
+          return;
+        };
+      }
       case 'togglebuttons': {
         const p = proceduralMaterialPresets.togglebuttons;
         const tones = new Float64Array(p.cells * p.cells),
@@ -18827,6 +18912,7 @@ export function createSurfaceSampler(
     kind === 'succulentrosettes' ||
     kind === 'foldingfans' ||
     kind === 'togglebuttons' ||
+    kind === 'greenpeapods' ||
     fabricated ||
     botanical ||
     packaging ||

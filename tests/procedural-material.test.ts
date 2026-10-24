@@ -562,7 +562,115 @@ const kinds: ProceduralMaterialKind[] = [
   'succulentrosettes',
   'foldingfans',
   'togglebuttons',
+  'greenpeapods',
 ];
+
+describe('Curved closed green pea pods with five covered peas', () => {
+  const p = proceduralMaterialPresets.greenpeapods;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('greenpeapods', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const sign = (col + row) & 1 ? -1 : 1;
+      sample(
+        (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+        (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five covered pea crowns, raised side seams, curved taper, stem and opaque backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const curve = (y: number) =>
+            p.curve * Math.max(0, 1 - (y / p.halfLength) ** 2);
+          for (let i = 0; i < p.peas; i++) {
+            const y = (i - (p.peas - 1) / 2) * p.peaPitch,
+              gapY = y + ((i === p.peas - 1 ? -1 : 1) * p.peaPitch) / 2,
+              pea = at(col, row, curve(y), y),
+              gap = at(col, row, curve(gapY), gapY);
+            expect(pea.height - gap.height).toBeGreaterThan(0.0013);
+            expect(pea.color - gap.color).toBeGreaterThan(0.1);
+            expect(gap.roughness - pea.roughness).toBeGreaterThan(0.045);
+            expect(pea.occlusion - gap.occlusion).toBeGreaterThan(0.08);
+            expect(pea.metallic).toBe(0);
+          }
+          const gapY = p.peaPitch / 2,
+            c = curve(gapY),
+            width = p.halfWidth * (1 - (gapY / p.halfLength) ** 2);
+          for (const side of [-1, 1]) {
+            const seam = at(col, row, c + side * width * 0.92, gapY),
+              face = at(col, row, c + side * width * 0.65, gapY);
+            expect(seam.height - face.height).toBeGreaterThan(0.0001);
+            expect(seam.color - face.color).toBeGreaterThan(0.02);
+          }
+          const stem = at(col, row, 0, p.stemY + p.stemLength / 2);
+          expect(stem.height).toBeCloseTo(0.19 * p.relief, 12);
+          expect(stem.occlusion).toBeCloseTo(0.9, 12);
+          for (const [x, y] of [
+            [0.16, 0],
+            [-0.16, 0],
+            [0.06, 0.33],
+            [0, -0.43],
+            [0, 0.46],
+          ] as const) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.38, 12);
+          }
+        }
+    },
+  );
+  it('keeps pointed shell edges, raised seams, stem overlaps, pea owners and wrap C1', () => {
+    // Thin stem shoulders have finite high curvature; use a step resolving
+    // their converging slopes without changing the discontinuity threshold.
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('greenpeapods', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Two-hole wooden barrel toggle buttons', () => {
   const p = proceduralMaterialPresets.togglebuttons;

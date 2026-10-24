@@ -4474,6 +4474,25 @@ export const proceduralMaterialPresets = Object.freeze({
     holeCore: 0.023,
     grainFrequency: 32,
   }),
+  greenpeapods: Object.freeze({
+    dark: [12, 34, 10] as const,
+    light: [154, 190, 77] as const,
+    roughness: 0.63,
+    relief: 0.008,
+    cells: 4,
+    halfLength: 0.4,
+    halfWidth: 0.105,
+    curve: 0.03,
+    shoulder: 0.1,
+    seamRange: 0.36,
+    peas: 5,
+    peaPitch: 0.125,
+    peaWidth: 0.043,
+    peaLength: 0.05,
+    stemY: 0.397,
+    stemLength: 0.047,
+    stemWidth: 0.014,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5002,4 +5021,5 @@ export const proceduralTileMeters = Object.freeze({
   succulentrosettes: 0.64,
   foldingfans: 1,
   togglebuttons: 0.32,
+  greenpeapods: 0.48,
 });
