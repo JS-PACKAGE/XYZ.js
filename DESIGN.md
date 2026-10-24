@@ -655,6 +655,8 @@
 
 `pythagoreantiles` 由 (2,1)／(-1,2) 晶格定義大小方磚，正方重複週期 5；(i+2j) mod 5 的 owner id 在 UV 整數移動下不變，十份預算 tone 配合 64×64 grain。每點檢查四個可能大方磚與一小方磚，compact square bevel 在 owner 變更前歸零；各面不重疊、不沿晶格切碎完整方磚。所有面共用 height／recessed mortar 與 roughness／AO，採樣無配置／hash／sqrt／trig；不新增 geometry、施工／結構或物理模擬。
 
+`dinnerforks` 沿 haircombs 最近一齒取樣，只讀四齒中最近的 compact tapered support，支撐在 owner 交界前歸零；圓端 ramp、正值變寬 body、寬頭轉細頸與柄尾 widening 保持 C1。預算 16 tones／96×96 grain，4×4 交替直橫；body/tines bounded union 與 normalized component relief 接合四齒根，不因重疊加厚。Opaque metallic backing 填補三道開口，採樣無配置／hash／sqrt／trig；不新增 geometry、通透孔洞、食物接觸／變形或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

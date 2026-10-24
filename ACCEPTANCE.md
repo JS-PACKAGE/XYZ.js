@@ -7155,3 +7155,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 552 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 pythagoreantiles，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 pythagoreantiles，553 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認 2:1 雙尺寸深淺方磚、完整磚面、連續灰縫與 T 接點，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、施工／結構／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6463 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：金屬餐叉（dinnerforks）
+
+- 目錄 553→554 種；0.96 m opaque metallic tile、metallic 1，四根圓端漸細叉齒、三道有背底開口，接上寬叉頭／細頸／漸寬柄尾；區別 haircombs 多齒橫背髮梳／woodenspoons 凹碗木匙。不新增 geometry、通透孔洞、食物接觸／變形或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各 16 餐叉，257 點橫剖面四高叉齒／三低槽、圓 tip 與 taper side、每齒 49 點齒根連續接頭、65 點頸柄不斷、寬頭／細腰／柄尾外擴，height <0.64 relief 避免交點堆高，槽高度／AO 同 opaque backing、各區 metallic 1。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1、size 32 deterministic／seeded／distinct／periodic 與公開 API material ownership 共六項針對測試首次通過。
+- 既有 553 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 dinnerforks，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 dinnerforks，554 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認四根漸細圓端叉齒、三道槽、連續寬頭細頸柄與交替直橫排列，height true、metallic 1、destroyed true，預覽隨頁清除。不宣稱 geometry、通透孔洞、食物接觸／變形／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6469 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。

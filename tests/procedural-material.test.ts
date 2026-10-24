@@ -591,7 +591,130 @@ const kinds: ProceduralMaterialKind[] = [
   'canlids',
   'crinoidossicles',
   'pythagoreantiles',
+  'dinnerforks',
 ];
+
+describe('Metal dinner forks with four tapered tines and continuous handles', () => {
+  const p = proceduralMaterialPresets.dinnerforks;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('dinnerforks', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const turn = (col + row) & 1;
+      sample(
+        (col + 0.5 + (turn ? y : x)) / p.cells,
+        (row + 0.5 + (turn ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains four tapering rounded tips, three backed slots and attached roots through a broad head, narrow neck and widened handle for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const backing = at(col, row, 0.4, 0),
+            flags: boolean[] = [];
+          expect(backing.height).toBeCloseTo(0.025 * p.relief, 12);
+          for (let j = 0; j <= 256; j++) {
+            const point = at(col, row, -0.18 + (0.36 * j) / 256, -0.25);
+            flags.push(point.height > 0.42 * p.relief);
+            expect(point.height).toBeLessThan(0.64 * p.relief);
+            expect(point.metallic).toBe(1);
+          }
+          let tines = 0;
+          for (let j = 1; j < flags.length; j++)
+            if (flags[j] && !flags[j - 1]) tines++;
+          expect(tines).toBe(4);
+          for (const x of [-0.108, -0.036, 0.036, 0.108]) {
+            const tipEdge = at(col, row, x, -0.36),
+              roundedTip = at(col, row, x, -0.35),
+              tipCore = at(col, row, x, -0.33),
+              narrowSide = at(col, row, x + 0.019, -0.32),
+              widerRoot = at(col, row, x + 0.019, -0.15);
+            expect(tipEdge.height).toBeCloseTo(backing.height, 12);
+            expect(roundedTip.height - backing.height).toBeGreaterThan(0.0005);
+            expect(tipCore.height - roundedTip.height).toBeGreaterThan(0.0005);
+            expect(narrowSide.height).toBeCloseTo(backing.height, 12);
+            expect(widerRoot.height - backing.height).toBeGreaterThan(0.0007);
+            for (let j = 0; j <= 48; j++) {
+              const root = at(col, row, x, -0.29 + (0.22 * j) / 48);
+              expect(root.height).toBeGreaterThan(0.47 * p.relief);
+              expect(root.height).toBeLessThan(0.64 * p.relief);
+              expect(root.metallic).toBe(1);
+            }
+          }
+          for (const x of [-0.072, 0, 0.072]) {
+            const opening = at(col, row, x, -0.25);
+            expect(opening.height).toBeCloseTo(backing.height, 12);
+            expect(opening.occlusion).toBeCloseTo(0.35, 12);
+            expect(opening.metallic).toBe(1);
+          }
+          for (let j = 0; j <= 64; j++) {
+            const handle = at(col, row, 0, -0.09 + (0.41 * j) / 64);
+            expect(handle.height).toBeGreaterThan(0.575 * p.relief);
+            expect(handle.height).toBeLessThan(0.64 * p.relief);
+            expect(backing.roughness - handle.roughness).toBeGreaterThan(0.65);
+            expect(handle.occlusion).toBeCloseTo(0.98, 12);
+          }
+          expect(at(col, row, 0.09, 0).height).toBeGreaterThan(0.5 * p.relief);
+          expect(at(col, row, 0.042, 0.15).height).toBeCloseTo(
+            backing.height,
+            12,
+          );
+          expect(at(col, row, 0.042, 0.31).height).toBeGreaterThan(
+            0.45 * p.relief,
+          );
+          expect(backing.metallic).toBe(1);
+        }
+    },
+  );
+  it('keeps tine owner changes, tapered sides, tips, root unions, neck, handle ends and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dinnerforks', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pythagorean tiling with two square sizes and shared grout', () => {
   const p = proceduralMaterialPresets.pythagoreantiles;
@@ -23785,6 +23908,7 @@ describe('periodic procedural material fields', () => {
           kind === 'safetypins' ||
           kind === 'grinderburrs' ||
           kind === 'canlids' ||
+          kind === 'dinnerforks' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -33244,6 +33368,7 @@ describe('procedural preset acquisition and ownership', () => {
     'safetypins',
     'grinderburrs',
     'canlids',
+    'dinnerforks',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -33294,6 +33419,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'safetypins' ||
           kind === 'grinderburrs' ||
           kind === 'canlids' ||
+          kind === 'dinnerforks' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

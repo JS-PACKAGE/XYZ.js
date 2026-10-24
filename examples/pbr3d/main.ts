@@ -632,6 +632,7 @@ try {
     'canlids',
     'crinoidossicles',
     'pythagoreantiles',
+    'dinnerforks',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

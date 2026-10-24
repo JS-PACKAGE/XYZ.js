@@ -1272,6 +1272,7 @@ export function createSurfaceSampler(
     kind === 'safetypins' ||
     kind === 'grinderburrs' ||
     kind === 'canlids' ||
+    kind === 'dinnerforks' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1293,6 +1294,89 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dinnerforks': {
+        const p = proceduralMaterialPresets.dinnerforks;
+        const tones = new Float64Array(p.cells * p.cells),
+          inversePitch = 1 / p.tinePitch,
+          inverseWidth = 1 / p.tineHalfWidth,
+          inverseTineLength = 1 / (p.rootY - p.tipY),
+          inverseTip = 1 / p.tipShoulder,
+          inverseBevel = 1 / p.edgeBevel,
+          inverseBottom = 1 / p.bottomShoulder,
+          inverseEllipseShoulder = 1 / p.ellipseShoulder,
+          inverseNeck = 1 / p.neckLength,
+          inverseWidening = 1 / p.wideningLength,
+          grainField = cachedNoise(96, 96, seed ^ 0x11711);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x11713);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            turn = (col + row) & 1,
+            x = turn ? dy : dx,
+            y = turn ? dx : dy,
+            width =
+              p.neckWidth +
+              p.headWidening *
+                (1 - smooth(clamp((y - p.headBottom) * inverseNeck))) +
+              p.handleWidening *
+                smooth(clamp((y - p.wideningStart) * inverseWidening)),
+            bodyCap = clamp(1 - (x * x) / (width * width)),
+            bodyDome = smooth(bodyCap),
+            body =
+              smooth(clamp(bodyCap * inverseEllipseShoulder)) *
+              smooth(clamp((y - p.bodyTop) * inverseBevel)) *
+              smooth(clamp((p.bodyBottom - y) * inverseBottom)),
+            tooth = Math.floor((x - p.firstTine) * inversePitch + 0.5);
+          let tines = 0,
+            tineDome = 0;
+          // As with haircombs, one nearest tine suffices because every tapered
+          // support reaches zero before the ownership boundary.
+          if (tooth >= 0 && tooth < p.tines && y > p.tipY && y < p.rootY) {
+            const t = smooth(clamp((p.rootY - y) * inverseTineLength)),
+              across =
+                ((x - p.firstTine - tooth * p.tinePitch) * inverseWidth) /
+                (1 - p.taper * t);
+            tineDome = smooth(clamp(1 - across * across));
+            tines =
+              tineDome *
+              smooth(clamp((y - p.tipY) * inverseTip)) *
+              smooth(clamp((p.rootY - y) * inverseBevel));
+          }
+          const weight = body + tines;
+          color = 0.07;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (weight === 0) return;
+          const face = body + tines - body * tines,
+            dome = (body * bodyDome + tines * tineDome) / weight,
+            relief =
+              (body * (0.5 + 0.08 * bodyDome) +
+                tines * (0.61 + 0.02 * tineDome)) /
+              weight,
+            grain = grainField(u, v);
+          // Normalized relief keeps all four roots attached without doubling
+          // thickness where they merge into the head and continuous handle.
+          color +=
+            face *
+            (0.64 +
+              0.06 * tones[row * p.cells + col] +
+              0.015 * grain +
+              0.035 * dome -
+              color);
+          height += face * (relief + 0.001 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.02 * grain - 0.035 * dome - roughness);
+          occlusion += face * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'pythagoreantiles': {
         const p = proceduralMaterialPresets.pythagoreantiles;
         const a = p.smallSide,
@@ -21136,6 +21220,7 @@ export function createSurfaceSampler(
     kind === 'canlids' ||
     kind === 'crinoidossicles' ||
     kind === 'pythagoreantiles' ||
+    kind === 'dinnerforks' ||
     fabricated ||
     botanical ||
     packaging ||
