@@ -512,7 +512,89 @@ const kinds: ProceduralMaterialKind[] = [
   'circlips',
   'tuliptiles',
   'gingerslice',
+  'fivebarplate',
 ];
+
+describe('Five-bar metal tread plate', () => {
+  const p = proceduralMaterialPresets.fivebarplate;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('fivebarplate', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises five distinct parallel round-ended ribs and alternates group directions for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number): SurfaceSample => {
+            const a = (col + row) & 1 ? -y : x,
+              b = (col + row) & 1 ? x : y;
+            return at(
+              col + 0.5 + (a - b) * Math.SQRT1_2,
+              row + 0.5 + (a + b) * Math.SQRT1_2,
+            );
+          };
+          const base = local(0.35, 0);
+          for (let i = 0; i < p.bars; i++) {
+            const y = (i - (p.bars - 1) / 2) * p.spacing;
+            const crown = local(0, y),
+              end = local(p.halfLength + 0.005, y),
+              shoulder = local(0, y + p.radius * 0.8),
+              outsideEnd = local(p.halfLength + p.radius + 0.005, y);
+            expect(crown.height - base.height).toBeGreaterThan(0.0097);
+            expect(crown.color - base.color).toBeGreaterThan(0.47);
+            expect(crown.occlusion - base.occlusion).toBeGreaterThan(0.16);
+            expect(base.roughness - crown.roughness).toBeGreaterThan(0.15);
+            expect(end.height - base.height).toBeGreaterThan(0.0097);
+            expect(crown.height - shoulder.height).toBeGreaterThan(0.003);
+            expect(crown.height - outsideEnd.height).toBeGreaterThan(0.0097);
+            expect(crown.metallic).toBe(1);
+            expect(base.metallic).toBe(1);
+            if (i + 1 < p.bars)
+              expect(
+                crown.height - local(0, y + p.spacing / 2).height,
+              ).toBeGreaterThan(0.0097);
+          }
+        }
+    },
+  );
+  it('keeps capsule side/end joins, rib shoulders and tile wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Knobbly ginger rhizome slices', () => {
   const p = proceduralMaterialPresets.gingerslice;
@@ -15995,6 +16077,7 @@ describe('periodic procedural material fields', () => {
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
           kind === 'circlips' ||
+          kind === 'fivebarplate' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -25433,6 +25516,7 @@ describe('procedural preset acquisition and ownership', () => {
     'hexnuts',
     'wingnuts',
     'circlips',
+    'fivebarplate',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -25464,6 +25548,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
           kind === 'circlips' ||
+          kind === 'fivebarplate' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||

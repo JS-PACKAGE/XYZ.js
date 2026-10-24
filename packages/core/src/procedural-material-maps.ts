@@ -1240,6 +1240,7 @@ export function createSurfaceSampler(
     kind === 'hexnuts' ||
     kind === 'wingnuts' ||
     kind === 'circlips' ||
+    kind === 'fivebarplate' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -1264,6 +1265,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'fivebarplate': {
+        const p = proceduralMaterialPresets.fivebarplate;
+        const grainField = cachedNoise(128, 8, seed ^ 0x2b61);
+        const radiusSquared = p.radius * p.radius;
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const a = (dx + dy) * Math.SQRT1_2,
+            b = (dy - dx) * Math.SQRT1_2;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? b : a,
+            y = turn ? -a : b;
+          const end = Math.max(0, Math.abs(x) - p.halfLength);
+          let outside = 1;
+          for (let i = 0; i < p.bars; i++) {
+            const across = y - (i - (p.bars - 1) / 2) * p.spacing;
+            outside *=
+              1 -
+              smooth(
+                clamp(
+                  (radiusSquared - end * end - across * across) / p.shoulder,
+                ),
+              );
+          }
+          const bars = 1 - outside,
+            grain = grainField(u, v);
+          color = 0.32 + 0.51 * bars + 0.03 * grain;
+          height = 0.18 + 0.55 * bars + 0.004 * grain;
+          roughness -= 0.18 * bars - 0.02 * grain;
+          occlusion = 0.82 + 0.17 * bars;
+          return;
+        };
+      }
       case 'gingerslice': {
         const p = proceduralMaterialPresets.gingerslice;
         const grainField = cachedNoise(64, 64, seed ^ 0xf93d);
@@ -15713,6 +15749,7 @@ export function createSurfaceSampler(
     kind === 'circlips' ||
     kind === 'tuliptiles' ||
     kind === 'gingerslice' ||
+    kind === 'fivebarplate' ||
     fabricated ||
     botanical ||
     packaging ||

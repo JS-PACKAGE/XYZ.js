@@ -497,6 +497,8 @@
 
 `gingerslice` 預計算四個不等圓瓣的外緣與內縮肉面半徑倒平方，兩組 compact smooth 圓場各作乘積聯集，連接頸部保持肉面而非內部皮縫；兩遮罩差形成薄褐皮。128×12 seeded periodic lattice 描述細縱纖維，與細 grain 只作用於切面支撐。棋盤 parity 旋轉局部座標 90°；4×4 片、0.2 m tile、metallic 0、既有 maps／選用 height／ownership 不變，目錄增為 474 種，不新增 geometry 或食品／植物模擬。
 
+`fivebarplate` 將局部座標轉 45° 並依棋盤 parity 轉 90°，五條 capsule 的平方距離 compact smooth 場作乘積聯集；capsule 側面與圓端間距離平方 C1，所有支撐在 cell 內結束。128×8 seeded periodic lattice 提供低幅軋製紋，凸筋比底板平滑。4×4 組、每組五筋、0.6 m tile、metallic map／預設 factor 1、既有 maps／選用 height／ownership 不變，目錄增為 475 種，不新增 geometry、止滑或承載模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

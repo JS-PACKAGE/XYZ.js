@@ -7705,6 +7705,26 @@ var proceduralMaterialPresets = Object.freeze({
 				.1
 			]
 		]
+	}),
+	fivebarplate: Object.freeze({
+		dark: [
+			48,
+			52,
+			56
+		],
+		light: [
+			218,
+			222,
+			225
+		],
+		roughness: .43,
+		relief: .018,
+		cells: 4,
+		bars: 5,
+		spacing: .075,
+		halfLength: .26,
+		radius: .018,
+		shoulder: 2e-4
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -8181,7 +8201,8 @@ var proceduralTileMeters = Object.freeze({
 	lenoweave: .06,
 	circlips: .08,
 	tuliptiles: .6,
-	gingerslice: .2
+	gingerslice: .2,
+	fivebarplate: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

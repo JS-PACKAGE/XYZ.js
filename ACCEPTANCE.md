@@ -6567,3 +6567,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查四瓣肉面／外露皮緣、連接頸與外側凹口的高度／色差／AO／roughness／metallic；另掃描皮緣、頸部、纖維與 tile wrap 的 C1。size 512 視覺檢查找到原圓瓣內縮聯集留下的內部皮斑，新增探針重現三 seed 失敗；單純擴大末瓣只縮小皮斑，401×401 覆蓋調查仍見未覆蓋區。最終保留四個不同半徑，將小瓣向頸部移近，使該調查區 flesh 最低值達 1，並以每格 17×17 的完整頸區回歸防止小孔漏網。舊兩輪整合檢查已取消，僅採最終結果。既有 473 種 size 64／seed 7 四圖 SHA256 changed 0。
 - 最終 build、typecheck、lint、format:check、完整 Vitest（179 檔／6047 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - 最終 managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 gingerslice，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認接合肉面連續且無內部皮斑，height true、metallic 0、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：五條筋花紋板（fivebarplate）
+
+- 目錄 474→475 種；0.6 m tile，十六組各五條銀色平行圓端凸筋，沿 ±45° 交錯，底板較粗糙且帶低幅軋製紋。opaque metal、metallic map／預設 factor 1；沿四圖／選用 height／ownership，不新增板材 geometry、實際止滑或承載模擬。
+- 三 seed（0／1／`0xffffffff`）逐格檢查五筋、筋間底板、圓端／端外、肩部的高度／色差／AO／roughness／metallic；另掃描 capsule、紋理與 tile wrap C1。既有 474 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6053 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 fivebarplate，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認每組五條分離圓端凸筋與轉向，height true、metallic 1、destroyed true；預覽隨頁清除。小縮圖無法清晰分辨所有細筋，文件建議較大貼圖／預覽。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
