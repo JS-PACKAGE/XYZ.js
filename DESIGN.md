@@ -479,6 +479,8 @@
 
 `starsocketbolts` 用 compact 平方圓場與低幅 lens 形成圓拱 cap，凹槽半徑為 `radius + depth×cos(6θ)`，以 `t=y²/r²` 的三次多項式取代角度／三角函式；中心飽和區與最大支撐外直接給定 1／0，避開零半徑奇點與無用計算。棋盤 parity 改 wave 符號等價旋轉 30°，slot 為封底凹槽而非穿孔。4×4 cap、0.12 m tile、metallic map／預設 factor 1、既有 maps／選用 height／ownership 不變；目錄增為 465 種，不新增 geometry 或模擬。
 
+`sanddollar` 以 compact 橢圓場和低幅平方 dome 形成扁殼，五個預計算基底各描述一條橢圓 petal 的 compact 帶通凹線，及半扇區位移的狹長 lunule；各組用乘積聯集保持相交與支撐邊界 C1。lunule 使 shell 遮罩歸零，露出同色、同高的不透明暗底，不開 alpha。3×3 殼、0.3 m tile、metallic 0、既有 maps／選用 height／ownership 不變；目錄增為 466 種，不新增 geometry 或生物模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

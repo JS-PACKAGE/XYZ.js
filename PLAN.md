@@ -471,6 +471,8 @@
 
 同輪追加 `starsocketbolts`（六瓣星槽螺栓頭），目錄 464→465 種：十六顆圓拱銀色螺栓頭，中央六瓣圓滑星形凹槽，槽底封閉且高於暗鋼底板，相鄰星槽交替轉 30°。0.12 m tile、opaque metal、metallic map／預設 factor 1，沿既有四圖／選用 height／options／ownership，不新增螺栓 geometry、透明孔、真實螺紋或機械模擬；逐功能驗證提交、不 push。
 
+同輪追加 `sanddollar`（沙錢殼），目錄 465→466 種：九片淺奶油色扁橢圓殼，殼面帶五條花瓣狀閉合凹線，花瓣間另有五個徑向狹長 lunule 凹孔；無海膽殼的疣粒與成列小孔。0.3 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，lunule 為暗底 shading，不新增殼 geometry、透明穿孔或生物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

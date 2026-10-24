@@ -1263,6 +1263,54 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'sanddollar': {
+        const p = proceduralMaterialPresets.sanddollar;
+        const grainField = cachedNoise(96, 96, seed ^ 0xd1bb);
+        const axes = new Float64Array(p.petals * 4);
+        for (let i = 0; i < p.petals; i++) {
+          const angle = (i * TAU) / p.petals;
+          axes[i * 4] = Math.cos(angle);
+          axes[i * 4 + 1] = Math.sin(angle);
+          axes[i * 4 + 2] = Math.cos(angle + Math.PI / p.petals);
+          axes[i * 4 + 3] = Math.sin(angle + Math.PI / p.petals);
+        }
+        return () => {
+          const x = fract(u * p.cells) - 0.5;
+          const y = fract(v * p.cells) - 0.5;
+          const sx = x / p.radiusX,
+            sy = y / p.radiusY;
+          const dome = clamp(1 - sx * sx - sy * sy);
+          const face = smooth(clamp(dome / p.edge));
+          let petalOutside = 1,
+            holeOutside = 1;
+          for (let i = 0; i < axes.length; i += 4) {
+            const along =
+              (x * axes[i] + y * axes[i + 1] - p.petalDistance) / p.petalLong;
+            const across = (y * axes[i] - x * axes[i + 1]) / p.petalShort;
+            const band = (along * along + across * across - 1) / p.petalBand;
+            petalOutside *= 1 - smooth(clamp(1 - band * band));
+            const lx =
+              (x * axes[i + 2] + y * axes[i + 3] - p.lunuleDistance) /
+              p.lunuleLong;
+            const ly = (y * axes[i + 2] - x * axes[i + 3]) / p.lunuleShort;
+            holeOutside *=
+              1 - smooth(clamp((1 - lx * lx - ly * ly) / p.lunuleShoulder));
+          }
+          const petals = 1 - petalOutside,
+            holes = 1 - holeOutside;
+          const shell = face * (1 - holes);
+          const grain = grainField(u, v);
+          color =
+            0.05 +
+            shell * (0.79 + 0.08 * dome * dome - 0.18 * petals + 0.03 * grain);
+          height =
+            0.04 +
+            shell * (0.28 + 0.08 * dome * dome - 0.08 * petals + 0.003 * grain);
+          roughness += 0.12 * (1 - face) + 0.1 * holes + 0.05 * petals;
+          occlusion = 0.35 + shell * (0.62 - 0.16 * petals);
+          return;
+        };
+      }
       case 'starsocketbolts': {
         const p = proceduralMaterialPresets.starsocketbolts;
         const grainField = cachedNoise(96, 96, seed ^ 0xc0a9);
@@ -15250,6 +15298,7 @@ export function createSurfaceSampler(
     kind === 'pawprinttiles' ||
     kind === 'dovetailjoint' ||
     kind === 'starsocketbolts' ||
+    kind === 'sanddollar' ||
     fabricated ||
     botanical ||
     packaging ||

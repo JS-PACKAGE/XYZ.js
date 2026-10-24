@@ -503,7 +503,102 @@ const kinds: ProceduralMaterialKind[] = [
   'pawprinttiles',
   'dovetailjoint',
   'starsocketbolts',
+  'sanddollar',
 ];
+
+describe('Five-petaled sand dollar shells', () => {
+  const p = proceduralMaterialPresets.sanddollar;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('sanddollar', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'carves five petal outlines and five separate lunules into flat oval shells for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const backing = at(col, row);
+          expect(
+            at(cx + 0.42, cy).height - at(cx, cy + 0.42).height,
+          ).toBeGreaterThan(0.003);
+          for (let petal = 0; petal < p.petals; petal++) {
+            const a = (petal * Math.PI * 2) / p.petals,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            const inside = at(
+              cx + p.petalDistance * c,
+              cy + p.petalDistance * s,
+            );
+            for (const side of [-1, 1]) {
+              const rim = at(
+                cx + p.petalDistance * c - side * p.petalShort * s,
+                cy + p.petalDistance * s + side * p.petalShort * c,
+              );
+              expect(inside.height - rim.height).toBeGreaterThan(0.0015);
+              expect(inside.color - rim.color).toBeGreaterThan(0.14);
+              expect(inside.occlusion - rim.occlusion).toBeGreaterThan(0.15);
+              expect(rim.roughness - inside.roughness).toBeGreaterThan(0.049);
+            }
+            const la = a + Math.PI / p.petals,
+              lc = Math.cos(la),
+              ls = Math.sin(la);
+            const hole = at(
+              cx + p.lunuleDistance * lc,
+              cy + p.lunuleDistance * ls,
+            );
+            const shoulder = at(
+              cx + p.lunuleDistance * lc - 0.05 * ls,
+              cy + p.lunuleDistance * ls + 0.05 * lc,
+            );
+            expect(hole.height).toBeCloseTo(backing.height, 12);
+            expect(hole.color).toBeCloseTo(backing.color, 12);
+            expect(shoulder.height - hole.height).toBeGreaterThan(0.006);
+            expect(shoulder.occlusion - hole.occlusion).toBeGreaterThan(0.6);
+            expect(hole.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps petal outlines, lunule walls, oval rims and tile wrap C1', () => {
+    // Thin petal bands have high curvature; 1e-8 resolves the derivative limit.
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Six-lobed star socket bolts', () => {
   const p = proceduralMaterialPresets.starsocketbolts;

@@ -480,7 +480,8 @@ export type ProceduralMaterialKind =
   | 'pomegranateslice'
   | 'pawprinttiles'
   | 'dovetailjoint'
-  | 'starsocketbolts';
+  | 'starsocketbolts'
+  | 'sanddollar';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1195,6 +1196,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pawprinttiles',
   'dovetailjoint',
   'starsocketbolts',
+  'sanddollar',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

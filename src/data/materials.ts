@@ -3532,6 +3532,25 @@ export const proceduralMaterialPresets = Object.freeze({
     lobeDepth: 0.035,
     socketShoulder: 0.003,
   }),
+  sanddollar: Object.freeze({
+    dark: [75, 63, 45] as const,
+    light: [245, 234, 202] as const,
+    roughness: 0.82,
+    relief: 0.022,
+    cells: 3,
+    radiusX: 0.44,
+    radiusY: 0.4,
+    edge: 0.15,
+    petals: 5,
+    petalDistance: 0.16,
+    petalLong: 0.12,
+    petalShort: 0.045,
+    petalBand: 0.28,
+    lunuleDistance: 0.315,
+    lunuleLong: 0.052,
+    lunuleShort: 0.017,
+    lunuleShoulder: 0.4,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4001,4 +4020,5 @@ export const proceduralTileMeters = Object.freeze({
   pawprinttiles: 0.6,
   dovetailjoint: 0.48,
   starsocketbolts: 0.12,
+  sanddollar: 0.3,
 });
