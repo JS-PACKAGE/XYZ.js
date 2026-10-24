@@ -577,7 +577,110 @@ const kinds: ProceduralMaterialKind[] = [
   'safetypins',
   'poppyseedpods',
   'leatherbookspines',
+  'matchsticks',
 ];
+
+describe('Wooden matchsticks with rough red rounded coating heads', () => {
+  const p = proceduralMaterialPresets.matchsticks;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('matchsticks', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? -y : x)) / p.cells,
+        (row + 0.5 + (vertical ? x : y)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains flat wooden shafts, wider convex red heads, rough coating boundaries and squared wooden ends for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const shaft = at(col, row, 0, 0),
+            crown = at(col, row, 0, p.headY),
+            headSide = at(col, row, 0.06, p.headY),
+            besideWood = at(col, row, 0.04, 0),
+            squareCorner = at(col, row, 0.02, 0.31);
+          expect(crown.height - shaft.height).toBeGreaterThan(0.00138);
+          expect(shaft.color - crown.color).toBeGreaterThan(0.57);
+          expect(crown.roughness - shaft.roughness).toBeGreaterThan(0.22);
+          expect(crown.occlusion).toBeCloseTo(0.98, 12);
+          expect(crown.metallic).toBe(0);
+          expect(crown.height).toBeLessThan(0.002985);
+          expect(crown.height - headSide.height).toBeGreaterThan(0.00041);
+          expect(headSide.height - besideWood.height).toBeGreaterThan(0.00237);
+          expect(squareCorner.height).toBeGreaterThan(0.00155);
+          for (const y of [-0.1, 0, 0.1, 0.2, 0.3]) {
+            const wood = at(col, row, 0.012, y);
+            expect(wood.height).toBeGreaterThan(0.00155);
+            expect(wood.height).toBeLessThan(0.00158);
+            expect(wood.color).toBeGreaterThan(0.78);
+            expect(wood.metallic).toBe(0);
+          }
+          for (const [x, y] of [
+            [-0.1, -0.25],
+            [0.1, -0.25],
+            [-0.04, 0],
+            [0.04, 0],
+            [0, -0.38],
+            [0, 0.36],
+          ]) {
+            const gap = at(col, row, x, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(gap.occlusion).toBeCloseTo(0.34, 12);
+          }
+        }
+    },
+  );
+  it('keeps square shaft bevels, longitudinal grain, coating shoulders, convex heads, rotations and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('matchsticks', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Convex leather book spines with curved raised bands and blind-stamped frames', () => {
   const p = proceduralMaterialPresets.leatherbookspines;

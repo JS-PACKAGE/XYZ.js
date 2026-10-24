@@ -1280,6 +1280,75 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'matchsticks': {
+        const p = proceduralMaterialPresets.matchsticks;
+        const phases = new Float64Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col;
+            phases[i] = TAU * hash(col, row, seed ^ 0x10911);
+            tones[i] = hash(col, row, seed ^ 0x10913);
+          }
+        const inverseSide = 1 / p.sideBevel,
+          inverseEnd = 1 / p.endBevel,
+          inverseHeadX = 1 / p.headWidth,
+          inverseHeadY = 1 / p.headLength,
+          inverseHeadShoulder = 1 / p.headShoulder,
+          fineField = cachedNoise(128, 128, seed ^ 0x10917);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            turn = (row + col) & 1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = turn ? dy : dx,
+            y = turn ? -dx : dy,
+            shaft =
+              smooth(clamp((p.shaftHalfWidth - Math.abs(x)) * inverseSide)) *
+              smooth(clamp((y - p.shaftTop) * inverseEnd)) *
+              smooth(clamp((p.shaftBottom - y) * inverseEnd)),
+            hx = x * inverseHeadX,
+            hy = (y - p.headY) * inverseHeadY,
+            cap = clamp(1 - hx * hx - hy * hy),
+            head = smooth(clamp(cap * inverseHeadShoulder));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.98;
+          occlusion = 0.34;
+          if (shaft === 0 && head === 0) return;
+          const i = row * p.cells + col,
+            tone = tones[i],
+            fine = fineField(u, v);
+          if (shaft > 0) {
+            const grain =
+                0.5 +
+                0.5 *
+                  Math.sin(
+                    TAU * p.grainFrequency * x +
+                      0.35 * Math.sin(TAU * 1.5 * y + phases[i]) +
+                      phases[i],
+                  ),
+              pores = grain ** 8;
+            color +=
+              shaft *
+              (0.79 + 0.07 * tone + 0.04 * grain - 0.035 * pores - color);
+            height += shaft * (0.39 + 0.003 * grain - 0.002 * pores - height);
+            roughness += shaft * (p.roughness + 0.045 * pores - roughness);
+            occlusion += shaft * (0.98 - 0.015 * pores - occlusion);
+          }
+          // The rough opaque coating replaces the flat wooden shaft at their
+          // overlap. Its convex crown is not an emissive flame or a burnt tip.
+          const dome = smooth(cap);
+          color += head * (0.13 + 0.055 * tone + 0.045 * fine - color);
+          height += head * (0.52 + 0.22 * dome + 0.006 * fine - height);
+          roughness += head * (p.headRoughness + 0.03 * fine - roughness);
+          occlusion += head * (0.9 + 0.08 * dome - occlusion);
+          return;
+        };
+      }
       case 'leatherbookspines': {
         const p = proceduralMaterialPresets.leatherbookspines;
         const tones = new Float64Array(p.columns);
@@ -20057,6 +20126,7 @@ export function createSurfaceSampler(
     kind === 'safetypins' ||
     kind === 'poppyseedpods' ||
     kind === 'leatherbookspines' ||
+    kind === 'matchsticks' ||
     fabricated ||
     botanical ||
     packaging ||

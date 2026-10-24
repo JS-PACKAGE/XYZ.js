@@ -554,7 +554,8 @@ export type ProceduralMaterialKind =
   | 'musselshells'
   | 'safetypins'
   | 'poppyseedpods'
-  | 'leatherbookspines';
+  | 'leatherbookspines'
+  | 'matchsticks';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1343,6 +1344,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'safetypins',
   'poppyseedpods',
   'leatherbookspines',
+  'matchsticks',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

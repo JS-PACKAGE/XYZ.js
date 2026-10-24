@@ -618,6 +618,7 @@ try {
     'safetypins',
     'poppyseedpods',
     'leatherbookspines',
+    'matchsticks',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
