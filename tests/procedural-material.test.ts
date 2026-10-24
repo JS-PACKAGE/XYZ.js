@@ -516,7 +516,91 @@ const kinds: ProceduralMaterialKind[] = [
   'cinnamonswirl',
   'wheatears',
   'scalemail',
+  'trihexagonaltiles',
 ];
+
+describe('Trihexagonal glazed hexagon and triangle tiles', () => {
+  const p = proceduralMaterialPresets.trihexagonaltiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('trihexagonaltiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / (p.columns * 2), y / (p.rows * p.rowStep), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six-sided blue faces and both ivory triangle orientations separated by recessed grout for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const local = (dx: number, dy: number) =>
+            at(col * 2 + (row & 1) + dx, row * p.rowStep + dy);
+          const hex = local(0, 0);
+          for (const sign of [-1, 1]) {
+            const triangle = local(1, (sign * p.rowStep) / 3);
+            expect(triangle.color - hex.color).toBeGreaterThan(0.68);
+            expect(hex.height - triangle.height).toBeGreaterThan(0.0018);
+            expect(triangle.roughness - hex.roughness).toBeGreaterThan(0.04);
+            expect(triangle.mortar).toBe(0);
+            expect(triangle.metallic).toBe(0);
+          }
+          for (let i = 0; i < 6; i++) {
+            const angle = (i * Math.PI) / 3;
+            const cornerFace = local(
+              0.8 * Math.cos(angle),
+              0.8 * Math.sin(angle),
+            );
+            const edge = local(
+              p.apothem * Math.cos(angle + Math.PI / 6),
+              p.apothem * Math.sin(angle + Math.PI / 6),
+            );
+            const vertex = local(Math.cos(angle), Math.sin(angle));
+            expect(cornerFace.mortar).toBe(0);
+            expect(edge.mortar).toBe(1);
+            expect(vertex.mortar).toBe(1);
+            expect(hex.height - edge.height).toBeGreaterThan(0.014);
+            expect(hex.occlusion - edge.occlusion).toBeGreaterThan(0.49);
+            expect(edge.roughness - hex.roughness).toBeGreaterThan(0.44);
+          }
+          expect(hex.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps shared edges, multi-owner vertices, triangle corners and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns * 2) / 128,
+              v = (y * p.rows * p.rowStep) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Riveted overlapping steel scalemail', () => {
   const p = proceduralMaterialPresets.scalemail;

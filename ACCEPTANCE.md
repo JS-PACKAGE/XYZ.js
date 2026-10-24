@@ -6595,3 +6595,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐格檢查鱗面／凸脊／鉚釘／底層的高度／色差／AO／roughness／metallic；覆疊 lens 確認上排淺邊遮住下排較高捲邊，另掃描 ownership、片緣、脊、鉚釘與 tile wrap C1。既有 477 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6069 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 scalemail，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交錯覆疊、金屬凸脊、圓鉚釘與捲邊，height true、metallic 1、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：六邊三角釉面磚（trihexagonaltiles）
+
+- 目錄 478→479 種；0.84 m tile，56 塊藍色六邊磚與 112 塊象牙白三角磚，共用凹陷中性灰縫，六邊面略高且較平滑。opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增磚塊 geometry、碰撞或施工模擬。
+- 三 seed（0／1／`0xffffffff`）逐格檢查六邊中心／六角內側、上下兩方向三角面、六條邊與六個多 owner 接點的 mortar／高度／色差／AO／roughness／metallic；另掃描共用邊、接點、三角角落與 tile wrap C1。既有 478 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6074 項）、check:api-compatibility、check:distribution 通過；八份修改文件相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 trihexagonaltiles，25 球與四圖預覽正常、errors 空、離頁 cleanup errors 空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認六邊／兩方向三角交錯與連續共用灰縫，height true、metallic 0、destroyed true；預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

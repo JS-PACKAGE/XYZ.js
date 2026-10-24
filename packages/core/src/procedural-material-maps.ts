@@ -1266,6 +1266,57 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'trihexagonaltiles': {
+        const p = proceduralMaterialPresets.trihexagonaltiles;
+        const grainField = cachedNoise(96, 96, seed ^ 0x5c47);
+        const inner = p.apothem - p.grout,
+          outer = p.apothem + p.grout + p.bevel,
+          reach = (2 * outer) / p.rowStep;
+        return () => {
+          const x = u * p.columns * 2,
+            y = v * p.rows * p.rowStep,
+            row = Math.floor(y / p.rowStep);
+          let outsideFaces = 1,
+            outsideExpanded = 1;
+          for (let oy = -1; oy <= 1; oy++) {
+            const cy = row + oy,
+              dy = y - cy * p.rowStep;
+            if (Math.abs(dy) >= outer) continue;
+            const stagger = cy & 1,
+              column = Math.floor((x - stagger) / 2);
+            for (let ox = -1; ox <= 1; ox++) {
+              const dx = x - (column + ox) * 2 - stagger;
+              if (Math.abs(dx) >= reach) continue;
+              const a = Math.abs(dy),
+                b = Math.abs(p.apothem * dx + 0.5 * dy),
+                c = Math.abs(p.apothem * dx - 0.5 * dy);
+              const hex =
+                smooth(clamp((inner - a) / p.bevel)) *
+                smooth(clamp((inner - b) / p.bevel)) *
+                smooth(clamp((inner - c) / p.bevel));
+              const expanded =
+                smooth(clamp((outer - a) / p.bevel)) *
+                smooth(clamp((outer - b) / p.bevel)) *
+                smooth(clamp((outer - c) / p.bevel));
+              outsideFaces *= 1 - hex;
+              outsideExpanded *= 1 - expanded;
+            }
+          }
+          // Complementing every expanded neighbor leaves true triangular faces,
+          // including where hexagon vertices meet across cell boundaries.
+          const hex = 1 - outsideFaces,
+            triangle = outsideExpanded,
+            face = hex + triangle;
+          const grain = grainField(u, v);
+          color = 0.18 * hex + 0.9 * triangle + 0.025 * grain * face;
+          height = 0.08 + 0.58 * hex + 0.5 * triangle + 0.003 * grain * face;
+          mortar = clamp(1 - face);
+          roughness +=
+            0.36 * mortar - 0.1 * hex - 0.04 * triangle + 0.015 * grain;
+          occlusion = 0.48 + 0.5 * face;
+          return;
+        };
+      }
       case 'scalemail': {
         const p = proceduralMaterialPresets.scalemail;
         const grainField = cachedNoise(128, 8, seed ^ 0x4e93);
@@ -15938,6 +15989,7 @@ export function createSurfaceSampler(
     kind === 'cinnamonswirl' ||
     kind === 'wheatears' ||
     kind === 'scalemail' ||
+    kind === 'trihexagonaltiles' ||
     fabricated ||
     botanical ||
     packaging ||
