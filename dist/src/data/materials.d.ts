@@ -4299,6 +4299,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveBottom: 0.25;
         grooveEnd: 0.015;
     }>;
+    dodecagontiles: Readonly<{
+        dark: readonly [20, 52, 70];
+        light: readonly [211, 231, 226];
+        roughness: 0.24;
+        relief: 0.008;
+        columns: 7;
+        rows: 8;
+        rowStep: number;
+        grout: 0.018;
+        bevel: 0.022;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4821,4 +4832,5 @@ export declare const proceduralTileMeters: Readonly<{
     driedfigslice: 0.24;
     creamcrackers: 0.24;
     doorkeys: 0.32;
+    dodecagontiles: 0.7;
 }>;

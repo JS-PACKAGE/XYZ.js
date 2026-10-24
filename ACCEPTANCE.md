@@ -6882,3 +6882,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐匙用高度 landmarks 搜尋唯一轉向，32 方位檢查 bow／bore 的 height／color／roughness／AO／metallic；沿中心 34 點確認接頸無斷裂，逐三槽檢查 cut／tooth／完整背脊，並驗證導槽高度、色及 roughness 差與匙尖 chamfer。另掃描 union／bore／bitting owners／grooves／bevels／wrap C1；四項針對測試通過，既有 518 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6287 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 doorkeys，519 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認不同轉向金色鑰匙、圓孔、三處齒槽與匙身輪廓，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱實際鎖具可用性、CAD 精度、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：十二邊三角釉面馬賽克（dodecagontiles）
+
+- 目錄 519→520 種；0.7 m tile、7 columns／8 staggered rows，56 塊藍綠十二邊形磚與 112 塊淡色小三角嵌片形成 canonical 3.12.12 鋪排，共平面釉面與中性填縫區別 trihexagonaltiles 的 3.6.3.6。矩形 canonical period 正規化方形 UV、兩軸約 1% 尺度差，不作實體正多邊形量測保證。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增 geometry、透明度或鋪磚模擬。
+- 三 seed（0／1／`0xffffffff`）逐大磚 12 個邊法線檢查 face／bevel／grout 的 height／roughness／AO／mortar，確認大磚同 tone；兩族三角中心與各三邊檢查 insert／grout／相鄰 dodecagon 的 coverage、色差與共平面高度。另掃描五欄位（含 mortar）的十二半平面／triangle families／nearest-column owners／wrap C1；四項針對測試通過，既有 519 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6292 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 dodecagontiles，520 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認十二邊大磚、兩族淡色小三角、灰縫及逐磚色差，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -587,6 +587,8 @@
 
 `doorkeys` 先以 compact smooth product union 合併圓 bow／窄 neck／單側加寬 blade，再統一扣除 bore 與三處 ellipse bittings，使接頸共平面、不因多片重疊抬高。每匙 exact quarter-turn／tone 與三組 inverse squared cut depths 預算，cut support 在 nearest-bitting ties 前歸零；縱向 compact groove 同時降低 color／height／AO 並增加 roughness，斜半平面裁出匙尖 bevel。96×96 grain 只在 key face 混合，孔與外部保留定值 opaque backing。4×4、0.32 m tile，目錄 519 種；metallic map／預設 factor 皆為 1，取樣無 trig、sqrt 或配置，不新增 geometry、透明孔、鎖芯或機械模擬。
 
+`dodecagontiles` 使用 canonical 3.12.12 lattice：apothem 1 的十二邊形由六對相反半平面相乘，hexagonal center lattice 的兩個鄰列各取最近 column；兩族小三角面直接以三條半平面定義，inradius 為 2/√3−1，不從單一大磚 owner 推導 tone，避免 Voronoi corners 的色差裂縫。各面內縮 grout 並以 compact bevel 同步退回中性 mortar；56 組大磚及 112 組嵌片 seeded tones 預算，釉面保持共平面。7×8 rectangular period 正規化方形 UV，兩軸約 1% 尺度差，不宣稱實體正多邊形的量測精度。0.7 m tile，目錄 520 種；96×96 grain、取樣無 trig、sqrt 或配置，opaque dielectric，不新增 geometry、透明度或鋪磚模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

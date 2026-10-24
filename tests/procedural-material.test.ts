@@ -557,7 +557,118 @@ const kinds: ProceduralMaterialKind[] = [
   'driedfigslice',
   'creamcrackers',
   'doorkeys',
+  'dodecagontiles',
 ];
+
+describe('Dodecagonal glazed mosaic with two triangular insert families', () => {
+  const p = proceduralMaterialPresets.dodecagontiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('dodecagontiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / (p.columns * 2), y / (p.rows * p.rowStep), out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves twelve distinct beveled edges, pale triangular inserts and coplanar glaze for seed %s',
+    (seed) => {
+      const at = field(seed),
+        triangleRadius = 2 / p.rowStep - 1;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const x = col * 2 + (row & 1),
+            y = row * p.rowStep,
+            center = at(x, y);
+          expect(center.mortar).toBe(0);
+          expect(center.metallic).toBe(0);
+          for (let i = 0; i < 12; i++) {
+            const a = (i * Math.PI) / 6,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              face = at(x + 0.88 * c, y + 0.88 * s),
+              bevel = at(x + 0.971 * c, y + 0.971 * s),
+              grout = at(x + c, y + s);
+            expect(face.mortar).toBe(0);
+            expect(bevel.mortar).toBeGreaterThan(0);
+            expect(bevel.mortar).toBeLessThan(1);
+            expect(grout.mortar).toBe(1);
+            expect(face.height - grout.height).toBeGreaterThan(0.005);
+            expect(grout.roughness - face.roughness).toBeGreaterThan(0.43);
+            expect(face.occlusion - grout.occlusion).toBeGreaterThan(0.48);
+            expect(Math.abs(face.color - center.color)).toBeLessThan(0.013);
+          }
+          for (let family = 0; family < 2; family++) {
+            const tx = x + 1 - family,
+              ty = (row + (family + 1) / 3) * p.rowStep,
+              triangle = at(tx, ty);
+            expect(triangle.mortar).toBe(0);
+            expect(triangle.color - center.color).toBeGreaterThan(0.14);
+            expect(Math.abs(triangle.height - center.height)).toBeLessThan(
+              0.00004,
+            );
+            for (let i = 0; i < 3; i++) {
+              const a =
+                  (family ? -Math.PI / 2 : Math.PI / 2) + (i * 2 * Math.PI) / 3,
+                c = Math.cos(a),
+                s = Math.sin(a),
+                inside = at(
+                  tx + triangleRadius * 0.5 * c,
+                  ty + triangleRadius * 0.5 * s,
+                ),
+                seam = at(tx + triangleRadius * c, ty + triangleRadius * s),
+                neighbor = at(
+                  tx + (triangleRadius + 0.08) * c,
+                  ty + (triangleRadius + 0.08) * s,
+                );
+              expect(inside.mortar).toBe(0);
+              expect(seam.mortar).toBe(1);
+              expect(neighbor.mortar).toBe(0);
+              expect(Math.abs(inside.color - triangle.color)).toBeLessThan(
+                0.013,
+              );
+              expect(inside.color - neighbor.color).toBeGreaterThan(0.14);
+              expect(Math.abs(inside.height - neighbor.height)).toBeLessThan(
+                0.00004,
+              );
+            }
+          }
+        }
+    },
+  );
+  it('keeps twelve-plane clips, both triangle families, nearest-column owners and periodic wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.columns * 2) / 128,
+              v = (y * p.rows * p.rowStep) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Flat brass door keys with bored bows and three bittings', () => {
   const p = proceduralMaterialPresets.doorkeys;

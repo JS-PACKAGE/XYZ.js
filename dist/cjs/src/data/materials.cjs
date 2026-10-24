@@ -8841,6 +8841,25 @@ var proceduralMaterialPresets = Object.freeze({
 		grooveTop: -.065,
 		grooveBottom: .25,
 		grooveEnd: .015
+	}),
+	dodecagontiles: Object.freeze({
+		dark: [
+			20,
+			52,
+			70
+		],
+		light: [
+			211,
+			231,
+			226
+		],
+		roughness: .24,
+		relief: .008,
+		columns: 7,
+		rows: 8,
+		rowStep: Math.sqrt(3),
+		grout: .018,
+		bevel: .022
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9362,7 +9381,8 @@ var proceduralTileMeters = Object.freeze({
 	hexkeys: .4,
 	driedfigslice: .24,
 	creamcrackers: .24,
-	doorkeys: .32
+	doorkeys: .32,
+	dodecagontiles: .7
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

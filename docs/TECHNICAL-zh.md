@@ -710,6 +710,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `doorkeys`（黃銅門鑰匙）：4×4 seeded exact quarter-turn 的平面鑰匙，三處圓底齒槽各有獨立 seeded depth。圓環 bow／窄 neck／非對稱 blade 先做 smooth union，再扣除 bore 與 compact bittings，接合處維持共平面；縱向導槽及倒角匙尖補足細節。使用 `await ProceduralMaterial.create('doorkeys', { seed: 7 })`；0.32 m opaque tile，metallic map／預設 factor 皆為 1，既有 maps／選用 height／ownership 不變，不新增鑰匙 geometry、透明孔、鎖芯或機械模擬。
 
+種類另支援 `dodecagontiles`（十二邊三角釉面馬賽克）：canonical 3.12.12 lattice 有 56 塊藍綠十二邊形磚及 112 塊淡色三角嵌片。六對 compact 半平面裁出大磚，兩族獨立 owner 的三半平面 triangle 填入 hexagonal center lattice 間隙，避免跨 Voronoi corners 改變 tone；各面共平面、保留中性填縫及 seeded 釉色。使用 `await ProceduralMaterial.create('dodecagontiles', { seed: 7 })`；0.7 m opaque dielectric tile、metallic 0，既有 maps／選用 height／ownership 不變。7 columns／8 staggered rows 將矩形 canonical period 正規化方形 UV，兩軸約 1% 尺度差，不宣稱實體正多邊形量測精度；不新增 geometry、透明度或鋪磚模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

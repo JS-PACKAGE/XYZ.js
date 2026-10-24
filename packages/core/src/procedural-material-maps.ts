@@ -1276,6 +1276,91 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'dodecagontiles': {
+        const p = proceduralMaterialPresets.dodecagontiles;
+        const tones = new Float64Array(p.columns * p.rows * 3);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 3;
+            tones[i] = 0.3 + 0.4 * hash(col, row, seed ^ 0xf561);
+            tones[i + 1] = 0.87 + 0.08 * hash(col, row, seed ^ 0xf563);
+            tones[i + 2] = 0.87 + 0.08 * hash(col, row, seed ^ 0xf565);
+          }
+        const c = p.rowStep * 0.5,
+          inner = 1 - p.grout,
+          triangleInner = 2 / p.rowStep - 1 - p.grout,
+          inverseBevel = 1 / p.bevel,
+          grainField = cachedNoise(96, 96, seed ^ 0xf567);
+        return () => {
+          const x = u * p.columns * 2,
+            y = v * p.rows * p.rowStep,
+            baseRow = Math.floor(y / p.rowStep);
+          let coverage = 0,
+            pigment = 0;
+          // Six opposite plane pairs clip each dodecagon. Both entering rows
+          // and nearest-column owners vanish before their lookup changes.
+          for (let oy = 0; oy <= 1; oy++) {
+            const row = baseRow + oy,
+              shifted = x - (row & 1),
+              col = Math.floor((shifted + 1) * 0.5),
+              dx = shifted - col * 2,
+              dy = y - row * p.rowStep,
+              face =
+                smooth(clamp((inner - Math.abs(dx)) * inverseBevel)) *
+                smooth(clamp((inner - Math.abs(dy)) * inverseBevel)) *
+                smooth(
+                  clamp((inner - Math.abs(c * dx + 0.5 * dy)) * inverseBevel),
+                ) *
+                smooth(
+                  clamp((inner - Math.abs(c * dx - 0.5 * dy)) * inverseBevel),
+                ) *
+                smooth(
+                  clamp((inner - Math.abs(0.5 * dx + c * dy)) * inverseBevel),
+                ) *
+                smooth(
+                  clamp((inner - Math.abs(0.5 * dx - c * dy)) * inverseBevel),
+                ),
+              wrappedRow = ((row % p.rows) + p.rows) % p.rows,
+              wrappedCol = ((col % p.columns) + p.columns) % p.columns;
+            coverage += face;
+            pigment += face * tones[(wrappedRow * p.columns + wrappedCol) * 3];
+          }
+          // The two complementary triangle families span the Voronoi corners
+          // directly, so a triangle never changes tone at a hex-lattice border.
+          for (let family = 0; family < 2; family++) {
+            const direction = family === 0 ? 1 : -1,
+              shifted = x - (baseRow & 1) - (1 - family),
+              col = Math.floor((shifted + 1) * 0.5),
+              dx = shifted - col * 2,
+              dy = y - (baseRow + (family + 1) / 3) * p.rowStep,
+              face =
+                smooth(
+                  clamp(
+                    (triangleInner + c * dx + direction * 0.5 * dy) *
+                      inverseBevel,
+                  ),
+                ) *
+                smooth(
+                  clamp(
+                    (triangleInner - c * dx + direction * 0.5 * dy) *
+                      inverseBevel,
+                  ),
+                ) *
+                smooth(clamp((triangleInner - direction * dy) * inverseBevel)),
+              wrappedCol = ((col % p.columns) + p.columns) % p.columns;
+            coverage += face;
+            pigment +=
+              face * tones[(baseRow * p.columns + wrappedCol) * 3 + family + 1];
+          }
+          const grain = grainField(u, v);
+          color = pigment + 0.012 * grain * coverage;
+          height = (0.64 + 0.004 * grain) * coverage;
+          mortar = 1 - coverage;
+          roughness += 0.46 * mortar + 0.015 * grain * coverage;
+          occlusion = 0.5 + 0.49 * coverage;
+          return;
+        };
+      }
       case 'doorkeys': {
         const p = proceduralMaterialPresets.doorkeys;
         const keys = new Float64Array(p.cells * p.cells * 6);
@@ -18425,6 +18510,7 @@ export function createSurfaceSampler(
     kind === 'driedfigslice' ||
     kind === 'creamcrackers' ||
     kind === 'doorkeys' ||
+    kind === 'dodecagontiles' ||
     fabricated ||
     botanical ||
     packaging ||
