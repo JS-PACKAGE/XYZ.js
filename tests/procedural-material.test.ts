@@ -584,7 +584,142 @@ const kinds: ProceduralMaterialKind[] = [
   'chessrooks',
   'threadspools',
   'bellpepperslices',
+  'sharkteeth',
 ];
+
+describe('Serrated ivory shark tooth crowns with rough double roots', () => {
+  const p = proceduralMaterialPresets.sharkteeth;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('sharkteeth', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const vertical = (row + col) & 1,
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      sample(
+        (col + 0.5 + (vertical ? x : y)) / p.cells,
+        (row + 0.5 + (vertical ? y : x)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains a pointed widening enamel crown, serrations on both edges, two lower rough root lobes, open root notch and connected neck for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const gap = at(col, row, 0.26, 0),
+            enamel = at(col, row, 0, -0.12),
+            notch = at(col, row, 0, 0.27);
+          expect(enamel.height).toBeGreaterThan(0.004139);
+          expect(enamel.height).toBeLessThan(0.004147);
+          expect(enamel.roughness).toBeLessThan(0.286);
+          expect(enamel.metallic).toBe(0);
+          expect(at(col, row, 0.06, -0.25).height).toBeCloseTo(gap.height, 12);
+          expect(at(col, row, 0.06, -0.1).height - gap.height).toBeGreaterThan(
+            0.0031,
+          );
+          expect(notch.height).toBeCloseTo(gap.height, 12);
+          expect(notch.occlusion).toBeCloseTo(0.35, 12);
+          for (const side of [-1, 1]) {
+            const root = at(col, row, side * p.rootOffset, p.rootY),
+              rootEnd = at(col, row, side * p.rootOffset, 0.27);
+            expect(enamel.height - root.height).toBeGreaterThan(0.00107);
+            expect(enamel.color - root.color).toBeGreaterThan(0.26);
+            expect(root.roughness - enamel.roughness).toBeGreaterThan(0.38);
+            expect(rootEnd.height - gap.height).toBeGreaterThan(0.0026);
+            let peak = 0,
+              trough = Infinity,
+              falling = false,
+              pullbacks = 0;
+            for (let i = 0; i <= 240; i++) {
+              const y = -0.19 + (0.27 * i) / 240;
+              let low = 0,
+                high = 0.23;
+              for (let j = 0; j < 16; j++) {
+                const middle = (low + high) * 0.5;
+                if (at(col, row, side * middle, y).height > 0.001) low = middle;
+                else high = middle;
+              }
+              if (falling) {
+                trough = Math.min(trough, low);
+                if (low - trough > 0.0005) {
+                  falling = false;
+                  peak = low;
+                }
+              } else {
+                peak = Math.max(peak, low);
+                if (peak - low > 0.0005) {
+                  pullbacks++;
+                  falling = true;
+                  trough = low;
+                }
+              }
+            }
+            expect(pullbacks).toBeGreaterThanOrEqual(4);
+            expect(pullbacks).toBeLessThanOrEqual(6);
+          }
+          for (let i = 0; i <= 47; i++) {
+            const joined = at(col, row, 0, -0.24 + i * 0.01);
+            expect(joined.height - gap.height).toBeGreaterThan(0.00188);
+            expect(joined.height).toBeLessThan(0.004147);
+          }
+          for (const [x, y] of [
+            [-0.26, 0],
+            [0, -0.38],
+            [0, 0.33],
+          ]) {
+            const backing = at(col, row, x, y);
+            expect(backing.height).toBeCloseTo(gap.height, 12);
+            expect(backing.occlusion).toBeCloseTo(0.35, 12);
+          }
+        }
+    },
+  );
+  it('keeps pointed enamel, periodic serrations, root overlap, neck joins, open notch, grain and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sharkteeth', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Three-lobed green bell pepper crosscuts with pith and attached seeds', () => {
   const p = proceduralMaterialPresets.bellpepperslices;

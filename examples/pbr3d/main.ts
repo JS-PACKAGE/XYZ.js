@@ -625,6 +625,7 @@ try {
     'chessrooks',
     'threadspools',
     'bellpepperslices',
+    'sharkteeth',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

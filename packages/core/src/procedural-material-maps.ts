@@ -1280,6 +1280,93 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'sharkteeth': {
+        const p = proceduralMaterialPresets.sharkteeth;
+        const tones = new Float64Array(p.cells * p.cells),
+          phases = new Float64Array(p.cells * p.cells),
+          inverseEdge = 1 / p.edgeBevel,
+          inverseTipFade = 1 / p.serrationTipFade,
+          inverseBaseFade = 1 / p.serrationBaseFade,
+          inverseRootWidthSquared = 1 / (p.rootWidth * p.rootWidth),
+          inverseRootHeightSquared = 1 / (p.rootHeight * p.rootHeight),
+          inverseRootShoulder = 1 / p.rootShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11015);
+        for (let cell = 0; cell < tones.length; cell++) {
+          tones[cell] = hash(cell, 0, seed ^ 0x11011);
+          phases[cell] = hash(cell, 0, seed ^ 0x11013);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col,
+            vertical = (col + row) & 1,
+            x = vertical ? fract(uc) - 0.5 : fract(vc) - 0.5,
+            y = vertical ? fract(vc) - 0.5 : fract(uc) - 0.5,
+            along = y - p.crownTop,
+            phase = fract(along * p.serrationFrequency + phases[cell]) * 2 - 1,
+            cap = 1 - phase * phase,
+            serration =
+              cap *
+              cap *
+              smooth(clamp(along * inverseTipFade)) *
+              smooth(clamp((p.crownBottom - y) * inverseBaseFade)),
+            width = p.crownSlope * along + p.serrationAmplitude * serration,
+            crown =
+              smooth(clamp((width + x) * inverseEdge)) *
+              smooth(clamp((width - x) * inverseEdge)) *
+              smooth(clamp((p.crownBottom - y) * inverseEdge)),
+            neck =
+              smooth(clamp((p.neckWidth - Math.abs(x)) * inverseEdge)) *
+              smooth(clamp((y - p.neckTop) * inverseEdge)) *
+              smooth(clamp((p.neckBottom - y) * inverseEdge)),
+            rootY = y - p.rootY,
+            leftX = x + p.rootOffset,
+            rightX = x - p.rootOffset,
+            rootVertical = rootY * rootY * inverseRootHeightSquared,
+            leftDome = clamp(
+              1 - leftX * leftX * inverseRootWidthSquared - rootVertical,
+            ),
+            rightDome = clamp(
+              1 - rightX * rightX * inverseRootWidthSquared - rootVertical,
+            ),
+            left = smooth(clamp(leftDome * inverseRootShoulder)),
+            right = smooth(clamp(rightDome * inverseRootShoulder)),
+            root = left + (1 - left) * right;
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.35;
+          if (crown === 0 && neck === 0 && root === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[cell];
+          color += neck * (0.6 + 0.03 * tone - color);
+          height += neck * (0.34 - height);
+          roughness += neck * (0.65 - roughness);
+          occlusion += neck * (0.94 - occlusion);
+          if (crown > 0) {
+            const safeWidth = width + p.crownDomeFloor,
+              dome = smooth(clamp(1 - (x * x) / (safeWidth * safeWidth)));
+            color += crown * (0.85 + 0.035 * tone + 0.006 * grain - color);
+            height += crown * (0.52 + 0.17 * dome + 0.001 * grain - height);
+            roughness += crown * (0.27 + 0.015 * grain - roughness);
+            occlusion += crown * (0.98 - occlusion);
+          }
+          if (root > 0) {
+            // The rough double root replaces the lower crown/neck; its central
+            // lower notch stays open to opaque backing, not a transparent hole.
+            const dome =
+              (left * smooth(leftDome) + right * smooth(rightDome)) /
+              (left + right);
+            color += root * (0.56 + 0.03 * tone + 0.02 * grain - color);
+            height += root * (0.43 + 0.08 * dome + 0.001 * grain - height);
+            roughness += root * (0.67 + 0.03 * grain - roughness);
+            occlusion += root * (0.96 - occlusion);
+          }
+          return;
+        };
+      }
       case 'bellpepperslices': {
         const p = proceduralMaterialPresets.bellpepperslices;
         const axes = new Float64Array(p.lobes * 2),
@@ -20673,6 +20760,7 @@ export function createSurfaceSampler(
     kind === 'chessrooks' ||
     kind === 'threadspools' ||
     kind === 'bellpepperslices' ||
+    kind === 'sharkteeth' ||
     fabricated ||
     botanical ||
     packaging ||

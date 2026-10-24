@@ -7096,3 +7096,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 545 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 bellpepperslices，八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6424 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 bellpepperslices，546 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現三瓣綠環、三淡色內膜、中央胎座、每膜兩籽、三空腔與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、透明開孔、食物／生物／流體模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+
+## 2026-10-25 程序材質：鯊齒（sharkteeth）
+
+- 目錄 546→547 種；0.24 m tile，4×4 交替水平／垂直象牙色尖三角琺瑯冠、兩側細鋸齒、較低粗糙雙葉齒根、連續 neck 與根部中央向外開口，區別 sawblades 金屬圓鋸環。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增 geometry、物種／年代鑑定、牙科／生物模擬或物理。
+- 初始 serrationAmplitude 0.008 的三 seed 形態測試在 contour pullbacks >=4 失敗（皆 0），C1 與既有 size 32 通過；fresh Bun 對 seed 0 正邊 2400 段／24 次 binary contour 診斷最大回退 0.000470989 local cell units，size 512 僅 0.0602866 pixels，原平滑擴寬趨勢掩蓋大部分齒形。提高 amplitude 至 0.014、不放寬測試；fresh Bun 回退 0.00510756（0.653768 pixels），修正後五項針對測試通過。
+- 三 seed（0／1／`0xffffffff`）逐 16 齒檢查尖三角漸寬、琺瑯亮／平滑／高於粗雙葉根、根尖／中央開口、48 點 neck／root 連續不疊高與外側 backing。兩側各沿 241 列、每列 16 次 binary search height contour，辨識 4–6 次 >0.0005 local units 的顯著齒邊回退。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項通過。
+- 既有 546 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 sharkteeth，八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6429 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 sharkteeth，547 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 清楚呈現尖三角冠、兩側細鋸齒、較暗雙葉根、根部中央開口與交替方向，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、物種／年代鑑定、牙科／生物模擬、物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
