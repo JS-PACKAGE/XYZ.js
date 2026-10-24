@@ -502,7 +502,86 @@ const kinds: ProceduralMaterialKind[] = [
   'pomegranateslice',
   'pawprinttiles',
   'dovetailjoint',
+  'starsocketbolts',
 ];
+
+describe('Six-lobed star socket bolts', () => {
+  const p = proceduralMaterialPresets.starsocketbolts;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('starsocketbolts', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts six closed-bottom drive lobes into domed caps for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const center = at(cx, cy),
+            cap = at(cx + 0.23, cy),
+            backing = at(col, row);
+          expect(cap.height - center.height).toBeGreaterThan(0.01);
+          expect(center.height - backing.height).toBeGreaterThan(0.006);
+          expect(cap.color - center.color).toBeGreaterThan(0.44);
+          const phase = (((col + row) & 1) * Math.PI) / 6;
+          for (let lobe = 0; lobe < 6; lobe++) {
+            const angle = phase + (lobe * Math.PI) / 3;
+            const tip = at(
+              cx + p.socketRadius * Math.cos(angle),
+              cy + p.socketRadius * Math.sin(angle),
+            );
+            const shoulder = at(
+              cx + p.socketRadius * Math.cos(angle + Math.PI / 6),
+              cy + p.socketRadius * Math.sin(angle + Math.PI / 6),
+            );
+            expect(shoulder.height - tip.height).toBeGreaterThan(0.0109);
+            expect(shoulder.color - tip.color).toBeGreaterThan(0.44);
+            expect(shoulder.occlusion - tip.occlusion).toBeGreaterThan(0.29);
+            expect(tip.roughness - shoulder.roughness).toBeGreaterThan(0.08);
+            expect(tip.metallic).toBe(1);
+            expect(shoulder.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('keeps lobe walls, center guards, cap bevels and tile wrap C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dovetail wood joinery', () => {
   const p = proceduralMaterialPresets.dovetailjoint;
@@ -15143,6 +15222,7 @@ describe('periodic procedural material fields', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
+          kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
           kind === 'rollerchain' ||
@@ -24579,6 +24659,7 @@ describe('procedural preset acquisition and ownership', () => {
     'splitlockwashers',
     'hexnuts',
     'wingnuts',
+    'starsocketbolts',
     'sawblades',
     'countersunkmetal',
     'rollerchain',
@@ -24608,6 +24689,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
+          kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
           kind === 'rollerchain'

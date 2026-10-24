@@ -1239,6 +1239,7 @@ export function createSurfaceSampler(
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
     kind === 'wingnuts' ||
+    kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
     kind === 'rollerchain' ||
@@ -1262,6 +1263,40 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'starsocketbolts': {
+        const p = proceduralMaterialPresets.starsocketbolts;
+        const grainField = cachedNoise(96, 96, seed ^ 0xc0a9);
+        const capSquared = p.capRadius * p.capRadius;
+        const coreSquared =
+          (p.socketRadius - p.lobeDepth) ** 2 - p.socketShoulder;
+        const socketSquared = (p.socketRadius + p.lobeDepth) ** 2;
+        return () => {
+          const cx = u * p.cells,
+            cy = v * p.cells;
+          const x = fract(cx) - 0.5,
+            y = fract(cy) - 0.5;
+          const r2 = x * x + y * y;
+          const face = smooth(clamp((capSquared - r2) / p.capShoulder));
+          let socket = 0;
+          if (r2 <= coreSquared) socket = 1;
+          else if (r2 < socketSquared) {
+            // cos(6θ) as a polynomial in sin²θ avoids angles and the center singularity.
+            const t = (y * y) / r2;
+            const wave = 1 + t * (-18 + t * (48 - 32 * t));
+            const sign = (Math.floor(cx) + Math.floor(cy)) & 1 ? -1 : 1;
+            const radius = p.socketRadius + p.lobeDepth * wave * sign;
+            socket = smooth(clamp((radius * radius - r2) / p.socketShoulder));
+          }
+          const lens = clamp(1 - r2 / capSquared);
+          const grain = grainField(u, v);
+          color = 0.08 + face * (0.65 + 0.05 * grain - 0.48 * socket);
+          height =
+            0.05 + face * (0.64 + 0.1 * lens - 0.46 * socket) + 0.003 * grain;
+          roughness += 0.23 * (1 - face) + 0.1 * socket + 0.02 * grain;
+          occlusion = 0.4 + 0.58 * face - 0.3 * socket;
+          return;
+        };
+      }
       case 'dovetailjoint': {
         const p = proceduralMaterialPresets.dovetailjoint;
         const verticalGrain = cachedNoise(96, 4, seed ^ 0x9d73);
@@ -15214,6 +15249,7 @@ export function createSurfaceSampler(
     kind === 'pomegranateslice' ||
     kind === 'pawprinttiles' ||
     kind === 'dovetailjoint' ||
+    kind === 'starsocketbolts' ||
     fabricated ||
     botanical ||
     packaging ||

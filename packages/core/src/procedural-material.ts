@@ -479,7 +479,8 @@ export type ProceduralMaterialKind =
   | 'wingnuts'
   | 'pomegranateslice'
   | 'pawprinttiles'
-  | 'dovetailjoint';
+  | 'dovetailjoint'
+  | 'starsocketbolts';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1193,6 +1194,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pomegranateslice',
   'pawprinttiles',
   'dovetailjoint',
+  'starsocketbolts',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1402,6 +1404,7 @@ export class ProceduralMaterial {
         this.kind === 'splitlockwashers' ||
         this.kind === 'hexnuts' ||
         this.kind === 'wingnuts' ||
+        this.kind === 'starsocketbolts' ||
         this.kind === 'sawblades' ||
         this.kind === 'countersunkmetal' ||
         this.kind === 'rollerchain' ||

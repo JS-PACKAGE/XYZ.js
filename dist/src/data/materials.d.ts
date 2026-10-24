@@ -3458,6 +3458,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         flare: 0.14;
         bevel: 0.025;
     }>;
+    starsocketbolts: Readonly<{
+        dark: readonly [45, 53, 61];
+        light: readonly [221, 229, 235];
+        roughness: 0.32;
+        relief: 0.024;
+        cells: 4;
+        capRadius: 0.4;
+        capShoulder: 0.025;
+        socketRadius: 0.12;
+        lobeDepth: 0.035;
+        socketShoulder: 0.003;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -3925,4 +3937,5 @@ export declare const proceduralTileMeters: Readonly<{
     pomegranateslice: 0.15;
     pawprinttiles: 0.6;
     dovetailjoint: 0.48;
+    starsocketbolts: 0.12;
 }>;

@@ -6497,3 +6497,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格檢查榫舌、直肩／斜邊／榫端縫的高度／色差／AO／roughness，以及頸窄端寬與左右形態；另掃描接點、grain owner 邊界、跨列與 tile wrap 的 C1。既有 463 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／5995 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 dovetailjoint，25 球與四圖預覽正常，可辨梯形接縫、榫端及橫直木紋，errors 皆為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：六瓣星槽螺栓頭（starsocketbolts）
+
+- 目錄 464→465 種；0.12 m tile，十六顆銀色圓拱 cap 帶封底六瓣圓滑星槽，相鄰槽向轉 30°；槽底低於 cap 且高於暗鋼底板。opaque metal、metallic map／預設 factor 1，沿四圖／選用 height／ownership，不新增螺栓 geometry、透明孔、實際螺紋或機械模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格檢查六瓣槽底與間隔肩部的高度／色差／AO／roughness、封底與底板高度、30° 交替及 metallic；另掃描星槽壁、中心飽和 guard、cap 倒角與 tile wrap 的 C1。既有 464 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6001 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 starsocketbolts，25 球與四圖預覽正常，errors 皆為空；WebGPU 將既有預覽 canvas 的 CSS 暫放大至 256 px，可辨六瓣槽與方向交替，未改貼圖資料或正式 UI。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、預設與借用 metallic 1、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
