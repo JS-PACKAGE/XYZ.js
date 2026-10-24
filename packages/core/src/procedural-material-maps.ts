@@ -1278,6 +1278,98 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'waxseals': {
+        const p = proceduralMaterialPresets.waxseals;
+        const phases = new Float64Array(p.cells * p.cells),
+          tones = new Float64Array(p.cells * p.cells);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col;
+            phases[i] = TAU * hash(col, row, seed ^ 0xfe91);
+            tones[i] = hash(col, row, seed ^ 0xfe93);
+          }
+        const edgeGuardSquared = p.edgeGuard * p.edgeGuard,
+          emblemGuardSquared = p.emblemGuard * p.emblemGuard,
+          inverseRadius = 1 / (p.radius * p.radius),
+          stampSquared = p.stampRadius * p.stampRadius,
+          inverseStamp = 1 / (stampSquared - p.stampCore * p.stampCore),
+          ringSquared = p.ringRadius * p.ringRadius,
+          inverseRing = 1 / p.ringBand,
+          grainField = cachedNoise(96, 96, seed ^ 0xfe95);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            q = x * x + y * y,
+            i = Math.floor(vc) * p.cells + Math.floor(uc),
+            phase = phases[i],
+            angle = q > emblemGuardSquared ? Math.atan2(y, x) : 0;
+          let body = 1,
+            emblem = 1;
+          // Both angular masks are already fully covered at their guards.
+          // Their phase cannot leak into the constant center or the wax dome.
+          if (q > edgeGuardSquared) {
+            const radius =
+              p.radius +
+              p.rippleA * Math.cos(p.wavesA * angle + phase) +
+              p.rippleB * Math.cos(p.wavesB * angle + 0.7 * phase);
+            body = smooth(
+              clamp(
+                (radius * radius - q) /
+                  (radius * radius - (radius - p.edgeBevel) ** 2),
+              ),
+            );
+          }
+          if (q > emblemGuardSquared) {
+            const radius =
+              p.emblemRadius +
+              p.emblemDepth * Math.cos(p.emblemLobes * (angle + phase));
+            emblem = smooth(
+              clamp(
+                (radius * radius - q) /
+                  (radius * radius - (radius - p.emblemBevel) ** 2),
+              ),
+            );
+          }
+          const dome = 1 - smooth(clamp(q * inverseRadius)),
+            stamp = smooth(clamp((stampSquared - q) * inverseStamp)),
+            ringDistance = (q - ringSquared) * inverseRing,
+            ring = smooth(clamp(1 - ringDistance * ringDistance)),
+            grain = grainField(u, v);
+          color =
+            0.065 +
+            body *
+              (0.395 +
+                0.12 * dome +
+                0.04 * tones[i] +
+                0.015 * grain -
+                0.055 * stamp +
+                0.09 * ring +
+                0.16 * emblem);
+          height =
+            0.025 +
+            body *
+              (0.255 +
+                0.08 * dome -
+                0.07 * stamp +
+                0.1 * ring +
+                0.18 * emblem +
+                0.001 * grain);
+          roughness =
+            0.94 +
+            body *
+              (p.roughness -
+                0.94 +
+                0.055 * stamp -
+                0.06 * ring -
+                0.075 * emblem +
+                0.01 * grain);
+          occlusion =
+            0.38 + body * (0.52 - 0.06 * stamp + 0.06 * ring + 0.08 * emblem);
+          return;
+        };
+      }
       case 'scoredmango': {
         const p = proceduralMaterialPresets.scoredmango;
         const tones = new Float64Array(p.cells * p.cells);
@@ -19146,6 +19238,7 @@ export function createSurfaceSampler(
     kind === 'beltbuckles' ||
     kind === 'hextruchettiles' ||
     kind === 'scoredmango' ||
+    kind === 'waxseals' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -566,7 +566,124 @@ const kinds: ProceduralMaterialKind[] = [
   'beltbuckles',
   'hextruchettiles',
   'scoredmango',
+  'waxseals',
 ];
+
+describe('Embossed red wax seals with irregular melted rims', () => {
+  const p = proceduralMaterialPresets.waxseals;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('waxseals', seed);
+    return (
+      col: number,
+      row: number,
+      r: number,
+      angle: number,
+    ): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(
+        (col + 0.5 + r * Math.cos(angle)) / p.cells,
+        (row + 0.5 + r * Math.sin(angle)) / p.cells,
+        out,
+      );
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains five embossed lobes, a recessed round stamp, raised rim and irregular compact melt edge for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const raised: boolean[] = [],
+            symbols: SurfaceSample[] = [];
+          let openEdges = 0,
+            fullEdges = 0;
+          for (let i = 0; i < 128; i++) {
+            const angle = (i * Math.PI) / 64,
+              symbol = at(col, row, p.emblemRadius, angle),
+              edge = at(col, row, 0.35, angle),
+              outside = at(col, row, 0.42, angle);
+            symbols.push(symbol);
+            raised.push(symbol.height > 0.375 * p.relief);
+            if (edge.height < 0.026 * p.relief) openEdges++;
+            if (edge.height > 0.2 * p.relief) fullEdges++;
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(outside.occlusion).toBeCloseTo(0.38, 12);
+            expect(symbol.metallic).toBe(0);
+          }
+          let transitions = 0;
+          for (let i = 0; i < raised.length; i++)
+            if (raised[i] !== raised[(i + 1) % raised.length]) transitions++;
+          expect(transitions).toBe(10);
+          expect(openEdges).toBeGreaterThan(2);
+          expect(fullEdges).toBeGreaterThan(2);
+          for (const [key, difference] of [
+            ['height', 0.00175],
+            ['color', 0.14],
+            ['roughness', 0.06],
+            ['occlusion', 0.079],
+          ] as const) {
+            const values = symbols.map((s) => s[key]);
+            expect(Math.max(...values) - Math.min(...values)).toBeGreaterThan(
+              difference,
+            );
+          }
+          for (const angle of [0, 0.7, 1.4, 2.1, 2.8]) {
+            const floor = at(col, row, 0.22, angle),
+              wax = at(col, row, 0.26, angle),
+              rim = at(col, row, p.ringRadius, angle),
+              center = at(col, row, 0, angle);
+            expect(wax.height - floor.height).toBeGreaterThan(0.0005);
+            expect(rim.height - wax.height).toBeGreaterThan(0.0008);
+            expect(center.height - rim.height).toBeGreaterThan(0.0006);
+          }
+        }
+    },
+  );
+  it('keeps melt boundaries, round impression, ring, angular guard centers, emblem and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('waxseals', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cross-scored mango cheeks with rounded flesh blocks', () => {
   const p = proceduralMaterialPresets.scoredmango;

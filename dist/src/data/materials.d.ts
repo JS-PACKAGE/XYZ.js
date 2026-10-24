@@ -4443,6 +4443,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         cutGap: 0.045;
         cutShoulder: 0.13;
     }>;
+    waxseals: Readonly<{
+        dark: readonly [49, 7, 12];
+        light: readonly [190, 55, 57];
+        roughness: 0.49;
+        relief: 0.01;
+        cells: 4;
+        radius: 0.36;
+        edgeBevel: 0.016;
+        edgeGuard: 0.31;
+        rippleA: 0.018;
+        wavesA: 7;
+        rippleB: 0.009;
+        wavesB: 11;
+        stampRadius: 0.253;
+        stampCore: 0.238;
+        ringRadius: 0.283;
+        ringBand: 0.008;
+        emblemRadius: 0.13;
+        emblemLobes: 5;
+        emblemDepth: 0.046;
+        emblemBevel: 0.012;
+        emblemGuard: 0.06;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4974,4 +4997,5 @@ export declare const proceduralTileMeters: Readonly<{
     beltbuckles: 0.32;
     hextruchettiles: 0.7;
     scoredmango: 0.48;
+    waxseals: 0.16;
 }>;

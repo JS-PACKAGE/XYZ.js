@@ -597,6 +597,8 @@
 
 同輪追加 `scoredmango`（十字劃切芒果果頰），目錄 527→528 種：4×4 橫直交替的橢圓果頰，完整薄皮邊、十字凹切線及圓潤金黃果肉方塊；不是 chocolate 的全平面模製塊，也不是 avocadoflesh 的中央種核凹穴。0.48 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增水果 geometry、真正翻開／分離果塊、透明度或切割物理；逐功能驗證提交、不 push。
 
+同輪追加 `waxseals`（五瓣徽記封蠟印章），目錄 528→529 種：4×4 深紅封蠟，seeded 七／十一波不規則熔邊、圓形壓印凹面、圓環凸緣與五瓣浮雕徽記，區別 candleswax 的垂流蠟滴及 crowncaps 的金屬壓紋。0.16 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增印章 geometry、文字／自訂圖案輸入、熔融動畫或蠟流體；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

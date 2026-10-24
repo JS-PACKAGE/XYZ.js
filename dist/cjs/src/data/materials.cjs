@@ -9079,6 +9079,37 @@ var proceduralMaterialPresets = Object.freeze({
 		pitchY: .14,
 		cutGap: .045,
 		cutShoulder: .13
+	}),
+	waxseals: Object.freeze({
+		dark: [
+			49,
+			7,
+			12
+		],
+		light: [
+			190,
+			55,
+			57
+		],
+		roughness: .49,
+		relief: .01,
+		cells: 4,
+		radius: .36,
+		edgeBevel: .016,
+		edgeGuard: .31,
+		rippleA: .018,
+		wavesA: 7,
+		rippleB: .009,
+		wavesB: 11,
+		stampRadius: .253,
+		stampCore: .238,
+		ringRadius: .283,
+		ringBand: .008,
+		emblemRadius: .13,
+		emblemLobes: 5,
+		emblemDepth: .046,
+		emblemBevel: .012,
+		emblemGuard: .06
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9609,7 +9640,8 @@ var proceduralTileMeters = Object.freeze({
 	greenpeapods: .48,
 	beltbuckles: .32,
 	hextruchettiles: .7,
-	scoredmango: .48
+	scoredmango: .48,
+	waxseals: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

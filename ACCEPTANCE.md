@@ -6950,3 +6950,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 527 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - 完整 build、typecheck、lint、format:check、179 檔／6334 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 scoredmango，528 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認橢圓金黃果頰、橫直劃線、圓潤方塊與薄皮邊，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 果肉表面浮雕，不宣稱真正翻開果塊、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：五瓣徽記封蠟印章（waxseals）
+
+- 目錄 528→529 種；0.16 m tile，4×4 深紅封蠟，不規則熔邊、圓形凹壓印、凸環及五瓣浮雕徽記，區別 candleswax 的垂流蠟滴與 crowncaps 的金屬壓紋。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增印章 geometry、文字／自訂徽記輸入、熔融動畫或蠟流體模擬。
+- 三 seed（0／1／`0xffffffff`）逐章 128 角度確認五瓣恰十次高低轉換、徽記的 height／color／roughness／AO 範圍、熔邊同一半徑有完整蠟與 backing、外圈全退回 backing，另驗證壓印凹面／外蠟／凸環／中心徽記的高度順序；129×129 網格、三 seed、雙方向四欄位 C1 檢查 melt edges、stamp／ring、angular guards、emblem 與 wrap，四項針對測試皆通過。
+- 既有 528 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6339 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 waxseals，529 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認深紅不規則熔邊、圓形壓印、凸環及五瓣徽記，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 蠟面浮雕，不宣稱真實熔融、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
