@@ -659,6 +659,8 @@
 
 `goldbrocade` 與 damask 共用預算 12 compact Cartesian petals/leaves，保留舊 damask 輸出；64 週期 warp／weft 的 bounded union 乘花葉 coverage，形成 exposed supplementary gold thread mask。Mask 同時混合深底布與高金線 color／height／roughness／AO／metallic，花內 yarn interstices 保留 dielectric cloth，公開 metallic factor 1 不把 cloth 變金屬。無金線處略過 satin cosine／gold layer；只重用既有 phase／detail／三角場，不加採樣配置／hash 或第二套 motif 慣例。不新增 geometry、透洞、紡織／布料／光譜或物理模擬。
 
+`mudtiretracks` 僅預算兩份 seeded phase、8×8 soil／128×128 grain；最近 track 中心的 compact squared transverse support 形成凹輪轍，36 週期 compact bands 以 transverse² warp 出平滑弧形胎塊，避免 abs 尖點。泥緣為外側 compact squared-distance band，裸泥／車轍同場連續；無輪轍／泥緣處提早返回，不算胎塊 phase。採樣無配置／hash／sqrt／trig，pressed height 向下而非橡膠凸塊；不新增 terrain geometry、車輪／碰撞／動態變形／車輛或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

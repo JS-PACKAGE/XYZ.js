@@ -651,6 +651,8 @@
 
 同輪追加 `goldbrocade`（金線花葉織錦），目錄 554→555 種：重用 damask compact 花葉形態，將凸金線／織縫與暗底布分開 PBR，metallic map 僅暴露金線為金屬、花內織隙仍為非金屬布，不是整塊金屬花牌或整張金屬布。0.24 m opaque mixed-metallic tile、公開 material metallic factor 1 保留 map 分區，沿四圖／選用 height／ownership，不新增紗線 geometry、透洞、紡織／布料／光譜或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `mudtiretracks`（泥地雙輪胎痕），目錄 555→556 種：連續泥面兩道凹輪轍、每轍 36 道弧形胎塊壓痕、兩側微凸泥緣；不是 tiretread 橡膠凸塊或 mud 多邊形泥塊。3 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增 terrain geometry、車輪／碰撞／動態變形／車輛或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -593,7 +593,134 @@ const kinds: ProceduralMaterialKind[] = [
   'pythagoreantiles',
   'dinnerforks',
   'goldbrocade',
+  'mudtiretracks',
 ];
+
+describe('Paired tire ruts with curved impressions and raised mud edges', () => {
+  const p = proceduralMaterialPresets.mudtiretracks;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('mudtiretracks', seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two separated recessed ruts, thirty-six curved pressed lugs per track and slightly raised mud shoulders for seed %s',
+    (seed) => {
+      const at = field(seed),
+        ruts: boolean[] = [];
+      for (let x = 0; x < 1024; x++)
+        ruts.push(at(x / 1024, 0.371).occlusion < 0.95);
+      let rutCount = 0;
+      for (let x = 0; x < ruts.length; x++)
+        if (ruts[x] && !ruts[(x + ruts.length - 1) % ruts.length]) rutCount++;
+      expect(rutCount).toBe(2);
+      const untouched = at(0.5, 0.371);
+      expect(untouched.height).toBeGreaterThan(0.549 * p.relief);
+      expect(untouched.occlusion).toBeCloseTo(0.99, 12);
+      for (const center of [0.25, 0.75]) {
+        const lugs: boolean[] = [];
+        let minHeight = Infinity,
+          maxHeight = -Infinity,
+          minAO = Infinity,
+          maxAO = -Infinity;
+        for (let y = 0; y < 2048; y++) {
+          const point = at(center, y / 2048);
+          lugs.push(point.occlusion < 0.6);
+          minHeight = Math.min(minHeight, point.height);
+          maxHeight = Math.max(maxHeight, point.height);
+          minAO = Math.min(minAO, point.occlusion);
+          maxAO = Math.max(maxAO, point.occlusion);
+          expect(point.height).toBeGreaterThan(0.1 * p.relief);
+          expect(point.height).toBeLessThan(0.511 * p.relief);
+          expect(point.metallic).toBe(0);
+          if (point.occlusion < 0.6) expect(point.color).toBeLessThan(0.35);
+        }
+        let pressed = 0;
+        for (let y = 0; y < lugs.length; y++)
+          if (lugs[y] && !lugs[(y + lugs.length - 1) % lugs.length]) pressed++;
+        expect(pressed).toBe(36);
+        expect(maxHeight - minHeight).toBeGreaterThan(0.0017);
+        expect(minAO).toBeLessThan(0.56);
+        expect(maxAO).toBeGreaterThan(0.86);
+        for (const side of [-1, 1]) {
+          let berm = 0,
+            outside = 0;
+          for (let y = 0; y < 256; y++) {
+            berm += at(center + side * 0.056, y / 256).height;
+            outside += at(center + side * 0.07, y / 256).height;
+          }
+          expect((berm - outside) / 256).toBeGreaterThan(0.0003);
+        }
+      }
+    },
+  );
+  it('curves lug impressions equally on both sides of each rut rather than painting straight transverse stripes', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (const center of [0.25, 0.75]) {
+        const inner: number[] = [];
+        for (let i = 0; i < 720; i++)
+          inner.push(at(center, i / (720 * 36)).occlusion);
+        const innerMean = inner.reduce((a, b) => a + b) / inner.length;
+        for (const side of [-1, 1]) {
+          const outer: number[] = [];
+          for (let i = 0; i < 720; i++)
+            outer.push(at(center + side * 0.0325, i / (720 * 36)).occlusion);
+          const outerMean = outer.reduce((a, b) => a + b) / outer.length;
+          let bestLag = 0,
+            bestScore = -Infinity;
+          for (let lag = 180; lag <= 270; lag++) {
+            let score = 0;
+            for (let i = 0; i < inner.length; i++)
+              score +=
+                (inner[i] - innerMean) *
+                (outer[(i + lag) % outer.length] - outerMean);
+            if (score > bestScore) {
+              bestScore = score;
+              bestLag = lag;
+            }
+          }
+          expect(bestLag).toBeGreaterThanOrEqual(227);
+          expect(bestLag).toBeLessThanOrEqual(229);
+        }
+      }
+    }
+  });
+  it('keeps rut ownership, curved lug apexes, phase wraps, raised shoulders, grain and UV wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Gold-thread floral brocade over dielectric woven cloth', () => {
   const p = proceduralMaterialPresets.goldbrocade;

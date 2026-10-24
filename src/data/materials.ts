@@ -5053,6 +5053,19 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.72,
     relief: 0.002,
   }),
+  mudtiretracks: Object.freeze({
+    dark: [39, 26, 17] as const,
+    light: [137, 101, 62] as const,
+    roughness: 0.86,
+    relief: 0.015,
+    tracks: 2,
+    halfWidth: 0.05,
+    lugs: 36,
+    curvature: 0.75,
+    lugWidth: 0.12,
+    bermCenter: 1.12,
+    bermSquaredWidth: 0.45,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5612,4 +5625,5 @@ export const proceduralTileMeters = Object.freeze({
   pythagoreantiles: 0.4,
   dinnerforks: 0.96,
   goldbrocade: 0.24,
+  mudtiretracks: 3,
 });

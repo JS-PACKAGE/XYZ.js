@@ -782,6 +782,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `goldbrocade`（金線花葉織錦）：重用 damask 預算 12 compact Cartesian lobes、phase／detail，凸金線花葉覆深色 dielectric cloth，舊 damask 輸出不變。64 週期 warp／weft bounded union 乘 motif coverage 形成 gold mask，同步混合 color／height／roughness／AO／metallic；花內織隙仍為非金屬，不是實心金牌。無金線處略過 satin cosine／gold layer，不增採樣配置／hash。使用 `await ProceduralMaterial.create('goldbrocade', { seed: 7 })`；0.24 m opaque mixed-metallic tile、material metallic factor 1 保留 authored map 分區而非將底布變金屬，maps／選用 height／ownership 不變；不新增紗線 geometry、透洞、紡織／布料／光譜或物理模擬。
 
+種類另支援 `mudtiretracks`（泥地雙輪胎痕）：兩道凹輪轍、各 36 道弧形胎塊壓痕與微凸泥緣。預算兩份 seeded phases／8×8 soil／128×128 grain；最近 track 的 compact squared transverse support 刻低輪轍，transverse² warp 讓 periodic compact lug bands 彎曲且頂點無 abs 尖角。外側 squared-distance band 略抬泥緣、輪轍內外都是連續 opaque ground；裸泥提早略過 lug phase。採樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('mudtiretracks', { seed: 7 })`；3 m opaque dielectric tile、metallic 0，沿 maps／選用 height／ownership；不新增 terrain geometry、車輪／碰撞／動態變形／車輛或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

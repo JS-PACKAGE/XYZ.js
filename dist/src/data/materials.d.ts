@@ -4941,6 +4941,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.72;
         relief: 0.002;
     }>;
+    mudtiretracks: Readonly<{
+        dark: readonly [39, 26, 17];
+        light: readonly [137, 101, 62];
+        roughness: 0.86;
+        relief: 0.015;
+        tracks: 2;
+        halfWidth: 0.05;
+        lugs: 36;
+        curvature: 0.75;
+        lugWidth: 0.12;
+        bermCenter: 1.12;
+        bermSquaredWidth: 0.45;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5499,4 +5512,5 @@ export declare const proceduralTileMeters: Readonly<{
     pythagoreantiles: 0.4;
     dinnerforks: 0.96;
     goldbrocade: 0.24;
+    mudtiretracks: 3;
 }>;

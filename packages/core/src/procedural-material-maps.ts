@@ -1297,6 +1297,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'mudtiretracks': {
+        const p = proceduralMaterialPresets.mudtiretracks;
+        const phases = new Float64Array(p.tracks),
+          inverseWidth = 1 / p.halfWidth,
+          inverseLugSquared = 1 / (p.lugWidth * p.lugWidth),
+          bermSquared = p.bermCenter * p.bermCenter,
+          inverseBermWidth = 1 / p.bermSquaredWidth,
+          soilField = cachedNoise(8, 8, seed ^ 0x11811),
+          grainField = cachedNoise(128, 128, seed ^ 0x11813);
+        for (let track = 0; track < p.tracks; track++)
+          phases[track] = hash(track, 0, seed ^ 0x11815);
+        return () => {
+          const soil = soilField(u, v),
+            grain = grainField(u, v),
+            track = Math.floor(u * p.tracks),
+            across = (u - (track + 0.5) / p.tracks) * inverseWidth,
+            squared = across * across,
+            rut = smooth(clamp(1 - squared)),
+            bermDistance = (squared - bermSquared) * inverseBermWidth,
+            berm = smooth(clamp(1 - bermDistance * bermDistance));
+          color = 0.44 + 0.1 * soil + 0.05 * grain;
+          height = 0.55 + 0.12 * soil + 0.02 * grain;
+          roughness = p.roughness + 0.06 * grain;
+          occlusion = 0.99;
+          if (rut === 0 && berm === 0) return;
+          let pressed = 0;
+          if (rut > 0) {
+            // Squared transverse warping rounds the lug arc's apex without
+            // an absolute-value cusp; compact bands also close the phase wrap.
+            const phase =
+              fract(v * p.lugs - p.curvature * squared + phases[track] + 0.5) -
+              0.5;
+            pressed =
+              rut * smooth(clamp(1 - phase * phase * inverseLugSquared));
+          }
+          color += 0.05 * berm - 0.09 * rut - 0.19 * pressed;
+          height += 0.06 * berm - 0.18 * rut - 0.26 * pressed;
+          roughness += -0.04 * rut + 0.035 * pressed;
+          occlusion -= 0.12 * rut + 0.32 * pressed;
+          return;
+        };
+      }
       case 'dinnerforks': {
         const p = proceduralMaterialPresets.dinnerforks;
         const tones = new Float64Array(p.cells * p.cells),
@@ -21246,6 +21288,7 @@ export function createSurfaceSampler(
     kind === 'crinoidossicles' ||
     kind === 'pythagoreantiles' ||
     kind === 'dinnerforks' ||
+    kind === 'mudtiretracks' ||
     fabricated ||
     botanical ||
     packaging ||

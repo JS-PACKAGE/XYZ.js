@@ -7171,3 +7171,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 554 種（含共享形態 damask）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 goldbrocade，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 goldbrocade，555 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認深底布上金線花葉、花內織縫仍露暗布；實際 metallicRoughness bitmap 的 B 通道 min 0／max 255／有中間值，material metallic factor 1、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透洞、紡織／布料／光譜／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6476 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：泥地雙輪胎痕（mudtiretracks）
+
+- 目錄 555→556 種；3 m opaque dielectric tile、metallic 0，兩道凹輪轍、各 36 道弧形胎塊壓痕、兩側微凸泥緣；區別 tiretread 橡膠凸塊／mud 多邊形泥塊。不新增 terrain geometry、車輪／碰撞／動態變形／車輛或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各 1024 點橫剖面兩輪轍、每轍 2048 點縱剖面 36 個低 AO 壓痕、輪轍 height 0.1–0.511 relief 且低於裸泥 >0.549 relief、height span >0.0017 m、AO min <0.56／max >0.86、深痕 color <0.35／metallic 0；四側泥緣沿 256 點平均高於外泥 >0.0003 m。三 seed／兩轍／左右側 720 點單週期 AO cross-correlation 最佳 lag 227–229，驗證雙側同向弧形而非直橫條。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；五項形態／曲率／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共六項針對測試首次通過。
+- 既有 555 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 mudtiretracks，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 mudtiretracks，556 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認連續泥面兩道輪轍、重複弧形深壓痕與較淺泥緣、轍間裸泥，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 terrain geometry、車輪／碰撞／動態變形／車輛／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 全量 build、typecheck、lint、format:check、179 檔 6482 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
