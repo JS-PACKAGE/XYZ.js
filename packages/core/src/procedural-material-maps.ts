@@ -1262,6 +1262,48 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'pawprinttiles': {
+        const p = proceduralMaterialPresets.pawprinttiles;
+        const grainField = cachedNoise(96, 96, seed ^ 0x8c61);
+        const toes = new Float64Array(p.toes.length * 4);
+        for (let i = 0; i < p.toes.length; i++) {
+          const [x, y, angle] = p.toes[i];
+          toes[i * 4] = x;
+          toes[i * 4 + 1] = y;
+          toes[i * 4 + 2] = Math.cos(angle);
+          toes[i * 4 + 3] = Math.sin(angle);
+        }
+        const pads = Float64Array.from(p.pads.flat());
+        return () => {
+          const x = fract(u * p.cells) - 0.5;
+          const y = fract(v * p.cells) - 0.5;
+          // A product of edge profiles rounds grout corners without a min-distance crease.
+          const face =
+            smooth(clamp((0.25 - x * x) / p.grout)) *
+            smooth(clamp((0.25 - y * y) / p.grout));
+          let outside = 1;
+          for (let i = 0; i < toes.length; i += 4) {
+            const dx = x - toes[i],
+              dy = y - toes[i + 1];
+            const ax = (dx * toes[i + 2] + dy * toes[i + 3]) / p.toeWidth;
+            const ay = (dy * toes[i + 2] - dx * toes[i + 3]) / p.toeHeight;
+            outside *= 1 - smooth(clamp((1 - ax * ax - ay * ay) / p.shoulder));
+          }
+          for (let i = 0; i < pads.length; i += 3) {
+            const dx = (x - pads[i]) / pads[i + 2];
+            const dy = (y - pads[i + 1]) / pads[i + 2];
+            outside *= 1 - smooth(clamp((1 - dx * dx - dy * dy) / p.shoulder));
+          }
+          const stamp = 1 - outside;
+          const grain = grainField(u, v);
+          color = 0.92 - 0.76 * stamp + 0.025 * grain;
+          height = face * (0.5 - 0.24 * stamp + 0.003 * grain);
+          mortar = 1 - face;
+          roughness += 0.5 * mortar + 0.12 * stamp;
+          occlusion = 0.55 + 0.43 * face - 0.2 * stamp;
+          return;
+        };
+      }
       case 'pomegranateslice': {
         const p = proceduralMaterialPresets.pomegranateslice;
         const grainField = cachedNoise(96, 96, seed ^ 0x7b59);
@@ -15135,6 +15177,7 @@ export function createSurfaceSampler(
     kind === 'chainstitch' ||
     kind === 'wingnuts' ||
     kind === 'pomegranateslice' ||
+    kind === 'pawprinttiles' ||
     fabricated ||
     botanical ||
     packaging ||

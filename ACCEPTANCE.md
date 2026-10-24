@@ -6483,3 +6483,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三個 seed（0／1／`0xffffffff`）逐格驗證白色中心、紅皮凸環、凹室及全部 42 顆果粒的高度／色差／roughness／AO；另掃描果粒、皮緣、扇區分界與 tile wrap 的 C1。既有 461 種 size 64／seed 7 四圖 SHA256 changed 0。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／5985 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
 - managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pomegranateslice，25 球與四圖預覽正常，可辨紅皮、乳白放射隔膜與六果室，兩頁 errors 為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、透明果粒、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-24 程序材質：爪印釉面磚（pawprinttiles）
+
+- 目錄 462→463 種；0.6 m tile，十六片象牙白方磚上的鈷藍凹印，每印含四個分離橢圓趾墊與三葉掌墊，粗糙中性灰縫低於印底。opaque dielectric、metallic 0，沿既有四圖／選用 height／ownership，不新增磁磚 geometry、實際壓印或動物模擬。
+- 三個 seed（0／1／`0xffffffff`）逐格驗證四趾、趾間與趾掌間隙、掌墊三葉與缺口、印底／釉面／灰縫的高度、色差、AO、roughness 及 mortar；另掃描印邊、掌墊聯集、灰縫交角與 tile wrap 的 C1。既有 462 種 size 64／seed 7 四圖 SHA256 changed 0。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／5990 項）、check:api-compatibility、check:distribution 通過；八份修改文件的相對連結無失效。
+- managed headless Chromium 正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2 選取 pawprinttiles，25 球與四圖預覽正常，爪印四趾、掌墊、白釉及灰縫可辨，errors 皆為空。WebGPU 公開 API size 64／seed 7／heightMap true 得到 height、metallic 0、destroyed true，離頁 cleanup 無錯誤。不宣稱像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -500,7 +500,94 @@ const kinds: ProceduralMaterialKind[] = [
   'chainstitch',
   'wingnuts',
   'pomegranateslice',
+  'pawprinttiles',
 ];
+
+describe('Stamped paw print glazed tiles', () => {
+  const p = proceduralMaterialPresets.pawprinttiles;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('pawprinttiles', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'sinks four separate toes and a three-lobed palm into each glazed face for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cx = col + 0.5,
+            cy = row + 0.5;
+          const glaze = at(cx + 0.35, cy + 0.3),
+            grout = at(col, row);
+          const betweenToes = at(cx, cy - 0.24),
+            betweenPalmAndToes = at(cx, cy - 0.12);
+          for (const [x, y] of [
+            ...p.toes,
+            [0, 0.06],
+            [-0.1, 0.22],
+            [0, 0.25],
+            [0.1, 0.22],
+          ]) {
+            const stamp = at(cx + x, cy + y);
+            expect(glaze.height - stamp.height).toBeGreaterThan(0.0042);
+            expect(glaze.color - stamp.color).toBeGreaterThan(0.73);
+            expect(glaze.occlusion - stamp.occlusion).toBeGreaterThan(0.19);
+            expect(stamp.roughness - glaze.roughness).toBeGreaterThan(0.11);
+            expect(stamp.height - grout.height).toBeGreaterThan(0.0045);
+            expect(stamp.mortar).toBe(0);
+          }
+          expect(Math.abs(glaze.height - betweenToes.height)).toBeLessThan(
+            0.0001,
+          );
+          expect(
+            Math.abs(glaze.height - betweenPalmAndToes.height),
+          ).toBeLessThan(0.0001);
+          // A notch between the lower lobes prevents a featureless oval palm.
+          expect(
+            at(cx + 0.05, cy + 0.25).height - at(cx, cy + 0.25).height,
+          ).toBeGreaterThan(0.003);
+          expect(grout.mortar).toBe(1);
+          expect(grout.roughness - glaze.roughness).toBeGreaterThan(0.49);
+        }
+    },
+  );
+  it('keeps stamp edges, palm unions, grout corners and tile wrap C1', () => {
+    const h = 1e-7;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+              'mortar',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pomegranate cross sections', () => {
   const p = proceduralMaterialPresets.pomegranateslice;

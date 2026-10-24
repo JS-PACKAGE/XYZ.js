@@ -465,6 +465,8 @@
 
 同輪追加 `pomegranateslice`（石榴切片），目錄 461→462 種：九個帶深紅果皮與乳白中心／隔膜的圓形斷面，各有六個果室，每室七顆分開隆起的紅色橢圓果粒；果室較低、果粒較光滑。0.15 m tile、opaque dielectric、metallic 0，沿用四圖與選用 height／options／ownership，不新增果粒 geometry、透明／transmission／果汁或植物模擬；逐功能驗證提交、不 push。
 
+同輪追加 `pawprinttiles`（爪印釉面磚），目錄 462→463 種：十六片象牙白釉面方磚，各有四個分離橢圓趾墊與下緣三葉掌墊的鈷藍凹印；磚間為粗糙灰縫，印紋比釉面低、比灰縫高。0.6 m tile、opaque dielectric、metallic 0，沿既有四圖／選用 height／options／ownership，不新增磁磚 geometry、實際壓印或動物模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

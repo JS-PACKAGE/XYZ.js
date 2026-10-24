@@ -3484,6 +3484,29 @@ export const proceduralMaterialPresets = Object.freeze({
       [0.045, 0.045],
     ] as const,
   }),
+  pawprinttiles: Object.freeze({
+    dark: [14, 45, 83] as const,
+    light: [249, 238, 211] as const,
+    roughness: 0.27,
+    relief: 0.018,
+    cells: 4,
+    grout: 0.028,
+    shoulder: 0.3,
+    toeWidth: 0.065,
+    toeHeight: 0.095,
+    toes: [
+      [-0.24, -0.11, -0.45],
+      [-0.09, -0.24, -0.15],
+      [0.09, -0.24, 0.15],
+      [0.24, -0.11, 0.45],
+    ] as const,
+    pads: [
+      [0, 0.06, 0.15],
+      [-0.1, 0.15, 0.09],
+      [0, 0.18, 0.09],
+      [0.1, 0.15, 0.09],
+    ] as const,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -3950,4 +3973,5 @@ export const proceduralTileMeters = Object.freeze({
   chainstitch: 0.12,
   wingnuts: 0.12,
   pomegranateslice: 0.15,
+  pawprinttiles: 0.6,
 });
