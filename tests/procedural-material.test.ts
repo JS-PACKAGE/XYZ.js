@@ -521,7 +521,85 @@ const kinds: ProceduralMaterialKind[] = [
   'slottedmetal',
   'peppercorns',
   'castellatednuts',
+  'farfalle',
 ];
+
+describe('Pinched and pleated farfalle pasta', () => {
+  const p = proceduralMaterialPresets.farfalle;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('farfalle', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected narrow waist, wide pleated wings and serrated end cuts for seed %s',
+    (seed) => {
+      const at = field(seed);
+      const t = (0.25 / p.wingRun) ** 2;
+      const width = p.waist + p.wingSpread * t * t * (3 - 2 * t);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const turn = (col + row) & 1;
+          const local = (x: number, y: number) =>
+            at(col + 0.5 + (turn ? y : x), row + 0.5 + (turn ? x : y));
+          const waist = local(0, 0),
+            gap = local(0, 0.17),
+            ridge = local(0.25, 0),
+            fold = local(0.25, width / 3),
+            wing = local(0.25, 0.17),
+            tooth = local(0.355, 0),
+            notch = local(0.355, 0.025);
+          expect(waist.height - gap.height).toBeGreaterThan(0.014);
+          expect(wing.height - gap.height).toBeGreaterThan(0.0069);
+          expect(ridge.height - fold.height).toBeGreaterThan(0.0046);
+          expect(ridge.color - fold.color).toBeGreaterThan(0.11);
+          expect(ridge.occlusion - fold.occlusion).toBeGreaterThan(0.069);
+          expect(fold.roughness - ridge.roughness).toBeGreaterThan(0.049);
+          expect(tooth.height - notch.height).toBeGreaterThan(0.0118);
+          expect(waist.metallic).toBe(0);
+          expect(wing.metallic).toBe(0);
+          for (let i = -12; i <= 12; i++)
+            expect(local(i * 0.025, 0).height - gap.height).toBeGreaterThan(
+              0.011,
+            );
+        }
+    },
+  );
+  it('keeps the gathered waist, wing slopes, pleats, end teeth and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128;
+            const a = at(u - (axis ? 0 : h), v - (axis ? h : 0));
+            const b = at(u, v);
+            const c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Six-slot castellated steel nuts', () => {
   const p = proceduralMaterialPresets.castellatednuts;

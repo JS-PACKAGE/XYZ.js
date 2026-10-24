@@ -498,7 +498,8 @@ export type ProceduralMaterialKind =
   | 'burlwood'
   | 'slottedmetal'
   | 'peppercorns'
-  | 'castellatednuts';
+  | 'castellatednuts'
+  | 'farfalle';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1231,6 +1232,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'slottedmetal',
   'peppercorns',
   'castellatednuts',
+  'farfalle',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

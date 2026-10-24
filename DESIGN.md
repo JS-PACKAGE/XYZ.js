@@ -515,6 +515,8 @@
 
 `castellatednuts` 用六個 smooth half-plane 乘積建構六角外形，中央圓孔 bevel 乘上外形形成環體；六個 compact elliptical radial slots 的 complement 乘積保留冠齒，凹槽下方仍有較低鋼面，內環不被切斷。交替 cell 將局部座標旋轉 30°，plane normals 僅在建立 sampler 時預計算，取樣不配置陣列。96×96 seeded periodic grain、0.08 m tile、4×4 螺帽，metallic 1，目錄增為 483 種；maps／height／ownership 不變，無 geometry、透明度或緊固物理。
 
+`farfalle` 的半寬由 x² 的 smooth ramp 從窄腰展開，與側邊／cosine 波齒端切面 smooth masks 相乘成連續麵片；以 y／局部半寬參數化褶痕，收攏至腰部而不採 atan 角度分支，compact x² 場加深腰部色調與 AO 並隆起聚攏處。交替 cell 交換座標呈 90° 方向；128×128 seeded periodic grain、4×4 麵片、0.16 m tile、metallic 0，目錄增為 484 種。無 geometry、透明度或烹飪／柔體物理，maps／height／ownership 不變。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

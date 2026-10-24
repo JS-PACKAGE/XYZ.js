@@ -3813,6 +3813,21 @@ export const proceduralMaterialPresets = Object.freeze({
     slotWidth: 0.028,
     shoulder: 0.2,
   }),
+  farfalle: Object.freeze({
+    dark: [75, 45, 17] as const,
+    light: [249, 219, 132] as const,
+    roughness: 0.66,
+    relief: 0.023,
+    cells: 4,
+    halfLength: 0.36,
+    waist: 0.065,
+    wingSpread: 0.21,
+    wingRun: 0.32,
+    shoulder: 0.014,
+    scallop: 0.012,
+    teeth: 20,
+    pinchRadius: 0.08,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4300,4 +4315,5 @@ export const proceduralTileMeters = Object.freeze({
   slottedmetal: 0.4,
   peppercorns: 0.08,
   castellatednuts: 0.08,
+  farfalle: 0.16,
 });

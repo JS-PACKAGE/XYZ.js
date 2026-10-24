@@ -1268,6 +1268,41 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'farfalle': {
+        const p = proceduralMaterialPresets.farfalle;
+        const grainField = cachedNoise(128, 128, seed ^ 0x6e39);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells;
+          const dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5;
+          const turn = (Math.floor(uc) + Math.floor(vc)) & 1;
+          const x = turn ? dy : dx,
+            y = turn ? dx : dy;
+          const width =
+            p.waist + p.wingSpread * smooth(clamp((x / p.wingRun) ** 2));
+          const face =
+            smooth(clamp((width - Math.abs(y)) / p.shoulder)) *
+            smooth(
+              clamp(
+                (p.halfLength +
+                  p.scallop * Math.cos(TAU * p.teeth * y) -
+                  Math.abs(x)) /
+                  p.shoulder,
+              ),
+            );
+          const pleat = 0.5 + 0.5 * Math.cos((TAU * 1.5 * y) / width);
+          const pinch = smooth(clamp(1 - (x / p.pinchRadius) ** 2));
+          const grain = grainField(u, v);
+          color =
+            0.045 + face * (0.59 + 0.14 * pleat - 0.17 * pinch + 0.03 * grain);
+          height =
+            0.06 + face * (0.31 + 0.21 * pleat + 0.11 * pinch + 0.008 * grain);
+          roughness += 0.18 * (1 - face) + face * (0.04 * pinch - 0.05 * pleat);
+          occlusion = 0.38 + face * (0.53 + 0.07 * pleat - 0.12 * pinch);
+          return;
+        };
+      }
       case 'castellatednuts': {
         const p = proceduralMaterialPresets.castellatednuts;
         const planes = new Float64Array(12);
@@ -16141,6 +16176,7 @@ export function createSurfaceSampler(
     kind === 'slottedmetal' ||
     kind === 'peppercorns' ||
     kind === 'castellatednuts' ||
+    kind === 'farfalle' ||
     fabricated ||
     botanical ||
     packaging ||
