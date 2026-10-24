@@ -577,6 +577,8 @@
 
 同輪追加 `creamcrackers`（波邊奶油蘇打餅），目錄 517→518 種：四乘四獨立烘烤方餅，四側波邊切口、九孔壓痕、褐色外緣與不規則烘烤起泡；區別 wafer 的連續網格凹槽與 brownie 的軟質裂紋。0.24 m tile、opaque dielectric、metallic 0；沿四圖／選用 height／ownership，不新增食物 geometry、透明孔、烘焙或食物物理；逐功能驗證提交、不 push。
 
+同輪追加 `doorkeys`（黃銅門鑰匙），目錄 518→519 種：四乘四 seeded quarter-turn 的平面鑰匙，圓環匙頭、連續窄頸、非對稱匙身、三處圓底齒槽、縱向導槽與倒角匙尖。與 hexkeys 的 L 形六角棒材區分；0.32 m tile、opaque metallic、map／預設 factor 皆為 1，沿四圖／選用 height／ownership，不新增鑰匙 geometry、透明孔、鎖芯或機械模擬；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -1254,6 +1254,7 @@ export function createSurfaceSampler(
     kind === 'rollerchain' ||
     kind === 'hinges' ||
     kind === 'coins' ||
+    kind === 'doorkeys' ||
     kind === 'hexkeys' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
@@ -1275,6 +1276,93 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'doorkeys': {
+        const p = proceduralMaterialPresets.doorkeys;
+        const keys = new Float64Array(p.cells * p.cells * 6);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              turn = Math.floor(4 * hash(col, row, seed ^ 0xf451));
+            keys[i] = turn === 0 ? 1 : turn === 2 ? -1 : 0;
+            keys[i + 1] = turn === 1 ? 1 : turn === 3 ? -1 : 0;
+            keys[i + 2] = hash(col, row, seed ^ 0xf453);
+            for (let j = 0; j < 3; j++) {
+              const depth =
+                p.bittingDepth +
+                p.depthVariation * hash(col * 3 + j, row, seed ^ 0xf455);
+              keys[i + 3 + j] = 1 / (depth * depth);
+            }
+          }
+        const bowSquared = p.bowRadius * p.bowRadius,
+          inverseBow = 1 / (bowSquared - (p.bowRadius - p.bowBevel) ** 2),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (boreSquared - (p.boreRadius - p.boreBevel) ** 2),
+          inverseBevel = 1 / p.bevel,
+          inversePitch = 1 / p.bittingPitch,
+          inverseBittingHeight = 1 / (p.bittingHeight * p.bittingHeight),
+          inverseBittingShoulder = 1 / p.bittingShoulder,
+          inverseGrooveWidth = 1 / (p.grooveWidth * p.grooveWidth),
+          inverseGrooveEnd = 1 / p.grooveEnd,
+          grainField = cachedNoise(96, 96, seed ^ 0xf457);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * keys[i] + dy * keys[i + 1],
+            y = dy * keys[i] - dx * keys[i + 1],
+            by = y - p.bowY,
+            r2 = x * x + by * by,
+            bow = smooth(clamp((bowSquared - r2) * inverseBow)),
+            bore = smooth(clamp((boreSquared - r2) * inverseBore)),
+            neck =
+              smooth(clamp((p.neckHalfWidth - Math.abs(x)) * inverseBevel)) *
+              smooth(clamp((y - p.neckTop) * inverseBevel)) *
+              smooth(clamp((p.neckBottom - y) * inverseBevel)),
+            blade =
+              smooth(clamp((x - p.bladeLeft) * inverseBevel)) *
+              smooth(clamp((p.bladeRight - x) * inverseBevel)) *
+              smooth(clamp((y - p.bladeTop) * inverseBevel)) *
+              smooth(clamp((p.tipY - y) * inverseBevel)) *
+              smooth(clamp((p.tipClip - x - y) * inverseBevel)),
+            bitting = Math.floor((y - p.firstBitting) * inversePitch + 0.5);
+          let cut = 0;
+          if (bitting >= 0 && bitting < 3) {
+            const ex = x - p.bladeRight,
+              ey = y - p.firstBitting - bitting * p.bittingPitch;
+            cut = smooth(
+              clamp(
+                (1 -
+                  ex * ex * keys[i + 3 + bitting] -
+                  ey * ey * inverseBittingHeight) *
+                  inverseBittingShoulder,
+              ),
+            );
+          }
+          // Union the flat blank before cutting its bore and three bittings:
+          // overlapping parts must not thicken the bow-to-blade connection.
+          const face =
+              (1 - (1 - bow) * (1 - neck) * (1 - blade)) *
+              (1 - bore) *
+              (1 - cut),
+            gx = x - p.grooveX,
+            groove =
+              face *
+              smooth(clamp(1 - gx * gx * inverseGrooveWidth)) *
+              smooth(clamp((y - p.grooveTop) * inverseGrooveEnd)) *
+              smooth(clamp((p.grooveBottom - y) * inverseGrooveEnd)),
+            grain = grainField(u, v);
+          color =
+            0.07 +
+            face * (0.73 + 0.07 * keys[i + 2] + 0.025 * grain) -
+            0.1 * groove;
+          height = 0.025 + 0.58 * face - 0.05 * groove + 0.003 * grain * face;
+          roughness += 0.18 * (1 - face) + 0.065 * groove + 0.02 * grain * face;
+          occlusion = 0.44 + 0.55 * face - 0.055 * groove;
+          return;
+        };
+      }
       case 'creamcrackers': {
         const p = proceduralMaterialPresets.creamcrackers;
         const tones = new Float64Array(p.cells * p.cells);
@@ -18336,6 +18424,7 @@ export function createSurfaceSampler(
     kind === 'hexkeys' ||
     kind === 'driedfigslice' ||
     kind === 'creamcrackers' ||
+    kind === 'doorkeys' ||
     fabricated ||
     botanical ||
     packaging ||

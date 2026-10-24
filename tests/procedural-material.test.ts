@@ -556,7 +556,108 @@ const kinds: ProceduralMaterialKind[] = [
   'hexkeys',
   'driedfigslice',
   'creamcrackers',
+  'doorkeys',
 ];
+
+describe('Flat brass door keys with bored bows and three bittings', () => {
+  const p = proceduralMaterialPresets.doorkeys;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('doorkeys', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves continuous flat keys, circular bows, three open bittings, recessed grooves and chamfered tips for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const candidates = [0, 1, 2, 3].map((turn) => {
+            const a = (turn * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            return (x: number, y: number) =>
+              at(col + 0.5 + x * c - y * s, row + 0.5 + x * s + y * c);
+          });
+          const poses = candidates.filter(
+            (probe) =>
+              probe(0, p.bowY - 0.12).height > 0.0024 &&
+              probe(0, 0).height > 0.0024,
+          );
+          expect(poses).toHaveLength(1);
+          const probe = poses[0];
+          for (let i = 0; i < 32; i++) {
+            const a = (i * 2 * Math.PI) / 32,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              crown = probe(0.11 * c, p.bowY + 0.11 * s),
+              bore = probe(0.03 * c, p.bowY + 0.03 * s);
+            expect(crown.height - bore.height).toBeGreaterThan(0.0023);
+            expect(crown.color - bore.color).toBeGreaterThan(0.72);
+            expect(bore.roughness - crown.roughness).toBeGreaterThan(0.15);
+            expect(crown.occlusion - bore.occlusion).toBeGreaterThan(0.54);
+            expect(bore.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(crown.metallic).toBe(1);
+          }
+          for (let i = 0; i <= 33; i++)
+            expect(probe(0, -0.09 + i * 0.01).height).toBeGreaterThan(0.0024);
+          for (let i = 0; i < 3; i++) {
+            const y = p.firstBitting + i * p.bittingPitch,
+              gap = probe(0.06, y),
+              tooth = probe(0.06, y + p.bittingPitch * 0.5),
+              rail = probe(-0.03, y);
+            expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+            expect(tooth.height - gap.height).toBeGreaterThan(0.0023);
+            expect(tooth.occlusion - gap.occlusion).toBeGreaterThan(0.54);
+            expect(rail.height).toBeGreaterThan(0.0024);
+          }
+          const groove = probe(p.grooveX, 0.15);
+          for (const x of [-0.033, 0.005]) {
+            const flat = probe(x, 0.15);
+            expect(flat.height - groove.height).toBeGreaterThan(0.00018);
+            expect(flat.color - groove.color).toBeGreaterThan(0.07);
+            expect(groove.roughness - flat.roughness).toBeGreaterThan(0.04);
+          }
+          expect(probe(0.085, 0.275).height).toBeCloseTo(0.025 * p.relief, 12);
+          expect(probe(0.04, 0.26).height).toBeGreaterThan(0.0024);
+        }
+    },
+  );
+  it('keeps bow/blank unions, bore, bitting owners, grooves, bevels and periodic wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Scalloped cream crackers with nine docking pits', () => {
   const p = proceduralMaterialPresets.creamcrackers;
@@ -19868,6 +19969,7 @@ describe('periodic procedural material fields', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'doorkeys' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
@@ -29320,6 +29422,7 @@ describe('procedural preset acquisition and ownership', () => {
     'paperclips',
     'hinges',
     'coins',
+    'doorkeys',
     'hexkeys',
     'starsocketbolts',
     'sawblades',
@@ -29363,6 +29466,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'paperclips' ||
           kind === 'hinges' ||
           kind === 'coins' ||
+          kind === 'doorkeys' ||
           kind === 'hexkeys' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||

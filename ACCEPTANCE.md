@@ -6875,3 +6875,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐餅逐九孔各 16 方位檢查 pit／bevel／face 的 height／color／roughness／AO／metallic；四側各四組波谷／波峰確認外緣切口及凸起餅身，並檢查 corner backing。另掃描 scallops／nearest-hole owners／blisters／cell borders／wrap C1；四項針對測試通過，既有 517 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6281 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 creamcrackers，518 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認四側細波邊、九孔壓痕、褐色餅緣及不規則焦斑，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 烘烤表面，不宣稱烘焙物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：黃銅門鑰匙（doorkeys）
+
+- 目錄 518→519 種；0.32 m tile，4×4 seeded quarter-turn 的平面黃銅鑰匙，圓環匙頭、窄頸、單側加寬匙身、三處獨立 seeded depth 的圓底齒槽、縱向導槽與倒角匙尖，區別 hexkeys 的 L 形棒材。Opaque metallic、map／預設 factor 皆為 1，沿既有四圖／選用 height／ownership，不新增鑰匙 geometry、透明孔、鎖芯或機械模擬。
+- 三 seed（0／1／`0xffffffff`）逐匙用高度 landmarks 搜尋唯一轉向，32 方位檢查 bow／bore 的 height／color／roughness／AO／metallic；沿中心 34 點確認接頸無斷裂，逐三槽檢查 cut／tooth／完整背脊，並驗證導槽高度、色及 roughness 差與匙尖 chamfer。另掃描 union／bore／bitting owners／grooves／bevels／wrap C1；四項針對測試通過，既有 518 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- build、typecheck、lint、format:check、完整 Vitest（179 檔／6287 項）、check:api-compatibility、check:distribution 通過。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 doorkeys，519 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認不同轉向金色鑰匙、圓孔、三處齒槽與匙身輪廓，height true、metallic 1、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱實際鎖具可用性、CAD 精度、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

@@ -4267,6 +4267,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         holeRadius: 0.016;
         holeShoulder: 0.35;
     }>;
+    doorkeys: Readonly<{
+        dark: readonly [50, 31, 9];
+        light: readonly [228, 185, 80];
+        roughness: 0.33;
+        relief: 0.004;
+        cells: 4;
+        bowY: -0.18;
+        bowRadius: 0.145;
+        bowBevel: 0.012;
+        boreRadius: 0.07;
+        boreBevel: 0.012;
+        neckHalfWidth: 0.045;
+        neckTop: -0.1;
+        neckBottom: 0.06;
+        bladeLeft: -0.045;
+        bladeRight: 0.095;
+        bladeTop: 0.015;
+        tipY: 0.28;
+        tipClip: 0.35;
+        bevel: 0.008;
+        firstBitting: 0.065;
+        bittingPitch: 0.07;
+        bittingHeight: 0.023;
+        bittingDepth: 0.038;
+        depthVariation: 0.03;
+        bittingShoulder: 0.15;
+        grooveX: -0.017;
+        grooveWidth: 0.008;
+        grooveTop: -0.065;
+        grooveBottom: 0.25;
+        grooveEnd: 0.015;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4788,4 +4820,5 @@ export declare const proceduralTileMeters: Readonly<{
     hexkeys: 0.4;
     driedfigslice: 0.24;
     creamcrackers: 0.24;
+    doorkeys: 0.32;
 }>;
