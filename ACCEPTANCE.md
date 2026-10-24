@@ -7179,3 +7179,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 555 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 mudtiretracks，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 mudtiretracks，556 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認連續泥面兩道輪轍、重複弧形深壓痕與較淺泥緣、轍間裸泥，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 terrain geometry、車輪／碰撞／動態變形／車輛／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 全量 build、typecheck、lint、format:check、179 檔 6482 項 test、API compatibility（737 exports／2810 directional contracts／710 historical export namespaces／5 consumers）與 distribution（367 exports）通過；套件仍 1.22.1，不擴大瀏覽器或 backend 認證範圍。
+
+## 2026-10-25 程序材質：金綠眼斑孔雀羽毛（peacockfeathers）
+
+- 目錄 556→557 種；0.64 m opaque dielectric tile、metallic 0，重用 feathers 8×4 seeded lean／交錯覆疊羽軸羽枝，金外圈／綠內帶／偏心深 pupil 只改 pigment，不刻環槽／洞。不新增 geometry、透洞、梳理／鳥類／生物或虹彩光學模擬。
+- 三 seed（0／1／`0xffffffff`）各 32 羽，513 點眼斑橫剖面兩個 gold rim crossings／>20 高色樣點／color max >0.9、pupil color <0.07／green inner band 0.25–0.37；pupil 仍高於金圈平均 height >0.00004 m／自身 >0.47 relief，ring height >0.00065 m，AO 同為 0.98／metallic 0，避免色斑假挖洞。129×129 網格、三 seed、雙方向四欄位 C1 h 1e-9 保留 0.02 上限；四項形態／C1 與既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 556 種（含共享羽毛／魚鱗分支）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 peacockfeathers，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 peacockfeathers，557 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認交錯金綠眼斑、深 pupil、羽軸羽枝與覆疊羽端，height true、metallic 0、destroyed true，預覽隨頁清除。不宣稱 geometry、透洞、梳理／鳥類／生物／虹彩光學模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 完整 build、typecheck、lint、format:check、179 檔／6487 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。

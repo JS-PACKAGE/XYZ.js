@@ -653,6 +653,8 @@
 
 同輪追加 `mudtiretracks`（泥地雙輪胎痕），目錄 555→556 種：連續泥面兩道凹輪轍、每轍 36 道弧形胎塊壓痕、兩側微凸泥緣；不是 tiretread 橡膠凸塊或 mud 多邊形泥塊。3 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增 terrain geometry、車輪／碰撞／動態變形／車輛或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `peacockfeathers`（金綠眼斑孔雀羽毛），目錄 556→557 種：重用 feathers 8×4 seeded lean／交錯覆疊／羽軸羽枝，金色外圈、綠色內帶與深 pupil 都是 pigment，不刻成環槽或洞。0.64 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增羽毛 geometry、透洞、梳理／鳥類／生物或虹彩光學模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

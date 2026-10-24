@@ -5066,6 +5066,23 @@ export const proceduralMaterialPresets = Object.freeze({
     bermCenter: 1.12,
     bermSquaredWidth: 0.45,
   }),
+  peacockfeathers: Object.freeze({
+    dark: [14, 36, 32] as const,
+    light: [185, 179, 72] as const,
+    roughness: 0.86,
+    relief: 0.0018,
+    eyeY: -0.25,
+    eyeWidth: 0.19,
+    eyeLength: 0.24,
+    outerShoulder: 0.22,
+    innerSquared: 0.62,
+    innerShoulder: 0.16,
+    pupilX: -0.01,
+    pupilY: -0.27,
+    pupilWidth: 0.075,
+    pupilLength: 0.1,
+    pupilShoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5626,4 +5643,5 @@ export const proceduralTileMeters = Object.freeze({
   dinnerforks: 0.96,
   goldbrocade: 0.24,
   mudtiretracks: 3,
+  peacockfeathers: 0.64,
 });

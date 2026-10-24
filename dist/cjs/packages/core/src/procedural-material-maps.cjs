@@ -190,7 +190,7 @@ function createSurfaceSampler(t, r) {
 			Re[o++] = u / f, Re[o++] = d / f, Re[o++] = f / 2;
 		}
 	}
-	let ze = t === `fishscales` ? 10 : 8, Be = t === `fishscales` ? 10 : 4, Ve = t === `fishscales` || t === `feathers` ? new Float64Array(ze * Be * 2) : null;
+	let ze = t === `fishscales` ? 10 : 8, Be = t === `fishscales` ? 10 : 4, Ve = t === `fishscales` || t === `feathers` || t === `peacockfeathers` ? new Float64Array(ze * Be * 2) : null;
 	if (Ve) for (let e = 0; e < Be; e++) for (let t = 0; t < ze; t++) {
 		let n = (e * ze + t) * 2;
 		Ve[n] = hash(t, e, r ^ 15985), Ve[n + 1] = .2 * (hash(t, e, r ^ 25299) - .5);
@@ -3810,31 +3810,38 @@ function createSurfaceSampler(t, r) {
 				Y = .12 + u * (.37 + .22 * o + .1 * q - .12 * f), X = .035 + u * (.64 + .17 * l * l + .035 * o - .065 * f), Z += .13 * (1 - u) + u * (.055 * f + .04 * (q - .5)), Q = .53 + u * (.46 - .055 * f);
 			};
 			case `fishscales`:
-			case `feathers`: return () => {
-				let e = G * ze, r = K * Be, i = Math.floor(r);
-				Y = .12 + .045 * q, X = .23, Q = .76;
-				for (let a = -1; a <= 1; a++) {
-					let o = i + a, s = (o % Be + Be) % Be, c = s % 2 * .5, l = Math.floor(e - c);
-					for (let i = -1; i <= 1; i++) {
-						let a = l + i, u = (a % ze + ze) % ze, d = (s * ze + u) * 2, f = Ve[d], p = r - o - .5, m = e - a - c - .5 - Ve[d + 1] * p, h, g, _;
-						if (t === `fishscales`) {
-							let e = m * m / .4356 + p * p / .6724;
-							if (h = smooth(clamp((1 - e) / .18)), h === 0) continue;
-							let t = smooth(clamp(1 - e)), r = smooth(clamp((e - .48) / .2)) * smooth(clamp((1 - e) / .15)) * smooth(clamp((p + .12) / .4)), i = Math.cos(n * (6 * e + .15 * f));
-							g = .39 + .2 * f + .13 * t + .1 * r + .045 * i, _ = .37 + .12 * t + .11 * r + .012 * i * t;
-						} else {
-							let e = p / 1.08;
-							if (e <= -1 || e >= 1) continue;
-							let t = 1 - e * e, r = t * t - m * m / .2304;
-							if (h = smooth(clamp(r / .16)), h === 0) continue;
-							let i = smooth(clamp(r)), a = smooth(clamp(1 - m * m / .0025)), o = Math.cos(n * (18 * p - 14 * Math.sqrt(m * m + 4e-4))), s = smooth(clamp((e + .45) / 1.1));
-							g = .36 + .22 * f + .1 * i - .12 * s + .08 * a + .065 * o, _ = .35 + .1 * i + .075 * a + .013 * o * i;
+			case `feathers`:
+			case `peacockfeathers`: {
+				let r = t === `peacockfeathers` ? require_materials.proceduralMaterialPresets.peacockfeathers : null, i = r ? 1 / (r.eyeWidth * r.eyeWidth) : 0, a = r ? 1 / (r.eyeLength * r.eyeLength) : 0, o = r ? 1 / r.outerShoulder : 0, s = r ? 1 / r.innerShoulder : 0, c = r ? 1 / (r.pupilWidth * r.pupilWidth) : 0, l = r ? 1 / (r.pupilLength * r.pupilLength) : 0, u = r ? 1 / r.pupilShoulder : 0;
+				return () => {
+					let e = G * ze, d = K * Be, f = Math.floor(d);
+					Y = .12 + .045 * q, X = .23, Q = .76;
+					for (let p = -1; p <= 1; p++) {
+						let m = f + p, h = (m % Be + Be) % Be, g = h % 2 * .5, _ = Math.floor(e - g);
+						for (let f = -1; f <= 1; f++) {
+							let p = _ + f, v = (p % ze + ze) % ze, y = (h * ze + v) * 2, b = Ve[y], x = d - m - .5, S = e - p - g - .5 - Ve[y + 1] * x, C, w, T;
+							if (t === `fishscales`) {
+								let e = S * S / .4356 + x * x / .6724;
+								if (C = smooth(clamp((1 - e) / .18)), C === 0) continue;
+								let t = smooth(clamp(1 - e)), r = smooth(clamp((e - .48) / .2)) * smooth(clamp((1 - e) / .15)) * smooth(clamp((x + .12) / .4)), i = Math.cos(n * (6 * e + .15 * b));
+								w = .39 + .2 * b + .13 * t + .1 * r + .045 * i, T = .37 + .12 * t + .11 * r + .012 * i * t;
+							} else {
+								let e = x / 1.08;
+								if (e <= -1 || e >= 1) continue;
+								let t = 1 - e * e, d = t * t - S * S / .2304;
+								if (C = smooth(clamp(d / .16)), C === 0) continue;
+								let f = smooth(clamp(d)), p = smooth(clamp(1 - S * S / .0025)), m = Math.cos(n * (18 * x - 14 * Math.sqrt(S * S + 4e-4))), h = smooth(clamp((e + .45) / 1.1));
+								if (w = .36 + .22 * b + .1 * f - .12 * h + .08 * p + .065 * m, T = .35 + .1 * f + .075 * p + .013 * m * f, r) {
+									let e = x - r.eyeY, t = S * S * i + e * e * a, n = smooth(clamp((1 - t) * o)), d = smooth(clamp((r.innerSquared - t) * s)), f = S - r.pupilX, p = x - r.pupilY, h = smooth(clamp((1 - f * f * c - p * p * l) * u));
+									w += n * (.91 + .025 * b + .015 * m - w), w += d * (.29 + .035 * b + .02 * m - w), w += h * (.035 + .015 * b + .008 * m - w);
+								}
+							}
+							Y += C * (w - Y), X += C * (T - X), Q += C * (.98 - Q);
 						}
-						Y += h * (g - Y), X += h * (_ - X), Q += h * (.98 - Q);
 					}
-				}
-				Z += .045 * (1 - Q) + .025 * (q - .5);
-			};
+					Z += .045 * (1 - Q) + .025 * (q - .5);
+				};
+			}
 			case `tortoiseshell`: return () => {
 				let e = G * 6, t = K * 6, i = Math.floor(e), a = Math.floor(t), o = noise(G, K, 19, 23, r ^ 18919);
 				Y = .045 + .025 * q, X = .22, Q = .72;

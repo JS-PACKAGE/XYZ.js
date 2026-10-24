@@ -594,7 +594,107 @@ const kinds: ProceduralMaterialKind[] = [
   'dinnerforks',
   'goldbrocade',
   'mudtiretracks',
+  'peacockfeathers',
 ];
+
+describe('Peacock feather ocelli over continuous shafts and barbs', () => {
+  const p = proceduralMaterialPresets.peacockfeathers;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('peacockfeathers', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + (row & 1) * 0.5 + x) / 8, (row + 0.5 + y) / 4, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a dark pupil, inner green band and two bright gold rim crossings on each feather without hollowing its shaft for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < 4; row++)
+        for (let col = 0; col < 8; col++) {
+          const pupil = at(col, row, 0, -0.27),
+            inner = at(col, row, 0.1, -0.25),
+            gold: boolean[] = [];
+          let ringHeight = 0,
+            ringPoints = 0,
+            maxColor = -Infinity;
+          expect(pupil.color).toBeLessThan(0.07);
+          expect(inner.color).toBeGreaterThan(0.25);
+          expect(inner.color).toBeLessThan(0.37);
+          expect(inner.color - pupil.color).toBeGreaterThan(0.19);
+          expect(pupil.occlusion).toBeCloseTo(0.98, 12);
+          expect(pupil.metallic).toBe(0);
+          for (let i = 0; i <= 512; i++) {
+            const point = at(col, row, -0.24 + (0.48 * i) / 512, -0.25);
+            const rim = point.color > 0.85;
+            gold.push(rim);
+            maxColor = Math.max(maxColor, point.color);
+            if (rim) {
+              ringHeight += point.height;
+              ringPoints++;
+              expect(point.height).toBeGreaterThan(0.00065);
+              expect(point.occlusion).toBeCloseTo(0.98, 12);
+            }
+            expect(point.metallic).toBe(0);
+          }
+          let crossings = 0;
+          for (let i = 1; i < gold.length; i++)
+            if (gold[i] && !gold[i - 1]) crossings++;
+          expect(crossings).toBe(2);
+          expect(ringPoints).toBeGreaterThan(20);
+          expect(maxColor).toBeGreaterThan(0.9);
+          expect(pupil.height - ringHeight / ringPoints).toBeGreaterThan(
+            0.00004,
+          );
+          expect(pupil.height).toBeGreaterThan(0.47 * p.relief);
+        }
+    },
+  );
+  it('keeps ocellus pigment edges, feather overlaps, lean, shaft, barbs and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('peacockfeathers', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = x / 128,
+              v = y / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Paired tire ruts with curved impressions and raised mud edges', () => {
   const p = proceduralMaterialPresets.mudtiretracks;

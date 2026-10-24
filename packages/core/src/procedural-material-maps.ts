@@ -703,7 +703,7 @@ export function createSurfaceSampler(
   const armorColumns = kind === 'fishscales' ? 10 : 8;
   const armorRows = kind === 'fishscales' ? 10 : 4;
   const armorCells =
-    kind === 'fishscales' || kind === 'feathers'
+    kind === 'fishscales' || kind === 'feathers' || kind === 'peacockfeathers'
       ? new Float64Array(armorColumns * armorRows * 2)
       : null;
   if (armorCells)
@@ -14746,6 +14746,20 @@ export function createSurfaceSampler(
         };
       case 'fishscales':
       case 'feathers':
+      case 'peacockfeathers': {
+        const eye =
+            kind === 'peacockfeathers'
+              ? proceduralMaterialPresets.peacockfeathers
+              : null,
+          inverseEyeWidth = eye ? 1 / (eye.eyeWidth * eye.eyeWidth) : 0,
+          inverseEyeLength = eye ? 1 / (eye.eyeLength * eye.eyeLength) : 0,
+          inverseOuterShoulder = eye ? 1 / eye.outerShoulder : 0,
+          inverseInnerShoulder = eye ? 1 / eye.innerShoulder : 0,
+          inversePupilWidth = eye ? 1 / (eye.pupilWidth * eye.pupilWidth) : 0,
+          inversePupilLength = eye
+            ? 1 / (eye.pupilLength * eye.pupilLength)
+            : 0,
+          inversePupilShoulder = eye ? 1 / eye.pupilShoulder : 0;
         return () => {
           const x = u * armorColumns,
             y = v * armorRows,
@@ -14808,6 +14822,34 @@ export function createSurfaceSampler(
                   0.065 * barbs;
                 relief =
                   0.35 + 0.1 * vane + 0.075 * shaft + 0.013 * barbs * vane;
+                if (eye) {
+                  const ey = dy - eye.eyeY,
+                    q = dx * dx * inverseEyeWidth + ey * ey * inverseEyeLength,
+                    outer = smooth(clamp((1 - q) * inverseOuterShoulder)),
+                    inner = smooth(
+                      clamp((eye.innerSquared - q) * inverseInnerShoulder),
+                    ),
+                    px = dx - eye.pupilX,
+                    py = dy - eye.pupilY,
+                    pupil = smooth(
+                      clamp(
+                        (1 -
+                          px * px * inversePupilWidth -
+                          py * py * inversePupilLength) *
+                          inversePupilShoulder,
+                      ),
+                    );
+                  // Ocelli are pigment: the shaft, barbs and AO never become
+                  // a carved ring or hollow pupil.
+                  pigment +=
+                    outer *
+                    (0.91 + 0.025 * variation + 0.015 * barbs - pigment);
+                  pigment +=
+                    inner * (0.29 + 0.035 * variation + 0.02 * barbs - pigment);
+                  pigment +=
+                    pupil *
+                    (0.035 + 0.015 * variation + 0.008 * barbs - pigment);
+                }
               }
               color += cover * (pigment - color);
               height += cover * (relief - height);
@@ -14817,6 +14859,7 @@ export function createSurfaceSampler(
           roughness += 0.045 * (1 - occlusion) + 0.025 * (detail - 0.5);
           return;
         };
+      }
       case 'tortoiseshell':
         return () => {
           const x = u * 6,
