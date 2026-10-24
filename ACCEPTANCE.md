@@ -6903,3 +6903,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 三 seed（0／1／`0xffffffff`）逐株沿外圈 720 方位黑箱搜尋葉軸，確認六個分離 lobe；逐六軸驗證三圈高度遞增、內葉色差與外部 backing，兩側 flank 的高度／AO 差確認肥厚凸冠，不是平葉。另掃描 spoon tips／tapered widths／layered whorls／owners／wrap C1；四項針對測試通過，既有 521 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
 - build、typecheck、lint、format:check、完整 Vitest（179 檔／6303 項）、check:api-compatibility、check:distribution 通過。
 - managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 succulentrosettes，522 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認三圈錯位灰綠厚葉、六瓣外緣及較亮的內圈，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 植物表面，不宣稱生物構造精確性、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。
+
+## 2026-10-25 程序材質：紙摺扇（foldingfans）
+
+- 目錄 522→523 種；1 m tile，4×4 交替轉向的 140° 象牙色紙扇，十二道放射紙摺、十三根露出木扇骨、兩側護骨及圓扇釘，區別 pleats 的直向布摺及 origami 的平面摺紙網格。Opaque dielectric、metallic 0，沿四圖／選用 height／ownership，不新增扇子 geometry、透明孔、開合動畫或摺紙物理。
+- 三 seed（0／1／`0xffffffff`）逐扇逐內部摺痕在三種半徑檢查 crest／trough 的 height／color／roughness／AO；逐十三骨檢查露骨高度、骨間 opaque backing，另驗證兩護骨、扇釘、扇外及 pivot 背向無錯畫。初始 `h=1e-8` 的 C1 差分門檻失敗；fresh Bun 診斷最差 AO gradient difference 隨 h 從 `1e-7`、`1e-8`、`1e-9` 到 `1e-10` 為 0.217236、0.021724、0.002173、0.000222，證明細骨 shoulder 的有限曲率收斂，改用 `h=1e-9`、維持 0.02 門檻。四項針對測試通過，既有 522 種 size 64／seed 7 四圖 SHA256 changed 0；八份修改文件相對連結無失效。
+- 完整 build、typecheck、lint、format:check、179 檔／6308 項測試、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及 distribution（367 exports）皆通過；版本保持 1.22.1。
+- managed headless Chromium 同一分頁在 `about:blank` cleanup 後分別導向正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 foldingfans，523 種與 plain、25 球及四圖預覽正常、兩次 errors 及離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的 baseColor 等比例臨時 canvas 確認交替扇面、放射紙摺、露出骨架及扇釘，height true、metallic 0、destroyed true，預覽隨頁清除。屬 stylized 表面浮雕，不宣稱摺紙物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交，不 push。

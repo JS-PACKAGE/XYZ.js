@@ -560,7 +560,102 @@ const kinds: ProceduralMaterialKind[] = [
   'dodecagontiles',
   'ballchain',
   'succulentrosettes',
+  'foldingfans',
 ];
+
+describe('Radially pleated paper folding fans with exposed wooden ribs', () => {
+  const p = proceduralMaterialPresets.foldingfans;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('foldingfans', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves twelve radial paper folds, thirteen exposed ribs, guard edges, pivot caps and opaque open backing for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const flip = (col + row) & 1 ? -1 : 1;
+          const radial = (r: number, a: number) =>
+            at(
+              col + 0.5 + r * Math.sin(a) * flip,
+              row + 0.5 + (p.pivotY - r * Math.cos(a)) * flip,
+            );
+          const step = (2 * p.halfAngle) / p.folds;
+          for (let i = 1; i < p.folds; i++) {
+            const a = -p.halfAngle + i * step;
+            for (const r of [0.24, 0.33, 0.39]) {
+              const crest = radial(r, a),
+                trough = radial(r, a + step * 0.5);
+              expect(crest.height - trough.height).toBeGreaterThan(0.00177);
+              expect(crest.color - trough.color).toBeGreaterThan(0.14);
+              expect(trough.roughness - crest.roughness).toBeGreaterThan(0.065);
+              expect(crest.occlusion - trough.occlusion).toBeGreaterThan(0.17);
+              expect(crest.metallic).toBe(0);
+            }
+          }
+          for (let i = 0; i <= p.folds; i++) {
+            const a = -p.halfAngle + i * step,
+              rib = radial(0.12, a);
+            expect(rib.height).toBeCloseTo(0.25 * p.relief, 12);
+            expect(rib.occlusion).toBeCloseTo(0.94, 12);
+            if (i < p.folds) {
+              const gap = radial(0.12, a + step * 0.5);
+              expect(gap.height).toBeCloseTo(0.025 * p.relief, 12);
+              expect(rib.color - gap.color).toBeGreaterThan(0.4);
+            }
+          }
+          for (const a of [-p.halfAngle, p.halfAngle]) {
+            const guard = radial(0.35, a),
+              outside = radial(0.35, a + Math.sign(a) * 0.05);
+            expect(guard.height).toBeCloseTo(0.25 * p.relief, 12);
+            expect(outside.height).toBeCloseTo(0.025 * p.relief, 12);
+          }
+          const pivot = radial(0, 0);
+          expect(pivot.height).toBeCloseTo(0.3 * p.relief, 12);
+          expect(radial(0.45, 0).height).toBeCloseTo(0.025 * p.relief, 12);
+          expect(radial(0.1, Math.PI).height).toBeCloseTo(0.025 * p.relief, 12);
+        }
+    },
+  );
+  it('keeps annular paper, radial pleats, hidden rib ties, pivot caps, cell owners and wrap C1', () => {
+    // Narrow rib shoulders have high finite curvature; this step resolves
+    // their converging gradients without relaxing the discontinuity bound.
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Succulent rosettes with three raised fleshy leaf whorls', () => {
   const p = proceduralMaterialPresets.succulentrosettes;

@@ -4337,6 +4337,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         radiusLimit: 0.43;
         whorls: readonly [readonly [0.22, 0.16, 0.09, 0.22, 0], readonly [0.14, 0.13, 0.075, 0.43, 0.5], readonly [0.065, 0.085, 0.05, 0.62, 0]];
     }>;
+    foldingfans: Readonly<{
+        dark: readonly [62, 32, 14];
+        light: readonly [241, 216, 169];
+        roughness: 0.78;
+        relief: 0.01;
+        cells: 4;
+        pivotY: 0.19;
+        radius: 0.42;
+        innerRadius: 0.18;
+        radialBevel: 0.012;
+        halfAngle: number;
+        folds: 12;
+        edgeBevel: 0.008;
+        ribWidth: 0.0045;
+        ribShoulder: 0.35;
+        ribStart: 0.015;
+        ribEnd: 0.425;
+        pivotRadius: 0.06;
+        pivotShoulder: 0.05;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4862,4 +4882,5 @@ export declare const proceduralTileMeters: Readonly<{
     dodecagontiles: 0.7;
     ballchain: 0.064;
     succulentrosettes: 0.64;
+    foldingfans: 1;
 }>;

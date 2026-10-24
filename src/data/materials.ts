@@ -4440,6 +4440,26 @@ export const proceduralMaterialPresets = Object.freeze({
       [0.065, 0.085, 0.05, 0.62, 0],
     ] as const,
   }),
+  foldingfans: Object.freeze({
+    dark: [62, 32, 14] as const,
+    light: [241, 216, 169] as const,
+    roughness: 0.78,
+    relief: 0.01,
+    cells: 4,
+    pivotY: 0.19,
+    radius: 0.42,
+    innerRadius: 0.18,
+    radialBevel: 0.012,
+    halfAngle: (70 * Math.PI) / 180,
+    folds: 12,
+    edgeBevel: 0.008,
+    ribWidth: 0.0045,
+    ribShoulder: 0.35,
+    ribStart: 0.015,
+    ribEnd: 0.425,
+    pivotRadius: 0.06,
+    pivotShoulder: 0.05,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -4966,4 +4986,5 @@ export const proceduralTileMeters = Object.freeze({
   dodecagontiles: 0.7,
   ballchain: 0.064,
   succulentrosettes: 0.64,
+  foldingfans: 1,
 });

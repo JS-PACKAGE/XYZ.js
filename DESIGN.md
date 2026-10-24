@@ -593,6 +593,8 @@
 
 `succulentrosettes` 預算 16 株各 18 片葉的 axes／radial offset／inverse dimensions／lift／tone；三圈 leaf whorls 由外往內 painter-blend，各內圈遮住先前狹窄葉基，不把各葉高度相加。橢圓 transverse width 隨 along 增大形成匙形，先剔除 longitudinal support 外取樣以保持分母正值；compact face、convex dome 與抬起的 rounded tip 同步控制 color／height／roughness／AO。外輪六葉、中輪轉半葉距、內輪六葉更高，leaf support 全在 radiusLimit 與 cell seam 前消失。96×96 grain、取樣無 trig／sqrt／配置；4×4、0.64 m tile，目錄 522 種。Opaque dielectric，不新增 geometry、透明度、次表面散射或生物模擬。
 
+`foldingfans` 預算十三條 ray axes 與 16 組 paper tones；nearest-ray compact capsule 畫木扇骨，annular squared-radius／sector 半平面覆蓋紙面，angular cos 畫十二道起伏摺痕。中心完整 pivot cap 遮住 atan2 singularity 與近根部 ray ties；扇釘外各木骨 support 分離，nearest-ray 更換前已退回 backing。紙面後混合遮住上段扇骨，保留較低露出骨架與兩側護骨，不加疊骨架厚度。圓釘最後覆蓋所有根部，孔間為 opaque backing。4×4、1 m tile，目錄 523 種；96×96 grain，取樣無配置、ray trig 預算，紙面 angular fold 使用 atan2／cos；opaque dielectric，不新增 geometry、透明孔、開合動畫或摺紙物理。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

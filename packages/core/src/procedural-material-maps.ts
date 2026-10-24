@@ -1277,6 +1277,98 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'foldingfans': {
+        const p = proceduralMaterialPresets.foldingfans;
+        const axes = new Float64Array((p.folds + 1) * 2),
+          tones = new Float64Array(p.cells * p.cells),
+          step = (2 * p.halfAngle) / p.folds;
+        for (let i = 0; i <= p.folds; i++) {
+          const angle = -p.halfAngle + i * step;
+          axes[i * 2] = Math.sin(angle);
+          axes[i * 2 + 1] = Math.cos(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0xf891);
+        const radiusSquared = p.radius * p.radius,
+          innerSquared = p.innerRadius * p.innerRadius,
+          inverseOuter = 1 / (radiusSquared - (p.radius - p.radialBevel) ** 2),
+          inverseInner =
+            1 / ((p.innerRadius + p.radialBevel) ** 2 - innerSquared),
+          pivotSquared = p.pivotRadius * p.pivotRadius,
+          inversePivot = 1 / (pivotSquared - p.pivotShoulder * p.pivotShoulder),
+          inverseRib = 1 / (p.ribWidth * p.ribWidth),
+          inverseRibShoulder = 1 / p.ribShoulder,
+          inverseStep = 1 / step,
+          edgeSin = Math.sin(p.halfAngle),
+          edgeCos = Math.cos(p.halfAngle),
+          inverseEdge = 1 / p.edgeBevel,
+          grainField = cachedNoise(96, 96, seed ^ 0xf893);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            flip = (col + row) & 1 ? -1 : 1,
+            x = (fract(uc) - 0.5) * flip,
+            y = p.pivotY - (fract(vc) - 0.5) * flip,
+            q = x * x + y * y,
+            pivot = smooth(clamp((pivotSquared - q) * inversePivot));
+          color = 0.055;
+          height = 0.025;
+          roughness = 0.94;
+          occlusion = 0.4;
+          // The full pivot covers the angular singularity and all near-root
+          // nearest-rib ties. Outside it the compact rib supports are disjoint.
+          if (q > p.pivotShoulder * p.pivotShoulder) {
+            const angle = Math.atan2(x, y),
+              owner = Math.max(
+                0,
+                Math.min(
+                  p.folds,
+                  Math.floor((angle + p.halfAngle) * inverseStep + 0.5),
+                ),
+              ),
+              s = axes[owner * 2],
+              c = axes[owner * 2 + 1],
+              along = Math.max(p.ribStart, Math.min(p.ribEnd, x * s + y * c)),
+              dx = x - along * s,
+              dy = y - along * c,
+              ribQ = (dx * dx + dy * dy) * inverseRib,
+              rib = smooth(clamp((1 - ribQ) * inverseRibShoulder)),
+              ribDome = clamp(1 - ribQ);
+            color += rib * (0.34 + 0.12 * ribDome - color);
+            height += rib * (0.2 + 0.05 * ribDome - height);
+            roughness += rib * (0.65 - roughness);
+            occlusion += rib * (0.94 - occlusion);
+            const paper =
+              smooth(clamp((radiusSquared - q) * inverseOuter)) *
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              smooth(
+                clamp((y * edgeSin - Math.abs(x) * edgeCos) * inverseEdge),
+              );
+            if (paper > 0) {
+              const fold =
+                  0.5 +
+                  0.5 * Math.cos(TAU * (angle + p.halfAngle) * inverseStep),
+                grain = grainField(u, v),
+                tone = tones[row * p.cells + col];
+              color +=
+                paper *
+                (0.64 + 0.16 * fold + 0.05 * tone + 0.015 * grain - color);
+              height += paper * (0.36 + 0.18 * fold + 0.003 * grain - height);
+              roughness +=
+                paper * (p.roughness - 0.08 * fold + 0.015 * grain - roughness);
+              occlusion += paper * (0.8 + 0.18 * fold - occlusion);
+            }
+          }
+          color += pivot * (0.26 - color);
+          height += pivot * (0.3 - height);
+          roughness += pivot * (0.6 - roughness);
+          occlusion += pivot * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'succulentrosettes': {
         const p = proceduralMaterialPresets.succulentrosettes;
         const stride = p.whorls.length * p.leaves * 7,
@@ -18662,6 +18754,7 @@ export function createSurfaceSampler(
     kind === 'dodecagontiles' ||
     kind === 'ballchain' ||
     kind === 'succulentrosettes' ||
+    kind === 'foldingfans' ||
     fabricated ||
     botanical ||
     packaging ||

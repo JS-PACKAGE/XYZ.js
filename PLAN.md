@@ -585,6 +585,8 @@
 
 同輪追加 `succulentrosettes`（多肉蓮座葉叢），目錄 521→522 種：四乘四不同轉向的灰綠 rosettes，每株三圈各六片肥厚匙形葉，內圈錯位覆蓋外圈葉基並由外向內抬高。區別 artichoke 的平行尖苞片與 daisy 的平面放射花瓣；0.64 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership，不新增植物 geometry、透明度、次表面散射或生物模擬；逐功能驗證提交、不 push。
 
+同輪追加 `foldingfans`（紙摺扇），目錄 522→523 種：四乘四交替轉向的 140° 扇面，十二道放射紙摺痕、十三根露出木扇骨、兩側護骨及圓扇釘，區別 pleats 的直向布摺與 origami 的平面摺紙網格。1 m opaque dielectric tile、metallic 0；沿四圖／選用 height／ownership，不新增扇子 geometry、透明孔、開合動畫或摺紙物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
