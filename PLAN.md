@@ -553,6 +553,8 @@
 
 同輪追加 `cashews`（腰果仁），目錄 505→506 種：4×4 奶油色 C 形厚實果仁，中央與側邊開口連通，兩個圓鈍端部大小不對稱、交替 ±45° 排列並帶 seeded 色差。0.16 m tile、opaque dielectric／metallic 0，沿四圖／選用 height／ownership，不新增果仁 geometry、透明孔洞、散射或食物物理；逐功能驗證提交、不 push。
 
+同輪追加 `hinges`（鋼製鉸鏈），目錄 506→507 種：4×4 雙側圓角固定葉片、六個沉孔、五節凸起軸筒與節縫中較低且連續的銷軸，帶 seeded 拉絲微紋。0.4 m tile、opaque steel／metallic 1，沿四圖／選用 height／ownership，不新增鉸鏈 geometry、透明孔洞、活動關節或剛體物理；逐功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

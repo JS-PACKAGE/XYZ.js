@@ -1252,6 +1252,7 @@ export function createSurfaceSampler(
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
     kind === 'rollerchain' ||
+    kind === 'hinges' ||
     kind === 'perforatedmetal' ||
     kind === 'expandedmetal' ||
     kind === 'wiremesh' ||
@@ -1272,6 +1273,81 @@ export function createSurfaceSampler(
    */
   const pick = (): (() => void) => {
     switch (kind) {
+      case 'hinges': {
+        const p = proceduralMaterialPresets.hinges;
+        const inverseLeafX = 1 / p.leafHalfWidth,
+          inverseLeafY = 1 / p.leafHalfLength,
+          inverseShoulder = 1 / p.shoulder,
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBoreShoulder = 1 / (boreSquared * p.shoulder),
+          seatSquared = p.seatRadius * p.seatRadius,
+          inverseSeatBand =
+            1 / (seatSquared - p.seatInnerRadius * p.seatInnerRadius),
+          inverseBarrel = 1 / (p.barrelRadius * p.barrelRadius),
+          inversePin = 1 / (p.pinRadius * p.pinRadius),
+          inversePitch = 1 / p.knucklePitch,
+          inverseJoint = 1 / p.jointShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          grainField = cachedNoise(8, 128, seed ^ 0x7ea1);
+        return () => {
+          const x = fract(u * p.cells) - 0.5,
+            y = fract(v * p.cells) - 0.5,
+            lx = (Math.abs(x) - p.leafX) * inverseLeafX,
+            ly = y * inverseLeafY,
+            xx = lx * lx,
+            yy = ly * ly,
+            leaf = smooth(clamp((1 - xx * xx - yy * yy) * inverseShoulder)),
+            screwRow = Math.max(-1, Math.min(1, Math.round(y / p.screwPitch))),
+            dx = Math.abs(x) - p.screwX,
+            dy = y - screwRow * p.screwPitch,
+            r2 = dx * dx + dy * dy,
+            bore =
+              smooth(clamp((boreSquared - r2) * inverseBoreShoulder)) * leaf,
+            seat = smooth(clamp((seatSquared - r2) * inverseSeatBand)) * leaf,
+            pinCap = clamp(1 - x * x * inversePin),
+            pin =
+              smooth(clamp(pinCap * inverseShoulder)) *
+              smooth(clamp((p.pinHalfLength - Math.abs(y)) * inverseEnd)),
+            phase = fract((y + p.barrelHalfLength) * inversePitch),
+            joint = smooth(clamp(Math.min(phase, 1 - phase) * inverseJoint)),
+            barrelCap = clamp(1 - x * x * inverseBarrel),
+            barrel =
+              smooth(clamp(barrelCap * inverseShoulder)) *
+              joint *
+              smooth(clamp((p.barrelHalfLength - Math.abs(y)) * inverseEnd)),
+            dome = smooth(barrelCap),
+            pinDome = smooth(pinCap),
+            grain = grainField(u, v);
+          // The lower continuous pin stays visible in the four knuckle joints.
+          // Masked blends keep both mounting leaves flat under the raised barrel.
+          color =
+            0.08 +
+            0.47 * leaf -
+            0.16 * seat -
+            0.25 * bore +
+            0.012 * grain * leaf;
+          height =
+            0.04 +
+            0.3 * leaf -
+            0.13 * seat -
+            0.14 * bore +
+            0.002 * grain * leaf;
+          roughness =
+            p.roughness + 0.25 * (1 - leaf) + 0.13 * seat + 0.12 * bore;
+          occlusion = 0.35 + 0.62 * leaf - 0.17 * seat - 0.33 * bore;
+          color =
+            color * (1 - pin) + pin * (0.65 + 0.1 * pinDome + 0.012 * grain);
+          height = height * (1 - pin) + pin * (0.42 + 0.13 * pinDome);
+          roughness = roughness * (1 - pin) + 0.25 * pin;
+          occlusion = occlusion * (1 - pin) + 0.94 * pin;
+          color =
+            color * (1 - barrel) + barrel * (0.55 + 0.2 * dome + 0.012 * grain);
+          height = height * (1 - barrel) + barrel * (0.53 + 0.27 * dome);
+          roughness = roughness * (1 - barrel) + 0.24 * barrel;
+          occlusion = occlusion * (1 - barrel) + 0.99 * barrel;
+          return;
+        };
+      }
       case 'cashews': {
         const p = proceduralMaterialPresets.cashews;
         const tones = new Float64Array(p.cells * p.cells),
@@ -17451,6 +17527,7 @@ export function createSurfaceSampler(
     kind === 'pillowtiles' ||
     kind === 'coffeerings' ||
     kind === 'cashews' ||
+    kind === 'hinges' ||
     fabricated ||
     botanical ||
     packaging ||

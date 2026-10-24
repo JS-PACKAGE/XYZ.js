@@ -4067,6 +4067,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.2;
         turn: number;
     }>;
+    hinges: Readonly<{
+        dark: readonly [27, 31, 36];
+        light: readonly [199, 205, 211];
+        roughness: 0.32;
+        relief: 0.035;
+        cells: 4;
+        leafX: 0.2;
+        leafHalfWidth: 0.145;
+        leafHalfLength: 0.31;
+        shoulder: 0.2;
+        screwX: 0.22;
+        screwPitch: 0.19;
+        boreRadius: 0.023;
+        seatRadius: 0.052;
+        seatInnerRadius: 0.026;
+        barrelRadius: 0.075;
+        barrelHalfLength: 0.35;
+        knucklePitch: 0.14;
+        jointShoulder: 0.075;
+        pinRadius: 0.022;
+        pinHalfLength: 0.38;
+        endShoulder: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -4576,4 +4599,5 @@ export declare const proceduralTileMeters: Readonly<{
     pillowtiles: 0.6;
     coffeerings: 0.36;
     cashews: 0.16;
+    hinges: 0.4;
 }>;

@@ -8505,6 +8505,37 @@ var proceduralMaterialPresets = Object.freeze({
 		tipRadii: [.09, .08],
 		shoulder: .2,
 		turn: Math.PI / 4
+	}),
+	hinges: Object.freeze({
+		dark: [
+			27,
+			31,
+			36
+		],
+		light: [
+			199,
+			205,
+			211
+		],
+		roughness: .32,
+		relief: .035,
+		cells: 4,
+		leafX: .2,
+		leafHalfWidth: .145,
+		leafHalfLength: .31,
+		shoulder: .2,
+		screwX: .22,
+		screwPitch: .19,
+		boreRadius: .023,
+		seatRadius: .052,
+		seatInnerRadius: .026,
+		barrelRadius: .075,
+		barrelHalfLength: .35,
+		knucklePitch: .14,
+		jointShoulder: .075,
+		pinRadius: .022,
+		pinHalfLength: .38,
+		endShoulder: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -9013,7 +9044,8 @@ var proceduralTileMeters = Object.freeze({
 	ribknit: .12,
 	pillowtiles: .6,
 	coffeerings: .36,
-	cashews: .16
+	cashews: .16,
+	hinges: .4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

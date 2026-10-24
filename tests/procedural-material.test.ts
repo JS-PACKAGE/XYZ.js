@@ -544,7 +544,97 @@ const kinds: ProceduralMaterialKind[] = [
   'pillowtiles',
   'coffeerings',
   'cashews',
+  'hinges',
 ];
+
+describe('Steel hinges with paired mounting leaves and five barrel knuckles', () => {
+  const p = proceduralMaterialPresets.hinges;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('hinges', seed);
+    return (x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(x / p.cells, y / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six recessed mounting bores, rounded leaf corners, convex knuckles and a continuous lower pin for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+              at(col + 0.5 + x, row + 0.5 + y),
+            backing = local(0.44, 0);
+          for (const side of [-1, 1])
+            for (const y of [-p.screwPitch, 0, p.screwPitch]) {
+              const bore = local(side * p.screwX, y),
+                seat = local(side * (p.screwX + 0.04), y),
+                face = local(side * (p.screwX + 0.08), y);
+              expect(face.height - seat.height).toBeGreaterThan(0.0006);
+              expect(seat.height - bore.height).toBeGreaterThan(0.006);
+              expect(face.color - seat.color).toBeGreaterThan(0.02);
+              expect(seat.color - bore.color).toBeGreaterThan(0.25);
+              expect(face.occlusion).toBeGreaterThan(seat.occlusion);
+              expect(seat.occlusion).toBeGreaterThan(bore.occlusion);
+              expect(bore.roughness).toBeGreaterThan(face.roughness);
+              expect(face.metallic).toBe(1);
+            }
+          for (let i = 0; i < 5; i++) {
+            const y = -p.barrelHalfLength + (i + 0.5) * p.knucklePitch,
+              crown = local(0, y),
+              shoulder = local(0.065, y),
+              plate = local(0.3, y);
+            expect(crown.height - shoulder.height).toBeGreaterThan(0.006);
+            expect(shoulder.height - plate.height).toBeGreaterThan(0.006);
+            if (i < 4) {
+              const joint = local(0, y + p.knucklePitch / 2);
+              expect(crown.height - joint.height).toBeGreaterThan(0.008);
+              expect(joint.height - plate.height).toBeGreaterThan(0.006);
+            }
+          }
+          for (let i = 0; i <= 64; i++)
+            expect(
+              local(0, -0.35 + (0.7 * i) / 64).height - backing.height,
+            ).toBeGreaterThan(0.015);
+          for (const x of [-0.342, 0.342])
+            for (const y of [-0.305, 0.305])
+              expect(local(x, y).height).toBe(backing.height);
+        }
+    },
+  );
+  it('keeps countersinks, leaf bevels, pin blends, knuckle joints and wrap C1', () => {
+    const h = 1e-8;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (const axis of [0, 1]) {
+            const u = (x * p.cells) / 128,
+              v = (y * p.cells) / 128,
+              a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+              b = at(u, v),
+              c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Cream cashew kernels with open kidney-shaped bodies', () => {
   const p = proceduralMaterialPresets.cashews;
@@ -18696,6 +18786,7 @@ describe('periodic procedural material fields', () => {
           kind === 'squarewashers' ||
           kind === 'spurgears' ||
           kind === 'paperclips' ||
+          kind === 'hinges' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
@@ -28142,6 +28233,7 @@ describe('procedural preset acquisition and ownership', () => {
     'squarewashers',
     'spurgears',
     'paperclips',
+    'hinges',
     'starsocketbolts',
     'sawblades',
     'countersunkmetal',
@@ -28181,6 +28273,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'squarewashers' ||
           kind === 'spurgears' ||
           kind === 'paperclips' ||
+          kind === 'hinges' ||
           kind === 'starsocketbolts' ||
           kind === 'sawblades' ||
           kind === 'countersunkmetal' ||
