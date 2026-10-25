@@ -811,6 +811,8 @@
 
 同輪追加 `internaltoothwashers`（內齒止動墊圈），目錄 634→635 種：16 seeded rotated closed silver-colored outer rims、12 inward metal teeth／6高6低交替實際bend、opaque star-shaped recess。非splitlockwashers單裂口或sawblades外鋸齒；0.16 m opaque tile、factor 1／M1涵ring與teeth，孔與外backing M0，沿四圖／選用height／ownership。不新增geometry、真透明洞、彈簧／預緊／防鬆／變形／機械／物理模擬；依功能驗證提交、不push。
 
+同輪追加 `driedchillies`（乾辣椒），目錄 635→636 種：16 seeded rotated quadratic-curved／strongly tapering red fruits、實際低暗粗shrivel wrinkles、較高olive-green calyx／connected thin stem，非bellpepperslice切面或straightcapsule repaint。0.16 m opaque dielectric tile、M0／body-stem-calyx完整coverage／exterior backing mortar 1，沿四圖／選用height／ownership。不新增geometry、植物成長／乾燥／食品／烹調／物理模擬；依功能驗證提交、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

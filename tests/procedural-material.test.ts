@@ -676,7 +676,281 @@ const kinds: ProceduralMaterialKind[] = [
   'solderlessbreadboard',
   'kyaniteblades',
   'internaltoothwashers',
+  'driedchillies',
 ];
+
+describe('Curved tapering dried red chillies with actual shrivelled wrinkle relief olive-green calyces and connected thin stems', () => {
+  const p = proceduralMaterialPresets.driedchillies;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16615),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1661b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16617) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16619) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const center = (t: number) =>
+    [p.curve * t * t, -p.halfLength + 2 * p.halfLength * t] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps a genuinely curved strongly narrowing fruit with physical darker rougher wrinkle valleys and a separate connected raised olive calyx and thin stem for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('driedchillies', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const phase = hash(col, row, seed ^ 0x1661d);
+          for (let k = 3; k <= 9; k++) {
+            const tv = (k - phase) / p.wrinkles,
+              tc = (k + 0.5 - phase) / p.wrinkles;
+            sample(...world(seed, col, row, ...center(tc)), out);
+            const crest = { ...out };
+            expect(crest.height).toBeGreaterThan(0.0024799);
+            expect(crest.height).toBeLessThan(0.0025001);
+            expect(crest.occlusion).toBeCloseTo(0.98, 12);
+            expect(crest.mortar).toBe(0);
+            expect(crest.metallic).toBe(0);
+            sample(...world(seed, col, row, ...center(tv)), out);
+            expect(out.height).toBeGreaterThan(0.0021599);
+            expect(out.height).toBeLessThan(0.0021801);
+            expect(crest.height - out.height).toBeGreaterThan(0.0002999);
+            expect(crest.color - out.color).toBeGreaterThan(0.0949);
+            expect(out.roughness - crest.roughness).toBeGreaterThan(0.0499);
+            expect(out.occlusion).toBeCloseTo(0.92, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          sample(...world(seed, col, row, 0, p.calyxY), out);
+          const calyx = { ...out };
+          expect(calyx.height).toBeGreaterThan(0.0025599);
+          expect(calyx.height).toBeLessThan(0.0025761);
+          expect(calyx.color).toBeGreaterThanOrEqual(0.08);
+          expect(calyx.color).toBeLessThan(0.1051);
+          expect(calyx.roughness).toBeGreaterThanOrEqual(0.88);
+          expect(calyx.roughness).toBeLessThan(0.9001);
+          expect(calyx.occlusion).toBeCloseTo(0.99, 12);
+          expect(calyx.mortar).toBe(0);
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 128;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                p.stemX * (1 - t),
+                p.stemY + (p.calyxY - p.stemY) * t,
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0016799);
+            expect(out.height).toBeLessThan(0.0016961);
+            expect(out.color).toBeGreaterThanOrEqual(0.025);
+            expect(out.color).toBeLessThan(0.0451);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          const [endX, endY] = center(0.15);
+          for (let j = 0; j <= 256; j++) {
+            const t = j / 256;
+            for (const [x, y] of [
+              [p.stemX * (1 - t), p.stemY + (p.calyxY - p.stemY) * t],
+              [t * endX, p.calyxY + t * (endY - p.calyxY)],
+              center(0.15 + 0.75 * t),
+            ]) {
+              sample(...world(seed, col, row, x, y), out);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0016799);
+            }
+          }
+          const widths: number[] = [];
+          for (const t of [0.2, 0.4, 0.6, 0.8]) {
+            const [cx, y] = center(t);
+            let count = 0,
+              runs = 0,
+              prior = false;
+            for (let j = 0; j <= 4096; j++) {
+              sample(
+                ...world(seed, col, row, cx - 0.12 + (0.24 * j) / 4096, y),
+                out,
+              );
+              const face = out.mortar < 0.5;
+              if (face && !prior) runs++;
+              if (face) count++;
+              prior = face;
+            }
+            expect(runs).toBe(1);
+            widths.push((count * 0.24) / 4096);
+          }
+          expect(widths[0] / widths[3]).toBeGreaterThan(6);
+          expect(widths[0] / widths[1]).toBeGreaterThan(1.5);
+          expect(widths[1] / widths[2]).toBeGreaterThan(1.8);
+          expect(widths[2] / widths[3]).toBeGreaterThan(2);
+          sample(...world(seed, col, row, ...center(0.8)), out);
+          expect(out.mortar).toBe(0);
+          sample(...world(seed, col, row, 0, center(0.8)[1]), out);
+          expect(out.mortar).toBe(1);
+          expect(out.height).toBeGreaterThan(0.0000999);
+          expect(out.height).toBeLessThan(0.0001081);
+          expect(out.occlusion).toBeCloseTo(0.3, 12);
+        }
+    },
+  );
+  it('resolves actual512 red curved tapering fruit distinct from the darker greener raised calyx and thin stem rather than pigment-only wrinkles on a straight capsule', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('driedchillies', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            calyx = index(0, p.calyxY),
+            stem = index(p.stemX * 0.75, p.stemY + (p.calyxY - p.stemY) * 0.25);
+          for (const t of [0.2, 0.4, 0.6, 0.8]) {
+            const fruit = index(...center(t));
+            expect(
+              maps.baseColor[fruit] - maps.baseColor[calyx],
+            ).toBeGreaterThan(85);
+            expect(
+              maps.baseColor[fruit] - maps.baseColor[stem],
+            ).toBeGreaterThan(95);
+            expect(maps.baseColor[fruit]).toBeGreaterThan(
+              maps.baseColor[fruit + 1] + 90,
+            );
+            expect(maps.metallicRoughness[fruit + 2]).toBe(0);
+          }
+          expect(maps.metallicRoughness[calyx + 2]).toBe(0);
+          expect(maps.metallicRoughness[stem + 2]).toBe(0);
+          expect(maps.occlusion[calyx]).toBeGreaterThan(250);
+        }
+    }
+  });
+  it('keeps exactcurvedtaper sidewalls fullcores root andtip shoulders capsule shaft shoulders endcircles calyxellipse layering joins poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('driedchillies', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      const dx = -p.stemX,
+        dy = p.calyxY - p.stemY,
+        length = Math.hypot(dx, dy),
+        nx = -dy / length,
+        ny = dx / length;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 512; j++) {
+            const t = j / 512,
+              [cx, y] = center(t),
+              w = p.width * (1 - t) * (1 - t) + p.tipWidth,
+              a = t * 2 * Math.PI;
+            for (const q of [1, 1 - p.sideShoulder])
+              for (const sign of [-1, 1])
+                check(
+                  ...world(seed, col, row, cx + sign * w * Math.sqrt(q), y),
+                );
+            for (const r of [p.stemRadius, p.stemCore]) {
+              for (const sign of [-1, 1])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.stemX + dx * t + sign * r * nx,
+                    p.stemY + dy * t + sign * r * ny,
+                  ),
+                );
+              for (const end of [0, 1])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.stemX + dx * end + r * Math.cos(a),
+                    p.stemY + dy * end + r * Math.sin(a),
+                  ),
+                );
+            }
+            for (const q of [1, 1 - p.calyxEdge])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.calyxRadiusX * Math.sqrt(q) * Math.cos(a),
+                  p.calyxY + p.calyxRadiusY * Math.sqrt(q) * Math.sin(a),
+                ),
+              );
+            for (const y of [
+              -p.halfLength,
+              -p.halfLength + p.endShoulder,
+              p.halfLength - p.endShoulder,
+              p.halfLength,
+              p.calyxY + p.calyxRadiusY,
+            ])
+              check(...world(seed, col, row, -0.15 + 0.4 * t, y));
+          }
+    }
+  });
+});
 
 describe('Closed silver-colored washer rims with twelve inward metal teeth alternating six raised and six lowered tips around an opaque star-shaped recess', () => {
   const p = proceduralMaterialPresets.internaltoothwashers;

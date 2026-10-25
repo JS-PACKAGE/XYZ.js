@@ -6421,6 +6421,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    driedchillies: Readonly<{
+        dark: readonly [45, 63, 26];
+        light: readonly [202, 45, 30];
+        roughness: 0.72;
+        relief: 0.004;
+        cells: 4;
+        halfLength: 0.3;
+        width: 0.09;
+        tipWidth: 0.006;
+        curve: 0.16;
+        sideShoulder: 0.3;
+        endShoulder: 0.025;
+        wrinkles: 12;
+        calyxY: -0.285;
+        calyxRadiusX: 0.105;
+        calyxRadiusY: 0.045;
+        calyxEdge: 0.2;
+        stemX: -0.035;
+        stemY: -0.4;
+        stemRadius: 0.014;
+        stemCore: 0.009;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7059,4 +7084,5 @@ export declare const proceduralTileMeters: Readonly<{
     solderlessbreadboard: 0.04064;
     kyaniteblades: 0.16;
     internaltoothwashers: 0.16;
+    driedchillies: 0.16;
 }>;

@@ -1441,6 +1441,107 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'driedchillies': {
+        const p = proceduralMaterialPresets.driedchillies,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16611),
+          inverseLength = 1 / (2 * p.halfLength),
+          inverseSide = 1 / p.sideShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          stemDX = -p.stemX,
+          stemDY = p.calyxY - p.stemY,
+          inverseStemProjection = 1 / (stemDX * stemDX + stemDY * stemDY),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          inverseCalyxX = 1 / p.calyxRadiusX,
+          inverseCalyxY = 1 / p.calyxRadiusY,
+          inverseCalyxEdge = 1 / p.calyxEdge;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16615);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16617) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16619) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1661b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1661d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          let remaining = 1;
+          if (y > -p.halfLength && y < p.halfLength) {
+            const t = (y + p.halfLength) * inverseLength,
+              width = p.width * (1 - t) * (1 - t) + p.tipWidth,
+              across = (x - p.curve * t * t) / width,
+              body =
+                smooth(clamp((1 - across * across) * inverseSide)) *
+                smooth(clamp((y + p.halfLength) * inverseEnd)) *
+                smooth(clamp((p.halfLength - y) * inverseEnd));
+            if (body > 0) {
+              const wrinkle =
+                0.5 + 0.5 * Math.cos(TAU * (p.wrinkles * t + poses[i + 5]));
+              color +=
+                body *
+                (0.78 -
+                  0.12 * wrinkle +
+                  0.08 * poses[i + 5] +
+                  0.025 * grain -
+                  color);
+              height += body * (0.62 - 0.08 * wrinkle + 0.005 * grain - height);
+              roughness +=
+                body *
+                (p.roughness + 0.08 * wrinkle + 0.03 * grain - roughness);
+              occlusion += body * (0.98 - 0.06 * wrinkle - occlusion);
+              remaining *= 1 - body;
+            }
+          }
+          if (y <= p.calyxY + p.calyxRadiusY) {
+            const t = clamp(
+                ((x - p.stemX) * stemDX + (y - p.stemY) * stemDY) *
+                  inverseStemProjection,
+              ),
+              sx = x - p.stemX - t * stemDX,
+              sy = y - p.stemY - t * stemDY,
+              stem = smooth(
+                clamp((stemSquared - sx * sx - sy * sy) * inverseStem),
+              );
+            if (stem > 0) {
+              color += stem * (0.025 + 0.02 * grain - color);
+              height += stem * (0.42 + 0.004 * grain - height);
+              roughness += stem * (0.85 + 0.03 * grain - roughness);
+              occlusion += stem * (0.98 - occlusion);
+              remaining *= 1 - stem;
+            }
+            const cx = x * inverseCalyxX,
+              cy = (y - p.calyxY) * inverseCalyxY,
+              calyx = smooth(clamp((1 - cx * cx - cy * cy) * inverseCalyxEdge));
+            if (calyx > 0) {
+              color += calyx * (0.08 + 0.025 * grain - color);
+              height += calyx * (0.64 + 0.004 * grain - height);
+              roughness += calyx * (0.88 + 0.02 * grain - roughness);
+              occlusion += calyx * (0.99 - occlusion);
+              remaining *= 1 - calyx;
+            }
+          }
+          mortar = remaining;
+        };
+      }
       case 'internaltoothwashers': {
         const p = proceduralMaterialPresets.internaltoothwashers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27179,6 +27280,7 @@ export function createSurfaceSampler(
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
     kind === 'internaltoothwashers' ||
+    kind === 'driedchillies' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

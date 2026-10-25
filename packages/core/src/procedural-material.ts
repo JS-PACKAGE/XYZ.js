@@ -650,7 +650,8 @@ export type ProceduralMaterialKind =
   | 'orecchiette'
   | 'solderlessbreadboard'
   | 'kyaniteblades'
-  | 'internaltoothwashers';
+  | 'internaltoothwashers'
+  | 'driedchillies';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1535,6 +1536,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'solderlessbreadboard',
   'kyaniteblades',
   'internaltoothwashers',
+  'driedchillies',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
