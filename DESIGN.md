@@ -715,6 +715,8 @@
 
 `cathedralquilt` 沿 compact four-arc products／coherent folded-band difference，預算 36 tones／192² grain／128×8 warp／8×128 weft／reciprocal。6×6 每窗完整評估四 corner circles（不 nearest corner，以免窗尖 cusp），outer／inset 各 product，fold=outer−inset 不疊加厚度；inset 在 cell edges 前 C1 歸零，seeded tone 僅用低藍布片，不在邊界跳變。奶油 frame／高折邊／低 inset 有相異高度、opaque 布面連續；inset 零略過 tone。採樣無配置／hash／sqrt／trig。不新增 geometry、透明窗、折疊／縫製／布料力學或物理模擬。
 
+`buckwheathulls` 沿 cached seeded poses／three-plane compact products／finite tapered ridge union，預算 64 poses／3 axes／128² grain／reciprocals。8×8 隨機旋向與小 jitter，三 inset-plane smooth products 決定三角 body／convex face dome；三細稜在中心與尖端前 tapered 歸零，product union 不疊加厚度。最大 extent+jitter 限 cell，空 body 略過 ridge／grain，採樣無配置／hash／sqrt／trig。三稜 pigment／roughness 與高度同支撐；不新增 geometry、剝殼／生長／烹煮、營養或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

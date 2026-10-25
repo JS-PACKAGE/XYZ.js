@@ -7405,3 +7405,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 583-preset cathedralquilt、擷取畫面／512 base-color detail，見奶油底曲邊藍色布窗。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 cathedralquilt 並重算既有 582 種（含 quilting）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6626 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：蕎麥帶殼籽粒（buckwheathulls）
+
+- 目錄 583→584 種；0.064 m opaque dielectric tile、metallic 0，seeded 旋轉／微偏移三角褐籽／三圓滑面／細高稜，非 fennelseeds 長條籽。Cached 64 poses／3 axes／128² grain／reciprocals，compact three-plane products／finite tapered ridge union，中心／尖端前 ridges 歸零、不疊加厚度，support 限 cell。Body 零略過 ridges／grain、採樣無配置／hash／sqrt／trig；沿四圖／選用 height／ownership，不新增 geometry、透明孔、剝殼／生長／烹煮、營養或物理模擬。
+- 初版三個 morphology case 的 ridge roughness 差值失敗（0.0085–0.0114 <0.015），C1／determinism 通過；grain 0.06 壓過 ridge 降粗糙度 0.025。縮 grain roughness 至 0.02、ridge 降幅至 0.045，另提高 dome／ridge pigment 對比讓 512 detail 面與稜清晰；保持原測試下界，再次 targeted 五項通過。3 seeds ×64 籽 center 0.00180–0.00181 m、三 tip >0.0011 m／反面 <0.000076 m、三 ridge 各比兩旁平均高 >0.00009 m 且 roughness 低 >0.015，tone span >0.15；129² 與 exact triangular shoulders／ridge tapers／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 584-preset buckwheathulls、擷取最終畫面／512 base-color detail，見旋轉三角棕色籽粒三面與細稜。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 buckwheathulls 並重算既有 583 種（含 fennelseeds／pumpkinseeds）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6631 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -1428,6 +1428,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'buckwheathulls': {
+        const p = proceduralMaterialPresets.buckwheathulls,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          side = Math.sqrt(3) * 0.5,
+          axes = new Float64Array([0, 1, side, -0.5, -side, -0.5]),
+          inverseShoulder = 1 / p.shoulder,
+          inverseRadius = 1 / p.inradius,
+          inverseRidge = 1 / (p.ridgeRadius * p.ridgeRadius),
+          inverseTip = 1 / p.ridgeTip,
+          grainField = cachedNoise(128, 128, seed ^ 0x13211);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x13213);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x13215) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x13217) - 1);
+            poses[index + 4] = hash(col, row, seed ^ 0x13219);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - 0.5 - poses[index + 2],
+            dy = fract(vc) - 0.5 - poses[index + 3],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1];
+          let body = 1,
+            dome = 1;
+          for (let i = 0; i < axes.length; i += 2) {
+            const inset = p.inradius - x * axes[i] - y * axes[i + 1];
+            body *= smooth(clamp(inset * inverseShoulder));
+            dome *= smooth(clamp(inset * inverseRadius));
+          }
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          let outsideRidge = 1;
+          for (let i = 0; i < axes.length; i += 2) {
+            const along = -x * axes[i] - y * axes[i + 1],
+              across = y * axes[i] - x * axes[i + 1],
+              ridge =
+                smooth(clamp(1 - across * across * inverseRidge)) *
+                smooth(clamp((along - p.ridgeStart) * inverseTip)) *
+                smooth(clamp((p.ridgeEnd - along) * inverseTip));
+            outsideRidge *= 1 - ridge;
+          }
+          const ridge = 1 - outsideRidge,
+            grain = grainField(u, v),
+            tone = poses[index + 4];
+          // Three rounded face planes and finite ridges share one hull layer;
+          // ridge supports taper before the center and the triangular tips.
+          color +=
+            body *
+            (0.2 +
+              0.23 * tone +
+              0.22 * dome +
+              0.02 * grain +
+              0.12 * ridge -
+              color);
+          height +=
+            body * (0.4 + 0.2 * dome + 0.035 * ridge + 0.003 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.02 * grain - 0.045 * ridge - roughness);
+          occlusion += body * (0.87 + 0.12 * dome - occlusion);
+          return;
+        };
+      }
       case 'cathedralquilt': {
         const p = proceduralMaterialPresets.cathedralquilt,
           tones = new Float64Array(p.cells * p.cells),
@@ -23001,6 +23074,7 @@ export function createSurfaceSampler(
     kind === 'dualinlinechips' ||
     kind === 'tortoiseshellacetate' ||
     kind === 'cathedralquilt' ||
+    kind === 'buckwheathulls' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
