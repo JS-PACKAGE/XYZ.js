@@ -693,7 +693,289 @@ const kinds: ProceduralMaterialKind[] = [
   'compactcassettefaces',
   'kintsugiceramic',
   'pleatedfilterpapers',
+  'splitcedarshakes',
 ];
+
+describe('Split cedar shakes with staggered variable-width grain boards tapered frayed butts and two open end splits', () => {
+  const p = proceduralMaterialPresets.splitcedarshakes;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (col: number, row: number, x: number, y: number) =>
+    [
+      (col + 0.5 - (row & 1) * 0.5 + x) / p.columns,
+      (row + 0.5 + y) / p.rows,
+    ] as const;
+  const splits = (seed: number, col: number, row: number) =>
+    [
+      [
+        -p.splitOffset +
+          p.splitJitter * (2 * hash(col, row, seed ^ 0x17719) - 1),
+        p.splitStart + p.splitStartVariation * hash(col, row, seed ^ 0x1771b),
+      ],
+      [
+        p.splitOffset +
+          p.splitJitter * (2 * hash(col, row, seed ^ 0x1771d) - 1),
+        p.splitStart + p.splitStartVariation * hash(col, row, seed ^ 0x1771f),
+      ],
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps twenty-four staggered warm wood shakes with longitudinal grain genuinely uneven thicker lower butts and exactly two open-ended splits for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('splitcedarshakes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let across = 0,
+        along = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(col, row, x, y), out);
+              return { ...out };
+            },
+            cut = splits(seed, col, row),
+            top = at(-0.35, -0.35),
+            butt = at(-0.35, 0.29);
+          expect(butt.height - top.height).toBeGreaterThan(0.0011);
+          for (const value of [top, butt]) {
+            expect(value.height).toBeGreaterThanOrEqual(0.0038399);
+            expect(value.height).toBeLessThanOrEqual(0.0051841);
+            expect(value.color).toBeGreaterThanOrEqual(0.41999);
+            expect(value.roughness).toBeGreaterThanOrEqual(0.79999);
+            expect(value.occlusion).toBeCloseTo(0.99, 12);
+            expect(value.mortar).toBe(0);
+            expect(value.metallic).toBe(0);
+          }
+          for (let y = 0; y <= 32; y++)
+            for (let x = 0; x <= 32; x++) {
+              const u = -0.4 + (0.8 * x) / 32,
+                v = -0.35 + (0.4 * y) / 32,
+                a = at(u, v),
+                b = at(u + 0.002, v),
+                c = at(u, v + 0.002);
+              across += (b.color - a.color) ** 2;
+              along += (c.color - a.color) ** 2;
+            }
+          for (const [x, start] of cut) {
+            expect(at(x, start - p.splitRadius - 0.015).mortar).toBe(0);
+            for (let j = 0; j <= 256; j++) {
+              const value = at(
+                x,
+                start + 0.015 + ((0.49 - start - 0.015) * j) / 256,
+              );
+              expect(value.height).toBeCloseTo(0.0002, 12);
+              expect(value.occlusion).toBe(0.3);
+              expect(value.mortar).toBe(1);
+              expect(value.metallic).toBe(0);
+            }
+            for (const side of [-1, 1]) {
+              const wood = at(x + side * 0.03, 0.29);
+              expect(wood.mortar).toBe(0);
+              expect(wood.occlusion).toBeCloseTo(0.99, 12);
+            }
+          }
+          let openings = 0,
+            previous = false;
+          for (let j = 0; j <= 8192; j++) {
+            const open = at(-0.4 + (0.8 * j) / 8192, 0.29).mortar > 0.5;
+            if (open && !previous) openings++;
+            previous = open;
+          }
+          expect(openings).toBe(2);
+          let lower = Infinity,
+            upper = -Infinity;
+          for (let j = 0; j <= 32; j++) {
+            const x = -0.4 + (0.8 * j) / 32;
+            if (cut.some(([cx]) => Math.abs(x - cx) < p.splitRadius + 0.015))
+              continue;
+            let low = 0.38,
+              high = 0.44;
+            for (let k = 0; k < 20; k++) {
+              const y = (low + high) / 2;
+              if (at(x, y).mortar < 0.5) low = y;
+              else high = y;
+            }
+            const half = (low + high) / 2;
+            expect(half).toBeGreaterThanOrEqual(0.39299);
+            expect(half).toBeLessThanOrEqual(0.42301);
+            lower = Math.min(lower, half);
+            upper = Math.max(upper, half);
+          }
+          expect(upper - lower).toBeGreaterThan(0.008);
+          sample(...world(col, row, -0.5, 0), out);
+          expect(out.mortar).toBe(1);
+          expect(out.occlusion).toBe(0.3);
+          const [u] = world(col, row, -0.5, 0);
+          sample(u, (row + 1.5) / p.rows, out);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+        }
+      expect(across).toBeGreaterThan(8 * along);
+    },
+  );
+  it('writes warm longitudinal-grain wood two lower backing splits and thicker butts in actual 512 pixel PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('splitcedarshakes', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(col, row, x, y);
+              return (
+                ((((Math.floor(v * 512) % 512) + 512) % 512) * 512 +
+                  (((Math.floor(u * 512) % 512) + 512) % 512)) *
+                4
+              );
+            },
+            top = pixel(-0.35, -0.35),
+            butt = pixel(-0.35, 0.29);
+          expect(maps.height![butt]! - maps.height![top]!).toBeGreaterThan(50);
+          for (const x of [-0.35, 0, 0.35]) {
+            const i = pixel(x, 0.29);
+            expect(maps.baseColor[i]! - maps.baseColor[i + 2]!).toBeGreaterThan(
+              60,
+            );
+            expect(maps.occlusion[i]!).toBeGreaterThan(250);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+          for (const [x] of splits(seed, col, row)) {
+            const i = pixel(x, 0.29);
+            expect(maps.occlusion[i]!).toBeLessThan(80);
+            expect(maps.occlusion[butt]! - maps.occlusion[i]!).toBeGreaterThan(
+              170,
+            );
+            expect(maps.height![butt]! - maps.height![i]!).toBeGreaterThan(240);
+            expect(
+              maps.metallicRoughness[i + 1]! -
+                maps.metallicRoughness[butt + 1]!,
+            ).toBeGreaterThan(25);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats grain tapered relief course staggering split coverage and nonmetal classification across both signed UV periods while retaining seeded damage layout', () => {
+    const sample = createSurfaceSampler('splitcedarshakes', 7),
+      other = createSurfaceSampler('splitcedarshakes', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let coverageDifference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      coverageDifference += Math.abs(a.mortar - c.mortar);
+    }
+    expect(coverageDifference).toBeGreaterThan(35);
+  });
+  it('keeps staggered course/column owners variable sides frayed butt curves taper joins open capsule split shoulders grain knots and UV wraps C1', () => {
+    // The narrow split shoulders have high finite curvature; this step resolves
+    // their derivative continuity rather than confusing curvature with a jump.
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('splitcedarshakes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const cut = splits(seed, col, row),
+            half =
+              p.halfWidth + p.widthVariation * hash(col, row, seed ^ 0x17715),
+            local = (x: number, y: number) => check(...world(col, row, x, y));
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              angle = 2 * Math.PI * t;
+            for (const side of [-1, 1])
+              for (const inset of [0, p.sideEdge])
+                local(side * (half - inset), -0.46 + 0.9 * t);
+            for (const top of [
+              -p.top,
+              -p.top + p.endEdge,
+              -p.taperHalf,
+              p.taperHalf,
+            ])
+              local(-0.4 + 0.8 * t, top);
+            for (const [x, start] of cut) {
+              for (const r of [p.splitRadius, p.splitCore]) {
+                local(x + r * Math.cos(angle), start + r * Math.sin(angle));
+                for (const side of [-1, 1])
+                  local(x + side * r, start + (p.butt - start) * t);
+              }
+              local(x - 2 * p.splitRadius + 4 * p.splitRadius * t, start);
+            }
+            const x = -0.4 + 0.8 * t;
+            if (!cut.some(([cx]) => Math.abs(x - cx) < p.splitRadius + 0.015)) {
+              let low = 0.38,
+                high = 0.44;
+              for (let k = 0; k < 24; k++) {
+                const y = (low + high) / 2;
+                sample(...world(col, row, x, y), b);
+                if (b.mortar < 0.5) low = y;
+                else high = y;
+              }
+              for (const d of [-p.endEdge / 2, 0, p.endEdge / 2])
+                local(x, (low + high) / 2 + d);
+            }
+            check(col / p.columns, (row + t) / p.rows);
+            check((col + t) / p.columns, row / p.rows);
+          }
+        }
+      for (let x = 0; x <= 96; x++)
+        for (let y = 0; y <= 16; y++) check(x / 96, y / 16);
+    }
+  });
+});
 
 describe('Pleated filter papers with flat bases rising thirty-two-fold annular walls and phase-matched scalloped rims', () => {
   const p = proceduralMaterialPresets.pleatedfilterpapers;

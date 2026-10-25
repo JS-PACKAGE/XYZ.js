@@ -845,6 +845,8 @@
 
 同輪追加 `pleatedfilterpapers`（三十二褶濾紙），目錄651→652種：九 seeded 奶油紙濾杯端面，連續平底升高至三十二徑褶環壁，紙緣凹凸與 crest／valley 同相。微高／色／粗糙度／AO 同步變化，全 M0，非 speakercones 音盆或半圓 foldingfans。沿用四圖／height／Worker／cache／tint／ownership，0.36 m tile／0.004 m relief；不新增杯體 geometry、微孔滲透率或過濾／流體功能。實際雙 backend 與形態／C1 證據見 ACCEPTANCE。
 
+同輪追加 `splitcedarshakes`（錯位開裂木瓦），目錄652→653種：四層半錯位各六片變寬暖棕木瓦、縱向木紋、較厚不齊下緣與兩道貫通 butt 的 seeded splits。非礦物 grit roofshingles 或 shiplap 換色；全 M0，2 m tile／0.008 m relief，沿用四圖／height／Worker／cache／tint／ownership。只作靜態木瓦表面，不新增 damage／weathering、屋頂工法認證或 geometry；雙 backend、形態及 C1 證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

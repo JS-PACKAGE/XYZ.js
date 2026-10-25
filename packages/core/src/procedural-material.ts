@@ -667,7 +667,8 @@ export type ProceduralMaterialKind =
   | 'cinnamonbarkcoils'
   | 'compactcassettefaces'
   | 'kintsugiceramic'
-  | 'pleatedfilterpapers';
+  | 'pleatedfilterpapers'
+  | 'splitcedarshakes';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1569,6 +1570,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'compactcassettefaces',
   'kintsugiceramic',
   'pleatedfilterpapers',
+  'splitcedarshakes',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

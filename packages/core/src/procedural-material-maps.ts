@@ -1441,6 +1441,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'splitcedarshakes': {
+        const p = proceduralMaterialPresets.splitcedarshakes,
+          pieces = new Float64Array(p.rows * p.columns * 6),
+          grainField = cachedNoise(96, 8, seed ^ 0x17711),
+          splitSquared = p.splitRadius * p.splitRadius,
+          inverseSplit = 1 / (splitSquared - p.splitCore * p.splitCore),
+          inverseSide = 1 / p.sideEdge,
+          inverseEnd = 1 / p.endEdge,
+          inverseTaper = 1 / (2 * p.taperHalf);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 6;
+            pieces[i] =
+              p.halfWidth + p.widthVariation * hash(col, row, seed ^ 0x17715);
+            pieces[i + 1] = hash(col, row, seed ^ 0x17717);
+            pieces[i + 2] =
+              -p.splitOffset +
+              p.splitJitter * (2 * hash(col, row, seed ^ 0x17719) - 1);
+            pieces[i + 3] =
+              p.splitStart +
+              p.splitStartVariation * hash(col, row, seed ^ 0x1771b);
+            pieces[i + 4] =
+              p.splitOffset +
+              p.splitJitter * (2 * hash(col, row, seed ^ 0x1771d) - 1);
+            pieces[i + 5] =
+              p.splitStart +
+              p.splitStartVariation * hash(col, row, seed ^ 0x1771f);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const vc = v * p.rows,
+            row = Math.floor(vc),
+            uc = u * p.columns + (row & 1) * 0.5,
+            col = Math.floor(uc) % p.columns,
+            i = (row * p.columns + col) * 6,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          if (Math.abs(x) >= pieces[i]! || y <= -p.top || y >= p.butt) return;
+          // A fixed course-center grain slice frays the butt without introducing
+          // a y-dependent edge search. Both cracks remain open through that end.
+          const butt =
+            p.butt - p.buttFray * grainField(u, (row + 0.5) / p.rows);
+          let wood =
+            smooth(clamp((pieces[i]! - Math.abs(x)) * inverseSide)) *
+            smooth(clamp((y + p.top) * inverseEnd)) *
+            smooth(clamp((butt - y) * inverseEnd));
+          for (let split = 0; split < 2 && wood !== 0; split++) {
+            const k = i + 2 + split * 2,
+              dx = x - pieces[k]!,
+              dy = Math.min(0, y - pieces[k + 1]!),
+              cut = smooth(
+                clamp((splitSquared - dx * dx - dy * dy) * inverseSplit),
+              );
+            wood *= 1 - cut;
+          }
+          if (wood === 0) return;
+          const grain = grainField(u, v),
+            taper = smooth(clamp((y + p.taperHalf) * inverseTaper));
+          color += wood * (0.42 + 0.12 * pieces[i + 1]! + 0.16 * grain - color);
+          height += wood * (0.48 + 0.16 * taper + 0.008 * grain - height);
+          roughness += wood * (p.roughness + 0.04 * grain - roughness);
+          occlusion += wood * (0.99 - occlusion);
+          mortar = 1 - wood;
+        };
+      }
       case 'pleatedfilterpapers': {
         const p = proceduralMaterialPresets.pleatedfilterpapers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28729,6 +28799,7 @@ export function createSurfaceSampler(
     kind === 'compactcassettefaces' ||
     kind === 'kintsugiceramic' ||
     kind === 'pleatedfilterpapers' ||
+    kind === 'splitcedarshakes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
