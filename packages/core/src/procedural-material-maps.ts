@@ -1441,6 +1441,143 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chipresistors': {
+        const p = proceduralMaterialPresets.chipresistors,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18111),
+          bodySquared = p.bodyRadius * p.bodyRadius,
+          inverseBody = 1 / (bodySquared - p.bodyCore * p.bodyCore),
+          terminalSquared = p.terminalRadius * p.terminalRadius,
+          inverseTerminal =
+            1 / (terminalSquared - p.terminalCore * p.terminalCore),
+          strokeSquared = p.strokeRadius * p.strokeRadius,
+          inverseStroke = 1 / (strokeSquared - p.strokeCore * p.strokeCore),
+          zeroOuterSquared = p.zeroOuterRadius * p.zeroOuterRadius,
+          inverseZeroOuter =
+            1 / (zeroOuterSquared - p.zeroOuterCore * p.zeroOuterCore),
+          zeroInnerSquared = p.zeroInnerRadius * p.zeroInnerRadius,
+          inverseZeroInner =
+            1 / (zeroInnerSquared - p.zeroInnerCore * p.zeroInnerCore),
+          inverseGlyphPitch = 1 / p.glyphPitch,
+          inverseGlyphRow = 1 / p.glyphHalfY,
+          glyphReachX = Math.max(
+            p.glyphHalfX + p.strokeRadius,
+            p.zeroOuterStraightX + p.zeroOuterRadius,
+          ),
+          glyphReachY = Math.max(
+            p.glyphHalfY + p.strokeRadius,
+            p.zeroOuterStraightY + p.zeroOuterRadius,
+          );
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x18115);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18117) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18119) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1811b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1811d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            bx = Math.max(0, ax - p.bodyStraightX),
+            by = Math.max(0, ay - p.bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            ),
+            tx = Math.max(0, Math.abs(ax - p.terminalX) - p.terminalStraightX),
+            ty = Math.max(0, ay - p.terminalStraightY),
+            terminal = smooth(
+              clamp((terminalSquared - tx * tx - ty * ty) * inverseTerminal),
+            );
+          mortar = (1 - body) * (1 - terminal);
+          metallic = terminal * (1 - body);
+          if (mortar === 1) return;
+          const grain = grainField(u, v);
+          if (terminal !== 0 && body !== 1) {
+            color += terminal * (0.88 + 0.025 * grain - color);
+            height += terminal * (0.5 + 0.003 * grain - height);
+            roughness += terminal * (0.26 + 0.025 * grain - roughness);
+            occlusion += terminal * (0.99 - occlusion);
+          }
+          if (body !== 0) {
+            let ink = 0;
+            if (body === 1 && ay < glyphReachY) {
+              const glyph = Math.max(
+                  0,
+                  Math.min(2, Math.floor(x * inverseGlyphPitch + 1.5)),
+                ),
+                gx = x - (glyph - 1) * p.glyphPitch;
+              if (Math.abs(gx) < glyphReachX) {
+                if (glyph === 1) {
+                  const ox = Math.max(0, Math.abs(gx) - p.zeroOuterStraightX),
+                    oy = Math.max(0, ay - p.zeroOuterStraightY),
+                    ix = Math.max(0, Math.abs(gx) - p.zeroInnerStraightX),
+                    iy = Math.max(0, ay - p.zeroInnerStraightY),
+                    outer = smooth(
+                      clamp(
+                        (zeroOuterSquared - ox * ox - oy * oy) *
+                          inverseZeroOuter,
+                      ),
+                    ),
+                    inner = smooth(
+                      clamp(
+                        (zeroInnerSquared - ix * ix - iy * iy) *
+                          inverseZeroInner,
+                      ),
+                    );
+                  ink = outer * (1 - inner);
+                } else {
+                  const vx = gx - p.glyphHalfX,
+                    vy = Math.max(0, ay - p.glyphHalfY);
+                  ink = smooth(
+                    clamp((strokeSquared - vx * vx - vy * vy) * inverseStroke),
+                  );
+                  if (glyph === 2 && ink !== 1) {
+                    // Adjacent strokes join by exact union, not a nearest-bit
+                    // bitmap that would leave fading gaps through the digit.
+                    const line = Math.max(
+                        -1,
+                        Math.min(1, Math.floor(y * inverseGlyphRow + 0.5)),
+                      ),
+                      hx = Math.max(0, Math.abs(gx) - p.glyphHalfX),
+                      hy = y - line * p.glyphHalfY,
+                      horizontal = smooth(
+                        clamp(
+                          (strokeSquared - hx * hx - hy * hy) * inverseStroke,
+                        ),
+                      );
+                    ink = 1 - (1 - ink) * (1 - horizontal);
+                  }
+                }
+              }
+            }
+            const black = 0.06 + 0.01 * poses[i + 5]! + 0.025 * grain;
+            color +=
+              body * (black + ink * (0.94 + 0.02 * grain - black) - color);
+            height += body * (0.65 + 0.003 * grain + 0.006 * ink - height);
+            roughness +=
+              body * (p.roughness + 0.025 * grain + 0.18 * ink - roughness);
+            occlusion += body * (0.99 - occlusion);
+          }
+        };
+      }
       case 'impellerfaces': {
         const p = proceduralMaterialPresets.impellerfaces,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29728,6 +29865,7 @@ export function createSurfaceSampler(
     kind === 'scissors' ||
     kind === 'serpentinesprings' ||
     kind === 'impellerfaces' ||
+    kind === 'chipresistors' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -677,7 +677,8 @@ export type ProceduralMaterialKind =
   | 'pencilsharpeners'
   | 'scissors'
   | 'serpentinesprings'
-  | 'impellerfaces';
+  | 'impellerfaces'
+  | 'chipresistors';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1589,6 +1590,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'scissors',
   'serpentinesprings',
   'impellerfaces',
+  'chipresistors',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1818,6 +1820,7 @@ export class ProceduralMaterial {
         this.kind === 'scissors' ||
         this.kind === 'serpentinesprings' ||
         this.kind === 'impellerfaces' ||
+        this.kind === 'chipresistors' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

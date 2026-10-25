@@ -703,7 +703,332 @@ const kinds: ProceduralMaterialKind[] = [
   'scissors',
   'serpentinesprings',
   'impellerfaces',
+  'chipresistors',
 ];
+
+describe('Chip resistors with lower silver wrap terminals a higher black rectangle and continuous white nonmetal 103 marking with an opaque black zero counter', () => {
+  const p = proceduralMaterialPresets.chipresistors;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18115),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1811b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18117) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18119) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine rectangular black chip resistors with silver ends connected 103 strokes and a high opaque black zero counter rather than axial bands or metallic white text for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chipresistors', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            black = at(0, 0),
+            silver = at(p.terminalX, 0),
+            paint = at(-p.glyphPitch + p.glyphHalfX, 0),
+            white = (value: SurfaceSample) => {
+              expect(value.height).toBeGreaterThanOrEqual(0.0026239);
+              expect(value.height).toBeLessThanOrEqual(0.0026361);
+              expect(value.color - black.color).toBeGreaterThan(0.8449);
+              expect(value.height - black.height).toBeGreaterThan(0.0000119);
+              expect(value.roughness - black.roughness).toBeGreaterThan(0.1549);
+              expect(value.metallic).toBe(0);
+              expect(value.mortar).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+            };
+          expect(black.height).toBeGreaterThanOrEqual(0.0025999);
+          expect(black.height).toBeLessThanOrEqual(0.0026121);
+          expect(black.metallic).toBe(0);
+          expect(black.mortar).toBe(0);
+          expect(black.occlusion).toBeCloseTo(0.99, 12);
+          expect(silver.height).toBeGreaterThanOrEqual(0.0019999);
+          expect(silver.height).toBeLessThanOrEqual(0.0020121);
+          expect(silver.metallic).toBe(1);
+          expect(silver.mortar).toBe(0);
+          expect(black.height - silver.height).toBeGreaterThan(0.0005879);
+          expect(silver.color - black.color).toBeGreaterThan(0.7849);
+          expect(black.roughness - silver.roughness).toBeGreaterThan(0.3349);
+          white(paint);
+          for (let j = 0; j <= 512; j++) {
+            const t = j / 512,
+              y = -p.glyphHalfY + 2 * p.glyphHalfY * t;
+            white(at(-p.glyphPitch + p.glyphHalfX, y));
+            white(at(p.glyphPitch + p.glyphHalfX, y));
+            for (const line of [-1, 0, 1])
+              white(
+                at(
+                  p.glyphPitch - p.glyphHalfX + 2 * p.glyphHalfX * t,
+                  line * p.glyphHalfY,
+                ),
+              );
+            for (const sign of [-1, 1]) {
+              white(at(sign * 0.022, -0.041 + 0.082 * t));
+              white(at(-0.012 + 0.024 * t, sign * 0.051));
+            }
+            const joined = at(-0.25 + 0.5 * t, 0.06);
+            expect(joined.height).toBeGreaterThanOrEqual(0.0019999);
+            expect(joined.mortar).toBe(0);
+            expect(joined.occlusion).toBeCloseTo(0.99, 12);
+          }
+          for (let j = 0; j <= 256; j++) {
+            const theta = (Math.PI * j) / 512;
+            for (const sx of [-1, 1])
+              for (const sy of [-1, 1])
+                white(
+                  at(
+                    sx * (0.012 + 0.01 * Math.cos(theta)),
+                    sy * (0.041 + 0.01 * Math.sin(theta)),
+                  ),
+                );
+          }
+          for (let y = 0; y <= 32; y++)
+            for (let x = 0; x <= 16; x++) {
+              const counter = at(
+                -0.01 + (0.02 * x) / 16,
+                -0.035 + (0.07 * y) / 32,
+              );
+              expect(counter.color).toBeLessThanOrEqual(0.0950001);
+              expect(counter.height).toBeGreaterThanOrEqual(0.0025999);
+              expect(counter.metallic).toBe(0);
+              expect(counter.mortar).toBe(0);
+              expect(counter.occlusion).toBeCloseTo(0.99, 12);
+            }
+          for (const [axis, fixed, expected] of [
+            [0, 0, 2],
+            [1, p.glyphPitch - 0.015, 3],
+            [1, -p.glyphPitch + p.glyphHalfX, 1],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const t = j / 8192,
+                value =
+                  axis === 0
+                    ? at(-0.04 + 0.08 * t, 0)
+                    : at(fixed!, -0.07 + 0.14 * t),
+                next = value.color > 0.8;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+    },
+  );
+  it('writes white 103 as M0 not silver M1 and keeps its zero counter high opaque black in actual512 packed PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('chipresistors', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            black = pixel(0, 0),
+            silver = pixel(p.terminalX, 0);
+          expect(maps.baseColor[black]!).toBeLessThan(40);
+          expect(maps.metallicRoughness[black + 2]).toBe(0);
+          expect(maps.occlusion[black]!).toBeGreaterThan(245);
+          expect(maps.height![black]!).toBeGreaterThan(240);
+          expect(maps.baseColor[silver]!).toBeGreaterThan(210);
+          expect(maps.metallicRoughness[silver + 2]).toBe(255);
+          expect(maps.height![black]! - maps.height![silver]!).toBeGreaterThan(
+            50,
+          );
+          expect(
+            maps.metallicRoughness[black + 1]! -
+              maps.metallicRoughness[silver + 1]!,
+          ).toBeGreaterThan(75);
+          for (const [x, y] of [
+            [-p.glyphPitch + p.glyphHalfX, 0],
+            [0.0215, 0],
+            [p.glyphPitch, 0],
+          ]) {
+            const ink = pixel(x!, y!);
+            for (let channel = 0; channel < 3; channel++)
+              expect(maps.baseColor[ink + channel]!).toBeGreaterThan(220);
+            expect(
+              maps.baseColor[ink]! - maps.baseColor[black]!,
+            ).toBeGreaterThan(180);
+            expect(maps.metallicRoughness[ink + 2]).toBe(0);
+            expect(maps.occlusion[ink]!).toBeGreaterThan(245);
+            expect(maps.height![ink]! - maps.height![black]!).toBeGreaterThan(
+              0,
+            );
+            expect(
+              maps.metallicRoughness[ink + 1]! -
+                maps.metallicRoughness[black + 1]!,
+            ).toBeGreaterThan(35);
+          }
+        }
+    }
+  });
+  it('repeats white ink black counter body silver terminal and backing channels across signed UV periods with seeded poses', () => {
+    const sample = createSurfaceSampler('chipresistors', 7),
+      other = createSurfaceSampler('chipresistors', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(100);
+  });
+  it('keeps terminal body and 103 capsule/annulus core support connected3joins true0counter glyph/row owners poses grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chipresistors', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const sign of [-1, 1]) {
+              for (const r of [p.bodyRadius, p.bodyCore]) {
+                local(
+                  sign * (p.bodyStraightX + r),
+                  -p.bodyStraightY + 2 * p.bodyStraightY * t,
+                );
+                local(
+                  -p.bodyStraightX + 2 * p.bodyStraightX * t,
+                  sign * (p.bodyStraightY + r),
+                );
+                for (const sy of [-1, 1])
+                  local(
+                    sign * p.bodyStraightX + r * ct,
+                    sy * p.bodyStraightY + r * st,
+                  );
+              }
+              for (const r of [p.terminalRadius, p.terminalCore])
+                for (const sx of [-1, 1])
+                  for (const sy of [-1, 1]) {
+                    local(
+                      sign * p.terminalX + sx * p.terminalStraightX + r * ct,
+                      sy * p.terminalStraightY + r * st,
+                    );
+                    local(
+                      sign * p.terminalX + sx * (p.terminalStraightX + r),
+                      -p.terminalStraightY + 2 * p.terminalStraightY * t,
+                    );
+                    local(
+                      sign * p.terminalX -
+                        p.terminalStraightX +
+                        2 * p.terminalStraightX * t,
+                      sy * (p.terminalStraightY + r),
+                    );
+                  }
+            }
+            for (const [sx, sy, r] of [
+              [p.zeroOuterStraightX, p.zeroOuterStraightY, p.zeroOuterRadius],
+              [p.zeroOuterStraightX, p.zeroOuterStraightY, p.zeroOuterCore],
+              [p.zeroInnerStraightX, p.zeroInnerStraightY, p.zeroInnerRadius],
+              [p.zeroInnerStraightX, p.zeroInnerStraightY, p.zeroInnerCore],
+            ])
+              for (const sign of [-1, 1])
+                for (const side of [-1, 1]) {
+                  local(sign * sx! + r! * ct, side * sy! + r! * st);
+                  local(sign * (sx! + r!), -sy! + 2 * sy! * t);
+                  local(-sx! + 2 * sx! * t, side * (sy! + r!));
+                }
+            for (const r of [p.strokeRadius, p.strokeCore])
+              for (const glyph of [-1, 1])
+                for (const sign of [-1, 1]) {
+                  const gx = glyph * p.glyphPitch + p.glyphHalfX;
+                  local(gx + sign * r, -p.glyphHalfY + 2 * p.glyphHalfY * t);
+                  local(gx + r * ct, sign * p.glyphHalfY + r * st);
+                  for (const line of [-1, 0, 1]) {
+                    local(
+                      p.glyphPitch - p.glyphHalfX + 2 * p.glyphHalfX * t,
+                      line * p.glyphHalfY + sign * r,
+                    );
+                    local(
+                      p.glyphPitch + sign * p.glyphHalfX + r * ct,
+                      line * p.glyphHalfY + r * st,
+                    );
+                  }
+                }
+            for (const x of [-p.glyphPitch / 2, p.glyphPitch / 2])
+              local(x, -0.07 + 0.14 * t);
+            for (const y of [-p.glyphHalfY / 2, p.glyphHalfY / 2])
+              local(p.glyphPitch - 0.03 + 0.06 * t, y);
+            local(0, -0.13 + 0.26 * t);
+          }
+        }
+    }
+  });
+});
 
 describe('Swept impeller faces with six pointed silver blades six open sectors a higher annular hub and a true center bore', () => {
   const p = proceduralMaterialPresets.impellerfaces;
@@ -45558,6 +45883,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'scissors' &&
           kind !== 'serpentinesprings' &&
           kind !== 'impellerfaces' &&
+          kind !== 'chipresistors' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -54984,6 +55310,7 @@ describe('procedural preset acquisition and ownership', () => {
     'scissors',
     'serpentinesprings',
     'impellerfaces',
+    'chipresistors',
     'standingseam',
     'damascus',
     'castiron',
@@ -55070,6 +55397,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'scissors' ||
           kind === 'serpentinesprings' ||
           kind === 'impellerfaces' ||
+          kind === 'chipresistors' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

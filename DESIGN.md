@@ -873,6 +873,8 @@
 
 `impellerfaces` 為九 seeded 六後掠尖銀葉輪、六開扇隙、高圓環hub與真中心孔，非連續rim的spurgears換色。Cached poses／128² grain／squared radial profiles／sixfold angular phase隨q後掠；width隨q線性縮尖，兩smooth signed angular halfplanes乘積形成真尖端，不用abs-phase cusp或vanishing-width division。Phase ties在support外、full hub跳hidden angles/finish、origin不查angle；每eligible annulus一次atan2，每點無配置／hash／sqrt／sin/cos／逐葉或鄰格掃描。Product-complement hub/blade union保持連續core M1／exact mortar0，孔及扇隙低opaque M0；radial blade height向外升、低暗粗磨刃仍低於hub。0.3 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、旋轉、流體／空力或安全認證。
 
+`chipresistors` 為九 seeded 高黑矩形chip resistor、雙低銀wrap端與連續白103標記，非圓柱色環axialresistors換色。Cached poses／128² grain／rounded body-terminal profiles／capsule strokes／rounded annular0字，counter露出高opaque黑body，不是元件穿孔或低backing。3由連續vertical/horizontal strokes exact union；nearest glyph/row ties及mirrored terminal owners在support外，字寬配合旋轉512像素足跡。Full body跳hidden metal，每點無配置／hash／sqrt／trig／逐glyph或鄰格掃描；黑body與亮白ink皆M0、銀端M1，body/terminal cores重疊仍exact mortar0。Ink薄高粗、body高於terminals；0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變。103僅外觀標記，不認證實測阻值、電路模擬、精密元件規格或電氣／安全。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
