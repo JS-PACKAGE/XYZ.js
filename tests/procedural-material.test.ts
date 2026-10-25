@@ -670,7 +670,269 @@ const kinds: ProceduralMaterialKind[] = [
   'sewingthimbles',
   'boullebrassinlay',
   'diamondpanelparquet',
+  'dendriticfrost',
 ];
+
+describe('Raised rough opaque frost crystals with six connected spokes and24 sixty-degree sidebranches on a smooth dark-blue face', () => {
+  const p = proceduralMaterialPresets.dendriticfrost;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16015),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1601b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16017) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16019) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six full connected stems and24 explicitly raised rough60degree branches rather than coplanar ink or noise-only fans for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dendriticfrost', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const ice = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeGreaterThan(0.0013799);
+            expect(out.height).toBeLessThan(0.0013921);
+            expect(out.color).toBeGreaterThanOrEqual(0.84);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.88);
+            expect(out.roughness).toBeLessThan(0.9101);
+            expect(out.occlusion).toBe(0.99);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          };
+          const base = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeGreaterThan(0.0004499);
+            expect(out.height).toBeLessThan(0.0004561);
+            expect(out.color).toBeGreaterThanOrEqual(0.1);
+            expect(out.color).toBeLessThan(0.1201);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.22);
+            expect(out.roughness).toBeLessThan(0.2401);
+            expect(out.occlusion).toBe(0.96);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          };
+          ice(0, 0);
+          for (let arm = 0; arm < 6; arm++) {
+            const angle = (arm * Math.PI) / 3,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            for (let j = 0; j <= 128; j++) {
+              const r = (p.stemLength * j) / 128;
+              ice(r * c, r * s);
+            }
+            base(
+              (p.stemLength + p.stemRadius + 0.01) * c,
+              (p.stemLength + p.stemRadius + 0.01) * s,
+            );
+            for (let branch = 0; branch < p.branchCount; branch++)
+              for (const side of [-1, 1]) {
+                const start = p.branchOrigin + branch * p.branchPitch;
+                for (let j = 0; j <= 64; j++) {
+                  const t = j / 64,
+                    x = start + p.branchRun * t,
+                    y = side * p.branchRise * t;
+                  ice(x * c - y * s, x * s + y * c);
+                }
+                const x = start + p.branchRun * 0.5,
+                  y = side * p.branchRise * 0.5;
+                for (const sign of [-1, 1]) {
+                  const dx = (sign * 0.012 * Math.sqrt(3)) / 2,
+                    dy = -side * sign * 0.006;
+                  base(
+                    (x + dx) * c - (y + dy) * s,
+                    (x + dx) * s + (y + dy) * c,
+                  );
+                }
+              }
+          }
+          for (const r of [0.08, 0.28]) {
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 4096; j++) {
+              const a = -Math.PI / 12 + (j * Math.PI) / 2048;
+              sample(
+                ...world(seed, col, row, r * Math.cos(a), r * Math.sin(a)),
+                out,
+              );
+              const ice = out.height > 0.0012;
+              if (ice && !previous) runs++;
+              previous = ice;
+            }
+            expect(runs).toBe(6);
+          }
+        }
+    },
+  );
+  it('resolves actual512 connectedbranch tips as white rough dielectric frost above smoother darkbase rather than printed snowflakes', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('dendriticfrost', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let arm = 0; arm < 6; arm++) {
+            const a = (arm * Math.PI) / 3,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              base = index(0.34 * c, 0.34 * s);
+            for (let b = 0; b < p.branchCount; b++)
+              for (const side of [-1, 1]) {
+                const x = p.branchOrigin + b * p.branchPitch + p.branchRun,
+                  y = side * p.branchRise,
+                  ice = index(x * c - y * s, x * s + y * c);
+                expect(
+                  maps.baseColor[ice] - maps.baseColor[base],
+                ).toBeGreaterThan(130);
+                expect(
+                  maps.metallicRoughness[ice + 1] -
+                    maps.metallicRoughness[base + 1],
+                ).toBeGreaterThan(140);
+                expect(maps.metallicRoughness[ice + 2]).toBe(0);
+                expect(maps.metallicRoughness[base + 2]).toBe(0);
+              }
+          }
+        }
+    }
+  });
+  it('keeps capsule support and core shoulders endpoint projection tangencies abs-axis branchowners centralhub union joins poseowners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dendriticfrost', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          for (let arm = 0; arm < 6; arm++) {
+            const a = (arm * Math.PI) / 3,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              rot = (x: number, y: number) =>
+                world(seed, col, row, x * c - y * s, x * s + y * c);
+            const capsule = (
+              x: number,
+              y: number,
+              dx: number,
+              dy: number,
+              r: number,
+              core: number,
+            ) => {
+              const length = Math.hypot(dx, dy),
+                nx = -dy / length,
+                ny = dx / length;
+              for (const width of [r, core])
+                for (let j = 0; j <= 32; j++) {
+                  const t = j / 32;
+                  check(
+                    ...rot(x + t * dx + width * nx, y + t * dy + width * ny),
+                  );
+                  check(
+                    ...rot(x + t * dx - width * nx, y + t * dy - width * ny),
+                  );
+                }
+              for (const t of [0, 1])
+                for (const width of [r, core])
+                  for (let j = 0; j < 64; j++) {
+                    const a = (j * Math.PI) / 32;
+                    check(
+                      ...rot(
+                        x + t * dx + width * Math.cos(a),
+                        y + t * dy + width * Math.sin(a),
+                      ),
+                    );
+                  }
+            };
+            capsule(0, 0, p.stemLength, 0, p.stemRadius, p.stemCore);
+            for (let b = 0; b < p.branchCount; b++)
+              for (const side of [-1, 1])
+                capsule(
+                  p.branchOrigin + b * p.branchPitch,
+                  0,
+                  p.branchRun,
+                  side * p.branchRise,
+                  p.branchRadius,
+                  p.branchCore,
+                );
+            for (let j = 0; j <= 128; j++) {
+              const y = -0.15 + (0.3 * j) / 128;
+              for (let b = -1; b <= p.branchCount; b++)
+                check(
+                  ...rot(
+                    p.branchOrigin +
+                      p.branchRun * 0.5 +
+                      (b + 0.5) * p.branchPitch,
+                    y,
+                  ),
+                );
+              check(...rot(0, y));
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Miter-framed diamond parquet with alternating diagonal board grain and recessed continuous dark joints', () => {
   const p = proceduralMaterialPresets.diamondpanelparquet;

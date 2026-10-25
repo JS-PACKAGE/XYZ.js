@@ -644,7 +644,8 @@ export type ProceduralMaterialKind =
   | 'papayacuts'
   | 'sewingthimbles'
   | 'boullebrassinlay'
-  | 'diamondpanelparquet';
+  | 'diamondpanelparquet'
+  | 'dendriticfrost';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1523,6 +1524,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sewingthimbles',
   'boullebrassinlay',
   'diamondpanelparquet',
+  'dendriticfrost',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

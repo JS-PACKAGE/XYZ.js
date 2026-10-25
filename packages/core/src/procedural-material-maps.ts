@@ -1441,6 +1441,96 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dendriticfrost': {
+        const p = proceduralMaterialPresets.dendriticfrost,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16011),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          branchSquared = p.branchRadius * p.branchRadius,
+          inverseBranch = 1 / (branchSquared - p.branchCore * p.branchCore),
+          inversePitch = 1 / p.branchPitch,
+          firstCenter = p.branchOrigin + p.branchRun * 0.5,
+          inverseProjection =
+            1 / (p.branchRun * p.branchRun + p.branchRise * p.branchRise);
+        for (let axis = 0; axis < 3; axis++) {
+          const angle = (Math.PI * axis) / 3;
+          axes[axis * 2] = Math.cos(angle);
+          axes[axis * 2 + 1] = Math.sin(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x16015);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16017) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16019) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1601b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1601d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4];
+          let remaining = 1;
+          for (let axis = 0; axis < 3; axis++) {
+            const a = Math.abs(x * axes[axis * 2] + y * axes[axis * 2 + 1]),
+              b = y * axes[axis * 2] - x * axes[axis * 2 + 1],
+              end = Math.max(0, a - p.stemLength);
+            remaining *=
+              1 -
+              smooth(clamp((stemSquared - end * end - b * b) * inverseStem));
+            if (remaining === 0) break;
+            const slot = Math.floor((a - firstCenter) * inversePitch + 0.5);
+            if (slot < 0 || slot >= p.branchCount) continue;
+            const da = a - p.branchOrigin - slot * p.branchPitch,
+              t = clamp(
+                (da * p.branchRun + b * p.branchRise) * inverseProjection,
+              ),
+              ex = da - p.branchRun * t,
+              ey = b - p.branchRise * t;
+            remaining *=
+              1 -
+              smooth(
+                clamp((branchSquared - ex * ex - ey * ey) * inverseBranch),
+              );
+            if (remaining === 0) break;
+            const s = clamp(
+                (da * p.branchRun - b * p.branchRise) * inverseProjection,
+              ),
+              fx = da - p.branchRun * s,
+              fy = b + p.branchRise * s;
+            remaining *=
+              1 -
+              smooth(
+                clamp((branchSquared - fx * fx - fy * fy) * inverseBranch),
+              );
+            if (remaining === 0) break;
+          }
+          const grain = grainField(u, v),
+            ice = 1 - remaining;
+          color = 0.1 + 0.02 * grain;
+          height = 0.15 + 0.002 * grain;
+          roughness = 0.22 + 0.02 * grain;
+          occlusion = 0.96;
+          metallic = 0;
+          mortar = 0;
+          if (ice === 0) return;
+          color += ice * (0.84 + 0.08 * poses[i + 5] + 0.03 * grain - color);
+          height += ice * (0.46 + 0.004 * grain - height);
+          roughness += ice * (p.roughness + 0.03 * grain - roughness);
+          occlusion += ice * (0.99 - occlusion);
+        };
+      }
       case 'diamondpanelparquet': {
         const p = proceduralMaterialPresets.diamondpanelparquet,
           side = 2 * p.lookupHalf + 1,
@@ -26797,6 +26887,7 @@ export function createSurfaceSampler(
     kind === 'sewingthimbles' ||
     kind === 'boullebrassinlay' ||
     kind === 'diamondpanelparquet' ||
+    kind === 'dendriticfrost' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

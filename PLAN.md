@@ -799,6 +799,8 @@
 
 同輪追加 `diamondpanelparquet`（四斜接框菱形拼木），目錄 628→629 種：四 mitered frame boards、45° square-grid clipped diamond field、交替 board-local diagonal grain、低暗粗連續木縫；非 logcabin 螺旋板或 chevron V板，不冒稱歷史 Versailles layout。0.8 m opaque dielectric panel，M0／整面含 joints mortar 0，沿現有木拼板的暗色自帶 joint 而非 neutral grout，四圖／選用 height／ownership 不變；不新增 geometry、真板／位移、地板碰撞／鋪設／變形或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `dendriticfrost`（樹枝狀霜晶），目錄 629→630 種：16 個 seeded rotated 六主枝／24 個 60° sidebranches、相連的高亮粗 opaque ice，smooth dark-blue continuous face，非 snowflaketiles 共面印花或 frost broad angular noise fans。0.12 m opaque dielectric tile、M0／全 mortar 0，沿四圖／選用 height／ownership；重用 squared capsule projection convention，固定 axes與完整 compact branch-owner budget，不新增 geometry、透明／transmission、晶體成長／天氣／積雪／融化或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
