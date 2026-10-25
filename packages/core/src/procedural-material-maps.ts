@@ -1428,6 +1428,54 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'baseballleather': {
+        const p = proceduralMaterialPresets.baseballleather,
+          tones = new Float64Array(p.columns * p.rows),
+          xScale = p.rows / p.columns,
+          vx = p.threadEndX - p.threadStartX,
+          vy = p.threadEndY - p.threadStartY,
+          inverseLength = 1 / (vx * vx + vy * vy),
+          inverseThread = 1 / (p.threadRadius * p.threadRadius),
+          inverseShoulder = 1 / p.threadShoulder,
+          inverseSeam = 1 / (p.seamRadius * p.seamRadius),
+          grainField = cachedNoise(96, 96, seed ^ 0x12811);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x12813);
+        return () => {
+          const uc = u * p.columns,
+            vc = v * p.rows,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            span = v * (1 - v),
+            bow = (col & 1 ? 1 : -1) * p.bend * (16 * span * span - 0.5),
+            x = (fract(uc) - 0.5 - bow) * xScale,
+            y = fract(vc) - 0.5,
+            seam = smooth(clamp(1 - x * x * inverseSeam)),
+            grain = grainField(u, v);
+          color = 0.94 + 0.035 * grain - 0.22 * seam;
+          height = 0.38 + 0.018 * grain - 0.12 * seam;
+          roughness = p.roughness + 0.04 * grain + 0.08 * seam;
+          occlusion = 0.99 - 0.35 * seam;
+          const tx = Math.abs(x) - p.threadStartX,
+            ty = y - p.threadStartY,
+            t = clamp((tx * vx + ty * vy) * inverseLength),
+            ex = tx - t * vx,
+            ey = ty - t * vy,
+            cap = clamp(1 - (ex * ex + ey * ey) * inverseThread),
+            thread = smooth(clamp(cap * inverseShoulder));
+          if (thread === 0) return;
+          // Mirrored capsule threads meet the curved panel seam in paired
+          // chevrons; their support vanishes before side/row ownership changes.
+          const dome = smooth(cap),
+            tone = tones[row * p.columns + col];
+          color += thread * (0.08 + 0.035 * tone + 0.025 * grain - color);
+          height += thread * (0.5 + 0.1 * dome + 0.003 * grain - height);
+          roughness += thread * (0.5 + 0.025 * grain - roughness);
+          occlusion += thread * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'ballbearingfaces': {
         const p = proceduralMaterialPresets.ballbearingfaces,
           tones = new Float64Array(p.cells * p.cells),
@@ -22404,6 +22452,7 @@ export function createSurfaceSampler(
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
     kind === 'ballbearingfaces' ||
+    kind === 'baseballleather' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

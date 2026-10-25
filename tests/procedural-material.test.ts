@@ -611,7 +611,136 @@ const kinds: ProceduralMaterialKind[] = [
   'ceramiccapacitors',
   'fennelseeds',
   'ballbearingfaces',
+  'baseballleather',
 ];
+
+describe('White baseball leather with curved paired raised red stitches', () => {
+  const p = proceduralMaterialPresets.baseballleather;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const v = (row + 0.5 + y) / p.rows,
+      span = v * (1 - v),
+      bow = (col & 1 ? 1 : -1) * p.bend * (16 * span * span - 0.5);
+    return [
+      (col + 0.5 + bow + (x * p.columns) / p.rows) / p.columns,
+      v,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two red raised stitches per row above white leather and a lower curved join without tinting the row gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('baseballleather', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let col = 0; col < p.columns; col++)
+        for (let row = 0; row < p.rows; row++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0.8, 0);
+          const leather = out.height;
+          expect(out.color).toBeGreaterThan(0.93);
+          expect(out.metallic).toBe(0);
+          at(0, 0);
+          expect(leather - out.height).toBeGreaterThan(0.0003);
+          expect(out.occlusion).toBeLessThan(0.66);
+          for (const sign of [-1, 1]) {
+            at(
+              sign * (p.threadStartX + p.threadEndX) * 0.5,
+              (p.threadStartY + p.threadEndY) * 0.5,
+            );
+            expect(out.color).toBeLessThan(0.16);
+            expect(out.height - leather).toBeGreaterThan(0.0005);
+            expect(out.roughness).toBeLessThan(0.53);
+            expect(out.occlusion).toBeGreaterThan(0.97);
+            expect(out.metallic).toBe(0);
+            at(sign * 0.36, 0.49);
+            expect(out.color).toBeGreaterThan(0.93);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at((i / 1024 - 0.5) * 1.6, 0);
+            const red = out.color < 0.3;
+            if (red && !previous) runs++;
+            previous = red;
+          }
+          expect(runs).toBe(2);
+        }
+      for (let col = 0; col < p.columns; col++) {
+        const start = uv(col, 0, 0, -0.5);
+        sample(...start, out);
+        expect(out.height).toBeLessThan(0.00085);
+        sample(start[0], 0.5, out);
+        expect(out.height).toBeGreaterThan(0.0011);
+        sample(...uv(col, p.rows / 2, 0, -0.5), out);
+        expect(out.height).toBeLessThan(0.00085);
+      }
+    },
+  );
+  it('keeps mirrored capsule threads, row/side owners, curved join shoulders and both UV wraps C1', () => {
+    // Fine high-contrast threads need a shorter stencil to resolve curvature.
+    const h = 1e-10,
+      vx = p.threadEndX - p.threadStartX,
+      vy = p.threadEndY - p.threadStartY,
+      length = Math.hypot(vx, vy),
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('baseballleather', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let col = 0; col < p.columns; col++)
+        for (let row = 0; row < p.rows; row++) {
+          for (const y of [-0.5, 0, 0.5])
+            for (const x of [-p.seamRadius, 0, p.seamRadius])
+              check(...uv(col, row, x, y));
+          for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            const x = p.threadStartX + t * vx,
+              y = p.threadStartY + t * vy;
+            for (const radius of [
+              p.threadRadius,
+              p.threadRadius * Math.sqrt(1 - p.threadShoulder),
+            ])
+              for (const side of [-1, 1])
+                for (const normal of [-1, 1])
+                  check(
+                    ...uv(
+                      col,
+                      row,
+                      side * (x - (normal * radius * vy) / length),
+                      y + (normal * radius * vx) / length,
+                    ),
+                  );
+          }
+        }
+    }
+  });
+});
 
 describe('Open ball bearing faces with concentric races and eight raised steel balls', () => {
   const p = proceduralMaterialPresets.ballbearingfaces;

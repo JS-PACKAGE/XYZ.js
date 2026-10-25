@@ -5382,6 +5382,22 @@ export const proceduralMaterialPresets = Object.freeze({
     ballRadius: 0.073,
     ballCore: 0.055,
   }),
+  baseballleather: Object.freeze({
+    dark: [126, 18, 14] as const,
+    light: [246, 242, 223] as const,
+    roughness: 0.66,
+    relief: 0.003,
+    columns: 2,
+    rows: 20,
+    bend: 0.14,
+    seamRadius: 0.07,
+    threadStartX: 0.08,
+    threadEndX: 0.64,
+    threadStartY: 0.2,
+    threadEndY: -0.2,
+    threadRadius: 0.04,
+    threadShoulder: 0.3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5959,4 +5975,5 @@ export const proceduralTileMeters = Object.freeze({
   ceramiccapacitors: 0.12,
   fennelseeds: 0.096,
   ballbearingfaces: 0.16,
+  baseballleather: 0.24,
 });

@@ -7325,3 +7325,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 573-preset ballbearingfaces、擷取畫面；512 base-color detail 顯示內外雙圈、八球與低暗滾道。實際 factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 ballbearingfaces 並重算既有 572 種（含 ballchain／squarewashers）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6573 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：棒球白皮革（baseballleather）
+
+- 目錄 573→574 種；0.24 m opaque dielectric tile、metallic 0，兩鏡向彎曲低接縫、每列成對紅凸線，非 rugbyball 綁帶。Cached 40 row tones／96×96 grain／reciprocals、periodic polynomial bow／compact seam／mirrored capsule threads／coherent PBR replacement，thread support 在 side／row owner 前歸零，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、完整球面裁片 UV、賽事規格認證、縫製／布料／碰撞或物理模擬。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 574-preset baseballleather、擷取畫面；512 base-color detail 顯示白皮革雙彎縫與紅色 V 形線。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Targeted 初次 morphology／determinism 四項通過，C1 一項因細紅線 high-contrast curvature 的有限 stencil 差 >0.02 失敗；fresh Bun throwaway 找出最差 grid point，h 1e-8／1e-9／1e-10／1e-11 的導數差依序 0.48825／0.048824／0.004888／0.000444，證實向同一導數收斂而非 seam。僅將該測試 h 改 1e-10、保留 0.02 bound，sampler 不變；五項全通過。3 seeds ×40 stitch rows 的 1025-point 橫剖面各兩紅線、線頂較白皮高 >0.0005 m、縫低 >0.0003 m、row gaps 無染紅；129²／exact seam／capsule／owners／wraps C1 通過。
+- Fresh Node 新 build 生成 baseballleather 並重算既有 573 種（含 rugbyball／saddlestitch）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6578 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

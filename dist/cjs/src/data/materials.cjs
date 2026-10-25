@@ -10286,6 +10286,30 @@ var proceduralMaterialPresets = Object.freeze({
 		raceShoulder: .25,
 		ballRadius: .073,
 		ballCore: .055
+	}),
+	baseballleather: Object.freeze({
+		dark: [
+			126,
+			18,
+			14
+		],
+		light: [
+			246,
+			242,
+			223
+		],
+		roughness: .66,
+		relief: .003,
+		columns: 2,
+		rows: 20,
+		bend: .14,
+		seamRadius: .07,
+		threadStartX: .08,
+		threadEndX: .64,
+		threadStartY: .2,
+		threadEndY: -.2,
+		threadRadius: .04,
+		threadShoulder: .3
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10861,7 +10885,8 @@ var proceduralTileMeters = Object.freeze({
 	lathplaster: .8,
 	ceramiccapacitors: .12,
 	fennelseeds: .096,
-	ballbearingfaces: .16
+	ballbearingfaces: .16,
+	baseballleather: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
