@@ -1441,6 +1441,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'orecchiette': {
+        const p = proceduralMaterialPresets.orecchiette,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16211),
+          inverseX = 1 / p.radiusX,
+          inverseY = 1 / p.radiusY,
+          inverseBowlX = 1 / p.bowlX,
+          inverseBowlY = 1 / p.bowlY,
+          inverseEdge = 1 / p.edge,
+          inverseRim = 1 / p.rimWidth;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16215);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16217) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16219) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1621b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1621d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = x * inverseX,
+            ay = y * inverseY,
+            q = ax * ax + ay * ay,
+            face = smooth(clamp((1 - q) * inverseEdge)),
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - face;
+          if (face === 0) return;
+          const bx = (x + p.bowlOffset) * inverseBowlX,
+            by = y * inverseBowlY,
+            bowl = smooth(clamp(1 - bx * bx - by * by)),
+            dr = (q - p.rimCenter) * inverseRim,
+            rim = smooth(clamp(1 - dr * dr)),
+            pastaColor =
+              0.7 -
+              0.15 * bowl +
+              0.1 * rim +
+              0.05 * poses[i + 5] +
+              0.02 * grain,
+            pastaHeight = 0.52 - 0.28 * bowl + 0.16 * rim + 0.004 * grain,
+            pastaRoughness = p.roughness + 0.04 * bowl + 0.02 * grain;
+          color += face * (pastaColor - color);
+          height += face * (pastaHeight - height);
+          roughness += face * (pastaRoughness - roughness);
+          occlusion += face * (0.98 - 0.2 * bowl - occlusion);
+        };
+      }
       case 'bullionknots': {
         const p = proceduralMaterialPresets.bullionknots,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26947,6 +27010,7 @@ export function createSurfaceSampler(
     kind === 'diamondpanelparquet' ||
     kind === 'dendriticfrost' ||
     kind === 'bullionknots' ||
+    kind === 'orecchiette' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

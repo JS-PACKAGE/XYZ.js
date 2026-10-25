@@ -672,7 +672,242 @@ const kinds: ProceduralMaterialKind[] = [
   'diamondpanelparquet',
   'dendriticfrost',
   'bullionknots',
+  'orecchiette',
 ];
+
+describe('Cupped golden semolina ear pasta with continuous high rolled rims and lower darker rougher off-center bowls', () => {
+  const p = proceduralMaterialPresets.orecchiette;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16215),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1621b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16217) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16219) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a complete raised rolledrim around a lower continuous offcenter semolina bowl instead of raised ravioli filling or a transparent hole for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('orecchiette', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, -p.bowlOffset, 0), out);
+          const bowl = { ...out };
+          expect(bowl.height).toBeGreaterThan(0.0009599);
+          expect(bowl.height).toBeLessThan(0.0009761);
+          expect(bowl.roughness).toBeGreaterThanOrEqual(0.87);
+          expect(bowl.roughness).toBeLessThan(0.8901);
+          expect(bowl.occlusion).toBeCloseTo(0.78, 12);
+          expect(bowl.mortar).toBe(0);
+          expect(bowl.metallic).toBe(0);
+          for (let j = 0; j <= 512; j++) {
+            const a = (2 * Math.PI * j) / 512,
+              x = p.radiusX * Math.sqrt(p.rimCenter) * Math.cos(a),
+              y = p.radiusY * Math.sqrt(p.rimCenter) * Math.sin(a);
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeGreaterThan(0.0027199);
+            expect(out.height).toBeLessThan(0.0027361);
+            expect(out.height - bowl.height).toBeGreaterThan(0.0017439);
+            expect(out.color - bowl.color).toBeGreaterThan(0.2299);
+            expect(bowl.roughness - out.roughness).toBeGreaterThan(0.0199);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                p.radiusX * 1.02 * Math.cos(a),
+                p.radiusY * 1.02 * Math.sin(a),
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0000999);
+            expect(out.height).toBeLessThan(0.0001081);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBe(0.3);
+            expect(out.metallic).toBe(0);
+          }
+          sample(...world(seed, col, row, -0.13, 0), out);
+          const thin = { ...out };
+          sample(...world(seed, col, row, 0.13, 0), out);
+          expect(out.height - thin.height).toBeGreaterThan(0.0004);
+          expect(out.color - thin.color).toBeGreaterThan(0.035);
+          expect(out.occlusion - thin.occlusion).toBeGreaterThan(0.07);
+          expect(out.mortar).toBe(0);
+          expect(thin.mortar).toBe(0);
+          for (let arm = 0; arm < 8; arm++) {
+            const a = (arm * Math.PI) / 8;
+            let rims = 0,
+              prevRim = false,
+              bodies = 0,
+              prevBody = false;
+            for (let j = 0; j <= 2048; j++) {
+              const t = -1.1 + (2.2 * j) / 2048;
+              sample(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.radiusX * t * Math.cos(a),
+                  p.radiusY * t * Math.sin(a),
+                ),
+                out,
+              );
+              const high = out.height > 0.0025,
+                body = out.mortar === 0;
+              if (high && !prevRim) rims++;
+              if (body && !prevBody) bodies++;
+              prevRim = high;
+              prevBody = body;
+              if (Math.abs(t) < 0.5) {
+                expect(out.mortar).toBe(0);
+                expect(out.height).toBeGreaterThan(0.0009599);
+              }
+            }
+            expect(rims).toBe(2);
+            expect(bodies).toBe(1);
+          }
+        }
+    },
+  );
+  it('resolves actual512 the entire light high smooth rolledrim against a darker rougher lower but opaque bowl', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('orecchiette', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            bowl = index(-p.bowlOffset, 0);
+          for (let j = 0; j < 64; j++) {
+            const a = (j * Math.PI) / 32,
+              rim = index(
+                p.radiusX * Math.sqrt(p.rimCenter) * Math.cos(a),
+                p.radiusY * Math.sqrt(p.rimCenter) * Math.sin(a),
+              );
+            expect(maps.baseColor[rim] - maps.baseColor[bowl]).toBeGreaterThan(
+              30,
+            );
+            expect(
+              maps.metallicRoughness[bowl + 1] -
+                maps.metallicRoughness[rim + 1],
+            ).toBeGreaterThan(4);
+            expect(maps.occlusion[rim] - maps.occlusion[bowl]).toBeGreaterThan(
+              46,
+            );
+            expect(maps.metallicRoughness[rim + 2]).toBe(0);
+          }
+          expect(maps.metallicRoughness[bowl + 2]).toBe(0);
+          expect(maps.occlusion[bowl]).toBeGreaterThan(195);
+        }
+    }
+  });
+  it('keeps exact outer and fullface ellipses rolledrim support and crest offcenter bowl support center poseowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('orecchiette', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          check(...world(seed, col, row, -p.bowlOffset, 0));
+          for (let j = 0; j <= 512; j++) {
+            const a = (j * Math.PI) / 256,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const q of [
+              1,
+              1 - p.edge,
+              p.rimCenter - p.rimWidth,
+              p.rimCenter,
+              p.rimCenter + p.rimWidth,
+            ])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.radiusX * Math.sqrt(q) * c,
+                  p.radiusY * Math.sqrt(q) * s,
+                ),
+              );
+            check(
+              ...world(
+                seed,
+                col,
+                row,
+                -p.bowlOffset + p.bowlX * c,
+                p.bowlY * s,
+              ),
+            );
+          }
+        }
+    }
+  });
+});
 
 describe('Elongated golden bullion embroidery knots with twelve raised transverse wraps and rounded ends on dark-blue woven cloth', () => {
   const p = proceduralMaterialPresets.bullionknots;

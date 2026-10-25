@@ -803,6 +803,8 @@
 
 同輪追加 `bullionknots`（長形纏線繡結），目錄 630→631 種：16 seeded rotated elongated rounded golden yarn bodies、各十二 transverse raised wraps，連續低槽不切開 yarn／cloth。非 frenchknots 兩圓環凹心小結或 crossstitch 交叉線；實際 height／roughness／AO／color 皆隨 coil 起伏。0.12 m opaque dielectric tile、gold-colored yarn 非 metal，M0／含 dark-blue woven cloth 全 mortar 0，沿四圖／選用 height／ownership。不新增 geometry、真螺旋線／yarn拓撲、布料透明洞、針／線／布料／縫製／物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `orecchiette`（耳形麵），目錄 631→632 種：16 seeded rotated cupped golden semolina faces、連續高 rolled rim、偏心較低暗粗 opaque bowl，非 ravioli 凸餡枕、macaroni 短彎管或透明洞。0.16 m opaque dielectric tile、M0／dough face mortar 0、外 backing mortar 1，沿四圖／選用 height／ownership；不新增 geometry、真麵形／位移／厚度／洞、烹煮／吸水／變形／食品／物理模擬。依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
