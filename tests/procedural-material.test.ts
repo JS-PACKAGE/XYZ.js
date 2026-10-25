@@ -664,7 +664,143 @@ const kinds: ProceduralMaterialKind[] = [
   'shippocloth',
   'driedtamarindpods',
   'conicalsampletubes',
+  'botryoidalcopper',
 ];
+
+describe('Positive rounded native-copper nodules above lower darker rough metallic valleys', () => {
+  const p = proceduralMaterialPresets.botryoidalcopper;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const site = (seed: number, col: number, row: number) =>
+    [
+      (col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x15a13) - 1)) /
+        p.cells,
+      (row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x15a15) - 1)) /
+        p.cells,
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps 256 higher brighter smoother copper crowns above lower dark rough metallic valleys for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('botryoidalcopper', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...site(seed, col, row), out);
+          const crown = out.height,
+            color = out.color,
+            rough = out.roughness;
+          expect(crown).toBeGreaterThan(0.0024799);
+          expect(crown).toBeLessThan(0.0024921);
+          expect(out.color).toBeGreaterThanOrEqual(0.57);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.2299);
+          expect(out.roughness).toBeLessThan(0.2501);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+          for (const [x, y] of [
+            [col, row],
+            [col + 1, row],
+            [col, row + 1],
+            [col + 1, row + 1],
+          ]) {
+            sample(x / p.cells, y / p.cells, out);
+            expect(out.height).toBeGreaterThanOrEqual(0.00056);
+            expect(out.height).toBeLessThan(0.000575);
+            expect(crown - out.height).toBeGreaterThan(0.0019049);
+            expect(color - out.color).toBeGreaterThan(0.4239);
+            expect(out.roughness - rough).toBeGreaterThan(0.379);
+            expect(out.occlusion).toBeLessThan(0.701);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+          }
+        }
+      for (let row = 0; row < p.cells; row++) {
+        let runs = 0,
+          previous = false;
+        for (let j = 0; j <= 4096; j++) {
+          sample(j / 4096, (row + 0.5) / p.cells, out);
+          const crown = out.height > 0.0023;
+          if (crown && !previous) runs++;
+          previous = crown;
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+        }
+        expect(runs).toBe(16);
+      }
+    },
+  );
+  it('keeps the entire actual512 copper surface including valleys metallic rather than copper glyphs on dielectric backing', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('botryoidalcopper', 512, seed);
+      for (let i = 2; i < maps.metallicRoughness.length; i += 4)
+        expect(maps.metallicRoughness[i]).toBe(255);
+    }
+  });
+  it('keeps compact cubic support shoulders saturated crowns overlapping nodule fields complete neighbor ownership and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('botryoidalcopper', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 256; y++)
+        for (let x = 0; x <= 256; x++) check(x / 256, y / 256);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const [u, v] = site(seed, col, row);
+          check(u, v);
+          for (let j = 0; j < 64; j++) {
+            const a = (j * Math.PI) / 32;
+            check(
+              u + (p.radius * Math.cos(a)) / p.cells,
+              v + (p.radius * Math.sin(a)) / p.cells,
+            );
+          }
+          for (let j = 0; j <= 32; j++) {
+            check(col / p.cells, (row + j / 32) / p.cells);
+            check((col + j / 32) / p.cells, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Opaque capped conical sample-tube faces with side tether and rough frosted oval label', () => {
   const p = proceduralMaterialPresets.conicalsampletubes;
@@ -35319,6 +35455,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'toroidalinductors' &&
           kind !== 'brassjinglebells' &&
           kind !== 'coaxialcablecuts' &&
+          kind !== 'botryoidalcopper' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -44730,6 +44867,7 @@ describe('procedural preset acquisition and ownership', () => {
     'toroidalinductors',
     'brassjinglebells',
     'coaxialcablecuts',
+    'botryoidalcopper',
     'standingseam',
     'damascus',
     'castiron',
@@ -44801,6 +44939,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'toroidalinductors' ||
           kind === 'brassjinglebells' ||
           kind === 'coaxialcablecuts' ||
+          kind === 'botryoidalcopper' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

@@ -6353,6 +6353,15 @@ export const proceduralMaterialPresets = Object.freeze({
     labelX: 0.07,
     labelY: 0.09,
   }),
+  botryoidalcopper: Object.freeze({
+    dark: [54, 22, 10] as const,
+    light: [225, 133, 76] as const,
+    roughness: 0.63,
+    relief: 0.004,
+    cells: 16,
+    radius: 0.58,
+    jitter: 0.12,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6980,4 +6989,5 @@ export const proceduralTileMeters = Object.freeze({
   shippocloth: 0.24,
   driedtamarindpods: 0.32,
   conicalsampletubes: 0.24,
+  botryoidalcopper: 0.16,
 });

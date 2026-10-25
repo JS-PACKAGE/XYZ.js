@@ -1441,6 +1441,53 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'botryoidalcopper': {
+        const p = proceduralMaterialPresets.botryoidalcopper,
+          sites = new Float64Array(p.cells * p.cells * 3),
+          grainField = cachedNoise(128, 128, seed ^ 0x15a11),
+          inverseRadius = 1 / (p.radius * p.radius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            sites[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x15a13) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x15a15) - 1);
+            sites[i + 2] = hash(col, row, seed ^ 0x15a17);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc),
+            y = fract(vc);
+          let sum = 0,
+            tone = 0;
+          for (let oy = -1; oy <= 1; oy++) {
+            const wy = (row + oy + p.cells) % p.cells;
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (col + ox + p.cells) % p.cells,
+                i = (wy * p.cells + wx) * 3,
+                dx = x - ox - sites[i],
+                dy = y - oy - sites[i + 1],
+                field = 1 - (dx * dx + dy * dy) * inverseRadius;
+              if (field <= 0) continue;
+              const weight = field * field * field;
+              sum += weight;
+              tone += weight * sites[i + 2];
+            }
+          }
+          const dome = smooth(clamp(sum)),
+            grain = grainField(u, v);
+          color = 0.12 + 0.45 * dome + 0.04 * tone + 0.025 * grain;
+          height = 0.14 + 0.48 * dome + 0.003 * grain;
+          roughness = p.roughness - 0.4 * dome + 0.02 * grain;
+          occlusion = 0.7 + 0.29 * dome;
+          metallic = 1;
+          mortar = 0;
+        };
+      }
       case 'conicalsampletubes': {
         const p = proceduralMaterialPresets.conicalsampletubes,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26250,6 +26297,7 @@ export function createSurfaceSampler(
     kind === 'shippocloth' ||
     kind === 'driedtamarindpods' ||
     kind === 'conicalsampletubes' ||
+    kind === 'botryoidalcopper' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

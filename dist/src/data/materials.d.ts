@@ -6202,6 +6202,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         labelX: 0.07;
         labelY: 0.09;
     }>;
+    botryoidalcopper: Readonly<{
+        dark: readonly [54, 22, 10];
+        light: readonly [225, 133, 76];
+        roughness: 0.63;
+        relief: 0.004;
+        cells: 16;
+        radius: 0.58;
+        jitter: 0.12;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6828,4 +6837,5 @@ export declare const proceduralTileMeters: Readonly<{
     shippocloth: 0.24;
     driedtamarindpods: 0.32;
     conicalsampletubes: 0.24;
+    botryoidalcopper: 0.16;
 }>;
