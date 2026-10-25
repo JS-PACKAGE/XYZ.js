@@ -11477,6 +11477,28 @@ var proceduralMaterialPresets = Object.freeze({
 		mouthX: .1,
 		mouthY: .04,
 		mouthShoulder: .2
+	}),
+	lepidolitemica: Object.freeze({
+		dark: [
+			58,
+			36,
+			80
+		],
+		light: [
+			225,
+			184,
+			237
+		],
+		roughness: .72,
+		relief: .002,
+		cells: 12,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04,
+		outerRadius: .32,
+		middleRadius: .24,
+		innerRadius: .16,
+		bevel: .018
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -12095,7 +12117,8 @@ var proceduralTileMeters = Object.freeze({
 	orthocerasstone: .4,
 	rickracktrim: .12,
 	toroidalinductors: .16,
-	pennerigate: .16
+	pennerigate: .16,
+	lepidolitemica: .2
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

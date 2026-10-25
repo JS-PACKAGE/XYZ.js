@@ -631,7 +631,8 @@ export type ProceduralMaterialKind =
   | 'orthocerasstone'
   | 'rickracktrim'
   | 'toroidalinductors'
-  | 'pennerigate';
+  | 'pennerigate'
+  | 'lepidolitemica';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1497,6 +1498,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rickracktrim',
   'toroidalinductors',
   'pennerigate',
+  'lepidolitemica',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -6219,6 +6219,20 @@ export const proceduralMaterialPresets = Object.freeze({
     mouthY: 0.04,
     mouthShoulder: 0.2,
   }),
+  lepidolitemica: Object.freeze({
+    dark: [58, 36, 80] as const,
+    light: [225, 184, 237] as const,
+    roughness: 0.72,
+    relief: 0.002,
+    cells: 12,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+    outerRadius: 0.32,
+    middleRadius: 0.24,
+    innerRadius: 0.16,
+    bevel: 0.018,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6839,4 +6853,5 @@ export const proceduralTileMeters = Object.freeze({
   rickracktrim: 0.12,
   toroidalinductors: 0.16,
   pennerigate: 0.16,
+  lepidolitemica: 0.2,
 });

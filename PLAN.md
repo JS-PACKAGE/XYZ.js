@@ -773,6 +773,8 @@
 
 同輪追加 `pennerigate`（斜切筆管麵），目錄 615→616 種：直管斜切端／五道較高縱肋／兩端低暗粗實心管口陰影，非既有 bent macaroni。0.16 m opaque dielectric tile、metallic 0，沿 neutral opaque backing／四圖／選用 height／ownership；不新增 geometry、透明通孔、真實管腔、烹煮／食物或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `lepidolitemica`（鋰雲母風格石材），目錄 616→617 種：連續淡紫礦物基質上三階較高／較亮／較平滑六角解理薄片，非既有膨脹蛭石波浪 lamellae。0.2 m opaque dielectric tile、metallic 0／mortar0，沿四圖／選用 height／ownership；風格化 seeded platelet pattern、不認證真實礦物組成、晶體物理或 iridescence，不新增 geometry、透明／transmission、粒子或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

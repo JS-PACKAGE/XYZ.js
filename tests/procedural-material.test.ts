@@ -657,7 +657,174 @@ const kinds: ProceduralMaterialKind[] = [
   'rickracktrim',
   'toroidalinductors',
   'pennerigate',
+  'lepidolitemica',
 ];
+
+describe('Lavender lepidolite-inspired mica with three stepped hexagonal cleavage platelets', () => {
+  const p = proceduralMaterialPresets.lepidolitemica;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15315),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1531b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15317) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15319) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six-sided three-level dielectric platelets above a continuous lower rough mineral matrix for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lepidolitemica', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0.4, 0);
+          const ground = out.height,
+            groundColor = out.color,
+            groundRough = out.roughness;
+          expect(ground).toBeGreaterThanOrEqual(0.00036);
+          expect(ground).toBeLessThan(0.0003761);
+          expect(out.occlusion).toBeCloseTo(0.96, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (let side = 0; side < 6; side++) {
+            const a = (side * Math.PI) / 3,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            at(0.27 * c, 0.27 * s);
+            const outer = out.height,
+              color = out.color,
+              rough = out.roughness;
+            expect(outer).toBeGreaterThan(0.0006399);
+            expect(outer).toBeLessThan(0.0006441);
+            expect(outer - ground).toBeGreaterThan(0.000263);
+            expect(color - groundColor).toBeGreaterThan(0.264);
+            expect(groundRough - rough).toBeGreaterThan(0.404);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            at(0.19 * c, 0.19 * s);
+            const middle = out.height;
+            expect(middle).toBeGreaterThan(0.0007199);
+            expect(middle).toBeLessThan(0.0007241);
+            expect(middle - outer).toBeGreaterThan(0.0000759);
+            expect(out.color - color).toBeGreaterThan(0.0649);
+            expect(rough - out.roughness).toBeGreaterThan(0.0149);
+            expect(out.occlusion).toBeCloseTo(0.995, 12);
+            at(0.08 * c, 0.08 * s);
+            expect(out.height).toBeGreaterThan(0.0007999);
+            expect(out.height).toBeLessThan(0.0008041);
+            expect(out.height - middle).toBeGreaterThan(0.0000759);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBe(1);
+            at(0.345 * c, 0.345 * s);
+            expect(out.height).toBeLessThan(0.0003761);
+            expect(out.occlusion).toBeCloseTo(0.96, 12);
+            const vertex = a + Math.PI / 6;
+            at(0.345 * Math.cos(vertex), 0.345 * Math.sin(vertex));
+            expect(out.height).toBeGreaterThan(0.0006399);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          for (const threshold of [0.0005, 0.00068, 0.00076]) {
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              at(-0.43 + (j * 0.86) / 1024, 0);
+              const layer = out.height > threshold;
+              if (layer && !previous) runs++;
+              previous = layer;
+            }
+            expect(runs).toBe(1);
+          }
+          at(0.02, 0.01);
+          const flat = out.height;
+          at(-0.02, -0.01);
+          expect(Math.abs(out.height - flat)).toBeLessThan(0.0000041);
+        }
+    },
+  );
+  it('keeps all six half-plane shoulders and three stepped hex corners seed owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lepidolitemica', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let side = 0; side < 6; side++) {
+            const angle = (side * Math.PI) / 3,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            for (const r of [p.outerRadius, p.middleRadius, p.innerRadius])
+              for (const d of [r, r - p.bevel]) {
+                for (let j = 0; j <= 8; j++) {
+                  const t = ((j / 8 - 0.5) * 2 * d) / Math.sqrt(3);
+                  check(...uv(seed, col, row, d * c - t * s, d * s + t * c));
+                }
+                const vertex = angle + Math.PI / 6,
+                  R = d / Math.cos(Math.PI / 6);
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    R * Math.cos(vertex),
+                    R * Math.sin(vertex),
+                  ),
+                );
+              }
+            for (const t of [-0.4, 0, 0.4])
+              check(...uv(seed, col, row, t * c, t * s));
+          }
+    }
+  });
+});
 
 describe('Straight slanted-cut penne rigate with five longitudinal ridges and two low solid mouths', () => {
   const p = proceduralMaterialPresets.pennerigate;
