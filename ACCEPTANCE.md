@@ -7365,3 +7365,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 578-preset slottedturners、擷取畫面；512 base-color detail 可見三封閉長槽與圓角鏟面／短頸。實際 factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 slottedturners 並重算既有 577 種（含 dinnerforks／slottedmetal）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6600 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：塑膠日字調節扣（triglidesliders）
+
+- 目錄 578→579 種；0.16 m opaque dielectric tile、metallic 0，無扣針塑膠雙封閉穿帶窗／齊平中桿，非金屬 beltbuckles 扣舌。Cached 16 tones／96×96 grain／reciprocals、rounded squared covers／compact mirrored windows／coherent visible coverage；sign owner 前 window support 歸零、角 support 限 cell，中桿共用外框高度。空 face／visible 略過後續 fields／grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、穿帶／滑動／摩擦／承重認證或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 扣的 1025-point 橫剖面各兩低窗、上下完整閉框，中心桿／框高 0.00311–0.00315 m、差 <0.000025 m，窗低於 0.00016 m／AO <0.4、框 AO >0.98、roughness 0.61–0.66，metallic 0。129² 雙向與 exact outer/window rounded shoulders／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 579-preset triglidesliders、擷取畫面；512 base-color detail 可見塑膠雙窗／中桿、沒有扣針。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 triglidesliders 並重算既有 578 種（含 beltbuckles）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6605 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

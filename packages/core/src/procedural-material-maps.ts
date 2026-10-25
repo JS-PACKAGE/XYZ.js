@@ -1428,6 +1428,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'triglidesliders': {
+        const p = proceduralMaterialPresets.triglidesliders,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseEdge = 1 / (radiusSquared - p.core * p.core),
+          windowSquared = p.windowRadius * p.windowRadius,
+          inverseWindow = 1 / (windowSquared - p.windowCore * p.windowCore),
+          grainField = cachedNoise(96, 96, seed ^ 0x12d11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12d13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            ox = Math.max(0, Math.abs(x) - p.straightX),
+            oy = Math.max(0, Math.abs(y) - p.straightY),
+            face = smooth(
+              clamp((radiusSquared - ox * ox - oy * oy) * inverseEdge),
+            );
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (face === 0) return;
+          // A pinless molded center rail separates two closed strap windows.
+          // Each compact window vanishes before the mirrored owner changes.
+          const wx = Math.max(
+              0,
+              Math.abs(Math.abs(x) - p.windowOffset) - p.windowX,
+            ),
+            wy = Math.max(0, Math.abs(y) - p.windowY),
+            window = smooth(
+              clamp((windowSquared - wx * wx - wy * wy) * inverseWindow),
+            ),
+            visible = face * (1 - window);
+          if (visible === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color += visible * (0.45 + 0.12 * tone + 0.035 * grain - color);
+          height += visible * (0.52 + 0.004 * grain - height);
+          roughness += visible * (p.roughness + 0.035 * grain - roughness);
+          occlusion += visible * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'slottedturners': {
         const p = proceduralMaterialPresets.slottedturners,
           tones = new Float64Array(p.cells * p.cells),
@@ -22717,6 +22769,7 @@ export function createSurfaceSampler(
     kind === 'bowtieinlay' ||
     kind === 'redcabbagecut' ||
     kind === 'slottedturners' ||
+    kind === 'triglidesliders' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

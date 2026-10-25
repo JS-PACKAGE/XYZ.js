@@ -697,6 +697,8 @@
 
 同輪追加 `slottedturners`（金屬煎鏟頭），目錄 577→578 種：圓角金屬鏟面／同高短頸與三道封閉長槽，槽內為低 opaque 非金屬背底，不是 dinnerforks 開口齒。0.32 m opaque mixed-metallic tile、factor 1，沿四圖／選用 height／ownership；不新增廚具 geometry、完整長柄、透明貫穿槽、彎曲／翻炒／熱傳導或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `triglidesliders`（塑膠日字調節扣），目錄 578→579 種：無扣針圓角塑膠框、雙封閉穿帶窗與齊平中橫桿，非 beltbuckles 金屬框／扣舌。0.16 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；窗內 opaque 低背底，不新增扣具／背帶 geometry、透明孔、穿帶／滑動／摩擦／承重認證或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

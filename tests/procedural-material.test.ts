@@ -616,7 +616,127 @@ const kinds: ProceduralMaterialKind[] = [
   'bowtieinlay',
   'redcabbagecut',
   'slottedturners',
+  'triglidesliders',
 ];
+
+describe('Pinless molded triglide sliders with two closed strap windows', () => {
+  const p = proceduralMaterialPresets.triglidesliders;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two closed backed windows and a flat pinless middle rail joined to the outer dielectric frame for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('triglidesliders', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          const rail = out.height;
+          expect(rail).toBeGreaterThan(0.00311);
+          expect(rail).toBeLessThan(0.00315);
+          expect(out.metallic).toBe(0);
+          expect(out.roughness).toBeGreaterThan(0.61);
+          expect(out.roughness).toBeLessThan(0.66);
+          for (const sign of [-1, 1]) {
+            at(sign * p.windowOffset, 0);
+            expect(out.height).toBeLessThan(0.00016);
+            expect(out.color).toBeLessThan(0.02);
+            expect(out.occlusion).toBeLessThan(0.4);
+            for (const y of [-0.28, 0.28]) {
+              at(sign * p.windowOffset, y);
+              expect(out.height).toBeGreaterThan(0.00311);
+              expect(out.occlusion).toBeGreaterThan(0.98);
+            }
+            at(sign * 0.3, 0);
+            expect(Math.abs(out.height - rail)).toBeLessThan(0.000025);
+          }
+          for (const y of [-0.28, 0, 0.28]) {
+            at(0, y);
+            expect(Math.abs(out.height - rail)).toBeLessThan(0.000025);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at((i / 1024 - 0.5) * 0.6, 0);
+            const floor = out.height < 0.0002;
+            if (floor && !previous) runs++;
+            previous = floor;
+          }
+          expect(runs).toBe(2);
+          at(0.42, 0);
+          expect(out.height).toBeLessThan(0.00016);
+        }
+    },
+  );
+  it('keeps rounded frame/window shoulders, mirrored window owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('triglidesliders', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let owner = -1; owner <= 1; owner++) {
+            const window = owner !== 0,
+              offset = owner * p.windowOffset,
+              width = window ? p.windowX : p.straightX,
+              height = window ? p.windowY : p.straightY;
+            for (const radius of window
+              ? [p.windowRadius, p.windowCore]
+              : [p.radius, p.core])
+              for (const sx of [-1, 1])
+                for (const sy of [-1, 1])
+                  for (let i = 0; i <= 8; i++) {
+                    const angle = (i * Math.PI) / 16;
+                    check(
+                      ...uv(
+                        col,
+                        row,
+                        offset + sx * (width + radius * Math.cos(angle)),
+                        sy * (height + radius * Math.sin(angle)),
+                      ),
+                    );
+                  }
+          }
+    }
+  });
+});
 
 describe('Rounded metal turner blades with three closed slots and short flat necks', () => {
   const p = proceduralMaterialPresets.slottedturners;

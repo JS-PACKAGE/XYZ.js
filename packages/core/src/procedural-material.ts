@@ -593,7 +593,8 @@ export type ProceduralMaterialKind =
   | 'toothbrushheads'
   | 'bowtieinlay'
   | 'redcabbagecut'
-  | 'slottedturners';
+  | 'slottedturners'
+  | 'triglidesliders';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1421,6 +1422,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bowtieinlay',
   'redcabbagecut',
   'slottedturners',
+  'triglidesliders',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

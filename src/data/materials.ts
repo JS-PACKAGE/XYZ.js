@@ -5469,6 +5469,22 @@ export const proceduralMaterialPresets = Object.freeze({
     slotRadius: 0.035,
     slotCore: 0.025,
   }),
+  triglidesliders: Object.freeze({
+    dark: [4, 8, 12] as const,
+    light: [87, 105, 115] as const,
+    roughness: 0.62,
+    relief: 0.006,
+    cells: 4,
+    straightX: 0.3,
+    straightY: 0.25,
+    radius: 0.08,
+    core: 0.06,
+    windowOffset: 0.15,
+    windowX: 0.055,
+    windowY: 0.18,
+    windowRadius: 0.05,
+    windowCore: 0.035,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6051,4 +6067,5 @@ export const proceduralTileMeters = Object.freeze({
   bowtieinlay: 0.6,
   redcabbagecut: 0.48,
   slottedturners: 0.32,
+  triglidesliders: 0.16,
 });
