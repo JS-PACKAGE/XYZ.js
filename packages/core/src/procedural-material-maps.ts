@@ -1441,6 +1441,115 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bananaslices': {
+        const p = proceduralMaterialPresets.bananaslices,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17b11),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseFace = 1 / (1 - p.faceCoreQ),
+          inverseRim = 1 / (p.rimFullQ - p.rimStartQ),
+          hubSquared = p.hubRadius * p.hubRadius,
+          inverseHub = 1 / (hubSquared - p.hubCore * p.hubCore),
+          seamSquared = p.seamRadius * p.seamRadius,
+          inverseSeam = 1 / (seamSquared - p.seamCore * p.seamCore),
+          inverseSeedX = 1 / (p.seedHalfX * p.seedHalfX),
+          inverseSeedY = 1 / (p.seedHalfY * p.seedHalfY),
+          inverseSeed = 1 / (1 - p.seedCoreQ),
+          innerReachSquared = (p.seamEnd + p.seamRadius) ** 2;
+        for (let arm = 0; arm < 3; arm++) {
+          axes[arm * 2] = Math.cos((TAU * arm) / 3);
+          axes[arm * 2 + 1] = Math.sin((TAU * arm) / 3);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17b15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17b17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17b19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17b1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17b1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            q = x * x * inverseX + y * y * inverseY;
+          if (q >= 1) return;
+          const face = smooth(clamp((1 - q) * inverseFace)),
+            rim = smooth(clamp((q - p.rimStartQ) * inverseRim)),
+            grain = grainField(u, v),
+            squared = x * x + y * y;
+          let seam = 0,
+            seedSpot = 0;
+          if (squared < innerReachSquared) {
+            let owner = 0,
+              along = x;
+            const d1 = x * axes[2]! + y * axes[3]!,
+              d2 = x * axes[4]! + y * axes[5]!;
+            if (d1 > along) {
+              owner = 1;
+              along = d1;
+            }
+            if (d2 > along) {
+              owner = 2;
+              along = d2;
+            }
+            const c = axes[owner * 2]!,
+              s = axes[owner * 2 + 1]!,
+              across = y * c - x * s,
+              end = Math.max(0, Math.min(p.seamEnd, along)),
+              sx = x - end * c,
+              sy = y - end * s,
+              ray = smooth(
+                clamp((seamSquared - sx * sx - sy * sy) * inverseSeam),
+              ),
+              hub = smooth(clamp((hubSquared - squared) * inverseHub));
+            // All angular-owner ties fall in empty ray/seed gaps outside the
+            // full central hub. Dot comparisons need no atan2 or angular pole.
+            seam = 1 - (1 - hub) * (1 - ray);
+            const a = along - p.seedAlong,
+              b = Math.abs(across) - p.seedAcross,
+              sq = a * a * inverseSeedX + b * b * inverseSeedY;
+            seedSpot = smooth(clamp((1 - sq) * inverseSeed));
+          }
+          color +=
+            face *
+            (0.9 +
+              0.02 * poses[i + 5]! +
+              0.025 * grain -
+              0.15 * rim -
+              0.2 * seam -
+              color);
+          height +=
+            face * (0.64 - 0.02 * rim - 0.08 * seam + 0.003 * grain - height);
+          roughness +=
+            face *
+            (p.roughness + 0.025 * grain + 0.14 * rim + 0.1 * seam - roughness);
+          occlusion += face * (0.99 - 0.01 * seam - occlusion);
+          if (seedSpot !== 0) {
+            color += seedSpot * (0.13 + 0.025 * grain - color);
+            height += seedSpot * (0.5 + 0.003 * grain - height);
+            roughness += seedSpot * (0.74 + 0.025 * grain - roughness);
+            occlusion += seedSpot * (0.97 - occlusion);
+          }
+          mortar = 1 - face;
+        };
+      }
       case 'insulatedringlugs': {
         const p = proceduralMaterialPresets.insulatedringlugs,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29077,6 +29186,7 @@ export function createSurfaceSampler(
     kind === 'swavepavers' ||
     kind === 'mushroomslices' ||
     kind === 'insulatedringlugs' ||
+    kind === 'bananaslices' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

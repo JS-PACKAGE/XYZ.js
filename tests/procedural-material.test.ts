@@ -697,7 +697,306 @@ const kinds: ProceduralMaterialKind[] = [
   'swavepavers',
   'mushroomslices',
   'insulatedringlugs',
+  'bananaslices',
 ];
+
+describe('Banana slices with a pale lower rim three continuous recessed Y partitions and six paired dark seed rudiments', () => {
+  const p = proceduralMaterialPresets.bananaslices;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17b15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17b1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17b17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17b19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine continuous cream cross-sections with three lower Y arms six dark seed rudiments and a lower rougher pale rim instead of a radial kiwi seed ring for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bananaslices', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            flesh = at(0.18, 0.1);
+          for (let j = 0; j <= 1024; j++) {
+            const a = (2 * Math.PI * j) / 1024,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              cream = at(
+                p.radiusX * Math.sqrt(0.65) * c,
+                p.radiusY * Math.sqrt(0.65) * s,
+              ),
+              rim = at(
+                p.radiusX * Math.sqrt(0.92) * c,
+                p.radiusY * Math.sqrt(0.92) * s,
+              );
+            expect(cream.height).toBeGreaterThanOrEqual(0.0025599);
+            expect(cream.height).toBeLessThanOrEqual(0.0025721);
+            expect(rim.height).toBeGreaterThanOrEqual(0.0024799);
+            expect(rim.height).toBeLessThanOrEqual(0.0024921);
+            expect(cream.height - rim.height).toBeGreaterThan(0.0000679);
+            expect(cream.color - rim.color).toBeGreaterThan(0.1249);
+            expect(rim.roughness - cream.roughness).toBeGreaterThan(0.1149);
+            for (const value of [cream, rim]) {
+              expect(value.mortar).toBe(0);
+              expect(value.metallic).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+            }
+          }
+          for (let arm = 0; arm < 3; arm++) {
+            const a = (2 * Math.PI * arm) / 3,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (let j = 0; j <= 512; j++) {
+              const r = (p.seamEnd * j) / 512,
+                value = at(r * c, r * s);
+              expect(value.height).toBeGreaterThanOrEqual(0.0022399);
+              expect(value.height).toBeLessThanOrEqual(0.0022521);
+              expect(flesh.height - value.height).toBeGreaterThan(0.0003079);
+              expect(flesh.color - value.color).toBeGreaterThan(0.1749);
+              expect(value.occlusion).toBeCloseTo(0.98, 12);
+              expect(value.mortar).toBe(0);
+              expect(value.metallic).toBe(0);
+            }
+            for (const sign of [-1, 1]) {
+              const seedSpot = at(
+                p.seedAlong * c - sign * p.seedAcross * s,
+                p.seedAlong * s + sign * p.seedAcross * c,
+              );
+              expect(seedSpot.height).toBeGreaterThanOrEqual(0.0019999);
+              expect(seedSpot.height).toBeLessThanOrEqual(0.0020121);
+              expect(flesh.color - seedSpot.color).toBeGreaterThan(0.7449);
+              expect(flesh.height - seedSpot.height).toBeGreaterThan(0.0005479);
+              expect(seedSpot.roughness - flesh.roughness).toBeGreaterThan(
+                0.1949,
+              );
+              expect(seedSpot.occlusion).toBeCloseTo(0.97, 12);
+              expect(seedSpot.mortar).toBe(0);
+              expect(seedSpot.metallic).toBe(0);
+            }
+            const gap = at(
+              0.1 * Math.cos(a + Math.PI / 3),
+              0.1 * Math.sin(a + Math.PI / 3),
+            );
+            expect(gap.height).toBeGreaterThanOrEqual(0.0025599);
+            expect(gap.occlusion).toBeCloseTo(0.99, 12);
+          }
+          let arms = 0,
+            seeds = 0,
+            previousArm = false,
+            previousSeed = false;
+          for (let j = 0; j <= 8192; j++) {
+            const a = Math.PI / 3 + (2 * Math.PI * j) / 8192,
+              arm = at(0.11 * Math.cos(a), 0.11 * Math.sin(a)).height < 0.0024,
+              seedSpot =
+                at(
+                  Math.hypot(p.seedAlong, p.seedAcross) * Math.cos(a),
+                  Math.hypot(p.seedAlong, p.seedAcross) * Math.sin(a),
+                ).color < 0.4;
+            if (arm && !previousArm) arms++;
+            if (seedSpot && !previousSeed) seeds++;
+            previousArm = arm;
+            previousSeed = seedSpot;
+          }
+          expect(arms).toBe(3);
+          expect(seeds).toBe(6);
+        }
+    },
+  );
+  it('writes visible six paired dark seeds three lower partitions and a pale low rim in actual 512 pixel nonmetal PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('bananaslices', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            flesh = pixel(0.18, 0.1),
+            cream = pixel(0, p.radiusY * Math.sqrt(0.65)),
+            rim = pixel(0, p.radiusY * Math.sqrt(0.91));
+          expect(maps.baseColor[flesh]!).toBeGreaterThan(230);
+          expect(maps.height![cream]! - maps.height![rim]!).toBeGreaterThan(5);
+          expect(
+            maps.metallicRoughness[rim + 1]! -
+              maps.metallicRoughness[cream + 1]!,
+          ).toBeGreaterThan(25);
+          for (let arm = 0; arm < 3; arm++) {
+            const a = (2 * Math.PI * arm) / 3,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              partition = pixel(0.11 * c, 0.11 * s);
+            expect(
+              maps.height![flesh]! - maps.height![partition]!,
+            ).toBeGreaterThan(23);
+            expect(
+              maps.baseColor[flesh + 1]! - maps.baseColor[partition + 1]!,
+            ).toBeGreaterThan(20);
+            for (const sign of [-1, 1]) {
+              const i = pixel(
+                p.seedAlong * c - sign * p.seedAcross * s,
+                p.seedAlong * s + sign * p.seedAcross * c,
+              );
+              expect(
+                maps.baseColor[flesh + 1]! - maps.baseColor[i + 1]!,
+              ).toBeGreaterThan(70);
+              expect(maps.height![flesh]! - maps.height![i]!).toBeGreaterThan(
+                42,
+              );
+              expect(
+                maps.metallicRoughness[i + 1]! -
+                  maps.metallicRoughness[flesh + 1]!,
+              ).toBeGreaterThan(30);
+              expect(maps.occlusion[i]!).toBeGreaterThan(245);
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+            }
+          }
+          for (const i of [flesh, cream, rim])
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+        }
+    }
+  });
+  it('repeats pale-rim Y-partition seed and flesh PBR channels across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('bananaslices', 7),
+      other = createSurfaceSampler('bananaslices', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let pigmentDifference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      pigmentDifference += Math.abs(a.color - c.color);
+    }
+    expect(pigmentDifference).toBeGreaterThan(25);
+  });
+  it('keeps ellipse face/rim profiles central hub capsule Y arms paired ellipses nearest-dot ties pose owners grain and UV wraps C1', () => {
+    // Seed rudiments have narrow finite-curvature shoulders.
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bananaslices', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          local(0, 0);
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const q of [1, p.faceCoreQ, p.rimStartQ, p.rimFullQ])
+              local(
+                p.radiusX * Math.sqrt(q) * ct,
+                p.radiusY * Math.sqrt(q) * st,
+              );
+            for (const r of [p.hubRadius, p.hubCore, p.seamEnd + p.seamRadius])
+              local(r * ct, r * st);
+            for (let arm = 0; arm < 3; arm++) {
+              const angle = (2 * Math.PI * arm) / 3,
+                c = Math.cos(angle),
+                s = Math.sin(angle),
+                polar = angle + Math.PI / 3;
+              local(0.2 * t * Math.cos(polar), 0.2 * t * Math.sin(polar));
+              for (const r of [p.seamRadius, p.seamCore]) {
+                for (const end of [0, p.seamEnd])
+                  local(end * c + r * ct, end * s + r * st);
+                for (const sign of [-1, 1])
+                  local(
+                    p.seamEnd * t * c - sign * r * s,
+                    p.seamEnd * t * s + sign * r * c,
+                  );
+              }
+              for (const sign of [-1, 1])
+                for (const q of [1, p.seedCoreQ]) {
+                  const x = p.seedAlong + p.seedHalfX * Math.sqrt(q) * ct,
+                    y = sign * p.seedAcross + p.seedHalfY * Math.sqrt(q) * st;
+                  local(x * c - y * s, x * s + y * c);
+                }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Insulated ring lugs with a continuous silver eyelet neck higher red nonmetal collar and two recessed polymer crimp bands', () => {
   const p = proceduralMaterialPresets.insulatedringlugs;

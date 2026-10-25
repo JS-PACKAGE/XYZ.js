@@ -853,6 +853,8 @@
 
 同輪追加 `insulatedringlugs`（絕緣環端子），目錄655→656種：九 seeded 中空連續銀環頸平片、較高紅絕緣套及兩道低非金屬壓痕。銀片 M1／紅套與壓痕 M0／factor1，不假鍍金屬塑膠；0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變。不新增 geometry、電連通／導電或壓接模擬、絕緣安全／電壓認證；雙 backend、孔與壓痕形態及 C1 證據見 ACCEPTANCE。
 
+同輪追加 `bananaslices`（香蕉切片），目錄656→657種：九 seeded 奶油橢圓切片、低而粗淡外緣、三道連續低 Y 隔膜與六成對暗種胚，非 kiwiflesh 環種子或 starfruit 五角果換色。全 M0，0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變；不新增 geometry、熟成／生長模擬或植物／食品認證。雙 backend、形態及 C1 證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
