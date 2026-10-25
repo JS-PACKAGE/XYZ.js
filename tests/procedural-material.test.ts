@@ -665,7 +665,234 @@ const kinds: ProceduralMaterialKind[] = [
   'driedtamarindpods',
   'conicalsampletubes',
   'botryoidalcopper',
+  'pencilshavings',
 ];
+
+describe('Half-annular pencil shaving fans with twelve radial flutes and smooth dark outer paint rim', () => {
+  const p = proceduralMaterialPresets.pencilshavings;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15b15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15b1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15b17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15b19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twelve radial wood ridges on one open half-annulus and the smoother paint rim on the same corrugated surface for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pencilshavings', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j < 12; j++) {
+            const angle = ((2 * j + 1) * Math.PI) / 24,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            sample(...world(seed, col, row, 0.27 * c, 0.27 * s), out);
+            const peak = out.height,
+              color = out.color,
+              rough = out.roughness;
+            expect(peak).toBeGreaterThan(0.0020799);
+            expect(peak).toBeLessThan(0.0022121);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            sample(...world(seed, col, row, 0.36 * c, 0.36 * s), out);
+            expect(color - out.color).toBeGreaterThan(0.6599);
+            expect(rough - out.roughness).toBeGreaterThan(0.3799);
+            expect(Math.abs(out.height - peak)).toBeLessThan(0.0000121);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            const valley = ((j === 11 ? 11 : j + 1) * Math.PI) / 12;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.27 * Math.cos(valley),
+                0.27 * Math.sin(valley),
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0015199);
+            expect(out.height).toBeLessThan(0.0016521);
+            expect(peak - out.height).toBeGreaterThan(0.0005479);
+            expect(color - out.color).toBeGreaterThan(0.1049);
+            expect(out.occlusion).toBeCloseTo(0.94, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          let crowns = 0,
+            bodies = 0,
+            oldCrown = false,
+            oldBody = false;
+          for (let j = 0; j <= 4096; j++) {
+            const angle = (j * Math.PI) / 2048;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.27 * Math.cos(angle),
+                0.27 * Math.sin(angle),
+              ),
+              out,
+            );
+            const crown = out.height > 0.0019,
+              body = out.mortar < 0.5;
+            if (crown && !oldCrown) crowns++;
+            if (body && !oldBody) bodies++;
+            oldCrown = crown;
+            oldBody = body;
+            expect(out.metallic).toBe(0);
+          }
+          expect(crowns).toBe(12);
+          expect(bodies).toBe(1);
+          for (const [x, y] of [
+            [0, 0],
+            [0, 0.1],
+            [0, -0.27],
+            [0, 0.4],
+            [-0.4, 0],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeCloseTo(0.0001, 12);
+            expect(out.occlusion).toBe(0.3);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps the actual512 painted outer edge darker and smoother than the wood on all twelve radial ridges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('pencilshavings', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j < 12; j++) {
+            const angle = ((2 * j + 1) * Math.PI) / 24,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            const index = (r: number) => {
+              const [u, v] = world(seed, col, row, r * c, r * s);
+              return (
+                ((Math.floor(v * 512) % 512) * 512 +
+                  (Math.floor(u * 512) % 512)) *
+                4
+              );
+            };
+            const wood = index(0.27),
+              rim = index(0.36);
+            expect(maps.baseColor[wood] - maps.baseColor[rim]).toBeGreaterThan(
+              80,
+            );
+            expect(
+              maps.metallicRoughness[wood + 1] -
+                maps.metallicRoughness[rim + 1],
+            ).toBeGreaterThan(85);
+            expect(maps.metallicRoughness[wood + 2]).toBe(0);
+            expect(maps.metallicRoughness[rim + 2]).toBe(0);
+          }
+    }
+  });
+  it('keeps both squared annular shoulders half-plane cut paint-only finish radial crowns cell owners and UV wraps C1 without an origin or atan branch-cut singularity', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pencilshavings', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          for (const r of [
+            p.inner,
+            p.innerFull,
+            p.paintStart,
+            p.paintFull,
+            p.outerFull,
+            p.outer,
+          ])
+            for (let j = 0; j < 128; j++) {
+              const angle = (j * Math.PI) / 64;
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(angle),
+                  r * Math.sin(angle),
+                ),
+              );
+            }
+          for (let j = 0; j <= 1024; j++) {
+            const x = -0.4 + (0.8 * j) / 1024;
+            check(...world(seed, col, row, x, 0));
+            check(...world(seed, col, row, x, p.cutShoulder));
+          }
+        }
+    }
+  });
+});
 
 describe('Positive rounded native-copper nodules above lower darker rough metallic valleys', () => {
   const p = proceduralMaterialPresets.botryoidalcopper;

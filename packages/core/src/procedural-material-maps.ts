@@ -1441,6 +1441,65 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pencilshavings': {
+        const p = proceduralMaterialPresets.pencilshavings,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x15b11),
+          innerSquared = p.inner * p.inner,
+          outerSquared = p.outer * p.outer,
+          inverseInner = 1 / (p.innerFull * p.innerFull - innerSquared),
+          inverseOuter = 1 / (outerSquared - p.outerFull * p.outerFull),
+          inverseCut = 1 / p.cutShoulder,
+          paintSquared = p.paintStart * p.paintStart,
+          inversePaint = 1 / (p.paintFull * p.paintFull - paintSquared);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15b15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15b17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15b19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15b1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x15b1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            q = x * x + y * y,
+            body =
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp(y * inverseCut));
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5],
+            flute = 0.5 - 0.5 * Math.cos(p.flutes * Math.atan2(y, x)),
+            paint = smooth(clamp((q - paintSquared) * inversePaint)),
+            wood = 0.7 + 0.08 * tone + 0.14 * flute + 0.035 * grain,
+            rim = 0.12 + 0.04 * tone + 0.02 * grain;
+          color += body * (wood + paint * (rim - wood) - color);
+          height +=
+            body * (0.38 + 0.03 * tone + 0.14 * flute + 0.003 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.02 * grain - 0.4 * paint - roughness);
+          occlusion += body * (0.94 + 0.04 * flute - occlusion);
+        };
+      }
       case 'botryoidalcopper': {
         const p = proceduralMaterialPresets.botryoidalcopper,
           sites = new Float64Array(p.cells * p.cells * 3),
@@ -26298,6 +26357,7 @@ export function createSurfaceSampler(
     kind === 'driedtamarindpods' ||
     kind === 'conicalsampletubes' ||
     kind === 'botryoidalcopper' ||
+    kind === 'pencilshavings' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
