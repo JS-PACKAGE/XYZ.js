@@ -857,6 +857,8 @@
 
 `swavepavers` 為四層半錯位各八塊、共三十二 S 形混凝土連鎖磚：normalized cubic warp 真正彎曲側縫的 height／roughness／AO／mortar coverage，不是 calcadawaves 只改石色的波紋或 dogbonepavers 對稱窄腰。沿用 cached block tones／128² grain／48² aggregate／compact C1 joint profiles／inverse-coordinate 單格定位；row 與 warped-column owner 在 full grout 內換界，負 warped column 正確 wrap，empty support 跳 grain/finish，每點無配置／hash／sqrt／trig／鄰格或逐磚掃描。全石 M0、full-body exact mortar0，縫為低 opaque neutral grout。0.96 m tile／0.006 m relief，四圖／height／Worker／cache／tint／ownership 不變；不新增 geometry、剛體互鎖／碰撞／車流模擬或施工認證。
 
+`mushroomslices` 為九 seeded 蘑菇切片：連續乳白 dome／縱纖維 stalk、較低暗粗棕外皮與十二附著低暗 gill fingers，其間為真低 opaque backing，非 mushroomgills 整面菌褶扇形。沿用 cached poses／128² grain／local64×8 stem fibers／squared ellipse-roundedrect-capsule profiles／mirrored nearest-gill lookup，halfPitch0.016>radius0.011 使 owner 在 support 外換界；full cap 跳 hidden stem/gills，empty support 跳 finish，product-complement union 維持 full-body exact mortar0，全相 M0。每點無配置／hash／sqrt／trig／鄰格或逐 gill 掃描。0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變；只作切片外觀，不新增 geometry、透明洞、真菌生長或物種／可食性認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

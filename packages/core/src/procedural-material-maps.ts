@@ -1441,6 +1441,126 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mushroomslices': {
+        const p = proceduralMaterialPresets.mushroomslices,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17911),
+          fiberField = cachedNoise(64, 8, seed ^ 0x17913),
+          inverseCapX = 1 / (p.capX * p.capX),
+          inverseCapY = 1 / (p.capY * p.capY),
+          inverseCap = 1 / (1 - p.capCoreQ),
+          inverseClip = 1 / p.capEdge,
+          inverseSkin = 1 / (p.skinFullQ - p.skinStartQ),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          gillSquared = p.gillRadius * p.gillRadius,
+          inverseGill = 1 / (gillSquared - p.gillCore * p.gillCore),
+          inversePitch = 1 / p.gillPitch,
+          firstGill = p.gillFirst - p.gillRadius,
+          lastGill = p.gillFirst + (p.gills - 1) * p.gillPitch + p.gillRadius,
+          top = p.capCenterY - p.capY,
+          bottom = p.stemY + p.stemStraightY + p.stemRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x17915);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17917) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17919) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1791b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1791d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x);
+          if (ax >= p.capX || y <= top || y >= bottom) return;
+          const cy = y - p.capCenterY,
+            capQ = x * x * inverseCapX + cy * cy * inverseCapY,
+            cap =
+              smooth(clamp((1 - capQ) * inverseCap)) *
+              smooth(clamp((p.capBase - y) * inverseClip));
+          let stem = 0,
+            gill = 0;
+          if (cap !== 1) {
+            const sx = Math.max(0, ax - p.stemStraightX),
+              sy = Math.max(0, Math.abs(y - p.stemY) - p.stemStraightY);
+            stem = smooth(
+              clamp((stemSquared - sx * sx - sy * sy) * inverseStem),
+            );
+            // Mirrored nearest-gill owners meet in empty gaps: radius .011
+            // is smaller than half the .032 pitch; the central owner join is outside their support.
+            if (
+              stem !== 1 &&
+              ax > firstGill &&
+              ax < lastGill &&
+              y > p.gillStart - p.gillRadius &&
+              y < p.gillEnd + p.gillRadius
+            ) {
+              const owner = Math.max(
+                  0,
+                  Math.min(
+                    p.gills - 1,
+                    Math.floor((ax - p.gillFirst) * inversePitch + 0.5),
+                  ),
+                ),
+                gx = ax - p.gillFirst - owner * p.gillPitch,
+                gy = y - Math.max(p.gillStart, Math.min(p.gillEnd, y));
+              gill = smooth(
+                clamp((gillSquared - gx * gx - gy * gy) * inverseGill),
+              );
+            }
+          }
+          mortar = (1 - cap) * (1 - stem) * (1 - gill);
+          if (mortar === 1) return;
+          const grain = cap !== 0 || gill !== 0 ? grainField(u, v) : 0;
+          if (gill !== 0) {
+            color += gill * (0.13 + 0.04 * grain - color);
+            height += gill * (0.42 + 0.003 * grain - height);
+            roughness += gill * (0.84 + 0.03 * grain - roughness);
+            occlusion += gill * (0.97 - occlusion);
+          }
+          if (stem !== 0) {
+            const fiber = fiberField(x + 0.5, y + 0.5);
+            color += stem * (0.84 + 0.07 * fiber - color);
+            height += stem * (0.58 + 0.004 * fiber - height);
+            roughness += stem * (0.82 + 0.03 * fiber - roughness);
+            occlusion += stem * (0.99 - occlusion);
+          }
+          if (cap !== 0) {
+            const skin = smooth(clamp((capQ - p.skinStartQ) * inverseSkin)),
+              tone = poses[i + 5]!;
+            color +=
+              cap *
+              (0.88 +
+                0.025 * tone +
+                0.025 * grain +
+                skin * (-0.64 + 0.015 * tone + 0.015 * grain) -
+                color);
+            height += cap * (0.65 - 0.03 * skin + 0.003 * grain - height);
+            roughness +=
+              cap *
+              (p.roughness +
+                0.03 * grain +
+                skin * (0.1 - 0.005 * grain) -
+                roughness);
+            occlusion += cap * (0.99 - occlusion);
+          }
+        };
+      }
       case 'swavepavers': {
         const p = proceduralMaterialPresets.swavepavers,
           tones = new Float64Array(p.rows * p.columns),
@@ -28851,6 +28971,7 @@ export function createSurfaceSampler(
     kind === 'pleatedfilterpapers' ||
     kind === 'splitcedarshakes' ||
     kind === 'swavepavers' ||
+    kind === 'mushroomslices' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -695,7 +695,320 @@ const kinds: ProceduralMaterialKind[] = [
   'pleatedfilterpapers',
   'splitcedarshakes',
   'swavepavers',
+  'mushroomslices',
 ];
+
+describe('Mushroom slices with a cream dome lower brown skin twelve exposed gill fingers and a continuous fibrous stem', () => {
+  const p = proceduralMaterialPresets.mushroomslices;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17915),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1791b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17917) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17919) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine connected cream cap/stem cross-sections a genuinely lower darker rougher brown perimeter and twelve attached lower gill fingers with true gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('mushroomslices', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            stem = at(0, 0.12),
+            cream = at(0, -0.18);
+          expect(stem.height).toBeGreaterThanOrEqual(0.0023199);
+          expect(stem.height).toBeLessThanOrEqual(0.0023361);
+          expect(stem.color).toBeGreaterThanOrEqual(0.83999);
+          for (let j = 0; j <= 1024; j++) {
+            const center = at(0, -0.22 + (0.52 * j) / 1024);
+            expect(center.mortar).toBe(0);
+            expect(center.metallic).toBe(0);
+            expect(center.occlusion).toBeCloseTo(0.99, 12);
+            expect(center.height).toBeGreaterThanOrEqual(0.0023199);
+            const a = Math.PI + (Math.PI * j) / 1024,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              flesh = at(
+                p.capX * Math.sqrt(0.65) * c,
+                p.capCenterY + p.capY * Math.sqrt(0.65) * s,
+              ),
+              skin = at(
+                p.capX * Math.sqrt(0.92) * c,
+                p.capCenterY + p.capY * Math.sqrt(0.92) * s,
+              );
+            expect(flesh.height).toBeGreaterThanOrEqual(0.0025999);
+            expect(flesh.height).toBeLessThanOrEqual(0.0026121);
+            expect(skin.height).toBeGreaterThanOrEqual(0.0024799);
+            expect(skin.height).toBeLessThanOrEqual(0.0024921);
+            expect(flesh.height - skin.height).toBeGreaterThan(0.0001079);
+            expect(flesh.color - skin.color).toBeGreaterThan(0.5799);
+            expect(skin.roughness - flesh.roughness).toBeGreaterThan(0.0699);
+            for (const value of [flesh, skin]) {
+              expect(value.mortar).toBe(0);
+              expect(value.metallic).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+            }
+          }
+          for (const sign of [-1, 1])
+            for (let gill = 0; gill < p.gills; gill++) {
+              const x = sign * (p.gillFirst + gill * p.gillPitch),
+                value = at(x, -0.02);
+              expect(value.height).toBeGreaterThanOrEqual(0.0016799);
+              expect(value.height).toBeLessThanOrEqual(0.0016921);
+              expect(value.occlusion).toBeCloseTo(0.97, 12);
+              expect(value.mortar).toBe(0);
+              expect(value.metallic).toBe(0);
+              expect(cream.color - value.color).toBeGreaterThan(0.7099);
+              expect(stem.height - value.height).toBeGreaterThan(0.0006279);
+              for (let j = 0; j <= 128; j++) {
+                const attached = at(
+                  x,
+                  p.gillStart + ((p.gillEnd - p.gillStart) * j) / 128,
+                );
+                expect(attached.mortar).toBe(0);
+                expect(attached.metallic).toBe(0);
+                expect(attached.occlusion).toBeGreaterThanOrEqual(0.96999);
+              }
+              if (gill < p.gills - 1) {
+                const gap = at(
+                  sign * (p.gillFirst + (gill + 0.5) * p.gillPitch),
+                  -0.02,
+                );
+                expect(gap.height).toBeCloseTo(0.0001, 12);
+                expect(gap.occlusion).toBe(0.3);
+                expect(gap.mortar).toBe(1);
+              }
+            }
+          for (const [y, count] of [
+            [-0.14, 1],
+            [-0.02, 13],
+            [0.12, 1],
+          ]) {
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 8192; j++) {
+              const inside = at(-0.35 + (0.7 * j) / 8192, y!).mortar < 0.5;
+              if (inside && !previous) runs++;
+              previous = inside;
+            }
+            expect(runs).toBe(count);
+          }
+        }
+    },
+  );
+  it('writes visible cream cap brown perimeter twelve dark gill fingers fibrous stem and low inter-gill gaps in actual 512 pixel PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('mushroomslices', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            cream = pixel(0, p.capCenterY - p.capY * Math.sqrt(0.6)),
+            skin = pixel(0, p.capCenterY - p.capY * Math.sqrt(0.9)),
+            stem = pixel(0, 0.12);
+          expect(maps.baseColor[cream]!).toBeGreaterThan(220);
+          expect(
+            maps.baseColor[cream]! - maps.baseColor[skin]!,
+          ).toBeGreaterThan(70);
+          expect(
+            maps.metallicRoughness[skin + 1]! -
+              maps.metallicRoughness[cream + 1]!,
+          ).toBeGreaterThan(10);
+          expect(maps.height![cream]! - maps.height![skin]!).toBeGreaterThan(6);
+          expect(maps.height![cream]! - maps.height![stem]!).toBeGreaterThan(
+            23,
+          );
+          for (const i of [cream, skin, stem]) {
+            expect(maps.occlusion[i]!).toBeGreaterThan(250);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+          for (const sign of [-1, 1])
+            for (let gill = 0; gill < p.gills; gill++) {
+              const i = pixel(sign * (p.gillFirst + gill * p.gillPitch), -0.02);
+              expect(
+                maps.baseColor[stem]! - maps.baseColor[i]!,
+              ).toBeGreaterThan(110);
+              expect(maps.occlusion[i]!).toBeGreaterThan(240);
+              expect(maps.height![stem]! - maps.height![i]!).toBeGreaterThan(
+                55,
+              );
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+              if (gill < p.gills - 1) {
+                const gap = pixel(
+                  sign * (p.gillFirst + (gill + 0.5) * p.gillPitch),
+                  -0.02,
+                );
+                expect(maps.occlusion[gap]!).toBeLessThan(80);
+                expect(
+                  maps.occlusion[i]! - maps.occlusion[gap]!,
+                ).toBeGreaterThan(165);
+                expect(maps.height![i]! - maps.height![gap]!).toBeGreaterThan(
+                  150,
+                );
+                expect(maps.metallicRoughness[gap + 2]).toBe(0);
+              }
+            }
+        }
+    }
+  });
+  it('repeats cap skin stem fiber gill coverage and nonmetal classification across both signed UV periods while retaining seeded placement', () => {
+    const sample = createSurfaceSampler('mushroomslices', 7),
+      other = createSurfaceSampler('mushroomslices', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let coverageDifference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      coverageDifference += Math.abs(a.mortar - c.mortar);
+    }
+    expect(coverageDifference).toBeGreaterThan(150);
+  });
+  it('keeps cap ellipse clip skin shoulders rounded stem gill core/support/projection mirrored nearest owners pose boundaries fiber knots and UV wraps C1', () => {
+    // Fine gill shoulders have high finite curvature, resolved at this step.
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('mushroomslices', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              angle = 2 * Math.PI * t,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            for (const q of [1, p.capCoreQ, p.skinStartQ, p.skinFullQ])
+              local(
+                p.capX * Math.sqrt(q) * c,
+                p.capCenterY + p.capY * Math.sqrt(q) * s,
+              );
+            for (const y of [p.capBase, p.capBase - p.capEdge])
+              local(-p.capX + 2 * p.capX * t, y);
+            for (const r of [p.stemRadius, p.stemCore]) {
+              local(
+                (c < 0 ? -p.stemStraightX : p.stemStraightX) + r * c,
+                p.stemY + (s < 0 ? -p.stemStraightY : p.stemStraightY) + r * s,
+              );
+              for (const sign of [-1, 1]) {
+                local(
+                  sign * (p.stemStraightX + r),
+                  p.stemY - p.stemStraightY + 2 * p.stemStraightY * t,
+                );
+                local(
+                  -p.stemStraightX + 2 * p.stemStraightX * t,
+                  p.stemY + sign * (p.stemStraightY + r),
+                );
+              }
+            }
+            for (const sign of [-1, 1])
+              for (let gill = 0; gill < p.gills; gill++) {
+                const x = sign * (p.gillFirst + gill * p.gillPitch);
+                for (const r of [p.gillRadius, p.gillCore]) {
+                  for (const end of [p.gillStart, p.gillEnd])
+                    local(x + r * c, end + r * s);
+                  for (const side of [-1, 1])
+                    local(
+                      x + side * r,
+                      p.gillStart + (p.gillEnd - p.gillStart) * t,
+                    );
+                }
+                local(x - 2 * p.gillRadius + 4 * p.gillRadius * t, p.gillStart);
+                local(x - 2 * p.gillRadius + 4 * p.gillRadius * t, p.gillEnd);
+                if (gill < p.gills - 1)
+                  local(
+                    sign * (p.gillFirst + (gill + 0.5) * p.gillPitch),
+                    -0.08 + 0.12 * t,
+                  );
+              }
+            local(0, -0.3 + 0.65 * t);
+          }
+        }
+    }
+  });
+});
 
 describe('S-wave concrete pavers with genuinely curved side joints staggered courses and granular full stone faces', () => {
   const p = proceduralMaterialPresets.swavepavers;

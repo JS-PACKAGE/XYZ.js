@@ -849,6 +849,8 @@
 
 同輪追加 `swavepavers`（S 形混凝土磚），目錄653→654種：四層半錯位各八塊、共三十二 cubic S 側邊混凝土磚。彎曲的是真凹縫及 height／roughness／AO／coverage，非 calcadawaves 色帶或 dogbonepavers 對稱腰形。全 M0，0.96 m tile／0.006 m relief，沿用四圖／height／Worker／cache／tint／ownership；不新增 geometry、剛體互鎖／車流模擬或施工認證，雙 backend、形態及 C1 證據見 ACCEPTANCE。
 
+同輪追加 `mushroomslices`（蘑菇切片），目錄654→655種：九 seeded 乳白 dome／連續纖維 stalk、較低暗粗棕外皮、十二附著低暗菌褶及其間真低 opaque backing。非 mushroomgills 整面菌褶扇形；全 M0，0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變。不新增 geometry、透明洞、真菌生長或物種／可食性認證；雙 backend、形態及 C1 證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
