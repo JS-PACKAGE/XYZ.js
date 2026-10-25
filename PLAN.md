@@ -761,6 +761,8 @@
 
 同輪追加 `hazelnutshells`（整粒榛果殼），目錄 609→610 種：略尖上端／圓鈍下部／隨殼旋轉的縱木紋／較低淺色粗糙實心基疤，非 walnutshell 連續縱溝或 almondshell 孔紋面。0.1 m opaque dielectric tile、metallic 0，沿 neutral backing／四圖／選用 height／ownership；不新增 geometry、透明開殼、果仁／烹煮／植物生長或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `yagasuricloth`（矢絣風箭羽紋織布），目錄 610→611 種：紫底奶油色三對尖羽／連續軸／相鄰直欄反向，顏料不刻入連續布面，非 ikat 菱形或 asanoha 麻葉網。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；96-thread weave 避開預設 256px 的 128-thread constant-phase alias，不新增 geometry、真實紡織／染色製程／文化工藝認證或 cloth physics；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

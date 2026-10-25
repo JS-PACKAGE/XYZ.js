@@ -9,7 +9,10 @@ import {
 } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
 import { opticalMaterialMaps } from '../packages/core/src/optical-material-maps.js';
-import { proceduralMaterialPresets } from '../src/data/materials.js';
+import {
+  proceduralMaterialPresets,
+  proceduralMaterialLimits,
+} from '../src/data/materials.js';
 import {
   ProceduralMaterial,
   ProceduralMapCache,
@@ -648,7 +651,230 @@ const kinds: ProceduralMaterialKind[] = [
   'chenilleyarn',
   'ceramicfuses',
   'hazelnutshells',
+  'yagasuricloth',
 ];
+
+describe('Yagasuri-inspired alternating arrow-fletching pigment on continuous woven cloth', () => {
+  const p = proceduralMaterialPresets.yagasuricloth;
+  const uv = (col: number, row: number, x: number, y: number) =>
+    [
+      (col + 0.5 + x) / p.cells,
+      (row + 0.5 + y * (col % 2 === 0 ? 1 : -1)) / p.cells,
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps three mirrored feather pairs on one connected shaft with opposing adjacent columns for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('yagasuricloth', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          for (const sign of [-1, 1]) {
+            for (let blade = -1; blade <= 1; blade++) {
+              const y = blade * p.spacing + p.slope * (0.26 - p.wingCenter);
+              at(sign * 0.26, y);
+              const pale = out.color;
+              expect(pale).toBeGreaterThan(0.8799);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+              const [, v] = uv(col, row, sign * 0.26, y);
+              sample(
+                (((col + 1) % p.cells) + 0.5 + sign * 0.26) / p.cells,
+                v,
+                out,
+              );
+              expect(pale - out.color).toBeGreaterThan(0.77);
+            }
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              at(sign * 0.26, -0.45 + (i * 0.9) / 4096);
+              const ink = out.color > 0.5;
+              if (ink && !previous) runs++;
+              previous = ink;
+            }
+            expect(runs).toBe(3);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.45 + (i * 0.9) / 4096);
+            const ink = out.color > 0.5;
+            if (ink && !previous) runs++;
+            previous = ink;
+          }
+          expect(runs).toBe(1);
+          for (const [x, y] of [
+            [0.4, 0],
+            [-0.4, 0],
+            [0, -0.48],
+            [0, 0.48],
+          ]) {
+            at(x, y);
+            expect(out.color).toBeLessThan(0.1001);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('retains raised cloth crossings and interstices independently of the opposing cream pigment motifs', () => {
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('yagasuricloth', seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const u = (col + 0.5) / p.cells,
+            v = (row + 0.5) / p.cells;
+          sample(u, v, out);
+          const crest = out.height;
+          expect(crest).toBeGreaterThan(0.00031559);
+          expect(crest).toBeLessThan(0.00032041);
+          expect(out.occlusion).toBeCloseTo(0.9375, 12);
+          sample(u + 0.5 / p.threads, v + 0.5 / p.threads, out);
+          expect(crest - out.height).toBeGreaterThan(0.0001667);
+          expect(out.height).toBeLessThan(0.00014881);
+          expect(out.occlusion).toBeCloseTo(0.84, 12);
+          for (const sign of [-1, 1])
+            for (let blade = -1; blade <= 1; blade++) {
+              const [u1, v1] = uv(
+                col,
+                row,
+                sign * 0.26,
+                blade * p.spacing + p.slope * (0.26 - p.wingCenter),
+              );
+              sample(u1, v1, out);
+              const height = out.height,
+                rough = out.roughness,
+                ao = out.occlusion,
+                pale = out.color;
+              sample(
+                (((col + 1) % p.cells) + 0.5 + sign * 0.26) / p.cells,
+                v1,
+                out,
+              );
+              expect(pale - out.color).toBeGreaterThan(0.77);
+              expect(Math.abs(height - out.height)).toBeLessThan(0.00000481);
+              expect(Math.abs(rough - out.roughness)).toBeLessThan(0.02501);
+              expect(out.occlusion).toBeCloseTo(ao, 12);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+        }
+    }
+  });
+  it('keeps visible two-axis woven normals under both cream pigment and plum cloth at the default texture resolution', () => {
+    const size = proceduralMaterialLimits.defaultSize;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('yagasuricloth', size, seed),
+        counts = [
+          { pixels: 0, x: 0, y: 0 },
+          { pixels: 0, x: 0, y: 0 },
+        ];
+      for (let i = 0; i < maps.normal.length; i += 4) {
+        const r = maps.baseColor[i];
+        if (r >= 100 && r <= 180) continue;
+        const c = counts[r > 180 ? 1 : 0];
+        c.pixels++;
+        if (maps.normal[i] < 127 || maps.normal[i] > 128) c.x++;
+        if (maps.normal[i + 1] < 127 || maps.normal[i + 1] > 128) c.y++;
+      }
+      for (const c of counts) {
+        expect(c.x / c.pixels).toBeGreaterThan(0.1);
+        expect(c.y / c.pixels).toBeGreaterThan(0.1);
+      }
+    }
+  });
+  it('keeps shaft ellipse pointed feather tips shear shoulders masked absolute-axis joins alternating owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('yagasuricloth', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const field of [0, p.shoulder])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32,
+                r = Math.sqrt(1 - field);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  p.shaftX * r * Math.cos(angle),
+                  p.shaftY * r * Math.sin(angle),
+                ),
+              );
+            }
+          for (const x of [0, 0.015, 0.022, 0.05, 0.14, 0.26, 0.31, 0.32]) {
+            const cap = 1 - ((x - p.wingCenter) / p.wingSpan) ** 2;
+            for (const field of [0, p.shoulder]) {
+              if (cap * cap < field) continue;
+              for (let blade = -1; blade <= 1; blade++)
+                for (const side of [-1, 1])
+                  for (const edge of [-1, 1])
+                    check(
+                      ...uv(
+                        col,
+                        row,
+                        side * x,
+                        blade * p.spacing +
+                          p.slope * (x - p.wingCenter) +
+                          edge * p.wingThickness * Math.sqrt(cap * cap - field),
+                      ),
+                    );
+            }
+          }
+          for (let i = 0; i <= 128; i++)
+            check(...uv(col, row, 0, -0.5 + i / 128));
+        }
+    }
+  });
+});
 
 describe('Whole hazelnut shells with pointed upper silhouettes local woody grain and low pale rough basal scars', () => {
   const p = proceduralMaterialPresets.hazelnutshells;

@@ -5945,6 +5945,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         scarRadiusY: 0.1;
         scarShoulder: 0.2;
     }>;
+    yagasuricloth: Readonly<{
+        dark: readonly [52, 22, 72];
+        light: readonly [243, 226, 193];
+        roughness: 0.87;
+        relief: 0.0012;
+        cells: 4;
+        threads: 96;
+        shaftX: 0.022;
+        shaftY: 0.42;
+        wingCenter: 0.14;
+        wingSpan: 0.18;
+        wingThickness: 0.055;
+        slope: 0.55;
+        spacing: 0.22;
+        shoulder: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6558,4 +6574,5 @@ export declare const proceduralTileMeters: Readonly<{
     chenilleyarn: 0.08;
     ceramicfuses: 0.16;
     hazelnutshells: 0.1;
+    yagasuricloth: 0.24;
 }>;

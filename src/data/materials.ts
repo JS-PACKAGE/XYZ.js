@@ -6095,6 +6095,23 @@ export const proceduralMaterialPresets = Object.freeze({
     scarRadiusY: 0.1,
     scarShoulder: 0.2,
   }),
+  yagasuricloth: Object.freeze({
+    dark: [52, 22, 72] as const,
+    light: [243, 226, 193] as const,
+    roughness: 0.87,
+    relief: 0.0012,
+    cells: 4,
+    // 128 threads alias to constant weave height at the default 256px resolution.
+    threads: 96,
+    shaftX: 0.022,
+    shaftY: 0.42,
+    wingCenter: 0.14,
+    wingSpan: 0.18,
+    wingThickness: 0.055,
+    slope: 0.55,
+    spacing: 0.22,
+    shoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6709,4 +6726,5 @@ export const proceduralTileMeters = Object.freeze({
   chenilleyarn: 0.08,
   ceramicfuses: 0.16,
   hazelnutshells: 0.1,
+  yagasuricloth: 0.24,
 });

@@ -769,6 +769,8 @@
 
 `hazelnutshells` 預算 16 rotation／jitter／inverse scale／tone poses、96×12 shell-local wood grain／128² fine grain 與 body/scar squared-axis reciprocals。Upper cap²／lower cap 在 equator 值及一階導數相接，compact cover 定尖上圓下整殼／nonsingular convex crown；low pale rough ellipse attachment scar 全在 full shell、仍實心。Grain 評估於 shell-local x/y 使縱纖維隨種子旋轉，wood→scar coherent finish／body→backing 同步 color／height／roughness／AO。空 body 跳全部 detail、full scar 跳 wood、無 scar 跳 fine；equator／body shoulders／scar ellipse／owners／UV wraps C1，採樣無配置／hash／sqrt／trig。不新增 geometry、透明開殼、果仁／烹煮／植物生長或物理模擬。
 
+`yagasuricloth` 預算 16 motif tones／128² grain／shaft and feather squared-axis reciprocals／weave frequency。4×4 compact ellipsoid shafts 與三對 mirrored pointed sheared cap² plumes product-union，alternate column flips y；full shaft 遮住 abs-x join、full motif 跳後續羽、outer-x cull、無 motif 跳 tone lookup／row floor。兩個 weave cosine 經平方及 crossing 權重共用、不重算 double angles，96 threads 在 default 256px 保留法線起伏；128 threads 原 constant-phase alias 已以實際貼圖 regression failing-before／passing-after 修正。顏料只改 color，height／roughness／AO 始終同一連續 woven finish，shaft／plume shoulders／tips／masked axis／owners／wraps C1，採樣無配置／hash／sqrt。不新增 geometry、真實紡織／染色製程／文化工藝認證或 cloth physics。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

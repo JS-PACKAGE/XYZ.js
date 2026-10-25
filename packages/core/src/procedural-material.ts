@@ -625,7 +625,8 @@ export type ProceduralMaterialKind =
   | 'charoite'
   | 'chenilleyarn'
   | 'ceramicfuses'
-  | 'hazelnutshells';
+  | 'hazelnutshells'
+  | 'yagasuricloth';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1485,6 +1486,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chenilleyarn',
   'ceramicfuses',
   'hazelnutshells',
+  'yagasuricloth',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

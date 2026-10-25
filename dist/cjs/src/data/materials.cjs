@@ -11302,6 +11302,30 @@ var proceduralMaterialPresets = Object.freeze({
 		scarRadiusX: .14,
 		scarRadiusY: .1,
 		scarShoulder: .2
+	}),
+	yagasuricloth: Object.freeze({
+		dark: [
+			52,
+			22,
+			72
+		],
+		light: [
+			243,
+			226,
+			193
+		],
+		roughness: .87,
+		relief: .0012,
+		cells: 4,
+		threads: 96,
+		shaftX: .022,
+		shaftY: .42,
+		wingCenter: .14,
+		wingSpan: .18,
+		wingThickness: .055,
+		slope: .55,
+		spacing: .22,
+		shoulder: .2
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -11914,7 +11938,8 @@ var proceduralTileMeters = Object.freeze({
 	charoite: .2,
 	chenilleyarn: .08,
 	ceramicfuses: .16,
-	hazelnutshells: .1
+	hazelnutshells: .1,
+	yagasuricloth: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

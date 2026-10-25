@@ -1441,6 +1441,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'yagasuricloth': {
+        const p = proceduralMaterialPresets.yagasuricloth,
+          grainField = cachedNoise(128, 128, seed ^ 0x14d11),
+          tones = new Float64Array(p.cells * p.cells),
+          inverseShaftX = 1 / (p.shaftX * p.shaftX),
+          inverseShaftY = 1 / (p.shaftY * p.shaftY),
+          inverseSpan = 1 / (p.wingSpan * p.wingSpan),
+          inverseWing = 1 / (p.wingThickness * p.wingThickness),
+          inverseShoulder = 1 / p.shoulder,
+          weaveFrequency = Math.PI * p.threads,
+          outerX = p.wingCenter + p.wingSpan;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x14d13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = (fract(vc) - 0.5) * (col % 2 === 0 ? 1 : -1),
+            a = Math.abs(x);
+          let motif = smooth(
+            clamp(
+              (1 - x * x * inverseShaftX - y * y * inverseShaftY) *
+                inverseShoulder,
+            ),
+          );
+          if (motif < 1 && a < outerX) {
+            const offset = a - p.wingCenter,
+              cap = 1 - offset * offset * inverseSpan,
+              capSquared = cap * cap,
+              shearY = y - p.slope * offset;
+            // Every feather crosses the absolute-x join wholly inside the full shaft.
+            for (let blade = -1; blade <= 1; blade++) {
+              const dy = shearY - blade * p.spacing,
+                field = capSquared - dy * dy * inverseWing;
+              if (field <= 0) continue;
+              const wing = smooth(clamp(field * inverseShoulder));
+              motif += (1 - motif) * wing;
+              if (motif === 1) break;
+            }
+          }
+          const aWarp = Math.cos(weaveFrequency * u),
+            aWeft = Math.cos(weaveFrequency * v),
+            warp = aWarp * aWarp,
+            weft = aWeft * aWeft,
+            over = 0.5 + 0.5 * aWarp * aWeft,
+            weave =
+              warp * (0.35 + 0.25 * over) +
+              weft * (0.35 + 0.25 * (1 - over)) -
+              0.3 * warp * weft,
+            grain = grainField(u, v);
+          color = 0.06 + 0.025 * grain + 0.015 * weave;
+          if (motif > 0)
+            color +=
+              motif * (0.82 + 0.05 * tones[Math.floor(vc) * p.cells + col]);
+          height = 0.12 + 0.22 * weave + 0.004 * grain;
+          roughness += 0.025 * grain + 0.02 * (1 - weave);
+          occlusion = 0.84 + 0.15 * weave;
+        };
+      }
       case 'hazelnutshells': {
         const p = proceduralMaterialPresets.hazelnutshells,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -25185,6 +25246,7 @@ export function createSurfaceSampler(
     kind === 'chenilleyarn' ||
     kind === 'ceramicfuses' ||
     kind === 'hazelnutshells' ||
+    kind === 'yagasuricloth' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
