@@ -698,7 +698,262 @@ const kinds: ProceduralMaterialKind[] = [
   'mushroomslices',
   'insulatedringlugs',
   'bananaslices',
+  'rosemarysprigs',
 ];
+
+describe('Rosemary sprigs with a continuous pale stem sixteen narrow slanted green needle leaves and raised pale midribs', () => {
+  const p = proceduralMaterialPresets.rosemarysprigs;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17c15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17c1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17c17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17c19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const center = (seed: number, pair: number) =>
+    p.leafCenter + p.lengthVariation * hash(pair, 0, seed ^ 0x17c13);
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine continuous pale-stem sprigs with sixteen narrow slanted opposite needles and raised pale midribs rather than broad fern pinnae for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rosemarysprigs', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          for (let j = 0; j <= 1024; j++) {
+            const stem = at(0, -0.34 + (0.68 * j) / 1024);
+            expect(stem.height).toBeGreaterThanOrEqual(0.0016799);
+            expect(stem.height).toBeLessThanOrEqual(0.0016921);
+            expect(stem.mortar).toBe(0);
+            expect(stem.metallic).toBe(0);
+            expect(stem.occlusion).toBeCloseTo(0.99, 12);
+          }
+          for (let pair = 0; pair < p.pairs; pair++) {
+            const root = p.firstPair + pair * p.pitch,
+              c = center(seed, pair),
+              half = c + p.leafOverlap;
+            for (const sign of [-1, 1]) {
+              const rib = at(sign * c, root - p.slope * c),
+                face = at(sign * c, root - p.slope * c + 0.01),
+                stem = at(0, root);
+              expect(rib.height).toBeGreaterThanOrEqual(0.0023799);
+              expect(rib.height).toBeLessThanOrEqual(0.0023921);
+              expect(face.height).toBeGreaterThanOrEqual(0.0022799);
+              expect(face.height).toBeLessThanOrEqual(0.0022921);
+              expect(rib.height - face.height).toBeGreaterThan(0.0000879);
+              expect(rib.color - face.color).toBeGreaterThan(0.1149);
+              expect(face.roughness - rib.roughness).toBeGreaterThan(0.0249);
+              expect(rib.height - stem.height).toBeGreaterThan(0.0006879);
+              expect(stem.color - rib.color).toBeGreaterThan(0.0949);
+              for (let j = 0; j <= 128; j++) {
+                const x = ((c + 0.6 * half) * j) / 128,
+                  value = at(sign * x, root - p.slope * x);
+                expect(value.height).toBeGreaterThanOrEqual(0.0016799);
+                expect(value.mortar).toBe(0);
+                expect(value.metallic).toBe(0);
+                expect(value.occlusion).toBeCloseTo(0.99, 12);
+              }
+              if (pair < p.pairs - 1) {
+                const gap = at(
+                  sign * 0.07,
+                  root + p.pitch * 0.5 - p.slope * 0.07,
+                );
+                expect(gap.height).toBeCloseTo(0.0001, 12);
+                expect(gap.mortar).toBe(1);
+                expect(gap.occlusion).toBeCloseTo(0.3, 12);
+              }
+            }
+          }
+          for (const sign of [-1, 1]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const value = at(sign * 0.07, -0.35 + (0.7 * j) / 8192),
+                next = value.height > 0.0023;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(8);
+          }
+        }
+    },
+  );
+  it('writes distinct pale stems green needle faces brighter raised ribs and open needle gaps into actual 512 PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('rosemarysprigs', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let pair = 0; pair < p.pairs; pair++) {
+            const root = p.firstPair + pair * p.pitch,
+              c = center(seed, pair);
+            for (const sign of [-1, 1]) {
+              const stem = pixel(0, root),
+                rib = pixel(sign * c, root - p.slope * c),
+                face = pixel(sign * c, root - p.slope * c + 0.01);
+              expect(
+                maps.baseColor[rib + 1]! - maps.baseColor[face + 1]!,
+              ).toBeGreaterThan(5);
+              expect(maps.height![rib]! - maps.height![face]!).toBeGreaterThan(
+                2,
+              );
+              expect(
+                maps.baseColor[stem + 1]! - maps.baseColor[rib + 1]!,
+              ).toBeGreaterThan(10);
+              expect(maps.height![rib]! - maps.height![stem]!).toBeGreaterThan(
+                45,
+              );
+              for (const i of [stem, rib, face]) {
+                expect(maps.metallicRoughness[i + 2]).toBe(0);
+                expect(maps.occlusion[i]!).toBeGreaterThan(245);
+              }
+              if (pair < p.pairs - 1) {
+                const gap = pixel(
+                  sign * 0.07,
+                  root + p.pitch * 0.5 - p.slope * 0.07,
+                );
+                expect(maps.occlusion[gap]!).toBeLessThan(80);
+                expect(maps.height![rib]! - maps.height![gap]!).toBeGreaterThan(
+                  230,
+                );
+              }
+            }
+          }
+        }
+    }
+  });
+  it('repeats all stem needle rib and backing channels across signed UV periods without losing seeded sprig orientation', () => {
+    const sample = createSurfaceSampler('rosemarysprigs', 7),
+      other = createSurfaceSampler('rosemarysprigs', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.color - c.color);
+    }
+    expect(difference).toBeGreaterThan(25);
+  });
+  it('keeps stem capsules tapered needle ellipses rib core support and onset mirrored side and nearest-pair owners pose grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rosemarysprigs', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            local(0, -0.4 + 0.8 * t);
+            for (const r of [p.stemRadius, p.stemCore])
+              for (const sign of [-1, 1]) {
+                local(
+                  sign * r,
+                  p.stemY - p.stemStraightY + 2 * p.stemStraightY * t,
+                );
+                local(r * ct, p.stemY + sign * p.stemStraightY + r * st);
+              }
+            for (let pair = 0; pair < p.pairs; pair++) {
+              const root = p.firstPair + pair * p.pitch,
+                cx = center(seed, pair),
+                half = cx + p.leafOverlap;
+              for (const sign of [-1, 1]) {
+                for (const q of [1, p.leafCoreQ]) {
+                  const ax = cx + half * Math.sqrt(q) * ct,
+                    across = p.leafHalfY * Math.sqrt(q) * st;
+                  local(sign * ax, root - p.slope * ax + across);
+                }
+                for (const r of [p.ribRadius, p.ribCore])
+                  for (const s of [-1, 1]) {
+                    const ax = 0.18 * t;
+                    local(sign * ax, root - p.slope * ax + s * r);
+                  }
+                for (const ax of [p.ribStart, p.ribStart + p.ribFade])
+                  local(sign * ax, root - p.slope * ax + 0.02 * (2 * t - 1));
+                if (pair < p.pairs - 1) {
+                  const ax = 0.2 * t;
+                  local(sign * ax, root + p.pitch / 2 - p.slope * ax);
+                }
+              }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Banana slices with a pale lower rim three continuous recessed Y partitions and six paired dark seed rudiments', () => {
   const p = proceduralMaterialPresets.bananaslices;

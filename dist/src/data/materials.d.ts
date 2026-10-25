@@ -6928,6 +6928,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    rosemarysprigs: Readonly<{
+        dark: readonly [35, 42, 25];
+        light: readonly [194, 207, 158];
+        roughness: 0.68;
+        relief: 0.004;
+        cells: 3;
+        pairs: 8;
+        firstPair: -0.245;
+        pitch: 0.07;
+        leafCenter: 0.07;
+        lengthVariation: 0.015;
+        leafOverlap: 0.01;
+        leafHalfY: 0.018;
+        leafCoreQ: 0.7;
+        slope: 0.4;
+        stemY: 0;
+        stemStraightY: 0.35;
+        stemRadius: 0.014;
+        stemCore: 0.01;
+        ribRadius: 0.006;
+        ribCore: 0.004;
+        ribStart: 0.025;
+        ribFade: 0.015;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7588,4 +7615,5 @@ export declare const proceduralTileMeters: Readonly<{
     mushroomslices: 0.18;
     insulatedringlugs: 0.18;
     bananaslices: 0.12;
+    rosemarysprigs: 0.18;
 }>;

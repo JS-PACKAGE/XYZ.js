@@ -672,7 +672,8 @@ export type ProceduralMaterialKind =
   | 'swavepavers'
   | 'mushroomslices'
   | 'insulatedringlugs'
-  | 'bananaslices';
+  | 'bananaslices'
+  | 'rosemarysprigs';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1579,6 +1580,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mushroomslices',
   'insulatedringlugs',
   'bananaslices',
+  'rosemarysprigs',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

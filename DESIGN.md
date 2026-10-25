@@ -863,6 +863,8 @@
 
 `bananaslices` 為九 seeded 奶油香蕉橢圓切片：低而較粗淡外緣、三道連續低 Y partition 與六枚成對暗 seed rudiments，不是 kiwiflesh 環種子或 starfruit 五角外皮換色。Y arms／hub／seeds／rim 分別改 height／color／roughness／AO，cached poses／three unit axes／128² grain／squared ellipse-capsule profiles／三 dot comparison 單arm定位，每點無配置／hash／sqrt／atan2／trig／逐arm或逐seed掃描。Full hub 遮 ray owner 換界，其餘 ties在ray／seed support外，外橢圓support遮pose換界，全相M0、full-body exact mortar0，外部低opaque backing。0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變；不新增geometry、熟成／生長模擬、植物／食品認證。
 
+`rosemarysprigs` 為九 seeded 淡莖迷迭香枝葉、十六片斜生狹針葉與凸起淡中肋，非寬羽狀 fernleaf 換色。Cached poses／八 seeded leaf lengths／128² grain，squared stem capsule／sheared elliptical paired leaves／compact rib profiles，nearest-pair owner 位於 leaf transverse support 外、full stem overlay 遮 mirrored-side cusp。Product-complement coverage 保持根莖連續且 full-body exact mortar0；empty support 跳 finish、full stem 跳 hidden leaves，每點無配置／hash／sqrt／trig／逐葉或鄰格掃描。暗粗針葉高於淡低莖，亮高滑中肋與葉面分相、全 M0、外部低 opaque backing；針葉與中肋寬度保留512像素的可見分離。0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變，不新增 geometry、生長、植物學或草藥／食品認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

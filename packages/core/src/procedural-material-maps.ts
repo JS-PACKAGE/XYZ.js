@@ -1441,6 +1441,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rosemarysprigs': {
+        const p = proceduralMaterialPresets.rosemarysprigs,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          leaves = new Float64Array(p.pairs * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x17c11),
+          inverseLeafY = 1 / (p.leafHalfY * p.leafHalfY),
+          inverseLeaf = 1 / (1 - p.leafCoreQ),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          ribSquared = p.ribRadius * p.ribRadius,
+          inverseRib = 1 / (ribSquared - p.ribCore * p.ribCore),
+          inversePitch = 1 / p.pitch,
+          sideReach = 2 * (p.leafCenter + p.lengthVariation) + p.leafOverlap,
+          top = p.stemY - p.stemStraightY - p.stemRadius,
+          bottom = p.stemY + p.stemStraightY + p.stemRadius;
+        for (let pair = 0; pair < p.pairs; pair++) {
+          const center =
+            p.leafCenter + p.lengthVariation * hash(pair, 0, seed ^ 0x17c13);
+          leaves[pair * 2] = center;
+          leaves[pair * 2 + 1] = 1 / (center + p.leafOverlap) ** 2;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17c15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17c17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17c19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17c1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17c1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x);
+          if (ax >= sideReach || y <= top || y >= bottom) return;
+          const sy = Math.max(0, Math.abs(y - p.stemY) - p.stemStraightY),
+            stem = smooth(clamp((stemSquared - x * x - sy * sy) * inverseStem)),
+            warped = y + p.slope * ax,
+            pair = Math.max(
+              0,
+              Math.min(
+                p.pairs - 1,
+                Math.floor((warped - p.firstPair) * inversePitch + 0.5),
+              ),
+            ),
+            across = warped - p.firstPair - pair * p.pitch,
+            along = ax - leaves[pair * 2]!,
+            leafQ =
+              along * along * leaves[pair * 2 + 1]! +
+              across * across * inverseLeafY,
+            leaf = smooth(clamp((1 - leafQ) * inverseLeaf));
+          mortar = (1 - stem) * (1 - leaf);
+          if (mortar === 1) return;
+          const grain = grainField(u, v);
+          if (leaf !== 0 && stem !== 1) {
+            // The overlaid full stem conceals the mirrored leaf-owner cusp;
+            // nearest pair ties are outside the narrow transverse support.
+            const exposed = smooth(clamp((ax - p.ribStart) / p.ribFade)),
+              rib =
+                exposed *
+                smooth(clamp((ribSquared - across * across) * inverseRib)),
+              tone = poses[i + 5]!;
+            color +=
+              leaf * (0.42 + 0.04 * tone + 0.025 * grain + 0.14 * rib - color);
+            height += leaf * (0.57 + 0.025 * rib + 0.003 * grain - height);
+            roughness +=
+              leaf * (p.roughness + 0.025 * grain - 0.05 * rib - roughness);
+            occlusion += leaf * (0.99 - occlusion);
+          }
+          if (stem !== 0) {
+            color += stem * (0.72 + 0.025 * grain - color);
+            height += stem * (0.42 + 0.003 * grain - height);
+            roughness += stem * (0.76 + 0.025 * grain - roughness);
+            occlusion += stem * (0.99 - occlusion);
+          }
+        };
+      }
       case 'bananaslices': {
         const p = proceduralMaterialPresets.bananaslices,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29187,6 +29278,7 @@ export function createSurfaceSampler(
     kind === 'mushroomslices' ||
     kind === 'insulatedringlugs' ||
     kind === 'bananaslices' ||
+    kind === 'rosemarysprigs' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
