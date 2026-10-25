@@ -1441,6 +1441,106 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'serpentinesprings': {
+        const p = proceduralMaterialPresets.serpentinesprings,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17f11),
+          wireSquared = p.wireRadius * p.wireRadius,
+          inverseWire = 1 / wireSquared,
+          inverseShoulder = 1 / (wireSquared - p.wireCore * p.wireCore),
+          turnRadius = p.pitch * 0.5,
+          innerSquared = (turnRadius - p.wireRadius) ** 2,
+          outerSquared = (turnRadius + p.wireRadius) ** 2,
+          inversePitch = 1 / p.pitch,
+          inverseTurnPitch = 0.5 / p.pitch,
+          lastY = p.firstY + (p.runs - 1) * p.pitch,
+          sideReach = p.halfRun + turnRadius + p.wireRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17f15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17f17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17f19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17f1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17f1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x);
+          if (
+            ax >= sideReach ||
+            y <= p.firstY - p.wireRadius ||
+            y >= lastY + p.wireRadius
+          )
+            return;
+          let distanceSquared: number;
+          if (ax <= p.halfRun) {
+            const run = Math.max(
+                0,
+                Math.min(
+                  p.runs - 1,
+                  Math.floor((y - p.firstY) * inversePitch + 0.5),
+                ),
+              ),
+              d = y - p.firstY - run * p.pitch;
+            distanceSquared = d * d;
+          } else if (
+            x < 0 &&
+            (y < p.firstY + p.endOwnerGap || y > lastY - p.endOwnerGap)
+          ) {
+            const ex = x + p.halfRun,
+              ey = y - (y < p.firstY + p.endOwnerGap ? p.firstY : lastY);
+            distanceSquared = ex * ex + ey * ey;
+          } else {
+            const left = x < 0,
+              first = p.firstY + (left ? 1.5 : 0.5) * p.pitch,
+              turn = Math.max(
+                0,
+                Math.min(
+                  left ? 1 : 2,
+                  Math.floor((y - first) * inverseTurnPitch + 0.5),
+                ),
+              ),
+              tx = ax - p.halfRun,
+              ty = y - first - turn * 2 * p.pitch,
+              q = tx * tx + ty * ty;
+            if (q <= innerSquared || q >= outerSquared) return;
+            // Exact Euclidean distance matches the adjacent line field and
+            // gradient off the centerline too; an implicit-ring approximation
+            // would introduce a value/derivative seam at the line/arc join.
+            const d = Math.sqrt(q) - turnRadius;
+            distanceSquared = d * d;
+          }
+          if (distanceSquared >= wireSquared) return;
+          const wire = smooth(
+              clamp((wireSquared - distanceSquared) * inverseShoulder),
+            ),
+            dome = smooth(clamp(1 - distanceSquared * inverseWire)),
+            grain = grainField(u, v);
+          color += wire * (0.9 + 0.025 * poses[i + 5]! + 0.025 * grain - color);
+          height += wire * (0.52 + 0.08 * dome + 0.003 * grain - height);
+          roughness +=
+            wire * (p.roughness + 0.025 * grain - 0.04 * dome - roughness);
+          occlusion += wire * (0.99 - occlusion);
+          metallic = wire;
+          mortar = 1 - wire;
+        };
+      }
       case 'scissors': {
         const p = proceduralMaterialPresets.scissors,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29526,6 +29626,7 @@ export function createSurfaceSampler(
     kind === 'rosemarysprigs' ||
     kind === 'pencilsharpeners' ||
     kind === 'scissors' ||
+    kind === 'serpentinesprings' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

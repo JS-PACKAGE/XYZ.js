@@ -8026,3 +8026,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際660-preset gallery 強制 WebGPU／WebGL2，各選出材質、擷取畫面及512 detail，見九張開紅雙孔柄、連銀頸、兩尖刃與圓樞。各 API512 factor1／metal min0 max255／1790 partial samples／height true／destroyed true；page／about:blank cleanup errors空、tab已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、鉸鏈／剪切力學／安全或效能。
 - Fresh Node 實際產生 scissors，並比較既有659種各64²／seed7四張圖的 SHA256，全部不變；八份說明文件相對連結檢查無缺失。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／7097 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-26 程序材質：蛇形彈簧線（serpentinesprings）
+
+- 目錄660→661種，九 seeded 六直段、五交替真半圓 U 彎、雙圓自由端單連續銀線，非六分離條或螺旋圈。Cached poses／128² grain／exact piecewise squared-distance field，nearest straight／三右二左turn／end owners都在empty support換主，line/arc join含off-axis value與一階導數完全相合，不用會破接合的implicit-ring近似。只有eligible turn annulus在中心與外部cull後一次sqrt，每點無配置／hash／trig／鄰格或逐run掃描；compact core-support及smooth圓冠改height／roughness。Full wire core M1／exact mortar0，隙低opaque M0；0.2 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、螺旋構造、彈性／力學或安全認證。
+- Targeted 八項首次通過（18.31s）。三seed各九形，六runs各1025-point與五真Uturns各513-point中心全連續height0.0023999–0.0024121 m／M1／mortar0／AO0.99；直／彎線crown比0.008偏距flank高 >0.0001214 m，flank仍M1／mortar0。雙圓端各129-point半圓height>0.002266 m／M1／mortar0；五內隙0.0001 m／M0／mortar1／AO0.3。三個8193-point vertical scans分別恰6直線／3右U／2左U runs。Actual512六直線／五Uturn外冠／雙端G>225／B>225／M255／AO>245／height>240codes，五隙M0／AO<80／height0。2048-point六通道正負整週期重複、換seed metallic coverage difference>100；129² fields／line-circle接合全off-axis core-support距離／五arc crowns／雙endcaps／nearest-row-turn-end owners／poses／grain／UV wraps C1（h2e-9）。
+- Managed Chromium 實際661-preset gallery 強制 WebGPU／WebGL2，各選出材質、擷取畫面及512 detail，見九單連續六直段五U彎雙自由端銀線。各 API512 factor1／metal min0 max255／3879 partial samples／height true／destroyed true；page／about:blank cleanup errors空、tab已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、螺旋圈／彈性／力學／安全或效能。
+- Fresh Node 實際產生 serpentinesprings，並比較既有660種各64²／seed7四張圖的 SHA256，全部不變；八份說明文件相對連結檢查無缺失。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／7105 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

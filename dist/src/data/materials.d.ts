@@ -7021,6 +7021,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    serpentinesprings: Readonly<{
+        dark: readonly [40, 44, 48];
+        light: readonly [245, 247, 250];
+        roughness: 0.28;
+        relief: 0.004;
+        cells: 3;
+        runs: 6;
+        firstY: -0.225;
+        pitch: 0.09;
+        halfRun: 0.17;
+        wireRadius: 0.012;
+        wireCore: 0.009;
+        endOwnerGap: 0.06;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7684,4 +7701,5 @@ export declare const proceduralTileMeters: Readonly<{
     rosemarysprigs: 0.18;
     pencilsharpeners: 0.15;
     scissors: 0.25;
+    serpentinesprings: 0.2;
 }>;
