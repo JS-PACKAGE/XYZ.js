@@ -706,7 +706,334 @@ const kinds: ProceduralMaterialKind[] = [
   'chipresistors',
   'memorycardbacks',
   'gnocchi',
+  'rectangularsocketfaces',
 ];
+
+describe('Four-contact rectangular socket faces with a closed silver bezel an open low cavity and separate raised silver pads on an opaque high black tongue', () => {
+  const p = proceduralMaterialPresets.rectangularsocketfaces;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18415),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1841b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18417) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18419) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps a closed conducting bezel four separate raised contacts three high black insulating gaps and an actually open low cavity for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rectangularsocketfaces', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          const rimCheck = (x: number, y: number) => {
+            const a = at(x, y);
+            expect(a.metallic).toBe(1);
+            expect(a.mortar).toBe(0);
+            expect(a.occlusion).toBeCloseTo(0.99, 12);
+            expect(a.height).toBeGreaterThanOrEqual(0.0027999);
+            expect(a.height).toBeLessThanOrEqual(0.0028121);
+          };
+          for (let j = 0; j <= 256; j++) {
+            const t = j / 256;
+            for (const sign of [-1, 1]) {
+              rimCheck(-0.2825 + 0.565 * t, sign * 0.1075);
+              rimCheck(sign * 0.3075, -0.0825 + 0.165 * t);
+            }
+            for (const sx of [-1, 1])
+              for (const sy of [-1, 1]) {
+                const theta = (t * Math.PI) / 2;
+                rimCheck(
+                  sx * (0.2825 + 0.025 * Math.cos(theta)),
+                  sy * (0.0825 + 0.025 * Math.sin(theta)),
+                );
+              }
+          }
+          for (let contact = 0; contact < p.contacts; contact++)
+            for (let j = 0; j <= 512; j++) {
+              const y =
+                  p.tongueY -
+                  p.contactStraightY +
+                  (2 * p.contactStraightY * j) / 512,
+                x = p.firstX + contact * p.pitch,
+                a = at(x, y),
+                black = at(
+                  x + ((contact < (p.contacts - 1) / 2 ? 1 : -1) * p.pitch) / 2,
+                  y,
+                );
+              expect(a.metallic).toBe(1);
+              expect(a.mortar).toBe(0);
+              expect(a.height).toBeGreaterThanOrEqual(0.0019999);
+              expect(a.height).toBeLessThanOrEqual(0.0020121);
+              expect(a.occlusion).toBeCloseTo(0.99, 12);
+              expect(black.metallic).toBe(0);
+              expect(black.mortar).toBe(0);
+              expect(black.occlusion).toBeCloseTo(0.97, 12);
+              expect(a.height - black.height).toBeGreaterThan(0.0002279);
+              expect(a.color - black.color).toBeGreaterThan(0.8899);
+              expect(black.roughness - a.roughness).toBeGreaterThan(0.4149);
+            }
+          for (let gap = 0; gap < p.contacts - 1; gap++)
+            for (let j = 0; j <= 128; j++) {
+              const black = at(
+                p.firstX + (gap + 0.5) * p.pitch,
+                p.tongueY -
+                  p.contactStraightY +
+                  (2 * p.contactStraightY * j) / 128,
+              );
+              expect(black.metallic).toBe(0);
+              expect(black.mortar).toBe(0);
+              expect(black.height).toBeGreaterThanOrEqual(0.0017599);
+              expect(black.height).toBeLessThanOrEqual(0.0017721);
+              expect(black.occlusion).toBeCloseTo(0.97, 12);
+            }
+          const frame = at(0, -0.11),
+            contact = at(p.firstX, p.tongueY),
+            tongue = at(0.2, p.tongueY);
+          expect(frame.height - contact.height).toBeGreaterThan(0.0007879);
+          for (const y of [-0.05, 0.07, 0.21]) {
+            const cavity = at(0, y);
+            expect(cavity.mortar).toBe(1);
+            expect(cavity.metallic).toBe(0);
+            expect(cavity.height).toBeCloseTo(0.0001, 12);
+            expect(cavity.occlusion).toBeCloseTo(0.3, 12);
+            expect(tongue.height - cavity.height).toBeGreaterThan(0.0016599);
+          }
+          for (const [halfWidth, expected] of [
+            [0.23, 4],
+            [0.34, 6],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = at(
+                  -halfWidth! + (2 * halfWidth! * j) / 8192,
+                  p.tongueY,
+                ),
+                next = a.metallic > 0.9;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+    },
+  );
+  it('writes four separate silver contacts high opaque black insulation a higher silver bezel and open low cavity in actual512 PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('rectangularsocketfaces', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            rim = pixel(0, -0.11);
+          expect(maps.baseColor[rim]!).toBeGreaterThan(220);
+          expect(maps.metallicRoughness[rim + 2]).toBe(255);
+          expect(maps.occlusion[rim]!).toBeGreaterThan(250);
+          for (let contact = 0; contact < p.contacts; contact++) {
+            const x = p.firstX + contact * p.pitch,
+              pad = pixel(x, p.tongueY),
+              black = pixel(
+                x + ((contact < (p.contacts - 1) / 2 ? 1 : -1) * p.pitch) / 2,
+                p.tongueY,
+              );
+            for (let c = 0; c < 3; c++)
+              expect(maps.baseColor[pad + c]!).toBeGreaterThan(235);
+            expect(maps.baseColor[black]!).toBeLessThan(30);
+            expect(maps.baseColor[black + 1]!).toBeLessThan(32);
+            expect(maps.baseColor[black + 2]!).toBeLessThan(35);
+            expect(maps.metallicRoughness[pad + 2]).toBe(255);
+            expect(maps.metallicRoughness[black + 2]).toBe(0);
+            expect(
+              maps.metallicRoughness[black + 1]! -
+                maps.metallicRoughness[pad + 1]!,
+            ).toBeGreaterThan(100);
+            expect(maps.height![pad]! - maps.height![black]!).toBeGreaterThan(
+              20,
+            );
+            expect(maps.height![rim]! - maps.height![pad]!).toBeGreaterThan(70);
+            expect(
+              maps.occlusion[pad]! - maps.occlusion[black]!,
+            ).toBeGreaterThan(4);
+            expect(maps.occlusion[black]!).toBeGreaterThan(245);
+          }
+          for (const y of [-0.05, 0.07, 0.21]) {
+            const cavity = pixel(0, y);
+            expect(maps.occlusion[cavity]!).toBeLessThan(80);
+            expect(maps.height![cavity]).toBe(0);
+            expect(maps.metallicRoughness[cavity + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats closed silver frame four contact black tongue and open cavity PBR channels across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('rectangularsocketfaces', 7),
+      other = createSurfaceSampler('rectangularsocketfaces', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(100);
+  });
+  it('keeps rounded bezel mouth tongue pin core-support projections nearest-contact ties poses grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rectangularsocketfaces', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = (t * Math.PI) / 2,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const [hx, hy, radius, core, centerY] of [
+              [
+                p.outerStraightX,
+                p.outerStraightY,
+                p.outerRadius,
+                p.outerCore,
+                0,
+              ],
+              [
+                p.mouthStraightX,
+                p.mouthStraightY,
+                p.mouthRadius,
+                p.mouthCore,
+                0,
+              ],
+              [
+                p.tongueStraightX,
+                p.tongueStraightY,
+                p.tongueRadius,
+                p.tongueCore,
+                p.tongueY,
+              ],
+            ])
+              for (const radiusNow of [radius!, core!])
+                for (const sx of [-1, 1])
+                  for (const sy of [-1, 1]) {
+                    local(
+                      sx * (hx! + radiusNow * ct),
+                      centerY! + sy * (hy! + radiusNow * st),
+                    );
+                    local(sx * (hx! + radiusNow), centerY! - hy! + 2 * hy! * t);
+                    local(
+                      -hx! + 2 * hx! * t,
+                      centerY! + sy * (hy! + radiusNow),
+                    );
+                    local(sx * hx!, centerY! + sy * (hy! + radiusNow * t));
+                    local(sx * (hx! + radiusNow * t), centerY! + sy * hy!);
+                  }
+            for (let contact = 0; contact < p.contacts; contact++) {
+              const x = p.firstX + contact * p.pitch;
+              for (const radius of [p.contactRadius, p.contactCore])
+                for (const sx of [-1, 1])
+                  for (const sy of [-1, 1]) {
+                    local(
+                      x + sx * (p.contactStraightX + radius * ct),
+                      p.tongueY + sy * (p.contactStraightY + radius * st),
+                    );
+                    local(
+                      x + sx * (p.contactStraightX + radius),
+                      p.tongueY -
+                        p.contactStraightY +
+                        2 * p.contactStraightY * t,
+                    );
+                    local(
+                      x - p.contactStraightX + 2 * p.contactStraightX * t,
+                      p.tongueY + sy * (p.contactStraightY + radius),
+                    );
+                    local(
+                      x + sx * p.contactStraightX,
+                      p.tongueY + sy * (p.contactStraightY + radius * t),
+                    );
+                    local(
+                      x + sx * (p.contactStraightX + radius * t),
+                      p.tongueY + sy * p.contactStraightY,
+                    );
+                  }
+              if (contact < p.contacts - 1)
+                local(x + p.pitch / 2, -0.16 + 0.32 * t);
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Floured cream gnocchi pillows with a rounded oval crown and seven genuinely curved lower fork grooves', () => {
   const p = proceduralMaterialPresets.gnocchi;
@@ -46420,6 +46747,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'impellerfaces' &&
           kind !== 'chipresistors' &&
           kind !== 'memorycardbacks' &&
+          kind !== 'rectangularsocketfaces' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -55848,6 +56176,7 @@ describe('procedural preset acquisition and ownership', () => {
     'impellerfaces',
     'chipresistors',
     'memorycardbacks',
+    'rectangularsocketfaces',
     'standingseam',
     'damascus',
     'castiron',
@@ -55936,6 +56265,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'impellerfaces' ||
           kind === 'chipresistors' ||
           kind === 'memorycardbacks' ||
+          kind === 'rectangularsocketfaces' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

@@ -1441,6 +1441,113 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rectangularsocketfaces': {
+        const p = proceduralMaterialPresets.rectangularsocketfaces,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18411),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.outerCore * p.outerCore),
+          mouthSquared = p.mouthRadius * p.mouthRadius,
+          inverseMouth = 1 / (mouthSquared - p.mouthCore * p.mouthCore),
+          tongueSquared = p.tongueRadius * p.tongueRadius,
+          inverseTongue = 1 / (tongueSquared - p.tongueCore * p.tongueCore),
+          inversePitch = 1 / p.pitch,
+          contactSquared = p.contactRadius * p.contactRadius,
+          inverseContact = 1 / (contactSquared - p.contactCore * p.contactCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x18415);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18417) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18419) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1841b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1841d);
+          }
+        return () => {
+          const fx = u * p.cells,
+            fy = v * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy),
+            i = (row * p.cells + col) * 6,
+            dx = fx - col - 0.5 - poses[i + 2]!,
+            dy = fy - row - 0.5 - poses[i + 3]!,
+            x = (poses[i]! * dx + poses[i + 1]! * dy) * poses[i + 4]!,
+            y = (-poses[i + 1]! * dx + poses[i]! * dy) * poses[i + 4]!,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            ox = Math.max(0, ax - p.outerStraightX),
+            oy = Math.max(0, ay - p.outerStraightY),
+            outer = smooth(
+              clamp((outerSquared - ox * ox - oy * oy) * inverseOuter),
+            );
+          if (outer === 0) {
+            color = 0.04;
+            height = 0.025;
+            roughness = 0.95;
+            occlusion = 0.3;
+            metallic = 0;
+            mortar = 1;
+            return;
+          }
+          const mx = Math.max(0, ax - p.mouthStraightX),
+            my = Math.max(0, ay - p.mouthStraightY),
+            mouth = smooth(
+              clamp((mouthSquared - mx * mx - my * my) * inverseMouth),
+            ),
+            rim = outer * (1 - mouth);
+          let tongue = 0,
+            contact = 0;
+          if (mouth > 0) {
+            const ty = y - p.tongueY,
+              tx = Math.max(0, ax - p.tongueStraightX),
+              tty = Math.max(0, Math.abs(ty) - p.tongueStraightY);
+            tongue = smooth(
+              clamp((tongueSquared - tx * tx - tty * tty) * inverseTongue),
+            );
+            if (tongue > 0) {
+              const owner = Math.max(
+                  0,
+                  Math.min(
+                    p.contacts - 1,
+                    Math.round((x - p.firstX) * inversePitch),
+                  ),
+                ),
+                cx = Math.max(
+                  0,
+                  Math.abs(x - p.firstX - owner * p.pitch) - p.contactStraightX,
+                ),
+                cy = Math.max(0, Math.abs(ty) - p.contactStraightY);
+              contact = smooth(
+                clamp((contactSquared - cx * cx - cy * cy) * inverseContact),
+              );
+            }
+          }
+          mortar = (1 - rim) * (1 - tongue);
+          metallic = 1 - (1 - rim) * (1 - contact);
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          if (mortar === 1) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5]!;
+          color += tongue * (0.045 + 0.01 * tone + 0.015 * grain - color);
+          height += tongue * (0.44 + 0.003 * grain - height);
+          roughness += tongue * (0.68 + 0.025 * grain - roughness);
+          occlusion += tongue * (0.97 - occlusion);
+          color += contact * (0.96 + 0.02 * grain - color);
+          height += contact * (0.5 + 0.003 * grain - height);
+          roughness += contact * (0.24 + 0.025 * grain - roughness);
+          occlusion += contact * (0.99 - occlusion);
+          color += rim * (0.91 + 0.025 * tone + 0.025 * grain - color);
+          height += rim * (0.7 + 0.003 * grain - height);
+          roughness += rim * (0.28 + 0.025 * grain - roughness);
+          occlusion += rim * (0.99 - occlusion);
+        };
+      }
       case 'gnocchi': {
         const p = proceduralMaterialPresets.gnocchi,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -30029,6 +30136,7 @@ export function createSurfaceSampler(
     kind === 'chipresistors' ||
     kind === 'memorycardbacks' ||
     kind === 'gnocchi' ||
+    kind === 'rectangularsocketfaces' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

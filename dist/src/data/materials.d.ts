@@ -7141,6 +7141,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    rectangularsocketfaces: Readonly<{
+        dark: readonly [10, 13, 16];
+        light: readonly [245, 247, 250];
+        roughness: 0.28;
+        relief: 0.004;
+        cells: 3;
+        outerStraightX: 0.3;
+        outerStraightY: 0.1;
+        outerRadius: 0.035;
+        outerCore: 0.028;
+        mouthStraightX: 0.265;
+        mouthStraightY: 0.065;
+        mouthRadius: 0.015;
+        mouthCore: 0.01;
+        tongueY: 0.02;
+        tongueStraightX: 0.22;
+        tongueStraightY: 0.02;
+        tongueRadius: 0.018;
+        tongueCore: 0.012;
+        contacts: 4;
+        firstX: -0.15;
+        pitch: 0.1;
+        contactStraightX: 0.006;
+        contactStraightY: 0.016;
+        contactRadius: 0.009;
+        contactCore: 0.006;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7809,4 +7839,5 @@ export declare const proceduralTileMeters: Readonly<{
     chipresistors: 0.12;
     memorycardbacks: 0.15;
     gnocchi: 0.12;
+    rectangularsocketfaces: 0.09;
 }>;
