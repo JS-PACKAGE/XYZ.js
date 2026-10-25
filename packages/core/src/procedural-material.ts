@@ -651,7 +651,8 @@ export type ProceduralMaterialKind =
   | 'solderlessbreadboard'
   | 'kyaniteblades'
   | 'internaltoothwashers'
-  | 'driedchillies';
+  | 'driedchillies'
+  | 'utilityknifeblades';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1537,6 +1538,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'kyaniteblades',
   'internaltoothwashers',
   'driedchillies',
+  'utilityknifeblades',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1755,6 +1757,7 @@ export class ProceduralMaterial {
         this.kind === 'sewingthimbles' ||
         this.kind === 'boullebrassinlay' ||
         this.kind === 'internaltoothwashers' ||
+        this.kind === 'utilityknifeblades' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

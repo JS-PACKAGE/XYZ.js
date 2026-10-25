@@ -677,7 +677,257 @@ const kinds: ProceduralMaterialKind[] = [
   'kyaniteblades',
   'internaltoothwashers',
   'driedchillies',
+  'utilityknifeblades',
 ];
+
+describe('Silver-colored trapezoidal utility blades with two spine indexing notches and a continuous lower smoother brighter honed edge', () => {
+  const p = proceduralMaterialPresets.utilityknifeblades;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16715),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1671b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16717) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16719) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a wider lower trapezoid two exposed indexing notches and a lower smoother still-metallic continuous honed edge rather than silver paint for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('utilityknifeblades', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 1024; j++) {
+            const x = -0.23 + (0.46 * j) / 1024;
+            sample(...world(seed, col, row, x, 0), out);
+            const body = { ...out };
+            expect(body.height).toBeGreaterThan(0.0011199);
+            expect(body.height).toBeLessThan(0.0011261);
+            expect(body.occlusion).toBeCloseTo(0.98, 12);
+            expect(body.metallic).toBe(1);
+            expect(body.mortar).toBe(0);
+            sample(...world(seed, col, row, x, 0.15), out);
+            expect(out.height).toBeGreaterThan(0.0006399);
+            expect(out.height).toBeLessThan(0.0006461);
+            expect(body.height - out.height).toBeGreaterThan(0.0004739);
+            expect(out.color - body.color).toBeGreaterThan(0.1199);
+            expect(body.roughness - out.roughness).toBeGreaterThan(0.1599);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+          }
+          for (const x of [-p.notchOffset, p.notchOffset]) {
+            sample(...world(seed, col, row, x, p.top + 0.01), out);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeGreaterThan(0.0000499);
+            expect(out.height).toBeLessThan(0.0000541);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            sample(
+              ...world(seed, col, row, x, p.top + p.notchRadius + 0.015),
+              out,
+            );
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.0011199);
+          }
+          for (const x of [-0.2, 0, 0.2]) {
+            sample(...world(seed, col, row, x, p.top + 0.02), out);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+          }
+          let runs = 0,
+            prior = false;
+          for (let j = 0; j <= 8192; j++) {
+            sample(
+              ...world(seed, col, row, -0.3 + (0.6 * j) / 8192, p.top + 0.02),
+              out,
+            );
+            const metal = out.metallic > 0.95;
+            if (metal && !prior) runs++;
+            prior = metal;
+          }
+          expect(runs).toBe(3);
+          const widths: number[] = [];
+          for (const y of [-0.12, 0.15]) {
+            let count = 0,
+              runs = 0,
+              prior = false;
+            for (let j = 0; j <= 8192; j++) {
+              sample(...world(seed, col, row, -0.4 + (0.8 * j) / 8192, y), out);
+              const metal = out.metallic > 0.95;
+              if (metal && !prior) runs++;
+              if (metal) count++;
+              prior = metal;
+            }
+            expect(runs).toBe(1);
+            widths.push((count * 0.8) / 8192);
+          }
+          expect(widths[0]).toBeGreaterThan(0.51);
+          expect(widths[0]).toBeLessThan(0.54);
+          expect(widths[1]).toBeGreaterThan(0.67);
+          expect(widths[1]).toBeLessThan(0.7);
+          expect(widths[1] - widths[0]).toBeGreaterThan(0.15);
+          expect(widths[1] / widths[0]).toBeGreaterThan(1.3);
+          for (let j = 0; j <= 1024; j++) {
+            sample(
+              ...world(seed, col, row, -0.3 + (0.6 * j) / 1024, 0.15),
+              out,
+            );
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.0006399);
+            expect(out.height).toBeLessThan(0.0006461);
+          }
+          for (const [x, y] of [
+            [0, p.top - 0.01],
+            [0, p.bottom + 0.01],
+            [-0.38, 0],
+            [0.38, 0],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+    },
+  );
+  it('resolves actual512 two opaque spine notches M0 within an M1 trapezoid with an uninterrupted brighter smoother M1 honed lower band', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('utilityknifeblades', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let j = 0; j <= 64; j++) {
+            const x = -0.23 + (0.46 * j) / 64,
+              body = index(x, 0),
+              edge = index(x, 0.15);
+            expect(maps.metallicRoughness[body + 2]).toBe(255);
+            expect(maps.metallicRoughness[edge + 2]).toBe(255);
+            expect(maps.baseColor[edge] - maps.baseColor[body]).toBeGreaterThan(
+              22,
+            );
+            expect(
+              maps.metallicRoughness[body + 1] -
+                maps.metallicRoughness[edge + 1],
+            ).toBeGreaterThan(39);
+          }
+          for (const x of [-p.notchOffset, p.notchOffset]) {
+            const hole = index(x, p.top + 0.01),
+              body = index(x, p.top + p.notchRadius + 0.015);
+            expect(maps.metallicRoughness[hole + 2]).toBe(0);
+            expect(maps.metallicRoughness[body + 2]).toBe(255);
+            expect(maps.baseColor[body] - maps.baseColor[hole]).toBeGreaterThan(
+              22,
+            );
+            expect(maps.occlusion[body] - maps.occlusion[hole]).toBeGreaterThan(
+              165,
+            );
+          }
+        }
+    }
+  });
+  it('keeps slopedside fullcore rootend and honed shoulders productcorners bothnotch support/corecircles absaxis poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('utilityknifeblades', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 512; j++) {
+            const t = j / 512,
+              y = p.top + (p.bottom - p.top) * t,
+              w = p.halfTop + (p.halfBottom - p.halfTop) * t,
+              a = t * 2 * Math.PI;
+            for (const x of [-w, -w + p.sideShoulder, 0, w - p.sideShoulder, w])
+              check(...world(seed, col, row, x, y));
+            for (const y of [
+              p.top,
+              p.top + p.endShoulder,
+              p.bottom - p.endShoulder,
+              p.bottom,
+              p.honeStart,
+              p.honeEnd,
+            ])
+              check(...world(seed, col, row, -0.4 + 0.8 * t, y));
+            for (const x of [-p.notchOffset, p.notchOffset])
+              for (const r of [p.notchRadius, p.notchCore])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    x + r * Math.cos(a),
+                    p.top + r * Math.sin(a),
+                  ),
+                );
+          }
+    }
+  });
+});
 
 describe('Curved tapering dried red chillies with actual shrivelled wrinkle relief olive-green calyces and connected thin stems', () => {
   const p = proceduralMaterialPresets.driedchillies;
@@ -38511,6 +38761,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'sewingthimbles' &&
           kind !== 'boullebrassinlay' &&
           kind !== 'internaltoothwashers' &&
+          kind !== 'utilityknifeblades' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -47926,6 +48177,7 @@ describe('procedural preset acquisition and ownership', () => {
     'sewingthimbles',
     'boullebrassinlay',
     'internaltoothwashers',
+    'utilityknifeblades',
     'standingseam',
     'damascus',
     'castiron',
@@ -48001,6 +48253,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'sewingthimbles' ||
           kind === 'boullebrassinlay' ||
           kind === 'internaltoothwashers' ||
+          kind === 'utilityknifeblades' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

@@ -6446,6 +6446,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    utilityknifeblades: Readonly<{
+        dark: readonly [30, 35, 42];
+        light: readonly [235, 241, 247];
+        roughness: 0.36;
+        relief: 0.002;
+        cells: 4;
+        top: -0.18;
+        bottom: 0.18;
+        halfTop: 0.25;
+        halfBottom: 0.36;
+        sideShoulder: 0.012;
+        endShoulder: 0.012;
+        notchOffset: 0.1;
+        notchRadius: 0.027;
+        notchCore: 0.02;
+        honeStart: 0.09;
+        honeEnd: 0.14;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7085,4 +7106,5 @@ export declare const proceduralTileMeters: Readonly<{
     kyaniteblades: 0.16;
     internaltoothwashers: 0.16;
     driedchillies: 0.16;
+    utilityknifeblades: 0.24;
 }>;

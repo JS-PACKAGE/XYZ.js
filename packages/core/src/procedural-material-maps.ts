@@ -1441,6 +1441,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'utilityknifeblades': {
+        const p = proceduralMaterialPresets.utilityknifeblades,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16711),
+          inverseHeight = 1 / (p.bottom - p.top),
+          inverseSide = 1 / p.sideShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          notchSquared = p.notchRadius * p.notchRadius,
+          inverseNotch = 1 / (notchSquared - p.notchCore * p.notchCore),
+          inverseHone = 1 / (p.honeEnd - p.honeStart);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16715);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16717) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16719) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1671b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1671d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (y <= p.top || y >= p.bottom) return;
+          const width =
+              p.halfTop +
+              (p.halfBottom - p.halfTop) * (y - p.top) * inverseHeight,
+            ny = y - p.top,
+            lx = x + p.notchOffset,
+            rx = x - p.notchOffset,
+            left = smooth(
+              clamp((notchSquared - lx * lx - ny * ny) * inverseNotch),
+            ),
+            right = smooth(
+              clamp((notchSquared - rx * rx - ny * ny) * inverseNotch),
+            ),
+            face =
+              smooth(clamp((width - Math.abs(x)) * inverseSide)) *
+              smooth(clamp((y - p.top) * inverseEnd)) *
+              smooth(clamp((p.bottom - y) * inverseEnd)) *
+              (1 - left) *
+              (1 - right);
+          if (face === 0) return;
+          const hone = smooth(clamp((y - p.honeStart) * inverseHone)),
+            tone = poses[i + 5],
+            bodyColor = 0.72 + 0.08 * tone + 0.02 * grain,
+            edgeColor = 0.9 + 0.04 * tone + 0.015 * grain,
+            metalColor = bodyColor + hone * (edgeColor - bodyColor),
+            metalHeight = 0.56 - 0.24 * hone + 0.003 * grain,
+            metalRoughness =
+              p.roughness +
+              0.04 * grain +
+              hone * (0.18 + 0.02 * grain - p.roughness - 0.04 * grain);
+          color += face * (metalColor - color);
+          height += face * (metalHeight - height);
+          roughness += face * (metalRoughness - roughness);
+          occlusion += face * (0.98 + 0.01 * hone - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+        };
+      }
       case 'driedchillies': {
         const p = proceduralMaterialPresets.driedchillies,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27281,6 +27358,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'internaltoothwashers' ||
     kind === 'driedchillies' ||
+    kind === 'utilityknifeblades' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
