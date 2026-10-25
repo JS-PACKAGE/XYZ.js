@@ -1422,6 +1422,109 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'screwterminalblocks': {
+        const p = proceduralMaterialPresets.screwterminalblocks,
+          tones = new Float64Array(p.cells * p.cells),
+          inverseEdge = 1 / p.edge,
+          screwSquared = p.screwRadius * p.screwRadius,
+          inverseScrew = 1 / (screwSquared - p.screwShoulder * p.screwShoulder),
+          inverseDome = 1 / screwSquared,
+          wellSquared = p.wellRadius * p.wellRadius,
+          inverseWell = 1 / (wellSquared - p.wellShoulder * p.wellShoulder),
+          inverseSlot = 1 / p.slotShoulder,
+          inversePort = 1 / p.portShoulder,
+          inverseContact = 1 / p.contactShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11c11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x11c13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            ax = Math.abs(x),
+            face =
+              smooth(clamp((p.halfWidth - ax) * inverseEdge)) *
+              smooth(clamp((p.halfHeight - Math.abs(y)) * inverseEdge));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)],
+            sy = y - p.screwY,
+            squared = x * x + sy * sy,
+            well = face * smooth(clamp((wellSquared - squared) * inverseWell)),
+            head =
+              face * smooth(clamp((screwSquared - squared) * inverseScrew));
+          color += face * (0.22 + 0.05 * tone + 0.025 * grain - color);
+          height += face * (0.48 + 0.005 * grain - height);
+          roughness += face * (p.roughness + 0.04 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+          color -= 0.06 * well;
+          height -= 0.1 * well;
+          roughness += 0.04 * well;
+          occlusion -= 0.18 * well;
+          if (head > 0) {
+            const ay = Math.abs(sy),
+              acrossX = smooth(clamp((p.slotHalfWidth - ax) * inverseSlot)),
+              acrossY = smooth(clamp((p.slotHalfWidth - ay) * inverseSlot)),
+              alongX = smooth(clamp((p.slotHalfLength - ax) * inverseSlot)),
+              alongY = smooth(clamp((p.slotHalfLength - ay) * inverseSlot)),
+              h = acrossY * alongX,
+              v = acrossX * alongY,
+              cross = h + v - h * v,
+              dome = clamp(1 - squared * inverseDome);
+            color +=
+              head *
+              (0.82 +
+                0.08 * tone +
+                0.025 * grain +
+                0.04 * dome -
+                0.38 * cross -
+                color);
+            height +=
+              head *
+              (0.67 + 0.03 * dome - 0.14 * cross + 0.004 * grain - height);
+            roughness +=
+              head *
+              (0.27 - 0.03 * dome + 0.18 * cross + 0.02 * grain - roughness);
+            occlusion += head * (0.99 - 0.24 * cross - occlusion);
+          }
+          metallic = head;
+          const port =
+            face *
+            smooth(clamp((p.portHalfWidth - ax) * inversePort)) *
+            smooth(
+              clamp((p.portHalfHeight - Math.abs(y - p.portY)) * inversePort),
+            );
+          if (port === 0) return;
+          // The wire entry has a solid dark floor, with a lower metal contact
+          // visible inside; neither the floor nor the polymer becomes metal.
+          color += port * (0.035 + 0.015 * grain - color);
+          height += port * (0.13 + 0.002 * grain - height);
+          roughness += port * (0.88 - roughness);
+          occlusion += port * (0.35 - occlusion);
+          metallic *= 1 - port;
+          const contact =
+            port *
+            smooth(clamp((p.contactHalfWidth - ax) * inverseContact)) *
+            smooth(
+              clamp(
+                (p.contactHalfHeight - Math.abs(y - p.contactY)) *
+                  inverseContact,
+              ),
+            );
+          if (contact === 0) return;
+          color += contact * (0.78 + 0.08 * tone + 0.025 * grain - color);
+          height += contact * (0.22 + 0.003 * grain - height);
+          roughness += contact * (0.29 + 0.02 * grain - roughness);
+          occlusion += contact * (0.82 - occlusion);
+          metallic += contact * (1 - metallic);
+        };
+      }
       case 'passionfruitslice': {
         const p = proceduralMaterialPresets.passionfruitslice,
           seeds = new Float64Array(p.cells * p.cells * p.seeds * p.seeds * 4),
@@ -21560,6 +21663,7 @@ export function createSurfaceSampler(
     kind === 'tangramtiles' ||
     kind === 'batterypositivecaps' ||
     kind === 'passionfruitslice' ||
+    kind === 'screwterminalblocks' ||
     fabricated ||
     botanical ||
     packaging ||

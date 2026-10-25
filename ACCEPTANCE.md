@@ -7211,3 +7211,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 559 種（含 driedfigslice／kiwiflesh／pomegranateslice）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 passionfruitslice，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 passionfruitslice，560 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 確認金黃橢圓果皮、厚淡 pith、中央散佈深籽金果囊／實色果漿，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透明／SSS／透射、生物／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 完整 build、typecheck、lint、format:check、179 檔／6503 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。
+
+## 2026-10-25 程序材質：塑殼螺絲端子台（screwterminalblocks）
+
+- 目錄 560→561 種；0.08 m opaque mixed-metallic tile、4×4 塑殼／沉孔、金屬十字槽螺絲與 backed 接線口內低金屬接片；material metallic factor 1 保留螺絲／接片與塑殼／孔底／背底分區，沿四圖／選用 height／ownership。沿 compact slab／radial covers、bounded cross union 與 replacement blending，不新增元件 geometry、通透孔洞、導電／電路／機構或物理模擬。
+- 三 seed（0／1／`0xffffffff`）各 16 端子台，四個凹槽臂 metallic 1／AO <0.8、四個未切斜角仍 metal 1／AO >0.95／高面，槽中心較完整頭面低 >0.00045 m／color 差 >0.3／AO 差 >0.2，避免把凹槽畫成非金屬十字。塑殼 roughness >0.73／metal 0，孔底低但 height >0.0005 m／metal 0、接片 metal 1 比底高 >0.0003 m 且仍低於塑殼 >0.0009 m；背底不變金屬。129×129 網格、三 seed、雙方向五欄位（含 metallic），四個精確徑向 shoulders／16 方向與 housing／port／contact／兩十字槽的邊緣及角點 C1 h 1e-9 保留 0.02 上限；四項形態／C1、既有 size 32 deterministic／seeded／distinct／periodic 與 material ownership 共六項針對測試首次通過。
+- 既有 560 種（含 screwhead／circuitboard）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 screwterminalblocks，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 screwterminalblocks，561 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 確認綠色塑殼、十字槽螺絲、凹暗接線口及內部亮接片；material metallic 1、實際 metallicRoughness bitmap B min 0／max 255／有中間值，height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透孔、實際導電／電路／機構／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 完整 build、typecheck、lint、format:check、179 檔／6509 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。

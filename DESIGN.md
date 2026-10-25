@@ -669,6 +669,8 @@
 
 `passionfruitslice` 沿 driedfigslice 預算 jitter／rotation 的 compact cached owner 慣例，4×4 果實各 8×8 seed poses（位置／cos／sin）與 96×96 grain；jitter + 最大果囊半徑 0.488 <0.5 owner，單查表即可，不掃鄰格。Normalized ellipse 的 fruit／pith／filled pulp shoulders 逐層 replacement blend，果漿裁切外緣果囊；凸金果囊以同一 ellipse coverage 混合 color／height／roughness／AO，較小深籽只改 pigment，保留凸冠不刻凹孔。Body／pulp 支撐外略過內層工作，採樣無配置／hash／sqrt／trig，不新增 geometry、透明／SSS／透射、生物或物理模擬。
 
+`screwterminalblocks` 沿既有 compact slab／radial covers、screwhead bounded cross union 及 mixed-metallic replacement blending，預算 16 seeded tones／96×96 grain。塑殼正值矩形 support 裁切所有子層；沉孔之上覆金屬螺絲，有限長十字槽降低色／高度／AO 而仍是金屬，接線口覆 opaque 非金屬低底，再覆低於塑殼的金屬接片。Head／port／contact 的零支撐分支略過後續工作，body grain 隨 coverage 淡出，採樣無配置／hash／sqrt／trig。不新增 geometry、通透孔洞、導電／電路／機構或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

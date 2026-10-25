@@ -575,7 +575,8 @@ export type ProceduralMaterialKind =
   | 'peacockfeathers'
   | 'tangramtiles'
   | 'batterypositivecaps'
-  | 'passionfruitslice';
+  | 'passionfruitslice'
+  | 'screwterminalblocks';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1385,6 +1386,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tangramtiles',
   'batterypositivecaps',
   'passionfruitslice',
+  'screwterminalblocks',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1582,6 +1584,7 @@ export class ProceduralMaterial {
         this.kind === 'grommetcanvas' ||
         this.kind === 'goldbrocade' ||
         this.kind === 'batterypositivecaps' ||
+        this.kind === 'screwterminalblocks' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

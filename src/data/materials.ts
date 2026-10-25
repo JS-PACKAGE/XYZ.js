@@ -5168,6 +5168,32 @@ export const proceduralMaterialPresets = Object.freeze({
     kernelShort: 0.024,
     kernelShoulder: 0.35,
   }),
+  screwterminalblocks: Object.freeze({
+    dark: [12, 37, 21] as const,
+    light: [224, 226, 211] as const,
+    roughness: 0.74,
+    relief: 0.004,
+    cells: 4,
+    halfWidth: 0.39,
+    halfHeight: 0.42,
+    edge: 0.035,
+    screwY: -0.15,
+    screwRadius: 0.155,
+    screwShoulder: 0.13,
+    wellRadius: 0.19,
+    wellShoulder: 0.165,
+    slotHalfLength: 0.1,
+    slotHalfWidth: 0.018,
+    slotShoulder: 0.006,
+    portY: 0.19,
+    portHalfWidth: 0.23,
+    portHalfHeight: 0.08,
+    portShoulder: 0.02,
+    contactY: 0.215,
+    contactHalfWidth: 0.17,
+    contactHalfHeight: 0.018,
+    contactShoulder: 0.006,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5732,4 +5758,5 @@ export const proceduralTileMeters = Object.freeze({
   tangramtiles: 0.6,
   batterypositivecaps: 0.12,
   passionfruitslice: 0.32,
+  screwterminalblocks: 0.08,
 });

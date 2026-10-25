@@ -598,7 +598,146 @@ const kinds: ProceduralMaterialKind[] = [
   'tangramtiles',
   'batterypositivecaps',
   'passionfruitslice',
+  'screwterminalblocks',
 ];
+
+describe('Screw terminal block polymer housings and metal contacts', () => {
+  const p = proceduralMaterialPresets.screwterminalblocks;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('screwterminalblocks', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps four recessed metal screw arms above a polymer body and a lower contact inside an opaque nonmetallic port for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const body = at(col, row, 0.29, 0),
+            center = at(col, row, 0, -0.15),
+            corner = at(col, row, 0.065, -0.085),
+            floor = at(col, row, 0.19, 0.19),
+            contact = at(col, row, 0, 0.215),
+            backing = at(col, row, 0.47, 0);
+          expect(body.metallic).toBe(0);
+          expect(body.roughness).toBeGreaterThan(0.73);
+          expect(center.metallic).toBe(1);
+          expect(corner.metallic).toBe(1);
+          expect(corner.height - center.height).toBeGreaterThan(0.00045);
+          expect(corner.color - center.color).toBeGreaterThan(0.3);
+          expect(corner.occlusion - center.occlusion).toBeGreaterThan(0.2);
+          for (const [x, y] of [
+            [-0.07, 0],
+            [0.07, 0],
+            [0, -0.07],
+            [0, 0.07],
+          ]) {
+            const arm = at(col, row, x, -0.15 + y);
+            expect(arm.metallic).toBe(1);
+            expect(arm.occlusion).toBeLessThan(0.8);
+            expect(arm.height).toBeLessThan(0.58 * p.relief);
+          }
+          for (const x of [-0.065, 0.065])
+            for (const y of [-0.065, 0.065]) {
+              const face = at(col, row, x, -0.15 + y);
+              expect(face.metallic).toBe(1);
+              expect(face.occlusion).toBeGreaterThan(0.95);
+              expect(face.height).toBeGreaterThan(0.67 * p.relief);
+            }
+          expect(floor.metallic).toBe(0);
+          expect(floor.color).toBeLessThan(0.06);
+          expect(floor.height).toBeGreaterThan(0.0005);
+          expect(floor.occlusion).toBeLessThan(0.4);
+          expect(contact.metallic).toBe(1);
+          expect(contact.height - floor.height).toBeGreaterThan(0.0003);
+          expect(body.height - contact.height).toBeGreaterThan(0.0009);
+          expect(contact.color - floor.color).toBeGreaterThan(0.7);
+          expect(contact.roughness).toBeLessThan(0.32);
+          expect(backing.metallic).toBe(0);
+          expect(backing.height).toBeLessThan(0.00012);
+        }
+    },
+  );
+  it('keeps molded edges, countersinks, cross-slot ends, contact bevels and wrap C1 including metallic', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (col: number, row: number, x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(col, row, x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(col, row, x, y),
+            c = at(col, row, x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'metallic',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check(0, 0, (p.cells * x) / 128 - 0.5, (p.cells * y) / 128 - 0.5);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [
+            p.screwRadius,
+            p.screwShoulder,
+            p.wellRadius,
+            p.wellShoulder,
+          ])
+            for (let i = 0; i < 16; i++) {
+              const angle = (i * Math.PI) / 8;
+              check(
+                col,
+                row,
+                radius * Math.cos(angle),
+                p.screwY + radius * Math.sin(angle),
+              );
+            }
+          for (const [width, height, cy, shoulder] of [
+            [p.halfWidth, p.halfHeight, 0, p.edge],
+            [p.portHalfWidth, p.portHalfHeight, p.portY, p.portShoulder],
+            [
+              p.contactHalfWidth,
+              p.contactHalfHeight,
+              p.contactY,
+              p.contactShoulder,
+            ],
+            [p.slotHalfLength, p.slotHalfWidth, p.screwY, p.slotShoulder],
+            [p.slotHalfWidth, p.slotHalfLength, p.screwY, p.slotShoulder],
+          ])
+            for (const x of [-1, 1])
+              for (const y of [-1, 1])
+                for (const inset of [0, shoulder]) {
+                  check(
+                    col,
+                    row,
+                    x * (width - inset),
+                    cy + y * (height - inset),
+                  );
+                  check(col, row, x * (width - inset), cy);
+                  check(col, row, 0, cy + y * (height - inset));
+                }
+        }
+    }
+  });
+});
 
 describe('Yellow passion fruit pulp with convex golden seed sacs', () => {
   const p = proceduralMaterialPresets.passionfruitslice;
@@ -24679,6 +24818,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'grommetcanvas' &&
           kind !== 'goldbrocade' &&
           kind !== 'batterypositivecaps' &&
+          kind !== 'screwterminalblocks' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -24694,7 +24834,8 @@ describe('periodic procedural material fields', () => {
         kind === 'gabion' ||
         kind === 'grommetcanvas' ||
         kind === 'goldbrocade' ||
-        kind === 'batterypositivecaps'
+        kind === 'batterypositivecaps' ||
+        kind === 'screwterminalblocks'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -34091,6 +34232,7 @@ describe('procedural preset acquisition and ownership', () => {
     'grommetcanvas',
     'goldbrocade',
     'batterypositivecaps',
+    'screwterminalblocks',
     'standingseam',
     'damascus',
     'castiron',
@@ -34144,6 +34286,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'grommetcanvas' ||
           kind === 'goldbrocade' ||
           kind === 'batterypositivecaps' ||
+          kind === 'screwterminalblocks' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

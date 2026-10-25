@@ -9968,6 +9968,40 @@ var proceduralMaterialPresets = Object.freeze({
 		kernelLong: .046,
 		kernelShort: .024,
 		kernelShoulder: .35
+	}),
+	screwterminalblocks: Object.freeze({
+		dark: [
+			12,
+			37,
+			21
+		],
+		light: [
+			224,
+			226,
+			211
+		],
+		roughness: .74,
+		relief: .004,
+		cells: 4,
+		halfWidth: .39,
+		halfHeight: .42,
+		edge: .035,
+		screwY: -.15,
+		screwRadius: .155,
+		screwShoulder: .13,
+		wellRadius: .19,
+		wellShoulder: .165,
+		slotHalfLength: .1,
+		slotHalfWidth: .018,
+		slotShoulder: .006,
+		portY: .19,
+		portHalfWidth: .23,
+		portHalfHeight: .08,
+		portShoulder: .02,
+		contactY: .215,
+		contactHalfWidth: .17,
+		contactHalfHeight: .018,
+		contactShoulder: .006
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10530,7 +10564,8 @@ var proceduralTileMeters = Object.freeze({
 	peacockfeathers: .64,
 	tangramtiles: .6,
 	batterypositivecaps: .12,
-	passionfruitslice: .32
+	passionfruitslice: .32,
+	screwterminalblocks: .08
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
