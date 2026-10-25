@@ -623,7 +623,8 @@ export type ProceduralMaterialKind =
   | 'horsechestnutleaf'
   | 'binderclips'
   | 'charoite'
-  | 'chenilleyarn';
+  | 'chenilleyarn'
+  | 'ceramicfuses';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1481,6 +1482,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'binderclips',
   'charoite',
   'chenilleyarn',
+  'ceramicfuses',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1690,6 +1692,7 @@ export class ProceduralMaterial {
         this.kind === 'bluepushpins' ||
         this.kind === 'openendspanners' ||
         this.kind === 'binderclips' ||
+        this.kind === 'ceramicfuses' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

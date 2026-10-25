@@ -646,7 +646,184 @@ const kinds: ProceduralMaterialKind[] = [
   'binderclips',
   'charoite',
   'chenilleyarn',
+  'ceramicfuses',
 ];
+
+describe('Matte white ceramic cartridge fuses with two metal end caps and raised terminal collars', () => {
+  const p = proceduralMaterialPresets.ceramicfuses;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a continuous convex dielectric ceramic barrel between two full-width metallic terminals with raised collars and no thin leads for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ceramicfuses', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          const crown = out.height,
+            white = out.color;
+          expect(crown).toBeGreaterThan(0.0031999);
+          expect(crown).toBeLessThan(0.0032241);
+          expect(out.color).toBeGreaterThanOrEqual(0.91);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.68);
+          for (const side of [-1, 1]) {
+            at(side * 0.04, 0);
+            expect(crown - out.height).toBeGreaterThan(0.000125);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+          }
+          for (const sign of [-1, 1]) {
+            at(0, sign * 0.23);
+            const cap = out.height;
+            expect(cap).toBeGreaterThan(0.0035999);
+            expect(cap).toBeLessThan(0.0036241);
+            expect(cap - crown).toBeGreaterThan(0.00037);
+            expect(white - out.color).toBeGreaterThan(0.15);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.995, 12);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.22);
+            expect(out.roughness).toBeLessThanOrEqual(0.245);
+            for (const side of [-1, 1]) {
+              at(side * 0.05, sign * 0.23);
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+            }
+            at(0, sign * p.collarY);
+            expect(out.height).toBeGreaterThan(0.0037599);
+            expect(out.height).toBeLessThan(0.0037841);
+            expect(out.height - cap).toBeGreaterThan(0.00013);
+            expect(out.metallic).toBe(1);
+            expect(out.occlusion).toBe(1);
+            at(0, (sign * (p.endStart + p.endFull)) / 2);
+            expect(out.metallic).toBeGreaterThan(0.25);
+            expect(out.metallic).toBeLessThan(0.75);
+            expect(out.mortar).toBe(0);
+          }
+          let bodyRuns = 0,
+            metalRuns = 0,
+            previousBody = false,
+            previousMetal = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.32 + (i * 0.64) / 4096);
+            const body = out.mortar < 0.5,
+              metal = out.metallic > 0.5;
+            if (body && !previousBody) bodyRuns++;
+            if (metal && !previousMetal) metalRuns++;
+            previousBody = body;
+            previousMetal = metal;
+          }
+          expect(bodyRuns).toBe(1);
+          expect(metalRuns).toBe(2);
+          for (const [x, y] of [
+            [0.1, 0],
+            [-0.1, 0],
+            [0, 0.32],
+            [0, -0.32],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.000201);
+          }
+        }
+    },
+  );
+  it('keeps rounded cylinder corners longitudinal dome metallic end bands raised collar shoulders seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ceramicfuses', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (const radius of [p.radius, p.core])
+                for (let i = 0; i < 64; i++) {
+                  const angle = (i * Math.PI) / 32;
+                  check(
+                    ...uv(
+                      col,
+                      row,
+                      sx * p.straightX + radius * Math.cos(angle),
+                      sy * p.straightY + radius * Math.sin(angle),
+                    ),
+                  );
+                }
+          for (const sign of [-1, 1])
+            for (const y of [
+              p.endStart,
+              p.endFull,
+              p.collarY - p.collarRadius,
+              p.collarY - p.collarCore,
+              p.collarY + p.collarCore,
+              p.collarY + p.collarRadius,
+            ])
+              for (const x of [
+                -p.straightX - p.radius,
+                -p.straightX - p.core,
+                0,
+                p.straightX + p.core,
+                p.straightX + p.radius,
+              ])
+                check(...uv(col, row, x, sign * y));
+          for (const sign of [-1, 1])
+            for (const radius of [p.radius, p.core])
+              for (const y of [-p.straightY, -0.23, 0, 0.23, p.straightY])
+                check(...uv(col, row, sign * (p.straightX + radius), y));
+        }
+    }
+  });
+});
 
 describe('Pink chenille yarn with puffy round cores and loose pointed transverse pile', () => {
   const p = proceduralMaterialPresets.chenilleyarn;
@@ -32130,6 +32307,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'bluepushpins' &&
           kind !== 'openendspanners' &&
           kind !== 'binderclips' &&
+          kind !== 'ceramicfuses' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -41536,6 +41714,7 @@ describe('procedural preset acquisition and ownership', () => {
     'bluepushpins',
     'openendspanners',
     'binderclips',
+    'ceramicfuses',
     'standingseam',
     'damascus',
     'castiron',
@@ -41602,6 +41781,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'bluepushpins' ||
           kind === 'openendspanners' ||
           kind === 'binderclips' ||
+          kind === 'ceramicfuses' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

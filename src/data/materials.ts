@@ -6062,6 +6062,22 @@ export const proceduralMaterialPresets = Object.freeze({
     fiberRadiusY: 0.17,
     fiberShoulder: 0.2,
   }),
+  ceramicfuses: Object.freeze({
+    dark: [46, 52, 60] as const,
+    light: [235, 237, 240] as const,
+    roughness: 0.68,
+    relief: 0.008,
+    cells: 4,
+    straightX: 0.06,
+    straightY: 0.265,
+    radius: 0.015,
+    core: 0.01,
+    endStart: 0.16,
+    endFull: 0.18,
+    collarY: 0.195,
+    collarRadius: 0.008,
+    collarCore: 0.005,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6674,4 +6690,5 @@ export const proceduralTileMeters = Object.freeze({
   binderclips: 0.32,
   charoite: 0.2,
   chenilleyarn: 0.08,
+  ceramicfuses: 0.16,
 });

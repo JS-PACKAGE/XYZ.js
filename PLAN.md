@@ -757,6 +757,8 @@
 
 同輪追加 `chenilleyarn`（雪尼爾絨線），目錄 607→608 種：八條粉紅蓬鬆圓芯／各 128 列短橫尖絨束／兩側伸出鬆絨邊，非 corduroy 連續布面或 grosgrainribbons 平織帶高布邊。0.08 m opaque dielectric tile、metallic 0，沿 neutral backing／四圖／選用 height／ownership；不新增 geometry、透明絨隙、線材拓樸、布料／毛髮或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `ceramicfuses`（陶瓷管式保險絲），目錄 608→609 種：霧白凸圓陶瓷筒／兩同寬金屬端帽／較高端帽凸環，非 axialresistors 細引腳色環元件；陶瓷／opaque 外背 metallic 0、端帽 metallic 1，預設 factor 1。0.16 m opaque mixed-metal tile，沿四圖／選用 height／ownership；不新增 geometry、透明玻璃、電熱／熔斷模擬、額定值或安規認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

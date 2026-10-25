@@ -1441,6 +1441,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ceramicfuses': {
+        const p = proceduralMaterialPresets.ceramicfuses,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          inverseDome = 1 / (p.straightX + p.radius) ** 2,
+          endSquared = p.endStart * p.endStart,
+          inverseEnd = 1 / (p.endFull * p.endFull - endSquared),
+          collarSquared = p.collarRadius * p.collarRadius,
+          inverseCollar = 1 / (collarSquared - p.collarCore * p.collarCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x14b11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x14b13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.straightX),
+            by = Math.max(0, Math.abs(y) - p.straightY),
+            body = smooth(
+              clamp((radiusSquared - bx * bx - by * by) * inverseBody),
+            );
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col],
+            dome = smooth(1 - x * x * inverseDome),
+            ends = smooth(clamp((y * y - endSquared) * inverseEnd));
+          let pigment = 0.91 + 0.04 * tone + 0.025 * grain,
+            surfaceHeight = 0.3 + 0.1 * dome + 0.003 * grain,
+            surfaceRoughness = p.roughness + 0.03 * grain,
+            surfaceOcclusion = 0.99;
+          if (ends > 0) {
+            const cy = Math.abs(y) - p.collarY,
+              collar = smooth(clamp((collarSquared - cy * cy) * inverseCollar));
+            pigment += ends * (0.65 + 0.12 * tone + 0.025 * grain - pigment);
+            surfaceHeight += ends * (0.05 + 0.02 * collar);
+            surfaceRoughness +=
+              ends * (0.22 + 0.025 * grain - 0.02 * collar - surfaceRoughness);
+            surfaceOcclusion += ends * (0.005 + 0.005 * collar);
+          }
+          // Two metal caps wrap one solid ceramic cylinder; there are no wire leads or transparent glass.
+          color += body * (pigment - color);
+          height += body * (surfaceHeight - height);
+          roughness += body * (surfaceRoughness - roughness);
+          occlusion += body * (surfaceOcclusion - occlusion);
+          metallic = body * ends;
+          return;
+        };
+      }
       case 'chenilleyarn': {
         const p = proceduralMaterialPresets.chenilleyarn,
           tones = new Float64Array(p.columns),
@@ -25045,6 +25107,7 @@ export function createSurfaceSampler(
     kind === 'binderclips' ||
     kind === 'charoite' ||
     kind === 'chenilleyarn' ||
+    kind === 'ceramicfuses' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

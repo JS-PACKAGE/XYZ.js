@@ -765,6 +765,8 @@
 
 `chenilleyarn` 預算八 tones／1024 tuft poses（center/jitter／inverse length／slope／tone）／128×256 grain、core squared radii／fiber reciprocals。Continuous rounded-core cover 與 compact pointed squared-cap transverse tufts 用 product union，core→pile coherent replacement 同步 color／height／roughness／AO／neutral backing；pile 更高更亮、超出兩側芯邊並有限尖收。Tuft horizontal support ≤0.46、vertical support ≤0.476，皆在 owner ±0.5 前為零，故單 row/column owner 即足、不掃 neighbors。空 cover 跳 grain、full pile 跳 core finish、空 core 跳 dome；core shoulders／tuft tips／slanted shoulders／owners／UV wraps C1、採樣無配置／hash／sqrt／trig。不新增 geometry、透明絨隙、線材拓樸、布料／毛髮或物理模擬。
 
+`ceramicfuses` 預算 16 tones／128² grain、rounded-rectangle squared radius／lateral dome／end-band squared bounds／collar squared-radius reciprocals。4×4 alternating ±45° compact parts 共用 rounded-rectangle coverage 與 x² smooth cylinder dome，y² smooth end bands 換 full-width metal caps，兩 collar 一維 squared-distance cover 全在 full-cap 區較高。Coherent ceramic→cap finish 與共同 body→neutral backing 同步 color／height／roughness／AO／metallic；空 body 跳 grain/finish，無端帽區跳 collars，owners／corner tangents／end-band shoulders／collar shoulders／UV wraps C1、採樣無配置／hash／sqrt／trig。不新增 geometry、透明玻璃、電熱／熔斷模擬、額定值或安規認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
