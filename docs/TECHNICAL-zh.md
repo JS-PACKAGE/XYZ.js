@@ -794,6 +794,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `screwterminalblocks`（塑殼螺絲端子台）：綠色 dielectric 塑殼／沉孔、金屬十字槽螺絲與 backed 接線口內較低金屬接片。沿 compact slab／radial masks 與 bounded 兩有限長槽 union，四臂十字槽降低色／height／AO 而仍為金屬；housing support 裁切子層，接線口低底為 opaque 非金屬。4×4 佈局預算 16 tones／96×96 grain；inactive head／port／contact 略過後續工作，取樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('screwterminalblocks', { seed: 7 })`；0.08 m opaque mixed-metallic tile、material metallic factor 1 保留導體／塑殼 map 分區，沿 maps／選用 height／ownership，不新增元件 geometry、通透孔洞、導電／電路／機構或物理模擬。
 
+種類另支援 `dragonfruitflesh`（白肉火龍果果肉）：連續淡白果肉中散佈細長黑籽，不是 dragonfruit 果皮苞片或整顆果實圖樣。沿 compact cached seed lookup，預算 20×20 seeded jitter／rotation poses／96×96 grain；jitter + 最大 support 0.44 <0.5 owner 單位，ellipse 在查表 owner 切換前歸零，不掃鄰格。Kernel 僅混合 pigment／roughness，height／AO 跨籽保持連續而非孔洞，取樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('dragonfruitflesh', { seed: 7 })`；0.06 m opaque dielectric tile、metallic 0，沿 maps／選用 height／ownership，不新增果實 geometry、透明／SSS／透射、生物或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

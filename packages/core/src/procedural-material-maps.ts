@@ -1422,6 +1422,44 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dragonfruitflesh': {
+        const p = proceduralMaterialPresets.dragonfruitflesh,
+          seeds = new Float64Array(p.cells * p.cells * 4),
+          inverseLong = 1 / p.seedLong,
+          inverseShort = 1 / p.seedShort,
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11d11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x11d13);
+            seeds[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x11d15) - 1);
+            seeds[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x11d17) - 1);
+            seeds[i + 2] = Math.cos(angle);
+            seeds[i + 3] = Math.sin(angle);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            x = fract(uc) - seeds[i],
+            y = fract(vc) - seeds[i + 1],
+            a = (x * seeds[i + 2] + y * seeds[i + 3]) * inverseLong,
+            b = (y * seeds[i + 2] - x * seeds[i + 3]) * inverseShort,
+            kernel = smooth(clamp((1 - a * a - b * b) * inverseShoulder)),
+            grain = grainField(u, v),
+            pulp = 0.965 + 0.025 * grain;
+          // Jitter + maximal radius is 0.44 owner cells. Pigment and roughness
+          // vanish before lookup changes; embedded seeds never excavate pulp.
+          color = pulp + kernel * (0.02 + 0.015 * grain - pulp);
+          height = 0.4 + 0.015 * grain;
+          roughness = p.roughness + 0.045 * grain;
+          roughness += kernel * (0.33 + 0.02 * grain - roughness);
+          occlusion = 0.99;
+        };
+      }
       case 'screwterminalblocks': {
         const p = proceduralMaterialPresets.screwterminalblocks,
           tones = new Float64Array(p.cells * p.cells),
@@ -21664,6 +21702,7 @@ export function createSurfaceSampler(
     kind === 'batterypositivecaps' ||
     kind === 'passionfruitslice' ||
     kind === 'screwterminalblocks' ||
+    kind === 'dragonfruitflesh' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -576,7 +576,8 @@ export type ProceduralMaterialKind =
   | 'tangramtiles'
   | 'batterypositivecaps'
   | 'passionfruitslice'
-  | 'screwterminalblocks';
+  | 'screwterminalblocks'
+  | 'dragonfruitflesh';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1387,6 +1388,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'batterypositivecaps',
   'passionfruitslice',
   'screwterminalblocks',
+  'dragonfruitflesh',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

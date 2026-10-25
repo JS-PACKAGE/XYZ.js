@@ -599,7 +599,144 @@ const kinds: ProceduralMaterialKind[] = [
   'batterypositivecaps',
   'passionfruitslice',
   'screwterminalblocks',
+  'dragonfruitflesh',
 ];
+
+describe('White dragon fruit flesh with embedded elongated black seeds', () => {
+  const p = proceduralMaterialPresets.dragonfruitflesh;
+  it.each([0, 1, 0xffffffff])(
+    'distributes many rotated dark ovals across continuous pale pulp without excavating seed holes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dragonfruitflesh', seed),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        size = 512,
+        mask = new Uint8Array(size * size),
+        queue = new Uint32Array(size * size),
+        quadrants = [0, 0, 0, 0],
+        angles = [0, 0, 0, 0],
+        aspects: number[] = [];
+      let dark = 0,
+        pale = 0,
+        darkRoughness = 0,
+        paleRoughness = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.37) / size, (y + 0.43) / size, out);
+          expect(out.height).toBeGreaterThan(0.399 * p.relief);
+          expect(out.height).toBeLessThan(0.416 * p.relief);
+          if (out.color < 0.2) {
+            mask[y * size + x] = 1;
+            dark++;
+            darkRoughness += out.roughness;
+            quadrants[(x < size / 2 ? 0 : 1) + (y < size / 2 ? 0 : 2)]++;
+          }
+          if (out.color > 0.94) {
+            pale++;
+            paleRoughness += out.roughness;
+          }
+        }
+      for (let index = 0; index < mask.length; index++) {
+        if (mask[index] !== 1) continue;
+        mask[index] = 2;
+        queue[0] = index;
+        let end = 1,
+          sx = 0,
+          sy = 0,
+          xx = 0,
+          yy = 0,
+          xy = 0;
+        for (let start = 0; start < end; start++) {
+          const i = queue[start],
+            x = i % size,
+            y = Math.floor(i / size);
+          sx += x;
+          sy += y;
+          xx += x * x;
+          yy += y * y;
+          xy += x * y;
+          for (const next of [
+            x ? i - 1 : -1,
+            x + 1 < size ? i + 1 : -1,
+            y ? i - size : -1,
+            y + 1 < size ? i + size : -1,
+          ])
+            if (next >= 0 && mask[next] === 1) {
+              mask[next] = 2;
+              queue[end++] = next;
+            }
+        }
+        const vx = xx / end - (sx / end) ** 2,
+          vy = yy / end - (sy / end) ** 2,
+          cov = xy / end - (sx * sy) / (end * end),
+          delta = Math.hypot(vx - vy, 2 * cov),
+          angle = 0.5 * Math.atan2(2 * cov, vx - vy);
+        aspects.push(Math.sqrt((vx + vy + delta) / (vx + vy - delta)));
+        angles[
+          Math.min(3, Math.floor(((angle + Math.PI / 2) * 4) / Math.PI))
+        ]++;
+      }
+      expect(dark / mask.length).toBeGreaterThan(0.03);
+      expect(dark / mask.length).toBeLessThan(0.09);
+      expect(pale / mask.length).toBeGreaterThan(0.9);
+      expect(darkRoughness / dark).toBeLessThan(0.38);
+      expect(paleRoughness / pale).toBeGreaterThan(0.44);
+      expect(aspects.length).toBeGreaterThanOrEqual(300);
+      expect(aspects.length).toBeLessThanOrEqual(450);
+      aspects.sort((a, b) => a - b);
+      const median = aspects[Math.floor(aspects.length / 2)];
+      expect(median).toBeGreaterThan(2);
+      expect(median).toBeLessThan(3.5);
+      for (const count of angles) expect(count).toBeGreaterThan(50);
+      for (const count of quadrants) {
+        expect(count / (mask.length / 4)).toBeGreaterThan(0.025);
+        expect(count / (mask.length / 4)).toBeLessThan(0.1);
+      }
+    },
+  );
+  it('keeps embedded seed pigment shoulders, continuous pulp and all owner/wrap boundaries C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dragonfruitflesh', seed);
+      const at = (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+      const check = (u: number, v: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(u - (axis ? 0 : h), v - (axis ? h : 0)),
+            b = at(u, v),
+            c = at(u + (axis ? 0 : h), v + (axis ? h : 0));
+          for (const key of ['color', 'height', 'roughness'] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let owner = 0; owner <= p.cells; owner++)
+        for (let i = 0; i <= 128; i++) {
+          check(owner / p.cells, i / 128);
+          check(i / 128, owner / p.cells);
+        }
+    }
+  });
+});
 
 describe('Screw terminal block polymer housings and metal contacts', () => {
   const p = proceduralMaterialPresets.screwterminalblocks;
