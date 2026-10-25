@@ -705,7 +705,251 @@ const kinds: ProceduralMaterialKind[] = [
   'impellerfaces',
   'chipresistors',
   'memorycardbacks',
+  'gnocchi',
 ];
+
+describe('Floured cream gnocchi pillows with a rounded oval crown and seven genuinely curved lower fork grooves', () => {
+  const p = proceduralMaterialPresets.gnocchi;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18315),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1831b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18317) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18319) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine floured cream oval pillows with seven lower curved fork marks an intact raised face and rounded crown rather than a flat recolored pasta patch for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('gnocchi', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            center = at(p.pitch / 2, 0),
+            rim = at(p.radiusX * Math.sqrt(0.8), 0);
+          expect(center.height - rim.height).toBeGreaterThan(0.00034);
+          expect(center.occlusion).toBeCloseTo(0.99, 12);
+          expect(rim.occlusion).toBeCloseTo(0.99, 12);
+          for (
+            let groove = -(p.grooves - 1) / 2;
+            groove <= (p.grooves - 1) / 2;
+            groove++
+          ) {
+            for (let j = 0; j <= 512; j++) {
+              const y = -p.grooveStraightY + (2 * p.grooveStraightY * j) / 512,
+                x = groove * p.pitch + p.bend * y * y,
+                value = at(x, y),
+                face = at(x + ((x > 0 ? -1 : 1) * p.pitch) / 2, y);
+              expect(value.height).toBeGreaterThanOrEqual(0.0021999);
+              expect(value.height).toBeLessThanOrEqual(0.0026121);
+              expect(value.roughness).toBeGreaterThanOrEqual(0.8899999);
+              expect(value.occlusion).toBeCloseTo(0.95, 12);
+              expect(face.occlusion).toBeCloseTo(0.99, 12);
+              expect(face.height - value.height).toBeGreaterThan(0.00025);
+              expect(face.color - value.color).toBeGreaterThan(0.0299);
+              for (const s of [value, face]) {
+                expect(s.mortar).toBe(0);
+                expect(s.metallic).toBe(0);
+              }
+            }
+            for (const y of [-p.grooveStraightY, p.grooveStraightY]) {
+              const old = at(groove * p.pitch, y),
+                curved = at(groove * p.pitch + p.bend * y * y, y);
+              expect(old.occlusion).toBeCloseTo(0.99, 12);
+              expect(old.height - curved.height).toBeGreaterThan(0.00021);
+              expect(old.mortar).toBe(0);
+            }
+          }
+          const centralMark = at(0, 0),
+            outerMark = at(3 * p.pitch, 0);
+          expect(centralMark.height - outerMark.height).toBeGreaterThan(
+            0.00014,
+          );
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const value = at(-0.31 + (0.62 * j) / 8192, 0),
+              next = value.mortar === 0 && value.occlusion < 0.97;
+            if (next && !inside) runs++;
+            inside = next;
+          }
+          expect(runs).toBe(7);
+        }
+    },
+  );
+  it('writes seven darker lower curved impressions and clear high floured dough controls in actual512 nonmetal PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('gnocchi', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (
+            let groove = -(p.grooves - 1) / 2;
+            groove <= (p.grooves - 1) / 2;
+            groove++
+          ) {
+            const x = groove * p.pitch,
+              mark = pixel(x, 0),
+              face = pixel(x + ((x > 0 ? -1 : 1) * p.pitch) / 2, 0);
+            expect(maps.baseColor[face]!).toBeGreaterThan(220);
+            expect(maps.baseColor[face + 1]!).toBeGreaterThan(205);
+            expect(
+              maps.baseColor[face + 1]! - maps.baseColor[mark + 1]!,
+            ).toBeGreaterThan(5);
+            expect(maps.height![face]! - maps.height![mark]!).toBeGreaterThan(
+              20,
+            );
+            expect(
+              maps.occlusion[face]! - maps.occlusion[mark]!,
+            ).toBeGreaterThan(8);
+            expect(maps.metallicRoughness[mark + 1]!).toBeGreaterThan(225);
+            for (const i of [mark, face])
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+            for (const y of [-p.grooveStraightY, p.grooveStraightY]) {
+              const old = pixel(x, y),
+                curved = pixel(x + p.bend * y * y, y);
+              expect(
+                maps.occlusion[old]! - maps.occlusion[curved]!,
+              ).toBeGreaterThan(8);
+              expect(
+                maps.height![old]! - maps.height![curved]!,
+              ).toBeGreaterThan(17);
+              expect(maps.metallicRoughness[curved + 2]).toBe(0);
+            }
+          }
+        }
+    }
+  });
+  it('repeats flour cream crown and seven curved impression PBR channels across signed UV periods while retaining seeded poses', () => {
+    const sample = createSurfaceSampler('gnocchi', 7),
+      other = createSurfaceSampler('gnocchi', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.color - c.color);
+    }
+    expect(difference).toBeGreaterThan(25);
+  });
+  it('keeps oval core-support rounded crown parabolic groove capsules shoulder projections owner ties pose grain flour and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gnocchi', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let j = 0; j <= 48; j++) {
+        check(j / 48, (j * 0.41421356237) % 1);
+        check((j * 0.61803398875) % 1, j / 48);
+      }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const q of [1, p.faceCoreQ])
+              local(
+                p.radiusX * Math.sqrt(q) * ct,
+                p.radiusY * Math.sqrt(q) * st,
+              );
+            local(0, 0);
+            for (
+              let groove = -(p.grooves - 1) / 2;
+              groove <= (p.grooves - 1) / 2;
+              groove++
+            ) {
+              const center = groove * p.pitch;
+              for (const r of [p.grooveRadius, p.grooveCore])
+                for (const sign of [-1, 1]) {
+                  const y = -p.grooveStraightY + 2 * p.grooveStraightY * t;
+                  local(center + p.bend * y * y + sign * r, y);
+                  const ey = sign * p.grooveStraightY + r * st;
+                  local(center + p.bend * ey * ey + r * ct, ey);
+                }
+              for (const y of [-p.grooveStraightY, p.grooveStraightY])
+                local(center + p.bend * y * y - 0.015 + 0.03 * t, y);
+              if (groove < (p.grooves - 1) / 2) {
+                const y = -0.13 + 0.26 * t;
+                local(center + p.pitch / 2 + p.bend * y * y, y);
+              }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Keyed memory-card backs with eight recessed gold contacts high black insulation a true clipped corner and an open side notch', () => {
   const p = proceduralMaterialPresets.memorycardbacks;

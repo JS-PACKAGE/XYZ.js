@@ -869,6 +869,8 @@
 
 同輪追加 `memorycardbacks`（八金接點記憶卡背面），目錄663→664種：九 seeded 八低金接點、七高黑絕緣隙、真右上削角與右側key notch，非flatflexcables色換板。金pad M1／高黑殼M0／cut低backing，0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變；無品牌logo，不新增儲存存取、電路、精密尺寸、SD規範或資安／電氣／安全認證。C1及雙backend見 ACCEPTANCE。
 
+同輪追加 `gnocchi`（七彎叉槽撒粉奶油橢枕），目錄664→665種：九 seeded 圓冠奶油橢枕、七真正彎曲低叉槽與flour色粗變化，非ravioli／orecchiette換色。全M0／full dough mortar0，0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、烹煮／生長模擬或食品／安全認證。Curved-vs-old-straight控制及雙backend見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -8058,3 +8058,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際664-preset gallery 強制 WebGPU／WebGL2，各選出材質、擷取畫面及512 detail，見九八金接點黑卡背面、真削角與開放側缺口。各 API512 factor1／metal min0 max255／1874 partial samples／height true／destroyed true；page／about:blank cleanup errors空、tab已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、儲存／電路／SD規範／資安／電氣安全或效能。
 - Fresh Node 實際產生 memorycardbacks，並比較既有663種各64²／seed7四張圖的 SHA256，全部不變；八份說明文件相對連結檢查無缺失。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／7129 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-26 程序材質：七彎叉槽撒粉奶油橢枕（gnocchi）
+
+- 目錄664→665種，九 seeded 撒粉奶油橢枕、圓冠與七真正彎曲低叉槽，非ravioli／orecchiette換色。Cached poses／128² grain／48² flour／squared ellipse-dome／x−bend*y²曲線warp compact capsules；nearest-groove ties在完整dough的empty support，grooves全在full face，末端偏移0.016大於groove radius0.009、舊直線控制點保持高無痕。每點無配置／hash／sqrt／trig／逐槽或鄰格掃描，outside support跳兩noise finishes。叉槽低暗粗／AO低而不挖孔，全dough M0／exact mortar0，外部低opaque backing；flour只改pigment／roughness非粒子。0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、烹煮／生長模擬或食品／安全認證。
+- Targeted 七項首次通過（8.50s）。三seed各九橢枕，七槽各513-point彎曲full-core traces height0.0021999–0.0026121 m／roughness≥0.8899999／AO0.95／M0／mortar0；配對inward intact controls AO0.99且height高 >0.00025 m／color高 >0.0299。兩端old-straight controls皆AO0.99／mortar0且比真正curve高 >0.00021 m；8193-point full-face低AO掃描恰七叉槽。Crown face比rim高 >0.00034 m，central groove比outer groove高 >0.00014 m，排除平面刻線。Actual512 face R>220／G>205，比mark G高 >5／height高 >20／AO高 >8codes，mark roughness>225且全M0；兩端old-straight比curve AO高 >8／height高 >17codes，曲率保留在實際圖。2048-point六通道正負整週期重複、換seed pigment difference>25；129² fields／oval core-support-dome／parabolic capsule core-support-projection／owner ties／poses／128grain／48flour grid／UV wraps C1（h2e-9）。
+- Managed Chromium 實際665-preset gallery 強制 WebGPU／WebGL2，各選出材質、擷取畫面及512 detail，見九撒粉奶油橢枕與七彎叉槽、完整圓冠。各 API512 factor0／metal min0 max0／height true／destroyed true；page／about:blank cleanup errors空、tab已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、烹煮／食品／安全或效能。
+- Fresh Node 實際產生 gnocchi，並比較既有664種各64²／seed7四張圖的 SHA256，全部不變；八份說明文件相對連結檢查無缺失。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／7136 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

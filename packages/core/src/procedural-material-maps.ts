@@ -1441,6 +1441,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gnocchi': {
+        const p = proceduralMaterialPresets.gnocchi,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18311),
+          flourField = cachedNoise(48, 48, seed ^ 0x18313),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseFace = 1 / (1 - p.faceCoreQ),
+          grooveSquared = p.grooveRadius * p.grooveRadius,
+          inverseGroove = 1 / (grooveSquared - p.grooveCore * p.grooveCore),
+          inversePitch = 1 / p.pitch,
+          lastGroove = (p.grooves - 1) * 0.5;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x18315);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18317) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18319) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1831b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1831d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            q = x * x * inverseX + y * y * inverseY;
+          if (q >= 1) return;
+          const face = smooth(clamp((1 - q) * inverseFace)),
+            dome = smooth(clamp(1 - q)),
+            warped = x - p.bend * y * y,
+            owner = Math.max(
+              -lastGroove,
+              Math.min(lastGroove, Math.floor(warped * inversePitch + 0.5)),
+            ),
+            gx = warped - owner * p.pitch,
+            gy = Math.max(0, Math.abs(y) - p.grooveStraightY),
+            groove = smooth(
+              clamp((grooveSquared - gx * gx - gy * gy) * inverseGroove),
+            ),
+            grain = grainField(u, v),
+            flour = flourField(u, v);
+          // All seven parabolic fork marks stay inside the full dough face;
+          // nearest-groove ties are in intact dough beyond compact supports.
+          color +=
+            face *
+            (0.84 +
+              0.035 * poses[i + 5]! +
+              0.025 * grain +
+              0.045 * flour -
+              0.1 * groove -
+              color);
+          height +=
+            face * (0.62 + 0.1 * dome - 0.07 * groove + 0.003 * grain - height);
+          roughness +=
+            face *
+            (p.roughness +
+              0.025 * grain +
+              0.04 * flour +
+              0.05 * groove -
+              roughness);
+          occlusion += face * (0.99 - 0.04 * groove - occlusion);
+          mortar = 1 - face;
+        };
+      }
       case 'memorycardbacks': {
         const p = proceduralMaterialPresets.memorycardbacks,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29951,6 +30028,7 @@ export function createSurfaceSampler(
     kind === 'impellerfaces' ||
     kind === 'chipresistors' ||
     kind === 'memorycardbacks' ||
+    kind === 'gnocchi' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

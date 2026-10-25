@@ -7273,6 +7273,25 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  gnocchi: Object.freeze({
+    dark: [107, 83, 44] as const,
+    light: [248, 234, 188] as const,
+    roughness: 0.84,
+    relief: 0.004,
+    cells: 3,
+    radiusX: 0.32,
+    radiusY: 0.21,
+    faceCoreQ: 0.9,
+    grooves: 7,
+    pitch: 0.07,
+    bend: 1.6,
+    grooveStraightY: 0.1,
+    grooveRadius: 0.009,
+    grooveCore: 0.006,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7941,4 +7960,5 @@ export const proceduralTileMeters = Object.freeze({
   impellerfaces: 0.3,
   chipresistors: 0.12,
   memorycardbacks: 0.15,
+  gnocchi: 0.12,
 });

@@ -877,6 +877,8 @@
 
 `memorycardbacks` 為九 seeded 通用黑記憶卡背面、八低金接點、七高黑絕緣隙、真右上削角與開放右側key notch。Cached poses／128² grain／rounded body-pad profiles／smooth diagonal halfplane／rounded notch subtraction，nearest-pad ties在contact gap，所有pad位於full shell且避開key cuts。Empty shell跳pad/finish，每點無配置／hash／sqrt／trig／逐pad或鄰格掃描；金pad M1且低滑於高黑M0殼，接點隙保持高opaque黑body，只有削角／notch才露低opaque M0 backing。Mortar只由body coverage決定，接點／隙皆full-body exact0。0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變；通用無品牌logo靜態表面，不新增儲存存取、電路、精密尺寸、SD規範或資安／電氣／安全認證。
 
+`gnocchi` 為九 seeded 撒粉奶油橢枕、圓冠與七低彎叉槽，非ravioli／orecchiette換色。Cached poses／128² grain／48² flour／squared ellipse-dome與x−bend*y²曲線warp的七compact capsules；nearest-groove ties在完整dough空support，所有叉槽位於full face。叉槽末端偏移大於groove radius，舊直線控制點仍高而無凹痕；每點無配置／hash／sqrt／trig／逐槽或鄰格掃描，outside support跳兩noise finishes。叉槽低暗粗且AO較低但不挖孔，full dough M0／exact mortar0，外部低opaque backing；flour只改pigment／roughness，非粒子。0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、烹煮／生長模擬或食品／安全認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
