@@ -755,6 +755,8 @@
 
 同輪追加 `charoite`（風格化紫龍晶），目錄 606→607 種：紫底扭曲密纖維束／淡色寬帶／稀疏深色實心包裹體，共同拋光面，色紋不刻槽。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明礦洞、礦物生成、動態貓眼光學或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `chenilleyarn`（雪尼爾絨線），目錄 607→608 種：八條粉紅蓬鬆圓芯／各 128 列短橫尖絨束／兩側伸出鬆絨邊，非 corduroy 連續布面或 grosgrainribbons 平織帶高布邊。0.08 m opaque dielectric tile、metallic 0，沿 neutral backing／四圖／選用 height／ownership；不新增 geometry、透明絨隙、線材拓樸、布料／毛髮或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

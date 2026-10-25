@@ -622,7 +622,8 @@ export type ProceduralMaterialKind =
   | 'blueprintpaper'
   | 'horsechestnutleaf'
   | 'binderclips'
-  | 'charoite';
+  | 'charoite'
+  | 'chenilleyarn';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1479,6 +1480,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'horsechestnutleaf',
   'binderclips',
   'charoite',
+  'chenilleyarn',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

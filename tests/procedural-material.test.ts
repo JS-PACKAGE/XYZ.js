@@ -645,7 +645,168 @@ const kinds: ProceduralMaterialKind[] = [
   'horsechestnutleaf',
   'binderclips',
   'charoite',
+  'chenilleyarn',
 ];
+
+describe('Pink chenille yarn with puffy round cores and loose pointed transverse pile', () => {
+  const p = proceduralMaterialPresets.chenilleyarn;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const tuft = (seed: number, col: number, row: number) => ({
+    x: p.fiberJitterX * (2 * hash(col, row, seed ^ 0x14a15) - 1),
+    y: p.fiberJitterY * (2 * hash(col, row, seed ^ 0x14a17) - 1),
+    half: p.fiberHalf + p.fiberVariation * hash(col, row, seed ^ 0x14a19),
+    slope: p.fiberSlope * (2 * hash(col, row, seed ^ 0x14a1b) - 1),
+  });
+  const uv = (col: number, row: number, x: number, y: number) =>
+    [(col + 0.5 + x) / p.columns, (row + 0.5 + y) / p.rows] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps dense brighter higher cut-pile tufts beyond both edges of rounded yarn cores while individual pointed fringes end before owner seams for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chenilleyarn', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let col = 0; col < p.columns; col++) {
+        for (let row = 0; row < p.rows; row++) {
+          const a = tuft(seed, col, row),
+            at = (x: number, y: number) => sample(...uv(col, row, x, y), out);
+          at(a.x, a.y);
+          const crest = out.height,
+            pale = out.color;
+          expect(crest).toBeGreaterThan(0.0015899);
+          expect(crest).toBeLessThan(0.0015991);
+          expect(out.occlusion).toBeCloseTo(0.995, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.9);
+          at(a.x, 0.5);
+          expect(out.height).toBeGreaterThan(0.0013799);
+          expect(out.height).toBeLessThan(0.0013891);
+          expect(crest - out.height).toBeGreaterThan(0.00019);
+          expect(pale - out.color).toBeGreaterThan(0.09);
+          expect(out.occlusion).toBeCloseTo(0.98, 12);
+          expect(out.mortar).toBe(0);
+          for (const side of [-1, 1]) {
+            const x = a.x + side * 0.3;
+            at(x, a.y + a.slope * side * 0.3);
+            expect(out.mortar).toBeLessThan(0.86);
+            expect(out.height).toBeGreaterThan(0.00027);
+            expect(out.metallic).toBe(0);
+            at(x, 0.5);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0000751);
+          }
+          at(0, 0.5);
+          const crown = out.height;
+          for (const side of [-1, 1]) {
+            at(side * 0.2, 0.5);
+            expect(crown - out.height).toBeGreaterThan(0.00019);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+          }
+          for (const side of [-1, 1]) {
+            at(side * 0.48, a.y);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0000751);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+        let runs = 0,
+          previous = false;
+        for (let i = 0; i < 8192; i++) {
+          sample((col + 0.5) / p.columns, i / 8192, out);
+          const pile = out.occlusion > 0.99;
+          if (pile && !previous) runs++;
+          previous = pile;
+        }
+        expect(runs).toBe(p.rows);
+      }
+      let runs = 0,
+        previous = false;
+      for (let i = 0; i < 4096; i++) {
+        sample(i / 4096, 0, out);
+        const core = out.mortar < 0.5;
+        if (core && !previous) runs++;
+        previous = core;
+      }
+      expect(runs).toBe(p.columns);
+    },
+  );
+  it('keeps rounded core shoulders all pointed tuft tips slanted transverse shoulders pile/core replacement column and row owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chenilleyarn', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let col = 0; col < p.columns; col++)
+        for (let row = 0; row < p.rows; row++) {
+          const a = tuft(seed, col, row);
+          for (const side of [-1, 1])
+            for (const radius of [p.coreRadius, p.coreFull])
+              check(...uv(col, row, side * radius, 0.5));
+          for (const t of [-1, -0.75, -0.5, 0, 0.5, 0.75, 1]) {
+            const dx = t * a.half,
+              cap = 1 - t * t;
+            for (const field of [0, p.fiberShoulder]) {
+              const crossSquared = cap * cap - field;
+              if (crossSquared < 0) continue;
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    a.x + dx,
+                    a.y +
+                      a.slope * dx +
+                      sign * p.fiberRadiusY * Math.sqrt(crossSquared),
+                  ),
+                );
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Stylized polished charoite with purple twisted fiber bundles and coplanar dark inclusions', () => {
   const p = proceduralMaterialPresets.charoite;

@@ -5895,6 +5895,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         inclusionVariationY: 0.05;
         inclusionShoulder: 0.2;
     }>;
+    chenilleyarn: Readonly<{
+        dark: readonly [79, 17, 62];
+        light: readonly [243, 144, 208];
+        roughness: 0.9;
+        relief: 0.003;
+        columns: 8;
+        rows: 128;
+        coreRadius: 0.27;
+        coreFull: 0.24;
+        fiberHalf: 0.34;
+        fiberVariation: 0.1;
+        fiberJitterX: 0.02;
+        fiberJitterY: 0.13;
+        fiberSlope: 0.4;
+        fiberRadiusY: 0.17;
+        fiberShoulder: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6505,4 +6522,5 @@ export declare const proceduralTileMeters: Readonly<{
     horsechestnutleaf: 0.8;
     binderclips: 0.32;
     charoite: 0.2;
+    chenilleyarn: 0.08;
 }>;

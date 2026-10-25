@@ -1441,6 +1441,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chenilleyarn': {
+        const p = proceduralMaterialPresets.chenilleyarn,
+          tones = new Float64Array(p.columns),
+          fibers = new Float64Array(p.columns * p.rows * 5),
+          coreSquared = p.coreRadius * p.coreRadius,
+          inverseCore = 1 / (coreSquared - p.coreFull * p.coreFull),
+          inverseDome = 1 / coreSquared,
+          inverseFiberY = 1 / p.fiberRadiusY,
+          inverseShoulder = 1 / p.fiberShoulder,
+          grainField = cachedNoise(128, 256, seed ^ 0x14a13);
+        for (let col = 0; col < p.columns; col++) {
+          tones[col] = hash(col, 0, seed ^ 0x14a11);
+          for (let row = 0; row < p.rows; row++) {
+            const index = (col * p.rows + row) * 5;
+            fibers[index] =
+              p.fiberJitterX * (2 * hash(col, row, seed ^ 0x14a15) - 1);
+            fibers[index + 1] =
+              p.fiberJitterY * (2 * hash(col, row, seed ^ 0x14a17) - 1);
+            fibers[index + 2] =
+              1 /
+              (p.fiberHalf + p.fiberVariation * hash(col, row, seed ^ 0x14a19));
+            fibers[index + 3] =
+              p.fiberSlope * (2 * hash(col, row, seed ^ 0x14a1b) - 1);
+            fibers[index + 4] = hash(col, row, seed ^ 0x14a1d);
+          }
+        }
+        return () => {
+          const uc = u * p.columns,
+            vc = v * p.rows,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            index = (col * p.rows + row) * 5,
+            x = fract(uc) - 0.5,
+            dx = x - fibers[index],
+            t = dx * fibers[index + 2],
+            core = smooth(clamp((coreSquared - x * x) * inverseCore));
+          let fiber = 0,
+            cap = 0;
+          if (Math.abs(t) < 1) {
+            cap = 1 - t * t;
+            const across =
+              (fract(vc) - 0.5 - fibers[index + 1] - fibers[index + 3] * dx) *
+              inverseFiberY;
+            fiber = smooth(
+              clamp((cap * cap - across * across) * inverseShoulder),
+            );
+          }
+          // Every pointed tuft has zero support before either owner boundary; no neighbor scans are needed.
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = (1 - core) * (1 - fiber);
+          if (core === 0 && fiber === 0) return;
+          const grain = grainField(u, v);
+          if (core > 0 && fiber < 1) {
+            const dome = smooth(1 - x * x * inverseDome);
+            color += core * (0.52 + 0.14 * tones[col] + 0.025 * grain - color);
+            height += core * (0.34 + 0.12 * dome + 0.003 * grain - height);
+            roughness += core * (p.roughness - 0.04 + 0.02 * grain - roughness);
+            occlusion += core * (0.98 - occlusion);
+          }
+          if (fiber > 0) {
+            color +=
+              fiber * (0.78 + 0.12 * fibers[index + 4] + 0.025 * grain - color);
+            height +=
+              fiber * (0.48 + 0.05 * smooth(cap) + 0.003 * grain - height);
+            roughness += fiber * (p.roughness + 0.015 * grain - roughness);
+            occlusion += fiber * (0.995 - occlusion);
+          }
+          return;
+        };
+      }
       case 'charoite': {
         const p = proceduralMaterialPresets.charoite,
           poses = new Float64Array(p.inclusionCells * p.inclusionCells * 6),
@@ -24971,6 +25044,7 @@ export function createSurfaceSampler(
     kind === 'horsechestnutleaf' ||
     kind === 'binderclips' ||
     kind === 'charoite' ||
+    kind === 'chenilleyarn' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
