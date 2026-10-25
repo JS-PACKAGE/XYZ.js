@@ -656,7 +656,218 @@ const kinds: ProceduralMaterialKind[] = [
   'orthocerasstone',
   'rickracktrim',
   'toroidalinductors',
+  'pennerigate',
 ];
+
+describe('Straight slanted-cut penne rigate with five longitudinal ridges and two low solid mouths', () => {
+  const p = proceduralMaterialPresets.pennerigate;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x15215),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1521b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15217) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15219) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a single straight oblique-cut tube five higher longitudinal ribs and two lower rough solid mouth interiors for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pennerigate', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const crown = out.height;
+          expect(crown).toBeGreaterThan(0.0030299);
+          expect(crown).toBeLessThan(0.0030481);
+          expect(out.occlusion).toBeCloseTo(0.985, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const sign of [-1, 1]) {
+            at(0, sign * p.mouthCenter);
+            expect(out.height).toBeGreaterThan(0.0006599);
+            expect(out.height).toBeLessThan(0.0006781);
+            expect(crown - out.height).toBeGreaterThan(0.00235);
+            expect(out.color).toBeGreaterThanOrEqual(0.14);
+            expect(out.color).toBeLessThan(0.2001);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.91);
+            expect(out.occlusion).toBeCloseTo(0.5, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          for (let ridge = -2; ridge <= 2; ridge++)
+            for (const y of [-0.12, 0, 0.12]) {
+              const x = ridge * p.ridgePitch;
+              at(x, y + p.cutSlope * x);
+              const peak = out.height,
+                light = out.color;
+              at(x - 0.02, y + p.cutSlope * (x - 0.02));
+              const a = out.height,
+                c = out.color;
+              at(x + 0.02, y + p.cutSlope * (x + 0.02));
+              expect(peak - (a + out.height) / 2).toBeGreaterThan(0.00013);
+              expect(light - (c + out.color) / 2).toBeGreaterThan(0.059);
+              expect(out.mortar).toBe(0);
+            }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.31 + (i * 0.62) / 4096);
+            const mouth = out.color < 0.3;
+            if (mouth && !previous) runs++;
+            previous = mouth;
+          }
+          expect(runs).toBe(2);
+          runs = 0;
+          previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.4 + (i * 0.8) / 4096);
+            const body = out.mortar < 0.5;
+            if (body && !previous) runs++;
+            previous = body;
+          }
+          expect(runs).toBe(1);
+          for (const x of [-0.1, 0.1])
+            for (const sign of [-1, 1]) {
+              at(x, sign * 0.31 + p.cutSlope * x);
+              expect(out.mortar).toBe(0);
+              expect(out.occlusion).toBeCloseTo(0.985, 12);
+              at(x, sign * 0.38 + p.cutSlope * x);
+              expect(out.mortar).toBe(1);
+              expect(out.occlusion).toBeCloseTo(0.3, 12);
+            }
+          for (const [x, y] of [
+            [0.17, 0],
+            [-0.17, 0],
+            [0, -0.4],
+            [0, 0.4],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0001501);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps slanted body corners longitudinal ridge owners low solid mouth ellipses seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pennerigate', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const width of [p.halfX, p.halfX * Math.sqrt(1 - p.shoulder)])
+            for (const sign of [-1, 1])
+              for (const y of [
+                -p.halfY,
+                -p.fullY,
+                -0.26,
+                0,
+                0.26,
+                p.fullY,
+                p.halfY,
+              ])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    sign * width,
+                    y + p.cutSlope * sign * width,
+                  ),
+                );
+          for (const y of [-p.halfY, -p.fullY, p.fullY, p.halfY])
+            for (let i = 0; i <= 32; i++) {
+              const x = -0.16 + (i * 0.32) / 32;
+              check(...uv(seed, col, row, x, y + p.cutSlope * x));
+            }
+          for (const field of [0, p.mouthShoulder])
+            for (const sign of [-1, 1])
+              for (let i = 0; i < 64; i++) {
+                const a = (i * Math.PI) / 32,
+                  r = Math.sqrt(1 - field),
+                  x = p.mouthX * r * Math.cos(a);
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x,
+                    sign * p.mouthCenter +
+                      p.mouthY * r * Math.sin(a) +
+                      p.cutSlope * x,
+                  ),
+                );
+              }
+          for (let ridge = -3; ridge <= 3; ridge++)
+            for (const offset of [
+              -p.ridgePitch / 2,
+              -p.ridgeRadius,
+              -p.ridgeCore,
+              0,
+              p.ridgeCore,
+              p.ridgeRadius,
+              p.ridgePitch / 2,
+            ])
+              for (const y of [-0.26, -0.12, 0, 0.12, 0.26]) {
+                const x = ridge * p.ridgePitch + offset;
+                check(...uv(seed, col, row, x, y + p.cutSlope * x));
+              }
+        }
+    }
+  });
+});
 
 describe('Toroidal inductor faces with twelve higher copper turns over dielectric ferrite rings', () => {
   const p = proceduralMaterialPresets.toroidalinductors;
