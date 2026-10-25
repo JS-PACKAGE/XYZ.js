@@ -1428,6 +1428,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'paisleybrocade': {
+        const p = proceduralMaterialPresets.paisleybrocade,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          dots = new Float64Array(p.dots * 2),
+          inverseHeight = 1 / p.halfHeight,
+          inverseShoulder = 1 / p.shoulder,
+          dotSquared = p.dotRadius * p.dotRadius,
+          inverseDot = 1 / (dotSquared - p.dotCore * p.dotCore),
+          grainField = cachedNoise(192, 192, seed ^ 0x13a11),
+          warpField = cachedNoise(128, 8, seed ^ 0x13a13),
+          weftField = cachedNoise(8, 128, seed ^ 0x13a15);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 3,
+              angle = TAU * hash(col, row, seed ^ 0x13a17);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] = hash(col, row, seed ^ 0x13a19);
+          }
+        for (let i = 0; i < p.dots; i++) {
+          const t = p.dotStart + i * p.dotStep;
+          dots[i * 2] = p.bend * ((1 - t) * (1 - t)) * 0.25;
+          dots[i * 2 + 1] = t * p.halfHeight;
+        }
+        return () => {
+          const grain = grainField(u, v),
+            weave = (warpField(u, v) + weftField(u, v)) * 0.5;
+          color = 0.06 + 0.04 * weave + 0.025 * grain;
+          height = 0.32 + 0.005 * weave;
+          roughness = p.roughness + 0.03 * weave;
+          occlusion = 0.96;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 3,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            t = y * inverseHeight;
+          if (t <= -1 || t >= 1) return;
+          const bend = p.bend * (1 - t) * (1 - t) * 0.25,
+            width = p.halfWidth * (p.widthBias + p.widthSlope * t),
+            across = (x - bend) / width,
+            cap = 1 - t * t,
+            field = cap * cap - across * across,
+            outer = smooth(clamp(field * inverseShoulder));
+          if (outer === 0) return;
+          const inset = smooth(clamp((field - p.inset) * inverseShoulder));
+          let embroidery = outer - inset;
+          if (inset > 0) {
+            let outside = 1;
+            for (let i = 0; i < dots.length; i += 2) {
+              const px = x - dots[i],
+                py = y - dots[i + 1];
+              outside *=
+                1 -
+                smooth(clamp((dotSquared - px * px - py * py) * inverseDot));
+            }
+            embroidery = 1 - (1 - embroidery) * outside;
+          }
+          if (embroidery === 0) return;
+          // A curved tapered double shoulder outlines a paisley drop.
+          // The gold-colored supplementary yarn is dielectric, not gold metal.
+          color +=
+            embroidery *
+            (0.82 + 0.1 * poses[index + 2] + 0.025 * grain - color);
+          height += embroidery * (0.52 + 0.007 * weave - height);
+          roughness += embroidery * (0.73 + 0.035 * weave - roughness);
+          occlusion += embroidery * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'tactileswitches': {
         const p = proceduralMaterialPresets.tactileswitches,
           tones = new Float64Array(p.cells * p.cells),
@@ -23599,6 +23671,7 @@ export function createSurfaceSampler(
     kind === 'flatflexcables' ||
     kind === 'celerycuts' ||
     kind === 'tactileswitches' ||
+    kind === 'paisleybrocade' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

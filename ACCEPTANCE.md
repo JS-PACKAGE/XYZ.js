@@ -7469,3 +7469,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 591-preset tactileswitches、擷取畫面／512 base-color detail，見四腳銀色方蓋／黑外殼細邊／中央黑按柱、中性 opaque 底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 tactileswitches 並重算既有 590 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6668 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：paisley 織錦（paisleybrocade）
+
+- 目錄 591→592 種；0.4 m opaque dielectric tile、metallic 0，深藍 weave 上彎尖金色非金屬紗線輪廓／三凸內點，非 goldbrocade 金屬花瓣。Cached 16 rotations／tones、三個 dot centers、192² grain／128×8 warp／8×128 weft／reciprocals，quadratic bend／variable width／squared cap 的 smooth double shoulder 差定 outline，dots product union support 全在 full inset；全部 motif support 限 cell、尖端零斜率消失。Coherent yarn replacement；空 outer 跳過 inset/dots、空 inset 跳過 dots，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 yarn geometry、透明孔、金屬織線或 cloth physics。
+- 初版五項通過但 512 detail 顯示尖端 overhang 不足、輪廓近直葉；補可見 overhang regression 後 3 seeds morphology 失敗（color 0.0743–0.1046、應 >0.81），C1／determinism 仍通過。Bend 0.15→0.27 後保留原 bounds 五項通過；3 seeds ×16 motifs、10 outline points／3 dots，金色 yarn height 0.003119–0.003163 m／AO 0.99／metallic 0，下層 cloth 0.001919–0.001951 m／AO 0.96、yarn 比 cloth 高 >0.00116 m。2049-point 內部 gap 橫剖面兩 gold outlines、tip 延伸處為 gold 而 bulb 同 x 為 blue；129² 與 exact 兩組 curved shoulders／pointed ends／三 dot shoulders／owners／wraps C1 通過。
+- 最終 Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 592-preset paisleybrocade、擷取畫面／512 base-color detail，見深藍織布、彎尖金色輪廓與三內點、內部仍藍布。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 paisleybrocade 並重算既有 591 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6673 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

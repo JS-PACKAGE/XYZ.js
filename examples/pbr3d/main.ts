@@ -670,6 +670,7 @@ try {
     'flatflexcables',
     'celerycuts',
     'tactileswitches',
+    'paisleybrocade',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
