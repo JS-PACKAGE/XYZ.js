@@ -681,7 +681,322 @@ const kinds: ProceduralMaterialKind[] = [
   'windmillparquet',
   'bismuthhoppers',
   'splitvanillapods',
+  'seamrippers',
 ];
+
+describe('Asymmetric steel seam rippers with a long curved tapered tine shorter blue protective ball-capped tine and a nonmetal navy handle', () => {
+  const p = proceduralMaterialPresets.seamrippers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16b15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16b1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16b17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16b19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const hook = (t: number) =>
+    [
+      p.hookRootX - p.hookCurve * t * t,
+      p.hookRoot + (p.hookTip - p.hookRoot) * t,
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps continuous joined metallic fork branches a genuinely empty U slot and unequal tines with a higher nonmetal blue cap and navy handle rather than all-metal silver paint for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('seamrippers', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, 0.18), out);
+          const handle = { ...out };
+          expect(handle.height).toBeGreaterThan(0.0020799);
+          expect(handle.height).toBeLessThan(0.0020961);
+          expect(handle.occlusion).toBeCloseTo(0.99, 12);
+          expect(handle.metallic).toBe(0);
+          expect(handle.mortar).toBe(0);
+          sample(...world(seed, col, row, ...p.shortEnd), out);
+          const ball = { ...out };
+          expect(ball.height).toBeGreaterThan(0.0025999);
+          expect(ball.height).toBeLessThan(0.0026161);
+          expect(ball.height - handle.height).toBeGreaterThan(0.0005039);
+          expect(handle.roughness - ball.roughness).toBeGreaterThan(0.2299);
+          expect(ball.color - handle.color).toBeGreaterThan(0.0549);
+          expect(ball.occlusion).toBeCloseTo(0.99, 12);
+          expect(ball.metallic).toBe(0);
+          expect(ball.mortar).toBe(0);
+          for (let j = 0; j <= 1024; j++) {
+            const t = j / 1024;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0,
+                p.handleTop + (p.handleBottom - p.handleTop) * t,
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0020799);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            for (const [x, y] of [
+              [0, -0.18 + 0.14 * t],
+              hook(0.9 * t),
+              [
+                p.shortStart[0] + (p.shortEnd[0] - p.shortStart[0]) * 0.6 * t,
+                p.shortStart[1] + (p.shortEnd[1] - p.shortStart[1]) * 0.6 * t,
+              ],
+            ]) {
+              sample(...world(seed, col, row, x, y), out);
+              expect(out.height).toBeGreaterThan(0.0018399);
+              expect(out.height).toBeLessThan(0.0018521);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+              expect(out.color - handle.color).toBeGreaterThan(0.7549);
+              expect(handle.roughness - out.roughness).toBeGreaterThan(0.3999);
+            }
+            sample(...world(seed, col, row, 0, -0.29 - 0.03 * t), out);
+            expect(out.height).toBeGreaterThan(0.0000999);
+            expect(out.height).toBeLessThan(0.0001081);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+          }
+          sample(
+            ...world(
+              seed,
+              col,
+              row,
+              p.shortStart[0] + 0.8 * (p.shortEnd[0] - p.shortStart[0]),
+              p.shortStart[1] + 0.8 * (p.shortEnd[1] - p.shortStart[1]),
+            ),
+            out,
+          );
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          expect(out.height).toBeGreaterThan(0.0025999);
+          sample(...world(seed, col, row, p.shortEnd[0], -0.33), out);
+          expect(out.mortar).toBe(1);
+          expect(out.metallic).toBe(0);
+          sample(...world(seed, col, row, ...hook(5 / 6)), out);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(1);
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                -0.12 + (0.24 * j) / 8192,
+                p.shortEnd[1],
+              ),
+              out,
+            );
+            const solid = out.mortar < 0.5;
+            if (solid && !inside) runs++;
+            inside = solid;
+          }
+          expect(runs).toBe(2);
+        }
+    },
+  );
+  it('keeps actual512 steel branches bright smooth metallic navy handle and blue ball nonmetal and the U slot exposed backing', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('seamrippers', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (
+                (Math.min(511, Math.floor(v * 512)) * 512 +
+                  Math.min(511, Math.floor(u * 512))) *
+                4
+              );
+            },
+            handle = index(0, 0.18),
+            ball = index(...p.shortEnd),
+            slot = index(0, -0.3);
+          expect(maps.metallicRoughness[handle + 2]).toBe(0);
+          expect(maps.metallicRoughness[ball + 2]).toBe(0);
+          expect(maps.metallicRoughness[slot + 2]).toBe(0);
+          for (const [x, y] of [
+            [0, -0.1],
+            hook(0.25),
+            hook(0.5),
+            [
+              p.shortStart[0] + 0.4 * (p.shortEnd[0] - p.shortStart[0]),
+              p.shortStart[1] + 0.4 * (p.shortEnd[1] - p.shortStart[1]),
+            ],
+          ]) {
+            const steel = index(x, y);
+            expect(maps.metallicRoughness[steel + 2]).toBe(255);
+            expect(
+              maps.baseColor[steel] - maps.baseColor[handle],
+            ).toBeGreaterThan(165);
+            expect(
+              maps.baseColor[steel] - maps.baseColor[ball],
+            ).toBeGreaterThan(150);
+            expect(
+              maps.baseColor[steel] - maps.baseColor[slot],
+            ).toBeGreaterThan(45);
+            expect(
+              maps.metallicRoughness[handle + 1] -
+                maps.metallicRoughness[steel + 1],
+            ).toBeGreaterThan(100);
+            expect(
+              maps.metallicRoughness[ball + 1] -
+                maps.metallicRoughness[steel + 1],
+            ).toBeGreaterThan(30);
+            expect(
+              maps.occlusion[steel] - maps.occlusion[slot],
+            ).toBeGreaterThan(170);
+          }
+        }
+    }
+  });
+  it('keeps all capsule support/core sides end circles projection joins curvedtine side/end shoulders blueball layers poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('seamrippers', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              angle = 2 * Math.PI * t;
+            for (const [top, bottom, outer, core] of [
+              [p.shaftTop, p.shaftBottom, p.shaftRadius, p.shaftCore],
+              [p.handleTop, p.handleBottom, p.handleRadius, p.handleCore],
+            ])
+              for (const r of [outer, core]) {
+                check(...world(seed, col, row, r, top + (bottom - top) * t));
+                check(...world(seed, col, row, -r, top + (bottom - top) * t));
+                for (const y of [top, bottom]) {
+                  check(
+                    ...world(
+                      seed,
+                      col,
+                      row,
+                      r * Math.cos(angle),
+                      y + r * Math.sin(angle),
+                    ),
+                  );
+                  check(...world(seed, col, row, -0.12 + 0.24 * t, y));
+                }
+              }
+            const dx = p.shortEnd[0] - p.shortStart[0],
+              dy = p.shortEnd[1] - p.shortStart[1],
+              length = Math.hypot(dx, dy);
+            for (const r of [p.shortRadius, p.shortCore]) {
+              for (const s of [-1, 1])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.shortStart[0] + dx * t + (s * r * dy) / length,
+                    p.shortStart[1] + dy * t - (s * r * dx) / length,
+                  ),
+                );
+              for (const [x, y] of [p.shortStart, p.shortEnd])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    x + r * Math.cos(angle),
+                    y + r * Math.sin(angle),
+                  ),
+                );
+            }
+            for (const r of [p.ballRadius, p.ballCore])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.shortEnd[0] + r * Math.cos(angle),
+                  p.shortEnd[1] + r * Math.sin(angle),
+                ),
+              );
+            const [x, y] = hook(t),
+              w = p.hookTipWidth + p.hookWidth * (1 - t) * (1 - t);
+            for (const q of [1, 1 - p.hookEdge])
+              for (const s of [-1, 1])
+                check(...world(seed, col, row, x + s * w * Math.sqrt(q), y));
+            for (const y of [
+              p.hookTip,
+              p.hookTip + p.hookEnd,
+              p.hookRoot - p.hookEnd,
+              p.hookRoot,
+            ])
+              check(...world(seed, col, row, -0.12 + 0.24 * t, y));
+          }
+    }
+  });
+});
 
 describe('Split curved vanilla pods with two raised continuous skin rails closed end bridges and sixteen lower dark seed clusters in an opaque rough channel', () => {
   const p = proceduralMaterialPresets.splitvanillapods;
@@ -39482,6 +39797,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'internaltoothwashers' &&
           kind !== 'utilityknifeblades' &&
           kind !== 'bismuthhoppers' &&
+          kind !== 'seamrippers' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -48899,6 +49215,7 @@ describe('procedural preset acquisition and ownership', () => {
     'internaltoothwashers',
     'utilityknifeblades',
     'bismuthhoppers',
+    'seamrippers',
     'standingseam',
     'damascus',
     'castiron',
@@ -48976,6 +49293,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'internaltoothwashers' ||
           kind === 'utilityknifeblades' ||
           kind === 'bismuthhoppers' ||
+          kind === 'seamrippers' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

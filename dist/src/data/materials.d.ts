@@ -6515,6 +6515,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    seamrippers: Readonly<{
+        dark: readonly [8, 23, 65];
+        light: readonly [235, 240, 246];
+        roughness: 0.3;
+        relief: 0.004;
+        cells: 3;
+        shaftTop: -0.2;
+        shaftBottom: 0.04;
+        shaftRadius: 0.022;
+        shaftCore: 0.016;
+        shortStart: readonly [0, -0.18];
+        shortEnd: readonly [0.065, -0.27];
+        shortRadius: 0.015;
+        shortCore: 0.011;
+        hookRoot: -0.18;
+        hookTip: -0.36;
+        hookRootX: -0.01;
+        hookCurve: 0.055;
+        hookWidth: 0.018;
+        hookTipWidth: 0.004;
+        hookEdge: 0.3;
+        hookEnd: 0.012;
+        handleTop: 0.05;
+        handleBottom: 0.32;
+        handleRadius: 0.065;
+        handleCore: 0.055;
+        ballRadius: 0.027;
+        ballCore: 0.023;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7158,4 +7190,5 @@ export declare const proceduralTileMeters: Readonly<{
     windmillparquet: 0.8;
     bismuthhoppers: 0.16;
     splitvanillapods: 0.6;
+    seamrippers: 0.6;
 }>;

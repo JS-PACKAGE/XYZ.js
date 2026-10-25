@@ -655,7 +655,8 @@ export type ProceduralMaterialKind =
   | 'utilityknifeblades'
   | 'windmillparquet'
   | 'bismuthhoppers'
-  | 'splitvanillapods';
+  | 'splitvanillapods'
+  | 'seamrippers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1545,6 +1546,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'windmillparquet',
   'bismuthhoppers',
   'splitvanillapods',
+  'seamrippers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1765,6 +1767,7 @@ export class ProceduralMaterial {
         this.kind === 'internaltoothwashers' ||
         this.kind === 'utilityknifeblades' ||
         this.kind === 'bismuthhoppers' ||
+        this.kind === 'seamrippers' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

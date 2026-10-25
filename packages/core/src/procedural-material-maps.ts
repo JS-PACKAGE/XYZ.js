@@ -1441,6 +1441,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'seamrippers': {
+        const p = proceduralMaterialPresets.seamrippers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16b11),
+          shaftSquared = p.shaftRadius * p.shaftRadius,
+          inverseShaft = 1 / (shaftSquared - p.shaftCore * p.shaftCore),
+          shortDx = p.shortEnd[0] - p.shortStart[0],
+          shortDy = p.shortEnd[1] - p.shortStart[1],
+          inverseShortLength = 1 / (shortDx * shortDx + shortDy * shortDy),
+          shortSquared = p.shortRadius * p.shortRadius,
+          inverseShort = 1 / (shortSquared - p.shortCore * p.shortCore),
+          handleSquared = p.handleRadius * p.handleRadius,
+          inverseHandle = 1 / (handleSquared - p.handleCore * p.handleCore),
+          ballSquared = p.ballRadius * p.ballRadius,
+          inverseBall = 1 / (ballSquared - p.ballCore * p.ballCore),
+          inverseHookLength = 1 / (p.hookRoot - p.hookTip),
+          inverseHookEdge = 1 / p.hookEdge,
+          inverseHookEnd = 1 / p.hookEnd;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16b15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16b17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16b19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16b1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x16b1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            grain = grainField(u, v),
+            sy = y - Math.max(p.shaftTop, Math.min(p.shaftBottom, y)),
+            shaft = smooth(
+              clamp((shaftSquared - x * x - sy * sy) * inverseShaft),
+            ),
+            ax = x - p.shortStart[0],
+            ay = y - p.shortStart[1],
+            t = clamp((ax * shortDx + ay * shortDy) * inverseShortLength),
+            sx = ax - t * shortDx,
+            sdy = ay - t * shortDy,
+            short = smooth(
+              clamp((shortSquared - sx * sx - sdy * sdy) * inverseShort),
+            );
+          let hook = 0;
+          if (y > p.hookTip && y < p.hookRoot) {
+            const h = (p.hookRoot - y) * inverseHookLength,
+              w = p.hookTipWidth + p.hookWidth * (1 - h) * (1 - h),
+              hx = x - p.hookRootX + p.hookCurve * h * h;
+            hook =
+              smooth(clamp((1 - (hx * hx) / (w * w)) * inverseHookEdge)) *
+              smooth(clamp((y - p.hookTip) * inverseHookEnd)) *
+              smooth(clamp((p.hookRoot - y) * inverseHookEnd));
+          }
+          const metal = 1 - (1 - shaft) * (1 - short) * (1 - hook),
+            hy = y - Math.max(p.handleTop, Math.min(p.handleBottom, y)),
+            handle = smooth(
+              clamp((handleSquared - x * x - hy * hy) * inverseHandle),
+            ),
+            bx = x - p.shortEnd[0],
+            by = y - p.shortEnd[1],
+            ball = smooth(
+              clamp((ballSquared - bx * bx - by * by) * inverseBall),
+            );
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (metal !== 0) {
+            color +=
+              metal * (0.86 + 0.05 * poses[i + 5] + 0.02 * grain - color);
+            height += metal * (0.46 + 0.003 * grain - height);
+            roughness += metal * (p.roughness + 0.02 * grain - roughness);
+            occlusion += metal * (0.98 - occlusion);
+            metallic = metal;
+            mortar = 1 - metal;
+          }
+          if (handle !== 0) {
+            color += handle * (0.08 + 0.025 * grain - color);
+            height += handle * (0.52 + 0.004 * grain - height);
+            roughness += handle * (0.72 + 0.03 * grain - roughness);
+            occlusion += handle * (0.99 - occlusion);
+            metallic *= 1 - handle;
+            mortar *= 1 - handle;
+          }
+          if (ball !== 0) {
+            color += ball * (0.16 + 0.02 * grain - color);
+            height += ball * (0.65 + 0.004 * grain - height);
+            roughness += ball * (0.45 + 0.04 * grain - roughness);
+            occlusion += ball * (0.99 - occlusion);
+            metallic *= 1 - ball;
+            mortar *= 1 - ball;
+          }
+        };
+      }
       case 'splitvanillapods': {
         const p = proceduralMaterialPresets.splitvanillapods,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27618,6 +27722,7 @@ export function createSurfaceSampler(
     kind === 'windmillparquet' ||
     kind === 'bismuthhoppers' ||
     kind === 'splitvanillapods' ||
+    kind === 'seamrippers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
