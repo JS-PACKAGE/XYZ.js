@@ -6022,6 +6022,29 @@ export const proceduralMaterialPresets = Object.freeze({
     lipRadius: 0.012,
     lipCore: 0.009,
   }),
+  charoite: Object.freeze({
+    dark: [32, 15, 58] as const,
+    light: [216, 186, 238] as const,
+    roughness: 0.26,
+    relief: 0.002,
+    bands: 6,
+    fibers: 12,
+    warpA: 1.8,
+    warpB: 0.7,
+    fiberDrift: 0.45,
+    bandRadius: 0.2,
+    bandCore: 0.12,
+    fiberRadius: 0.18,
+    fiberCore: 0.09,
+    inclusionCells: 8,
+    inclusionChance: 0.35,
+    inclusionJitter: 0.12,
+    inclusionRadiusX: 0.13,
+    inclusionVariationX: 0.08,
+    inclusionRadiusY: 0.07,
+    inclusionVariationY: 0.05,
+    inclusionShoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6632,4 +6655,5 @@ export const proceduralTileMeters = Object.freeze({
   blueprintpaper: 0.4,
   horsechestnutleaf: 0.8,
   binderclips: 0.32,
+  charoite: 0.2,
 });

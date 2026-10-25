@@ -644,7 +644,165 @@ const kinds: ProceduralMaterialKind[] = [
   'blueprintpaper',
   'horsechestnutleaf',
   'binderclips',
+  'charoite',
 ];
+
+describe('Stylized polished charoite with purple twisted fiber bundles and coplanar dark inclusions', () => {
+  const p = proceduralMaterialPresets.charoite;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const inclusion = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14923);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      jx: p.inclusionJitter * (2 * hash(col, row, seed ^ 0x14925) - 1),
+      jy: p.inclusionJitter * (2 * hash(col, row, seed ^ 0x14927) - 1),
+      rx:
+        p.inclusionRadiusX +
+        p.inclusionVariationX * hash(col, row, seed ^ 0x14929),
+      ry:
+        p.inclusionRadiusY +
+        p.inclusionVariationY * hash(col, row, seed ^ 0x1492b),
+    };
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = inclusion(seed, col, row);
+    return [
+      (col + 0.5 + a.jx + a.c * x - a.s * y) / p.inclusionCells,
+      (row + 0.5 + a.jy + a.s * x + a.c * y) / p.inclusionCells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps dominant purple fiber bundles and sparse dark mineral inclusions on one polished plane without pigment-cut grooves for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('charoite', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let low = Infinity,
+        high = -Infinity,
+        dark = 0,
+        pale = 0;
+      const record = () => {
+        low = Math.min(low, out.height);
+        high = Math.max(high, out.height);
+        expect(out.occlusion).toBe(1);
+        expect(out.metallic).toBe(0);
+        expect(out.mortar).toBe(0);
+        expect(out.roughness).toBeGreaterThanOrEqual(p.roughness);
+        expect(out.roughness).toBeLessThanOrEqual(p.roughness + 0.025);
+      };
+      for (let row = 0; row < p.inclusionCells; row++)
+        for (let col = 0; col < p.inclusionCells; col++) {
+          if (hash(col, row, seed ^ 0x14921) >= p.inclusionChance) continue;
+          sample(...uv(seed, col, row, 0, 0), out);
+          record();
+          const center = out.color,
+            plane = out.height;
+          expect(center).toBeGreaterThanOrEqual(0.025);
+          expect(center).toBeLessThan(0.0451);
+          const a = inclusion(seed, col, row);
+          sample(...uv(seed, col, row, a.rx + 0.03, 0), out);
+          record();
+          expect(out.color).toBeGreaterThanOrEqual(0.28);
+          expect(out.color - center).toBeGreaterThan(0.23);
+          expect(Math.abs(out.height - plane)).toBeLessThan(0.00000201);
+        }
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, out);
+          record();
+          dark += Number(out.color < 0.1);
+          pale += Number(out.color > 0.7);
+          expect(out.color).toBeGreaterThanOrEqual(0.025);
+          expect(out.color).toBeLessThanOrEqual(0.92);
+        }
+      expect(dark / (128 * 128)).toBeGreaterThan(0.005);
+      expect(dark / (128 * 128)).toBeLessThan(0.08);
+      expect(pale / (128 * 128)).toBeGreaterThan(0.08);
+      expect(pale / (128 * 128)).toBeLessThan(0.25);
+      expect(low).toBeGreaterThan(0.00075999);
+      expect(high).toBeLessThan(0.00076201);
+      expect(high - low).toBeLessThan(0.00000201);
+    },
+  );
+  it('keeps warped compact fiber phases dark inclusion ellipse shoulders seeded cell owners noise knots and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('charoite', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (const [nx, ny] of [
+        [4, 4],
+        [7, 5],
+        [9, 9],
+        [192, 192],
+      ])
+        for (let i = 0; i <= nx; i++) {
+          check(i / nx, 0.371);
+          check(0.371, (i % ny) / ny);
+        }
+      for (let row = 0; row < p.inclusionCells; row++)
+        for (let col = 0; col < p.inclusionCells; col++) {
+          if (hash(col, row, seed ^ 0x14921) >= p.inclusionChance) continue;
+          const a = inclusion(seed, col, row);
+          for (const field of [0, p.inclusionShoulder])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32,
+                r = Math.sqrt(1 - field);
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  a.rx * r * Math.cos(angle),
+                  a.ry * r * Math.sin(angle),
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Black coated trapezoid binder clips with two constant-width silver U-wire handles', () => {
   const p = proceduralMaterialPresets.binderclips;

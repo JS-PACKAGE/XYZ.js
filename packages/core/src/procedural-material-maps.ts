@@ -1441,6 +1441,81 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'charoite': {
+        const p = proceduralMaterialPresets.charoite,
+          poses = new Float64Array(p.inclusionCells * p.inclusionCells * 6),
+          bandSquared = p.bandRadius * p.bandRadius,
+          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore),
+          fiberSquared = p.fiberRadius * p.fiberRadius,
+          inverseFiber = 1 / (fiberSquared - p.fiberCore * p.fiberCore),
+          inverseInclusion = 1 / p.inclusionShoulder,
+          warpA = cachedNoise(4, 4, seed ^ 0x14911),
+          warpB = cachedNoise(7, 5, seed ^ 0x14913),
+          cloudField = cachedNoise(9, 9, seed ^ 0x14915),
+          grainField = cachedNoise(192, 192, seed ^ 0x14917);
+        for (let row = 0; row < p.inclusionCells; row++)
+          for (let col = 0; col < p.inclusionCells; col++) {
+            if (hash(col, row, seed ^ 0x14921) >= p.inclusionChance) continue;
+            const index = (row * p.inclusionCells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14923),
+              rx =
+                p.inclusionRadiusX +
+                p.inclusionVariationX * hash(col, row, seed ^ 0x14929),
+              ry =
+                p.inclusionRadiusY +
+                p.inclusionVariationY * hash(col, row, seed ^ 0x1492b);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.inclusionJitter * (2 * hash(col, row, seed ^ 0x14925) - 1);
+            poses[index + 3] =
+              p.inclusionJitter * (2 * hash(col, row, seed ^ 0x14927) - 1);
+            poses[index + 4] = 1 / (rx * rx);
+            poses[index + 5] = 1 / (ry * ry);
+          }
+        return () => {
+          const uc = u * p.inclusionCells,
+            vc = v * p.inclusionCells,
+            index = (Math.floor(vc) * p.inclusionCells + Math.floor(uc)) * 6;
+          let inclusion = 0;
+          if (poses[index + 4] > 0) {
+            const dx = fract(uc) - 0.5 - poses[index + 2],
+              dy = fract(vc) - 0.5 - poses[index + 3],
+              x = dx * poses[index] + dy * poses[index + 1],
+              y = dy * poses[index] - dx * poses[index + 1];
+            inclusion = smooth(
+              clamp(
+                (1 - x * x * poses[index + 4] - y * y * poses[index + 5]) *
+                  inverseInclusion,
+              ),
+            );
+          }
+          const grain = grainField(u, v),
+            dark = 0.025 + 0.02 * grain;
+          color = dark;
+          if (inclusion < 1) {
+            const cloud = cloudField(u, v),
+              phase =
+                u * p.bands +
+                p.warpA * (warpA(u, v) - 0.5) +
+                p.warpB * (warpB(u, v) - 0.5),
+              a = fract(phase + 0.5) - 0.5,
+              b =
+                fract(p.fibers * phase + p.fiberDrift * (cloud - 0.5) + 0.5) -
+                0.5,
+              band = smooth(clamp((bandSquared - a * a) * inverseBand)),
+              fiber = smooth(clamp((fiberSquared - b * b) * inverseFiber)),
+              pigment = 0.28 + 0.26 * cloud + 0.13 * fiber + 0.25 * band;
+            color = pigment + inclusion * (dark - pigment);
+          }
+          // Optical fiber bundles and dark inclusions share one polished plane.
+          height = 0.38 + 0.001 * grain;
+          roughness = p.roughness + 0.025 * grain;
+          occlusion = 1;
+          mortar = 0;
+          return;
+        };
+      }
       case 'binderclips': {
         const p = proceduralMaterialPresets.binderclips,
           tones = new Float64Array(p.cells * p.cells),
@@ -24895,6 +24970,7 @@ export function createSurfaceSampler(
     kind === 'blueprintpaper' ||
     kind === 'horsechestnutleaf' ||
     kind === 'binderclips' ||
+    kind === 'charoite' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

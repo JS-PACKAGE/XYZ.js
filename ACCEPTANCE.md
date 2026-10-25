@@ -7592,3 +7592,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 606-preset binderclips、擷取畫面及 512 detail，見黑梯形塗層夾身／雙銀 U 柄／neutral opaque 孔隙與外背。實際 factor 1／metal B min 0、max 255、partial true／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 binderclips 並重算既有 605 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6751 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：風格化紫龍晶（charoite）
+
+- 目錄 606→607 種；0.2 m opaque dielectric tile、metallic 0，紫底扭曲密纖維束／淡寬帶／稀疏深色實心包裹體、平齊共同拋光面。Cached 4²／7×5 warp、9² cloud／192² grain、8² sparse inclusion pose slots／squared axes、band/fiber squared radii 與 reciprocals；兩級 periodic compact stripes 經共用 domain-warp phase 扭曲，integer frequencies／phase wrap zero support 保 C1 torus，compact rotated ellipse inclusions 只換 pigment、full dark 跳全部 flow。Height／roughness 只依共同 tiny grain、AO 1，不把暗色或纖維刻成坑槽；owners／ellipse shoulders／noise knots／phase wraps／UV wraps C1、採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明礦洞、礦物生成、動態貓眼光學或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、exact inclusion C1、determinism）：3 seeds 各 active ellipse center 色 0.025–0.0451、外側紫面色 ≥0.28／contrast >0.23，height 差 <0.00000201 m；128² 可見 sparse dark coverage 0.5–8%／pale fiber-band coverage 8–25%，全域 height 0.00075999–0.00076201 m／span <0.00000201 m／roughness 0.26–0.285／AO 1／metallic 0／backing 0。129²／exact inclusion ellipse shoulders／noise knots／seeded cell owners／UV wraps C1 通過。另記憶體 192² probe 實測三 seeds：dark coverage 約 1.37–1.97%、pale 約 12.97–14.62%，height 約 0.000760050–0.000761942 m；無留 probe 檔。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 607-preset charoite、擷取畫面及 512 detail，見風格化紫色扭曲細纖維束／淡色寬帶／深色實心礦物粒，非寫實礦物或動態貓眼認證。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 charoite 並重算既有 606 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6756 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
