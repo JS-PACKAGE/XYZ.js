@@ -658,7 +658,232 @@ const kinds: ProceduralMaterialKind[] = [
   'toroidalinductors',
   'pennerigate',
   'lepidolitemica',
+  'brassjinglebells',
 ];
+
+describe('Raised brass jingle bell faces with crimped seam and four round-ended low opaque cross slots', () => {
+  const p = proceduralMaterialPresets.brassjinglebells;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15415),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1541b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15417) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15419) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a raised brass dome four opaque dark round-ended slots and a higher smoother crimped seam for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('brassjinglebells', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0.1, 0.1);
+          const crown = out.height,
+            color = out.color,
+            rough = out.roughness;
+          expect(crown).toBeGreaterThan(0.00373);
+          expect(crown).toBeLessThan(0.00377);
+          expect(color).toBeGreaterThanOrEqual(0.66);
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0, 0);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          expect(out.height).toBeGreaterThan(0.0009599);
+          expect(out.height).toBeLessThan(0.0009841);
+          expect(out.occlusion).toBeCloseTo(0.4, 12);
+          for (let arm = 0; arm < 4; arm++) {
+            const a = (arm * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const [r, t] of [
+              [0.12, 0],
+              [0.22, 0],
+              [0.22, 0.02],
+            ]) {
+              at(r * c - t * s, r * s + t * c);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0009599);
+              expect(out.height).toBeLessThan(0.0009841);
+              expect(crown - out.height).toBeGreaterThan(0.00274);
+              expect(color - out.color).toBeGreaterThan(0.5899);
+              expect(out.roughness - rough).toBeGreaterThan(0.5599);
+              expect(out.occlusion).toBeCloseTo(0.4, 12);
+            }
+            at(0.12 * c - 0.022 * s, 0.12 * s + 0.022 * c);
+            expect(out.metallic).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          const d = p.seamRadius / Math.sqrt(2);
+          at(d, d);
+          const seam = out.height,
+            seamRough = out.roughness;
+          expect(out.metallic).toBe(1);
+          expect(out.occlusion).toBe(1);
+          const r1 = Math.sqrt(p.seamRadius * p.seamRadius - 0.012),
+            r2 = Math.sqrt(p.seamRadius * p.seamRadius + 0.012);
+          at(r1 / Math.sqrt(2), r1 / Math.sqrt(2));
+          const inside = out.height,
+            insideR = out.roughness;
+          at(r2 / Math.sqrt(2), r2 / Math.sqrt(2));
+          expect(seam - (inside + out.height) / 2).toBeGreaterThan(0.00025);
+          expect((insideR + out.roughness) / 2 - seamRough).toBeGreaterThan(
+            0.0299,
+          );
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            const a = (i * 2 * Math.PI) / 4096;
+            at(0.12 * Math.cos(a), 0.12 * Math.sin(a));
+            const brass = out.metallic > 0.5;
+            if (brass && !previous) runs++;
+            previous = brass;
+            expect(out.mortar).toBe(0);
+          }
+          expect(runs).toBe(4);
+          at(0.4, 0);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(1);
+          expect(out.occlusion).toBeCloseTo(0.3, 12);
+          expect(out.height).toBeLessThan(0.0002001);
+        }
+    },
+  );
+  it('keeps actual 512 brass petals and opaque widened slot ends distinct at three seeds', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('brassjinglebells', 512, seed),
+        metal = (col: number, row: number, x: number, y: number) => {
+          const [u, v] = uv(seed, col, row, x, y);
+          return maps.metallicRoughness[
+            (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4 + 2
+          ];
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          expect(metal(col, row, 0.1, 0.1)).toBe(255);
+          expect(metal(col, row, 0, 0)).toBe(0);
+          expect(metal(col, row, 0.4, 0)).toBe(0);
+          for (let arm = 0; arm < 4; arm++) {
+            const a = (arm * Math.PI) / 2,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const [r, t] of [
+              [0.12, 0],
+              [0.22, 0],
+              [0.22, 0.015],
+            ])
+              expect(metal(col, row, r * c - t * s, r * s + t * c)).toBe(0);
+            expect(
+              metal(col, row, 0.12 * c - 0.035 * s, 0.12 * s + 0.035 * c),
+            ).toBe(255);
+          }
+        }
+    }
+  });
+  it('keeps shell shoulders squared-radius dome seam capsule tangents slots round ends center joins nearest-end owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('brassjinglebells', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let i = 0; i < 64; i++) {
+            const a = (i * Math.PI) / 32,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const r of [
+              0,
+              p.outerRadius,
+              p.fullRadius,
+              p.centerRadius,
+              p.centerCore,
+              ...[-p.seamWidth, -p.seamCore, p.seamCore, p.seamWidth].map((d) =>
+                Math.sqrt(p.seamRadius * p.seamRadius + d),
+              ),
+            ])
+              check(...uv(seed, col, row, r * c, r * s));
+            for (let arm = 0; arm < 4; arm++) {
+              const a = (arm * Math.PI) / 2,
+                x = p.slotLength * Math.cos(a),
+                y = p.slotLength * Math.sin(a);
+              for (const r of [
+                p.endRadius,
+                p.endCore,
+                p.slotRadius,
+                p.slotCore,
+              ])
+                check(...uv(seed, col, row, x + r * c, y + r * s));
+            }
+          }
+          for (const sign of [-1, 1])
+            for (let i = 0; i <= 64; i++) {
+              const x = -0.4 + (i * 0.8) / 64;
+              for (const y of [
+                sign * p.slotRadius,
+                sign * p.slotCore,
+                sign * p.slotLength,
+              ]) {
+                check(...uv(seed, col, row, x, y));
+                check(...uv(seed, col, row, y, x));
+              }
+              check(...uv(seed, col, row, x, sign * x));
+            }
+        }
+    }
+  });
+});
 
 describe('Lavender lepidolite-inspired mica with three stepped hexagonal cleavage platelets', () => {
   const p = proceduralMaterialPresets.lepidolitemica;
@@ -34038,6 +34263,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'ceramicfuses' &&
           kind !== 'balloonwhisks' &&
           kind !== 'toroidalinductors' &&
+          kind !== 'brassjinglebells' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -43447,6 +43673,7 @@ describe('procedural preset acquisition and ownership', () => {
     'ceramicfuses',
     'balloonwhisks',
     'toroidalinductors',
+    'brassjinglebells',
     'standingseam',
     'damascus',
     'castiron',
@@ -43516,6 +43743,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'ceramicfuses' ||
           kind === 'balloonwhisks' ||
           kind === 'toroidalinductors' ||
+          kind === 'brassjinglebells' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

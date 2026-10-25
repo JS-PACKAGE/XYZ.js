@@ -1441,6 +1441,98 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'brassjinglebells': {
+        const p = proceduralMaterialPresets.brassjinglebells,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x15411),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseBody = 1 / (outerSquared - p.fullRadius * p.fullRadius),
+          inverseOuter = 1 / outerSquared,
+          slotSquared = p.slotRadius * p.slotRadius,
+          inverseSlot = 1 / (slotSquared - p.slotCore * p.slotCore),
+          holeSquared = p.endRadius * p.endRadius,
+          inverseHole = 1 / (holeSquared - p.endCore * p.endCore),
+          centerSquared = p.centerRadius * p.centerRadius,
+          inverseCenter = 1 / (centerSquared - p.centerCore * p.centerCore),
+          seamSquared = p.seamRadius * p.seamRadius,
+          seamWidthSquared = p.seamWidth * p.seamWidth,
+          inverseSeam = 1 / (seamWidthSquared - p.seamCore * p.seamCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15415);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15417) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15419) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1541b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1541d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            q = x * x + y * y,
+            body = smooth(clamp((outerSquared - q) * inverseBody));
+          mortar = 1 - body;
+          metallic = 0;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const ex = Math.max(ax - p.slotLength, 0),
+            ey = Math.max(ay - p.slotLength, 0),
+            sx = smooth(clamp((slotSquared - ex * ex - y * y) * inverseSlot)),
+            sy = smooth(clamp((slotSquared - ey * ey - x * x) * inverseSlot)),
+            along = Math.max(ax, ay) - p.slotLength,
+            across = Math.min(ax, ay),
+            ends = smooth(
+              clamp(
+                (holeSquared - along * along - across * across) * inverseHole,
+              ),
+            ),
+            center = smooth(clamp((centerSquared - q) * inverseCenter)),
+            cut = 1 - (1 - sx) * (1 - sy) * (1 - ends) * (1 - center),
+            grain = grainField(u, v);
+          let c = 0,
+            h = 0,
+            r = 0,
+            ao = 0;
+          if (cut < 1) {
+            const offset = q - seamSquared,
+              seam = smooth(
+                clamp((seamWidthSquared - offset * offset) * inverseSeam),
+              );
+            c = 0.66 + 0.14 * poses[i + 5] + 0.025 * grain + 0.08 * seam;
+            h =
+              0.32 +
+              0.16 * smooth(clamp(1 - q * inverseOuter)) +
+              0.045 * seam +
+              0.003 * grain;
+            r = p.roughness + 0.02 * grain - 0.05 * seam;
+            ao = 0.99 + 0.01 * seam;
+          }
+          if (cut > 0) {
+            c += cut * (0.055 + 0.015 * grain - c);
+            h += cut * (0.12 + 0.003 * grain - h);
+            r += cut * (0.91 + 0.02 * grain - r);
+            ao += cut * (0.4 - ao);
+          }
+          metallic = body * (1 - cut);
+          color += body * (c - color);
+          height += body * (h - height);
+          roughness += body * (r - roughness);
+          occlusion += body * (ao - occlusion);
+        };
+      }
       case 'lepidolitemica': {
         const p = proceduralMaterialPresets.lepidolitemica,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -25743,6 +25835,7 @@ export function createSurfaceSampler(
     kind === 'toroidalinductors' ||
     kind === 'pennerigate' ||
     kind === 'lepidolitemica' ||
+    kind === 'brassjinglebells' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
