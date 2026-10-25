@@ -674,6 +674,7 @@ try {
     'siliconepastrybrushes',
     'graphicgranite',
     'brasspadlocks',
+    'carrotcuts',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

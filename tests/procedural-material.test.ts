@@ -633,7 +633,181 @@ const kinds: ProceduralMaterialKind[] = [
   'siliconepastrybrushes',
   'graphicgranite',
   'brasspadlocks',
+  'carrotcuts',
 ];
+
+describe('Carrot cuts with filled pale medullae and twelve coplanar radial pigment rays', () => {
+  const p = proceduralMaterialPresets.carrotcuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x13e13),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x13e19),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x13e15) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x13e17) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twelve pale rays and orange gaps flat with a filled medulla above a thin darker rind for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('carrotcuts', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const center = out.height;
+          expect(out.color).toBeGreaterThan(0.81);
+          expect(center).toBeGreaterThan(0.00383);
+          expect(center).toBeLessThan(0.003865);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.metallic).toBe(0);
+          for (let ray = 0; ray < p.rays; ray++) {
+            const angle = (2 * Math.PI * ray) / p.rays;
+            at(p.rayCenter * Math.cos(angle), p.rayCenter * Math.sin(angle));
+            const rayHeight = out.height,
+              rayRoughness = out.roughness;
+            expect(out.color).toBeGreaterThan(0.73);
+            expect(Math.abs(rayHeight - center)).toBeLessThan(0.000025);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.metallic).toBe(0);
+            const gapAngle = angle + Math.PI / p.rays;
+            at(
+              p.rayCenter * Math.cos(gapAngle),
+              p.rayCenter * Math.sin(gapAngle),
+            );
+            expect(out.color).toBeLessThan(0.64);
+            expect(Math.abs(out.height - rayHeight)).toBeLessThan(0.000025);
+            expect(Math.abs(out.roughness - rayRoughness)).toBeLessThan(0.026);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.metallic).toBe(0);
+          }
+          const circular = (i: number) => {
+            const angle = (2 * Math.PI * i) / 4096;
+            at(p.rayCenter * Math.cos(angle), p.rayCenter * Math.sin(angle));
+            return out.color > 0.7;
+          };
+          let runs = 0,
+            previous = circular(4095);
+          for (let i = 0; i < 4096; i++) {
+            const pale = circular(i);
+            if (pale && !previous) runs++;
+            previous = pale;
+          }
+          expect(runs).toBe(12);
+          at(0.41, 0);
+          expect(out.color).toBeLessThan(0.39);
+          expect(center - out.height).toBeGreaterThan(0.0018);
+          expect(out.height).toBeGreaterThan(0.00199);
+          expect(out.height).toBeLessThan(0.002025);
+          at(0.46, 0);
+          expect(out.height).toBeLessThan(0.000201);
+          expect(out.mortar).toBe(1);
+        }
+    },
+  );
+  it('keeps medulla and rind shoulders, all twelve pointed ray shoulders and tips, seeded owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('carrotcuts', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [
+            p.radius,
+            p.core,
+            p.fleshRadius,
+            p.fleshCore,
+            p.pithRadius,
+            p.pithCore,
+          ])
+            for (let i = 0; i < 64; i++) {
+              const angle = (2 * Math.PI * i) / 64;
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+          for (let ray = 0; ray < p.rays; ray++) {
+            const angle = (2 * Math.PI * ray) / p.rays,
+              co = Math.cos(angle),
+              si = Math.sin(angle);
+            for (let i = 0; i <= 32; i++) {
+              const t = -1 + i / 16,
+                cap = 1 - t * t,
+                along = p.rayCenter + p.rayHalfLength * t;
+              for (const field of [0, p.rayShoulder]) {
+                if (cap * cap < field) continue;
+                const width = p.rayHalfWidth * Math.sqrt(cap * cap - field);
+                for (const sign of [-1, 1])
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      along * co - sign * width * si,
+                      along * si + sign * width * co,
+                    ),
+                  );
+              }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Brass padlocks with closed U shackles and solid dielectric keyhole recesses', () => {
   const p = proceduralMaterialPresets.brasspadlocks;

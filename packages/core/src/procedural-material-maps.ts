@@ -1428,6 +1428,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'carrotcuts': {
+        const p = proceduralMaterialPresets.carrotcuts,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(p.rays * 2),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshCore * p.fleshCore),
+          pithSquared = p.pithRadius * p.pithRadius,
+          inversePith = 1 / (pithSquared - p.pithCore * p.pithCore),
+          inverseLength = 1 / p.rayHalfLength,
+          inverseWidth = 1 / p.rayHalfWidth,
+          inverseShoulder = 1 / p.rayShoulder,
+          grainField = cachedNoise(128, 128, seed ^ 0x13e11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = 2 * Math.PI * hash(col, row, seed ^ 0x13e13);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x13e15) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x13e17) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x13e19));
+            poses[index + 5] = hash(col, row, seed ^ 0x13e1b);
+          }
+        for (let i = 0; i < p.rays; i++) {
+          const angle = (2 * Math.PI * i) / p.rays;
+          axes[i * 2] = Math.cos(angle);
+          axes[i * 2 + 1] = Math.sin(angle);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = -dx * poses[index + 1] + dy * poses[index],
+            r2 = x * x + y * y,
+            body = smooth(clamp((radiusSquared - r2) * inverseBody));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[index + 5],
+            flesh = smooth(clamp((fleshSquared - r2) * inverseFlesh));
+          color += body * (0.3 + 0.06 * tone + 0.02 * grain - color);
+          height += body * (0.25 + 0.003 * grain - height);
+          roughness += body * (0.81 + 0.02 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          if (flesh === 0) return;
+          const pith = smooth(clamp((pithSquared - r2) * inversePith));
+          let outside = 1;
+          if (pith < 1)
+            for (let i = 0; i < axes.length; i += 2) {
+              const along =
+                (x * axes[i] + y * axes[i + 1] - p.rayCenter) * inverseLength;
+              if (Math.abs(along) >= 1) continue;
+              const across = (-x * axes[i + 1] + y * axes[i]) * inverseWidth,
+                cap = 1 - along * along;
+              outside *=
+                1 -
+                smooth(clamp((cap * cap - across * across) * inverseShoulder));
+            }
+          const orange = 0.54 + 0.06 * tone + 0.025 * grain,
+            rays =
+              orange +
+              (1 - outside) * (0.74 + 0.06 * tone + 0.025 * grain - orange),
+            pigment = rays + pith * (0.82 + 0.06 * tone + 0.025 * grain - rays);
+          // Medulla and radial vascular pigment share the same solid flat cut face.
+          color += flesh * (pigment - color);
+          height += flesh * (0.48 + 0.003 * grain - height);
+          roughness += flesh * (p.roughness + 0.025 * grain - roughness);
+          occlusion += flesh * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'brasspadlocks': {
         const p = proceduralMaterialPresets.brasspadlocks,
           tones = new Float64Array(p.cells * p.cells),
@@ -23919,6 +24002,7 @@ export function createSurfaceSampler(
     kind === 'siliconepastrybrushes' ||
     kind === 'graphicgranite' ||
     kind === 'brasspadlocks' ||
+    kind === 'carrotcuts' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
