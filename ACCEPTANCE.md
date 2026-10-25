@@ -7542,3 +7542,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 600-preset grosgrainribbons、擷取畫面與 512 base-color detail，見四條密橫肋藍織帶／雙側多道連續布邊／中性 opaque 帶隙。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 grosgrainribbons 並重算既有 599 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6717 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：藍銅礦／孔雀石（azuritemalachite）
+
+- 目錄 600→601 種；0.2 m opaque dielectric tile、metallic 0，綠基質上 stylized 三藍球簇、每球兩細礦物色環，非單球 jasper 或單礦物 malachite 起伏帶。Cached 16 rotation／jitter／inverse scale／tone poses、三 centers／八 annular coefficients、8² clouds／192² grain／squared radii／reciprocals；circle covers／annular covers 各 product union，ring 支撐全在 full globule、全部支撐限 cell。兩礦物共用 microheight／roughness／AO 1，不作凸球／凹環；full blue/ring unions 跳過後續 coverage、空 ring extent 跳過 annuli、full green 跳過 blue pigment、full blue 跳過 matrix cloud，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明晶體、礦物生長或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、exact C1、determinism）：3 seeds ×16 clusters ×3 globules，blue centers/gaps color <0.11、兩細帶 >0.18且 <0.25、green matrix >0.83；height 0.0007599–0.0007621 m、pointwise mineral 差 <0.0000021 m／AO 1／metallic 0／backing 0。2049-point outward radial profile 恰兩 fine-ring runs；160² blue fraction 12–40%／green >55%、global microheight span <2.1 µm、blue/green 平均高度差 <0.2 µm。129² 與 exact circle/ring shoulders／overlapping unions／seeded owners／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 601-preset azuritemalachite、擷取畫面與 512 base-color detail，見綠色連續基質／三藍球簇／平面細礦物環。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、photoreal mineral 或效能。
+- Fresh Node 新 build 生成 azuritemalachite 並重算既有 600 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 首輪 build 通過；typecheck 發現 C1 測試的 radii 陣列被 literal-inferred 為 `(0.19 | 0.16)[]`，不能加入 computed ring shoulders。改為明確 `number[]`，不改 runtime 或測試幾何；其餘 gates 以修正後實際執行結果為準。
+- 完整 gate：已完成的 build、修正後 typecheck／lint／format:check、179 個測試檔／6722 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

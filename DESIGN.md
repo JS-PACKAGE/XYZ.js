@@ -749,6 +749,8 @@
 
 `grosgrainribbons` 預算四 ribbon tones／96×256 grain／squared radii／reciprocals。四 compact 直帶 body 以 squared-distance cover 定 neutral backing，64 compact transverse rib profiles 與雙側各三 compact selvedge wales 支撐全在 full body；nearest-wale owner 交界零支撐、帶 owner 與兩 UV wraps periodic C1。Coherent body replacement 同步 color／height／roughness／AO，布邊較橫肋高；空 body 跳過 rib／edge／grain、採樣無配置／hash／sqrt／trig。不新增 geometry、透明帶隙、打結／布料／物理模擬。
 
+`azuritemalachite` 預算 16 rotation／jitter／inverse scale／tone poses、三 globule centers／八 ring coefficients、8² clouds／192² grain／squared radii／reciprocals。4×4 compact 三球簇以 smooth squared circles product union 定 azurite、每球兩 annular pigment covers product union 定淡藍細帶，所有 ring 支撐在 full globule、全部支撐限 cell。兩礦物共用 microheight／roughness／AO 1，不作凸球／凹環；full blue union 跳過後續 cover、full ring union 跳過後續 ring work、空 ring extent 跳過 annuli、full green 跳過 blue pigment、full blue 跳過 matrix cloud，採樣無配置／hash／sqrt／trig。不新增 geometry、透明晶體、礦物生長或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

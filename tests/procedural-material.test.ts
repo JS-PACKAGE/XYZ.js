@@ -638,7 +638,185 @@ const kinds: ProceduralMaterialKind[] = [
   'oatflakes',
   'tigerfur',
   'grosgrainribbons',
+  'azuritemalachite',
 ];
+
+describe('Coplanar banded blue azurite globule clusters in green malachite', () => {
+  const p = proceduralMaterialPresets.azuritemalachite;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14313),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14319),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14315) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14317) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three overlapping blue globules and two fine pigment rings each coplanar with the green matrix for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('azuritemalachite', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0.43, 0.43);
+          const matrix = out.height;
+          expect(out.color).toBeGreaterThan(0.83);
+          expect(matrix).toBeGreaterThan(0.0007599);
+          expect(matrix).toBeLessThan(0.0007621);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBe(1);
+          for (let globe = 0; globe < p.globules; globe++) {
+            const angle = (2 * Math.PI * globe) / p.globules,
+              c = Math.cos(angle),
+              s = Math.sin(angle),
+              cx = p.clusterRadius * c,
+              cy = p.clusterRadius * s;
+            at(cx, cy);
+            expect(out.color).toBeLessThan(0.11);
+            expect(Math.abs(out.height - matrix)).toBeLessThan(0.0000021);
+            for (let i = 0; i < 12; i++) {
+              const a = (i * Math.PI) / 6;
+              for (let ring = 0; ring < p.rings; ring++) {
+                const r = p.firstRing + ring * p.ringPitch;
+                at(cx + r * Math.cos(a), cy + r * Math.sin(a));
+                expect(out.color).toBeGreaterThan(0.18);
+                expect(out.color).toBeLessThan(0.25);
+                expect(Math.abs(out.height - matrix)).toBeLessThan(0.0000021);
+                expect(out.occlusion).toBe(1);
+                expect(out.metallic).toBe(0);
+              }
+              at(cx + 0.08 * Math.cos(a), cy + 0.08 * Math.sin(a));
+              expect(out.color).toBeLessThan(0.11);
+            }
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              const r = (i * 0.15) / 2048;
+              at(cx + r * c, cy + r * s);
+              const ring = out.color > 0.15;
+              if (ring && !previous) runs++;
+              previous = ring;
+            }
+            expect(runs).toBe(2);
+          }
+        }
+      let blue = 0,
+        green = 0,
+        blueHeight = 0,
+        greenHeight = 0,
+        min = Infinity,
+        max = -Infinity;
+      for (let y = 0; y < 160; y++)
+        for (let x = 0; x < 160; x++) {
+          sample((x + 0.37) / 160, (y + 0.29) / 160, out);
+          if (out.color < 0.3) {
+            blue++;
+            blueHeight += out.height;
+          }
+          if (out.color > 0.8) {
+            green++;
+            greenHeight += out.height;
+          }
+          min = Math.min(min, out.height);
+          max = Math.max(max, out.height);
+        }
+      expect(blue / (160 * 160)).toBeGreaterThan(0.12);
+      expect(blue / (160 * 160)).toBeLessThan(0.4);
+      expect(green / (160 * 160)).toBeGreaterThan(0.55);
+      expect(max - min).toBeLessThan(0.0000021);
+      expect(Math.abs(blueHeight / blue - greenHeight / green)).toBeLessThan(
+        0.0000002,
+      );
+    },
+  );
+  it('keeps both pigment rings and each globule shoulder, overlapping mineral unions, seeded owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      radii: number[] = [p.radius, p.core];
+    for (let ring = 0; ring < p.rings; ring++) {
+      const r = p.firstRing + ring * p.ringPitch;
+      radii.push(
+        r - p.ringHalfWidth,
+        r - p.ringCore,
+        r + p.ringCore,
+        r + p.ringHalfWidth,
+      );
+    }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('azuritemalachite', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let globe = 0; globe < p.globules; globe++) {
+            const angle = (2 * Math.PI * globe) / p.globules,
+              cx = p.clusterRadius * Math.cos(angle),
+              cy = p.clusterRadius * Math.sin(angle);
+            for (const r of radii)
+              for (let i = 0; i < 32; i++) {
+                const a = (i * Math.PI) / 16;
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    cx + r * Math.cos(a),
+                    cy + r * Math.sin(a),
+                  ),
+                );
+              }
+          }
+    }
+  });
+});
 
 describe('Grosgrain ribbons with transverse ribs and three selvedge wales per edge', () => {
   const p = proceduralMaterialPresets.grosgrainribbons;

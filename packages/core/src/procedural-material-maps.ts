@@ -1441,6 +1441,91 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'azuritemalachite': {
+        const p = proceduralMaterialPresets.azuritemalachite,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          centers = new Float64Array(p.globules * 2),
+          rings = new Float64Array(p.rings * 4),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          ringExtentSquared =
+            (p.firstRing + (p.rings - 1) * p.ringPitch + p.ringHalfWidth) ** 2,
+          cloudField = cachedNoise(8, 8, seed ^ 0x14311),
+          grainField = cachedNoise(192, 192, seed ^ 0x1431d);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14313);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14315) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14317) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14319));
+            poses[index + 5] = hash(col, row, seed ^ 0x1431b);
+          }
+        for (let i = 0; i < p.globules; i++) {
+          const angle = (TAU * i) / p.globules;
+          centers[i * 2] = p.clusterRadius * Math.cos(angle);
+          centers[i * 2 + 1] = p.clusterRadius * Math.sin(angle);
+        }
+        for (let i = 0; i < p.rings; i++) {
+          const radius = p.firstRing + i * p.ringPitch,
+            inner = (radius - p.ringHalfWidth) ** 2,
+            outer = (radius + p.ringHalfWidth) ** 2;
+          rings[i * 4] = inner;
+          rings[i * 4 + 1] = 1 / ((radius - p.ringCore) ** 2 - inner);
+          rings[i * 4 + 2] = outer;
+          rings[i * 4 + 3] = 1 / (outer - (radius + p.ringCore) ** 2);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1];
+          let outside = 1,
+            ringOutside = 1;
+          for (let i = 0; i < centers.length; i += 2) {
+            const gx = x - centers[i],
+              gy = y - centers[i + 1],
+              r2 = gx * gx + gy * gy;
+            if (outside > 0)
+              outside *= 1 - smooth(clamp((radiusSquared - r2) * inverseBody));
+            if (ringOutside > 0 && r2 < ringExtentSquared)
+              for (let j = 0; j < rings.length; j += 4)
+                ringOutside *=
+                  1 -
+                  smooth(clamp((r2 - rings[j]) * rings[j + 1])) *
+                    smooth(clamp((rings[j + 2] - r2) * rings[j + 3]));
+          }
+          const grain = grainField(u, v);
+          if (outside === 1)
+            color = 0.84 + 0.1 * cloudField(u, v) + 0.02 * grain;
+          else {
+            const blue =
+              0.045 +
+              0.035 * poses[index + 5] +
+              0.02 * grain +
+              0.14 * (1 - ringOutside);
+            color =
+              outside === 0
+                ? blue
+                : blue +
+                  outside *
+                    (0.84 + 0.1 * cloudField(u, v) + 0.02 * grain - blue);
+          }
+          // Both mineral pigments occupy one polished face; rings add no relief.
+          height = 0.38 + 0.001 * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'grosgrainribbons': {
         const p = proceduralMaterialPresets.grosgrainribbons,
           tones = new Float64Array(p.columns),
@@ -24305,6 +24390,7 @@ export function createSurfaceSampler(
     kind === 'bluepushpins' ||
     kind === 'oatflakes' ||
     kind === 'grosgrainribbons' ||
+    kind === 'azuritemalachite' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

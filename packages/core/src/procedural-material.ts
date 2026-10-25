@@ -615,7 +615,8 @@ export type ProceduralMaterialKind =
   | 'bluepushpins'
   | 'oatflakes'
   | 'tigerfur'
-  | 'grosgrainribbons';
+  | 'grosgrainribbons'
+  | 'azuritemalachite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1465,6 +1466,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'oatflakes',
   'tigerfur',
   'grosgrainribbons',
+  'azuritemalachite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

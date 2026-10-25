@@ -5734,6 +5734,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         edgeRadius: 0.006;
         edgeCore: 0.004;
     }>;
+    azuritemalachite: Readonly<{
+        dark: readonly [10, 23, 114];
+        light: readonly [95, 188, 131];
+        roughness: 0.28;
+        relief: 0.002;
+        cells: 4;
+        jitter: 0.025;
+        scale: 0.92;
+        scaleVariation: 0.07;
+        globules: 3;
+        clusterRadius: 0.12;
+        radius: 0.19;
+        core: 0.16;
+        rings: 2;
+        firstRing: 0.055;
+        ringPitch: 0.06;
+        ringHalfWidth: 0.012;
+        ringCore: 0.007;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6337,4 +6356,5 @@ export declare const proceduralTileMeters: Readonly<{
     oatflakes: 0.06;
     tigerfur: 0.4;
     grosgrainribbons: 0.06;
+    azuritemalachite: 0.2;
 }>;
