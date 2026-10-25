@@ -689,7 +689,250 @@ const kinds: ProceduralMaterialKind[] = [
   'weavingshuttles',
   'tailorstapes',
   'woodenclothespins',
+  'cinnamonbarkcoils',
 ];
+
+describe('Open cinnamon bark coils with three and a half continuous raised spiral turns lower darker rougher outer bark and true center and inter-turn clearances', () => {
+  const p = proceduralMaterialPresets.cinnamonbarkcoils;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17315),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1731b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17317) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17319) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a continuous finite three-and-half-turn bark ribbon with genuine central and inter-turn gaps and a lower darker rougher outer bark edge rather than filled cinnamon pastry or concentric rings for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cinnamonbarkcoils', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        end = 2 * Math.PI * p.turns;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            polar = (t: number, r: number) =>
+              at(r * Math.cos(t), r * Math.sin(t));
+          for (let j = 0; j <= 2048; j++) {
+            const t = 0.3 + ((end - 0.6) * j) / 2048,
+              r = p.innerRadius + (p.pitch * t) / (2 * Math.PI),
+              cut = polar(t, r),
+              bark = polar(t, r + 0.013);
+            expect(cut.height).toBeGreaterThan(0.0019199);
+            expect(cut.height).toBeLessThan(0.0019291);
+            expect(cut.occlusion).toBeCloseTo(0.99, 12);
+            expect(cut.metallic).toBe(0);
+            expect(cut.mortar).toBe(0);
+            expect(bark.height).toBeGreaterThan(0.0017999);
+            expect(bark.height).toBeLessThan(0.0018091);
+            expect(cut.height - bark.height).toBeGreaterThan(0.0001109);
+            expect(cut.color - bark.color).toBeGreaterThan(0.1549);
+            expect(bark.roughness - cut.roughness).toBeGreaterThan(0.0549);
+            expect(bark.occlusion).toBeCloseTo(0.94, 12);
+            expect(bark.metallic).toBe(0);
+            expect(bark.mortar).toBe(0);
+          }
+          for (const [x, y] of [
+            [0, 0],
+            [0.4, 0],
+            [-0.4, 0],
+          ]) {
+            const gap = at(x, y);
+            expect(gap.height).toBeGreaterThan(0.0000749);
+            expect(gap.height).toBeLessThan(0.0000811);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            expect(gap.mortar).toBe(1);
+            expect(gap.metallic).toBe(0);
+          }
+          for (const [t, expected] of [
+            [Math.PI / 2, 4],
+            [(3 * Math.PI) / 2, 3],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const solid = polar(t, (0.39 * j) / 8192).mortar < 0.5;
+              if (solid && !inside) runs++;
+              inside = solid;
+            }
+            expect(runs).toBe(expected);
+            for (let k = 0; k < expected - 1; k++) {
+              const gap = polar(
+                t,
+                p.innerRadius + p.pitch * (k + t / (2 * Math.PI) + 0.5),
+              );
+              expect(gap.mortar).toBe(1);
+              expect(gap.occlusion).toBeCloseTo(0.3, 12);
+              expect(gap.metallic).toBe(0);
+            }
+          }
+          for (const t of [-0.1, end + 0.1]) {
+            const gap = polar(t, p.innerRadius + (p.pitch * t) / (2 * Math.PI));
+            expect(gap.mortar).toBe(1);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+    },
+  );
+  it('keeps actual512 separated warm cut bark walls with darker rougher lower-AO outer bark and opaque center/inter-turn gaps rather than a solid bun or painted spiral', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('cinnamonbarkcoils', 512, seed),
+        end = 2 * Math.PI * p.turns;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (t: number, r: number) => {
+              const [u, v] = world(
+                seed,
+                col,
+                row,
+                r * Math.cos(t),
+                r * Math.sin(t),
+              );
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            center = index(0, 0);
+          expect(maps.occlusion[center]).toBeLessThan(80);
+          expect(maps.metallicRoughness[center + 2]).toBe(0);
+          for (let j = 0; j <= 64; j++) {
+            const t = 0.5 + ((end - 1) * j) / 64,
+              r = p.innerRadius + (p.pitch * t) / (2 * Math.PI),
+              cut = index(t, r),
+              bark = index(t, r + 0.013);
+            expect(maps.baseColor[cut] - maps.baseColor[bark]).toBeGreaterThan(
+              28,
+            );
+            expect(
+              maps.metallicRoughness[bark + 1] -
+                maps.metallicRoughness[cut + 1],
+            ).toBeGreaterThan(12);
+            expect(maps.occlusion[cut] - maps.occlusion[bark]).toBeGreaterThan(
+              11,
+            );
+            expect(
+              maps.occlusion[cut] - maps.occlusion[center],
+            ).toBeGreaterThan(170);
+            expect(maps.metallicRoughness[cut + 2]).toBe(0);
+            expect(maps.metallicRoughness[bark + 2]).toBe(0);
+          }
+          for (const t of [Math.PI / 2, (3 * Math.PI) / 2])
+            for (let k = 0; k < 2; k++) {
+              const gap = index(
+                t,
+                p.innerRadius + p.pitch * (k + t / (2 * Math.PI) + 0.5),
+              );
+              expect(maps.occlusion[gap]).toBeLessThan(80);
+              expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            }
+        }
+    }
+  });
+  it('keeps finite spiral endpoints taperjoins radial wallcore/support barkstripes nearest-turnowners angularbranchseams annularbounds poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      end = 2 * Math.PI * p.turns;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cinnamonbarkcoils', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const polar = (t: number, r: number) =>
+            check(...world(seed, col, row, r * Math.cos(t), r * Math.sin(t)));
+          for (let j = 0; j <= 256; j++) {
+            const t = (end * j) / 256,
+              r = p.innerRadius + (p.pitch * t) / (2 * Math.PI),
+              a = (2 * Math.PI * j) / 256;
+            for (const d of [
+              -p.wallHalf,
+              -p.wallCore,
+              0,
+              p.barkStart,
+              p.barkEnd,
+              p.wallCore,
+              p.wallHalf,
+            ])
+              polar(t, r + d);
+            for (const tt of [0, p.endFade, end - p.endFade, end])
+              polar(
+                tt,
+                p.innerRadius +
+                  (p.pitch * tt) / (2 * Math.PI) -
+                  p.wallHalf +
+                  (2 * p.wallHalf * j) / 256,
+              );
+            for (let k = -1; k <= 4; k++)
+              polar(a, p.innerRadius + p.pitch * (k + a / (2 * Math.PI) + 0.5));
+            for (const aa of [0, Math.PI, -Math.PI]) polar(aa, (0.4 * j) / 256);
+            for (const rr of [
+              p.innerRadius - p.wallHalf,
+              p.innerRadius + p.pitch * p.turns + p.wallHalf,
+            ])
+              polar(a, rr);
+          }
+        }
+    }
+  });
+});
 
 describe('Stylized wooden clothespins with two continuous longitudinal-grain jaws a flared central slit and three exposed metal spring wraps', () => {
   const p = proceduralMaterialPresets.woodenclothespins;

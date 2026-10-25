@@ -663,7 +663,8 @@ export type ProceduralMaterialKind =
   | 'nyloncableties'
   | 'weavingshuttles'
   | 'tailorstapes'
-  | 'woodenclothespins';
+  | 'woodenclothespins'
+  | 'cinnamonbarkcoils';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1561,6 +1562,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'weavingshuttles',
   'tailorstapes',
   'woodenclothespins',
+  'cinnamonbarkcoils',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

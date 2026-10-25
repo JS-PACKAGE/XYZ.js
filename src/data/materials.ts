@@ -6874,6 +6874,24 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  cinnamonbarkcoils: Object.freeze({
+    dark: [51, 22, 8] as const,
+    light: [245, 171, 104] as const,
+    roughness: 0.78,
+    relief: 0.003,
+    cells: 3,
+    turns: 3.5,
+    innerRadius: 0.038,
+    pitch: 0.085,
+    wallHalf: 0.022,
+    wallCore: 0.018,
+    endFade: 0.25,
+    barkStart: 0.005,
+    barkEnd: 0.008,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7526,4 +7544,5 @@ export const proceduralTileMeters = Object.freeze({
   weavingshuttles: 0.6,
   tailorstapes: 0.1,
   woodenclothespins: 0.6,
+  cinnamonbarkcoils: 0.09,
 });

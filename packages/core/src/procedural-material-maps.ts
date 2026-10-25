@@ -1441,6 +1441,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cinnamonbarkcoils': {
+        const p = proceduralMaterialPresets.cinnamonbarkcoils,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17311),
+          growth = p.pitch / TAU,
+          inversePitch = 1 / p.pitch,
+          maximumAngle = p.turns * TAU,
+          inverseEnd = 1 / p.endFade,
+          wallSquared = p.wallHalf * p.wallHalf,
+          inverseWall = 1 / (wallSquared - p.wallCore * p.wallCore),
+          inverseBark = 1 / (p.barkEnd - p.barkStart),
+          minimumSquared = (p.innerRadius - p.wallHalf) ** 2,
+          maximumSquared =
+            (p.innerRadius + p.pitch * p.turns + p.wallHalf) ** 2;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17315);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17317) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17319) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1731b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1731d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            q = x * x + y * y,
+            grain = grainField(u, v);
+          color = 0.04 + 0.015 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (q <= minimumSquared || q >= maximumSquared) return;
+          const radius = Math.sqrt(q);
+          let angle = Math.atan2(y, x);
+          if (angle < 0) angle += TAU;
+          const turn = Math.round(
+              (radius - p.innerRadius - growth * angle) * inversePitch,
+            ),
+            unwrapped = angle + turn * TAU,
+            d = radius - p.innerRadius - growth * unwrapped,
+            face =
+              smooth(clamp((wallSquared - d * d) * inverseWall)) *
+              smooth(clamp(unwrapped * inverseEnd)) *
+              smooth(clamp((maximumAngle - unwrapped) * inverseEnd));
+          mortar = 1 - face;
+          if (face === 0) return;
+          const bark = smooth(clamp((d - p.barkStart) * inverseBark)),
+            tone = poses[i + 5];
+          color +=
+            face * (0.62 + 0.08 * tone + 0.025 * grain - 0.18 * bark - color);
+          height += face * (0.64 + 0.003 * grain - 0.04 * bark - height);
+          roughness +=
+            face * (p.roughness + 0.025 * grain + 0.08 * bark - roughness);
+          occlusion += face * (0.99 - 0.05 * bark - occlusion);
+        };
+      }
       case 'woodenclothespins': {
         const p = proceduralMaterialPresets.woodenclothespins,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28347,6 +28414,7 @@ export function createSurfaceSampler(
     kind === 'weavingshuttles' ||
     kind === 'tailorstapes' ||
     kind === 'woodenclothespins' ||
+    kind === 'cinnamonbarkcoils' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

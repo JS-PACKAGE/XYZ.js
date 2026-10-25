@@ -837,6 +837,8 @@
 
 同輪追加 `woodenclothespins`（木衣夾），目錄647→648種：九 seeded rotated stylized 開口木衣夾，兩片連續縱紋木夾片、前後展寬中縫及三道較高亮平滑金屬 spring wraps。縫與繞圈之間露真低 opaque backing；非單木火柴或線筒／織梭，M0 wood/backing、僅 spring M1，公開 factor1 保留混合圖。0.6 m tile／0.004 m relief，沿用四圖／height／Worker／cache／tint／ownership，不新增透明洞、geometry、鉗合／彈簧／力學／夾持模擬或產品安全認證。
 
+同輪追加 `cinnamonbarkcoils`（開放肉桂樹皮捲），目錄648→649種：九 seeded rotated 捲端面，三圈半連續高暖棕螺旋、較低暗粗外皮、中央及圈間真低 opaque backing 空隙，非實心 cinnamonswirl pastry 或同心環。0.09 m tile／0.003 m relief、全 M0，四圖與 height 區分切面／外皮／空隙，沿用 Worker／cache／tint／ownership；不新增透明洞、geometry、捲曲／食品物理或植物真實性認證。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

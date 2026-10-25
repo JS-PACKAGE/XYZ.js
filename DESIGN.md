@@ -845,6 +845,8 @@
 
 `woodenclothespins` 沿用九 cached poses／128² micro／8×96 local wood grain、compact half-plane profile／squared capsule／product-complement union。兩夾片用 abs(x) 與 positive central gap 定義雙側 support-core，outer flare 採 squared-y smoothstep、nose/tail slit 採分離 smoothstep，中央 abs 軸在 empty wood；三個 spring wraps 只取最近 row，其 support0.008<pitch0.025/2，owner 前歸零。預算 squared radius/core 與 reciprocals；empty body 跳 finish、full wire 跳被遮 wood grain、empty wire 跳 metal finish，採樣無配置／hash／sqrt／trig／鄰格或逐圈掃描，full-body exact mortar0。Metallic 僅為 wire coverage，wood/backing M0，factor1 與三個 mixed-metal 測試分類同步；只是 stylized 開口表面，不實作夾持／彈簧物理。
 
+`cinnamonbarkcoils` 重用 cached poses／128² grain、squared radial support-core／smooth endfade 與最近 compact owner convention。以 r=a+(pitch/TAU)×unwrappedAngle 建有限3.5圈 spiral，round 選最近 turn；wallHalf0.022<pitch0.085/2，換 turn 時 coverage 已歸零。atan2 規一化 branch 換邊時 turn 補一，unwrappedAngle 連續；inner annular cull 避開原點奇點，finite endfade 零斜率封住起終點。預算 squared inner/outer bounds／wall core／growth／reciprocals，eligible point 至多1 sqrt+1 atan2，cull 外及 empty face 跳後續；無配置／hash／sin/cos／鄰格或逐圈掃描。正 radial flank 的 smooth bark stripe 改低高度、暗顏料、高粗糙度與低 AO，非平面填餡印花，full wall exact mortar0，全 M0。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
