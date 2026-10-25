@@ -12900,6 +12900,44 @@ var proceduralMaterialPresets = Object.freeze({
 		jitter: .015,
 		scale: .94,
 		scaleVariation: .04
+	}),
+	memorycardbacks: Object.freeze({
+		dark: [
+			14,
+			11,
+			7
+		],
+		light: [
+			244,
+			200,
+			73
+		],
+		roughness: .7,
+		relief: .004,
+		cells: 3,
+		bodyStraightX: .235,
+		bodyStraightY: .325,
+		bodyRadius: .015,
+		bodyCore: .01,
+		chamferPlane: .47,
+		chamferShoulder: .01,
+		notchX: .25,
+		notchY: .1,
+		notchStraightX: .025,
+		notchStraightY: .025,
+		notchRadius: .008,
+		notchCore: .005,
+		contacts: 8,
+		firstContactX: -.1925,
+		contactPitch: .055,
+		contactY: -.16,
+		contactStraightX: .009,
+		contactStraightY: .065,
+		contactRadius: .009,
+		contactCore: .006,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -13565,7 +13603,8 @@ var proceduralTileMeters = Object.freeze({
 	scissors: .25,
 	serpentinesprings: .2,
 	impellerfaces: .3,
-	chipresistors: .12
+	chipresistors: .12,
+	memorycardbacks: .15
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -875,6 +875,8 @@
 
 `chipresistors` 為九 seeded 高黑矩形chip resistor、雙低銀wrap端與連續白103標記，非圓柱色環axialresistors換色。Cached poses／128² grain／rounded body-terminal profiles／capsule strokes／rounded annular0字，counter露出高opaque黑body，不是元件穿孔或低backing。3由連續vertical/horizontal strokes exact union；nearest glyph/row ties及mirrored terminal owners在support外，字寬配合旋轉512像素足跡。Full body跳hidden metal，每點無配置／hash／sqrt／trig／逐glyph或鄰格掃描；黑body與亮白ink皆M0、銀端M1，body/terminal cores重疊仍exact mortar0。Ink薄高粗、body高於terminals；0.12 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變。103僅外觀標記，不認證實測阻值、電路模擬、精密元件規格或電氣／安全。
 
+`memorycardbacks` 為九 seeded 通用黑記憶卡背面、八低金接點、七高黑絕緣隙、真右上削角與開放右側key notch。Cached poses／128² grain／rounded body-pad profiles／smooth diagonal halfplane／rounded notch subtraction，nearest-pad ties在contact gap，所有pad位於full shell且避開key cuts。Empty shell跳pad/finish，每點無配置／hash／sqrt／trig／逐pad或鄰格掃描；金pad M1且低滑於高黑M0殼，接點隙保持高opaque黑body，只有削角／notch才露低opaque M0 backing。Mortar只由body coverage決定，接點／隙皆full-body exact0。0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變；通用無品牌logo靜態表面，不新增儲存存取、電路、精密尺寸、SD規範或資安／電氣／安全認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

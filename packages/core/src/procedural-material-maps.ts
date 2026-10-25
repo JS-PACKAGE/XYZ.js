@@ -1441,6 +1441,90 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'memorycardbacks': {
+        const p = proceduralMaterialPresets.memorycardbacks,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18211),
+          bodySquared = p.bodyRadius * p.bodyRadius,
+          inverseBody = 1 / (bodySquared - p.bodyCore * p.bodyCore),
+          inverseChamfer = 1 / p.chamferShoulder,
+          notchSquared = p.notchRadius * p.notchRadius,
+          inverseNotch = 1 / (notchSquared - p.notchCore * p.notchCore),
+          contactSquared = p.contactRadius * p.contactRadius,
+          inverseContact = 1 / (contactSquared - p.contactCore * p.contactCore),
+          inversePitch = 1 / p.contactPitch;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x18215);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18217) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18219) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1821b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1821d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            bx = Math.max(0, Math.abs(x) - p.bodyStraightX),
+            by = Math.max(0, Math.abs(y) - p.bodyStraightY),
+            nx = Math.max(0, Math.abs(x - p.notchX) - p.notchStraightX),
+            ny = Math.max(0, Math.abs(y - p.notchY) - p.notchStraightY),
+            notch = smooth(
+              clamp((notchSquared - nx * nx - ny * ny) * inverseNotch),
+            ),
+            body =
+              smooth(clamp((bodySquared - bx * bx - by * by) * inverseBody)) *
+              smooth(clamp((p.chamferPlane - x + y) * inverseChamfer)) *
+              (1 - notch);
+          mortar = 1 - body;
+          if (body === 0) return;
+          // Eight compact contact supports stay inside the full keyed shell;
+          // nearest-pad ties reveal high black insulation, not low backing.
+          const owner = Math.max(
+              0,
+              Math.min(
+                p.contacts - 1,
+                Math.floor((x - p.firstContactX) * inversePitch + 0.5),
+              ),
+            ),
+            cx = Math.max(
+              0,
+              Math.abs(x - p.firstContactX - owner * p.contactPitch) -
+                p.contactStraightX,
+            ),
+            cy = Math.max(0, Math.abs(y - p.contactY) - p.contactStraightY),
+            contact = smooth(
+              clamp((contactSquared - cx * cx - cy * cy) * inverseContact),
+            ),
+            grain = grainField(u, v),
+            black = 0.04 + 0.01 * poses[i + 5]! + 0.02 * grain;
+          color +=
+            body * (black + contact * (0.94 + 0.02 * grain - black) - color);
+          height += body * (0.6 - 0.04 * contact + 0.003 * grain - height);
+          roughness +=
+            body *
+            (p.roughness +
+              0.025 * grain +
+              contact * (0.26 - p.roughness) -
+              roughness);
+          occlusion += body * (0.99 - 0.01 * contact - occlusion);
+          metallic = body * contact;
+        };
+      }
       case 'chipresistors': {
         const p = proceduralMaterialPresets.chipresistors,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29866,6 +29950,7 @@ export function createSurfaceSampler(
     kind === 'serpentinesprings' ||
     kind === 'impellerfaces' ||
     kind === 'chipresistors' ||
+    kind === 'memorycardbacks' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

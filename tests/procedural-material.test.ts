@@ -704,7 +704,298 @@ const kinds: ProceduralMaterialKind[] = [
   'serpentinesprings',
   'impellerfaces',
   'chipresistors',
+  'memorycardbacks',
 ];
+
+describe('Keyed memory-card backs with eight recessed gold contacts high black insulation a true clipped corner and an open side notch', () => {
+  const p = proceduralMaterialPresets.memorycardbacks;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18215),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1821b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18217) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18219) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine black keyed shells with exactly eight lower gold contacts seven high insulating gaps true asymmetric corner cuts and open side notches for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('memorycardbacks', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            base = at(0, 0.22),
+            black = (value: SurfaceSample) => {
+              expect(value.height).toBeGreaterThanOrEqual(0.0023999);
+              expect(value.height).toBeLessThanOrEqual(0.0024121);
+              expect(value.metallic).toBe(0);
+              expect(value.mortar).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+            },
+            back = (value: SurfaceSample) => {
+              expect(value.height).toBeCloseTo(0.0001, 12);
+              expect(value.metallic).toBe(0);
+              expect(value.mortar).toBe(1);
+              expect(value.occlusion).toBeCloseTo(0.3, 12);
+            };
+          black(base);
+          for (let contact = 0; contact < p.contacts; contact++) {
+            const x = p.firstContactX + contact * p.contactPitch;
+            for (let j = 0; j <= 512; j++) {
+              const value = at(
+                x,
+                p.contactY -
+                  p.contactStraightY +
+                  (2 * p.contactStraightY * j) / 512,
+              );
+              expect(value.height).toBeGreaterThanOrEqual(0.0022399);
+              expect(value.height).toBeLessThanOrEqual(0.0022521);
+              expect(value.metallic).toBe(1);
+              expect(value.mortar).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.98, 12);
+              expect(base.height - value.height).toBeGreaterThan(0.0001479);
+              expect(value.color - base.color).toBeGreaterThan(0.8699);
+              expect(base.roughness - value.roughness).toBeGreaterThan(0.4149);
+            }
+            if (contact < p.contacts - 1)
+              for (let j = 0; j <= 128; j++)
+                black(
+                  at(
+                    x + p.contactPitch / 2,
+                    p.contactY -
+                      p.contactStraightY +
+                      (2 * p.contactStraightY * j) / 128,
+                  ),
+                );
+          }
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              x = 0.15 + 0.08 * t;
+            back(at(x, x - 0.48));
+            black(at(x, x - 0.455));
+            black(at(-x, x - 0.48));
+            back(at(0.235, 0.08 + 0.04 * t));
+            black(at(-0.235, 0.08 + 0.04 * t));
+            back(at(0.225 + 0.045 * t, p.notchY));
+          }
+          black(at(0.21, p.notchY));
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const value = at(-0.24 + (0.48 * j) / 8192, p.contactY),
+              next = value.metallic > 0.9;
+            if (next && !inside) runs++;
+            inside = next;
+          }
+          expect(runs).toBe(8);
+        }
+    },
+  );
+  it('writes eight recessed yellow-gold M1 pads high black M0 gaps and genuinely missing keyed corners in actual512 PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('memorycardbacks', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let contact = 0; contact < p.contacts; contact++) {
+            const x = p.firstContactX + contact * p.contactPitch,
+              pad = pixel(x, p.contactY);
+            expect(maps.baseColor[pad]!).toBeGreaterThan(225);
+            expect(maps.baseColor[pad + 1]!).toBeGreaterThan(180);
+            expect(maps.baseColor[pad + 2]!).toBeLessThan(90);
+            expect(maps.metallicRoughness[pad + 2]).toBe(255);
+            expect(maps.occlusion[pad]!).toBeGreaterThan(245);
+            if (contact < p.contacts - 1) {
+              const gap = pixel(x + p.contactPitch / 2, p.contactY);
+              expect(maps.baseColor[gap]!).toBeLessThan(40);
+              expect(maps.baseColor[gap + 1]!).toBeLessThan(35);
+              expect(maps.metallicRoughness[gap + 2]).toBe(0);
+              expect(maps.occlusion[gap]!).toBeGreaterThan(250);
+              expect(maps.height![gap]!).toBeGreaterThan(245);
+              expect(maps.height![gap]! - maps.height![pad]!).toBeGreaterThan(
+                12,
+              );
+              expect(
+                maps.metallicRoughness[gap + 1]! -
+                  maps.metallicRoughness[pad + 1]!,
+              ).toBeGreaterThan(95);
+            }
+          }
+          for (const [x, y] of [
+            [0.23, -0.31],
+            [0.235, p.notchY],
+          ]) {
+            const cut = pixel(x!, y!),
+              mirror = pixel(-x!, y!);
+            expect(maps.occlusion[cut]!).toBeLessThan(80);
+            expect(maps.height![cut]).toBe(0);
+            expect(maps.metallicRoughness[cut + 2]).toBe(0);
+            expect(maps.occlusion[mirror]!).toBeGreaterThan(250);
+            expect(maps.height![mirror]!).toBeGreaterThan(245);
+            expect(maps.baseColor[mirror]!).toBeLessThan(40);
+          }
+        }
+    }
+  });
+  it('repeats gold contact black gap and keyed silhouette channels across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('memorycardbacks', 7),
+      other = createSurfaceSampler('memorycardbacks', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(100);
+  });
+  it('keeps body rounded corners diagonal key cut open side notch eight rounded pad cores supports owners poses grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('memorycardbacks', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const r of [p.bodyRadius, p.bodyCore])
+              for (const sx of [-1, 1])
+                for (const sy of [-1, 1]) {
+                  local(
+                    sx * p.bodyStraightX + r * ct,
+                    sy * p.bodyStraightY + r * st,
+                  );
+                  local(
+                    sx * (p.bodyStraightX + r),
+                    -p.bodyStraightY + 2 * p.bodyStraightY * t,
+                  );
+                  local(
+                    -p.bodyStraightX + 2 * p.bodyStraightX * t,
+                    sy * (p.bodyStraightY + r),
+                  );
+                }
+            for (const d of [0, p.chamferShoulder]) {
+              const x = -0.26 + 0.52 * t;
+              local(x, x - p.chamferPlane + d);
+            }
+            for (const r of [p.notchRadius, p.notchCore])
+              for (const sx of [-1, 1])
+                for (const sy of [-1, 1]) {
+                  local(
+                    p.notchX + sx * p.notchStraightX + r * ct,
+                    p.notchY + sy * p.notchStraightY + r * st,
+                  );
+                  local(
+                    p.notchX + sx * (p.notchStraightX + r),
+                    p.notchY - p.notchStraightY + 2 * p.notchStraightY * t,
+                  );
+                  local(
+                    p.notchX - p.notchStraightX + 2 * p.notchStraightX * t,
+                    p.notchY + sy * (p.notchStraightY + r),
+                  );
+                }
+            for (let contact = 0; contact < p.contacts; contact++) {
+              const x = p.firstContactX + contact * p.contactPitch;
+              for (const r of [p.contactRadius, p.contactCore])
+                for (const sx of [-1, 1])
+                  for (const sy of [-1, 1]) {
+                    local(
+                      x + sx * p.contactStraightX + r * ct,
+                      p.contactY + sy * p.contactStraightY + r * st,
+                    );
+                    local(
+                      x + sx * (p.contactStraightX + r),
+                      p.contactY -
+                        p.contactStraightY +
+                        2 * p.contactStraightY * t,
+                    );
+                    local(
+                      x - p.contactStraightX + 2 * p.contactStraightX * t,
+                      p.contactY + sy * (p.contactStraightY + r),
+                    );
+                  }
+              if (contact < p.contacts - 1)
+                local(x + p.contactPitch / 2, -0.35 + 0.7 * t);
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Chip resistors with lower silver wrap terminals a higher black rectangle and continuous white nonmetal 103 marking with an opaque black zero counter', () => {
   const p = proceduralMaterialPresets.chipresistors;
@@ -45884,6 +46175,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'serpentinesprings' &&
           kind !== 'impellerfaces' &&
           kind !== 'chipresistors' &&
+          kind !== 'memorycardbacks' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -55311,6 +55603,7 @@ describe('procedural preset acquisition and ownership', () => {
     'serpentinesprings',
     'impellerfaces',
     'chipresistors',
+    'memorycardbacks',
     'standingseam',
     'damascus',
     'castiron',
@@ -55398,6 +55691,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'serpentinesprings' ||
           kind === 'impellerfaces' ||
           kind === 'chipresistors' ||
+          kind === 'memorycardbacks' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
