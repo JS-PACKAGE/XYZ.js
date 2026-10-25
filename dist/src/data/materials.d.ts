@@ -5593,6 +5593,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         pitRadius: 0.014;
         pitCore: 0.009;
     }>;
+    graphicgranite: Readonly<{
+        dark: readonly [34, 25, 25];
+        light: readonly [222, 176, 151];
+        roughness: 0.24;
+        relief: 0.002;
+        cells: 4;
+        clusters: 3;
+        roots: readonly [-0.13, -0.1, 0.13, -0.08, 0, 0.14];
+        jitter: 0.02;
+        arms: 2;
+        angleGap: 0.9;
+        angleVariation: 0.25;
+        strokeOffset: 0.065;
+        halfLength: 0.14;
+        lengthVariation: 0.035;
+        halfWidth: 0.025;
+        widthVariation: 0.008;
+        shoulder: 0.18;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6189,4 +6208,5 @@ export declare const proceduralTileMeters: Readonly<{
     tactileswitches: 0.24;
     paisleybrocade: 0.4;
     siliconepastrybrushes: 0.32;
+    graphicgranite: 0.2;
 }>;

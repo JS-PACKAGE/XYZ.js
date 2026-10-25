@@ -631,7 +631,183 @@ const kinds: ProceduralMaterialKind[] = [
   'tactileswitches',
   'paisleybrocade',
   'siliconepastrybrushes',
+  'graphicgranite',
 ];
+
+describe('Polished pink graphic granite with coplanar pointed quartz intergrowth scripts', () => {
+  const p = proceduralMaterialPresets.graphicgranite;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const stroke = (seed: number, cell: number, cluster: number, arm: number) => {
+    const group = cell * p.clusters + cluster,
+      angle =
+        Math.PI * 2 * hash(group, 0, seed ^ 0x13c17) +
+        arm * (p.angleGap + p.angleVariation * hash(group, 3, seed ^ 0x13c1d)),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      rootX =
+        p.roots[cluster * 2] +
+        p.jitter * (2 * hash(group, 1, seed ^ 0x13c19) - 1),
+      rootY =
+        p.roots[cluster * 2 + 1] +
+        p.jitter * (2 * hash(group, 2, seed ^ 0x13c1b) - 1);
+    return {
+      c,
+      s,
+      rootX,
+      rootY,
+      x: rootX - p.strokeOffset * c,
+      y: rootY - p.strokeOffset * s,
+      length:
+        p.halfLength + p.lengthVariation * hash(group, arm, seed ^ 0x13c1f),
+      width: p.halfWidth + p.widthVariation * hash(group, arm, seed ^ 0x13c21),
+    };
+  };
+  const uv = (col: number, row: number, x: number, y: number) =>
+    [(col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps three paired tapered quartz intergrowths per cell dark but flush with pink feldspar instead of carving or raising the scripts for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('graphicgranite', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0.44, 0.44);
+          const hostHeight = out.height;
+          expect(out.color).toBeGreaterThan(0.83);
+          expect(hostHeight).toBeGreaterThanOrEqual(0.00076);
+          expect(hostHeight).toBeLessThanOrEqual(0.000762);
+          for (let cluster = 0; cluster < p.clusters; cluster++) {
+            const root = stroke(seed, row * p.cells + col, cluster, 0);
+            at(root.rootX, root.rootY);
+            expect(out.color).toBeLessThan(0.15);
+            for (let arm = 0; arm < p.arms; arm++) {
+              const a = stroke(seed, row * p.cells + col, cluster, arm);
+              at(a.rootX - 0.12 * a.c, a.rootY - 0.12 * a.s);
+              expect(out.color).toBeLessThan(0.15);
+              expect(Math.abs(out.height - hostHeight)).toBeLessThan(0.0000021);
+              expect(out.roughness).toBeGreaterThanOrEqual(0.24);
+              expect(out.roughness).toBeLessThanOrEqual(0.26);
+              expect(out.occlusion).toBe(1);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+          }
+        }
+      let dark = 0,
+        pale = 0,
+        darkHeight = 0,
+        paleHeight = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity;
+      for (let y = 0; y < 160; y++)
+        for (let x = 0; x < 160; x++) {
+          sample((x + 0.5) / 160, (y + 0.5) / 160, out);
+          minHeight = Math.min(minHeight, out.height);
+          maxHeight = Math.max(maxHeight, out.height);
+          if (out.color < 0.3) {
+            dark++;
+            darkHeight += out.height;
+          }
+          if (out.color > 0.8) {
+            pale++;
+            paleHeight += out.height;
+          }
+        }
+      expect(dark / 25600).toBeGreaterThan(0.015);
+      expect(dark / 25600).toBeLessThan(0.15);
+      expect(pale / 25600).toBeGreaterThan(0.75);
+      expect(maxHeight - minHeight).toBeLessThan(0.0000021);
+      expect(Math.abs(darkHeight / dark - paleHeight / pale)).toBeLessThan(
+        0.0000002,
+      );
+    },
+  );
+  it('keeps all paired pointed stroke silhouettes and shoulders, intersections, cell owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('graphicgranite', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let cluster = 0; cluster < p.clusters; cluster++)
+            for (let arm = 0; arm < p.arms; arm++) {
+              const a = stroke(seed, row * p.cells + col, cluster, arm);
+              check(...uv(col, row, a.rootX, a.rootY));
+              for (const field of [0, p.shoulder])
+                for (let i = 0; i <= 14; i++) {
+                  const along = -0.7 + i * 0.1,
+                    across = Math.sqrt((1 - along * along) ** 2 - field);
+                  for (const side of [-1, 1])
+                    check(
+                      ...uv(
+                        col,
+                        row,
+                        a.x +
+                          along * a.length * a.c -
+                          side * across * a.width * a.s,
+                        a.y +
+                          along * a.length * a.s +
+                          side * across * a.width * a.c,
+                      ),
+                    );
+                }
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    a.x + sign * a.length * a.c,
+                    a.y + sign * a.length * a.s,
+                  ),
+                );
+            }
+    }
+  });
+});
 
 describe('One-piece silicone pastry brushes with long handles, wide heads and seven separated prongs', () => {
   const p = proceduralMaterialPresets.siliconepastrybrushes;

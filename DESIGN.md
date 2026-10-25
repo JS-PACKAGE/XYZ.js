@@ -735,6 +735,8 @@
 
 `siliconepastrybrushes` 預算 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact 長 capsule 柄／rounded 寬頭／七 nearest-owner capsule 刷齒。Head 蓋柄頸與刷齒根、三層 coherent replacement，交接中心有 full coverage overlap、齒間保留 neutral opaque backing。柄端 pit 支撐全在 full handle、保持 solid，所有支撐限 cell、七齒支撐在 owner 邊界前歸零；全 dielectric。空 silhouette 略過 grain、空 handle 略過 pit、空 head 略過最終 replacement，採樣無配置／hash／sqrt／trig。不新增 geometry、毛刷／液體／彎折物理、食品接觸／耐熱認證。
 
+`graphicgranite` 預算 16 tones、96 pointed strokes 的 centers／axes／inverse lengths and widths、8² clouds／192² grain 與 shoulder reciprocal。4×4 cells 各三組 jittered roots／seeded angles／兩條尖細交生 stroke；normalized along² 的 cap 再平方，扣 across² 的 smooth cover 以 product union 定 quartz pigment，端尖零斜率歸零、全支撐限 cell。深淺礦物共用 flat microheight／roughness／AO 1、不作刻字或凸脈。空 along 支撐略過 across、union 已滿即停，full quartz 略過 feldspar cloud；採樣無配置／hash／sqrt／trig。不新增 geometry、透明石英、晶體生長或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

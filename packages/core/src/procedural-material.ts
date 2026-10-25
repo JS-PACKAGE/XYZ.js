@@ -608,7 +608,8 @@ export type ProceduralMaterialKind =
   | 'celerycuts'
   | 'tactileswitches'
   | 'paisleybrocade'
-  | 'siliconepastrybrushes';
+  | 'siliconepastrybrushes'
+  | 'graphicgranite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1451,6 +1452,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tactileswitches',
   'paisleybrocade',
   'siliconepastrybrushes',
+  'graphicgranite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

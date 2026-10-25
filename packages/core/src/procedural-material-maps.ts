@@ -1428,6 +1428,86 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'graphicgranite': {
+        const p = proceduralMaterialPresets.graphicgranite,
+          stride = p.clusters * p.arms * 6,
+          strokes = new Float64Array(p.cells * p.cells * stride),
+          tones = new Float64Array(p.cells * p.cells),
+          inverseShoulder = 1 / p.shoulder,
+          clouds = cachedNoise(8, 8, seed ^ 0x13c11),
+          grainField = cachedNoise(192, 192, seed ^ 0x13c13);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col;
+            tones[cell] = hash(col, row, seed ^ 0x13c15);
+            for (let cluster = 0; cluster < p.clusters; cluster++) {
+              const group = cell * p.clusters + cluster,
+                rotation = TAU * hash(group, 0, seed ^ 0x13c17),
+                x =
+                  p.roots[cluster * 2] +
+                  p.jitter * (2 * hash(group, 1, seed ^ 0x13c19) - 1),
+                y =
+                  p.roots[cluster * 2 + 1] +
+                  p.jitter * (2 * hash(group, 2, seed ^ 0x13c1b) - 1),
+                gap =
+                  p.angleGap +
+                  p.angleVariation * hash(group, 3, seed ^ 0x13c1d);
+              for (let arm = 0; arm < p.arms; arm++) {
+                const index = cell * stride + (cluster * p.arms + arm) * 6,
+                  angle = rotation + arm * gap,
+                  c = Math.cos(angle),
+                  s = Math.sin(angle);
+                strokes[index] = x - p.strokeOffset * c;
+                strokes[index + 1] = y - p.strokeOffset * s;
+                strokes[index + 2] = c;
+                strokes[index + 3] = s;
+                strokes[index + 4] =
+                  1 /
+                  (p.halfLength +
+                    p.lengthVariation * hash(group, arm, seed ^ 0x13c1f));
+                strokes[index + 5] =
+                  1 /
+                  (p.halfWidth +
+                    p.widthVariation * hash(group, arm, seed ^ 0x13c21));
+              }
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            cell = Math.floor(vc) * p.cells + Math.floor(uc),
+            offset = cell * stride,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          let outside = 1;
+          for (let i = offset; i < offset + stride; i += 6) {
+            const dx = x - strokes[i],
+              dy = y - strokes[i + 1],
+              along =
+                (dx * strokes[i + 2] + dy * strokes[i + 3]) * strokes[i + 4];
+            if (along <= -1 || along >= 1) continue;
+            const across =
+                (dy * strokes[i + 2] - dx * strokes[i + 3]) * strokes[i + 5],
+              cap = 1 - along * along,
+              cover = smooth(
+                clamp((cap * cap - across * across) * inverseShoulder),
+              );
+            outside *= 1 - cover;
+            if (outside === 0) break;
+          }
+          const grain = grainField(u, v);
+          color = 0.08 + 0.035 * tones[cell] + 0.025 * grain;
+          if (outside > 0)
+            color +=
+              outside * (0.84 + 0.1 * clouds(u, v) + 0.025 * grain - color);
+          // Pointed paired quartz intergrowths are pigment in polished
+          // feldspar, not carved characters, raised veins or metallic grains.
+          height = 0.38 + 0.001 * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'siliconepastrybrushes': {
         const p = proceduralMaterialPresets.siliconepastrybrushes,
           tones = new Float64Array(p.cells * p.cells),
@@ -23751,6 +23831,7 @@ export function createSurfaceSampler(
     kind === 'tactileswitches' ||
     kind === 'paisleybrocade' ||
     kind === 'siliconepastrybrushes' ||
+    kind === 'graphicgranite' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

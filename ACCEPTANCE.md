@@ -7485,3 +7485,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 593-preset siliconepastrybrushes、擷取畫面／512 base-color detail，見交錯橘色長柄寬刷頭、七條分離刷齒、opaque 中性底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 siliconepastrybrushes 並重算既有 592 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6678 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：文象花崗岩（graphicgranite）
+
+- 目錄 593→594 種；0.2 m opaque dielectric tile、metallic 0，粉長石上 stylized 三組成對尖細石英交生紋，非 dendriticagate 蕨枝或 gneiss 摺曲帶。Cached 16 tones、96 stroke centers／axes／inverse lengths and widths、8² clouds／192² grain／shoulder reciprocal；4×4 cells 各三 jittered roots／兩 seeded tapered strokes，cap²−across² smooth covers／product union、尖端零斜率歸零、支撐限 cell。Quartz／feldspar 共用 microheight／roughness／AO 1，不作刻字或凸脈。空 along 跳過 across、union 滿即停、full quartz 跳過 feldspar cloud，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明石英、晶體生長或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 cells ×3 paired scripts，shared roots／兩側長臂維持暗 quartz、corner host 明 pink，height 0.000760–0.000762 m、roughness 0.24–0.26、AO 1／metallic 0。160² field dark fraction 1.5–15%、pale >75%，全域 height range <0.0000021 m、dark/pale mean height 差 <0.0000002 m；193² 與 exact pointed stroke silhouettes／shoulders／intersections／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 594-preset graphicgranite、擷取畫面／512 base-color detail，見粉色連續平石面、深色尖細交生紋、平 normal／白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 graphicgranite 並重算既有 593 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6683 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
