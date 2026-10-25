@@ -683,7 +683,319 @@ const kinds: ProceduralMaterialKind[] = [
   'splitvanillapods',
   'seamrippers',
   'flakedarrowheads',
+  'dandelionseeds',
 ];
+
+describe('Stylized dandelion seeds with sixteen thin off-white pappus fibers a connected lower tan stalk and a raised brown seed', () => {
+  const p = proceduralMaterialPresets.dandelionseeds;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16d15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16d1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16d17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16d19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sixteen separate fully connected thin fiber rays and true exposed gaps joined through a lower tan stalk to a raised brown seed rather than a solid daisy disk for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dandelionseeds', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, 0.09), out);
+          const stalk = { ...out };
+          expect(stalk.height).toBeGreaterThan(0.0005249);
+          expect(stalk.height).toBeLessThan(0.0005296);
+          expect(stalk.occlusion).toBeCloseTo(0.98, 12);
+          expect(stalk.mortar).toBe(0);
+          expect(stalk.metallic).toBe(0);
+          sample(...world(seed, col, row, 0, p.seedY), out);
+          const body = { ...out };
+          expect(body.height).toBeGreaterThan(0.0007199);
+          expect(body.height).toBeLessThan(0.0007246);
+          expect(body.height - stalk.height).toBeGreaterThan(0.0001904);
+          expect(stalk.color - body.color).toBeGreaterThan(0.1699);
+          expect(body.occlusion).toBeCloseTo(0.98, 12);
+          expect(body.mortar).toBe(0);
+          expect(body.metallic).toBe(0);
+          for (let ray = 0; ray < p.rays; ray++) {
+            const a = (2 * Math.PI * ray) / p.rays,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (let j = 0; j <= 1024; j++) {
+              const r = (p.rayLength * j) / 1024;
+              sample(...world(seed, col, row, r * c, p.hubY + r * s), out);
+              expect(out.height).toBeGreaterThan(0.0007799);
+              expect(out.height).toBeLessThan(0.0007846);
+              expect(out.height - body.height).toBeGreaterThan(0.0000554);
+              expect(out.height - stalk.height).toBeGreaterThan(0.0002504);
+              expect(out.color - body.color).toBeGreaterThan(0.5999);
+              expect(out.color - stalk.color).toBeGreaterThan(0.4099);
+              expect(out.roughness - stalk.roughness).toBeGreaterThan(0.0999);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+            const gap = a + Math.PI / p.rays;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.12 * Math.cos(gap),
+                p.hubY + 0.12 * Math.sin(gap),
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0000374);
+            expect(out.height).toBeLessThan(0.0000406);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+          }
+          for (let j = 0; j <= 2048; j++) {
+            const y = p.hubY + ((0.3 - p.hubY) * j) / 2048;
+            sample(...world(seed, col, row, 0, y), out);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeGreaterThanOrEqual(0.98);
+          }
+          for (const r of [0.12, 0.19]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = (2 * Math.PI * j) / 8192 + Math.PI / p.rays;
+              sample(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(a),
+                  p.hubY + r * Math.sin(a),
+                ),
+                out,
+              );
+              const white = out.color > 0.75;
+              if (white && !inside) runs++;
+              inside = white;
+            }
+            expect(runs).toBe(16);
+          }
+        }
+    },
+  );
+  it('keeps actual512 all sixteen white rough fiber ends above backing gaps a lower tan stalk and a distinct dark brown raised seed with no metal', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('dandelionseeds', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (
+                (Math.min(511, Math.floor(v * 512)) * 512 +
+                  Math.min(511, Math.floor(u * 512))) *
+                4
+              );
+            },
+            stalk = index(0, 0.09),
+            body = index(0, p.seedY);
+          for (const at of [stalk, body])
+            expect(maps.metallicRoughness[at + 2]).toBe(0);
+          for (let ray = 0; ray < p.rays; ray++) {
+            const a = (2 * Math.PI * ray) / p.rays,
+              g = a + Math.PI / p.rays,
+              fiber = index(
+                p.rayLength * Math.cos(a),
+                p.hubY + p.rayLength * Math.sin(a),
+              ),
+              gap = index(0.12 * Math.cos(g), p.hubY + 0.12 * Math.sin(g));
+            expect(
+              maps.baseColor[fiber] - maps.baseColor[body],
+            ).toBeGreaterThan(105);
+            expect(
+              maps.baseColor[fiber] - maps.baseColor[stalk],
+            ).toBeGreaterThan(70);
+            expect(maps.baseColor[fiber] - maps.baseColor[gap]).toBeGreaterThan(
+              60,
+            );
+            expect(
+              maps.metallicRoughness[fiber + 1] -
+                maps.metallicRoughness[stalk + 1],
+            ).toBeGreaterThan(24);
+            expect(maps.occlusion[fiber] - maps.occlusion[gap]).toBeGreaterThan(
+              150,
+            );
+            expect(maps.metallicRoughness[fiber + 2]).toBe(0);
+            expect(maps.metallicRoughness[gap + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps fullhub angularownership joins bothatan2wraps fiber/stalk capsule supports cores endcircles projectionjoins seedellipse completeposeowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dandelionseeds', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              a = 2 * Math.PI * t;
+            for (const r of [p.hubRadius, p.hubCore])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(a),
+                  p.hubY + r * Math.sin(a),
+                ),
+              );
+            for (const q of [1, 1 - p.seedEdge]) {
+              const r = Math.sqrt(q);
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.seedRadiusX * r * Math.cos(a),
+                  p.seedY + p.seedRadiusY * r * Math.sin(a),
+                ),
+              );
+            }
+            for (const r of [p.stemRadius, p.stemCore]) {
+              for (const side of [-1, 1])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    side * r,
+                    p.hubY + (p.stemBottom - p.hubY) * t,
+                  ),
+                );
+              for (const y of [p.hubY, p.stemBottom])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    r * Math.cos(a),
+                    y + r * Math.sin(a),
+                  ),
+                );
+            }
+            for (const y of [p.hubY, p.stemBottom])
+              check(...world(seed, col, row, -0.05 + 0.1 * t, y));
+          }
+          for (let ray = 0; ray < p.rays; ray++) {
+            const a = (2 * Math.PI * ray) / p.rays,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              owner = a + Math.PI / p.rays;
+            for (let j = 0; j <= 128; j++) {
+              const r = ((p.rayLength + p.rayRadius) * j) / 128;
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(owner),
+                  p.hubY + r * Math.sin(owner),
+                ),
+              );
+              check(...world(seed, col, row, -r, p.hubY));
+            }
+            for (const r of [p.rayRadius, p.rayCore])
+              for (let j = 0; j <= 64; j++) {
+                const t = j / 64,
+                  along = p.rayLength * t,
+                  angle = 2 * Math.PI * t;
+                for (const side of [-1, 1])
+                  check(
+                    ...world(
+                      seed,
+                      col,
+                      row,
+                      along * c - side * r * s,
+                      p.hubY + along * s + side * r * c,
+                    ),
+                  );
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.rayLength * c + r * Math.cos(angle),
+                    p.hubY + p.rayLength * s + r * Math.sin(angle),
+                  ),
+                );
+              }
+          }
+        }
+    }
+  });
+});
 
 describe('Stemmed flint-inspired arrowheads with two open lateral notches a raised center ridge and five real oblique flake-scar valleys on each face', () => {
   const p = proceduralMaterialPresets.flakedarrowheads;

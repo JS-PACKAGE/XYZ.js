@@ -6732,6 +6732,30 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  dandelionseeds: Object.freeze({
+    dark: [52, 39, 26] as const,
+    light: [245, 239, 221] as const,
+    roughness: 0.87,
+    relief: 0.0015,
+    cells: 3,
+    rays: 16,
+    hubY: -0.17,
+    hubRadius: 0.04,
+    hubCore: 0.033,
+    rayLength: 0.2,
+    rayRadius: 0.006,
+    rayCore: 0.004,
+    stemBottom: 0.15,
+    stemRadius: 0.008,
+    stemCore: 0.005,
+    seedY: 0.235,
+    seedRadiusX: 0.035,
+    seedRadiusY: 0.095,
+    seedEdge: 0.2,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7378,4 +7402,5 @@ export const proceduralTileMeters = Object.freeze({
   splitvanillapods: 0.6,
   seamrippers: 0.6,
   flakedarrowheads: 0.4,
+  dandelionseeds: 0.09,
 });

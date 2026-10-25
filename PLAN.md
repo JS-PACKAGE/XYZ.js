@@ -825,6 +825,8 @@
 
 同輪追加 `flakedarrowheads`（剝痕有莖石鏃），目錄641→642種：16 seeded rotated 燧石風三角點與窄莖，雙側開缺口露 opaque backing、中央高稜兩側前方 facets 各五個較低、暗、粗的斜剝痕。不是雙根鯊齒、燧石砌牆或僅色斑；0.4 m tile、全 M0，沿用四圖、選用 height 與 ownership。不新增 geometry、真利刃／洞、打製／飛行／命中／武器或物理模擬，也不宣稱考古真實性。依功能驗證提交，不 push。
 
+同輪追加 `dandelionseeds`（冠毛蒲公英種子），目錄642→643種：九個 seeded rotated stylized 種子，十六條細乳白冠毛透過完整中央 hub 接低淡褐梗與較高棕籽，細輻之間露 opaque backing，不是十二寬花瓣的 daisy disk。0.09 m tile、全 M0，height／roughness／color／AO 區分冠毛、梗、籽，沿用四圖、選用 height 與 ownership；不新增 geometry、透明纖維／洞、植物／種子生長、風／飄飛或物理模擬，不認證微觀纖維或植物真實性。依功能驗證提交，不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -1441,6 +1441,112 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dandelionseeds': {
+        const p = proceduralMaterialPresets.dandelionseeds,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(p.rays * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x16d11),
+          raySquared = p.rayRadius * p.rayRadius,
+          inverseRay = 1 / (raySquared - p.rayCore * p.rayCore),
+          hubSquared = p.hubRadius * p.hubRadius,
+          hubCoreSquared = p.hubCore * p.hubCore,
+          inverseHub = 1 / (hubSquared - hubCoreSquared),
+          reach = p.rayLength + p.rayRadius,
+          reachSquared = reach * reach,
+          minimumY = p.hubY - reach,
+          maximumY = p.seedY + p.seedRadiusY,
+          inverseAngle = p.rays / TAU,
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          inverseSeedX = 1 / (p.seedRadiusX * p.seedRadiusX),
+          inverseSeedY = 1 / (p.seedRadiusY * p.seedRadiusY),
+          inverseSeedEdge = 1 / p.seedEdge;
+        for (let ray = 0; ray < p.rays; ray++) {
+          const a = (TAU * ray) / p.rays;
+          axes[ray * 2] = Math.cos(a);
+          axes[ray * 2 + 1] = Math.sin(a);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16d15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16d17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16d19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16d1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x16d1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (Math.abs(x) > reach || y < minimumY || y > maximumY) return;
+          const sy = y - Math.max(p.hubY, Math.min(p.stemBottom, y)),
+            stem = smooth(clamp((stemSquared - x * x - sy * sy) * inverseStem)),
+            ey = y - p.seedY,
+            body = smooth(
+              clamp(
+                (1 - x * x * inverseSeedX - ey * ey * inverseSeedY) *
+                  inverseSeedEdge,
+              ),
+            ),
+            fy = y - p.hubY,
+            q = x * x + fy * fy;
+          let pappus = 0;
+          // The full hub covers angular joins until adjacent fibers have disjoint support.
+          if (q <= hubCoreSquared) pappus = 1;
+          else if (q < reachSquared) {
+            const nearest = Math.floor(Math.atan2(fy, x) * inverseAngle + 0.5),
+              index = (nearest < 0 ? nearest + p.rays : nearest) * 2,
+              c = axes[index],
+              s = axes[index + 1],
+              along = x * c + fy * s,
+              projection = Math.max(0, Math.min(p.rayLength, along)),
+              rx = x - projection * c,
+              ry = fy - projection * s,
+              ray = smooth(
+                clamp((raySquared - rx * rx - ry * ry) * inverseRay),
+              ),
+              hub = smooth(clamp((hubSquared - q) * inverseHub));
+            pappus = 1 - (1 - hub) * (1 - ray);
+          }
+          if (stem !== 0) {
+            color += stem * (0.45 + 0.02 * grain - color);
+            height += stem * (0.35 + 0.003 * grain - height);
+            roughness += stem * (0.75 + 0.02 * grain - roughness);
+            occlusion += stem * (0.98 - occlusion);
+            mortar *= 1 - stem;
+          }
+          if (body !== 0) {
+            color += body * (0.22 + 0.04 * poses[i + 5] + 0.02 * grain - color);
+            height += body * (0.48 + 0.003 * grain - height);
+            roughness += body * (0.74 + 0.03 * grain - roughness);
+            occlusion += body * (0.98 - occlusion);
+            mortar *= 1 - body;
+          }
+          if (pappus !== 0) {
+            color +=
+              pappus * (0.88 + 0.03 * poses[i + 5] + 0.02 * grain - color);
+            height += pappus * (0.52 + 0.003 * grain - height);
+            roughness += pappus * (p.roughness + 0.03 * grain - roughness);
+            occlusion += pappus * (0.99 - occlusion);
+            mortar *= 1 - pappus;
+          }
+        };
+      }
       case 'flakedarrowheads': {
         const p = proceduralMaterialPresets.flakedarrowheads,
           poses = new Float64Array(p.cells * p.cells * 8),
@@ -27831,6 +27937,7 @@ export function createSurfaceSampler(
     kind === 'splitvanillapods' ||
     kind === 'seamrippers' ||
     kind === 'flakedarrowheads' ||
+    kind === 'dandelionseeds' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
