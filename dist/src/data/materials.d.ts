@@ -5216,6 +5216,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribGap: 0.32;
         ribRadius: 0.095;
     }>;
+    ballbearingfaces: Readonly<{
+        dark: readonly [17, 20, 25];
+        light: readonly [232, 237, 241];
+        roughness: 0.28;
+        relief: 0.006;
+        cells: 4;
+        radius: 0.44;
+        edge: 0.415;
+        bore: 0.135;
+        boreEdge: 0.16;
+        raceRadius: 0.29;
+        raceSquaredBand: 0.04;
+        raceShoulder: 0.25;
+        ballRadius: 0.073;
+        ballCore: 0.055;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5791,4 +5807,5 @@ export declare const proceduralTileMeters: Readonly<{
     lathplaster: 0.8;
     ceramiccapacitors: 0.12;
     fennelseeds: 0.096;
+    ballbearingfaces: 0.16;
 }>;

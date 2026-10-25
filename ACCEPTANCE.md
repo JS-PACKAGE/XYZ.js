@@ -7317,3 +7317,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 放大初版貼圖發現細肋顏料對比太弱；取消未完成的 pre-contrast full gate，只將 rib pigment 權重 0.025→0.14，不改形態／高度／roughness／AO，重新啟動 targeted 與完整 gate。最終 Managed Chromium `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 572-preset fennelseeds、擷取畫面；1024 base-color 2×2 籽粒放大 detail 可見五條收斂淡肋。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 最終新 build 生成 fennelseeds 並重算既有 571 種（含 cardamompods／sesame）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 最終 contrast 下 targeted 五項再次通過。完整 gate：build、typecheck、lint、format:check、179 個測試檔／6567 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：開放式滾珠軸承端面（ballbearingfaces）
+
+- 目錄 572→573 種；0.16 m opaque mixed-metallic tile、factor 1，同心內外圈／低連續滾道／八凸鋼球，中心孔與背底 metallic 0。Cached 16 tones／96×96 grain／reciprocal extents，compact squared annular／channel／coherent sphere replacement；cardinal／diagonal octant 單查球，radius 0.073 <0.29 sin(π/8)，support 在 owner 前歸零，face 零略過 channel／balls／grain。採樣無配置／hash／sqrt／atan2／trig／逐球 scan。沿四圖／選用 height／ownership，不新增 geometry、透明孔、保持架、滾動／旋轉／潤滑／機械或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、borrowed-map ownership）：3 seeds ×16 軸承、1440-point 環剖面各恰八高凸金屬 runs；球頂高 >0.00495 m、相對滾道高 >0.0031 m，內外圈在 0.0038–0.004 m，滾道仍 metallic 1、中心孔／外背底 0。129² 雙向、exact bore／outer／race／sphere shoulders 與 octant owner C1 通過，factor 1／獨立 material／override ownership／destroy 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 573-preset ballbearingfaces、擷取畫面；512 base-color detail 顯示內外雙圈、八球與低暗滾道。實際 factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 ballbearingfaces 並重算既有 572 種（含 ballchain／squarewashers）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6573 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

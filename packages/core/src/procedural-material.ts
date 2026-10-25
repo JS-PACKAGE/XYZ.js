@@ -587,7 +587,8 @@ export type ProceduralMaterialKind =
   | 'sewingsnaps'
   | 'lathplaster'
   | 'ceramiccapacitors'
-  | 'fennelseeds';
+  | 'fennelseeds'
+  | 'ballbearingfaces';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1409,6 +1410,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'ballbearingfaces',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1610,6 +1612,7 @@ export class ProceduralMaterial {
         this.kind === 'axialresistors' ||
         this.kind === 'sewingsnaps' ||
         this.kind === 'ceramiccapacitors' ||
+        this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

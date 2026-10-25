@@ -1428,6 +1428,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ballbearingfaces': {
+        const p = proceduralMaterialPresets.ballbearingfaces,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseEdge = 1 / (radiusSquared - p.edge * p.edge),
+          boreSquared = p.bore * p.bore,
+          inverseBore = 1 / (p.boreEdge * p.boreEdge - boreSquared),
+          raceSquared = p.raceRadius * p.raceRadius,
+          inverseRace = 1 / p.raceSquaredBand,
+          inverseShoulder = 1 / p.raceShoulder,
+          ballSquared = p.ballRadius * p.ballRadius,
+          inverseBall = 1 / ballSquared,
+          inverseBallEdge = 1 / (ballSquared - p.ballCore * p.ballCore),
+          diagonal = p.raceRadius * Math.SQRT1_2,
+          octant = Math.SQRT2 - 1,
+          grainField = cachedNoise(96, 96, seed ^ 0x12711);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12713);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            r2 = x * x + y * y,
+            face =
+              smooth(clamp((radiusSquared - r2) * inverseEdge)) *
+              smooth(clamp((r2 - boreSquared) * inverseBore));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = face;
+          if (face === 0) return;
+          const q = (r2 - raceSquared) * inverseRace,
+            channel = smooth(clamp((1 - q * q) * inverseShoulder)),
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          // The eight ball supports vanish well before their octant owners
+          // change, so one cardinal/diagonal lookup needs neither atan2 nor a scan.
+          let bx: number, by: number;
+          if (ay < ax * octant) {
+            bx = x < 0 ? -p.raceRadius : p.raceRadius;
+            by = 0;
+          } else if (ax < ay * octant) {
+            bx = 0;
+            by = y < 0 ? -p.raceRadius : p.raceRadius;
+          } else {
+            bx = x < 0 ? -diagonal : diagonal;
+            by = y < 0 ? -diagonal : diagonal;
+          }
+          const dx = x - bx,
+            dy = y - by,
+            distanceSquared = dx * dx + dy * dy,
+            ball = smooth(
+              clamp((ballSquared - distanceSquared) * inverseBallEdge),
+            ),
+            grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)];
+          color +=
+            face * (0.69 + 0.05 * tone + 0.015 * grain - 0.3 * channel - color);
+          height += face * (0.65 + 0.003 * grain - 0.37 * channel - height);
+          roughness +=
+            face * (p.roughness + 0.015 * grain + 0.22 * channel - roughness);
+          occlusion += face * (0.98 - 0.27 * channel - occlusion);
+          if (ball === 0) return;
+          const dome = smooth(clamp(1 - distanceSquared * inverseBall));
+          color += ball * (0.8 + 0.15 * dome + 0.015 * grain - color);
+          height += ball * (0.69 + 0.14 * dome + 0.003 * grain - height);
+          roughness += ball * (0.17 + 0.015 * grain - roughness);
+          occlusion += ball * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'fennelseeds': {
         const p = proceduralMaterialPresets.fennelseeds,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -22329,6 +22403,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'ballbearingfaces' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

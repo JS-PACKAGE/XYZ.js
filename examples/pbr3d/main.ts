@@ -651,6 +651,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'ballbearingfaces',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

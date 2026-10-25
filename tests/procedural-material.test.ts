@@ -610,7 +610,146 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'ballbearingfaces',
 ];
+
+describe('Open ball bearing faces with concentric races and eight raised steel balls', () => {
+  const p = proceduralMaterialPresets.ballbearingfaces;
+  const uv = (col: number, row: number, x: number, y: number) =>
+    [(col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps eight convex metal balls above a lower continuous raceway between two rings and an opaque nonmetal bore for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ballbearingfaces', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          expect(out.metallic).toBe(0);
+          expect(out.height).toBeLessThan(0.0002);
+          expect(out.occlusion).toBeLessThan(0.4);
+          for (const radius of [0.18, 0.39]) {
+            at(radius, 0);
+            expect(out.metallic).toBe(1);
+            expect(out.height).toBeGreaterThan(0.0038);
+            expect(out.height).toBeLessThan(0.004);
+            expect(out.roughness).toBeLessThan(0.3);
+          }
+          for (let ball = 0; ball < 8; ball++) {
+            const angle = (ball * Math.PI) / 4;
+            at(p.raceRadius * Math.cos(angle), p.raceRadius * Math.sin(angle));
+            const peak = out.height;
+            expect(out.metallic).toBe(1);
+            expect(peak).toBeGreaterThan(0.00495);
+            expect(out.roughness).toBeLessThan(0.19);
+            expect(out.occlusion).toBeGreaterThan(0.98);
+            const gapAngle = angle + Math.PI / 8;
+            at(
+              p.raceRadius * Math.cos(gapAngle),
+              p.raceRadius * Math.sin(gapAngle),
+            );
+            expect(out.metallic).toBe(1);
+            expect(peak - out.height).toBeGreaterThan(0.0031);
+            expect(out.roughness).toBeGreaterThan(0.49);
+            expect(out.occlusion).toBeLessThan(0.73);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1440; i++) {
+            const angle = Math.PI / 8 + (i * 2 * Math.PI) / 1440;
+            at(p.raceRadius * Math.cos(angle), p.raceRadius * Math.sin(angle));
+            expect(out.metallic).toBe(1);
+            const raised = out.height > 0.0044;
+            if (raised && !previous) runs++;
+            previous = raised;
+          }
+          expect(runs).toBe(8);
+          at(0.48, 0.48);
+          expect(out.metallic).toBe(0);
+          expect(out.height).toBeLessThan(0.0002);
+        }
+    },
+  );
+  it('keeps octant ownership, bore and outer shoulders, spherical caps, raceway shoulders and both UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ballbearingfaces', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      const radii: number[] = [p.radius, p.edge, p.bore, p.boreEdge];
+      for (const q of [
+        -1,
+        -Math.sqrt(1 - p.raceShoulder),
+        Math.sqrt(1 - p.raceShoulder),
+        1,
+      ])
+        radii.push(Math.sqrt(p.raceRadius ** 2 + p.raceSquaredBand * q));
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of radii)
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+          for (let ball = 0; ball < 8; ball++) {
+            const angle = (ball * Math.PI) / 4,
+              x = p.raceRadius * Math.cos(angle),
+              y = p.raceRadius * Math.sin(angle);
+            for (const radius of [p.ballRadius, p.ballCore])
+              for (let i = 0; i < 16; i++) {
+                const turn = (i * Math.PI) / 8;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    x + radius * Math.cos(turn),
+                    y + radius * Math.sin(turn),
+                  ),
+                );
+              }
+          }
+        }
+    }
+  });
+});
 
 describe('Bowed pointed fennel seeds with five longitudinal ribs', () => {
   const p = proceduralMaterialPresets.fennelseeds;
@@ -26329,6 +26468,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'ballbearingfaces' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -26348,7 +26488,8 @@ describe('periodic procedural material fields', () => {
         kind === 'screwterminalblocks' ||
         kind === 'axialresistors' ||
         kind === 'sewingsnaps' ||
-        kind === 'ceramiccapacitors'
+        kind === 'ceramiccapacitors' ||
+        kind === 'ballbearingfaces'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -35749,6 +35890,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'ballbearingfaces',
     'standingseam',
     'damascus',
     'castiron',
@@ -35806,6 +35948,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'ballbearingfaces' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
