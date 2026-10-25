@@ -7453,3 +7453,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 589-preset flatflexcables、擷取畫面／512 base-color detail，見交錯琥珀薄排線、六條 dielectric 淺線與單端六銀色接點。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 flatflexcables 並重算既有 588 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6657 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：芹菜橫切片（celerycuts）
+
+- 目錄 589→590 種；0.24 m opaque dielectric tile、metallic 0，開口彎月形淺綠果肉／較低薄綠皮／五個 solid 維管束凹點。Cached 16 rotations／tones、五個 vascular centers、128² grain 與 squared ellipse／circle reciprocals；outer/notch smooth products 定 body，較小 outer／較大 notch 定 flesh，flesh support 全在 full body、vascular supports 全在 full flesh、全部 support 限 cell。Coherent replacement，body 零略過 grain／flesh、flesh 零略過 vascular，採樣無配置／hash／sqrt／trig。沿 neutral opaque backing／四圖／選用 height／ownership，不新增 geometry、透明孔、汁液、切割／生長／營養或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 slices，開口／中央低 backing <0.000201 m／AO 0.3；兩 pale arms 與下底 flesh 0.003759–0.003785 m／AO 0.99，五維管束 0.003319–0.003345 m／AO 0.93，比相鄰 flesh 低 >0.00041 m／metallic 0；薄皮 0.001999–0.002025 m／AO 0.98。2049-point 開口橫剖面兩段 pale arms，129² 與 exact 四組 elliptical shoulders／五圈 vascular shoulders／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 590-preset celerycuts、擷取畫面／512 base-color detail，見隨機旋轉開口綠色彎月、薄皮／淺肉／五個暗色點、中性 opaque 底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 celerycuts 並重算既有 589 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6662 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

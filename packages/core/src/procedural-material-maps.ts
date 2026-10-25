@@ -1428,6 +1428,115 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'celerycuts': {
+        const p = proceduralMaterialPresets.celerycuts,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          vessels = new Float64Array(p.vessels * 2),
+          inverseOuterX = 1 / (p.outerX * p.outerX),
+          inverseOuterY = 1 / (p.outerY * p.outerY),
+          inverseNotchX = 1 / (p.notchX * p.notchX),
+          inverseNotchY = 1 / (p.notchY * p.notchY),
+          inverseFleshX = 1 / (p.fleshX * p.fleshX),
+          inverseFleshY = 1 / (p.fleshY * p.fleshY),
+          inverseFleshNotchX = 1 / (p.fleshNotchX * p.fleshNotchX),
+          inverseFleshNotchY = 1 / (p.fleshNotchY * p.fleshNotchY),
+          inverseOuterShoulder = 1 / p.outerShoulder,
+          inverseNotchShoulder = 1 / p.notchShoulder,
+          inverseFleshShoulder = 1 / p.fleshShoulder,
+          inverseFleshNotchShoulder = 1 / p.fleshNotchShoulder,
+          vesselSquared = p.vesselRadius * p.vesselRadius,
+          inverseVessel = 1 / (vesselSquared - p.vesselCore * p.vesselCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x13811);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 3,
+              angle = TAU * hash(col, row, seed ^ 0x13813);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] = hash(col, row, seed ^ 0x13815);
+          }
+        for (let i = 0; i < p.vessels; i++) {
+          const angle = p.vesselStart + i * p.vesselStep;
+          vessels[i * 2] = p.vesselX * Math.cos(angle);
+          vessels[i * 2 + 1] = p.vesselOffset + p.vesselY * Math.sin(angle);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 3,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            xx = x * x,
+            yy = y * y,
+            ny = (y + p.notchOffset) ** 2,
+            outer = smooth(
+              clamp(
+                (1 - xx * inverseOuterX - yy * inverseOuterY) *
+                  inverseOuterShoulder,
+              ),
+            ),
+            notch = smooth(
+              clamp(
+                (1 - xx * inverseNotchX - ny * inverseNotchY) *
+                  inverseNotchShoulder,
+              ),
+            ),
+            body = outer * (1 - notch);
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[index + 2],
+            flesh =
+              smooth(
+                clamp(
+                  (1 - xx * inverseFleshX - yy * inverseFleshY) *
+                    inverseFleshShoulder,
+                ),
+              ) *
+              (1 -
+                smooth(
+                  clamp(
+                    (1 - xx * inverseFleshNotchX - ny * inverseFleshNotchY) *
+                      inverseFleshNotchShoulder,
+                  ),
+                ));
+          color += body * (0.4 + 0.08 * tone + 0.02 * grain - color);
+          height += body * (0.25 + 0.003 * grain - height);
+          roughness += body * (0.82 + 0.025 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          if (flesh === 0) return;
+          let outside = 1;
+          for (let i = 0; i < vessels.length; i += 2) {
+            const vx = x - vessels[i],
+              vy = y - vessels[i + 1];
+            outside *=
+              1 -
+              smooth(
+                clamp((vesselSquared - vx * vx - vy * vy) * inverseVessel),
+              );
+          }
+          const vascular = 1 - outside,
+            pale = 0.82 + 0.08 * tone + 0.02 * grain;
+          // The crescent is open to opaque backing. Vascular bundles are
+          // small solid dimples inside the pale flesh, not drilled holes.
+          color +=
+            flesh *
+            (pale +
+              vascular * (0.22 + 0.04 * tone + 0.025 * grain - pale) -
+              color);
+          height += flesh * (0.47 + 0.003 * grain - 0.055 * vascular - height);
+          roughness +=
+            flesh * (p.roughness + 0.02 * grain - 0.02 * vascular - roughness);
+          occlusion += flesh * (0.99 - 0.06 * vascular - occlusion);
+          return;
+        };
+      }
       case 'flatflexcables': {
         const p = proceduralMaterialPresets.flatflexcables,
           tones = new Float64Array(p.cells * p.cells),
@@ -23411,6 +23520,7 @@ export function createSurfaceSampler(
     kind === 'rubbergrommets' ||
     kind === 'chioggiabeetcuts' ||
     kind === 'flatflexcables' ||
+    kind === 'celerycuts' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

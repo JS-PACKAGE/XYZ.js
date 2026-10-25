@@ -627,7 +627,175 @@ const kinds: ProceduralMaterialKind[] = [
   'rubbergrommets',
   'chioggiabeetcuts',
   'flatflexcables',
+  'celerycuts',
 ];
+
+describe('Open crescent celery cuts with pale flesh, thin rind and five solid vascular dimples', () => {
+  const p = proceduralMaterialPresets.celerycuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = Math.PI * 2 * hash(col, row, seed ^ 0x13813),
+      c = Math.cos(angle),
+      s = Math.sin(angle);
+    return [
+      (col + 0.5 + x * c - y * s) / p.cells,
+      (row + 0.5 + x * s + y * c) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps the open mouth and core on opaque backing, joins two pale arms through one lower base, and recesses five green vascular spots for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('celerycuts', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          for (const y of [-0.2, -0.1, 0]) {
+            at(0, y);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+          for (const [x, y] of [
+            [-0.3, -0.06],
+            [0.3, -0.06],
+            [0, 0.17],
+          ]) {
+            at(x, y);
+            expect(out.color).toBeGreaterThan(0.81);
+            expect(out.height).toBeGreaterThan(0.003759);
+            expect(out.height).toBeLessThan(0.003785);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          for (let i = 0; i < p.vessels; i++) {
+            const angle = p.vesselStart + i * p.vesselStep,
+              x = p.vesselX * Math.cos(angle),
+              y = p.vesselOffset + p.vesselY * Math.sin(angle);
+            at(x, y);
+            const vascularHeight = out.height;
+            expect(out.color).toBeLessThan(0.29);
+            expect(vascularHeight).toBeGreaterThan(0.003319);
+            expect(vascularHeight).toBeLessThan(0.003345);
+            expect(out.occlusion).toBeCloseTo(0.93, 12);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            for (const side of [-1, 1]) {
+              at(x + side * 0.025, y);
+              expect(out.color).toBeGreaterThan(0.81);
+              expect(out.height - vascularHeight).toBeGreaterThan(0.00041);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+            }
+          }
+          at(0, 0.258);
+          expect(out.color).toBeLessThan(0.51);
+          expect(out.height).toBeGreaterThan(0.001999);
+          expect(out.height).toBeLessThan(0.002025);
+          expect(out.occlusion).toBeCloseTo(0.98, 12);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(-0.38 + (0.76 * i) / 2048, -0.06);
+            const pale = out.height > 0.0035;
+            if (pale && !previous) runs++;
+            previous = pale;
+          }
+          expect(runs).toBe(2);
+        }
+    },
+  );
+  it('keeps intersecting elliptical rind/flesh/notch shoulders, all five vascular circles, seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      ellipses = [
+        [p.outerX, p.outerY, 0, p.outerShoulder],
+        [p.notchX, p.notchY, -p.notchOffset, p.notchShoulder],
+        [p.fleshX, p.fleshY, 0, p.fleshShoulder],
+        [p.fleshNotchX, p.fleshNotchY, -p.notchOffset, p.fleshNotchShoulder],
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('celerycuts', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const [rx, ry, cy, shoulder] of ellipses)
+            for (const radius of [1, Math.sqrt(1 - shoulder)])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    radius * rx * Math.cos(angle),
+                    cy + radius * ry * Math.sin(angle),
+                  ),
+                );
+              }
+          for (let vessel = 0; vessel < p.vessels; vessel++) {
+            const angle = p.vesselStart + vessel * p.vesselStep,
+              x = p.vesselX * Math.cos(angle),
+              y = p.vesselOffset + p.vesselY * Math.sin(angle);
+            for (const radius of [p.vesselRadius, p.vesselCore])
+              for (let i = 0; i < 32; i++) {
+                const angle = (i * Math.PI) / 16;
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x + radius * Math.cos(angle),
+                    y + radius * Math.sin(angle),
+                  ),
+                );
+              }
+          }
+        }
+    }
+  });
+});
 
 describe('Flat flex cables with insulated traces and six exposed contacts at only one end', () => {
   const p = proceduralMaterialPresets.flatflexcables;

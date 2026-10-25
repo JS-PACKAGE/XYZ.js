@@ -604,7 +604,8 @@ export type ProceduralMaterialKind =
   | 'peppermintcanes'
   | 'rubbergrommets'
   | 'chioggiabeetcuts'
-  | 'flatflexcables';
+  | 'flatflexcables'
+  | 'celerycuts';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1443,6 +1444,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rubbergrommets',
   'chioggiabeetcuts',
   'flatflexcables',
+  'celerycuts',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

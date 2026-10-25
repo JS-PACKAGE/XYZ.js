@@ -5501,6 +5501,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         traceEnd: 0.185;
         traceShoulder: 0.035;
     }>;
+    celerycuts: Readonly<{
+        dark: readonly [31, 75, 20];
+        light: readonly [224, 242, 174];
+        roughness: 0.74;
+        relief: 0.008;
+        cells: 4;
+        outerX: 0.35;
+        outerY: 0.27;
+        outerShoulder: 0.08;
+        notchX: 0.26;
+        notchY: 0.24;
+        notchOffset: 0.14;
+        notchShoulder: 0.12;
+        fleshX: 0.33;
+        fleshY: 0.245;
+        fleshShoulder: 0.08;
+        fleshNotchX: 0.28;
+        fleshNotchY: 0.26;
+        fleshNotchShoulder: 0.1;
+        vessels: 5;
+        vesselX: 0.27;
+        vesselY: 0.2;
+        vesselOffset: 0.005;
+        vesselStart: number;
+        vesselStep: number;
+        vesselRadius: 0.012;
+        vesselCore: 0.008;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6093,4 +6121,5 @@ export declare const proceduralTileMeters: Readonly<{
     rubbergrommets: 0.16;
     chioggiabeetcuts: 0.24;
     flatflexcables: 0.24;
+    celerycuts: 0.24;
 }>;
