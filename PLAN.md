@@ -709,6 +709,8 @@
 
 同輪追加 `buckwheathulls`（蕎麥帶殼籽粒），目錄 583→584 種：seeded 旋轉／微偏移三角外形、三個圓滑面與細高稜，非 fennelseeds 長條彎籽。0.064 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增種子 geometry、透明孔、剝殼／生長／烹煮、營養或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `rutilatedquartz`（針狀金紅石石英），目錄 584→585 種：乳白連續拋光面、兩組各三交叉金褐尖針 inclusion，非 quartz 六角晶柱／pyrite 金屬方晶。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明／折射／透射、晶內深度、多層體積散射、礦物生長或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

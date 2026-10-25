@@ -7413,3 +7413,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 584-preset buckwheathulls、擷取最終畫面／512 base-color detail，見旋轉三角棕色籽粒三面與細稜。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 buckwheathulls 並重算既有 583 種（含 fennelseeds／pumpkinseeds）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6631 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：針狀金紅石石英（rutilatedquartz）
+
+- 目錄 584→585 種；0.2 m opaque dielectric tile、metallic 0，連續乳白拋光面／兩組各三交叉金褐尖針 inclusion，非 quartz 六角柱／pyrite 金屬方晶。Cached 32 rotations／96 inverse squared lengths／8² cloud／128² grain／reciprocals，compact tapered covers／nearest clamped owners／product union；radius 0.008 <半 pitch 0.0225，所有 finite supports 限 cell。空 width 略過 cap，針 union 只改 pigment、不疊高／成 metal／挖 AO 孔；採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明／透射／折射、晶內深度、多層體積散射、礦物生長或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 cells ×2 bundles，各 1025-point 橫剖面恰三針；尖針 color <0.38、間隙／兩有限尖端外 color >0.81、metallic 0／AO 1、roughness 0.19–0.21，針與間隙高度差 <0.0000021 m。193² 雙向與 exact tapered needle shoulders／crossing unions／nearest owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 585-preset rutilatedquartz、擷取畫面／512 base-color detail，見兩組交叉尖針束、連續乳白底及平 normal／全白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 rutilatedquartz 並重算既有 584 種（含 quartz／pyrite／dendriticagate）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6636 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

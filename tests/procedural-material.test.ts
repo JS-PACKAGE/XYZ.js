@@ -622,7 +622,156 @@ const kinds: ProceduralMaterialKind[] = [
   'tortoiseshellacetate',
   'cathedralquilt',
   'buckwheathulls',
+  'rutilatedquartz',
 ];
+
+describe('Polished milky rutile quartz with crossed dielectric needle bundles', () => {
+  const p = proceduralMaterialPresets.rutilatedquartz;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (
+    seed: number,
+    col: number,
+    row: number,
+    bundle: number,
+    along: number,
+    across: number,
+  ) => {
+    const angle =
+      2 * Math.PI * hash(col, row, seed ^ 0x13315) +
+      (bundle
+        ? p.crossAngle + p.crossVariation * hash(col, row, seed ^ 0x13317)
+        : 0);
+    return [
+      (col + 0.5 + along * Math.cos(angle) - across * Math.sin(angle)) /
+        p.cells,
+      (row + 0.5 + along * Math.sin(angle) + across * Math.cos(angle)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two crossed three-needle bundles finite and flush inside a continuous nonmetal polished stone face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rutilatedquartz', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let bundle = 0; bundle < 2; bundle++) {
+            const at = (along: number, across: number) =>
+              sample(...uv(seed, col, row, bundle, along, across), out);
+            for (let needle = -1; needle <= 1; needle++) {
+              at(0.17, needle * p.needlePitch);
+              const height = out.height;
+              expect(out.color).toBeLessThan(0.38);
+              expect(out.metallic).toBe(0);
+              expect(out.occlusion).toBe(1);
+              expect(out.roughness).toBeGreaterThanOrEqual(0.19);
+              expect(out.roughness).toBeLessThanOrEqual(0.21);
+              at(0.17, (needle + 0.5) * p.needlePitch);
+              expect(out.color).toBeGreaterThan(0.81);
+              expect(Math.abs(out.height - height)).toBeLessThan(0.0000021);
+              for (const tip of [-0.42, 0.42]) {
+                at(tip, needle * p.needlePitch);
+                expect(out.color).toBeGreaterThan(0.81);
+                expect(out.metallic).toBe(0);
+                expect(out.occlusion).toBe(1);
+              }
+            }
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 1024; i++) {
+              at(0.17, (i / 1024 - 0.5) * 0.19);
+              const needle = out.color < 0.5;
+              if (needle && !previous) runs++;
+              previous = needle;
+            }
+            expect(runs).toBe(3);
+          }
+    },
+  );
+  it('keeps crossed needle unions, tapered shoulders, nearest bundle owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rutilatedquartz', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let bundle = 0; bundle < 2; bundle++)
+            for (let needle = -1; needle <= 1; needle++) {
+              const cell = row * p.cells + col,
+                length =
+                  p.length +
+                  p.lengthVariation *
+                    hash(cell, bundle * 3 + needle + 1, seed ^ 0x13319);
+              for (let i = 0; i <= 32; i++) {
+                const along = length * (i / 16 - 1),
+                  cap = 1 - (along / length) ** 2;
+                for (const shoulder of [0, p.shoulder]) {
+                  if (cap * cap < shoulder) continue;
+                  for (const sign of [-1, 1])
+                    check(
+                      ...uv(
+                        seed,
+                        col,
+                        row,
+                        bundle,
+                        along,
+                        needle * p.needlePitch +
+                          sign *
+                            p.needleRadius *
+                            Math.sqrt(cap * cap - shoulder),
+                      ),
+                    );
+                }
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    bundle,
+                    along,
+                    (needle + 0.5) * p.needlePitch,
+                  ),
+                );
+              }
+            }
+    }
+  });
+});
 
 describe('Triangular buckwheat hulls with three rounded faces and fine ridges', () => {
   const p = proceduralMaterialPresets.buckwheathulls,

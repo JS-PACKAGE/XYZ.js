@@ -1428,6 +1428,74 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rutilatedquartz': {
+        const p = proceduralMaterialPresets.rutilatedquartz,
+          poses = new Float64Array(p.cells * p.cells * 10),
+          inversePitch = 1 / p.needlePitch,
+          inverseWidth = 1 / (p.needleRadius * p.needleRadius),
+          inverseShoulder = 1 / p.shoulder,
+          cloudField = cachedNoise(8, 8, seed ^ 0x13311),
+          grainField = cachedNoise(128, 128, seed ^ 0x13313);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col,
+              index = cell * 10,
+              angle = TAU * hash(col, row, seed ^ 0x13315),
+              turn =
+                angle +
+                p.crossAngle +
+                p.crossVariation * hash(col, row, seed ^ 0x13317);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] = Math.cos(turn);
+            poses[index + 3] = Math.sin(turn);
+            for (let needle = 0; needle < 6; needle++) {
+              const length =
+                p.length +
+                p.lengthVariation * hash(cell, needle, seed ^ 0x13319);
+              poses[index + 4 + needle] = 1 / (length * length);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 10,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          let outside = 1;
+          for (let bundle = 0; bundle < 2; bundle++) {
+            const pose = index + bundle * 2,
+              along = x * poses[pose] + y * poses[pose + 1],
+              across = y * poses[pose] - x * poses[pose + 1],
+              owner = Math.max(
+                -1,
+                Math.min(1, Math.round(across * inversePitch)),
+              ),
+              distance = across - owner * p.needlePitch;
+            if (Math.abs(distance) >= p.needleRadius) continue;
+            const cap = clamp(
+                1 - along * along * poses[index + 5 + bundle * 3 + owner],
+              ),
+              needle = smooth(
+                clamp(
+                  (cap * cap - distance * distance * inverseWidth) *
+                    inverseShoulder,
+                ),
+              );
+            outside *= 1 - needle;
+          }
+          const grain = grainField(u, v),
+            needle = 1 - outside;
+          color = 0.82 + 0.14 * cloudField(u, v);
+          // Rutile inclusions color one opaque polished stone face; they are
+          // dielectric needles, not raised metal wires or transparent depth.
+          color += needle * (0.32 + 0.05 * grain - color);
+          height = 0.35 + 0.001 * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'buckwheathulls': {
         const p = proceduralMaterialPresets.buckwheathulls,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -23075,6 +23143,7 @@ export function createSurfaceSampler(
     kind === 'tortoiseshellacetate' ||
     kind === 'cathedralquilt' ||
     kind === 'buckwheathulls' ||
+    kind === 'rutilatedquartz' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

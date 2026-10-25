@@ -5415,6 +5415,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         ridgeEnd: 0.27;
         ridgeTip: 0.035;
     }>;
+    rutilatedquartz: Readonly<{
+        dark: readonly [104, 60, 5];
+        light: readonly [241, 240, 221];
+        roughness: 0.19;
+        relief: 0.002;
+        cells: 4;
+        needlePitch: 0.045;
+        needleRadius: 0.008;
+        length: 0.26;
+        lengthVariation: 0.1;
+        shoulder: 0.25;
+        crossAngle: 0.9;
+        crossVariation: 0.4;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6002,4 +6016,5 @@ export declare const proceduralTileMeters: Readonly<{
     tortoiseshellacetate: 0.2;
     cathedralquilt: 0.6;
     buckwheathulls: 0.064;
+    rutilatedquartz: 0.2;
 }>;
