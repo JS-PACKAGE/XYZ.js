@@ -785,6 +785,8 @@
 
 同輪追加 `driedtamarindpods`（乾羅望子莢），目錄 621→622 種：四個粉粗棕殼鼓包／三個實際縮窄且較低收腰／短果梗，非既有 greenpeapods 連續尖莢內藏 seed bulges。0.32 m opaque dielectric tile、metallic 0，沿 neutral opaque backing／四圖／選用 height／ownership；不新增 geometry、透明孔、可剝殼／果肉／種子、植物／食物／烹煮或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `conicalsampletubes`（封蓋錐底樣品管表面），目錄 622→623 種：不透明藍色管身漸縮錐底／高平滑閉蓋／較低單側連蓋帶／略高較亮粗糙霧面橢圓標籤。0.24 m opaque dielectric tile、metallic 0，沿 neutral opaque backing／四圖／選用 height／ownership；僅 stylized closed-tube shading，不新增 geometry、透明／transmission、管腔／液體／容積／開蓋／離心模擬、醫療／無菌／額定或安全認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

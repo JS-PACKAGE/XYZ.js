@@ -1441,6 +1441,98 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'conicalsampletubes': {
+        const p = proceduralMaterialPresets.conicalsampletubes,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x15911),
+          inverseX = 1 / (p.bodyRadius * p.bodyRadius),
+          inverseTaper = 1 / p.taperLength,
+          inverseTop = 1 / p.topShoulder,
+          inverseShoulder = 1 / p.shoulder,
+          inverseCapX = 1 / (p.capX * p.capX),
+          inverseCapY = 1 / (p.capY * p.capY),
+          inverseHingeX = 1 / (p.hingeX * p.hingeX),
+          inverseHingeY = 1 / (p.hingeY * p.hingeY),
+          inverseLabelX = 1 / (p.labelX * p.labelX),
+          inverseLabelY = 1 / (p.labelY * p.labelY);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15915);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15917) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15919) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1591b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1591d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            taper = 1 - smooth(clamp((y - p.taperStart) * inverseTaper)),
+            field = taper * taper - x * x * inverseX,
+            tube =
+              smooth(clamp(field * inverseShoulder)) *
+              smooth(clamp((y - p.bodyTop) * inverseTop)),
+            cy = y - p.capCenter,
+            cap =
+              smooth(clamp((1 - x * x * inverseCapX) * inverseShoulder)) *
+              smooth(clamp((1 - cy * cy * inverseCapY) * inverseShoulder)),
+            hx = x - p.hingeCenterX,
+            hy = y - p.hingeCenterY,
+            hinge =
+              smooth(clamp((1 - hx * hx * inverseHingeX) * inverseShoulder)) *
+              smooth(clamp((1 - hy * hy * inverseHingeY) * inverseShoulder)),
+            body = 1 - (1 - tube) * (1 - cap) * (1 - hinge);
+          mortar = 1 - body;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5];
+          if (hinge > 0 && tube < 1 && cap < 1) {
+            color += hinge * (0.4 + 0.08 * tone + 0.02 * grain - color);
+            height += hinge * (0.29 + 0.003 * grain - height);
+            roughness += hinge * (0.64 + 0.02 * grain - roughness);
+            occlusion += hinge * (0.97 - occlusion);
+          }
+          if (tube > 0 && cap < 1) {
+            let c = 0.48 + 0.12 * tone + 0.025 * grain,
+              h = 0.32 + 0.12 * smooth(clamp(field)) + 0.003 * grain,
+              r = p.roughness + 0.02 * grain;
+            const ly = y - p.labelCenter,
+              label = smooth(
+                clamp(
+                  (1 - x * x * inverseLabelX - ly * ly * inverseLabelY) *
+                    inverseShoulder,
+                ),
+              );
+            if (label > 0) {
+              c += label * (0.82 + 0.05 * tone + 0.02 * grain - c);
+              h += label * (0.455 + 0.003 * grain - h);
+              r += label * (0.88 + 0.02 * grain - r);
+            }
+            color += tube * (c - color);
+            height += tube * (h - height);
+            roughness += tube * (r - roughness);
+            occlusion += tube * (0.99 - occlusion);
+          }
+          if (cap > 0) {
+            color += cap * (0.67 + 0.1 * tone + 0.02 * grain - color);
+            height += cap * (0.54 + 0.003 * grain - height);
+            roughness += cap * (0.3 + 0.02 * grain - roughness);
+            occlusion += cap * (0.995 - occlusion);
+          }
+        };
+      }
       case 'driedtamarindpods': {
         const p = proceduralMaterialPresets.driedtamarindpods,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26157,6 +26249,7 @@ export function createSurfaceSampler(
     kind === 'coaxialcablecuts' ||
     kind === 'shippocloth' ||
     kind === 'driedtamarindpods' ||
+    kind === 'conicalsampletubes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

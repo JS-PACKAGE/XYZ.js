@@ -663,7 +663,243 @@ const kinds: ProceduralMaterialKind[] = [
   'coaxialcablecuts',
   'shippocloth',
   'driedtamarindpods',
+  'conicalsampletubes',
 ];
+
+describe('Opaque capped conical sample-tube faces with side tether and rough frosted oval label', () => {
+  const p = proceduralMaterialPresets.conicalsampletubes;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15915),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1591b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15917) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15919) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps one closed tapered tube higher smooth cap lower side tether and rough bright frosted label for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('conicalsampletubes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0.08);
+          const cylinder = out.height,
+            color = out.color,
+            rough = out.roughness;
+          expect(cylinder).toBeGreaterThan(0.0017599);
+          expect(cylinder).toBeLessThan(0.0017721);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0, p.labelCenter);
+          expect(out.height).toBeGreaterThan(0.0018199);
+          expect(out.height).toBeLessThan(0.0018321);
+          expect(out.height - cylinder).toBeGreaterThan(0.0000479);
+          expect(out.color - color).toBeGreaterThan(0.2449);
+          expect(out.roughness - rough).toBeGreaterThan(0.3999);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0, p.capCenter);
+          expect(out.height).toBeGreaterThan(0.0021599);
+          expect(out.height).toBeLessThan(0.0021721);
+          expect(out.height - cylinder).toBeGreaterThan(0.0003879);
+          expect(out.color - color).toBeGreaterThan(0.1449);
+          expect(rough - out.roughness).toBeGreaterThan(0.1399);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.995, 12);
+          at(0.155, -0.14);
+          expect(out.height).toBeGreaterThan(0.0011599);
+          expect(out.height).toBeLessThan(0.0011721);
+          expect(cylinder - out.height).toBeGreaterThan(0.0005879);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.97, 12);
+          at(-0.155, -0.14);
+          expect(out.mortar).toBe(1);
+          at(0.125, p.capCenter);
+          expect(out.mortar).toBe(0);
+          at(-0.125, p.capCenter);
+          expect(out.mortar).toBe(0);
+          at(0, 0.23);
+          expect(out.mortar).toBe(0);
+          expect(cylinder - out.height).toBeGreaterThan(0.00039);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          const width = (y: number) => {
+            let min = 1,
+              max = -1,
+              runs = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              const x = -0.2 + (j * 0.4) / 1024;
+              at(x, y);
+              const body = out.mortar < 0.5;
+              if (body) {
+                min = Math.min(min, x);
+                max = Math.max(max, x);
+              }
+              if (body && !previous) runs++;
+              previous = body;
+              expect(out.metallic).toBe(0);
+            }
+            expect(runs).toBe(1);
+            return max - min;
+          };
+          const w0 = width(0.1),
+            w1 = width(0.18),
+            w2 = width(0.23),
+            w3 = width(0.26);
+          expect(w0).toBeGreaterThan(0.22);
+          expect(w1).toBeGreaterThan(0.16);
+          expect(w0 - w1).toBeGreaterThan(0.04);
+          expect(w2).toBeLessThan(0.12);
+          expect(w3).toBeLessThan(0.08);
+          expect(w1).toBeGreaterThan(w2);
+          expect(w2).toBeGreaterThan(w3);
+          let runs = 0,
+            previous = false;
+          for (let j = 0; j <= 4096; j++) {
+            at(0, -0.34 + (j * 0.74) / 4096);
+            const body = out.mortar < 0.5;
+            if (body && !previous) runs++;
+            previous = body;
+          }
+          expect(runs).toBe(1);
+          for (const [x, y] of [
+            [0.2, 0],
+            [-0.2, 0],
+            [0, -0.33],
+            [0, 0.39],
+            [0.13, 0.23],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0001001);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps cylinder-to-cone and tip taper top cap hinge label shoulders coherent unions owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('conicalsampletubes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const x = -0.2 + (j * 0.4) / 64;
+            for (const y of [
+              p.bodyTop,
+              p.bodyTop + p.topShoulder,
+              p.taperStart,
+              p.taperStart + p.taperLength,
+            ])
+              check(...uv(seed, col, row, x, y));
+            const y = -0.25 + (j * 0.61) / 64,
+              t = Math.max(0, Math.min(1, (y - p.taperStart) / p.taperLength)),
+              taper = 1 - t * t * (3 - 2 * t);
+            for (const field of [0, p.shoulder])
+              if (taper * taper >= field) {
+                const x = p.bodyRadius * Math.sqrt(taper * taper - field);
+                check(...uv(seed, col, row, x, y));
+                check(...uv(seed, col, row, -x, y));
+              }
+          }
+          for (const [cx, cy, rx, ry] of [
+            [0, p.capCenter, p.capX, p.capY],
+            [p.hingeCenterX, p.hingeCenterY, p.hingeX, p.hingeY],
+          ])
+            for (const q of [1, 1 - p.shoulder])
+              for (const sign of [-1, 1])
+                for (let j = 0; j <= 32; j++) {
+                  const t = -1 + (2 * j) / 32;
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      cx + sign * rx * Math.sqrt(q),
+                      cy + t * ry,
+                    ),
+                  );
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      cx + t * rx,
+                      cy + sign * ry * Math.sqrt(q),
+                    ),
+                  );
+                }
+          for (const q of [1, 1 - p.shoulder])
+            for (let j = 0; j < 128; j++) {
+              const a = (j * Math.PI) / 64,
+                r = Math.sqrt(q);
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  p.labelX * r * Math.cos(a),
+                  p.labelCenter + p.labelY * r * Math.sin(a),
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Four-lobed dry tamarind shells with three constricted waists powdery pores and short stalk', () => {
   const p = proceduralMaterialPresets.driedtamarindpods;

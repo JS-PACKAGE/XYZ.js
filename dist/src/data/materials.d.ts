@@ -6176,6 +6176,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         poreThreshold: 0.65;
         poreShoulder: 0.15;
     }>;
+    conicalsampletubes: Readonly<{
+        dark: readonly [14, 38, 68];
+        light: readonly [180, 221, 238];
+        roughness: 0.46;
+        relief: 0.004;
+        cells: 4;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+        bodyRadius: 0.12;
+        bodyTop: -0.25;
+        topShoulder: 0.03;
+        taperStart: 0.1;
+        taperLength: 0.26;
+        shoulder: 0.12;
+        capCenter: -0.25;
+        capX: 0.155;
+        capY: 0.04;
+        hingeCenterX: 0.14;
+        hingeCenterY: -0.18;
+        hingeX: 0.03;
+        hingeY: 0.1;
+        labelCenter: -0.04;
+        labelX: 0.07;
+        labelY: 0.09;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6801,4 +6827,5 @@ export declare const proceduralTileMeters: Readonly<{
     coaxialcablecuts: 0.12;
     shippocloth: 0.24;
     driedtamarindpods: 0.32;
+    conicalsampletubes: 0.24;
 }>;
