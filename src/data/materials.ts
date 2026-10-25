@@ -6933,6 +6933,17 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  kintsugiceramic: Object.freeze({
+    dark: [4, 30, 66] as const,
+    light: [249, 207, 76] as const,
+    roughness: 0.38,
+    relief: 0.0003,
+    cells: 4,
+    jitter: 0.1,
+    goldCore: 0.008,
+    goldSupport: 0.03,
+    goldRoughness: 0.24,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7587,4 +7598,5 @@ export const proceduralTileMeters = Object.freeze({
   woodenclothespins: 0.6,
   cinnamonbarkcoils: 0.09,
   compactcassettefaces: 0.45,
+  kintsugiceramic: 0.32,
 });

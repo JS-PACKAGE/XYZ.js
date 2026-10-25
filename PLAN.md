@@ -841,6 +841,8 @@
 
 同輪追加 `compactcassettefaces`（卡式錄音帶端面），目錄649→650種：九 seeded rotated 黑圓角殼、雙低中空六輻塑膠捲盤、高乳白空白紙標籤、下方中央磁頭孔及兩導孔，磁頭孔內可見較低磁帶，開口露 opaque backing，非 filmstrip perforation 圖或可播放音訊。0.45 m tile／0.004 m relief、全 M0，沿用四圖／height／Worker／cache／tint／ownership；空白標籤是刻意未印字的表面，不新增字型、透明洞、geometry、錄放音／磁性／走帶物理或音訊功能。
 
+同輪追加 `kintsugiceramic`（金繼陶瓷），目錄650→651種：十六 seeded-jitter 深青釉陶片與連續共面金屬金填縫、平滑三叉修補接點。非空裂縫或凸金線；陶片 M0／金縫 core M1／material factor1，完整填平且 AO0.99。0.32 m tile／0.0003 m relief，沿用四圖／height／Worker／cache／tint／ownership；無破裂／修補模擬、位移 geometry 或新增分層材質。實際 Chromium 雙 backend、targeted 形態及 C1 證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

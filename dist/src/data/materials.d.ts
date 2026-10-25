@@ -6782,6 +6782,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    kintsugiceramic: Readonly<{
+        dark: readonly [4, 30, 66];
+        light: readonly [249, 207, 76];
+        roughness: 0.38;
+        relief: 0.0003;
+        cells: 4;
+        jitter: 0.1;
+        goldCore: 0.008;
+        goldSupport: 0.03;
+        goldRoughness: 0.24;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7435,4 +7446,5 @@ export declare const proceduralTileMeters: Readonly<{
     woodenclothespins: 0.6;
     cinnamonbarkcoils: 0.09;
     compactcassettefaces: 0.45;
+    kintsugiceramic: 0.32;
 }>;

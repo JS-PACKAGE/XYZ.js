@@ -12486,6 +12486,25 @@ var proceduralMaterialPresets = Object.freeze({
 		jitter: .015,
 		scale: .94,
 		scaleVariation: .04
+	}),
+	kintsugiceramic: Object.freeze({
+		dark: [
+			4,
+			30,
+			66
+		],
+		light: [
+			249,
+			207,
+			76
+		],
+		roughness: .38,
+		relief: 3e-4,
+		cells: 4,
+		jitter: .1,
+		goldCore: .008,
+		goldSupport: .03,
+		goldRoughness: .24
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -13138,7 +13157,8 @@ var proceduralTileMeters = Object.freeze({
 	tailorstapes: .1,
 	woodenclothespins: .6,
 	cinnamonbarkcoils: .09,
-	compactcassettefaces: .45
+	compactcassettefaces: .45,
+	kintsugiceramic: .32
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

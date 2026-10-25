@@ -1441,6 +1441,101 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kintsugiceramic': {
+        const p = proceduralMaterialPresets.kintsugiceramic,
+          sites = new Float64Array(p.cells * p.cells * 3),
+          patches = new Float64Array(p.cells * p.cells * 27),
+          planes = new Float64Array(p.cells * p.cells * 81),
+          distances = new Float64Array(9),
+          grainField = cachedNoise(128, 128, seed ^ 0x17511),
+          edgeInverse = 1 / (p.goldSupport - p.goldCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            sites[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x17515) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x17517) - 1);
+            sites[i + 2] = hash(col, row, seed ^ 0x17519);
+          }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const id = row * p.cells + col,
+              patch = id * 27;
+            let k = 0;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const wrappedRow = (row + oy + p.cells) % p.cells,
+                  wrappedCol = (col + ox + p.cells) % p.cells,
+                  site = (wrappedRow * p.cells + wrappedCol) * 3,
+                  j = patch + k++ * 3;
+                patches[j] = ox + sites[site]!;
+                patches[j + 1] = oy + sites[site + 1]!;
+                patches[j + 2] = sites[site + 2]!;
+              }
+            for (let i = 0; i < 8; i++)
+              for (let j = i + 1; j < 9; j++) {
+                const dx = patches[patch + i * 3]! - patches[patch + j * 3]!,
+                  dy =
+                    patches[patch + i * 3 + 1]! - patches[patch + j * 3 + 1]!,
+                  normalization = 0.5 / Math.sqrt(dx * dx + dy * dy);
+                planes[id * 81 + i * 9 + j] = normalization;
+                planes[id * 81 + j * 9 + i] = normalization;
+              }
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - col,
+            fy = y - row,
+            id = row * p.cells + col,
+            patch = id * 27;
+          let nearest = 0,
+            nearestSquared = Infinity;
+          for (let i = 0; i < 9; i++) {
+            const dx = fx - patches[patch + i * 3]!,
+              dy = fy - patches[patch + i * 3 + 1]!,
+              squared = dx * dx + dy * dy;
+            distances[i] = squared;
+            if (squared < nearestSquared) {
+              nearestSquared = squared;
+              nearest = i;
+            }
+          }
+          let ceramic = 1;
+          const plane = id * 81 + nearest * 9;
+          // Every competing half-plane participates: selecting only the second
+          // nearest site would crease the partially filled triple junctions.
+          // With jitter <= .1, discarded competitors have inward distance
+          // > .19 at patch boundaries, beyond the .03 support.
+          for (let i = 0; i < 9 && ceramic !== 0; i++)
+            if (i !== nearest) {
+              const inward =
+                (distances[i]! - nearestSquared) * planes[plane + i]!;
+              ceramic *= smooth(clamp((inward - p.goldCore) * edgeInverse));
+            }
+          const grain = grainField(u, v),
+            goldColor = 0.94 + 0.03 * grain,
+            goldRoughness = p.goldRoughness + 0.02 * grain;
+          color = goldColor;
+          roughness = goldRoughness;
+          if (ceramic !== 0) {
+            color +=
+              ceramic *
+              (0.08 +
+                0.12 * patches[patch + nearest * 3 + 2]! +
+                0.02 * grain -
+                goldColor);
+            roughness += ceramic * (p.roughness + 0.04 * grain - goldRoughness);
+          }
+          height = 0.6 + 0.003 * grain;
+          metallic = 1 - ceramic;
+          occlusion = 0.99;
+          mortar = 0;
+        };
+      }
       case 'compactcassettefaces': {
         const p = proceduralMaterialPresets.compactcassettefaces,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28558,6 +28653,7 @@ export function createSurfaceSampler(
     kind === 'woodenclothespins' ||
     kind === 'cinnamonbarkcoils' ||
     kind === 'compactcassettefaces' ||
+    kind === 'kintsugiceramic' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

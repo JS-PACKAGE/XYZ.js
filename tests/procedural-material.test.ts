@@ -691,7 +691,298 @@ const kinds: ProceduralMaterialKind[] = [
   'woodenclothespins',
   'cinnamonbarkcoils',
   'compactcassettefaces',
+  'kintsugiceramic',
 ];
+
+describe('Kintsugi ceramic with continuous coplanar gold-filled fracture seams and C1 repaired triple junctions', () => {
+  const p = proceduralMaterialPresets.kintsugiceramic;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const site = (seed: number, col: number, row: number) => {
+    const c = ((col % p.cells) + p.cells) % p.cells,
+      r = ((row % p.cells) + p.cells) % p.cells;
+    return [
+      col + 0.5 + p.jitter * (2 * hash(c, r, seed ^ 0x17515) - 1),
+      row + 0.5 + p.jitter * (2 * hash(c, r, seed ^ 0x17517) - 1),
+    ] as const;
+  };
+  const edge = (seed: number, col: number, row: number, axis: number) => {
+    const a = site(seed, col, row),
+      b = site(seed, col + (axis === 0 ? 1 : 0), row + (axis === 1 ? 1 : 0)),
+      dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      length = Math.hypot(dx, dy);
+    return {
+      x: (a[0] + b[0]) / 2,
+      y: (a[1] + b[1]) / 2,
+      nx: dx / length,
+      ny: dy / length,
+    };
+  };
+  const vertices = (seed: number) => {
+    const result: {
+      x: number;
+      y: number;
+      sites: readonly (readonly [number, number])[];
+    }[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const points = [
+          site(seed, col, row),
+          site(seed, col + 1, row),
+          site(seed, col, row + 1),
+          site(seed, col + 1, row + 1),
+        ];
+        for (let omitted = 0; omitted < 4; omitted++) {
+          const triangle = points.filter((_, i) => i !== omitted),
+            a = triangle[0]!,
+            b = triangle[1]!,
+            c = triangle[2]!,
+            bx = b[0] - a[0],
+            by = b[1] - a[1],
+            cx = c[0] - a[0],
+            cy = c[1] - a[1],
+            det = 2 * (bx * cy - by * cx),
+            bq = bx * bx + by * by,
+            cq = cx * cx + cy * cy,
+            x = a[0] + (bq * cy - cq * by) / det,
+            y = a[1] + (bx * cq - cx * bq) / det,
+            other = points[omitted]!,
+            radiusSquared = (x - a[0]) ** 2 + (y - a[1]) ** 2;
+          if ((x - other[0]) ** 2 + (y - other[1]) ** 2 > radiusSquared + 1e-10)
+            result.push({ x, y, sites: triangle });
+        }
+      }
+    return result;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sixteen nonmetal glazed shards separated by an unbroken gold network with filled coplanar edges and triple junctions for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('kintsugiceramic', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      const at = (x: number, y: number) => {
+        sample(x / p.cells, y / p.cells, out);
+        return { ...out };
+      };
+      const plane = (value: SurfaceSample) => {
+        expect(value.height).toBeGreaterThanOrEqual(0.00017999);
+        expect(value.height).toBeLessThanOrEqual(0.00018091);
+        expect(value.occlusion).toBeCloseTo(0.99, 12);
+        expect(value.mortar).toBe(0);
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const body = at(...site(seed, col, row));
+          expect(body.metallic).toBe(0);
+          expect(body.color).toBeGreaterThanOrEqual(0.07999);
+          expect(body.color).toBeLessThanOrEqual(0.22001);
+          expect(body.roughness).toBeGreaterThanOrEqual(0.37999);
+          plane(body);
+          for (let axis = 0; axis < 2; axis++) {
+            const e = edge(seed, col, row, axis);
+            for (let j = 0; j <= 256; j++) {
+              const t = -0.04 + (0.08 * j) / 256,
+                gold = at(e.x - e.ny * t, e.y + e.nx * t);
+              expect(gold.metallic).toBe(1);
+              expect(gold.color - body.color).toBeGreaterThan(0.7199);
+              expect(body.roughness - gold.roughness).toBeGreaterThan(0.1199);
+              plane(gold);
+            }
+            let previous = 1;
+            for (let j = 0; j <= 256; j++) {
+              const d = (0.06 * j) / 256,
+                shoulder = at(e.x + e.nx * d, e.y + e.ny * d);
+              expect(shoulder.metallic).toBeLessThanOrEqual(previous + 1e-10);
+              if (d < p.goldCore - 1e-8) expect(shoulder.metallic).toBe(1);
+              if (d > p.goldSupport + 1e-8) expect(shoulder.metallic).toBe(0);
+              plane(shoulder);
+              previous = shoulder.metallic;
+            }
+          }
+        }
+      const joins = vertices(seed);
+      expect(joins).toHaveLength(32);
+      for (const v of joins) {
+        const gold = at(v.x, v.y);
+        expect(gold.metallic).toBe(1);
+        expect(gold.color).toBeGreaterThanOrEqual(0.93999);
+        plane(gold);
+      }
+    },
+  );
+  it('writes visible yellow metal veins over dark teal nonmetal ceramic without dark empty mortar or raised seam ridges in actual 512 pixel maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('kintsugiceramic', 512, seed);
+      const pixel = (x: number, y: number) =>
+        ((((Math.floor((y / p.cells) * 512) % 512) + 512) % 512) * 512 +
+          (((Math.floor((x / p.cells) * 512) % 512) + 512) % 512)) *
+        4;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const i = pixel(...site(seed, col, row));
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.baseColor[i]!).toBeLessThan(80);
+          expect(maps.occlusion[i]!).toBeGreaterThan(250);
+          for (let axis = 0; axis < 2; axis++) {
+            const e = edge(seed, col, row, axis),
+              j = pixel(e.x, e.y);
+            expect(maps.metallicRoughness[j + 2]).toBe(255);
+            expect(maps.baseColor[j]!).toBeGreaterThan(225);
+            expect(maps.baseColor[j + 1]!).toBeGreaterThan(190);
+            expect(maps.baseColor[j + 2]!).toBeLessThan(85);
+            expect(maps.baseColor[j]! - maps.baseColor[i]!).toBeGreaterThan(
+              150,
+            );
+            expect(
+              maps.metallicRoughness[i + 1]! - maps.metallicRoughness[j + 1]!,
+            ).toBeGreaterThan(28);
+            expect(maps.occlusion[j]!).toBeGreaterThan(250);
+          }
+        }
+    }
+  });
+  it('repeats every PBR channel and gold classification across both UV axes while retaining seed-dependent fracture layout', () => {
+    const sample = createSurfaceSampler('kintsugiceramic', 7),
+      other = createSurfaceSampler('kintsugiceramic', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let phaseDifference = 0;
+    for (let j = 0; j < 1024; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      phaseDifference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(phaseDifference).toBeGreaterThan(80);
+  });
+  it('keeps coarse patch owners nearest-shard bisectors gold core/support profiles overlapping repair shoulders triple junctions grain knots and both UV wraps C1', () => {
+    const h = 1e-7,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kintsugiceramic', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (x: number, y: number) => {
+        const u = x / p.cells,
+          v = y / p.cells;
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check((x / 128) * p.cells, (y / 128) * p.cells);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let axis = 0; axis < 2; axis++) {
+            const e = edge(seed, col, row, axis);
+            for (let j = 0; j <= 64; j++) {
+              const t = -0.04 + (0.08 * j) / 64;
+              for (const d of [
+                -p.goldSupport,
+                -p.goldCore,
+                0,
+                p.goldCore,
+                p.goldSupport,
+              ])
+                check(e.x - e.ny * t + e.nx * d, e.y + e.nx * t + e.ny * d);
+              check(
+                col + (axis === 0 ? 0 : j / 64),
+                row + (axis === 1 ? 0 : j / 64),
+              );
+            }
+          }
+      let partialJoins = 0;
+      for (const vertex of vertices(seed)) {
+        check(vertex.x, vertex.y);
+        for (let i = 0; i < 3; i++) {
+          const owner = vertex.sites[i]!,
+            first = vertex.sites[(i + 1) % 3]!,
+            second = vertex.sites[(i + 2) % 3]!,
+            d1 = Math.hypot(owner[0] - first[0], owner[1] - first[1]),
+            d2 = Math.hypot(owner[0] - second[0], owner[1] - second[1]),
+            n1x = (owner[0] - first[0]) / d1,
+            n1y = (owner[1] - first[1]) / d1,
+            n2x = (owner[0] - second[0]) / d2,
+            n2y = (owner[1] - second[1]) / d2,
+            dx = n1x + n2x,
+            dy = n1y + n2y,
+            scale = (p.goldCore + p.goldSupport) / (2 * (dx * n1x + dy * n1y)),
+            x = vertex.x + dx * scale,
+            y = vertex.y + dy * scale;
+          let safe = true;
+          for (let row = -1; row <= p.cells + 1; row++)
+            for (let col = -1; col <= p.cells + 1; col++) {
+              const otherSite = site(seed, col, row),
+                distance = Math.hypot(
+                  owner[0] - otherSite[0],
+                  owner[1] - otherSite[1],
+                );
+              if (distance < 1e-10) continue;
+              const inward =
+                ((x - otherSite[0]) ** 2 +
+                  (y - otherSite[1]) ** 2 -
+                  ((x - owner[0]) ** 2 + (y - owner[1]) ** 2)) /
+                (2 * distance);
+              if (inward <= p.goldCore + 1e-5) safe = false;
+            }
+          if (safe) {
+            sample(x / p.cells, y / p.cells, b);
+            expect(b.metallic).toBeGreaterThan(0.5);
+            expect(b.metallic).toBeLessThan(1);
+            check(x, y);
+            partialJoins++;
+          }
+        }
+      }
+      expect(partialJoins).toBeGreaterThanOrEqual(32);
+    }
+  });
+});
 
 describe('Compact cassette faces with two lower hollow six-spoke reels a raised blank cream title label three lower access openings and a visible magnetic ribbon', () => {
   const p = proceduralMaterialPresets.compactcassettefaces;
@@ -42238,6 +42529,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'seamrippers' &&
           kind !== 'weavingshuttles' &&
           kind !== 'woodenclothespins' &&
+          kind !== 'kintsugiceramic' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -51658,6 +51950,7 @@ describe('procedural preset acquisition and ownership', () => {
     'seamrippers',
     'weavingshuttles',
     'woodenclothespins',
+    'kintsugiceramic',
     'standingseam',
     'damascus',
     'castiron',
@@ -51738,6 +52031,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'seamrippers' ||
           kind === 'weavingshuttles' ||
           kind === 'woodenclothespins' ||
+          kind === 'kintsugiceramic' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
