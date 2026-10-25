@@ -5224,6 +5224,17 @@ export const proceduralMaterialPresets = Object.freeze({
     ribFade: 0.02,
     ribs: 48,
   }),
+  septarianstone: Object.freeze({
+    dark: [55, 37, 18] as const,
+    light: [235, 210, 145] as const,
+    roughness: 0.52,
+    relief: 0.0015,
+    cells: 8,
+    veinInset: 0.015,
+    veinVariation: 0.025,
+    shoulder: 0.04,
+    warp: 0.4,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5791,4 +5802,5 @@ export const proceduralTileMeters = Object.freeze({
   screwterminalblocks: 0.08,
   dragonfruitflesh: 0.06,
   speakercones: 0.64,
+  septarianstone: 0.48,
 });

@@ -673,15 +673,21 @@ export function createSurfaceSampler(
               0.82 + 0.18 * hash(x, y, salt ^ (0x5d31 + edge));
           }
         }
-  // Narrow C1 half-plane shoulders leave a connected, closed hairline network.
+  // Compact C1 half-plane shoulders bound a connected cell-border network.
   // Jitter stays within 0.14 cells, so each polygon is bounded inside the
   // sampled 3x3 neighborhood; no nearest-cell pigment switches are involved.
+  const glazeSize =
+    kind === 'septarianstone'
+      ? proceduralMaterialPresets.septarianstone.cells
+      : 16;
   const glazeCells =
-    kind === 'crackleglaze' ? new Float64Array(16 * 16 * 26) : null;
+    kind === 'crackleglaze' || kind === 'septarianstone'
+      ? new Float64Array(glazeSize * glazeSize * 26)
+      : null;
   if (glazeCells)
-    for (let y = 0; y < 16; y++)
-      for (let x = 0; x < 16; x++) {
-        const offset = (y * 16 + x) * 26;
+    for (let y = 0; y < glazeSize; y++)
+      for (let x = 0; x < glazeSize; x++) {
+        const offset = (y * glazeSize + x) * 26;
         const px = 0.36 + 0.28 * hash(x, y, seed ^ 0x438d),
           py = 0.36 + 0.28 * hash(x, y, seed ^ 0x7b25);
         glazeCells[offset] = px;
@@ -690,8 +696,8 @@ export function createSurfaceSampler(
         for (let oy = -1; oy <= 1; oy++)
           for (let ox = -1; ox <= 1; ox++) {
             if (ox === 0 && oy === 0) continue;
-            const wx = (x + ox + 16) % 16,
-              wy = (y + oy + 16) % 16;
+            const wx = (x + ox + glazeSize) % glazeSize,
+              wy = (y + oy + glazeSize) % glazeSize;
             const dx = ox + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x438d) - px,
               dy = oy + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x7b25) - py;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -1419,6 +1425,65 @@ export function createSurfaceSampler(
           roughness +=
             face * (p.roughness + 0.02 * grain - 0.035 * dome - roughness);
           occlusion += face * (0.98 - occlusion);
+          return;
+        };
+      }
+      case 'septarianstone': {
+        const p = proceduralMaterialPresets.septarianstone,
+          tones = new Float64Array(p.cells * p.cells),
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11f13),
+          widthField = cachedNoise(8, 8, seed ^ 0x11f17),
+          warpX = cachedNoise(4, 4, seed ^ 0x11f19),
+          warpY = cachedNoise(4, 4, seed ^ 0x11f1b);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x11f11);
+        return () => {
+          const x = u * p.cells + p.warp * (warpX(u, v) - 0.5),
+            y = v * p.cells + p.warp * (warpY(u, v) - 0.5),
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            inset = p.veinInset + p.veinVariation * widthField(u, v),
+            grain = grainField(u, v);
+          let faces = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                cell =
+                  (((cy % p.cells) + p.cells) % p.cells) * p.cells +
+                  (((cx % p.cells) + p.cells) % p.cells),
+                offset = cell * 26,
+                dx = x - cx - glazeCells![offset],
+                dy = y - cy - glazeCells![offset + 1];
+              let face = 1;
+              for (let edge = 0; edge < 8 && face > 0; edge++) {
+                const plane = offset + 2 + edge * 3;
+                face *= smooth(
+                  clamp(
+                    (glazeCells![plane + 2] -
+                      dx * glazeCells![plane] -
+                      dy * glazeCells![plane + 1] -
+                      inset) *
+                      inverseShoulder,
+                  ),
+                );
+              }
+              faces += face;
+              pigment += face * tones[cell];
+            }
+          const veins = 1 - clamp(faces);
+          // Calcite fills the borders rather than excavating them. Cell tones
+          // vanish with their compact faces, so ownership cannot create seams.
+          color =
+            faces * (0.26 + 0.08 * grain) +
+            0.2 * pigment +
+            veins * (0.9 + 0.06 * grain);
+          height = 0.48 + 0.004 * grain + 0.002 * veins;
+          roughness += 0.025 * grain - 0.17 * veins;
+          occlusion = 0.99;
           return;
         };
       }
@@ -21785,6 +21850,7 @@ export function createSurfaceSampler(
     kind === 'screwterminalblocks' ||
     kind === 'dragonfruitflesh' ||
     kind === 'speakercones' ||
+    kind === 'septarianstone' ||
     fabricated ||
     botanical ||
     packaging ||

@@ -5074,6 +5074,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribFade: 0.02;
         ribs: 48;
     }>;
+    septarianstone: Readonly<{
+        dark: readonly [55, 37, 18];
+        light: readonly [235, 210, 145];
+        roughness: 0.52;
+        relief: 0.0015;
+        cells: 8;
+        veinInset: 0.015;
+        veinVariation: 0.025;
+        shoulder: 0.04;
+        warp: 0.4;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5640,4 +5651,5 @@ export declare const proceduralTileMeters: Readonly<{
     screwterminalblocks: 0.08;
     dragonfruitflesh: 0.06;
     speakercones: 0.64;
+    septarianstone: 0.48;
 }>;

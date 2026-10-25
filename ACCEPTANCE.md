@@ -7235,3 +7235,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 562 種（含 gongsurface／muffintin）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 speakercones，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 speakercones，563 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 確認黑紙盆／中央 cap／懸邊，metallic 0、height true、destroyed true。另一次 blank-first WebGPU 公開 API 將實際 512 maps 的首個 128×128 原生 crop，以清楚標示 CSS 3× 的 baseColor／normal／height 並排顯示，確認高橡膠懸邊、低紙盆與凸防塵蓋，非虛構高解析；destroyed true、errors 與離頁 cleanup errors 均空，預覽隨頁清除。不宣稱 geometry、透孔、聲學／電機／振膜／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6519 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：龜甲石（septarianstone）
+
+- 目錄 563→564 種；0.48 m opaque dielectric tile、metallic 0，棕色閉合石質與乳金方解石填充脈，沿四圖／選用 height／ownership。重用 cached jittered Voronoi 半平面 constructor，新材質 8×8、crackleglaze 保持 16×16；compact C1 products 淡出 cell tones，脈寬與雙 warp fields 變化輪廓，calcite 微凸／較低 roughness，非凹裂縫。取樣無配置／hash／sqrt／trig，不新增岩石 geometry、透明晶體、礦物層或地質／物理模擬。
+- Targeted 6 項通過（3 seeds morphology、C1、septarianstone 與既有 crackleglaze determinism）。CPU sampler 的 256² toroidal flood fill 證明三 seed 各 64 個閉合棕色區、乳金脈皆單一連通網；棕區占 81.6–82.4%、明脈 14.5–15.0%，平均 roughness 差 >0.16，relief-normalized height 約 0.4800–0.4860，金屬全 0。永久驗證用較寬 consumer-visible bounds，包含色差／區域面積、填脈而非深坑與 129² 雙向 C1／wrap。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 septarianstone，564 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認棕色閉合區與填實乳金脈，material metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱透空裂縫、岩石 geometry、透明晶體、礦物層、地質／物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 septarianstone 並重算既有 563 種（含重用 polygon constructor 的 crackleglaze）size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6524 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -10048,6 +10048,25 @@ var proceduralMaterialPresets = Object.freeze({
 		ribOuter: .28,
 		ribFade: .02,
 		ribs: 48
+	}),
+	septarianstone: Object.freeze({
+		dark: [
+			55,
+			37,
+			18
+		],
+		light: [
+			235,
+			210,
+			145
+		],
+		roughness: .52,
+		relief: .0015,
+		cells: 8,
+		veinInset: .015,
+		veinVariation: .025,
+		shoulder: .04,
+		warp: .4
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10613,7 +10632,8 @@ var proceduralTileMeters = Object.freeze({
 	passionfruitslice: .32,
 	screwterminalblocks: .08,
 	dragonfruitflesh: .06,
-	speakercones: .64
+	speakercones: .64,
+	septarianstone: .48
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

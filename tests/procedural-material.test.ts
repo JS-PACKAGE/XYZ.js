@@ -601,7 +601,132 @@ const kinds: ProceduralMaterialKind[] = [
   'screwterminalblocks',
   'dragonfruitflesh',
   'speakercones',
+  'septarianstone',
 ];
+
+describe('Septarian stone with filled calcite veins and closed brown nodules', () => {
+  const p = proceduralMaterialPresets.septarianstone;
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected pale mineral network around varied brown bodies without excavating the polished surface for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('septarianstone', seed),
+        size = 256,
+        mask = new Uint8Array(size * size),
+        colors = new Float64Array(mask.length),
+        queue = new Uint32Array(mask.length),
+        neighbors = new Uint32Array(4),
+        bodies: number[] = [],
+        tones: number[] = [],
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let brown = 0,
+        calcite = 0,
+        brownRoughness = 0,
+        calciteRoughness = 0,
+        minimumHeight = Infinity,
+        maximumHeight = -Infinity,
+        maximumMetallic = 0,
+        largestVein = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const index = y * size + x;
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          colors[index] = out.color;
+          if (out.color < 0.65) {
+            mask[index] = 1;
+            brown++;
+            brownRoughness += out.roughness;
+          } else if (out.color > 0.82) {
+            mask[index] = 2;
+            calcite++;
+            calciteRoughness += out.roughness;
+          }
+          minimumHeight = Math.min(minimumHeight, out.height);
+          maximumHeight = Math.max(maximumHeight, out.height);
+          maximumMetallic = Math.max(maximumMetallic, out.metallic);
+        }
+      // A toroidal flood fill counts seam-crossing nodules once and follows
+      // the mineral network across both repeat boundaries.
+      for (let index = 0; index < mask.length; index++) {
+        const kind = mask[index];
+        if (kind !== 1 && kind !== 2) continue;
+        mask[index] += 2;
+        queue[0] = index;
+        let end = 1,
+          tone = 0;
+        for (let start = 0; start < end; start++) {
+          const i = queue[start],
+            x = i % size,
+            y = Math.floor(i / size);
+          tone += colors[i];
+          neighbors[0] = y * size + ((x + size - 1) % size);
+          neighbors[1] = y * size + ((x + 1) % size);
+          neighbors[2] = ((y + size - 1) % size) * size + x;
+          neighbors[3] = ((y + 1) % size) * size + x;
+          for (const next of neighbors)
+            if (mask[next] === kind) {
+              mask[next] += 2;
+              queue[end++] = next;
+            }
+        }
+        if (kind === 1) {
+          bodies.push(end);
+          tones.push(tone / end);
+        } else largestVein = Math.max(largestVein, end);
+      }
+      expect(brown / mask.length).toBeGreaterThan(0.65);
+      expect(brown / mask.length).toBeLessThan(0.9);
+      expect(calcite / mask.length).toBeGreaterThan(0.05);
+      expect(calcite / mask.length).toBeLessThan(0.3);
+      expect(bodies.length).toBeGreaterThan(40);
+      expect(bodies.length).toBeLessThan(90);
+      expect(Math.min(...bodies) / mask.length).toBeGreaterThan(0.004);
+      expect(Math.max(...bodies) / mask.length).toBeLessThan(0.03);
+      expect(Math.max(...tones) - Math.min(...tones)).toBeGreaterThan(0.12);
+      expect(largestVein / calcite).toBeGreaterThan(0.95);
+      expect(
+        brownRoughness / brown - calciteRoughness / calcite,
+      ).toBeGreaterThan(0.1);
+      expect(minimumHeight).toBeGreaterThan(0.479 * p.relief);
+      expect(maximumHeight).toBeLessThan(0.487 * p.relief);
+      expect(maximumMetallic).toBe(0);
+    },
+  );
+  it('keeps cell tones, variable-width filled borders, warped polygons and both wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('septarianstone', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            sample(x / 128 - (axis ? 0 : h), y / 128 - (axis ? h : 0), a);
+            sample(x / 128, y / 128, b);
+            sample(x / 128 + (axis ? 0 : h), y / 128 + (axis ? h : 0), c);
+            for (const key of keys)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Black speaker cones with paper dishes, dust caps and rubber rolls', () => {
   const p = proceduralMaterialPresets.speakercones;
