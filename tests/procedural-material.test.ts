@@ -625,7 +625,149 @@ const kinds: ProceduralMaterialKind[] = [
   'rutilatedquartz',
   'peppermintcanes',
   'rubbergrommets',
+  'chioggiabeetcuts',
 ];
+
+describe('Filled Chioggia beet cuts with six flush red pigment rings and pale cores', () => {
+  const p = proceduralMaterialPresets.chioggiabeetcuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x13617),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x13613) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x13615) - 1);
+    return [
+      (col + 0.5 + jx + x * scale) / p.cells,
+      (row + 0.5 + jy + y * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six red annuli and pale gaps coplanar with a filled pale core above the thin rind for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chioggiabeetcuts', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const center = out.height;
+          expect(out.color).toBeGreaterThan(0.89);
+          expect(center).toBeGreaterThan(0.00383);
+          expect(center).toBeLessThan(0.003865);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          for (let ring = 0; ring < p.rings; ring++)
+            for (let i = 0; i < 12; i++) {
+              const angle = (i * Math.PI) / 6,
+                c = Math.cos(angle),
+                s = Math.sin(angle),
+                radius = p.firstRing + ring * p.ringPitch;
+              at(c * radius, s * radius);
+              const height = out.height,
+                roughness = out.roughness;
+              expect(out.color).toBeLessThan(0.36);
+              expect(Math.abs(height - center)).toBeLessThan(0.000025);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.metallic).toBe(0);
+              at(c * (radius - 0.03), s * (radius - 0.03));
+              expect(out.color).toBeGreaterThan(0.89);
+              expect(Math.abs(out.height - height)).toBeLessThan(0.000025);
+              expect(out.roughness - roughness).toBeGreaterThan(0.05);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+            }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at((i * 0.387) / 2048, 0);
+            const red = out.color < 0.4;
+            if (red && !previous) runs++;
+            previous = red;
+          }
+          expect(runs).toBe(6);
+          at(0.407, 0);
+          expect(center - out.height).toBeGreaterThan(0.0023);
+          expect(out.height).toBeGreaterThan(0.00143);
+          expect(out.height).toBeLessThan(0.001465);
+          at(0.46, 0);
+          expect(out.height).toBeLessThan(0.000201);
+          expect(out.mortar).toBe(1);
+        }
+    },
+  );
+  it('keeps all six inner/outer ring shoulders, rind/flesh shoulders, seeded owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      radii: number[] = [p.radius, p.core, p.fleshRadius, p.fleshCore, 0];
+    for (let ring = 0; ring < p.rings; ring++) {
+      const radius = p.firstRing + ring * p.ringPitch;
+      radii.push(
+        radius - p.ringHalfWidth,
+        radius - p.ringCore,
+        radius + p.ringCore,
+        radius + p.ringHalfWidth,
+      );
+    }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chioggiabeetcuts', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const radius of radii)
+            for (let i = 0; i < 24; i++) {
+              const angle = (i * Math.PI) / 12;
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+    }
+  });
+});
 
 describe('Molded rubber grommets with raised inner lips and lower grooved flanges', () => {
   const p = proceduralMaterialPresets.rubbergrommets;

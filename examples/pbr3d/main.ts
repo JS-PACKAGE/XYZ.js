@@ -666,6 +666,7 @@ try {
     'rutilatedquartz',
     'peppermintcanes',
     'rubbergrommets',
+    'chioggiabeetcuts',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

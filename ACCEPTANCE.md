@@ -7437,3 +7437,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 587-preset rubbergrommets、擷取畫面／512 base-color detail，見深色橡膠環高內唇與低法蘭／環槽、無金屬或帆布。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 rubbergrommets 並重算既有 586 種（含 grommetcanvas／rubber／splitlockwashers）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6646 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：Chioggia 甜菜切片（chioggiabeetcuts）
+
+- 目錄 587→588 種；0.24 m opaque dielectric tile、metallic 0，六圈紅白交替 pigment／白實芯／低薄紅皮，非 onion 起伏紙皮。Cached 16 jitter／scale／tone poses、六圈 squared shoulders／reciprocals、128² grain，compact outer/flesh 與 ring inner/outer smooth products／product union，環 support 完整在 full flesh 內、全部 support 限 seeded cell。Red／white 共用 flat height；body 零略過 grain／flesh、flesh 零略過環，採樣無配置／hash／sqrt／trig。沿 neutral opaque backing／四圖／選用 height／ownership，不新增 geometry、透明孔、汁液、切割／生長／營養或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 slices ×6 rings ×12 angles，紅環／白間隙同高差 <0.000025 m、AO 0.99／metallic 0，紅環 roughness 比白面低 >0.05；實芯白面 0.00383–0.003865 m，薄皮 0.00143–0.001465 m。2049-point 單側徑向 profile 恰六個紅環，129² 與 exact 全部 annular shoulders／rind／flesh／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 588-preset chioggiabeetcuts、擷取畫面／512 base-color detail，見實芯白心、六圈紅白環與薄紅皮，中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 chioggiabeetcuts 並重算既有 587 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6651 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

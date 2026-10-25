@@ -1428,6 +1428,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chioggiabeetcuts': {
+        const p = proceduralMaterialPresets.chioggiabeetcuts,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          rings = new Float64Array(p.rings * 4),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshCore * p.fleshCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x13611);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 4;
+            poses[index] = p.jitter * (2 * hash(col, row, seed ^ 0x13613) - 1);
+            poses[index + 1] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x13615) - 1);
+            poses[index + 2] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x13617));
+            poses[index + 3] = hash(col, row, seed ^ 0x13619);
+          }
+        for (let i = 0; i < p.rings; i++) {
+          const radius = p.firstRing + i * p.ringPitch,
+            inner = (radius - p.ringHalfWidth) ** 2,
+            outer = (radius + p.ringHalfWidth) ** 2;
+          rings[i * 4] = inner;
+          rings[i * 4 + 1] = 1 / ((radius - p.ringCore) ** 2 - inner);
+          rings[i * 4 + 2] = outer;
+          rings[i * 4 + 3] = 1 / (outer - (radius + p.ringCore) ** 2);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            x = (fract(uc) - 0.5 - poses[index]) * poses[index + 2],
+            y = (fract(vc) - 0.5 - poses[index + 1]) * poses[index + 2],
+            r2 = x * x + y * y,
+            body = smooth(clamp((radiusSquared - r2) * inverseBody));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[index + 3],
+            flesh = smooth(clamp((fleshSquared - r2) * inverseFlesh));
+          color += body * (0.11 + 0.03 * tone + 0.02 * grain - color);
+          height += body * (0.18 + 0.003 * grain - height);
+          roughness += body * (0.81 + 0.02 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          if (flesh === 0) return;
+          let outside = 1;
+          for (let i = 0; i < rings.length; i += 4) {
+            const ring =
+              smooth(clamp((r2 - rings[i]) * rings[i + 1])) *
+              smooth(clamp((rings[i + 2] - r2) * rings[i + 3]));
+            outside *= 1 - ring;
+          }
+          const red = 1 - outside,
+            white = 0.9 + 0.04 * grain;
+          // Alternating beet pigment rings share a filled flat cut face.
+          // Neither the pale core nor any red ring becomes a hole or a step.
+          color +=
+            flesh *
+            (white + red * (0.24 + 0.08 * tone + 0.03 * grain - white) - color);
+          height += flesh * (0.48 + 0.003 * grain - height);
+          roughness +=
+            flesh * (p.roughness - 0.08 * red + 0.02 * grain - roughness);
+          occlusion += flesh * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'rubbergrommets': {
         const p = proceduralMaterialPresets.rubbergrommets,
           tones = new Float64Array(p.cells * p.cells),
@@ -23267,6 +23338,7 @@ export function createSurfaceSampler(
     kind === 'rutilatedquartz' ||
     kind === 'peppermintcanes' ||
     kind === 'rubbergrommets' ||
+    kind === 'chioggiabeetcuts' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

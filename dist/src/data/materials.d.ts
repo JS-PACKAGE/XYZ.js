@@ -5461,6 +5461,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveRadius: 0.32;
         grooveBand: 0.008;
     }>;
+    chioggiabeetcuts: Readonly<{
+        dark: readonly [126, 8, 38];
+        light: readonly [255, 238, 204];
+        roughness: 0.73;
+        relief: 0.008;
+        cells: 4;
+        jitter: 0.02;
+        scale: 0.94;
+        scaleVariation: 0.05;
+        radius: 0.43;
+        core: 0.415;
+        fleshRadius: 0.4;
+        fleshCore: 0.39;
+        rings: 6;
+        firstRing: 0.065;
+        ringPitch: 0.06;
+        ringHalfWidth: 0.018;
+        ringCore: 0.0135;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6051,4 +6070,5 @@ export declare const proceduralTileMeters: Readonly<{
     rutilatedquartz: 0.2;
     peppermintcanes: 0.32;
     rubbergrommets: 0.16;
+    chioggiabeetcuts: 0.24;
 }>;
