@@ -1441,6 +1441,122 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'splitvanillapods': {
+        const p = proceduralMaterialPresets.splitvanillapods,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          seedPositions = new Float64Array(p.cells * p.cells * p.seedRows * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x16a11),
+          inverseRxSquared = 1 / (p.radiusX * p.radiusX),
+          inverseRySquared = 1 / (p.radiusY * p.radiusY),
+          inverseEdge = 1 / p.edge,
+          channelRadiusSquared = p.channelRadius * p.channelRadius,
+          inverseChannelShoulder =
+            1 / (channelRadiusSquared - p.channelCore * p.channelCore),
+          inverseChannelEnd = 1 / p.channelEndShoulder,
+          inverseSeedRxSquared = 1 / (p.seedRadiusX * p.seedRadiusX),
+          inverseSeedRySquared = 1 / (p.seedRadiusY * p.seedRadiusY),
+          inverseSeedEdge = 1 / p.seedEdge,
+          inverseSeedPitch = 1 / p.seedPitch,
+          firstSeedY = ((p.seedRows - 1) * p.seedPitch) / 2;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const owner = row * p.cells + col,
+              i = owner * 6,
+              a = TAU * hash(col, row, seed ^ 0x16a15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16a17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16a19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16a1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x16a1d);
+            for (let k = 0; k < p.seedRows; k++) {
+              const j = (owner * p.seedRows + k) * 2;
+              seedPositions[j] =
+                p.seedJitterX *
+                (2 * hash(col * p.seedRows + k, row, seed ^ 0x16a21) - 1);
+              seedPositions[j + 1] =
+                k * p.seedPitch -
+                firstSeedY +
+                p.seedJitterY *
+                  (2 * hash(col * p.seedRows + k, row, seed ^ 0x16a23) - 1);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            owner = Math.floor(vc) * p.cells + Math.floor(uc),
+            i = owner * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            across = x - p.curve * y * y,
+            grain = grainField(u, v),
+            face = smooth(
+              clamp(
+                (1 -
+                  across * across * inverseRxSquared -
+                  y * y * inverseRySquared) *
+                  inverseEdge,
+              ),
+            );
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          const groove =
+            smooth(
+              clamp(
+                (channelRadiusSquared - across * across) *
+                  inverseChannelShoulder,
+              ),
+            ) *
+            smooth(
+              clamp((p.channelHalfLength - Math.abs(y)) * inverseChannelEnd),
+            );
+          let clusters = 0;
+          if (groove !== 0) {
+            const k = Math.floor((y + firstSeedY) * inverseSeedPitch + 0.5);
+            if (k >= 0 && k < p.seedRows) {
+              const j = (owner * p.seedRows + k) * 2,
+                sx = across - seedPositions[j],
+                sy = y - seedPositions[j + 1];
+              clusters =
+                groove *
+                smooth(
+                  clamp(
+                    (1 -
+                      sx * sx * inverseSeedRxSquared -
+                      sy * sy * inverseSeedRySquared) *
+                      inverseSeedEdge,
+                  ),
+                );
+            }
+          }
+          const skinColor = 0.55 + 0.08 * poses[i + 5] + 0.02 * grain,
+            bodyColor =
+              skinColor +
+              groove * (0.2 + 0.015 * grain - skinColor) -
+              0.055 * clusters,
+            bodyHeight =
+              0.52 + 0.003 * grain - 0.28 * groove + 0.055 * clusters,
+            skinRoughness = p.roughness + 0.04 * grain,
+            bodyRoughness =
+              skinRoughness +
+              groove * (0.88 + 0.02 * grain - skinRoughness) +
+              0.04 * clusters,
+            bodyAO = 0.98 - 0.26 * groove + 0.025 * clusters;
+          color += face * (bodyColor - color);
+          height += face * (bodyHeight - height);
+          roughness += face * (bodyRoughness - roughness);
+          occlusion += face * (bodyAO - occlusion);
+          mortar = 1 - face;
+        };
+      }
       case 'bismuthhoppers': {
         const p = proceduralMaterialPresets.bismuthhoppers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27501,6 +27617,7 @@ export function createSurfaceSampler(
     kind === 'utilityknifeblades' ||
     kind === 'windmillparquet' ||
     kind === 'bismuthhoppers' ||
+    kind === 'splitvanillapods' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

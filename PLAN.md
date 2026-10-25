@@ -819,6 +819,8 @@
 
 同輪追加 `bismuthhoppers`（六層方階鉍風晶面），目錄 638→639 種：16 seeded rotated 金紫色方形晶面，六層封閉金屬階面向中央逐層降低、變暗、較粗且 AO 加深，中央露同一低平 opaque backing；非實心 pyrite cube 或圓形環，非僅色帶。0.16 m tile、factor1／階面 M1／中央及外部 M0，沿用四圖、選用 height 與 ownership；不新增 geometry、真洞、實際 iridescence／薄膜光學、晶體生長或物理模擬。依功能驗證提交，不 push。
 
+同輪追加 `splitvanillapods`（剖開香草莢），目錄 639→640 種：九個 seeded rotated 棕色彎曲長莢，兩條連續高皮緣與封閉兩端圍住低暗粗的不透明中槽，每莢十六個較槽底高、但仍低於皮緣的深色粗籽團。曲線形狀、槽深與籽凸不是僅色帶；籽團是 stylized 群聚，不宣稱單顆真籽比例。0.6 m tile、全 M0，沿四圖、選用 height 與 ownership；不新增 geometry、真裂口、種子物件、乾燥／食物或物理模擬。依功能驗證提交，不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

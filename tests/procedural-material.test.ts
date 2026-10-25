@@ -680,7 +680,295 @@ const kinds: ProceduralMaterialKind[] = [
   'utilityknifeblades',
   'windmillparquet',
   'bismuthhoppers',
+  'splitvanillapods',
 ];
+
+describe('Split curved vanilla pods with two raised continuous skin rails closed end bridges and sixteen lower dark seed clusters in an opaque rough channel', () => {
+  const p = proceduralMaterialPresets.splitvanillapods;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16a15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16a1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16a17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16a19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const center = (seed: number, col: number, row: number, k: number) =>
+    [
+      p.seedJitterX * (2 * hash(col * p.seedRows + k, row, seed ^ 0x16a21) - 1),
+      (k - (p.seedRows - 1) / 2) * p.seedPitch +
+        p.seedJitterY *
+          (2 * hash(col * p.seedRows + k, row, seed ^ 0x16a23) - 1),
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps two continuous curved high skins closing at both ends above a genuinely lower rough channel with sixteen raised darker seed clusters rather than a painted stripe or hole for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('splitvanillapods', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 1024; j++) {
+            const y = -0.3 + (0.6 * j) / 1024;
+            for (const side of [-1, 1]) {
+              sample(
+                ...world(seed, col, row, p.curve * y * y + side * 0.033, y),
+                out,
+              );
+              expect(out.height).toBeGreaterThan(0.0020799);
+              expect(out.height).toBeLessThan(0.0020921);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          }
+          for (let k = 0; k < p.seedRows; k++) {
+            const [sx, y] = center(seed, col, row, k),
+              x = p.curve * y * y;
+            sample(...world(seed, col, row, x + 0.013, y), out);
+            const floor = { ...out };
+            expect(floor.height).toBeGreaterThan(0.0009599);
+            expect(floor.height).toBeLessThan(0.0009721);
+            expect(floor.occlusion).toBeCloseTo(0.72, 12);
+            expect(floor.mortar).toBe(0);
+            expect(floor.metallic).toBe(0);
+            sample(...world(seed, col, row, x + sx, y), out);
+            const cluster = { ...out };
+            expect(cluster.height).toBeGreaterThan(0.0011799);
+            expect(cluster.height).toBeLessThan(0.0011921);
+            expect(cluster.height - floor.height).toBeGreaterThan(0.0002079);
+            expect(floor.color - cluster.color).toBeGreaterThan(0.0399);
+            expect(cluster.roughness - floor.roughness).toBeGreaterThan(0.0199);
+            expect(cluster.occlusion).toBeCloseTo(0.745, 12);
+            expect(cluster.mortar).toBe(0);
+            expect(cluster.metallic).toBe(0);
+            for (const side of [-1, 1]) {
+              sample(...world(seed, col, row, x + side * 0.033, y), out);
+              expect(out.height - cluster.height).toBeGreaterThan(0.0008879);
+              expect(out.color - floor.color).toBeGreaterThan(0.3349);
+              expect(floor.roughness - out.roughness).toBeGreaterThan(0.1599);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+            }
+          }
+          sample(...world(seed, col, row, 0, 0), out);
+          const channelHeight = out.height;
+          for (const y of [-0.39, 0.39]) {
+            sample(...world(seed, col, row, p.curve * y * y, y), out);
+            expect(out.height - channelHeight).toBeGreaterThan(0.0011079);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            sample(...world(seed, col, row, 0, y), out);
+            expect(out.height).toBeLessThan(0.0001081);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.mortar).toBe(1);
+          }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const y = -0.32 + (0.64 * j) / 8192;
+            sample(...world(seed, col, row, p.curve * y * y, y), out);
+            const raised = out.height > 0.00108;
+            if (raised && !inside) runs++;
+            inside = raised;
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          expect(runs).toBe(16);
+        }
+    },
+  );
+  it('keeps actual512 two bright smooth continuous skins above a dark rough opaque channel and sixteen darker rougher seed clusters without metal', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('splitvanillapods', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (
+              (Math.min(511, Math.floor(v * 512)) * 512 +
+                Math.min(511, Math.floor(u * 512))) *
+              4
+            );
+          };
+          for (let k = 0; k < p.seedRows; k++) {
+            const [sx, y] = center(seed, col, row, k),
+              cluster = index(p.curve * y * y + sx, y),
+              gapY =
+                (k - (p.seedRows - 1) / 2) * p.seedPitch +
+                (k === p.seedRows - 1 ? -0.5 : 0.5) * p.seedPitch,
+              floor = index(p.curve * gapY * gapY, gapY);
+            expect(
+              maps.baseColor[floor] - maps.baseColor[cluster],
+            ).toBeGreaterThan(2);
+            expect(
+              maps.metallicRoughness[cluster + 1] -
+                maps.metallicRoughness[floor + 1],
+            ).toBeGreaterThan(4);
+            expect(
+              maps.occlusion[cluster] - maps.occlusion[floor],
+            ).toBeGreaterThan(5);
+            expect(maps.occlusion[floor]).toBeGreaterThan(180);
+            expect(maps.metallicRoughness[cluster + 2]).toBe(0);
+            expect(maps.metallicRoughness[floor + 2]).toBe(0);
+            for (const side of [-1, 1]) {
+              const skin = index(p.curve * y * y + side * 0.033, y);
+              expect(
+                maps.baseColor[skin] - maps.baseColor[floor],
+              ).toBeGreaterThan(28);
+              expect(
+                maps.metallicRoughness[floor + 1] -
+                  maps.metallicRoughness[skin + 1],
+              ).toBeGreaterThan(39);
+              expect(
+                maps.occlusion[skin] - maps.occlusion[floor],
+              ).toBeGreaterThan(65);
+              expect(maps.metallicRoughness[skin + 2]).toBe(0);
+            }
+          }
+        }
+    }
+  });
+  it('keeps curved ellipse support/core both channel walls closed end shoulders all seedellipses nominalrowowners poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('splitvanillapods', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              angle = 2 * Math.PI * t,
+              y = -0.43 + 0.86 * t;
+            for (const q of [1, 1 - p.edge]) {
+              const r = Math.sqrt(q),
+                ey = p.radiusY * r * Math.sin(angle);
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.curve * ey * ey + p.radiusX * r * Math.cos(angle),
+                  ey,
+                ),
+              );
+            }
+            for (const x of [
+              -p.channelRadius,
+              -p.channelCore,
+              p.channelCore,
+              p.channelRadius,
+            ])
+              check(...world(seed, col, row, p.curve * y * y + x, y));
+            for (const ey of [
+              -p.channelHalfLength,
+              -p.channelHalfLength + p.channelEndShoulder,
+              0,
+              p.channelHalfLength - p.channelEndShoulder,
+              p.channelHalfLength,
+            ])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.curve * ey * ey - 0.08 + 0.16 * t,
+                  ey,
+                ),
+              );
+          }
+          for (let k = 0; k < p.seedRows; k++) {
+            const [sx, sy] = center(seed, col, row, k);
+            for (const q of [1, 1 - p.seedEdge])
+              for (let j = 0; j <= 64; j++) {
+                const a = (2 * Math.PI * j) / 64,
+                  r = Math.sqrt(q),
+                  y = sy + p.seedRadiusY * r * Math.sin(a);
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.curve * y * y + sx + p.seedRadiusX * r * Math.cos(a),
+                    y,
+                  ),
+                );
+              }
+          }
+          for (let k = 0; k <= p.seedRows; k++)
+            for (let j = 0; j <= 32; j++) {
+              const y = (k - p.seedRows / 2) * p.seedPitch;
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.curve * y * y - 0.03 + (0.06 * j) / 32,
+                  y,
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Gold-violet bismuth-inspired hoppers with six real descending square metallic terraces and an exposed recessed center', () => {
   const p = proceduralMaterialPresets.bismuthhoppers;

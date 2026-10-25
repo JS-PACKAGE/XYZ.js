@@ -6641,6 +6641,31 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  splitvanillapods: Object.freeze({
+    dark: [25, 12, 7] as const,
+    light: [114, 65, 26] as const,
+    roughness: 0.68,
+    relief: 0.004,
+    cells: 3,
+    radiusX: 0.065,
+    radiusY: 0.43,
+    curve: 0.3,
+    edge: 0.12,
+    channelRadius: 0.024,
+    channelCore: 0.016,
+    channelHalfLength: 0.37,
+    channelEndShoulder: 0.05,
+    seedRows: 16,
+    seedPitch: 0.04,
+    seedRadiusX: 0.0085,
+    seedRadiusY: 0.01,
+    seedEdge: 0.3,
+    seedJitterX: 0.003,
+    seedJitterY: 0.0015,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7284,4 +7309,5 @@ export const proceduralTileMeters = Object.freeze({
   utilityknifeblades: 0.24,
   windmillparquet: 0.8,
   bismuthhoppers: 0.16,
+  splitvanillapods: 0.6,
 });
