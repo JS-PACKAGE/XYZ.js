@@ -652,7 +652,278 @@ const kinds: ProceduralMaterialKind[] = [
   'ceramicfuses',
   'hazelnutshells',
   'yagasuricloth',
+  'balloonwhisks',
 ];
+
+describe('Metal balloon whisks with three oval wire loops connected necks and four raised grip rings', () => {
+  const p = proceduralMaterialPresets.balloonwhisks;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14e15),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14e1b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14e17) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14e19) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three open metallic cage loops attached to a continuous neck and four higher grip rings over dielectric gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('balloonwhisks', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          for (const radius of p.headRadii)
+            for (let i = 0; i <= 32; i++) {
+              const angle = Math.PI + (i * Math.PI) / 32;
+              at(
+                radius * Math.cos(angle),
+                p.headY + p.headYRadius * Math.sin(angle),
+              );
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0030399);
+              expect(out.height).toBeLessThan(0.0030641);
+              expect(out.occlusion).toBeCloseTo(0.985, 12);
+            }
+          at(0, 0.12);
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+          expect(out.height).toBeGreaterThan(0.0031199);
+          expect(out.height).toBeLessThan(0.0031441);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0, p.handleY);
+          expect(out.height).toBeGreaterThan(0.0043199);
+          expect(out.height).toBeLessThan(0.0043441);
+          expect(out.occlusion).toBeCloseTo(0.995, 12);
+          for (let band = 0; band < p.bandCount; band++) {
+            const y = p.bandFirst + band * p.bandPitch;
+            at(0, y);
+            const peak = out.height,
+              polished = out.roughness;
+            expect(peak).toBeGreaterThan(0.0048799);
+            expect(peak).toBeLessThan(0.0049041);
+            expect(out.occlusion).toBe(1);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            at(0, y + 0.02);
+            expect(peak - out.height).toBeGreaterThan(0.00053);
+            expect(out.roughness - polished).toBeGreaterThan(0.0449);
+            expect(out.occlusion).toBeCloseTo(0.995, 12);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(-0.18 + (i * 0.36) / 4096, p.headY);
+            const metal = out.metallic > 0.5;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(6);
+          runs = 0;
+          previous = false;
+          let rings = 0,
+            previousRing = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, 0.09 + (i * 0.34) / 4096);
+            const metal = out.metallic > 0.5,
+              ring = out.occlusion > 0.999;
+            if (metal && !previous) runs++;
+            if (ring && !previousRing) rings++;
+            previous = metal;
+            previousRing = ring;
+          }
+          expect(runs).toBe(1);
+          expect(rings).toBe(4);
+          for (const [x, y] of [
+            [0, p.headY],
+            [0.075, p.headY],
+            [-0.075, p.headY],
+            [0.123, p.headY],
+            [-0.123, p.headY],
+            [0.19, p.headY],
+            [-0.19, p.headY],
+            [0, -0.35],
+            [0, 0.44],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0002001);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+    },
+  );
+  it('keeps the actual 512 wire cage and raised metal grip maps metallic while open cage gaps stay dielectric', () => {
+    const size = 512;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('balloonwhisks', size, seed),
+        metal = (col: number, row: number, x: number, y: number) => {
+          const [u, v] = uv(seed, col, row, x, y),
+            px = Math.floor(u * size),
+            py = Math.floor(v * size);
+          return maps.metallicRoughness[(py * size + px) * 4 + 2];
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of p.headRadii)
+            for (let i = 0; i <= 16; i++) {
+              const angle = Math.PI + (i * Math.PI) / 16;
+              expect(
+                metal(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  p.headY + p.headYRadius * Math.sin(angle),
+                ),
+              ).toBe(255);
+            }
+          expect(metal(col, row, 0, 0.12)).toBe(255);
+          expect(metal(col, row, 0, p.handleY)).toBe(255);
+          for (let i = 0; i < p.bandCount; i++)
+            expect(metal(col, row, 0, p.bandFirst + i * p.bandPitch)).toBe(255);
+          for (const x of [0, 0.075, -0.075, 0.123, -0.123, 0.19, -0.19])
+            expect(metal(col, row, x, p.headY)).toBe(0);
+        }
+    }
+  });
+  it('keeps gradient-normalized oval wire shoulders guarded centers capsule tangents raised ring owners seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('balloonwhisks', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of p.headRadii)
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32,
+                c = Math.cos(angle),
+                s = Math.sin(angle),
+                g = Math.sqrt(
+                  (c * c) / (radius * radius) +
+                    (s * s) / (p.headYRadius * p.headYRadius),
+                );
+              for (const distance of [
+                -p.wireRadius,
+                -p.wireCore,
+                0,
+                p.wireCore,
+                p.wireRadius,
+              ]) {
+                const d = distance * g,
+                  t = d + Math.sqrt(1 + d * d);
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    radius * t * c,
+                    p.headY + p.headYRadius * t * s,
+                  ),
+                );
+              }
+              for (const q of [0.5, 1.5]) {
+                const t = Math.sqrt(q);
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    radius * t * c,
+                    p.headY + p.headYRadius * t * s,
+                  ),
+                );
+              }
+            }
+          for (const [center, straight, radius, core] of [
+            [p.neckY, p.neckStraight, p.neckRadius, p.neckCore],
+            [p.handleY, p.handleStraight, p.handleRadius, p.handleCore],
+          ]) {
+            for (const r of [radius, core])
+              for (const side of [-1, 1]) {
+                for (let i = 0; i <= 32; i++) {
+                  const angle = (i * Math.PI) / 32;
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      r * Math.cos(angle),
+                      center + side * (straight + r * Math.sin(angle)),
+                    ),
+                  );
+                }
+                for (const t of [-1, -0.5, 0, 0.5, 1])
+                  check(...uv(seed, col, row, side * r, center + t * straight));
+              }
+          }
+          for (let i = 0; i < p.bandCount; i++)
+            for (const x of [0, 0.02, 0.03])
+              for (const d of [
+                -p.bandPitch / 2,
+                -p.bandRadius,
+                -p.bandCore,
+                0,
+                p.bandCore,
+                p.bandRadius,
+                p.bandPitch / 2,
+              ])
+                check(
+                  ...uv(seed, col, row, x, p.bandFirst + i * p.bandPitch + d),
+                );
+        }
+    }
+  });
+});
 
 describe('Yagasuri-inspired alternating arrow-fletching pigment on continuous woven cloth', () => {
   const p = proceduralMaterialPresets.yagasuricloth;
@@ -32745,6 +33016,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'openendspanners' &&
           kind !== 'binderclips' &&
           kind !== 'ceramicfuses' &&
+          kind !== 'balloonwhisks' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -42152,6 +42424,7 @@ describe('procedural preset acquisition and ownership', () => {
     'openendspanners',
     'binderclips',
     'ceramicfuses',
+    'balloonwhisks',
     'standingseam',
     'damascus',
     'castiron',
@@ -42219,6 +42492,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'openendspanners' ||
           kind === 'binderclips' ||
           kind === 'ceramicfuses' ||
+          kind === 'balloonwhisks' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

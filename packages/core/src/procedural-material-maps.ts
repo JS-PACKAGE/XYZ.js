@@ -1441,6 +1441,131 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'balloonwhisks': {
+        const p = proceduralMaterialPresets.balloonwhisks,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          inverseHeads = new Float64Array(p.headRadii.length),
+          grainField = cachedNoise(128, 128, seed ^ 0x14e11),
+          inverseHeadY = 1 / (p.headYRadius * p.headYRadius),
+          wireSquared = p.wireRadius * p.wireRadius,
+          inverseWire = 1 / wireSquared,
+          inverseWireShoulder = 1 / (wireSquared - p.wireCore * p.wireCore),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / neckSquared,
+          inverseNeckShoulder = 1 / (neckSquared - p.neckCore * p.neckCore),
+          handleSquared = p.handleRadius * p.handleRadius,
+          inverseHandle = 1 / handleSquared,
+          inverseHandleShoulder =
+            1 / (handleSquared - p.handleCore * p.handleCore),
+          inverseBandPitch = 1 / p.bandPitch,
+          bandSquared = p.bandRadius * p.bandRadius,
+          inverseBandShoulder = 1 / (bandSquared - p.bandCore * p.bandCore);
+        for (let i = 0; i < p.headRadii.length; i++)
+          inverseHeads[i] = 1 / (p.headRadii[i] * p.headRadii[i]);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14e15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x14e17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x14e19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14e1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x14e1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            xx = x * x,
+            handleEnd = Math.max(0, Math.abs(y - p.handleY) - p.handleStraight),
+            handleQ = xx + handleEnd * handleEnd,
+            handle = smooth(
+              clamp((handleSquared - handleQ) * inverseHandleShoulder),
+            );
+          let neck = 0,
+            neckQ = 0,
+            wire = 0,
+            round = 0;
+          if (handle < 1) {
+            const end = Math.max(0, Math.abs(y - p.neckY) - p.neckStraight);
+            neckQ = xx + end * end;
+            neck = smooth(clamp((neckSquared - neckQ) * inverseNeckShoulder));
+            const hy = y - p.headY,
+              gy = hy * inverseHeadY,
+              qy = hy * gy,
+              gySquared = gy * gy;
+            if (neck < 1 && qy < 1.5)
+              for (let loop = 0; loop < inverseHeads.length; loop++) {
+                const gx = x * inverseHeads[loop],
+                  q = x * gx + qy;
+                if (q < 0.5 || q > 1.5) continue;
+                // Gradient-normalized implicit distance avoids a root or singular center.
+                const delta = q - 1,
+                  distanceSquared =
+                    (0.25 * delta * delta) / (gx * gx + gySquared);
+                if (distanceSquared >= wireSquared) continue;
+                const cover = smooth(
+                    clamp(
+                      (wireSquared - distanceSquared) * inverseWireShoulder,
+                    ),
+                  ),
+                  dome = smooth(clamp(1 - distanceSquared * inverseWire));
+                wire += (1 - wire) * cover;
+                round += (1 - round) * dome;
+                if (wire === 1 && round === 1) break;
+              }
+          }
+          const coverage = 1 - (1 - wire) * (1 - neck) * (1 - handle);
+          metallic = coverage;
+          mortar = 1 - coverage;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (coverage === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5];
+          if (wire > 0) {
+            color += wire * (0.64 + 0.14 * tone + 0.025 * grain - color);
+            height += wire * (0.31 + 0.07 * round + 0.003 * grain - height);
+            roughness += wire * (0.24 + 0.02 * grain - roughness);
+            occlusion += wire * (0.985 - occlusion);
+          }
+          if (neck > 0) {
+            const dome = smooth(clamp(1 - neckQ * inverseNeck));
+            color += neck * (0.6 + 0.14 * tone + 0.025 * grain - color);
+            height += neck * (0.35 + 0.04 * dome + 0.003 * grain - height);
+            roughness += neck * (0.27 + 0.02 * grain - roughness);
+            occlusion += neck * (0.99 - occlusion);
+          }
+          if (handle > 0) {
+            const index = Math.floor(
+              (y - p.bandFirst) * inverseBandPitch + 0.5,
+            );
+            let band = 0;
+            if (index >= 0 && index < p.bandCount) {
+              const d = y - p.bandFirst - index * p.bandPitch;
+              band = smooth(clamp((bandSquared - d * d) * inverseBandShoulder));
+            }
+            const dome = smooth(clamp(1 - handleQ * inverseHandle));
+            color +=
+              handle *
+              (0.5 + 0.12 * tone + 0.025 * grain + 0.08 * band - color);
+            height +=
+              handle *
+              (0.48 + 0.06 * dome + 0.07 * band + 0.003 * grain - height);
+            roughness +=
+              handle * (0.34 + 0.025 * grain - 0.07 * band - roughness);
+            occlusion += handle * (0.995 + 0.005 * band - occlusion);
+          }
+        };
+      }
       case 'yagasuricloth': {
         const p = proceduralMaterialPresets.yagasuricloth,
           grainField = cachedNoise(128, 128, seed ^ 0x14d11),
@@ -25247,6 +25372,7 @@ export function createSurfaceSampler(
     kind === 'ceramicfuses' ||
     kind === 'hazelnutshells' ||
     kind === 'yagasuricloth' ||
+    kind === 'balloonwhisks' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
