@@ -7203,3 +7203,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有 558 種 size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 batterypositivecaps，八份修改文件相對連結無失效。
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 batterypositivecaps，559 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 的等比例臨時 baseColor canvas 確認金屬外蓋／捲邊、淡色完整絕緣環與非孔洞中央接點；material metallic 1、實際 metallicRoughness bitmap B min 0／max 255／有中間值，height true、destroyed true，預覽隨頁清除。不宣稱 geometry、真實導電／電化學／電路／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - 完整 build、typecheck、lint、format:check、179 檔／6498 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。
+
+## 2026-10-25 程序材質：黃百香果切面（passionfruitslice）
+
+- 目錄 559→560 種；0.32 m opaque dielectric tile、metallic 0，4×4 橢圓果實、金黃果皮／淡色厚內皮、填實果漿與深籽凸金果囊，沿四圖／選用 height／ownership。沿 driedfigslice compact cached owner 慣例，8×8 seed poses per fruit，jitter + 最大 support 0.488 <0.5，不掃鄰格／不增採樣配置／hash／sqrt／trig；不新增 geometry、透明／SSS／透射、生物或物理模擬。
+- Throwaway source smoke 三 seed（0／1／`0xffffffff`）各 16 果、192×192 非整數格點，dark seed components 實測 25–34、各中央至少四顆、中央果囊 halo color min >0.844、深籽冠高於 golden halo min >0.000203 m；保留行為測試採寬界限 16–40、中央至少三顆／各象限至少三顆，dark seed height >0.48 relief、gold halo color >0.8／roughness <0.23、冠高差 >0.00012 m，避免種子變凹孔或只成 kiwi 單環。填實果漿 height >0.3 relief／低 roughness、淡 pith 對比／高度／粗糙度驗證；129×129 網格、三 seed、雙方向四欄位與所有 cell 六個精確橢圓 shoulders／兩軸 seed owner 邊界 C1 h 1e-9 保留 0.02 上限。四項形態／C1 加既有 size 32 deterministic／seeded／distinct／periodic 共五項針對測試首次通過。
+- 既有 559 種（含 driedfigslice／kiwiflesh／pomegranateslice）size 64／seed 7 四圖 SHA256 changed 0；fresh Node 新 build 亦生成 passionfruitslice，八份修改文件相對連結無失效。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 passionfruitslice，560 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 皆空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例臨時 baseColor canvas 確認金黃橢圓果皮、厚淡 pith、中央散佈深籽金果囊／實色果漿，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透明／SSS／透射、生物／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 完整 build、typecheck、lint、format:check、179 檔／6503 tests、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）通過。版本維持 1.22.1。

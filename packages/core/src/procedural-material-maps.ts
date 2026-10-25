@@ -1422,6 +1422,101 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'passionfruitslice': {
+        const p = proceduralMaterialPresets.passionfruitslice,
+          seeds = new Float64Array(p.cells * p.cells * p.seeds * p.seeds * 4),
+          gridScale = p.seeds * 0.5,
+          inverseWidth = 1 / p.width,
+          inverseLength = 1 / p.length,
+          inverseEdge = 1 / p.edge,
+          pithSquared = p.pithRadius * p.pithRadius,
+          inversePith = 1 / (pithSquared - p.pithShoulder * p.pithShoulder),
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshShoulder * p.fleshShoulder),
+          inverseJellyLong = 1 / (gridScale * p.jellyLong),
+          inverseJellyShort = 1 / (gridScale * p.jellyShort),
+          inverseJellyShoulder = 1 / p.jellyShoulder,
+          inverseKernelLong = 1 / (gridScale * p.kernelLong),
+          inverseKernelShort = 1 / (gridScale * p.kernelShort),
+          inverseKernelShoulder = 1 / p.kernelShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x11b11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let sy = 0; sy < p.seeds; sy++)
+              for (let sx = 0; sx < p.seeds; sx++) {
+                const gx = col * p.seeds + sx,
+                  gy = row * p.seeds + sy,
+                  i =
+                    (((row * p.cells + col) * p.seeds + sy) * p.seeds + sx) * 4,
+                  angle = TAU * hash(gx, gy, seed ^ 0x11b13);
+                seeds[i] =
+                  0.5 + p.seedJitter * (2 * hash(gx, gy, seed ^ 0x11b15) - 1);
+                seeds[i + 1] =
+                  0.5 + p.seedJitter * (2 * hash(gx, gy, seed ^ 0x11b17) - 1);
+                seeds[i + 2] = Math.cos(angle);
+                seeds[i + 3] = Math.sin(angle);
+              }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = (fract(uc) - 0.5) * inverseWidth,
+            y = (fract(vc) - 0.5) * inverseLength,
+            q = x * x + y * y,
+            face = smooth(clamp((1 - q) * inverseEdge));
+          color = 0.035;
+          height = 0.03;
+          roughness = 0.95;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            pith = face * smooth(clamp((pithSquared - q) * inversePith)),
+            flesh = face * smooth(clamp((fleshSquared - q) * inverseFlesh));
+          color += face * (0.65 + 0.08 * grain - color);
+          height += face * (0.6 + 0.004 * grain - height);
+          roughness += face * (p.roughness + 0.035 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+          color += pith * (0.98 + 0.01 * grain - color);
+          height += pith * (0.63 + 0.004 * grain - height);
+          roughness += pith * (0.72 + 0.025 * grain - roughness);
+          occlusion += pith * (0.99 - occlusion);
+          if (flesh === 0) return;
+          color += flesh * (0.52 + 0.07 * grain - color);
+          height += flesh * (0.31 + 0.005 * grain - height);
+          roughness += flesh * (0.31 + 0.025 * grain - roughness);
+          occlusion += flesh * (0.8 - occlusion);
+          const sx = (x + 1) * gridScale,
+            sy = (y + 1) * gridScale,
+            i =
+              (((Math.floor(vc) * p.cells + Math.floor(uc)) * p.seeds +
+                Math.floor(sy)) *
+                p.seeds +
+                Math.floor(sx)) *
+              4,
+            dx = fract(sx) - seeds[i],
+            dy = fract(sy) - seeds[i + 1],
+            a = dx * seeds[i + 2] + dy * seeds[i + 3],
+            b = dy * seeds[i + 2] - dx * seeds[i + 3],
+            ja = a * inverseJellyLong,
+            jb = b * inverseJellyShort,
+            jellySquared = ja * ja + jb * jb,
+            jelly =
+              flesh * smooth(clamp((1 - jellySquared) * inverseJellyShoulder)),
+            ka = a * inverseKernelLong,
+            kb = b * inverseKernelShort,
+            kernel =
+              flesh *
+              smooth(clamp((1 - ka * ka - kb * kb) * inverseKernelShoulder)),
+            dome = clamp(1 - jellySquared);
+          // Like driedfigslice, jitter plus the largest seed support stays
+          // inside one cached owner. Pulp clips seeds before the pith.
+          color += jelly * (0.84 + 0.05 * grain - color);
+          height += jelly * (0.46 + 0.09 * dome + 0.004 * grain - height);
+          roughness += jelly * (0.19 - 0.03 * dome + 0.02 * grain - roughness);
+          occlusion += jelly * (0.98 - occlusion);
+          // Dark kernels are pigment within convex opaque sacs, not drilled pits.
+          color += kernel * (0.025 + 0.025 * grain - color);
+        };
+      }
       case 'batterypositivecaps': {
         const p = proceduralMaterialPresets.batterypositivecaps,
           tones = new Float64Array(p.cells * p.cells),
@@ -21464,6 +21559,7 @@ export function createSurfaceSampler(
     kind === 'mudtiretracks' ||
     kind === 'tangramtiles' ||
     kind === 'batterypositivecaps' ||
+    kind === 'passionfruitslice' ||
     fabricated ||
     botanical ||
     packaging ||

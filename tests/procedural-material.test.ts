@@ -597,7 +597,180 @@ const kinds: ProceduralMaterialKind[] = [
   'peacockfeathers',
   'tangramtiles',
   'batterypositivecaps',
+  'passionfruitslice',
 ];
+
+describe('Yellow passion fruit pulp with convex golden seed sacs', () => {
+  const p = proceduralMaterialPresets.passionfruitslice;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('passionfruitslice', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'distributes dark kernels throughout a filled cavity, with pale pith and golden convex halos rather than pits or a single seed ring for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const size = 192,
+            mask = new Uint8Array(size * size),
+            heights = new Float64Array(size * size),
+            queue = new Uint32Array(size * size);
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++) {
+              const s = at(
+                  col,
+                  row,
+                  (x + 0.37) / size - 0.5,
+                  (y + 0.43) / size - 0.5,
+                ),
+                i = y * size + x;
+              mask[i] = s.color < 0.13 && s.height > 0.4 * p.relief ? 1 : 0;
+              heights[i] = s.height;
+            }
+          let components = 0,
+            central = 0;
+          const quadrants = [0, 0, 0, 0];
+          for (let index = 0; index < mask.length; index++) {
+            if (mask[index] !== 1) continue;
+            mask[index] = 2;
+            queue[0] = index;
+            let end = 1,
+              sumX = 0,
+              sumY = 0,
+              maxHeight = 0,
+              minHeight = Infinity;
+            for (let start = 0; start < end; start++) {
+              const i = queue[start],
+                x = i % size,
+                y = Math.floor(i / size);
+              sumX += (x + 0.37) / size - 0.5;
+              sumY += (y + 0.43) / size - 0.5;
+              maxHeight = Math.max(maxHeight, heights[i]);
+              minHeight = Math.min(minHeight, heights[i]);
+              for (const next of [
+                x ? i - 1 : -1,
+                x + 1 < size ? i + 1 : -1,
+                y ? i - size : -1,
+                y + 1 < size ? i + size : -1,
+              ])
+                if (next >= 0 && mask[next] === 1) {
+                  mask[next] = 2;
+                  queue[end++] = next;
+                }
+            }
+            components++;
+            const x = sumX / end,
+              y = sumY / end,
+              q = (x / p.width) ** 2 + (y / p.length) ** 2;
+            quadrants[(x < 0 ? 1 : 0) + (y < 0 ? 2 : 0)]++;
+            expect(minHeight).toBeGreaterThan(0.48 * p.relief);
+            if (q < 0.25 ** 2) central++;
+            if (q < 0.5 ** 2) {
+              let bestColor = -Infinity,
+                haloHeight = 0,
+                haloRoughness = 1;
+              for (let k = 0; k < 32; k++) {
+                const angle = (k * Math.PI) / 16,
+                  s = at(
+                    col,
+                    row,
+                    x + 0.025 * Math.cos(angle),
+                    y + 0.025 * Math.sin(angle),
+                  );
+                if (s.color > bestColor) {
+                  bestColor = s.color;
+                  haloHeight = s.height;
+                  haloRoughness = s.roughness;
+                }
+              }
+              expect(bestColor).toBeGreaterThan(0.8);
+              expect(haloRoughness).toBeLessThan(0.23);
+              expect(maxHeight - haloHeight).toBeGreaterThan(0.00012);
+            }
+          }
+          expect(components).toBeGreaterThanOrEqual(16);
+          expect(components).toBeLessThanOrEqual(40);
+          expect(central).toBeGreaterThanOrEqual(3);
+          for (const count of quadrants)
+            expect(count).toBeGreaterThanOrEqual(3);
+          const pulp = at(col, row, 0, 0),
+            pith = at(col, row, p.width * 0.83, 0),
+            rind = at(col, row, p.width * 0.95, 0);
+          expect(pulp.height).toBeGreaterThan(0.3 * p.relief);
+          expect(pulp.color).toBeGreaterThan(0.5);
+          expect(pulp.roughness).toBeLessThan(0.35);
+          expect(pith.color - rind.color).toBeGreaterThan(0.2);
+          expect(pith.height - pulp.height).toBeGreaterThan(0.0018);
+          expect(pith.roughness - pulp.roughness).toBeGreaterThan(0.35);
+          expect(pulp.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps cut rind, pith, filled pulp, compact seed owners and periodic boundaries C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (col: number, row: number, x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(col, row, x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(col, row, x, y),
+            c = at(col, row, x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check(0, 0, (p.cells * x) / 128 - 0.5, (p.cells * y) / 128 - 0.5);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [
+            1,
+            Math.sqrt(1 - p.edge),
+            p.pithRadius,
+            p.pithShoulder,
+            p.fleshRadius,
+            p.fleshShoulder,
+          ])
+            for (let i = 0; i < 16; i++) {
+              const angle = (i * Math.PI) / 8;
+              check(
+                col,
+                row,
+                p.width * radius * Math.cos(angle),
+                p.length * radius * Math.sin(angle),
+              );
+            }
+          for (let owner = 0; owner <= p.seeds; owner++)
+            for (let i = 0; i <= 32; i++) {
+              const across = (2 * owner) / p.seeds - 1,
+                along = (1.5 * i) / 32 - 0.75;
+              check(col, row, p.width * across, p.length * along);
+              check(col, row, p.width * along, p.length * across);
+            }
+        }
+    }
+  });
+});
 
 describe('Battery positive cap metal contacts and dielectric annuli', () => {
   const p = proceduralMaterialPresets.batterypositivecaps;

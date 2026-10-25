@@ -659,6 +659,8 @@
 
 同輪追加 `batterypositivecaps`（圓柱電池正極端蓋），目錄 558→559 種：金屬外蓋與凸接點、中間淡色非金屬絕緣環、外側微凸捲邊，並非全金屬墊圈或通透環孔。0.12 m opaque mixed-metallic tile、material metallic factor 1 保留金屬／絕緣環／背底分區，沿四圖／選用 height／ownership，不新增電池 geometry、導電／電化學／電路或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `passionfruitslice`（黃百香果切面），目錄 559→560 種：橢圓果皮／淡色厚內皮、中央連續填實果漿與散佈深籽凸金果囊，區別 kiwi 環狀種子或 pomegranate 分室紅石榴籽。0.32 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；深籽只改果囊 pigment 而不鑽孔，不新增果實 geometry、透明／SSS／透射、生物或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -574,7 +574,8 @@ export type ProceduralMaterialKind =
   | 'mudtiretracks'
   | 'peacockfeathers'
   | 'tangramtiles'
-  | 'batterypositivecaps';
+  | 'batterypositivecaps'
+  | 'passionfruitslice';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1383,6 +1384,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'peacockfeathers',
   'tangramtiles',
   'batterypositivecaps',
+  'passionfruitslice',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

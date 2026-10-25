@@ -790,6 +790,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `batterypositivecaps`（圓柱電池正極端蓋）：金屬外蓋／捲邊、淡色非金屬絕緣環與凸金屬接點。沿 grommetcanvas replacement blending 與 canlids squared-radius shoulder，以三層 compact covers 一起混合 color／height／roughness／AO／metallic；material metallic factor 1 保留 authored map，而非將絕緣環變金屬。4×4 佈局預算 16 seeded tones／96×96 grain；外蓋支撐外略過內層工作，取樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('batterypositivecaps', { seed: 7 })`；0.12 m opaque mixed-metallic tile，沿 maps／選用 height／ownership，不新增電池 geometry、導電／電化學／電路或物理模擬。
 
+種類另支援 `passionfruitslice`（黃百香果切面）：橢圓果皮／淡色厚內皮、中央填實果漿與散佈深籽凸金果囊。沿 driedfigslice compact owner 慣例，4×4 果實各預算 8×8 jitter／rotation seed poses／96×96 grain；jitter + 最大 support 0.488 <0.5 owner 單位，僅查最近 cached cell，不掃鄰格。Normalized ellipse shoulders 逐層混合 fruit／pith／pulp，果漿裁切邊緣果囊；果囊 coverage 混合 color／height／roughness／AO，較小深籽只改 pigment 而非凹孔。Body／pulp 支撐外略過內層，取樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('passionfruitslice', { seed: 7 })`；0.32 m opaque dielectric tile、metallic 0，沿 maps／選用 height／ownership，不新增果實 geometry、透明／SSS／透射、生物或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。
