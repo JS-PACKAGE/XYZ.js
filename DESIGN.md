@@ -711,6 +711,8 @@
 
 `dualinlinechips` 沿 squared rounded covers／compact mirrored nearest pin／dielectric-over-metal replacement，預算 16 tones／96×96 grain／reciprocals。4×4 交替斜向、各側七橫向 capsule pin，radius 0.019 <半 pitch 0.045，nearest／sign owner 前歸零且角 support 限 cell。低金屬腳先覆背底，黑封裝再覆腳根／消 metallic；全在 full package 內的第一腳圓凹點只減高度、不成孔。空 body／pin 略過 fields／grain，空 body 略過 marker；採樣無配置／hash／sqrt／trig。不新增 geometry、電氣或物理模擬。
 
+`tortoiseshellacetate` 沿 cached periodic domain warp／two-scale pigment／flat coherent face，預算 12² macro／32² detail／兩份 4² warp／192² grain／reciprocal。Warped two-scale noise 經 smooth threshold 分琥珀與深褐斑；height 只保留獨立 grain 的 <0.0000021 m 微差、roughness 0.2–0.218、AO 1，不將 pigment 轉成甲片高低／縫／洞。所有 fields periodic C1，採樣無配置／hash／sqrt／trig。不新增 geometry、透射／折射、化學製程或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -7389,3 +7389,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 581-preset dualinlinechips、擷取畫面／512 base-color detail，見黑封裝、兩側各七銀腳與第一腳凹點。實際 factor 1、metallic B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 dualinlinechips 並重算既有 580 種（含 circuitboard／ceramiccapacitors／axialresistors）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6616 項測試（含新金屬 map extrema／資源 ownership）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：玳瑁紋醋酸纖維塑膠（tortoiseshellacetate）
+
+- 目錄 581→582 種；0.2 m opaque dielectric tile、metallic 0，平滑琥珀底／不規則深褐 pigment 斑塊，非 tortoiseshell 隆起天然甲片。Cached 12² macro／32² detail／兩份 4² warp／192² grain／reciprocal；periodic domain warp／two-scale smooth pigment threshold，只讓獨立 grain 控 height／roughness，深斑不挖洞／成縫／凸甲片。採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明／透射／折射、化學製程、天然殼材或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×160² samples 皆 metallic 0／AO 1、roughness 0.2–0.218，深斑 >3%／琥珀 >10%、16 子區各 color span >0.5；height 0.000760–0.000762 m、range <0.0000021 m，深／淺平均高度差 <0.0000002 m。193² 雙向 warped pigment shoulders／lattice joins／wraps C1 通過，顏料未轉成甲片 relief。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 582-preset tortoiseshellacetate、擷取畫面／512 base-color detail，見連續琥珀底／深褐不規則斑與近乎平 normal／全白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 tortoiseshellacetate 並重算既有 581 種（含 tortoiseshell）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6621 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -5527,6 +5527,20 @@ export const proceduralMaterialPresets = Object.freeze({
     markerRadius: 0.027,
     markerCore: 0.018,
   }),
+  tortoiseshellacetate: Object.freeze({
+    dark: [19, 7, 2] as const,
+    light: [244, 168, 58] as const,
+    roughness: 0.2,
+    relief: 0.002,
+    macroCells: 12,
+    detailCells: 32,
+    warpCells: 4,
+    grainCells: 192,
+    warp: 0.13,
+    macroWeight: 0.75,
+    threshold: 0.43,
+    shoulder: 0.19,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6112,4 +6126,5 @@ export const proceduralTileMeters = Object.freeze({
   triglidesliders: 0.16,
   popcorn: 0.24,
   dualinlinechips: 0.16,
+  tortoiseshellacetate: 0.2,
 });

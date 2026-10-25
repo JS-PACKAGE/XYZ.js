@@ -596,7 +596,8 @@ export type ProceduralMaterialKind =
   | 'slottedturners'
   | 'triglidesliders'
   | 'popcorn'
-  | 'dualinlinechips';
+  | 'dualinlinechips'
+  | 'tortoiseshellacetate';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1427,6 +1428,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'triglidesliders',
   'popcorn',
   'dualinlinechips',
+  'tortoiseshellacetate',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

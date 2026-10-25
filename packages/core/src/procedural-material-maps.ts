@@ -1428,6 +1428,30 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tortoiseshellacetate': {
+        const p = proceduralMaterialPresets.tortoiseshellacetate,
+          macro = cachedNoise(p.macroCells, p.macroCells, seed ^ 0x13011),
+          detail = cachedNoise(p.detailCells, p.detailCells, seed ^ 0x13013),
+          warpX = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x13015),
+          warpY = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x13017),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x13019),
+          detailWeight = 1 - p.macroWeight,
+          inverseShoulder = 1 / p.shoulder;
+        return () => {
+          const x = u + p.warp * (warpX(u, v) - 0.5),
+            y = v + p.warp * (warpY(u, v) - 0.5),
+            pigment = p.macroWeight * macro(x, y) + detailWeight * detail(x, y),
+            dark = smooth(clamp((pigment - p.threshold) * inverseShoulder)),
+            grain = grainField(u, v);
+          // Acetate pigment lies beneath one polished face: mottles do not
+          // become raised shell scutes or dark cavities in height/AO maps.
+          color = 0.88 - 0.79 * dark + 0.04 * grain;
+          height = 0.38 + 0.001 * grain;
+          roughness = p.roughness + 0.018 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'dualinlinechips': {
         const p = proceduralMaterialPresets.dualinlinechips,
           tones = new Float64Array(p.cells * p.cells),
@@ -22932,6 +22956,7 @@ export function createSurfaceSampler(
     kind === 'triglidesliders' ||
     kind === 'popcorn' ||
     kind === 'dualinlinechips' ||
+    kind === 'tortoiseshellacetate' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

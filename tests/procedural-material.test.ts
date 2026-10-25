@@ -619,7 +619,106 @@ const kinds: ProceduralMaterialKind[] = [
   'triglidesliders',
   'popcorn',
   'dualinlinechips',
+  'tortoiseshellacetate',
 ];
+
+describe('Polished amber tortoiseshell acetate without raised shell scutes', () => {
+  it.each([0, 1, 0xffffffff])(
+    'keeps dark mottles and amber islands beneath one flat polished dielectric face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tortoiseshellacetate', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let dark = 0,
+        amber = 0,
+        darkHeight = 0,
+        amberHeight = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity;
+      for (let y = 0; y < 160; y++)
+        for (let x = 0; x < 160; x++) {
+          sample((x + 0.5) / 160, (y + 0.5) / 160, out);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBe(1);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.2);
+          expect(out.roughness).toBeLessThanOrEqual(0.218);
+          minHeight = Math.min(minHeight, out.height);
+          maxHeight = Math.max(maxHeight, out.height);
+          if (out.color < 0.2) {
+            dark++;
+            darkHeight += out.height;
+          }
+          if (out.color > 0.7) {
+            amber++;
+            amberHeight += out.height;
+          }
+        }
+      expect(dark / 160 ** 2).toBeGreaterThan(0.03);
+      expect(amber / 160 ** 2).toBeGreaterThan(0.1);
+      expect(dark / 160 ** 2).toBeLessThan(0.7);
+      expect(amber / 160 ** 2).toBeLessThan(0.8);
+      expect(maxHeight - minHeight).toBeLessThan(0.0000021);
+      expect(Math.abs(darkHeight / dark - amberHeight / amber)).toBeLessThan(
+        0.0000002,
+      );
+      expect(minHeight).toBeGreaterThanOrEqual(0.00076);
+      expect(maxHeight).toBeLessThanOrEqual(0.000762);
+      // Mottling is distributed over the tile, not a separate object on backing.
+      for (let row = 0; row < 4; row++)
+        for (let col = 0; col < 4; col++) {
+          let low = 1,
+            high = 0;
+          for (let y = 0; y < 24; y++)
+            for (let x = 0; x < 24; x++) {
+              sample(
+                (col + (x + 0.5) / 24) / 4,
+                (row + (y + 0.5) / 24) / 4,
+                out,
+              );
+              low = Math.min(low, out.color);
+              high = Math.max(high, out.color);
+            }
+          expect(high - low).toBeGreaterThan(0.5);
+        }
+    },
+  );
+  it('keeps warped pigment shoulders, lattice joins and both UV wraps C1 without pigment-driven relief', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tortoiseshellacetate', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            const u = x / 192,
+              v = y / 192;
+            sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+            sample(u, v, b);
+            sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+            for (const key of keys)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Dual inline chips with fourteen metal leads and one recessed pin-one mark', () => {
   const p = proceduralMaterialPresets.dualinlinechips;
