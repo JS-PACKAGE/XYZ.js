@@ -639,7 +639,180 @@ const kinds: ProceduralMaterialKind[] = [
   'tigerfur',
   'grosgrainribbons',
   'azuritemalachite',
+  'openendspanners',
 ];
+
+describe('Double open-ended metal spanners with unequal jaws and solid cavity backing', () => {
+  const p = proceduralMaterialPresets.openendspanners;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two unequal bifurcated higher metal heads connected through the lower shaft while both open cavities expose opaque nonmetal backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('openendspanners', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          const shaft = out.height;
+          expect(shaft).toBeGreaterThan(0.002719);
+          expect(shaft).toBeLessThan(0.002745);
+          expect(out.metallic).toBe(1);
+          expect(out.occlusion).toBeCloseTo(0.98, 12);
+          expect(out.mortar).toBe(0);
+          for (const [x, y] of [
+            [-0.07, -0.31],
+            [0.07, -0.31],
+            [-0.06, 0.31],
+            [0.06, 0.31],
+            [0, -0.22],
+            [0, 0.22],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.003359);
+            expect(out.height).toBeLessThan(0.003385);
+            expect(out.height - shaft).toBeGreaterThan(0.00061);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.color).toBeGreaterThan(0.86);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.28);
+            expect(out.roughness).toBeLessThanOrEqual(0.305);
+          }
+          for (const [x, y] of [
+            [0, -0.34],
+            [0, -0.3],
+            [0, -0.26],
+            [0, 0.34],
+            [0, 0.3],
+            [0, 0.265],
+            [-0.06, 0],
+            [0.06, 0],
+            [0, -0.4],
+            [0, 0.4],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+          const widths: number[] = [];
+          for (const y of [-0.29, 0.29]) {
+            let runs = 0,
+              width = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              at(-0.15 + (i * 0.3) / 2048, y);
+              const metal = out.metallic > 0.5;
+              if (metal && !previous) runs++;
+              if (metal) width++;
+              previous = metal;
+            }
+            expect(runs).toBe(2);
+            widths.push((width * 0.3) / 2048);
+          }
+          expect(widths[0] - widths[1]).toBeGreaterThan(0.01);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.4 + (i * 0.8) / 4096);
+            const metal = out.metallic > 0.5;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(1);
+        }
+    },
+  );
+  it('keeps both unequal head shoulders, open-jaw straight/cap tangents, shaft caps and covered joins, cell owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('openendspanners', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const [cy, radius, core] of [
+            [p.topY, p.topRadius, p.topCore],
+            [p.lowerY, p.lowerRadius, p.lowerCore],
+            [p.topCutY, p.topCutRadius, p.topCutCore],
+            [p.lowerCutY, p.lowerCutRadius, p.lowerCutCore],
+            [-p.shaftStraight, p.shaftRadius, p.shaftCore],
+            [p.shaftStraight, p.shaftRadius, p.shaftCore],
+          ])
+            for (const r of [radius, core])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    r * Math.cos(angle),
+                    cy + r * Math.sin(angle),
+                  ),
+                );
+              }
+          for (const sign of [-1, 1]) {
+            for (const r of [p.topCutRadius, p.topCutCore])
+              for (const y of [-0.38, -0.34, p.topCutY])
+                check(...uv(col, row, sign * r, y));
+            for (const r of [p.lowerCutRadius, p.lowerCutCore])
+              for (const y of [0.38, 0.34, p.lowerCutY])
+                check(...uv(col, row, sign * r, y));
+            for (const r of [p.shaftRadius, p.shaftCore])
+              for (const y of [-0.2, -0.1, 0, 0.1, 0.2])
+                check(...uv(col, row, sign * r, y));
+          }
+          for (const y of [-0.24, -0.23, -0.22, -0.2, 0.2, 0.22, 0.23, 0.245])
+            for (const x of [-0.02, 0, 0.02]) check(...uv(col, row, x, y));
+        }
+    }
+  });
+});
 
 describe('Coplanar banded blue azurite globule clusters in green malachite', () => {
   const p = proceduralMaterialPresets.azuritemalachite;
@@ -30739,6 +30912,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'tactileswitches' &&
           kind !== 'brasspadlocks' &&
           kind !== 'bluepushpins' &&
+          kind !== 'openendspanners' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -30765,6 +30939,7 @@ describe('periodic procedural material fields', () => {
         kind === 'tactileswitches' ||
         kind === 'brasspadlocks' ||
         kind === 'bluepushpins' ||
+        kind === 'openendspanners' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -40173,6 +40348,7 @@ describe('procedural preset acquisition and ownership', () => {
     'tactileswitches',
     'brasspadlocks',
     'bluepushpins',
+    'openendspanners',
     'standingseam',
     'damascus',
     'castiron',
@@ -40237,6 +40413,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'tactileswitches' ||
           kind === 'brasspadlocks' ||
           kind === 'bluepushpins' ||
+          kind === 'openendspanners' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

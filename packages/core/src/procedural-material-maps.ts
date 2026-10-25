@@ -1441,6 +1441,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'openendspanners': {
+        const p = proceduralMaterialPresets.openendspanners,
+          tones = new Float64Array(p.cells * p.cells),
+          topSquared = p.topRadius * p.topRadius,
+          inverseTop = 1 / (topSquared - p.topCore * p.topCore),
+          lowerSquared = p.lowerRadius * p.lowerRadius,
+          inverseLower = 1 / (lowerSquared - p.lowerCore * p.lowerCore),
+          topCutSquared = p.topCutRadius * p.topCutRadius,
+          inverseTopCut = 1 / (topCutSquared - p.topCutCore * p.topCutCore),
+          lowerCutSquared = p.lowerCutRadius * p.lowerCutRadius,
+          inverseLowerCut =
+            1 / (lowerCutSquared - p.lowerCutCore * p.lowerCutCore),
+          shaftSquared = p.shaftRadius * p.shaftRadius,
+          inverseShaft = 1 / (shaftSquared - p.shaftCore * p.shaftCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x14411);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x14413);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            ty = y - p.topY,
+            ly = y - p.lowerY,
+            sy = Math.max(0, Math.abs(y) - p.shaftStraight),
+            shaft = smooth(
+              clamp((shaftSquared - x * x - sy * sy) * inverseShaft),
+            );
+          let top = smooth(clamp((topSquared - x * x - ty * ty) * inverseTop)),
+            lower = smooth(
+              clamp((lowerSquared - x * x - ly * ly) * inverseLower),
+            );
+          if (top > 0) {
+            const cy = Math.max(0, y - p.topCutY);
+            top *=
+              1 -
+              smooth(clamp((topCutSquared - x * x - cy * cy) * inverseTopCut));
+          }
+          if (lower > 0) {
+            const cy = Math.max(0, p.lowerCutY - y);
+            lower *=
+              1 -
+              smooth(
+                clamp((lowerCutSquared - x * x - cy * cy) * inverseLowerCut),
+              );
+          }
+          // The unequal heads have disjoint support and share one metal finish.
+          const heads = top + lower,
+            outside = (1 - shaft) * (1 - heads);
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = outside;
+          metallic = 1 - outside;
+          if (outside === 1) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (shaft > 0) {
+            color += shaft * (0.72 + 0.1 * tone + 0.025 * grain - color);
+            height += shaft * (0.34 + 0.003 * grain - height);
+            roughness += shaft * (p.roughness + 0.025 * grain - roughness);
+            occlusion += shaft * (0.98 - occlusion);
+          }
+          if (heads > 0) {
+            color += heads * (0.87 + 0.07 * tone + 0.025 * grain - color);
+            height += heads * (0.42 + 0.003 * grain - height);
+            roughness += heads * (0.28 + 0.025 * grain - roughness);
+            occlusion += heads * (0.99 - occlusion);
+          }
+          return;
+        };
+      }
       case 'azuritemalachite': {
         const p = proceduralMaterialPresets.azuritemalachite,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -24391,6 +24470,7 @@ export function createSurfaceSampler(
     kind === 'oatflakes' ||
     kind === 'grosgrainribbons' ||
     kind === 'azuritemalachite' ||
+    kind === 'openendspanners' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

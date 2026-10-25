@@ -7551,3 +7551,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node 新 build 生成 azuritemalachite 並重算既有 600 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 首輪 build 通過；typecheck 發現 C1 測試的 radii 陣列被 literal-inferred 為 `(0.19 | 0.16)[]`，不能加入 computed ring shoulders。改為明確 `number[]`，不改 runtime 或測試幾何；其餘 gates 以修正後實際執行結果為準。
 - 完整 gate：已完成的 build、修正後 typecheck／lint／format:check、179 個測試檔／6722 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：雙頭開口扳手（openendspanners）
+
+- 目錄 601→602 種；0.4 m opaque mixed-metal tile、預設 factor 1，大小兩高開口鉗口／細低金屬連柄，凹口和外背 opaque dielectric。Cached 16 tones／128² grain／五 squared radii／reciprocals、4×4 alternating ±45° compact tools；circle heads 各扣朝外 half-infinite rounded channel、背面完整接 capsule shaft，heads 支撐互斥可相加並共用 finish。Shaft→heads coherent replacement／product union 同步 metallic 和 neutral backing，空 head 跳過 cut、空 silhouette 跳過 grain、空 shaft/head 跳過 replacement；caps／straight tangents C1、支撐限 cell、採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明鉗口、鎖固／扭矩／工具認證或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、exact C1、determinism、mixed-metal default contract）：3 seeds ×16 tools，shaft metallic 1／height 0.002719–0.002745 m／AO 0.98，四鉗角與兩連柄根 metallic 1／height 0.003359–0.003385 m／AO 0.99，比 shaft 高 >0.00061 m。兩凹口／柄側／工具端外 metallic 0／backing 1／height <0.000201 m／AO 0.3。2049-point 各鉗口剖面各兩 metal runs，上鉗口總 metal 寬比下鉗口多 >0.01 local units；4097-point axial profile 一連接 metal run。129²／exact unequal head shoulders／open-channel caps and straight tangents／shaft caps／covered roots／owners／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 602-preset openendspanners、擷取畫面與 512 base-color detail，見交錯雙頭開口銀色扳手／大小鉗口／細連柄／中性 opaque 凹口與背底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 openendspanners 並重算既有 601 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6728 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
