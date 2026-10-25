@@ -823,6 +823,8 @@
 
 `utilityknifeblades` 預算16cached rotation/jitter/inverse-scale/tone poses／128²grain、height/side/end／squared notch core-support／hone reciprocals。Y線性加寬trapezoid，side×top×bottom C1 product避免min-distance corner折線；兩spine circles用product complements作true negative cut，所有metalfinish共face，Mface／mortar1−face淡回同opaquebacking。Y超top/bottom跳width/notches/hone，空face跳metalfinish；hone y0.09–0.14 smoothfade，低height／低roughness／亮pigment／AO同步過渡、全M1不切斷lowerband。Slopedside/core／end肩／productcorners／notch兩圓／hone shoulders／absaxis／poseowners／UVwraps C1，採樣無配置／hash／sqrt／trig／neighbor scan。Materialfactor 1及三metalclassification lists沿既有；僅surface，不新增真刀geometry／利刃或切割／磨刀／磨耗／物理。
 
+`windmillparquet` 重用既有風車鋪磚的五矩形 owner 選擇與拼木的 board-local 8×96 noise pattern；預算 80 個木板 tone、8×96 grain、96² periodic micro 及 shoulder reciprocal。四根 2×1／1×2 長板圍住 1×1 中央木方板；木紋沿每塊板長軸定向，沒有單位格 lookup 導致的中段接縫。兩軸 C1 邊距 profile 相乘，所有 finish 共 face 淡回同一低暗粗木縫，wood/joint 皆 M0／mortar0，不觸發固定中性灰 grout。Owner、T junction、bevel、fullface、min-distance 中線 plateau 與 panel/UV wrap 都 C1；空 face 跳過木紋，採樣無配置、hash、sqrt、trig 或鄰居掃描。0.8 m tile，沿用四圖、選用 height 與 ownership；僅表面，不新增 geometry、施工或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -7841,3 +7841,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium實際 `/examples/pbr3d/` 強制WebGPU／WebGL2，各選出637-preset utilityknifeblades、擷取畫面及512detail，見梯形銀刀面／雙背缺口／下方連續亮刃帶。各獨立512 API驗證factor1／metal min0 max255／5162partialpixels／height true／destroyed true；page及about:blank cleanup errors皆空、tab已關閉。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
 - Fresh Node 新 build 生成 utilityknifeblades 並重算既有 636 種 size64／seed7 四圖 SHA256，changed0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6941 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：五板風車拼木（windmillparquet）
+
+- 目錄 637→638 種，16 個風車 panel 各四根隨板定向木紋長板與一塊中央木方板；接縫低暗粗且仍為木質。重用 windmillpavers 五矩形 owner 與 logcabinparquet board-local 8×96 grain convention，不另宣稱新拼法。預算 80 cached tones／8×96 grain／96² periodic micro／shoulder reciprocal；兩軸 C1 邊距 profile 乘積，各 finish 共 face 淡回同一木縫，全 M0／mortar0 不觸發固定中性灰 grout。空 face 跳木紋，採樣無配置／hash／sqrt／trig／鄰居掃描；0.8 m tile，沿用四圖／選用 height／ownership，不新增 geometry、施工、歷史真實性或物理模擬。
+- Targeted 六項首次通過（3-seed morphology／actual512／C1／determinism）：三 seeds 各 16 panels／80 boards，六條 joint path 各 1025 points，joint height 0.0002999–0.0003061 m／AO0.55／M0／mortar0；五個 board centers height 0.0019199–0.0019381 m／AO0.99，較木縫高 >0.0016139 m／color 高 >0.4379／roughness 低 >0.3499。各板 33² paired 微分跨紋能量 >4 倍沿紋能量；四長板各 1025 axis points 全高板／AO0.99／M0／mortar0，跨內部單位格線不出假縫。Actual512 各 panel 五板 vs 四個 T joints，board red 高 >45 codes／roughness G 低 >65／AO 高 >85；joint red−blue >25 排除中性灰 grout，全 M0。129² fields／exact65 perimeter points × support-gap-fullface shoulders／全部 owner、T junction、長板中線、panel／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，各選出 638-preset windmillparquet 並擷取畫面，512 detail 見完整四根長板隨板木紋、中央木方板與低暗木縫。各獨立 512 API 驗證 factor0／metal min0 max0／height true／destroyed true；page 及 about:blank cleanup errors 皆空，tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 windmillparquet 並重算既有 637 種 size64／seed7 四圖 SHA256，changed0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6947 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

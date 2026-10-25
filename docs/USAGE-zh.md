@@ -1043,6 +1043,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `utilityknifeblades`（梯形美工刀片），16 seeded rotated銀色trapezoid／兩spine indexingnotches／下方連續較低平滑亮honededge，非silverpaint。使用 `await ProceduralMaterial.create('utilityknifeblades', { seed: 7 })`；一UV tile對應0.24 m，edge同height／roughness／color／AO變化，factor 1／blade及edge M1／notches與opaquebacking M0，maps／選用height／ownership不變。不新增geometry、真洞／利刃或切割／磨刀／磨耗／工具／物理模擬。
 
+另支援 `windmillparquet`（五板風車拼木），中央木方板外四根長板，各板木紋隨長軸旋轉，接縫較低、暗、粗且仍為木質。使用 `await ProceduralMaterial.create('windmillparquet', { seed: 7 })`；一 UV tile 對應 0.8 m。重用 windmillpavers owner 佈局，但換成隨板木紋與全木縫，長板跨內部單位格線仍完整。全 M0／mortar0，沿用四圖、選用 height 與 ownership；僅表面，不新增 geometry、施工或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

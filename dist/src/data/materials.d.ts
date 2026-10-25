@@ -6467,6 +6467,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    windmillparquet: Readonly<{
+        dark: readonly [41, 20, 9];
+        light: readonly [202, 153, 89];
+        roughness: 0.5;
+        relief: 0.003;
+        cells: 4;
+        gap: 0.008;
+        shoulder: 0.014;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7107,4 +7116,5 @@ export declare const proceduralTileMeters: Readonly<{
     internaltoothwashers: 0.16;
     driedchillies: 0.16;
     utilityknifeblades: 0.24;
+    windmillparquet: 0.8;
 }>;

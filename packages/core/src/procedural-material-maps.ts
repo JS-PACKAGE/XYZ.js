@@ -1441,6 +1441,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'windmillparquet': {
+        const p = proceduralMaterialPresets.windmillparquet,
+          tones = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(8, 96, seed ^ 0x16811),
+          microField = cachedNoise(96, 96, seed ^ 0x16813),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let board = 0; board < 5; board++)
+              tones[(row * p.cells + col) * 5 + board] = hash(
+                col * 5 + board,
+                row,
+                seed ^ 0x16815,
+              );
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) * 3,
+            y = fract(vc) * 3,
+            micro = microField(u, v);
+          let left = 1,
+            top = 1,
+            width = 1,
+            depth = 1,
+            board = 4;
+          if (y < 1 && x < 2) {
+            left = 0;
+            top = 0;
+            width = 2;
+            board = 0;
+          } else if (x >= 2 && y < 2) {
+            left = 2;
+            top = 0;
+            depth = 2;
+            board = 1;
+          } else if (y >= 2 && x >= 1) {
+            left = 1;
+            top = 2;
+            width = 2;
+            board = 2;
+          } else if (x < 1 && y >= 1) {
+            left = 0;
+            top = 1;
+            depth = 2;
+            board = 3;
+          }
+          const dx = x - left,
+            dy = y - top,
+            face =
+              smooth(
+                clamp((Math.min(dx, width - dx) - p.gap) * inverseShoulder),
+              ) *
+              smooth(
+                clamp((Math.min(dy, depth - dy) - p.gap) * inverseShoulder),
+              );
+          color = 0.1 + 0.012 * micro;
+          height = 0.1 + 0.002 * micro;
+          roughness = 0.9 + 0.02 * micro;
+          occlusion = 0.55;
+          metallic = 0;
+          mortar = 0;
+          if (face === 0) return;
+          const horizontal = width >= depth,
+            along = horizontal ? dx : dy,
+            across = horizontal ? dy : dx,
+            tone =
+              tones[(Math.floor(vc) * p.cells + Math.floor(uc)) * 5 + board],
+            grain = grainField(along / 3 + tone, across / 3 + 0.3 * tone),
+            woodColor = 0.55 + 0.11 * tone + 0.14 * grain + 0.02 * micro,
+            woodHeight = 0.64 + 0.004 * grain + 0.002 * micro,
+            woodRoughness = p.roughness + 0.04 * grain + 0.01 * micro;
+          color += face * (woodColor - color);
+          height += face * (woodHeight - height);
+          roughness += face * (woodRoughness - roughness);
+          occlusion += face * (0.99 - occlusion);
+        };
+      }
       case 'utilityknifeblades': {
         const p = proceduralMaterialPresets.utilityknifeblades,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27359,6 +27436,7 @@ export function createSurfaceSampler(
     kind === 'internaltoothwashers' ||
     kind === 'driedchillies' ||
     kind === 'utilityknifeblades' ||
+    kind === 'windmillparquet' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

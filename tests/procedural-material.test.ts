@@ -678,7 +678,208 @@ const kinds: ProceduralMaterialKind[] = [
   'internaltoothwashers',
   'driedchillies',
   'utilityknifeblades',
+  'windmillparquet',
 ];
+
+describe('Five-board windmill parquet with rotating anisotropic wood grain and recessed rough dark wood joints', () => {
+  const p = proceduralMaterialPresets.windmillparquet;
+  const boards = [
+    [0, 0, 2, 1],
+    [2, 0, 1, 2],
+    [1, 2, 2, 1],
+    [0, 1, 1, 2],
+    [1, 1, 1, 1],
+  ] as const;
+  const world = (col: number, row: number, x: number, y: number) =>
+    [(col + x / 3) / p.cells, (row + y / 3) / p.cells] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps five raised wood boards four uninterrupted rotating long staves and lower darker rougher wooden joints rather than stone and gray grout for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('windmillparquet', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(col, row, 1, 1.5), out);
+          const joint = { ...out };
+          for (let j = 0; j <= 1024; j++) {
+            const t = j / 1024;
+            for (const [x, y] of [
+              [1, 1 + 2 * t],
+              [2, 2 * t],
+              [2 * t, 1],
+              [1 + 2 * t, 2],
+              [0, 3 * t],
+              [3 * t, 0],
+            ]) {
+              sample(...world(col, row, x, y), out);
+              expect(out.height).toBeGreaterThan(0.0002999);
+              expect(out.height).toBeLessThan(0.0003061);
+              expect(out.occlusion).toBeCloseTo(0.55, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          }
+          for (const [left, top, width, depth] of boards) {
+            sample(...world(col, row, left + width / 2, top + depth / 2), out);
+            expect(out.height).toBeGreaterThan(0.0019199);
+            expect(out.height).toBeLessThan(0.0019381);
+            expect(out.height - joint.height).toBeGreaterThan(0.0016139);
+            expect(out.color - joint.color).toBeGreaterThan(0.4379);
+            expect(joint.roughness - out.roughness).toBeGreaterThan(0.3499);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            const horizontal = width >= depth;
+            let alongEnergy = 0,
+              acrossEnergy = 0;
+            for (let y = 0; y <= 32; y++)
+              for (let x = 0; x <= 32; x++) {
+                const px = left + width / 2 - 0.2 + (0.4 * x) / 32,
+                  py = top + depth / 2 - 0.2 + (0.4 * y) / 32;
+                sample(...world(col, row, px, py), out);
+                const base = out.color;
+                sample(
+                  ...world(
+                    col,
+                    row,
+                    px + (horizontal ? 0.001 : 0),
+                    py + (horizontal ? 0 : 0.001),
+                  ),
+                  out,
+                );
+                alongEnergy += Math.abs(out.color - base);
+                sample(
+                  ...world(
+                    col,
+                    row,
+                    px + (horizontal ? 0 : 0.001),
+                    py + (horizontal ? 0.001 : 0),
+                  ),
+                  out,
+                );
+                acrossEnergy += Math.abs(out.color - base);
+              }
+            expect(acrossEnergy).toBeGreaterThan(4 * alongEnergy);
+            if (width !== depth)
+              for (let j = 0; j <= 1024; j++) {
+                const t = 0.025 + (1.95 * j) / 1024;
+                sample(
+                  ...world(
+                    col,
+                    row,
+                    left + (horizontal ? t : 0.5),
+                    top + (horizontal ? 0.5 : t),
+                  ),
+                  out,
+                );
+                expect(out.height).toBeGreaterThan(0.0019199);
+                expect(out.occlusion).toBeCloseTo(0.99, 12);
+                expect(out.mortar).toBe(0);
+                expect(out.metallic).toBe(0);
+              }
+          }
+        }
+    },
+  );
+  it('keeps all five actual512 wood faces brighter smoother and less occluded than brown wooden T joints without neutral grout or any metal', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('windmillparquet', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(col, row, x, y);
+            return (
+              (Math.min(511, Math.floor(v * 512)) * 512 +
+                Math.min(511, Math.floor(u * 512))) *
+              4
+            );
+          };
+          for (const [x, y] of [
+            [1, 1],
+            [2, 1],
+            [1, 2],
+            [2, 2],
+          ]) {
+            const joint = index(x, y);
+            expect(maps.metallicRoughness[joint + 2]).toBe(0);
+            expect(
+              maps.baseColor[joint] - maps.baseColor[joint + 2],
+            ).toBeGreaterThan(25);
+            for (const [left, top, width, depth] of boards) {
+              const face = index(left + width / 2, top + depth / 2);
+              expect(
+                maps.baseColor[face] - maps.baseColor[joint],
+              ).toBeGreaterThan(45);
+              expect(
+                maps.metallicRoughness[joint + 1] -
+                  maps.metallicRoughness[face + 1],
+              ).toBeGreaterThan(65);
+              expect(
+                maps.occlusion[face] - maps.occlusion[joint],
+              ).toBeGreaterThan(85);
+              expect(maps.metallicRoughness[face + 2]).toBe(0);
+            }
+          }
+        }
+    }
+  });
+  it('keeps all five owner transitions gap and fullface shoulders T junctions uninterrupted stave midlines grainfields and panel/UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('windmillparquet', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const [left, top, width, depth] of boards)
+            for (let j = 0; j <= 64; j++) {
+              const t = j / 64;
+              for (const d of [0, p.gap, p.gap + p.shoulder]) {
+                check(...world(col, row, left + d, top + depth * t));
+                check(...world(col, row, left + width - d, top + depth * t));
+                check(...world(col, row, left + width * t, top + d));
+                check(...world(col, row, left + width * t, top + depth - d));
+              }
+            }
+    }
+  });
+});
 
 describe('Silver-colored trapezoidal utility blades with two spine indexing notches and a continuous lower smoother brighter honed edge', () => {
   const p = proceduralMaterialPresets.utilityknifeblades;
