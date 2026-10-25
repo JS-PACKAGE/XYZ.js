@@ -694,7 +694,218 @@ const kinds: ProceduralMaterialKind[] = [
   'kintsugiceramic',
   'pleatedfilterpapers',
   'splitcedarshakes',
+  'swavepavers',
 ];
+
+describe('S-wave concrete pavers with genuinely curved side joints staggered courses and granular full stone faces', () => {
+  const p = proceduralMaterialPresets.swavepavers;
+  const wave = (t: number) =>
+    6 * Math.sqrt(3) * p.sway * t * (1 - t) * (1 - 2 * t);
+  const world = (col: number, row: number, x: number, t: number) =>
+    [
+      (col + x - (row & 1) * 0.5 + wave(t)) / p.columns,
+      (row + t) / p.rows,
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps thirty-two full concrete blocks connected along curved centerlines and bends every recessed side joint in both S directions rather than only coloring a wave for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('swavepavers', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.rows; row++) {
+        for (let col = 0; col < p.columns; col++) {
+          const at = (x: number, t: number) => {
+            sample(...world(col, row, x, t), out);
+            return { ...out };
+          };
+          for (let j = 0; j <= 256; j++)
+            for (const [x, t] of [
+              [0.5, 0.05 + (0.9 * j) / 256],
+              [0.05 + (0.9 * j) / 256, 0.5],
+            ]) {
+              const stone = at(x!, t!);
+              expect(stone.height).toBeGreaterThanOrEqual(0.0037199);
+              expect(stone.height).toBeLessThanOrEqual(0.0038401);
+              expect(stone.roughness).toBeGreaterThanOrEqual(0.85999);
+              expect(stone.occlusion).toBeCloseTo(0.99, 12);
+              expect(stone.mortar).toBe(0);
+              expect(stone.metallic).toBe(0);
+            }
+          for (const t of [0.25, 0.75]) {
+            const joint = at(0, t),
+              stone = at(0.5, t),
+              [u, v] = world(col, row, 0, t);
+            expect(joint.height).toBeCloseTo(0.00036, 12);
+            expect(joint.occlusion).toBe(0.4);
+            expect(joint.mortar).toBe(1);
+            expect(joint.metallic).toBe(0);
+            expect(stone.height - joint.height).toBeGreaterThan(0.0033599);
+            expect(stone.occlusion - joint.occlusion).toBeGreaterThan(0.5899);
+            sample((col - (row & 1) * 0.5) / p.columns, v, out);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            const displacement = u - (col - (row & 1) * 0.5) / p.columns;
+            if (t === 0.25) expect(displacement).toBeGreaterThan(0.026);
+            else expect(displacement).toBeLessThan(-0.026);
+          }
+          for (const t of [0, 1]) {
+            const joint = at(0.5, t);
+            expect(joint.mortar).toBe(1);
+            expect(joint.height).toBeCloseTo(0.00036, 12);
+            expect(joint.occlusion).toBe(0.4);
+          }
+        }
+        for (const t of [0.25, 0.75]) {
+          const [u, v] = world(0, row, 0, t);
+          let stones = 0,
+            previous = false;
+          for (let j = 0; j <= 8192; j++) {
+            sample(u + j / 8192, v, out);
+            const stone = out.mortar < 0.5;
+            if (stone && !previous) stones++;
+            previous = stone;
+          }
+          expect(stones).toBe(8);
+        }
+      }
+    },
+  );
+  it('writes bent lower grout instead of a pigment-only wave in actual 512 pixel nonmetal PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('swavepavers', 512, seed, {
+        heightMap: true,
+      });
+      const pixel = (u: number, v: number) =>
+        ((((Math.floor(v * 512) % 512) + 512) % 512) * 512 +
+          (((Math.floor(u * 512) % 512) + 512) % 512)) *
+        4;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (const t of [0.25, 0.75]) {
+            const i = pixel(...world(col, row, 0.5, t)),
+              j = pixel(...world(col, row, 0, t)),
+              straight = pixel(
+                (col - (row & 1) * 0.5) / p.columns,
+                (row + t) / p.rows,
+              );
+            expect(maps.occlusion[i]!).toBeGreaterThan(250);
+            expect(maps.occlusion[j]!).toBeLessThan(105);
+            expect(maps.occlusion[i]! - maps.occlusion[j]!).toBeGreaterThan(
+              145,
+            );
+            expect(maps.height![i]! - maps.height![j]!).toBeGreaterThan(240);
+            expect(
+              maps.metallicRoughness[j + 1]! - maps.metallicRoughness[i + 1]!,
+            ).toBeGreaterThan(5);
+            expect(maps.occlusion[straight]!).toBeGreaterThan(250);
+            expect(maps.height![straight]! - maps.height![j]!).toBeGreaterThan(
+              240,
+            );
+            for (const k of [i, j, straight])
+              expect(maps.metallicRoughness[k + 2]).toBe(0);
+          }
+    }
+  });
+  it('repeats curved-joint height roughness occlusion coverage and nonmetal classification across signed UV periods while retaining seeded concrete tones', () => {
+    const sample = createSurfaceSampler('swavepavers', 7),
+      other = createSurfaceSampler('swavepavers', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let pigmentDifference = 0;
+    for (let j = 0; j < 1024; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      pigmentDifference += Math.abs(a.color - c.color);
+    }
+    expect(pigmentDifference).toBeGreaterThan(25);
+  });
+  it('keeps cubic S extrema/inflection curved side support/core straight course joints staggered owners negative warped columns aggregate knots and UV wraps C1', () => {
+    // Resolve finite curvature of the narrow bevel in warped cell coordinates.
+    const h = 2e-8,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('swavepavers', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64;
+            for (const x of [
+              -p.grout - p.bevel,
+              -p.grout,
+              0,
+              p.grout,
+              p.grout + p.bevel,
+              0.5,
+            ])
+              check(...world(col, row, x, t));
+            for (const y of [
+              0,
+              p.grout,
+              p.grout + p.bevel,
+              0.5,
+              1 - p.grout - p.bevel,
+              1 - p.grout,
+              1,
+            ])
+              check(...world(col, row, t, y));
+          }
+          for (const t of [(3 - Math.sqrt(3)) / 6, 0.5, (3 + Math.sqrt(3)) / 6])
+            for (let j = 0; j <= 32; j++) check(...world(col, row, j / 32, t));
+        }
+      for (let j = 0; j <= 48; j++)
+        for (let i = 0; i <= 16; i++) check(j / 48, i / 16);
+    }
+  });
+});
 
 describe('Split cedar shakes with staggered variable-width grain boards tapered frayed butts and two open end splits', () => {
   const p = proceduralMaterialPresets.splitcedarshakes;

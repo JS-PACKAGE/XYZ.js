@@ -855,6 +855,8 @@
 
 `splitcedarshakes` 為四層半錯位、每層六片，共二十四暖棕 cedar shake 端面：seeded 變寬、96×8 縱向木紋、與木紋相關不齊下緣、較厚 taper butt，以及每片兩道圓頭並貫通下緣的 seeded split，非礦物 grit roofshingles 或直條 shiplap 換色。沿用 cached piece widths／tones／split anchors、compact C1 half-planes／squared capsules，固定 course-center grain slice 產生 frayed butt；empty support 跳 hidden finish，每點無配置／hash／sqrt／trig／鄰格或逐片掃描。全木 M0、full-body exact mortar0，裂隙與 course gutter 露低 opaque backing 非透明洞。2 m tile／0.008 m relief，四圖／height／Worker／cache／tint／ownership 不變；只作靜態 split／taper 木瓦外觀，不新增 damage／weathering 模擬、屋頂工法認證、分層系統或 geometry。
 
+`swavepavers` 為四層半錯位各八塊、共三十二 S 形混凝土連鎖磚：normalized cubic warp 真正彎曲側縫的 height／roughness／AO／mortar coverage，不是 calcadawaves 只改石色的波紋或 dogbonepavers 對稱窄腰。沿用 cached block tones／128² grain／48² aggregate／compact C1 joint profiles／inverse-coordinate 單格定位；row 與 warped-column owner 在 full grout 內換界，負 warped column 正確 wrap，empty support 跳 grain/finish，每點無配置／hash／sqrt／trig／鄰格或逐磚掃描。全石 M0、full-body exact mortar0，縫為低 opaque neutral grout。0.96 m tile／0.006 m relief，四圖／height／Worker／cache／tint／ownership 不變；不新增 geometry、剛體互鎖／碰撞／車流模擬或施工認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

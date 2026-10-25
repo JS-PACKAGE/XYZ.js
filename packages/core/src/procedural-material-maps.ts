@@ -1441,6 +1441,56 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'swavepavers': {
+        const p = proceduralMaterialPresets.swavepavers,
+          tones = new Float64Array(p.rows * p.columns),
+          grainField = cachedNoise(128, 128, seed ^ 0x17811),
+          aggregateField = cachedNoise(48, 48, seed ^ 0x17813),
+          waveScale = 6 * Math.sqrt(3) * p.sway,
+          inverseBevel = 1 / p.bevel;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x17815);
+        return () => {
+          color = 0.35;
+          height = 0.06;
+          roughness = 0.96;
+          occlusion = 0.4;
+          metallic = 0;
+          mortar = 1;
+          const vc = v * p.rows,
+            row = Math.floor(vc),
+            t = fract(vc),
+            // Cubic S sides bend the actual joints, not only their pigment.
+            // Both row and column owners change inside full recessed grout.
+            wave = waveScale * t * (1 - t) * (1 - 2 * t),
+            uc = u * p.columns + (row & 1) * 0.5 - wave,
+            face =
+              smooth(
+                clamp(
+                  (0.5 - Math.abs(fract(uc) - 0.5) - p.grout) * inverseBevel,
+                ),
+              ) *
+              smooth(clamp((0.5 - Math.abs(t - 0.5) - p.grout) * inverseBevel));
+          if (face === 0) return;
+          const col = (Math.floor(uc) + p.columns) % p.columns,
+            grain = grainField(u, v),
+            aggregate = aggregateField(u, v);
+          color +=
+            face *
+            (0.42 +
+              0.18 * tones[row * p.columns + col]! +
+              0.06 * grain -
+              0.08 * aggregate -
+              color);
+          height += face * (0.62 + 0.012 * grain + 0.008 * aggregate - height);
+          roughness +=
+            face *
+            (p.roughness + 0.035 * grain + 0.035 * aggregate - roughness);
+          occlusion += face * (0.99 - occlusion);
+          mortar = 1 - face;
+        };
+      }
       case 'splitcedarshakes': {
         const p = proceduralMaterialPresets.splitcedarshakes,
           pieces = new Float64Array(p.rows * p.columns * 6),
@@ -28800,6 +28850,7 @@ export function createSurfaceSampler(
     kind === 'kintsugiceramic' ||
     kind === 'pleatedfilterpapers' ||
     kind === 'splitcedarshakes' ||
+    kind === 'swavepavers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

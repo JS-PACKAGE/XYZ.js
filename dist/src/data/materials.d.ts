@@ -6831,6 +6831,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         splitRadius: 0.011;
         splitCore: 0.007;
     }>;
+    swavepavers: Readonly<{
+        dark: readonly [45, 48, 51];
+        light: readonly [201, 195, 182];
+        roughness: 0.86;
+        relief: 0.006;
+        rows: 4;
+        columns: 8;
+        sway: 0.22;
+        grout: 0.01;
+        bevel: 0.016;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7487,4 +7498,5 @@ export declare const proceduralTileMeters: Readonly<{
     kintsugiceramic: 0.32;
     pleatedfilterpapers: 0.36;
     splitcedarshakes: 2;
+    swavepavers: 0.96;
 }>;
