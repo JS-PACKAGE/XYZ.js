@@ -579,7 +579,8 @@ export type ProceduralMaterialKind =
   | 'screwterminalblocks'
   | 'dragonfruitflesh'
   | 'speakercones'
-  | 'septarianstone';
+  | 'septarianstone'
+  | 'axialresistors';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1393,6 +1394,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dragonfruitflesh',
   'speakercones',
   'septarianstone',
+  'axialresistors',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1591,6 +1593,7 @@ export class ProceduralMaterial {
         this.kind === 'goldbrocade' ||
         this.kind === 'batterypositivecaps' ||
         this.kind === 'screwterminalblocks' ||
+        this.kind === 'axialresistors' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||

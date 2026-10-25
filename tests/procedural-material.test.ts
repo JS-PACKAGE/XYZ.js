@@ -602,7 +602,141 @@ const kinds: ProceduralMaterialKind[] = [
   'dragonfruitflesh',
   'speakercones',
   'septarianstone',
+  'axialresistors',
 ];
+
+describe('Axial resistors with insulating painted bodies and two metal leads', () => {
+  const p = proceduralMaterialPresets.axialresistors;
+  const localUV = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two exposed metallic leads below a rounded dielectric body with three dark rings and one pale ring for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('axialresistors', seed);
+      const at = (col: number, row: number, x: number, y: number) => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(...localUV(col, row, x, y), out);
+        return out;
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const body = at(col, row, 0.05, 0),
+            shoulder = at(col, row, 0.05, 0.06),
+            pale = at(col, row, p.lastBand, 0);
+          expect(body.metallic).toBe(0);
+          expect(body.height - shoulder.height).toBeGreaterThan(0.00035);
+          expect(body.roughness).toBeGreaterThan(0.63);
+          expect(pale.color - body.color).toBeGreaterThan(0.15);
+          expect(pale.roughness).toBeLessThan(0.37);
+          expect(pale.metallic).toBe(0);
+          expect(Math.abs(pale.height - body.height)).toBeLessThan(0.00008);
+          for (const x of [-0.34, 0.34]) {
+            const lead = at(col, row, x, 0);
+            expect(lead.metallic).toBe(1);
+            expect(lead.roughness).toBeLessThan(0.26);
+            expect(lead.color).toBeGreaterThan(0.85);
+            expect(body.height - lead.height).toBeGreaterThan(0.003);
+          }
+          for (const x of [-0.48, 0.48])
+            expect(at(col, row, x, 0).metallic).toBe(0);
+          for (let band = 0; band < 3; band++) {
+            const ring = at(col, row, p.firstBand + band * p.bandPitch, 0);
+            expect(body.color - ring.color).toBeGreaterThan(0.4);
+            expect(ring.roughness).toBeLessThan(0.51);
+            expect(ring.metallic).toBe(0);
+            expect(Math.abs(ring.height - body.height)).toBeLessThan(0.00008);
+          }
+          let darkRuns = 0,
+            paleRuns = 0,
+            metalRuns = 0,
+            previousDark = false,
+            previousPale = false,
+            previousMetal = false;
+          for (let i = 0; i <= 1024; i++) {
+            const x = i / 1024 - 0.5,
+              point = at(col, row, x, 0),
+              dark = Math.abs(x) < p.bodyCore && point.color < 0.3,
+              light = Math.abs(x) < p.bodyCore && point.color > 0.8,
+              metal = point.metallic > 0.9;
+            if (dark && !previousDark) darkRuns++;
+            if (light && !previousPale) paleRuns++;
+            if (metal && !previousMetal) metalRuns++;
+            previousDark = dark;
+            previousPale = light;
+            previousMetal = metal;
+          }
+          expect(darkRuns).toBe(3);
+          expect(paleRuns).toBe(1);
+          expect(metalRuns).toBe(2);
+        }
+    },
+  );
+  it('keeps rounded shoulders, lead ends, paint supports, ring ownership and UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('axialresistors', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...localUV(col, row, x, y));
+          for (const sign of [-1, 1]) {
+            for (const x of [
+              p.bodyCore,
+              p.bodyCore + p.endRadius,
+              p.bodyCore + p.endRadius * Math.sqrt(1 - p.bodyShoulder),
+              p.leadEnd,
+              p.leadEnd - p.leadShoulder,
+            ])
+              local(sign * x, 0);
+            local(0, sign * p.bodyRadius);
+            local(0, sign * p.bodyRadius * Math.sqrt(1 - p.bodyShoulder));
+            local(0.34, sign * p.leadRadius);
+            for (let band = 0; band < 3; band++)
+              local(p.firstBand + band * p.bandPitch + sign * p.bandRadius, 0);
+            local(p.lastBand + sign * p.bandRadius, 0);
+          }
+          for (let band = -1; band < 3; band++)
+            local(p.firstBand + (band + 0.5) * p.bandPitch, 0);
+        }
+    }
+  });
+});
 
 describe('Septarian stone with filled calcite veins and closed brown nodules', () => {
   const p = proceduralMaterialPresets.septarianstone;
@@ -25201,6 +25335,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'goldbrocade' &&
           kind !== 'batterypositivecaps' &&
           kind !== 'screwterminalblocks' &&
+          kind !== 'axialresistors' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -25217,7 +25352,8 @@ describe('periodic procedural material fields', () => {
         kind === 'grommetcanvas' ||
         kind === 'goldbrocade' ||
         kind === 'batterypositivecaps' ||
-        kind === 'screwterminalblocks'
+        kind === 'screwterminalblocks' ||
+        kind === 'axialresistors'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -34615,6 +34751,7 @@ describe('procedural preset acquisition and ownership', () => {
     'goldbrocade',
     'batterypositivecaps',
     'screwterminalblocks',
+    'axialresistors',
     'standingseam',
     'damascus',
     'castiron',
@@ -34669,6 +34806,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'goldbrocade' ||
           kind === 'batterypositivecaps' ||
           kind === 'screwterminalblocks' ||
+          kind === 'axialresistors' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

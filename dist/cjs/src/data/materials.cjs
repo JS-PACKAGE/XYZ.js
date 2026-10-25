@@ -10067,6 +10067,32 @@ var proceduralMaterialPresets = Object.freeze({
 		veinVariation: .025,
 		shoulder: .04,
 		warp: .4
+	}),
+	axialresistors: Object.freeze({
+		dark: [
+			14,
+			12,
+			10
+		],
+		light: [
+			236,
+			226,
+			203
+		],
+		roughness: .64,
+		relief: .008,
+		cells: 4,
+		bodyCore: .16,
+		endRadius: .09,
+		bodyRadius: .1,
+		bodyShoulder: .26,
+		leadRadius: .018,
+		leadEnd: .46,
+		leadShoulder: .025,
+		firstBand: -.14,
+		bandPitch: .07,
+		bandRadius: .018,
+		lastBand: .12
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10633,7 +10659,8 @@ var proceduralTileMeters = Object.freeze({
 	screwterminalblocks: .08,
 	dragonfruitflesh: .06,
 	speakercones: .64,
-	septarianstone: .48
+	septarianstone: .48,
+	axialresistors: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

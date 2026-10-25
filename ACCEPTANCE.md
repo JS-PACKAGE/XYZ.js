@@ -7244,3 +7244,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 septarianstone 並重算既有 563 種（含重用 polygon constructor 的 crackleglaze）size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6524 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：軸向電阻（axialresistors）
+
+- 目錄 564→565 種；0.12 m opaque mixed-metallic tile、預設 material factor 1，4×4 交替斜向圓頭凸絕緣本體、三道深色塗裝環、分開一道淡環與兩端較低金屬引腳。Compact shaft／capsule replacement 同步 PBR fields，塗裝只改 pigment／roughness、不凸起也不導致金屬化；cached 16 tones／96×96 grain，採樣無配置／hash／sqrt／trig。沿 maps／選用 height／ownership，不新增阻值編碼、元件 geometry、導電／電路／電熱或物理模擬。
+- Targeted morphology／C1／determinism 五項通過：3 seeds ×16 本體各 1025-point 長軸剖面恰三深環／一淡環／兩金屬 runs；確認引腳低於絕緣凸本體、paint 不改高度、較光滑環帶仍 metallic 0。129² 雙向網格與 exact capsule／lead／band supports、nearest-band ownership、UV wrap 皆 C1。
+- 另精確執行 borrowed-map ownership 測試 1 項通過，公開 facade 預設 metallic factor 1、可建立獨立 material，覆寫 map 不被 preset 接管，destroy 依現有 ownership 契約。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 axialresistors，565 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認圓頭本體、塗裝環與雙引腳；material metallic 1、實際 metallic B min 0／max 255／partial true、height true、destroyed true，預覽隨頁清除。不宣稱阻值編碼、元件 geometry、電路／導電／電熱或物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 axialresistors 並重算既有 564 種 size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6530 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -677,6 +677,8 @@
 
 `septarianstone` 重用 crackleglaze 的 cached jittered Voronoi 半平面 constructor，以各 kind 的 cell count 建表，舊 glaze 仍用 16×16、新材質 8×8；bounded 3×3 candidates／compact C1 half-plane products 形成石質，零 face 提早停邊。預算 64 tones、96×96 grain、8×8 脈寬場與兩個 4×4 warp fields；石質 tone 隨 face 淡出，避免 nearest-owner 色跳。乳金 calcite 填滿其餘正值連續表面，較低 roughness 與微凸 height，不是黑色凹縫；取樣無配置／hash／sqrt／trig，不新增 geometry、透明晶體、礦物層或地質／物理模擬。
 
+`axialresistors` 沿 compact shaft／elliptical capsule／replacement field 慣例，4×4 交替 ±45° 本體保留細引腳在 size 32 的可見取樣，預算 16 tones／96×96 grain。兩端 compact lead 先覆 opaque backing，再以圓頭 capsule replacement 覆蓋高絕緣本體與 metallic fade；有限三道深環查單 nearest band，另一道淡環獨立，support 在 owner 邊界前歸零。塗裝只改 pigment／roughness，不改 height／metallic；body／lead 都零時略過 grain，採樣無配置／hash／sqrt／trig。不新增 geometry、阻值編碼、導電／電路／電熱或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

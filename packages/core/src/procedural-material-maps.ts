@@ -1428,6 +1428,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'axialresistors': {
+        const p = proceduralMaterialPresets.axialresistors,
+          tones = new Float64Array(p.cells * p.cells),
+          turnScale = Math.SQRT1_2,
+          inverseEnd = 1 / (p.endRadius * p.endRadius),
+          inverseBody = 1 / (p.bodyRadius * p.bodyRadius),
+          inverseShoulder = 1 / p.bodyShoulder,
+          inverseLead = 1 / (p.leadRadius * p.leadRadius),
+          inverseTip = 1 / p.leadShoulder,
+          inverseBandPitch = 1 / p.bandPitch,
+          inverseBand = 1 / p.bandRadius,
+          grainField = cachedNoise(96, 96, seed ^ 0x12011);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12013);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * turnScale,
+            y = (dy - sign * dx) * turnScale,
+            ax = Math.abs(x),
+            end = Math.max(0, ax - p.bodyCore),
+            cap = clamp(1 - end * end * inverseEnd - y * y * inverseBody),
+            body = smooth(clamp(cap * inverseShoulder)),
+            leadCap = clamp(1 - y * y * inverseLead),
+            lead =
+              smooth(leadCap) * smooth(clamp((p.leadEnd - ax) * inverseTip));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          metallic = 0;
+          if (lead === 0 && body === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (lead > 0) {
+            color += lead * (0.86 + 0.06 * tone + 0.02 * grain - color);
+            height += lead * (0.2 + 0.04 * leadCap + 0.002 * grain - height);
+            roughness += lead * (0.23 + 0.02 * grain - roughness);
+            occlusion += lead * (0.98 - occlusion);
+            metallic = lead;
+          }
+          if (body === 0) return;
+          const dome = smooth(cap);
+          color +=
+            body * (0.56 + 0.1 * tone + 0.025 * grain + 0.04 * dome - color);
+          height += body * (0.43 + 0.21 * dome + 0.003 * grain - height);
+          roughness += body * (p.roughness + 0.025 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          metallic *= 1 - body;
+          // The rounded dielectric body replaces the lead underneath. Painted
+          // rings change pigment/roughness, not height or electrical behavior.
+          const band = Math.floor((x - p.firstBand) * inverseBandPitch + 0.5);
+          if (band >= 0 && band < 3) {
+            const across = (x - p.firstBand - band * p.bandPitch) * inverseBand,
+              ring = body * smooth(clamp(1 - across * across));
+            color += ring * (0.1 + 0.02 * grain - color);
+            roughness += ring * (0.48 + 0.02 * grain - roughness);
+          }
+          const across = (x - p.lastBand) * inverseBand,
+            ring = body * smooth(clamp(1 - across * across));
+          color += ring * (0.88 + 0.03 * tone - color);
+          roughness += ring * (0.34 + 0.02 * grain - roughness);
+          return;
+        };
+      }
       case 'septarianstone': {
         const p = proceduralMaterialPresets.septarianstone,
           tones = new Float64Array(p.cells * p.cells),
@@ -21851,6 +21922,7 @@ export function createSurfaceSampler(
     kind === 'dragonfruitflesh' ||
     kind === 'speakercones' ||
     kind === 'septarianstone' ||
+    kind === 'axialresistors' ||
     fabricated ||
     botanical ||
     packaging ||
