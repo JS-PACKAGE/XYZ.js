@@ -5828,6 +5828,29 @@ export const proceduralMaterialPresets = Object.freeze({
     needleHalfWidth: 0.018,
     needleShoulder: 0.2,
   }),
+  oatflakes: Object.freeze({
+    dark: [135, 91, 43] as const,
+    light: [245, 229, 188] as const,
+    roughness: 0.84,
+    relief: 0.001,
+    cells: 4,
+    jitter: 0.025,
+    scale: 0.93,
+    scaleVariation: 0.06,
+    halfLength: 0.34,
+    halfWidth: 0.235,
+    shoulder: 0.12,
+    rimVariation: 0.03,
+    creaseHalfLength: 0.245,
+    creaseHalfWidth: 0.018,
+    fiberPairs: 3,
+    fiberFirst: 0.055,
+    fiberPitch: 0.0525,
+    fiberHalfLength: 0.265,
+    fiberShrink: 0.0475,
+    fiberHalfWidth: 0.007,
+    detailShoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6429,4 +6452,5 @@ export const proceduralTileMeters = Object.freeze({
   brasspadlocks: 0.24,
   carrotcuts: 0.24,
   bluepushpins: 0.16,
+  oatflakes: 0.06,
 });

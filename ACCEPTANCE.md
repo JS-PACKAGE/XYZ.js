@@ -7517,3 +7517,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 597-preset bluepushpins、擷取畫面與 512 base-color detail，見雙寬藍凸緣／細腰／單端銀色尖針／中性 opaque 背底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 bluepushpins 並重算既有 596 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6700 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：壓片燕麥（oatflakes）
+
+- 目錄 597→598 種；0.06 m opaque dielectric tile、metallic 0，寬扁淡色橢圓片／微不規則邊／低實心中央壓痕／六細縱纖維，非細長 rice、彎曲 fennel seeds 或三稜 buckwheat hull。Cached 16 rotation／jitter／inverse scale／tone poses、三 paired fiber rows／inverse lengths、64² rim／192² grain／reciprocals；compact ellipse 只在 rim transition 採 noise、coarse 空支撐與 full coverage 跳過 rim，pointed crease/fibers 支撐全在 full body、nearest-row 交界在零支撐。Coherent body replacement 保 low dome／opaque 壓痕與 neutral backing；空 body/detail 跳過後續、採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明裂縫、烹煮／營養或物理模擬。
+- 初次五項通過但 512 preview 纖維色差不足；加可見對比 regression（>0.07）先得到三 seed 失敗、觀察 0.0282–0.0493，將纖維顏料由 0.04 改 0.1、half-width 0.005→0.007。另移除 incidental 高通分類器：source probe 證明 seed 0／cell (0,1) 在同一 +0.055 纖維內因微粒噪聲切出 0.0488–0.0490 的額外閾值小段、非第七纖維；保留六個獨立凸脊／鄰隙的 consumer height/color assertions，不重釘噪聲分類值。最終五項通過（3 seeds morphology、C1、determinism、ownership）。
+- 3 seeds ×16 flakes：低實心中央 height 0.0001749–0.0001781 m／AO 0.88／backing 0／metallic 0，鄰肉比中央高 >0.000144 m／色差 >0.18；寬側及長端 full coverage、height >0.00028 m。三對纖維比鄰隙高 >0.000011 m／顏料差 >0.07／AO 0.98／metallic 0；外背 backing 1／AO 0.3。129²、bisection-located noisy rim shoulders、exact pointed crease/fiber shoulders/tips、nearest-row owners／UV wraps C1 通過。
+- 最終修正後 Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 598-preset oatflakes、擷取畫面與 512 base-color detail，見寬扁淡燕麥薄片／中央深壓痕／六條較清楚的細淡纖維／中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 oatflakes 並重算既有 597 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6705 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

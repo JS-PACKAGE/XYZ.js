@@ -635,7 +635,192 @@ const kinds: ProceduralMaterialKind[] = [
   'brasspadlocks',
   'carrotcuts',
   'bluepushpins',
+  'oatflakes',
 ];
+
+describe('Broad flattened oat flakes with low solid creases and six fine fibers', () => {
+  const p = proceduralMaterialPresets.oatflakes;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14015),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1401b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14017) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14019) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a broad low pale flake around a solid central crease and six finer raised fibers for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('oatflakes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const creaseHeight = out.height,
+            creaseColor = out.color;
+          expect(creaseHeight).toBeGreaterThan(0.0001749);
+          expect(creaseHeight).toBeLessThan(0.0001781);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.88, 12);
+          at(0, 0.03);
+          expect(out.height - creaseHeight).toBeGreaterThan(0.000144);
+          expect(out.color - creaseColor).toBeGreaterThan(0.18);
+          expect(out.occlusion).toBeCloseTo(0.98, 12);
+          for (const sign of [-1, 1]) {
+            at(0, sign * 0.18);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.00028);
+            expect(out.metallic).toBe(0);
+            at(sign * 0.29, 0);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.00028);
+            for (let i = 0; i < p.fiberPairs; i++) {
+              const y = sign * (p.fiberFirst + i * p.fiberPitch);
+              at(0, y);
+              const ridge = out.height,
+                pale = out.color;
+              expect(pale).toBeGreaterThan(0.79);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.metallic).toBe(0);
+              at(0, y + sign * 0.017);
+              expect(ridge - out.height).toBeGreaterThan(0.000011);
+              expect(pale - out.color).toBeGreaterThan(0.07);
+            }
+          }
+          for (const [x, y] of [
+            [0.37, 0],
+            [0, 0.27],
+            [0.28, 0.2],
+          ]) {
+            at(x, y);
+            expect(out.height).toBeLessThan(0.0000251);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+        }
+    },
+  );
+  it('keeps noisy flake rim shoulders, crease and fiber shoulders and pointed ends, nearest fiber owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('oatflakes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let i = 0; i < 32; i++) {
+            const angle = (i * Math.PI) / 16,
+              x = p.halfLength * Math.cos(angle),
+              y = p.halfWidth * Math.sin(angle);
+            for (const edge of [0, 1 - Number.EPSILON]) {
+              let lo = 0.8,
+                hi = 1.05;
+              for (let step = 0; step < 48; step++) {
+                const radius = (lo + hi) * 0.5;
+                sample(...uv(seed, col, row, x * radius, y * radius), b);
+                if (b.mortar > edge) hi = radius;
+                else lo = radius;
+              }
+              check(
+                ...uv(seed, col, row, x * (lo + hi) * 0.5, y * (lo + hi) * 0.5),
+              );
+            }
+          }
+          const stroke = (cy: number, length: number, width: number) => {
+            for (let i = 0; i <= 32; i++) {
+              const t = -1 + i / 16,
+                cap = 1 - t * t;
+              for (const field of [0, p.detailShoulder]) {
+                if (cap * cap < field) continue;
+                const across = width * Math.sqrt(cap * cap - field);
+                for (const sign of [-1, 1])
+                  check(...uv(seed, col, row, t * length, cy + sign * across));
+              }
+            }
+            for (const sign of [-1, 1])
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  sign * length * Math.sqrt(1 - Math.sqrt(p.detailShoulder)),
+                  cy,
+                ),
+              );
+          };
+          stroke(0, p.creaseHalfLength, p.creaseHalfWidth);
+          for (const sign of [-1, 1])
+            for (let i = 0; i < p.fiberPairs; i++)
+              stroke(
+                sign * (p.fiberFirst + i * p.fiberPitch),
+                p.fiberHalfLength - i * p.fiberShrink,
+                p.fiberHalfWidth,
+              );
+          for (let i = 0; i < p.fiberPairs - 1; i++)
+            for (const sign of [-1, 1])
+              for (const x of [-0.2, 0, 0.2])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x,
+                    sign * (p.fiberFirst + (i + 0.5) * p.fiberPitch),
+                  ),
+                );
+        }
+    }
+  });
+});
 
 describe('Blue plastic double-flange pushpins with exposed metallic tapered needles', () => {
   const p = proceduralMaterialPresets.bluepushpins;

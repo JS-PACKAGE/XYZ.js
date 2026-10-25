@@ -1428,6 +1428,118 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'oatflakes': {
+        const p = proceduralMaterialPresets.oatflakes,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          fibers = new Float64Array(p.fiberPairs * 2),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder,
+          rimBound = p.rimVariation * 0.5,
+          inverseCreaseLength = 1 / p.creaseHalfLength,
+          inverseCreaseWidth = 1 / p.creaseHalfWidth,
+          inverseFiberWidth = 1 / p.fiberHalfWidth,
+          inverseFiberPitch = 1 / p.fiberPitch,
+          inverseDetail = 1 / p.detailShoulder,
+          rimField = cachedNoise(64, 64, seed ^ 0x14011),
+          grainField = cachedNoise(192, 192, seed ^ 0x14013);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14015);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14017) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14019) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1401b));
+            poses[index + 5] = hash(col, row, seed ^ 0x1401d);
+          }
+        for (let i = 0; i < p.fiberPairs; i++) {
+          fibers[i * 2] = p.fiberFirst + i * p.fiberPitch;
+          fibers[i * 2 + 1] = 1 / (p.fiberHalfLength - i * p.fiberShrink);
+        }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            field = 1 - x * x * inverseLength - y * y * inverseWidth;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1;
+          if (field <= -rimBound) return;
+          const body =
+            field >= p.shoulder + rimBound
+              ? 1
+              : smooth(
+                  clamp(
+                    (field + p.rimVariation * (rimField(u, v) - 0.5)) *
+                      inverseShoulder,
+                  ),
+                );
+          mortar = 1 - body;
+          if (body === 0) return;
+          let crease = 0,
+            fiber = 0;
+          const along = x * inverseCreaseLength;
+          if (Math.abs(along) < 1) {
+            const across = y * inverseCreaseWidth,
+              cap = 1 - along * along;
+            crease = smooth(
+              clamp((cap * cap - across * across) * inverseDetail),
+            );
+          }
+          const rowIndex =
+              Math.max(
+                0,
+                Math.min(
+                  p.fiberPairs - 1,
+                  Math.round((Math.abs(y) - p.fiberFirst) * inverseFiberPitch),
+                ),
+              ) * 2,
+            across = (Math.abs(y) - fibers[rowIndex]) * inverseFiberWidth;
+          if (Math.abs(across) < 1) {
+            const t = x * fibers[rowIndex + 1];
+            if (Math.abs(t) < 1) {
+              const cap = 1 - t * t;
+              fiber = smooth(
+                clamp((cap * cap - across * across) * inverseDetail),
+              );
+            }
+          }
+          const grain = grainField(u, v),
+            tone = poses[index + 5];
+          // A broad flattened flake retains a solid low crease, not a split hull.
+          color +=
+            body *
+            (0.76 +
+              0.1 * tone +
+              0.025 * grain +
+              0.1 * fiber -
+              0.22 * crease -
+              color);
+          height +=
+            body *
+            (0.28 +
+              0.045 * smooth(clamp(field * 1.25)) +
+              0.003 * grain +
+              0.015 * fiber -
+              0.15 * crease -
+              height);
+          roughness +=
+            body * (p.roughness + 0.025 * grain + 0.03 * crease - roughness);
+          occlusion += body * (0.98 - 0.1 * crease - occlusion);
+          return;
+        };
+      }
       case 'bluepushpins': {
         const p = proceduralMaterialPresets.bluepushpins,
           tones = new Float64Array(p.cells * p.cells),
@@ -24085,6 +24197,7 @@ export function createSurfaceSampler(
     kind === 'brasspadlocks' ||
     kind === 'carrotcuts' ||
     kind === 'bluepushpins' ||
+    kind === 'oatflakes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
