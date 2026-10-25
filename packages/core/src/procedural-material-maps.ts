@@ -1441,6 +1441,47 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'shippocloth': {
+        const p = proceduralMaterialPresets.shippocloth,
+          grainField = cachedNoise(128, 128, seed ^ 0x15711),
+          phaseU = hash(0, 0, seed ^ 0x15713),
+          phaseV = hash(0, 0, seed ^ 0x15715),
+          tone = hash(0, 0, seed ^ 0x15717),
+          widthSquared = p.width * p.width,
+          inverseRing = 1 / (widthSquared - p.core * p.core),
+          weaveFrequency = Math.PI * p.threads;
+        return () => {
+          const x = fract(u * p.cells + phaseU),
+            y = fract(v * p.cells + phaseV),
+            xx = x - 1,
+            yy = y - 1,
+            d0 = x * x + y * y - p.radiusSquared,
+            d1 = xx * xx + y * y - p.radiusSquared,
+            d2 = x * x + yy * yy - p.radiusSquared,
+            d3 = xx * xx + yy * yy - p.radiusSquared,
+            r0 = smooth(clamp((widthSquared - d0 * d0) * inverseRing)),
+            r1 = smooth(clamp((widthSquared - d1 * d1) * inverseRing)),
+            r2 = smooth(clamp((widthSquared - d2 * d2) * inverseRing)),
+            r3 = smooth(clamp((widthSquared - d3 * d3) * inverseRing)),
+            ink = 1 - (1 - r0) * (1 - r1) * (1 - r2) * (1 - r3),
+            a = Math.cos(weaveFrequency * u),
+            b = Math.cos(weaveFrequency * v),
+            warp = a * a,
+            weft = b * b,
+            over = 0.5 + 0.5 * a * b,
+            weave =
+              warp * (0.35 + 0.25 * over) +
+              weft * (0.35 + 0.25 * (1 - over)) -
+              0.3 * warp * weft,
+            grain = grainField(u, v);
+          color =
+            0.06 + 0.025 * grain + 0.015 * weave + ink * (0.82 + 0.05 * tone);
+          height = 0.12 + 0.22 * weave + 0.004 * grain;
+          roughness = p.roughness + 0.025 * grain + 0.02 * (1 - weave);
+          occlusion = 0.84 + 0.15 * weave;
+          mortar = 0;
+        };
+      }
       case 'coaxialcablecuts': {
         const p = proceduralMaterialPresets.coaxialcablecuts,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26024,6 +26065,7 @@ export function createSurfaceSampler(
     kind === 'brassjinglebells' ||
     kind === 'nutmeghalves' ||
     kind === 'coaxialcablecuts' ||
+    kind === 'shippocloth' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

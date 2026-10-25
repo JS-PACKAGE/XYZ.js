@@ -6143,6 +6143,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         strandRadius: 0.017;
         strandFull: 0.012;
     }>;
+    shippocloth: Readonly<{
+        dark: readonly [12, 25, 50];
+        light: readonly [241, 232, 209];
+        roughness: 0.84;
+        relief: 0.0036;
+        cells: 8;
+        radiusSquared: 0.5;
+        width: 0.035;
+        core: 0.02;
+        threads: 96;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6766,4 +6777,5 @@ export declare const proceduralTileMeters: Readonly<{
     brassjinglebells: 0.16;
     nutmeghalves: 0.12;
     coaxialcablecuts: 0.12;
+    shippocloth: 0.24;
 }>;

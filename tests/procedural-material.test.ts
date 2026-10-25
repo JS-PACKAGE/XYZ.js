@@ -661,7 +661,190 @@ const kinds: ProceduralMaterialKind[] = [
   'brassjinglebells',
   'nutmeghalves',
   'coaxialcablecuts',
+  'shippocloth',
 ];
+
+describe('Cream interlocking shippo circle pigment on continuous navy woven cloth', () => {
+  const p = proceduralMaterialPresets.shippocloth;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const pu = hash(0, 0, seed ^ 0x15713),
+      pv = hash(0, 0, seed ^ 0x15715);
+    return [
+      ((col + x - pu) / p.cells + 1) % 1,
+      ((row + y - pv) / p.cells + 1) % 1,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps full interlocking circles crossing owners and cream joins over navy continuous dielectric weave for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('shippocloth', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j < 64; j++) {
+            const a = (j * Math.PI) / 32,
+              r = Math.SQRT1_2;
+            sample(
+              ...uv(seed, col, row, r * Math.cos(a), r * Math.sin(a)),
+              out,
+            );
+            expect(out.color).toBeGreaterThan(0.8799);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeGreaterThanOrEqual(0.84);
+            expect(out.height).toBeGreaterThanOrEqual(0.000432);
+          }
+          sample(...uv(seed, col, row, 0.5, 0.5), out);
+          expect(out.color).toBeGreaterThan(0.8799);
+          for (const [x, y] of [
+            [0, 0],
+            [0.5, 0],
+            [0, 0.5],
+          ]) {
+            sample(...uv(seed, col, row, x, y), out);
+            expect(out.color).toBeLessThan(0.1001);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+        }
+      let runs = 0,
+        previous = false;
+      for (let j = 0; j <= 8192; j++) {
+        sample(...uv(seed, 0, 0, (j * p.cells) / 8192, 0.25), out);
+        const cream = out.color > 0.5;
+        if (cream && !previous) runs++;
+        previous = cream;
+      }
+      expect(runs).toBe(16);
+    },
+  );
+  it('keeps contrasting pigment independent of height roughness and AO at matched weave phases', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('shippocloth', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let min = 1,
+        max = 0,
+        minH = 1,
+        maxH = 0,
+        minR = 1,
+        maxR = 0;
+      for (let row = 0; row < p.threads / 2; row++)
+        for (let col = 0; col < p.threads / 2; col++) {
+          sample((2 * col) / p.threads, (2 * row) / p.threads, out);
+          min = Math.min(min, out.color);
+          max = Math.max(max, out.color);
+          minH = Math.min(minH, out.height);
+          maxH = Math.max(maxH, out.height);
+          minR = Math.min(minR, out.roughness);
+          maxR = Math.max(maxR, out.roughness);
+          expect(out.occlusion).toBeCloseTo(0.9375, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+        }
+      expect(min).toBeLessThan(0.1001);
+      expect(max).toBeGreaterThan(0.8799);
+      expect(max - min).toBeGreaterThan(0.78);
+      expect(minH).toBeGreaterThan(0.00094679);
+      expect(maxH).toBeLessThan(0.00096121);
+      expect(maxH - minH).toBeLessThan(0.00001441);
+      expect(maxR - minR).toBeLessThan(0.0251);
+    }
+  });
+  it('preserves visible two-axis normal detail inside both cream and navy at actual default256 maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('shippocloth', 256, seed),
+        groups = [
+          { n: 0, x: 0, y: 0 },
+          { n: 0, x: 0, y: 0 },
+        ];
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const red = maps.baseColor[i];
+        if (red >= 60 && red <= 180) continue;
+        const g = groups[red > 180 ? 1 : 0];
+        g.n++;
+        if (Math.abs(maps.normal[i] - 128) > 2) g.x++;
+        if (Math.abs(maps.normal[i + 1] - 128) > 2) g.y++;
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+      }
+      for (const g of groups) {
+        expect(g.n).toBeGreaterThan(3000);
+        expect(g.x / g.n).toBeGreaterThan(0.1);
+        expect(g.y / g.n).toBeGreaterThan(0.1);
+      }
+    }
+  });
+  it('keeps ring shoulders four-circle joins cell ownership continuous weave and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('shippocloth', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const offset of [-p.width, -p.core, p.core, p.width])
+            for (let j = 0; j < 128; j++) {
+              const a = (j * Math.PI) / 64,
+                r = Math.sqrt(p.radiusSquared + offset);
+              check(...uv(seed, col, row, r * Math.cos(a), r * Math.sin(a)));
+            }
+          for (let j = 0; j <= 64; j++) {
+            check(...uv(seed, col, row, j / 64, 0));
+            check(...uv(seed, col, row, 0, j / 64));
+          }
+          check(...uv(seed, col, row, 0.5, 0.5));
+        }
+    }
+  });
+});
 
 describe('Coplanar coaxial cable cuts with silver conductor forty shield strands pale dielectric and black jacket', () => {
   const p = proceduralMaterialPresets.coaxialcablecuts;
