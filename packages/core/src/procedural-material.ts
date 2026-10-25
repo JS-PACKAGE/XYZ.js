@@ -586,7 +586,8 @@ export type ProceduralMaterialKind =
   | 'chrysanthemumstone'
   | 'sewingsnaps'
   | 'lathplaster'
-  | 'ceramiccapacitors';
+  | 'ceramiccapacitors'
+  | 'fennelseeds';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1407,6 +1408,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sewingsnaps',
   'lathplaster',
   'ceramiccapacitors',
+  'fennelseeds',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

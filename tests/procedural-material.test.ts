@@ -609,7 +609,173 @@ const kinds: ProceduralMaterialKind[] = [
   'sewingsnaps',
   'lathplaster',
   'ceramiccapacitors',
+  'fennelseeds',
 ];
+
+describe('Bowed pointed fennel seeds with five longitudinal ribs', () => {
+  const p = proceduralMaterialPresets.fennelseeds;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  // Reconstruct placements only; assertions measure the actual surface fields.
+  const uv = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x12613),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x12617) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x12619) - 1);
+    return (x: number, y: number) =>
+      [
+        (col + 0.5 + jx + c * x - s * y) / p.cells,
+        (row + 0.5 + jy + s * x + c * y) / p.cells,
+      ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a bowed pointed silhouette and five raised longitudinal ribs above opaque backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('fennelseeds', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let minColor = 1,
+        maxColor = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const point = uv(seed, col, row),
+            at = (x: number, y: number) => sample(...point(x, y), out);
+          at(p.bend, 0);
+          minColor = Math.min(minColor, out.color);
+          maxColor = Math.max(maxColor, out.color);
+          expect(out.height).toBeGreaterThan(0.0011);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeGreaterThan(0.98);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at(p.bend + (i / 1024 - 0.5) * 1.64 * p.halfWidth, 0);
+            const rib = out.roughness < 0.74;
+            if (rib && !previous) runs++;
+            previous = rib;
+          }
+          expect(runs).toBe(5);
+          for (let lane = -2; lane <= 2; lane++) {
+            const x = p.bend + lane * p.ribGap * p.halfWidth;
+            at(x, 0);
+            const peak = out.height;
+            at(x - 0.5 * p.ribGap * p.halfWidth, 0);
+            const left = out.height;
+            at(x + 0.5 * p.ribGap * p.halfWidth, 0);
+            expect(peak - (left + out.height) / 2).toBeGreaterThan(0.00007);
+          }
+          const centers: number[] = [],
+            widths: number[] = [];
+          for (const y of [-0.2, 0, 0.2]) {
+            let first = Infinity,
+              last = -Infinity;
+            for (let i = 0; i <= 256; i++) {
+              const x = -0.2 + (i / 256) * 0.4;
+              at(x, y);
+              if (out.height > 0.0003) {
+                first = Math.min(first, x);
+                last = Math.max(last, x);
+              }
+            }
+            expect(last).toBeGreaterThan(first);
+            centers.push((first + last) / 2);
+            widths.push(last - first);
+          }
+          expect(centers[1] - (centers[0] + centers[2]) / 2).toBeGreaterThan(
+            0.012,
+          );
+          expect(widths[1] - (widths[0] + widths[2]) / 2).toBeGreaterThan(0.03);
+          for (const sign of [-1, 1]) {
+            at(0, sign * (p.halfLength + 0.01));
+            expect(out.height).toBeLessThan(0.0001);
+            expect(out.occlusion).toBeLessThan(0.4);
+            expect(out.metallic).toBe(0);
+          }
+        }
+      expect(maxColor - minColor).toBeGreaterThan(0.12);
+    },
+  );
+  it('keeps tapered tips, converging rib shoulders, single-owner lookup and UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fennelseeds', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const point = uv(seed, col, row);
+          for (const y of [
+            -p.halfLength,
+            -0.3,
+            -0.2,
+            0,
+            0.2,
+            0.3,
+            p.halfLength,
+          ]) {
+            const taper = Math.max(0, 1 - (y / p.halfLength) ** 2),
+              bow = p.bend * taper;
+            for (const sign of [-1, 1]) {
+              check(...point(bow + sign * p.halfWidth * taper, y));
+              if (taper * taper > p.shoulder)
+                check(
+                  ...point(
+                    bow +
+                      sign *
+                        p.halfWidth *
+                        Math.sqrt(taper * taper - p.shoulder),
+                    y,
+                  ),
+                );
+            }
+            for (let lane = -2; lane <= 2; lane++)
+              for (const sign of [-1, 1])
+                check(
+                  ...point(
+                    bow +
+                      p.halfWidth *
+                        (lane * p.ribGap * taper + sign * p.ribRadius),
+                    y,
+                  ),
+                );
+          }
+        }
+    }
+  });
+});
 
 describe('Radial ceramic capacitors with domed dielectric discs and paired leads', () => {
   const p = proceduralMaterialPresets.ceramiccapacitors;

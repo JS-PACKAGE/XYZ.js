@@ -911,6 +911,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `ceramiccapacitors`（徑向陶瓷電容），凸絕緣陶瓷圓片與同側雙金屬引腳，不同於軸向電阻兩端出腳。使用 `await ProceduralMaterial.create('ceramiccapacitors', { seed: 7 })`；一張 UV tile 對應 0.12 m。陶瓷覆根仍 dielectric，外露引腳保留 metal；opaque mixed-metallic、factor 1，maps／選用 height／ownership 不變，不新增電容量編碼、元件 geometry、導電／電路／電熱或物理模擬。
 
+另支援 `fennelseeds`（茴香籽），彎曲尖梭籽皮有五條收斂凸縱肋，不是帶梗豆蔻莢。使用 `await ProceduralMaterial.create('fennelseeds', { seed: 7 })`；一張 UV tile 對應 0.096 m，seeded 旋轉／jitter／tone 有界於週期貼圖內。Opaque dielectric、metallic 0，maps／選用 height／ownership 不變，不新增種子 geometry、重疊散佈、植物生長／營養／味道或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

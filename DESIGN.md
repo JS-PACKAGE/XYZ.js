@@ -691,6 +691,8 @@
 
 `ceramiccapacitors` 沿 compact paired leads／ellipse cover／coherent mixed-metallic replacement，4×4 交替斜向圓片預算 16 tones／96×96 grain。兩引腳同側，查 nearest sign 的 compact shaft，支撐於 sign owner 前歸零；先覆較低 metal leads，再以高 convex dielectric disc 覆 roots，metallic 隨覆蓋歸零。Body／lead 零時略過 grain，所有 squared reciprocal 預算，採樣無配置／hash／sqrt／trig。不新增 geometry、電容量編碼、導電／電路／電熱或物理模擬。
 
+`fennelseeds` 沿 cached poses／compact spindle／coherent fields：8×8 的 64 poses 含軸向、jitter／tone，96×96 grain；quadratic bow 與 squared tapered cap 構成尖梭體，五條 finite compact ribs 以 outside-product union 收斂，不除消失尖端寬度、不採 nearest-rib seam。Conservative support <0.418 owner、只查單 cell；body 零略過 ribs／grain，預算 reciprocal，採樣無配置／hash／sqrt／trig。不新增 geometry、重疊散佈、植物生長／營養／味道或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

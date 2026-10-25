@@ -1428,6 +1428,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fennelseeds': {
+        const p = proceduralMaterialPresets.fennelseeds,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / p.halfWidth,
+          inverseShoulder = 1 / p.shoulder,
+          inverseRib = 1 / (p.ribRadius * p.ribRadius),
+          grainField = cachedNoise(96, 96, seed ^ 0x12611);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x12613);
+            poses[offset] = Math.cos(angle);
+            poses[offset + 1] = Math.sin(angle);
+            poses[offset + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x12617) - 1);
+            poses[offset + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x12619) - 1);
+            poses[offset + 4] = hash(col, row, seed ^ 0x1261d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            offset = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - 0.5 - poses[offset + 2],
+            dy = fract(vc) - 0.5 - poses[offset + 3],
+            x = dx * poses[offset] + dy * poses[offset + 1],
+            y = dy * poses[offset] - dx * poses[offset + 1],
+            taper = clamp(1 - y * y * inverseLength),
+            nx = (x - p.bend * taper) * inverseWidth,
+            cap = clamp(taper * taper - nx * nx),
+            body = smooth(clamp(cap * inverseShoulder));
+          color = 0.035;
+          height = 0.03;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          // Five finite compact ribs converge with the bowed spindle without
+          // dividing by its vanishing tip width or introducing a nearest-rib seam.
+          let outside = 1;
+          for (let lane = -2; lane <= 2; lane++) {
+            const ribX = nx - lane * p.ribGap * taper,
+              rib = smooth(clamp(1 - ribX * ribX * inverseRib));
+            outside *= 1 - rib;
+          }
+          const ribs = 1 - outside,
+            grain = grainField(u, v);
+          color +=
+            body *
+            (0.44 +
+              0.18 * poses[offset + 4] +
+              0.035 * grain +
+              0.14 * ribs -
+              color);
+          height +=
+            body *
+            (0.35 + 0.18 * smooth(cap) + 0.055 * ribs + 0.003 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.02 * grain - 0.06 * ribs - roughness);
+          occlusion += body * (0.96 + 0.03 * ribs - occlusion);
+          return;
+        };
+      }
       case 'ceramiccapacitors': {
         const p = proceduralMaterialPresets.ceramiccapacitors,
           tones = new Float64Array(p.cells * p.cells),
@@ -22265,6 +22328,7 @@ export function createSurfaceSampler(
     kind === 'sewingsnaps' ||
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
+    kind === 'fennelseeds' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

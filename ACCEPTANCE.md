@@ -7309,3 +7309,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 571-preset ceramiccapacitors 並擷取畫面；512 base-color detail 顯示交替斜向凸圓片與雙同側引腳。實際 createMaterial factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page errors 與 about:blank cleanup errors 都為空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 ceramiccapacitors 並重算既有 570 種（含 axialresistors）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6562 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：茴香籽（fennelseeds）
+
+- 目錄 571→572 種；0.096 m opaque dielectric tile、metallic 0，旋轉／jitter／tone 的彎曲尖梭籽粒與五凸縱肋，非帶梗 cardamompods。Cached 64 poses／96×96 grain、compact bowed spindle、finite outside-product rib union，不除消失尖端寬度／不 nearest-rib seam；conservative support <0.418 owner、body 零略過 ribs／grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增種子 geometry、重疊散佈、植物生長／營養／味道或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×64 籽粒、1025-point 橫剖面各五條 roughness 低且高於兩側平均 >0.00007 m 的凸肋，輪廓中段較兩端彎 >0.012 cell、寬 >0.03 cell、尖外仍是低 opaque 背底，籽間色差 >0.12。129² 雙向及 exact pointed outline／coating／rib shoulders C1 通過；metallic 0。
+- 放大初版貼圖發現細肋顏料對比太弱；取消未完成的 pre-contrast full gate，只將 rib pigment 權重 0.025→0.14，不改形態／高度／roughness／AO，重新啟動 targeted 與完整 gate。最終 Managed Chromium `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 572-preset fennelseeds、擷取畫面；1024 base-color 2×2 籽粒放大 detail 可見五條收斂淡肋。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 最終新 build 生成 fennelseeds 並重算既有 571 種（含 cardamompods／sesame）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 最終 contrast 下 targeted 五項再次通過。完整 gate：build、typecheck、lint、format:check、179 個測試檔／6567 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
