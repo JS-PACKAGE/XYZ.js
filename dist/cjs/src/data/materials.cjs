@@ -12270,6 +12270,47 @@ var proceduralMaterialPresets = Object.freeze({
 		cells: 6,
 		railHalf: .07,
 		railCore: .045
+	}),
+	nyloncableties: Object.freeze({
+		dark: [
+			44,
+			40,
+			30
+		],
+		light: [
+			246,
+			235,
+			200
+		],
+		roughness: .65,
+		relief: .004,
+		cells: 3,
+		headY: -.29,
+		headStraightX: .05,
+		headStraightY: .04,
+		headRadius: .025,
+		headCore: .019,
+		holeStraight: .012,
+		holeRadius: .02,
+		holeCore: .014,
+		strapHalf: .035,
+		strapEdge: .008,
+		strapStart: -.245,
+		strapEnd: .37,
+		endEdge: .01,
+		tipHalf: .008,
+		taperStart: .27,
+		taperLength: .08,
+		teeth: 17,
+		firstTooth: -.18,
+		pitch: .026,
+		toothHalfX: .027,
+		toothCoreX: .022,
+		toothHalfY: .007,
+		toothCoreY: .004,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -12916,7 +12957,8 @@ var proceduralTileMeters = Object.freeze({
 	seamrippers: .6,
 	flakedarrowheads: .4,
 	dandelionseeds: .09,
-	shojipaperlattice: .9
+	shojipaperlattice: .9,
+	nyloncableties: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

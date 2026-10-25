@@ -829,6 +829,8 @@
 
 同輪追加 `shojipaperlattice`（不透明障子風紙木格），目錄643→644種：六乘六連續高棕木桟圍低白纖維紙面，非 trellis 的開格 backing 或變色磁磚。0.9 m tile、全 M0／mortar0，紙面有 formation／tooth／雙向纖維細起伏與高粗糙度；木桟較高、暗、平滑，木紋隨水平／垂直桟旋轉，交點延續水平木紋且不疊加雙倍高度。沿用四圖、height、Worker／cache／tint 與 ownership；僅不透明程序表面，不新增 geometry、透光／透明、紙張散射、實體榫接或安裝／建築認證。
 
+同輪追加 `nyloncableties`（尼龍束帶），目錄644→645種：九 seeded rotated cream 束帶，一個較寬有開口的圓角鎖頭接長窄帶、十七個真正高起且暗平滑的橫向棘齒與漸細尾端，非金屬電氣接點或雙窗 pinless buckle。0.6 m tile／0.004 m relief、全 M0，head／strap／tooth／opaque opening backing 由四圖與選用 height 區分，沿用 Worker／cache／tint／ownership；僅 stylized 表面，不新增透明洞、束線／棘輪／鎖緊／承載物理、geometry 或產品安全認證。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

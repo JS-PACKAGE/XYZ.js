@@ -1441,6 +1441,112 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'nyloncableties': {
+        const p = proceduralMaterialPresets.nyloncableties,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16f11),
+          headSquared = p.headRadius * p.headRadius,
+          inverseHead = 1 / (headSquared - p.headCore * p.headCore),
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore),
+          inverseStrap = 1 / p.strapEdge,
+          inverseEnd = 1 / p.endEdge,
+          inverseTaper = 1 / p.taperLength,
+          inversePitch = 1 / p.pitch,
+          inverseToothX = 1 / (p.toothHalfX - p.toothCoreX),
+          inverseToothY = 1 / (p.toothHalfY - p.toothCoreY);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16f15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16f17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16f19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16f1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x16f1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            grain = grainField(u, v);
+          color = 0.04 + 0.015 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (
+            Math.abs(x) > p.headStraightX + p.headRadius ||
+            y < p.headY - p.headStraightY - p.headRadius ||
+            y > p.strapEnd
+          )
+            return;
+          const hx = Math.max(0, Math.abs(x) - p.headStraightX),
+            hy = Math.max(0, Math.abs(y - p.headY) - p.headStraightY),
+            head = smooth(
+              clamp((headSquared - hx * hx - hy * hy) * inverseHead),
+            ),
+            wx = Math.max(0, Math.abs(x) - p.holeStraight),
+            wy = Math.max(0, Math.abs(y - p.headY) - p.holeStraight),
+            hole =
+              head === 0
+                ? 0
+                : smooth(
+                    clamp((holeSquared - wx * wx - wy * wy) * inverseHole),
+                  ),
+            frame = head * (1 - hole),
+            width =
+              p.strapHalf -
+              (p.strapHalf - p.tipHalf) *
+                smooth(clamp((y - p.taperStart) * inverseTaper)),
+            strap =
+              smooth(clamp((width - Math.abs(x)) * inverseStrap)) *
+              smooth(clamp((y - p.strapStart) * inverseEnd)) *
+              smooth(clamp((p.strapEnd - y) * inverseEnd));
+          mortar = (1 - strap) * (1 - frame);
+          if (mortar === 1) return;
+          const tone = poses[i + 5];
+          color += strap * (0.8 + 0.04 * tone + 0.02 * grain - color);
+          height += strap * (0.46 + 0.003 * grain - height);
+          roughness += strap * (p.roughness + 0.03 * grain - roughness);
+          occlusion += strap * (0.98 - occlusion);
+          if (strap !== 0) {
+            const row = Math.max(
+                0,
+                Math.min(
+                  p.teeth - 1,
+                  Math.round((y - p.firstTooth) * inversePitch),
+                ),
+              ),
+              tooth =
+                smooth(clamp((p.toothHalfX - Math.abs(x)) * inverseToothX)) *
+                smooth(
+                  clamp(
+                    (p.toothHalfY -
+                      Math.abs(y - p.firstTooth - row * p.pitch)) *
+                      inverseToothY,
+                  ),
+                );
+            color -= 0.06 * tooth;
+            height += 0.07 * tooth;
+            roughness -= 0.03 * tooth;
+            occlusion += 0.01 * tooth;
+          }
+          if (frame !== 0) {
+            color += frame * (0.84 + 0.04 * tone + 0.02 * grain - color);
+            height += frame * (0.7 + 0.003 * grain - height);
+            roughness += frame * (0.6 + 0.03 * grain - roughness);
+            occlusion += frame * (0.99 - occlusion);
+          }
+        };
+      }
       case 'shojipaperlattice': {
         const p = proceduralMaterialPresets.shojipaperlattice,
           grainField = cachedNoise(8, 96, seed ^ 0x16e11),
@@ -27990,6 +28096,7 @@ export function createSurfaceSampler(
     kind === 'flakedarrowheads' ||
     kind === 'dandelionseeds' ||
     kind === 'shojipaperlattice' ||
+    kind === 'nyloncableties' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

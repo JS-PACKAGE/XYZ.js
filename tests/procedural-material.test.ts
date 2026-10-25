@@ -685,7 +685,269 @@ const kinds: ProceduralMaterialKind[] = [
   'flakedarrowheads',
   'dandelionseeds',
   'shojipaperlattice',
+  'nyloncableties',
 ];
+
+describe('Cream nylon cable ties with one open locking head continuous narrow straps seventeen raised transverse ratchet teeth and tapered tails', () => {
+  const p = proceduralMaterialPresets.nyloncableties;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16f15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16f1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16f17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16f19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a genuinely wider open locking head connected to a long opaque nylon strap with seventeen physically raised darker smoother teeth and a narrower tail for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('nyloncableties', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          const hole = at(0, p.headY);
+          expect(hole.height).toBeGreaterThan(0.0000999);
+          expect(hole.height).toBeLessThan(0.0001081);
+          expect(hole.occlusion).toBeCloseTo(0.3, 12);
+          expect(hole.mortar).toBe(1);
+          expect(hole.metallic).toBe(0);
+          for (const [x, y] of [
+            [-0.055, p.headY],
+            [0.055, p.headY],
+            [0, p.headY - 0.05],
+            [0, p.headY + 0.05],
+          ]) {
+            const frame = at(x, y);
+            expect(frame.height).toBeGreaterThan(0.0027999);
+            expect(frame.height).toBeLessThan(0.0028121);
+            expect(frame.occlusion).toBeCloseTo(0.99, 12);
+            expect(frame.mortar).toBe(0);
+            expect(frame.metallic).toBe(0);
+            expect(frame.color - hole.color).toBeGreaterThan(0.7849);
+          }
+          for (let j = 0; j <= 2048; j++) {
+            const y = -0.24 + (0.59 * j) / 2048,
+              strap = at(0, y);
+            expect(strap.height).toBeGreaterThan(0.0018399);
+            expect(strap.height).toBeLessThan(0.0028121);
+            expect(strap.occlusion).toBeGreaterThanOrEqual(0.98);
+            expect(strap.mortar).toBe(0);
+            expect(strap.metallic).toBe(0);
+          }
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const y = p.firstTooth + tooth * p.pitch;
+            for (let j = 0; j <= 128; j++) {
+              const x = -0.02 + (0.04 * j) / 128,
+                peak = at(x, y),
+                floor = at(x, y + p.pitch / 2);
+              expect(peak.height).toBeGreaterThan(0.0021199);
+              expect(peak.height).toBeLessThan(0.0021321);
+              expect(peak.height - floor.height).toBeGreaterThan(0.0002679);
+              expect(floor.color - peak.color).toBeGreaterThan(0.0399);
+              expect(floor.roughness - peak.roughness).toBeGreaterThan(0.0099);
+              expect(peak.occlusion).toBeCloseTo(0.99, 12);
+              expect(floor.occlusion).toBeCloseTo(0.98, 12);
+              expect(peak.mortar).toBe(0);
+              expect(floor.mortar).toBe(0);
+              expect(peak.metallic).toBe(0);
+              expect(floor.metallic).toBe(0);
+            }
+          }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const q = at(0, -0.2 + (0.46 * j) / 8192),
+              raised = q.height > 0.002;
+            if (raised && !inside) runs++;
+            inside = raised;
+          }
+          expect(runs).toBe(17);
+          const width = (y: number) => {
+              let count = 0;
+              for (let j = 0; j <= 2048; j++)
+                if (at(-0.1 + (0.2 * j) / 2048, y).mortar < 0.5) count++;
+              return (count * 0.2) / 2048;
+            },
+            head = width(-0.33),
+            strap = width(0),
+            tip = width(0.34);
+          expect(head).toBeGreaterThan(0.14);
+          expect(strap).toBeGreaterThan(0.06);
+          expect(strap).toBeLessThan(0.065);
+          expect(head).toBeGreaterThan(2 * strap);
+          expect(tip).toBeLessThan(0.012);
+          expect(strap - tip).toBeGreaterThan(0.048);
+        }
+    },
+  );
+  it('keeps actual512 a visibly open locking head and solid bright nonmetal strap with seventeen darker transverse teeth rather than exposed electrical pads or a pinless buckle', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('nyloncableties', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            hole = index(0, p.headY);
+          for (const [x, y] of [
+            [-0.055, p.headY],
+            [0.055, p.headY],
+            [0, p.headY - 0.05],
+            [0, p.headY + 0.05],
+            [0, -0.24],
+            [0, 0.31],
+          ]) {
+            const body = index(x, y);
+            expect(maps.baseColor[body] - maps.baseColor[hole]).toBeGreaterThan(
+              40,
+            );
+            expect(maps.occlusion[body] - maps.occlusion[hole]).toBeGreaterThan(
+              150,
+            );
+            expect(maps.metallicRoughness[body + 2]).toBe(0);
+          }
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const y = p.firstTooth + tooth * p.pitch,
+              peak = index(0, y),
+              floor = index(0, y + p.pitch / 2);
+            expect(
+              maps.baseColor[floor] - maps.baseColor[peak],
+            ).toBeGreaterThan(5);
+            expect(
+              maps.metallicRoughness[floor + 1] -
+                maps.metallicRoughness[peak + 1],
+            ).toBeGreaterThan(2);
+            expect(maps.occlusion[peak]).toBeGreaterThanOrEqual(250);
+            expect(maps.metallicRoughness[peak + 2]).toBe(0);
+            expect(maps.metallicRoughness[floor + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps lockinghead andwindow squaredroundedrectangle supportcore joins strap sides/end shoulders smooth taperjoins toothrows core/support corners poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nyloncableties', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              a = 2 * Math.PI * t,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const [rx, ry, r] of [
+              [p.headStraightX, p.headStraightY, p.headRadius],
+              [p.headStraightX, p.headStraightY, p.headCore],
+              [p.holeStraight, p.holeStraight, p.holeRadius],
+              [p.holeStraight, p.holeStraight, p.holeCore],
+            ]) {
+              local(
+                (c < 0 ? -rx : rx) + r * c,
+                p.headY + (s < 0 ? -ry : ry) + r * s,
+              );
+              for (const sign of [-1, 1]) {
+                local(sign * (rx + r), p.headY - ry + 2 * ry * t);
+                local(-rx + 2 * rx * t, p.headY + sign * (ry + r));
+              }
+            }
+            const y = p.strapStart + (p.strapEnd - p.strapStart) * t,
+              tt = Math.max(0, Math.min(1, (y - p.taperStart) / p.taperLength)),
+              width =
+                p.strapHalf -
+                (p.strapHalf - p.tipHalf) * tt * tt * (3 - 2 * tt);
+            for (const sign of [-1, 1])
+              for (const edge of [0, p.strapEdge])
+                local(sign * (width - edge), y);
+            for (const yy of [
+              p.strapStart,
+              p.strapStart + p.endEdge,
+              p.strapEnd - p.endEdge,
+              p.strapEnd,
+              p.taperStart,
+              p.taperStart + p.taperLength,
+            ])
+              local(-0.09 + 0.18 * t, yy);
+            for (let tooth = 0; tooth < p.teeth; tooth++) {
+              const yy = p.firstTooth + tooth * p.pitch;
+              for (const sign of [-1, 1])
+                for (const r of [p.toothCoreY, p.toothHalfY, p.pitch / 2])
+                  local(-p.toothHalfX + 2 * p.toothHalfX * t, yy + sign * r);
+              for (const sign of [-1, 1])
+                for (const r of [p.toothCoreX, p.toothHalfX])
+                  local(sign * r, yy - p.toothHalfY + 2 * p.toothHalfY * t);
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Opaque shoji-inspired paper lattice with a continuous six-by-six raised brown wood grid directional grain and lower white fibrous paper', () => {
   const p = proceduralMaterialPresets.shojipaperlattice;

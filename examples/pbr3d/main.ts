@@ -723,6 +723,7 @@ try {
     'flakedarrowheads',
     'dandelionseeds',
     'shojipaperlattice',
+    'nyloncableties',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

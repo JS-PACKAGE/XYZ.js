@@ -6614,6 +6614,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         railHalf: 0.07;
         railCore: 0.045;
     }>;
+    nyloncableties: Readonly<{
+        dark: readonly [44, 40, 30];
+        light: readonly [246, 235, 200];
+        roughness: 0.65;
+        relief: 0.004;
+        cells: 3;
+        headY: -0.29;
+        headStraightX: 0.05;
+        headStraightY: 0.04;
+        headRadius: 0.025;
+        headCore: 0.019;
+        holeStraight: 0.012;
+        holeRadius: 0.02;
+        holeCore: 0.014;
+        strapHalf: 0.035;
+        strapEdge: 0.008;
+        strapStart: -0.245;
+        strapEnd: 0.37;
+        endEdge: 0.01;
+        tipHalf: 0.008;
+        taperStart: 0.27;
+        taperLength: 0.08;
+        teeth: 17;
+        firstTooth: -0.18;
+        pitch: 0.026;
+        toothHalfX: 0.027;
+        toothCoreX: 0.022;
+        toothHalfY: 0.007;
+        toothCoreY: 0.004;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7261,4 +7294,5 @@ export declare const proceduralTileMeters: Readonly<{
     flakedarrowheads: 0.4;
     dandelionseeds: 0.09;
     shojipaperlattice: 0.9;
+    nyloncableties: 0.6;
 }>;
