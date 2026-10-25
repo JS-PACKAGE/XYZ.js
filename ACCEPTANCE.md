@@ -7397,3 +7397,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 582-preset tortoiseshellacetate、擷取畫面／512 base-color detail，見連續琥珀底／深褐不規則斑與近乎平 normal／全白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 tortoiseshellacetate 並重算既有 581 種（含 tortoiseshell）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6621 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：教堂窗拼布（cathedralquilt）
+
+- 目錄 582→583 種；0.6 m opaque dielectric tile、metallic 0，奶油弧形高折邊／低藍實布窗，非 quilting 直線菱格。Cached 36 tones／192² grain／128×8 warp／8×128 weft／reciprocal、compact four-corner arc products／fold=outer−inset；完整四 arcs 避 nearest cusp、fold 不疊高，inset／seeded tone 在 owner 邊界 C1 歸零。Inset 零略過 tone、採樣無配置／hash／sqrt／trig；沿四圖／選用 height／ownership，不新增布料 geometry、透明窗、折疊／縫製／布料力學或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×36 窗，低藍 inset 0.002160–0.002225 m、比底布低 >0.00049 m；四向奶油 fold 比底布高 >0.00137 m、且 <0.004225 m，AO inset／底／fold 分別 0.88／0.96／0.99、metallic 0。等 x+y 兩點顏色 <0.35／>0.6 區分弧窗與直線菱格，513-point 剖面每窗僅一個藍區。193² 雙向與 exact four arc outer／inner shoulder circles／窗尖／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 583-preset cathedralquilt、擷取畫面／512 base-color detail，見奶油底曲邊藍色布窗。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 cathedralquilt 並重算既有 582 種（含 quilting）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6626 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

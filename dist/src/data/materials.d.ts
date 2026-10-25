@@ -5391,6 +5391,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         threshold: 0.43;
         shoulder: 0.19;
     }>;
+    cathedralquilt: Readonly<{
+        dark: readonly [8, 29, 63];
+        light: readonly [247, 233, 201];
+        roughness: 0.84;
+        relief: 0.008;
+        cells: 6;
+        radiusSquared: 0.25;
+        shoulder: 0.025;
+        foldWidth: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5976,4 +5986,5 @@ export declare const proceduralTileMeters: Readonly<{
     popcorn: 0.24;
     dualinlinechips: 0.16;
     tortoiseshellacetate: 0.2;
+    cathedralquilt: 0.6;
 }>;

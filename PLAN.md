@@ -705,6 +705,8 @@
 
 同輪追加 `tortoiseshellacetate`（玳瑁紋醋酸纖維塑膠），目錄 581→582 種：連續琥珀底／不規則深褐斑塊、平滑拋光面，非 tortoiseshell 隆起天然甲片。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明／透射／折射、化學製程、天然殼材或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `cathedralquilt`（教堂窗拼布），目錄 582→583 種：奶油色弧形高折邊包低藍布窗，非 quilting 直線菱格棉襯／縫。0.6 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增布料 geometry、透明窗、折疊／縫製／布料力學或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

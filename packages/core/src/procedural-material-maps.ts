@@ -1428,6 +1428,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cathedralquilt': {
+        const p = proceduralMaterialPresets.cathedralquilt,
+          tones = new Float64Array(p.cells * p.cells),
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(192, 192, seed ^ 0x13111),
+          warpField = cachedNoise(128, 8, seed ^ 0x13113),
+          weftField = cachedNoise(8, 128, seed ^ 0x13115);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13117);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          let outer = 1,
+            inset = 1;
+          // Evaluate all four arcs: a nearest-corner switch would put a cusp
+          // at each window point. Products also remove support at cell edges.
+          for (let corner = 0; corner < 4; corner++) {
+            const dx = x - (corner & 1 ? 0.5 : -0.5),
+              dy = y - (corner & 2 ? 0.5 : -0.5),
+              q = dx * dx + dy * dy - p.radiusSquared;
+            outer *= smooth(clamp(q * inverseShoulder));
+            inset *= smooth(clamp((q - p.foldWidth) * inverseShoulder));
+          }
+          const fold = outer - inset,
+            grain = grainField(u, v),
+            weave = 0.5 * (warpField(u, v) + weftField(u, v));
+          color = 0.88 + 0.025 * grain + 0.02 * weave;
+          height = 0.34 + 0.008 * weave + 0.18 * fold;
+          roughness = p.roughness + 0.035 * weave;
+          occlusion = 0.96 + 0.03 * fold;
+          if (inset === 0) return;
+          const tone = tones[row * p.cells + col];
+          color += inset * (0.2 + 0.1 * tone + 0.04 * grain - color);
+          height -= 0.07 * inset;
+          occlusion -= 0.08 * inset;
+          return;
+        };
+      }
       case 'tortoiseshellacetate': {
         const p = proceduralMaterialPresets.tortoiseshellacetate,
           macro = cachedNoise(p.macroCells, p.macroCells, seed ^ 0x13011),
@@ -22957,6 +23000,7 @@ export function createSurfaceSampler(
     kind === 'popcorn' ||
     kind === 'dualinlinechips' ||
     kind === 'tortoiseshellacetate' ||
+    kind === 'cathedralquilt' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

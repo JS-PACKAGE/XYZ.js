@@ -620,7 +620,119 @@ const kinds: ProceduralMaterialKind[] = [
   'popcorn',
   'dualinlinechips',
   'tortoiseshellacetate',
+  'cathedralquilt',
 ];
+
+describe('Cathedral window quilts with curved raised folds and lower blue insets', () => {
+  const p = proceduralMaterialPresets.cathedralquilt;
+  it.each([0, 1, 0xffffffff])(
+    'keeps curved cream folded frames above enclosed blue cloth patches, not straight diamond quilting, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cathedralquilt', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+          at(0, 0);
+          const patch = out.height;
+          expect(patch).toBeGreaterThanOrEqual(0.00216);
+          expect(patch).toBeLessThan(0.002225);
+          expect(out.color).toBeGreaterThanOrEqual(0.2);
+          expect(out.color).toBeLessThan(0.35);
+          expect(out.occlusion).toBeCloseTo(0.88, 12);
+          expect(out.metallic).toBe(0);
+          at(0.4, 0.4);
+          const backing = out.height;
+          expect(backing - patch).toBeGreaterThan(0.00049);
+          expect(out.color).toBeGreaterThan(0.87);
+          expect(out.occlusion).toBeCloseTo(0.96, 12);
+          for (const [x, y] of [
+            [0.3, 0],
+            [-0.3, 0],
+            [0, 0.3],
+            [0, -0.3],
+          ]) {
+            at(x, y);
+            expect(out.height - backing).toBeGreaterThan(0.00137);
+            expect(out.height).toBeLessThan(0.004225);
+            expect(out.color).toBeGreaterThan(0.87);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.metallic).toBe(0);
+          }
+          // These points share x+y: a straight diamond cannot distinguish them.
+          at(0.22, 0);
+          expect(out.color).toBeLessThan(0.35);
+          at(0.11, 0.11);
+          expect(out.color).toBeGreaterThan(0.6);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 512; i++) {
+            at((i / 512 - 0.5) * 0.9, 0);
+            const blue = out.color < 0.4;
+            if (blue && !previous) runs++;
+            previous = blue;
+          }
+          expect(runs).toBe(1);
+        }
+    },
+  );
+  it('keeps all four curved fold shoulders, window points, cell owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cathedralquilt', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (const q of [
+                0,
+                p.shoulder,
+                p.foldWidth,
+                p.foldWidth + p.shoulder,
+              ])
+                for (let i = 0; i <= 32; i++) {
+                  const angle = (i * Math.PI) / 64,
+                    radius = Math.sqrt(p.radiusSquared + q),
+                    x = sx * (0.5 - radius * Math.cos(angle)),
+                    y = sy * (0.5 - radius * Math.sin(angle));
+                  if (Math.abs(x) <= 0.5 && Math.abs(y) <= 0.5)
+                    check((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+                }
+    }
+  });
+});
 
 describe('Polished amber tortoiseshell acetate without raised shell scutes', () => {
   it.each([0, 1, 0xffffffff])(
