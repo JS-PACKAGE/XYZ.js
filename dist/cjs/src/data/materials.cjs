@@ -11939,6 +11939,40 @@ var proceduralMaterialPresets = Object.freeze({
 		holeEdge: .25,
 		channelWidth: .035,
 		channelShoulder: .007
+	}),
+	kyaniteblades: Object.freeze({
+		dark: [
+			12,
+			36,
+			71
+		],
+		light: [
+			163,
+			208,
+			243
+		],
+		roughness: .4,
+		relief: .004,
+		cells: 4,
+		pitch: .12,
+		halfWidth: .045,
+		sideShoulder: .006,
+		endShoulder: .012,
+		endSlope: .35,
+		tops: [
+			-.25,
+			-.36,
+			-.28
+		],
+		bottoms: [
+			.31,
+			.36,
+			.29
+		],
+		striae: 3,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -12574,7 +12608,8 @@ var proceduralTileMeters = Object.freeze({
 	dendriticfrost: .12,
 	bullionknots: .12,
 	orecchiette: .16,
-	solderlessbreadboard: .04064
+	solderlessbreadboard: .04064,
+	kyaniteblades: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

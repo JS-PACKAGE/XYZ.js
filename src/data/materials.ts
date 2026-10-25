@@ -6536,6 +6536,24 @@ export const proceduralMaterialPresets = Object.freeze({
     channelWidth: 0.035,
     channelShoulder: 0.007,
   }),
+  kyaniteblades: Object.freeze({
+    dark: [12, 36, 71] as const,
+    light: [163, 208, 243] as const,
+    roughness: 0.4,
+    relief: 0.004,
+    cells: 4,
+    pitch: 0.12,
+    halfWidth: 0.045,
+    sideShoulder: 0.006,
+    endShoulder: 0.012,
+    endSlope: 0.35,
+    tops: [-0.25, -0.36, -0.28] as const,
+    bottoms: [0.31, 0.36, 0.29] as const,
+    striae: 3,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7173,4 +7191,5 @@ export const proceduralTileMeters = Object.freeze({
   bullionknots: 0.12,
   orecchiette: 0.16,
   solderlessbreadboard: 0.04064,
+  kyaniteblades: 0.16,
 });

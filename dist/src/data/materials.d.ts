@@ -6385,6 +6385,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         channelWidth: 0.035;
         channelShoulder: 0.007;
     }>;
+    kyaniteblades: Readonly<{
+        dark: readonly [12, 36, 71];
+        light: readonly [163, 208, 243];
+        roughness: 0.4;
+        relief: 0.004;
+        cells: 4;
+        pitch: 0.12;
+        halfWidth: 0.045;
+        sideShoulder: 0.006;
+        endShoulder: 0.012;
+        endSlope: 0.35;
+        tops: readonly [-0.25, -0.36, -0.28];
+        bottoms: readonly [0.31, 0.36, 0.29];
+        striae: 3;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7021,4 +7039,5 @@ export declare const proceduralTileMeters: Readonly<{
     bullionknots: 0.12;
     orecchiette: 0.16;
     solderlessbreadboard: 0.04064;
+    kyaniteblades: 0.16;
 }>;

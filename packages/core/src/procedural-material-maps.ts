@@ -1441,6 +1441,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kyaniteblades': {
+        const p = proceduralMaterialPresets.kyaniteblades,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16411),
+          inversePitch = 1 / p.pitch,
+          inverseWidth = 1 / p.halfWidth,
+          inverseSide = 1 / p.sideShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          striaFrequency = (TAU * p.striae) / (2 * p.halfWidth);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16415);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16417) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16419) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1641b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1641d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            col = Math.floor(x * inversePitch + 0.5) + 1,
+            grain = grainField(u, v);
+          color = 0.1 + 0.03 * grain;
+          height = 0.12 + 0.003 * grain;
+          roughness = 0.87 + 0.02 * grain;
+          occlusion = 0.55;
+          metallic = 0;
+          mortar = 0;
+          if (col < 0 || col >= p.tops.length) return;
+          const across = x - (col - 1) * p.pitch,
+            along = y - p.endSlope * across,
+            face =
+              smooth(clamp((p.halfWidth - Math.abs(across)) * inverseSide)) *
+              smooth(clamp((along - p.tops[col]) * inverseEnd)) *
+              smooth(clamp((p.bottoms[col] - along) * inverseEnd));
+          if (face === 0) return;
+          const stria =
+              0.5 - 0.5 * Math.cos(striaFrequency * (across + p.halfWidth)),
+            bladeColor =
+              0.7 + 0.12 * poses[i + 5] + 0.06 * stria + 0.03 * grain,
+            bladeHeight =
+              0.55 +
+              0.05 * across * inverseWidth +
+              0.08 * stria +
+              0.004 * grain,
+            bladeRoughness = p.roughness + 0.1 * (1 - stria) + 0.04 * grain;
+          color += face * (bladeColor - color);
+          height += face * (bladeHeight - height);
+          roughness += face * (bladeRoughness - roughness);
+          occlusion += face * (0.97 + 0.02 * stria - occlusion);
+        };
+      }
       case 'solderlessbreadboard': {
         const p = proceduralMaterialPresets.solderlessbreadboard,
           grainField = cachedNoise(128, 128, seed ^ 0x16311),
@@ -27051,6 +27114,7 @@ export function createSurfaceSampler(
     kind === 'bullionknots' ||
     kind === 'orecchiette' ||
     kind === 'solderlessbreadboard' ||
+    kind === 'kyaniteblades' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -674,7 +674,291 @@ const kinds: ProceduralMaterialKind[] = [
   'bullionknots',
   'orecchiette',
   'solderlessbreadboard',
+  'kyaniteblades',
 ];
+
+describe('Opaque blue kyanite-inspired bundles of three parallel cleaved blades with staggered oblique ends and three raised longitudinal striae on darker matrix', () => {
+  const p = proceduralMaterialPresets.kyaniteblades;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16415),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1641b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16417) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16419) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three separate long stepped oblique-ended blades each with three actual longitudinal height and roughness ridges rather than circular mica plates or pigment stripes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('kyaniteblades', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const lengths: number[] = [];
+          for (let blade = 0; blade < 3; blade++) {
+            const cx = (blade - 1) * p.pitch;
+            for (const across of [-0.03, 0, 0.03])
+              for (let j = 0; j <= 64; j++) {
+                const along =
+                  p.tops[blade] +
+                  0.02 +
+                  ((p.bottoms[blade] - p.tops[blade] - 0.04) * j) / 64;
+                sample(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    cx + across,
+                    along + p.endSlope * across,
+                  ),
+                  out,
+                );
+                const crest = { ...out };
+                expect(crest.height).toBeGreaterThan(0.0023865);
+                expect(crest.height).toBeLessThan(0.0026695);
+                expect(crest.occlusion).toBeCloseTo(0.99, 12);
+                expect(crest.metallic).toBe(0);
+                expect(crest.mortar).toBe(0);
+                const vx = across < 0 ? -0.015 : 0.015;
+                sample(
+                  ...world(seed, col, row, cx + vx, along + p.endSlope * vx),
+                  out,
+                );
+                expect(crest.height - out.height).toBeGreaterThan(0.0002372);
+                expect(crest.color - out.color).toBeGreaterThan(0.0299);
+                expect(out.roughness - crest.roughness).toBeGreaterThan(0.0599);
+                expect(out.occlusion).toBeCloseTo(0.97, 12);
+                expect(out.mortar).toBe(0);
+                expect(out.metallic).toBe(0);
+              }
+            for (const y of [-0.15, 0, 0.15]) {
+              let ribs = 0,
+                prior = false;
+              for (let j = 0; j <= 2048; j++) {
+                sample(
+                  ...world(seed, col, row, cx - 0.039 + (0.078 * j) / 2048, y),
+                  out,
+                );
+                const high = out.roughness < 0.46;
+                if (high && !prior) ribs++;
+                prior = high;
+              }
+              expect(ribs).toBe(3);
+            }
+            for (const across of [-0.03, 0, 0.03])
+              for (const end of [p.tops[blade], p.bottoms[blade]]) {
+                const sign = end < 0 ? 1 : -1;
+                sample(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    cx + across,
+                    end + sign * 0.02 + p.endSlope * across,
+                  ),
+                  out,
+                );
+                const inside = { ...out };
+                sample(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    cx + across,
+                    end - sign * 0.01 + p.endSlope * across,
+                  ),
+                  out,
+                );
+                expect(inside.height - out.height).toBeGreaterThan(0.0018944);
+                expect(inside.color - out.color).toBeGreaterThan(0.6299);
+                expect(out.roughness - inside.roughness).toBeGreaterThan(
+                  0.4299,
+                );
+                expect(out.height).toBeGreaterThan(0.0004799);
+                expect(out.height).toBeLessThan(0.0004921);
+                expect(out.occlusion).toBeCloseTo(0.55, 12);
+                expect(out.mortar).toBe(0);
+              }
+            let count = 0,
+              runs = 0,
+              prior = false;
+            for (let j = 0; j <= 4096; j++) {
+              sample(
+                ...world(seed, col, row, cx, -0.4 + (0.8 * j) / 4096),
+                out,
+              );
+              const face = out.height > 0.0017;
+              if (face && !prior) runs++;
+              if (face) count++;
+              prior = face;
+            }
+            expect(runs).toBe(1);
+            lengths.push((count * 0.8) / 4096);
+          }
+          expect(lengths[0]).toBeGreaterThan(0.54);
+          expect(lengths[0]).toBeLessThan(0.561);
+          expect(lengths[1]).toBeGreaterThan(0.7);
+          expect(lengths[1]).toBeLessThan(0.721);
+          expect(lengths[2]).toBeGreaterThan(0.55);
+          expect(lengths[2]).toBeLessThan(0.571);
+          expect(lengths[1] - lengths[0]).toBeGreaterThan(0.14);
+          expect(lengths[1] - lengths[2]).toBeGreaterThan(0.13);
+          let blades = 0,
+            prior = false;
+          for (let j = 0; j <= 4096; j++) {
+            sample(...world(seed, col, row, -0.22 + (0.44 * j) / 4096, 0), out);
+            const face = out.height > 0.0017;
+            if (face && !prior) blades++;
+            prior = face;
+          }
+          expect(blades).toBe(3);
+          for (const x of [-0.06, 0.06])
+            for (let j = 0; j <= 128; j++) {
+              sample(
+                ...world(seed, col, row, x, -0.39 + (0.78 * j) / 128),
+                out,
+              );
+              expect(out.height).toBeGreaterThan(0.0004799);
+              expect(out.height).toBeLessThan(0.0004921);
+              expect(out.roughness).toBeGreaterThanOrEqual(0.87);
+              expect(out.roughness).toBeLessThan(0.8901);
+              expect(out.occlusion).toBeCloseTo(0.55, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+        }
+    },
+  );
+  it('resolves actual512 allthree highblue blades separated by darker rougher lower opaque mineralmatrix along their lengths', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('kyaniteblades', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (const x of [-p.pitch, 0, p.pitch])
+            for (const y of [-0.15, 0, 0.15]) {
+              const blade = index(x, y),
+                matrix = index(x < 0 ? -0.06 : 0.06, y);
+              expect(
+                maps.baseColor[blade + 2] - maps.baseColor[matrix + 2],
+              ).toBeGreaterThan(95);
+              expect(
+                maps.metallicRoughness[matrix + 1] -
+                  maps.metallicRoughness[blade + 1],
+              ).toBeGreaterThan(90);
+              expect(
+                maps.occlusion[blade] - maps.occlusion[matrix],
+              ).toBeGreaterThan(100);
+              expect(maps.metallicRoughness[blade + 2]).toBe(0);
+              expect(maps.metallicRoughness[matrix + 2]).toBe(0);
+            }
+        }
+    }
+  });
+  it('keeps allsidebevels obliqueendbevels productcorners striae complete nearestblade and poseowners UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kyaniteblades', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let blade = 0; blade < 3; blade++) {
+            const cx = (blade - 1) * p.pitch;
+            for (let j = 0; j <= 128; j++) {
+              const t = j / 128,
+                across = -p.halfWidth + 2 * p.halfWidth * t;
+              for (const y of [
+                p.tops[blade],
+                p.tops[blade] + p.endShoulder,
+                p.bottoms[blade],
+                p.bottoms[blade] - p.endShoulder,
+              ])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    cx + across,
+                    y + p.endSlope * across,
+                  ),
+                );
+              for (const x of [
+                -p.halfWidth,
+                -p.halfWidth + p.sideShoulder,
+                0,
+                p.halfWidth - p.sideShoulder,
+                p.halfWidth,
+                -p.pitch / 2,
+                p.pitch / 2,
+              ])
+                check(...world(seed, col, row, cx + x, -0.4 + 0.8 * t));
+            }
+          }
+    }
+  });
+});
 
 describe('Opaque white solderless breadboard face with two banks of five square recesses per row and a continuous lower central trough', () => {
   const p = proceduralMaterialPresets.solderlessbreadboard;

@@ -712,6 +712,7 @@ try {
     'bullionknots',
     'orecchiette',
     'solderlessbreadboard',
+    'kyaniteblades',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
