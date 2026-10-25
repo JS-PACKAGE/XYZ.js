@@ -1441,6 +1441,130 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pencilsharpeners': {
+        const p = proceduralMaterialPresets.pencilsharpeners,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17d11),
+          bodySquared = p.bodyRadius * p.bodyRadius,
+          inverseBody = 1 / (bodySquared - p.bodyCore * p.bodyCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (boreSquared - p.boreCore * p.boreCore),
+          inverseBlade = 1 / p.bladeEdge,
+          inverseBevel = 1 / p.bevelWidth,
+          screwSquared = p.screwRadius * p.screwRadius,
+          inverseScrew = 1 / (screwSquared - p.screwCore * p.screwCore),
+          slotSquared = p.slotRadius * p.slotRadius,
+          inverseSlot = 1 / (slotSquared - p.slotCore * p.slotCore),
+          gripSquared = p.gripRadius * p.gripRadius,
+          inverseGrip = 1 / (gripSquared - p.gripCore * p.gripCore),
+          inversePitch = 1 / p.gripPitch;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17d15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17d17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17d19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17d1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17d1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (
+            ax >= p.bodyStraightX + p.bodyRadius ||
+            ay >= p.bodyStraightY + p.bodyRadius
+          )
+            return;
+          const bx = Math.max(0, ax - p.bodyStraightX),
+            by = Math.max(0, ay - p.bodyStraightY),
+            hx = x - p.boreX,
+            hy = y - p.boreY,
+            bore = smooth(
+              clamp((boreSquared - hx * hx - hy * hy) * inverseBore),
+            ),
+            body =
+              smooth(clamp((bodySquared - bx * bx - by * by) * inverseBody)) *
+              (1 - bore),
+            bladeX = x - p.bladeX,
+            bladeY = y - p.bladeY,
+            blade =
+              smooth(clamp((p.bladeHalfX - Math.abs(bladeX)) * inverseBlade)) *
+              smooth(clamp((p.bladeHalfY - Math.abs(bladeY)) * inverseBlade)),
+            screw = smooth(
+              clamp(
+                (screwSquared - bladeX * bladeX - bladeY * bladeY) *
+                  inverseScrew,
+              ),
+            );
+          mortar = (1 - body) * (1 - blade) * (1 - screw);
+          metallic = 1 - mortar;
+          if (metallic === 0) return;
+          const grain = grainField(u, v);
+          if (body !== 0 && blade !== 1 && screw !== 1) {
+            // Mirrored grips are disjoint around the axis; row-owner ties
+            // lie beyond the capsule supports rather than across a groove.
+            const row = Math.max(
+                0,
+                Math.min(
+                  p.gripPairs - 1,
+                  Math.floor((y - p.gripFirstY) * inversePitch + 0.5),
+                ),
+              ),
+              gx = Math.max(0, Math.abs(ax - p.gripX) - p.gripStraightX),
+              gy = y - p.gripFirstY - row * p.gripPitch,
+              grip = smooth(
+                clamp((gripSquared - gx * gx - gy * gy) * inverseGrip),
+              );
+            color +=
+              body *
+              (0.66 +
+                0.035 * poses[i + 5]! +
+                0.025 * grain -
+                0.18 * grip -
+                color);
+            height += body * (0.42 - 0.065 * grip + 0.003 * grain - height);
+            roughness +=
+              body * (p.roughness + 0.03 * grain + 0.08 * grip - roughness);
+            occlusion += body * (0.99 - 0.06 * grip - occlusion);
+          }
+          if (blade !== 0 && screw !== 1) {
+            const bevel =
+              1 - smooth(clamp((bladeX + p.bladeHalfX) * inverseBevel));
+            color += blade * (0.94 - 0.14 * bevel + 0.025 * grain - color);
+            height += blade * (0.68 - 0.045 * bevel + 0.003 * grain - height);
+            roughness +=
+              blade * (0.22 + 0.025 * grain + 0.12 * bevel - roughness);
+            occlusion += blade * (0.99 - occlusion);
+          }
+          if (screw !== 0) {
+            const sy = Math.max(0, Math.abs(bladeY) - p.slotStraightY),
+              slot = smooth(
+                clamp((slotSquared - bladeX * bladeX - sy * sy) * inverseSlot),
+              );
+            color += screw * (0.81 - 0.25 * slot + 0.025 * grain - color);
+            height += screw * (0.82 - 0.075 * slot + 0.003 * grain - height);
+            roughness +=
+              screw * (0.3 + 0.025 * grain + 0.08 * slot - roughness);
+            occlusion += screw * (0.99 - 0.04 * slot - occlusion);
+          }
+        };
+      }
       case 'rosemarysprigs': {
         const p = proceduralMaterialPresets.rosemarysprigs,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29279,6 +29403,7 @@ export function createSurfaceSampler(
     kind === 'insulatedringlugs' ||
     kind === 'bananaslices' ||
     kind === 'rosemarysprigs' ||
+    kind === 'pencilsharpeners' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

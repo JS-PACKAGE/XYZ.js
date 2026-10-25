@@ -699,7 +699,327 @@ const kinds: ProceduralMaterialKind[] = [
   'insulatedringlugs',
   'bananaslices',
   'rosemarysprigs',
+  'pencilsharpeners',
 ];
+
+describe('Metal pencil sharpeners with an open housing bore eight recessed grips raised honed blade and higher slotted screw', () => {
+  const p = proceduralMaterialPresets.pencilsharpeners;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17d15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17d1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17d17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17d19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine holed metal housings with eight low grips a higher honed blade and highest slotted screw instead of loose blade strips for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pencilsharpeners', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            body = at(-0.08, -0.08),
+            blade = at(p.bladeX, p.bladeY + 0.14),
+            head = at(p.bladeX + 0.025, p.bladeY),
+            slot = at(p.bladeX, p.bladeY);
+          expect(body.height).toBeGreaterThanOrEqual(0.0016799);
+          expect(body.height).toBeLessThanOrEqual(0.0016921);
+          expect(blade.height).toBeGreaterThanOrEqual(0.0027199);
+          expect(blade.height).toBeLessThanOrEqual(0.0027321);
+          expect(head.height).toBeGreaterThanOrEqual(0.0032799);
+          expect(head.height).toBeLessThanOrEqual(0.0032921);
+          expect(slot.height).toBeGreaterThanOrEqual(0.0029799);
+          expect(slot.height).toBeLessThanOrEqual(0.0029921);
+          expect(blade.height - body.height).toBeGreaterThan(0.0010279);
+          expect(blade.color - body.color).toBeGreaterThan(0.2199);
+          expect(body.roughness - blade.roughness).toBeGreaterThan(0.2349);
+          expect(head.height - blade.height).toBeGreaterThan(0.0005479);
+          expect(head.height - slot.height).toBeGreaterThan(0.0002879);
+          expect(head.color - slot.color).toBeGreaterThan(0.2249);
+          expect(slot.roughness - head.roughness).toBeGreaterThan(0.0549);
+          expect(head.occlusion).toBeCloseTo(0.99, 12);
+          expect(slot.occlusion).toBeCloseTo(0.95, 12);
+          for (const value of [body, blade, head, slot]) {
+            expect(value.metallic).toBe(1);
+            expect(value.mortar).toBe(0);
+          }
+          for (let j = 0; j <= 1024; j++) {
+            const a = (2 * Math.PI * j) / 1024,
+              bore = at(
+                p.boreX + 0.05 * Math.cos(a),
+                p.boreY + 0.05 * Math.sin(a),
+              );
+            expect(bore.height).toBeCloseTo(0.0001, 12);
+            expect(bore.metallic).toBe(0);
+            expect(bore.mortar).toBe(1);
+            expect(bore.occlusion).toBeCloseTo(0.3, 12);
+          }
+          for (let pair = 0; pair < p.gripPairs; pair++)
+            for (const sign of [-1, 1]) {
+              const y = p.gripFirstY + pair * p.gripPitch,
+                gap = at(sign * p.gripX, y + 0.04);
+              for (let j = 0; j <= 128; j++) {
+                const grip = at(
+                  sign *
+                    (p.gripX -
+                      p.gripStraightX +
+                      (2 * p.gripStraightX * j) / 128),
+                  y,
+                );
+                expect(grip.height).toBeGreaterThanOrEqual(0.0014199);
+                expect(grip.height).toBeLessThanOrEqual(0.0014321);
+                expect(gap.height - grip.height).toBeGreaterThan(0.0002479);
+                expect(gap.color - grip.color).toBeGreaterThan(0.1549);
+                expect(grip.roughness - gap.roughness).toBeGreaterThan(0.0499);
+                expect(grip.occlusion).toBeCloseTo(0.93, 12);
+                expect(grip.metallic).toBe(1);
+                expect(grip.mortar).toBe(0);
+              }
+            }
+          for (const sign of [-1, 1]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const value = at(sign * p.gripX, -0.28 + (0.46 * j) / 8192),
+                next = value.height < 0.0015;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(4);
+          }
+          // Full-blade samples avoid the screw and retain a genuine honed
+          // edge slope rather than using color alone to imply a cutting bevel.
+          const left = p.bladeX - p.bladeHalfX,
+            bevel = at(left + 0.009, p.bladeY + 0.14),
+            flat = at(left + p.bevelWidth, p.bladeY + 0.14);
+          expect(flat.height - bevel.height).toBeGreaterThan(0.00008);
+          expect(flat.color - bevel.color).toBeGreaterThan(0.05);
+          expect(bevel.roughness - flat.roughness).toBeGreaterThan(0.03);
+        }
+    },
+  );
+  it('writes open bore metal housing low grips honed blade and slotted screw as distinct regions in actual 512 packed PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('pencilsharpeners', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            body = pixel(-0.08, -0.08),
+            blade = pixel(p.bladeX, p.bladeY + 0.14),
+            head = pixel(p.bladeX + 0.025, p.bladeY),
+            slot = pixel(p.bladeX, p.bladeY),
+            bore = pixel(p.boreX, p.boreY);
+          expect(
+            maps.baseColor[blade]! - maps.baseColor[body]!,
+          ).toBeGreaterThan(45);
+          expect(maps.height![blade]! - maps.height![body]!).toBeGreaterThan(
+            75,
+          );
+          expect(
+            maps.metallicRoughness[body + 1]! -
+              maps.metallicRoughness[blade + 1]!,
+          ).toBeGreaterThan(55);
+          expect(maps.height![head]! - maps.height![blade]!).toBeGreaterThan(
+            35,
+          );
+          expect(maps.height![head]! - maps.height![slot]!).toBeGreaterThan(17);
+          expect(maps.baseColor[head]! - maps.baseColor[slot]!).toBeGreaterThan(
+            40,
+          );
+          expect(maps.occlusion[head]! - maps.occlusion[slot]!).toBeGreaterThan(
+            7,
+          );
+          expect(maps.metallicRoughness[bore + 2]).toBe(0);
+          expect(maps.occlusion[bore]!).toBeLessThan(80);
+          for (const i of [body, blade, head, slot])
+            expect(maps.metallicRoughness[i + 2]).toBe(255);
+          for (let pair = 0; pair < p.gripPairs; pair++)
+            for (const sign of [-1, 1]) {
+              const y = p.gripFirstY + pair * p.gripPitch,
+                grip = pixel(sign * p.gripX, y),
+                gap = pixel(sign * p.gripX, y + 0.04);
+              expect(maps.height![gap]! - maps.height![grip]!).toBeGreaterThan(
+                14,
+              );
+              expect(
+                maps.baseColor[gap]! - maps.baseColor[grip]!,
+              ).toBeGreaterThan(25);
+              expect(
+                maps.occlusion[gap]! - maps.occlusion[grip]!,
+              ).toBeGreaterThan(11);
+              expect(maps.metallicRoughness[grip + 2]).toBe(255);
+            }
+        }
+    }
+  });
+  it('repeats housing bore grip blade and screw classification across signed UV periods while keeping seeded poses', () => {
+    const sample = createSurfaceSampler('pencilsharpeners', 7),
+      other = createSurfaceSampler('pencilsharpeners', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(100);
+  });
+  it('keeps housing rounded corners bore circles blade bevel screw slot grip capsules owner ties poses grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pencilsharpeners', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const sign of [-1, 1]) {
+              for (const r of [p.bodyRadius, p.bodyCore]) {
+                local(
+                  sign * (p.bodyStraightX + r),
+                  -p.bodyStraightY + 2 * p.bodyStraightY * t,
+                );
+                local(
+                  -p.bodyStraightX + 2 * p.bodyStraightX * t,
+                  sign * (p.bodyStraightY + r),
+                );
+                for (const side of [-1, 1])
+                  local(
+                    sign * p.bodyStraightX + r * ct,
+                    side * p.bodyStraightY + r * st,
+                  );
+              }
+              for (const r of [p.bladeHalfX, p.bladeHalfX - p.bladeEdge])
+                local(
+                  p.bladeX + sign * r,
+                  p.bladeY - p.bladeHalfY + 2 * p.bladeHalfY * t,
+                );
+              for (const r of [p.bladeHalfY, p.bladeHalfY - p.bladeEdge])
+                local(
+                  p.bladeX - p.bladeHalfX + 2 * p.bladeHalfX * t,
+                  p.bladeY + sign * r,
+                );
+            }
+            for (const x of [
+              p.bladeX - p.bladeHalfX,
+              p.bladeX - p.bladeHalfX + p.bevelWidth,
+            ])
+              local(x, p.bladeY - p.bladeHalfY + 2 * p.bladeHalfY * t);
+            for (const r of [p.boreRadius, p.boreCore])
+              local(p.boreX + r * ct, p.boreY + r * st);
+            for (const r of [p.screwRadius, p.screwCore])
+              local(p.bladeX + r * ct, p.bladeY + r * st);
+            for (const r of [p.slotRadius, p.slotCore])
+              for (const sign of [-1, 1]) {
+                local(
+                  p.bladeX + sign * r,
+                  p.bladeY - p.slotStraightY + 2 * p.slotStraightY * t,
+                );
+                local(
+                  p.bladeX + r * ct,
+                  p.bladeY + sign * p.slotStraightY + r * st,
+                );
+              }
+            for (let pair = 0; pair < p.gripPairs; pair++)
+              for (const sign of [-1, 1]) {
+                const gy = p.gripFirstY + pair * p.gripPitch;
+                for (const r of [p.gripRadius, p.gripCore])
+                  for (const side of [-1, 1]) {
+                    local(
+                      sign * p.gripX -
+                        p.gripStraightX +
+                        2 * p.gripStraightX * t,
+                      gy + side * r,
+                    );
+                    local(
+                      sign * p.gripX + side * p.gripStraightX + r * ct,
+                      gy + r * st,
+                    );
+                  }
+                if (pair < p.gripPairs - 1)
+                  local(-0.23 + 0.46 * t, gy + p.gripPitch / 2);
+              }
+            local(0, -0.4 + 0.8 * t);
+          }
+        }
+    }
+  });
+});
 
 describe('Rosemary sprigs with a continuous pale stem sixteen narrow slanted green needle leaves and raised pale midribs', () => {
   const p = proceduralMaterialPresets.rosemarysprigs;
@@ -44441,6 +44761,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'woodenclothespins' &&
           kind !== 'kintsugiceramic' &&
           kind !== 'insulatedringlugs' &&
+          kind !== 'pencilsharpeners' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -53863,6 +54184,7 @@ describe('procedural preset acquisition and ownership', () => {
     'woodenclothespins',
     'kintsugiceramic',
     'insulatedringlugs',
+    'pencilsharpeners',
     'standingseam',
     'damascus',
     'castiron',
@@ -53945,6 +54267,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'woodenclothespins' ||
           kind === 'kintsugiceramic' ||
           kind === 'insulatedringlugs' ||
+          kind === 'pencilsharpeners' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
