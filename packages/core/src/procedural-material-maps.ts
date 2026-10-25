@@ -1428,6 +1428,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chrysanthemumstone': {
+        const p = proceduralMaterialPresets.chrysanthemumstone,
+          stride = 3 + p.arms * 4,
+          crystals = new Float64Array(p.cells * p.cells * stride),
+          bound =
+            p.bladeCenter +
+            p.lengthMin +
+            p.lengthRange +
+            p.widthMin +
+            p.widthRange,
+          boundSquared = bound * bound,
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x12211);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * stride,
+              phase = TAU * hash(col, row, seed ^ 0x12213);
+            crystals[offset] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x12217) - 1);
+            crystals[offset + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x12219) - 1);
+            crystals[offset + 2] = hash(col, row, seed ^ 0x1221b);
+            for (let arm = 0; arm < p.arms; arm++) {
+              const i = offset + 3 + arm * 4,
+                angle =
+                  phase +
+                  (TAU * arm) / p.arms +
+                  p.angleJitter *
+                    (2 * hash(col + arm * p.cells, row, seed ^ 0x1221d) - 1),
+                length =
+                  p.lengthMin +
+                  p.lengthRange *
+                    hash(col + arm * p.cells, row, seed ^ 0x12221),
+                width =
+                  p.widthMin +
+                  p.widthRange * hash(col + arm * p.cells, row, seed ^ 0x12223);
+              crystals[i] = Math.cos(angle);
+              crystals[i + 1] = Math.sin(angle);
+              crystals[i + 2] = 1 / (length * length);
+              crystals[i + 3] = 1 / (width * width);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            offset = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride,
+            x = fract(uc) - crystals[offset],
+            y = fract(vc) - crystals[offset + 1],
+            grain = grainField(u, v);
+          let outside = 1;
+          if (x * x + y * y < boundSquared)
+            for (let arm = 0; arm < p.arms && outside > 0; arm++) {
+              const i = offset + 3 + arm * 4,
+                along = x * crystals[i] + y * crystals[i + 1] - p.bladeCenter,
+                across = y * crystals[i] - x * crystals[i + 1],
+                face = smooth(
+                  clamp(
+                    (1 -
+                      along * along * crystals[i + 2] -
+                      across * across * crystals[i + 3]) *
+                      inverseShoulder,
+                  ),
+                );
+              outside *= 1 - face;
+            }
+          const flower = 1 - outside;
+          color = 0.045 + 0.04 * grain;
+          color +=
+            flower * (0.9 + 0.05 * crystals[offset + 2] + 0.02 * grain - color);
+          // Pale radial crystals are embedded in a polished rock face, not
+          // botanical petals or carved relief. Grain alone shapes the surface.
+          height = 0.4 + 0.004 * grain;
+          roughness += 0.02 * grain - 0.14 * flower;
+          occlusion = 0.99;
+          return;
+        };
+      }
       case 'tomatoslices': {
         const p = proceduralMaterialPresets.tomatoslices,
           axes = new Float64Array(p.cells * p.cells * p.chambers * 2),
@@ -21973,6 +22050,7 @@ export function createSurfaceSampler(
     kind === 'eucalyptusleaf' ||
     kind === 'twillweave' ||
     kind === 'pinstripewool' ||
+    kind === 'chrysanthemumstone' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -10141,6 +10141,30 @@ var proceduralMaterialPresets = Object.freeze({
 		exposureHalf: .42,
 		exposureShoulder: .08,
 		stripeEvery: 8
+	}),
+	chrysanthemumstone: Object.freeze({
+		dark: [
+			12,
+			14,
+			17
+		],
+		light: [
+			237,
+			233,
+			218
+		],
+		roughness: .55,
+		relief: .001,
+		cells: 4,
+		arms: 12,
+		jitter: .06,
+		bladeCenter: .14,
+		lengthMin: .18,
+		lengthRange: .045,
+		widthMin: .02,
+		widthRange: .009,
+		angleJitter: .03,
+		shoulder: .25
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10710,7 +10734,8 @@ var proceduralTileMeters = Object.freeze({
 	septarianstone: .48,
 	axialresistors: .12,
 	tomatoslices: .32,
-	pinstripewool: .08
+	pinstripewool: .08,
+	chrysanthemumstone: .48
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

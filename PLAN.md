@@ -675,6 +675,8 @@
 
 同輪追加 `pinstripewool`（細直條羊毛布），目錄 566→567 種：深藍 2-over-2 twill 上每八根經紗一根淡色，深緯紗在 crossing 蓋住淡紗，非 tartan 雙向格紋或 corduroy 凸肋。0.08 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；染色不增凸直條，不新增紗線 geometry、透孔、毛髮／sheen BRDF、布料或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `chrysanthemumstone`（菊花石），目錄 567→568 種：黑色拋光石內嵌淡色放射晶瓣、共用淡色中心，非 daisy 凹花心／凸花瓣或 crystallineglaze 圓形釉斑。0.48 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；晶紋僅改 pigment／roughness，height 只留微 grain、不雕凸花或凹坑，不新增岩石／晶體 geometry、透明／晶體折射、礦物鑑定／地質或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

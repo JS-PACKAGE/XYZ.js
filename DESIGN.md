@@ -683,6 +683,8 @@
 
 `pinstripewool` 與 twillweave 共用既有 compact warp／weft、2-over-2 exposure／top relief，保留舊 preset／運算順序，只分支換 narrow dyed warp pigment。48×48 紗線、每八根一根淡經紗、128×128 cached grain；compact warp 讓 col ownership 前染色歸零，深緯紗依既有 exposure 遮住淡紗，dye 不改 height／roughness／AO。48 密度避免 size 32 的半像素剛好全落在 64 紗線 gap，亦維持 4／8 的完整 repeat。採樣無配置／hash／sqrt／trig，不新增 geometry、透孔、毛髮／sheen BRDF、布料或物理模擬。
 
+`chrysanthemumstone` 沿 cached rotated compact ellipse 慣例，預算 16 rosette poses／每組 12 blades 的 axes 與 reciprocal squared extents／96×96 grain。Jitter + conservative bound 0.454 <0.5 owner，查單 cell；支撐外略過 blades，compact union 的 outside=0 提早停瓣，無角度極點。白晶紋／共用 pale hub 只混 pigment／較低 roughness，height 與 AO 跨晶紋連續；不疊凸起、不雕花心。採樣無配置／hash／sqrt／trig，不新增 geometry、透明／晶體折射、礦物鑑定／地質或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

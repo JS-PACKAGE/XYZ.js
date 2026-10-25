@@ -7273,3 +7273,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 pinstripewool 並重算既有 566 種（含共用 sampler 的 twillweave）size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6540 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：菊花石（chrysanthemumstone）
+
+- 目錄 567→568 種；0.48 m opaque dielectric tile、metallic 0，黑拋光石內嵌淡放射晶瓣與共用 pale hub。Cached 16 jittered rosettes／每組 12 rotated compact ellipses、reciprocal squared extents／96×96 grain，jitter + conservative support 0.454 <0.5 owner；查單 cell，支撐外／完全覆蓋提早停瓣，採樣無配置／hash／sqrt／trig。晶紋只改 pigment／roughness，height 僅 grain／AO 連續，不雕凸花或凹坑；沿四圖／選用 height／ownership，不新增 geometry、透明／晶體折射、礦物鑑定／地質或物理模擬。
+- Throwaway CPU 3 seeds ×16 rosette 各 192² 實測白晶區 12.2–13.9%、各一個連通區；依晶區 centroid 取 720-point 圓周，皆十二條分離淡晶瓣。Relief-normalized height 約 0.4000–0.4040，白晶／黑石平均 roughness 約 0.421／0.560；未保留暫存檔。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）。永久驗證以較寬白晶／黑石比例及 10–14 radial runs bounds 確認多瓣形態、單一 pale hub、roughness 差 >0.1，height 保持 0.399–0.405 relief／AO >0.98／metallic 0；129² 雙向 C1／owner／wrap 通過。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 chrysanthemumstone，568 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認黑石內淡色放射晶瓣與連通 pale hub，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、透明／晶體折射、礦物鑑定／地質／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 chrysanthemumstone 並重算既有 567 種（含 crystallineglaze／daisy）size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6545 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -582,7 +582,8 @@ export type ProceduralMaterialKind =
   | 'septarianstone'
   | 'axialresistors'
   | 'tomatoslices'
-  | 'pinstripewool';
+  | 'pinstripewool'
+  | 'chrysanthemumstone';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1399,6 +1400,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'axialresistors',
   'tomatoslices',
   'pinstripewool',
+  'chrysanthemumstone',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

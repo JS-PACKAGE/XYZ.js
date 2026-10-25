@@ -5285,6 +5285,22 @@ export const proceduralMaterialPresets = Object.freeze({
     exposureShoulder: 0.08,
     stripeEvery: 8,
   }),
+  chrysanthemumstone: Object.freeze({
+    dark: [12, 14, 17] as const,
+    light: [237, 233, 218] as const,
+    roughness: 0.55,
+    relief: 0.001,
+    cells: 4,
+    arms: 12,
+    jitter: 0.06,
+    bladeCenter: 0.14,
+    lengthMin: 0.18,
+    lengthRange: 0.045,
+    widthMin: 0.02,
+    widthRange: 0.009,
+    angleJitter: 0.03,
+    shoulder: 0.25,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5856,4 +5872,5 @@ export const proceduralTileMeters = Object.freeze({
   axialresistors: 0.12,
   tomatoslices: 0.32,
   pinstripewool: 0.08,
+  chrysanthemumstone: 0.48,
 });

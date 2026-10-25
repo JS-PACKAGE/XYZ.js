@@ -605,7 +605,143 @@ const kinds: ProceduralMaterialKind[] = [
   'axialresistors',
   'tomatoslices',
   'pinstripewool',
+  'chrysanthemumstone',
 ];
+
+describe('Chrysanthemum stone with embedded pale radial crystal blades', () => {
+  const p = proceduralMaterialPresets.chrysanthemumstone;
+  it.each([0, 1, 0xffffffff])(
+    'keeps connected pale mineral rosettes and dark inter-blade stone without botanical relief for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chrysanthemumstone', seed),
+        size = 192,
+        mask = new Uint8Array(size * size),
+        queue = new Uint32Array(mask.length),
+        neighbors = new Int32Array(4),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          mask.fill(0);
+          let count = 0,
+            sx = 0,
+            sy = 0,
+            whiteRoughness = 0,
+            blackRoughness = 0,
+            black = 0;
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++) {
+              const dx = (x + 0.5) / size - 0.5,
+                dy = (y + 0.5) / size - 0.5;
+              sample(
+                (col + 0.5 + dx) / p.cells,
+                (row + 0.5 + dy) / p.cells,
+                out,
+              );
+              expect(out.height).toBeGreaterThan(0.399 * p.relief);
+              expect(out.height).toBeLessThan(0.405 * p.relief);
+              expect(out.occlusion).toBeGreaterThan(0.98);
+              expect(out.metallic).toBe(0);
+              if (out.color > 0.7) {
+                mask[y * size + x] = 1;
+                count++;
+                sx += dx;
+                sy += dy;
+                whiteRoughness += out.roughness;
+              } else if (out.color < 0.15) {
+                black++;
+                blackRoughness += out.roughness;
+              }
+            }
+          expect(count / mask.length).toBeGreaterThan(0.08);
+          expect(count / mask.length).toBeLessThan(0.2);
+          expect(black / mask.length).toBeGreaterThan(0.75);
+          expect(
+            blackRoughness / black - whiteRoughness / count,
+          ).toBeGreaterThan(0.1);
+          let components = 0;
+          for (let index = 0; index < mask.length; index++) {
+            if (!mask[index]) continue;
+            components++;
+            mask[index] = 0;
+            queue[0] = index;
+            let end = 1;
+            for (let start = 0; start < end; start++) {
+              const i = queue[start],
+                x = i % size,
+                y = Math.floor(i / size);
+              neighbors[0] = x ? i - 1 : -1;
+              neighbors[1] = x + 1 < size ? i + 1 : -1;
+              neighbors[2] = y ? i - size : -1;
+              neighbors[3] = y + 1 < size ? i + size : -1;
+              for (const next of neighbors)
+                if (next >= 0 && mask[next]) {
+                  mask[next] = 0;
+                  queue[end++] = next;
+                }
+            }
+          }
+          expect(components).toBe(1);
+          const cx = sx / count,
+            cy = sy / count;
+          sample((col + 0.5 + cx) / p.cells, (row + 0.5 + cy) / p.cells, out);
+          expect(out.color).toBeGreaterThan(0.7);
+          let runs = 0,
+            first = false,
+            previous = false;
+          for (let i = 0; i < 720; i++) {
+            const angle = (i * Math.PI) / 360;
+            sample(
+              (col + 0.5 + cx + 0.2 * Math.cos(angle)) / p.cells,
+              (row + 0.5 + cy + 0.2 * Math.sin(angle)) / p.cells,
+              out,
+            );
+            const white = out.color > 0.7;
+            if (!i) first = white;
+            if (white && !previous) runs++;
+            previous = white;
+          }
+          if (first && previous) runs--;
+          expect(runs).toBeGreaterThanOrEqual(10);
+          expect(runs).toBeLessThanOrEqual(14);
+        }
+    },
+  );
+  it('keeps embedded crystal unions, rosette ownership and both UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chrysanthemumstone', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            sample(x / 128 - (axis ? 0 : h), y / 128 - (axis ? h : 0), a);
+            sample(x / 128, y / 128, b);
+            sample(x / 128 + (axis ? 0 : h), y / 128 + (axis ? h : 0), c);
+            for (const key of keys)
+              expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+                0.02,
+              );
+          }
+    }
+  });
+});
 
 describe('Pinstripe wool with pale warp yarns over dark two-over-two twill', () => {
   const p = proceduralMaterialPresets.pinstripewool;

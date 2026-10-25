@@ -5135,6 +5135,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         exposureShoulder: 0.08;
         stripeEvery: 8;
     }>;
+    chrysanthemumstone: Readonly<{
+        dark: readonly [12, 14, 17];
+        light: readonly [237, 233, 218];
+        roughness: 0.55;
+        relief: 0.001;
+        cells: 4;
+        arms: 12;
+        jitter: 0.06;
+        bladeCenter: 0.14;
+        lengthMin: 0.18;
+        lengthRange: 0.045;
+        widthMin: 0.02;
+        widthRange: 0.009;
+        angleJitter: 0.03;
+        shoulder: 0.25;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5705,4 +5721,5 @@ export declare const proceduralTileMeters: Readonly<{
     axialresistors: 0.12;
     tomatoslices: 0.32;
     pinstripewool: 0.08;
+    chrysanthemumstone: 0.48;
 }>;
