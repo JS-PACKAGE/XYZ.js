@@ -686,7 +686,305 @@ const kinds: ProceduralMaterialKind[] = [
   'dandelionseeds',
   'shojipaperlattice',
   'nyloncableties',
+  'weavingshuttles',
 ];
+
+describe('Pointed hollow wooden boat weaving shuttles with longitudinal wood grain twelve cream yarn windings and exposed metal spindle ends', () => {
+  const p = proceduralMaterialPresets.weavingshuttles;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17015),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1701b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17017) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17019) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a continuous pointed wooden frame with actual opaque-backed side clearances surrounding twelve raised cream yarn turns that hide a lower metal spindle except at both ends for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('weavingshuttles', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let along = 0,
+        across = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          for (const [x, y] of [
+            [-0.044, 0],
+            [0.044, 0],
+            [-0.17, 0],
+            [0.17, 0],
+          ]) {
+            const gap = at(x, y);
+            expect(gap.height).toBeGreaterThan(0.0000999);
+            expect(gap.height).toBeLessThan(0.0001081);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            expect(gap.metallic).toBe(0);
+            expect(gap.mortar).toBe(1);
+          }
+          for (let j = 0; j <= 1024; j++) {
+            const y = -0.32 + (0.64 * j) / 1024,
+              width =
+                p.halfWidth * (1 - (y * y) / (p.halfLength * p.halfLength));
+            for (const sign of [-1, 1]) {
+              const wood = at(sign * 0.7 * width, y);
+              expect(wood.height).toBeGreaterThan(0.0027999);
+              expect(wood.height).toBeLessThan(0.0028161);
+              expect(wood.occlusion).toBeCloseTo(0.99, 12);
+              expect(wood.metallic).toBe(0);
+              expect(wood.mortar).toBe(0);
+            }
+          }
+          const wood = at(0.11, 0);
+          for (const sign of [-1, 1])
+            for (let j = 0; j <= 256; j++) {
+              const shaft = at(0, sign * (0.13 + (0.04 * j) / 256));
+              expect(shaft.height).toBeGreaterThan(0.0014399);
+              expect(shaft.height).toBeLessThan(0.0014521);
+              expect(shaft.occlusion).toBeCloseTo(0.98, 12);
+              expect(shaft.metallic).toBe(1);
+              expect(shaft.mortar).toBe(0);
+              expect(wood.roughness - shaft.roughness).toBeGreaterThan(0.2299);
+            }
+          for (let winding = 0; winding < p.windings; winding++) {
+            const y = p.firstWinding + winding * p.pitch;
+            for (let j = 0; j <= 128; j++) {
+              const x = -0.025 + (0.05 * j) / 128,
+                peak = at(x, y),
+                floor = at(x, y + p.pitch / 2);
+              expect(peak.height).toBeGreaterThan(0.0022799);
+              expect(peak.height).toBeLessThan(0.0022921);
+              expect(peak.height - floor.height).toBeGreaterThan(0.0001879);
+              expect(peak.color - floor.color).toBeGreaterThan(0.0399);
+              expect(floor.roughness - peak.roughness).toBeGreaterThan(0.0149);
+              expect(wood.height - peak.height).toBeGreaterThan(0.0005079);
+              expect(peak.color - wood.color).toBeGreaterThan(0.2799);
+              expect(peak.roughness - wood.roughness).toBeGreaterThan(0.2899);
+              expect(peak.occlusion).toBeCloseTo(0.99, 12);
+              expect(floor.occlusion).toBeCloseTo(0.98, 12);
+              expect(peak.metallic).toBe(0);
+              expect(floor.metallic).toBe(0);
+              expect(peak.mortar).toBe(0);
+              expect(floor.mortar).toBe(0);
+            }
+          }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const raised = at(0, -0.115 + (0.23 * j) / 8192).height > 0.0022;
+            if (raised && !inside) runs++;
+            inside = raised;
+          }
+          expect(runs).toBe(12);
+          const width = (y: number) => {
+            let lo = Infinity,
+              hi = -Infinity;
+            for (let j = 0; j <= 4096; j++) {
+              const x = -0.16 + (0.32 * j) / 4096;
+              if (at(x, y).mortar < 0.5) {
+                lo = Math.min(lo, x);
+                hi = Math.max(hi, x);
+              }
+            }
+            return hi - lo;
+          };
+          expect(width(0)).toBeGreaterThan(2.5 * width(0.3));
+          expect(width(0.3)).toBeGreaterThan(0.1);
+          expect(width(0.3)).toBeLessThan(0.115);
+          for (const sign of [-1, 1])
+            for (let y = 0; y <= 32; y++)
+              for (let x = 0; x <= 32; x++) {
+                const xx = sign * (0.1 - 0.005 + (0.01 * x) / 32),
+                  yy = -0.12 + (0.24 * y) / 32,
+                  delta = 0.00001,
+                  base = at(xx, yy).color;
+                along += Math.abs(at(xx, yy + delta).color - base);
+                across += Math.abs(at(xx + delta, yy).color - base);
+              }
+        }
+      expect(across).toBeGreaterThan(3 * along);
+    },
+  );
+  it('keeps actual512 wooden tapered frames and twelve brighter rough dielectric yarn turns around zero-metal side voids and two fully metallic smoother recessed spindle ends', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('weavingshuttles', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            wood = index(0.11, 0),
+            gap = index(0.044, 0),
+            yarn = index(0, 0);
+          expect(maps.metallicRoughness[wood + 2]).toBe(0);
+          expect(maps.metallicRoughness[yarn + 2]).toBe(0);
+          expect(maps.metallicRoughness[gap + 2]).toBe(0);
+          expect(maps.occlusion[wood] - maps.occlusion[gap]).toBeGreaterThan(
+            170,
+          );
+          expect(maps.occlusion[yarn] - maps.occlusion[gap]).toBeGreaterThan(
+            165,
+          );
+          expect(maps.baseColor[yarn] - maps.baseColor[wood]).toBeGreaterThan(
+            45,
+          );
+          expect(
+            maps.metallicRoughness[yarn + 1] - maps.metallicRoughness[wood + 1],
+          ).toBeGreaterThan(75);
+          for (const sign of [-1, 1]) {
+            const shaft = index(0, sign * 0.15);
+            expect(maps.metallicRoughness[shaft + 2]).toBe(255);
+            expect(
+              maps.metallicRoughness[wood + 1] -
+                maps.metallicRoughness[shaft + 1],
+            ).toBeGreaterThan(55);
+            expect(maps.occlusion[shaft] - maps.occlusion[gap]).toBeGreaterThan(
+              165,
+            );
+          }
+          for (let winding = 0; winding < p.windings; winding++) {
+            const y = p.firstWinding + winding * p.pitch,
+              peak = index(0, y),
+              floor = index(0, y + p.pitch / 2);
+            expect(
+              maps.baseColor[peak] - maps.baseColor[floor],
+            ).toBeGreaterThan(4);
+            expect(
+              maps.metallicRoughness[floor + 1] -
+                maps.metallicRoughness[peak + 1],
+            ).toBeGreaterThan(4);
+            expect(maps.metallicRoughness[peak + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps squared parabolic boat tips andsideprofiles capsulewindow spindleprojection core/support yarnroundedrectangle twelve nearestwinding joins posedwoodgrain andUV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('weavingshuttles', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              angle = 2 * Math.PI * t,
+              c = Math.cos(angle),
+              s = Math.sin(angle),
+              y = -p.halfLength + 2 * p.halfLength * t,
+              w =
+                p.halfWidth *
+                Math.max(0, 1 - (y * y) / (p.halfLength * p.halfLength));
+            for (const sign of [-1, 1]) {
+              local(sign * w, y);
+              if (w >= p.edge)
+                local(sign * Math.sqrt(w * w - p.edge * p.edge), y);
+              local(-p.halfWidth + 2 * p.halfWidth * t, sign * p.halfLength);
+            }
+            for (const [straight, r] of [
+              [p.holeStraight, p.holeRadius],
+              [p.holeStraight, p.holeCore],
+              [p.shaftStraight, p.shaftRadius],
+              [p.shaftStraight, p.shaftCore],
+            ]) {
+              local(r * c, (s < 0 ? -straight : straight) + r * s);
+              for (const sign of [-1, 1]) {
+                local(sign * r, -straight + 2 * straight * t);
+                local(-r + 2 * r * t, sign * straight);
+              }
+            }
+            for (const r of [p.threadRadius, p.threadCore]) {
+              local(
+                (c < 0 ? -p.threadStraightX : p.threadStraightX) + r * c,
+                (s < 0 ? -p.threadStraightY : p.threadStraightY) + r * s,
+              );
+              for (const sign of [-1, 1]) {
+                local(
+                  sign * (p.threadStraightX + r),
+                  -p.threadStraightY + 2 * p.threadStraightY * t,
+                );
+                local(
+                  -p.threadStraightX + 2 * p.threadStraightX * t,
+                  sign * (p.threadStraightY + r),
+                );
+              }
+            }
+            for (let winding = 0; winding < p.windings; winding++)
+              for (const sign of [-1, 1])
+                for (const d of [p.ridgeCore, p.ridgeHalf, p.pitch / 2])
+                  local(
+                    -0.04 + 0.08 * t,
+                    p.firstWinding + winding * p.pitch + sign * d,
+                  );
+          }
+        }
+    }
+  });
+});
 
 describe('Cream nylon cable ties with one open locking head continuous narrow straps seventeen raised transverse ratchet teeth and tapered tails', () => {
   const p = proceduralMaterialPresets.nyloncableties;
@@ -40860,6 +41158,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'utilityknifeblades' &&
           kind !== 'bismuthhoppers' &&
           kind !== 'seamrippers' &&
+          kind !== 'weavingshuttles' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -50278,6 +50577,7 @@ describe('procedural preset acquisition and ownership', () => {
     'utilityknifeblades',
     'bismuthhoppers',
     'seamrippers',
+    'weavingshuttles',
     'standingseam',
     'damascus',
     'castiron',
@@ -50356,6 +50656,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'utilityknifeblades' ||
           kind === 'bismuthhoppers' ||
           kind === 'seamrippers' ||
+          kind === 'weavingshuttles' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

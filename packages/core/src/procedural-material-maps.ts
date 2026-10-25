@@ -1441,6 +1441,108 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'weavingshuttles': {
+        const p = proceduralMaterialPresets.weavingshuttles,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17011),
+          woodField = cachedNoise(8, 96, seed ^ 0x17013),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseEdge = 1 / (p.edge * p.edge),
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore),
+          shaftSquared = p.shaftRadius * p.shaftRadius,
+          inverseShaft = 1 / (shaftSquared - p.shaftCore * p.shaftCore),
+          threadSquared = p.threadRadius * p.threadRadius,
+          inverseThread = 1 / (threadSquared - p.threadCore * p.threadCore),
+          inversePitch = 1 / p.pitch,
+          inverseRidge = 1 / (p.ridgeHalf - p.ridgeCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17015);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17017) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17019) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1701b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1701d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            grain = grainField(u, v);
+          color = 0.04 + 0.015 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (Math.abs(x) > p.halfWidth || Math.abs(y) > p.halfLength) return;
+          const width = p.halfWidth * Math.max(0, 1 - y * y * inverseLength),
+            outer = smooth(clamp((width * width - x * x) * inverseEdge)),
+            hy = Math.max(0, Math.abs(y) - p.holeStraight),
+            hole =
+              outer === 0
+                ? 0
+                : smooth(clamp((holeSquared - x * x - hy * hy) * inverseHole)),
+            frame = outer * (1 - hole),
+            sy = Math.max(0, Math.abs(y) - p.shaftStraight),
+            shaft = smooth(
+              clamp((shaftSquared - x * x - sy * sy) * inverseShaft),
+            ),
+            tx = Math.max(0, Math.abs(x) - p.threadStraightX),
+            ty = Math.max(0, Math.abs(y) - p.threadStraightY),
+            thread = smooth(
+              clamp((threadSquared - tx * tx - ty * ty) * inverseThread),
+            );
+          mortar = (1 - frame) * (1 - shaft) * (1 - thread);
+          if (mortar === 1) return;
+          const tone = poses[i + 5];
+          if (frame !== 0) {
+            const wood = woodField(y + tone, x + 0.3 * tone);
+            color += frame * (0.48 + 0.06 * tone + 0.13 * wood - color);
+            height += frame * (0.7 + 0.004 * wood - height);
+            roughness += frame * (p.roughness + 0.04 * wood - roughness);
+            occlusion += frame * (0.99 - occlusion);
+          }
+          if (shaft !== 0 && thread !== 1) {
+            color += shaft * (0.86 + 0.03 * tone + 0.02 * grain - color);
+            height += shaft * (0.36 + 0.003 * grain - height);
+            roughness += shaft * (0.25 + 0.02 * grain - roughness);
+            occlusion += shaft * (0.98 - occlusion);
+            metallic = shaft;
+          }
+          if (thread !== 0) {
+            const row = Math.max(
+                0,
+                Math.min(
+                  p.windings - 1,
+                  Math.round((y - p.firstWinding) * inversePitch),
+                ),
+              ),
+              ridge = smooth(
+                clamp(
+                  (p.ridgeHalf - Math.abs(y - p.firstWinding - row * p.pitch)) *
+                    inverseRidge,
+                ),
+              );
+            color +=
+              thread *
+              (0.89 + 0.025 * tone + 0.02 * grain + 0.06 * ridge - color);
+            height += thread * (0.52 + 0.05 * ridge + 0.003 * grain - height);
+            roughness +=
+              thread * (0.87 + 0.025 * grain - 0.04 * ridge - roughness);
+            occlusion += thread * (0.98 + 0.01 * ridge - occlusion);
+            metallic *= 1 - thread;
+          }
+        };
+      }
       case 'nyloncableties': {
         const p = proceduralMaterialPresets.nyloncableties,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28097,6 +28199,7 @@ export function createSurfaceSampler(
     kind === 'dandelionseeds' ||
     kind === 'shojipaperlattice' ||
     kind === 'nyloncableties' ||
+    kind === 'weavingshuttles' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

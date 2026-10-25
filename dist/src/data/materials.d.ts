@@ -6647,6 +6647,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    weavingshuttles: Readonly<{
+        dark: readonly [69, 38, 15];
+        light: readonly [249, 245, 227];
+        roughness: 0.5;
+        relief: 0.004;
+        cells: 3;
+        halfWidth: 0.15;
+        halfLength: 0.38;
+        edge: 0.012;
+        holeStraight: 0.12;
+        holeRadius: 0.06;
+        holeCore: 0.052;
+        shaftStraight: 0.172;
+        shaftRadius: 0.008;
+        shaftCore: 0.006;
+        threadStraightX: 0.015;
+        threadStraightY: 0.105;
+        threadRadius: 0.02;
+        threadCore: 0.014;
+        windings: 12;
+        firstWinding: -0.099;
+        pitch: 0.018;
+        ridgeHalf: 0.006;
+        ridgeCore: 0.004;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7295,4 +7323,5 @@ export declare const proceduralTileMeters: Readonly<{
     dandelionseeds: 0.09;
     shojipaperlattice: 0.9;
     nyloncableties: 0.6;
+    weavingshuttles: 0.6;
 }>;

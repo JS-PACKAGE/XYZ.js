@@ -839,6 +839,8 @@
 
 `nyloncableties` 沿用九 cached poses／128² grain、squared rounded rectangle 與 product-complement union；圓角 head 外輪廓減 compact window，連續長窄 strap 以兩端及橫向 full-core shoulder 收邊，尾寬以 smoothstep 轉窄，避免線性 taper kink。十七 transverse teeth 只選最近 nominal row，half-support0.007<pitch0.026/2，owner 邊界齒已歸零；齒的橫向 support0.027≤strap core，且末齒止於 taper 前，因此真正凸高不露出 strap。預算 pose、grain、squared support/core 與 profile reciprocals，採樣無配置／hash／sqrt／trig／鄰格或逐齒掃描，empty body 跳 finish，component complements 保留 full-body exact mortar0。全 M0，head 比 strap 高、tooth 比 strap 高但低於 head，開口露低 opaque backing。
 
+`weavingshuttles` 重用 cached poses、板向 8×96 wood grain、squared capsule／rounded rectangle-window 與最近 winding row convention。尖舟半寬 w=halfWidth×max(0,1−y²/halfLength²)，outer=smooth(clamp((w²−x²)/edge²))，以 squared support 保持尖端與 x0 軸 C1，不使用帶 cusp 的 abs(x) 線性尖端距離。扣除 capsule slot，覆低金屬 spindle 再覆 dielectric cream yarn，十二 compact rows support0.006<pitch0.018/2，owner 前歸零；product complements 給 full-body exact mortar0。預算九 poses／128² micro／8×96 local wood／reciprocals；wood 只在 frame 非空取樣、full yarn 跳被遮 spindle finish、empty body 跳所有 finish，採樣無配置／hash／sqrt／trig／鄰格或逐繞紗掃描。Wood/yarn/backing M0，只有露軸 M1；公開 factor1 與三個 mixed-metal 測試分類同步。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
