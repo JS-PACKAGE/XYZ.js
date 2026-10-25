@@ -7493,3 +7493,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 594-preset graphicgranite、擷取畫面／512 base-color detail，見粉色連續平石面、深色尖細交生紋、平 normal／白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 graphicgranite 並重算既有 593 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6683 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：黃銅掛鎖（brasspadlocks）
+
+- 目錄 594→595 種；0.24 m opaque mixed-metal tile、預設 factor 1，封閉 U 梁／高黃銅鎖身／低非金屬實芯孔紋。Cached 16 tones／128² grain／squared radii／reciprocals、4×4 alternating ±45° compact 三層 coherent replacement；upper arc 一個必要 sqrt 定真等寬 squared distance、與 straight tangents C1 接合，body 蓋根。Full body 跳過 shackle work、空 silhouette 跳過 grain、空 body 跳過 keyhole；circle／capsule stem product union 支撐全在 full body、孔紋清 metal、全部 support 限 cell。Body/shackle union 定 neutral backing，採樣無配置／hash／trig、僅 upper arc 必要 sqrt。沿四圖／選用 height／ownership，不新增 geometry、透明孔、開鎖／鎖定狀態／安全認證或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、ownership）：3 seeds ×16 locks ×65 arc points，shackle metallic 1／height 0.003599–0.003625 m／AO 0.98，body roots metallic 1／height 0.004479–0.004513 m、比 arc 高 >0.00085 m／AO 0.99。Key head/stem metallic 0／height 0.000959–0.000977 m／AO 0.35／backing 0，U cavity／外背 <0.000201 m／AO 0.3／backing 1。2049-point 上方橫剖面兩 metallic arms、鎖身縱剖面一連接 dielectric keyhole；129² 與 exact arc/straight tangents／tube shoulders／covered roots／body corners／keyhole union／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 595-preset brasspadlocks、擷取畫面／512 base-color detail，見交錯封閉 U 梁黃銅掛鎖／較高鎖身／暗孔紋、中性 opaque 背底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 brasspadlocks 並重算既有 594 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6689 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

@@ -957,6 +957,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `graphicgranite`（文象花崗岩），粉色長石拋光面上尖細成對石英交生紋。使用 `await ProceduralMaterial.create('graphicgranite', { seed: 7 })`；一張 UV tile 對應 0.2 m，深紋只是平齊礦物顏料、不作凹刻文字或凸脈。Opaque dielectric、metallic 0，maps／選用 height／ownership 不變，不新增 geometry、透明石英、晶體生長或物理模擬。
 
+另支援 `brasspadlocks`（黃銅掛鎖），封閉 U 梁／高黃銅鎖身／低非金屬實芯孔紋。使用 `await ProceduralMaterial.create('brasspadlocks', { seed: 7 })`；一張 UV tile 對應 0.24 m，孔紋是暗 opaque recess、不作透明孔。Opaque mixed-metal、預設 factor 1，neutral backing／maps／選用 height／ownership 不變，不新增 geometry、開鎖／鎖定狀態／安全認證或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

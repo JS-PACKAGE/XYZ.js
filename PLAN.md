@@ -729,6 +729,8 @@
 
 同輪追加 `graphicgranite`（文象花崗岩），目錄 593→594 種：粉色長石上每 cell 三組尖細成對石英交生紋，深淺礦物共用拋光平面；非 dendriticagate 蕨枝或 gneiss 摺曲條帶、不作凹刻文字。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明石英、晶體生長或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `brasspadlocks`（黃銅掛鎖），目錄 594→595 種：封閉 U 梁／較高黃銅鎖身／低實心非金屬鑰匙孔圖案，鎖梁與鎖身 metal、孔底與 opaque 背底 dielectric，預設 factor 1。0.24 m opaque mixed-metal tile，沿四圖／選用 height／ownership；不新增 geometry、透明孔、開鎖／鎖定狀態／安全認證或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

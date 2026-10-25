@@ -1428,6 +1428,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'brasspadlocks': {
+        const p = proceduralMaterialPresets.brasspadlocks,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          shackleSquared = p.shackleRadius * p.shackleRadius,
+          inverseShackle = 1 / (shackleSquared - p.shackleCore * p.shackleCore),
+          inverseDome = 1 / shackleSquared,
+          keySquared = p.keyRadius * p.keyRadius,
+          inverseKey = 1 / (keySquared - p.keyCore * p.keyCore),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x13d11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13d13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.straightX),
+            by = Math.max(0, Math.abs(y - p.bodyY) - p.straightY),
+            body = smooth(
+              clamp((radiusSquared - bx * bx - by * by) * inverseBody),
+            );
+          let distanceSquared = 0,
+            shackle = 0;
+          if (body < 1) {
+            const bendY = y - p.bendY;
+            if (bendY < 0) {
+              // The true constant-width arc matches both straight tangents.
+              const radial = Math.sqrt(x * x + bendY * bendY) - p.bendRadius;
+              distanceSquared = radial * radial;
+            } else {
+              const across = Math.abs(x) - p.bendRadius,
+                cap = Math.max(0, y - p.endY);
+              distanceSquared = across * across + cap * cap;
+            }
+            shackle = smooth(
+              clamp((shackleSquared - distanceSquared) * inverseShackle),
+            );
+          }
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = (1 - body) * (1 - shackle);
+          if (body === 0 && shackle === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (shackle > 0) {
+            const dome = smooth(clamp(1 - distanceSquared * inverseDome));
+            color += shackle * (0.91 + 0.02 * tone + 0.02 * grain - color);
+            height += shackle * (0.32 + 0.13 * dome + 0.003 * grain - height);
+            roughness += shackle * (0.22 + 0.025 * grain - roughness);
+            occlusion += shackle * (0.98 - occlusion);
+            metallic = shackle;
+          }
+          if (body === 0) return;
+          color += body * (0.62 + 0.08 * tone + 0.03 * grain - color);
+          height += body * (0.56 + 0.004 * grain - height);
+          roughness += body * (p.roughness + 0.04 * grain - roughness);
+          occlusion += body * (0.99 - occlusion);
+          metallic += body * (1 - metallic);
+          const ky = y - p.keyY,
+            sy = Math.max(0, Math.abs(y - p.stemY) - p.stemStraight),
+            circle = smooth(clamp((keySquared - x * x - ky * ky) * inverseKey)),
+            stem = smooth(clamp((stemSquared - x * x - sy * sy) * inverseStem)),
+            key = 1 - (1 - circle) * (1 - stem);
+          // A solid dark keyhole recess lies wholly inside full brass body
+          // coverage and clears its metal; it is not a transparent opening.
+          color += key * (0.025 + 0.01 * grain - color);
+          height += key * (0.12 + 0.002 * grain - height);
+          roughness += key * (0.92 - roughness);
+          occlusion += key * (0.35 - occlusion);
+          metallic *= 1 - key;
+          return;
+        };
+      }
       case 'graphicgranite': {
         const p = proceduralMaterialPresets.graphicgranite,
           stride = p.clusters * p.arms * 6,
@@ -23832,6 +23918,7 @@ export function createSurfaceSampler(
     kind === 'paisleybrocade' ||
     kind === 'siliconepastrybrushes' ||
     kind === 'graphicgranite' ||
+    kind === 'brasspadlocks' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

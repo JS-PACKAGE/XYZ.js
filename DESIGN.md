@@ -737,6 +737,8 @@
 
 `graphicgranite` 預算 16 tones、96 pointed strokes 的 centers／axes／inverse lengths and widths、8² clouds／192² grain 與 shoulder reciprocal。4×4 cells 各三組 jittered roots／seeded angles／兩條尖細交生 stroke；normalized along² 的 cap 再平方，扣 across² 的 smooth cover 以 product union 定 quartz pigment，端尖零斜率歸零、全支撐限 cell。深淺礦物共用 flat microheight／roughness／AO 1、不作刻字或凸脈。空 along 支撐略過 across、union 已滿即停，full quartz 略過 feldspar cloud；採樣無配置／hash／sqrt／trig。不新增 geometry、透明石英、晶體生長或物理模擬。
 
+`brasspadlocks` 預算 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact U 梁／rounded body／solid keyhole 三層 coherent replacement。U 上弧以一個必要 radial sqrt 定真等寬 squared distance、與兩 straight tangents C1 相接，body 蓋根；full body 跳過 shackle work、空 silhouette 跳過 grain、空 body 跳過 keyhole。Circle／capsule stem product union 支撐全在 full body，孔紋仍低 opaque 實芯且清 metal；body/shackle union 定 neutral backing，所有支撐限 cell。採樣無配置／hash／trig，僅 upper arc 一個必要 sqrt；不新增 geometry、透明孔、開鎖／鎖定狀態／安全認證或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

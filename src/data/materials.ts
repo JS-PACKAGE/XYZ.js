@@ -5762,6 +5762,30 @@ export const proceduralMaterialPresets = Object.freeze({
     widthVariation: 0.008,
     shoulder: 0.18,
   }),
+  brasspadlocks: Object.freeze({
+    dark: [116, 62, 12] as const,
+    light: [245, 222, 135] as const,
+    roughness: 0.35,
+    relief: 0.008,
+    cells: 4,
+    bodyY: 0.14,
+    straightX: 0.18,
+    straightY: 0.13,
+    radius: 0.03,
+    core: 0.02,
+    bendY: -0.1,
+    bendRadius: 0.13,
+    endY: 0.04,
+    shackleRadius: 0.027,
+    shackleCore: 0.019,
+    keyY: 0.1,
+    keyRadius: 0.025,
+    keyCore: 0.017,
+    stemY: 0.15,
+    stemStraight: 0.025,
+    stemRadius: 0.015,
+    stemCore: 0.01,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6360,4 +6384,5 @@ export const proceduralTileMeters = Object.freeze({
   paisleybrocade: 0.4,
   siliconepastrybrushes: 0.32,
   graphicgranite: 0.2,
+  brasspadlocks: 0.24,
 });

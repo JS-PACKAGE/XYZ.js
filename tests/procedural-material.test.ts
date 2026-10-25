@@ -632,7 +632,201 @@ const kinds: ProceduralMaterialKind[] = [
   'paisleybrocade',
   'siliconepastrybrushes',
   'graphicgranite',
+  'brasspadlocks',
 ];
+
+describe('Brass padlocks with closed U shackles and solid dielectric keyhole recesses', () => {
+  const p = proceduralMaterialPresets.brasspadlocks;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'closes the metallic U through a higher brass body while the keyhole remains a low solid nonmetal recess above opaque backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('brasspadlocks', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          let maxShackle = 0;
+          for (let i = 0; i <= 64; i++) {
+            const angle = Math.PI + (i * Math.PI) / 64;
+            at(
+              p.bendRadius * Math.cos(angle),
+              p.bendY + p.bendRadius * Math.sin(angle),
+            );
+            maxShackle = Math.max(maxShackle, out.height);
+            expect(out.metallic).toBe(1);
+            expect(out.color).toBeGreaterThan(0.9);
+            expect(out.height).toBeGreaterThan(0.003599);
+            expect(out.height).toBeLessThan(0.003625);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.22);
+            expect(out.roughness).toBeLessThanOrEqual(0.245);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+          }
+          for (const side of [-1, 1]) {
+            at(side * p.bendRadius, p.endY);
+            expect(out.metallic).toBe(1);
+            expect(out.height).toBeGreaterThan(0.004479);
+            expect(out.height).toBeLessThan(0.004513);
+            expect(out.height - maxShackle).toBeGreaterThan(0.00085);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            at(side * 0.07, p.keyY);
+            expect(out.metallic).toBe(1);
+            expect(out.color).toBeGreaterThan(0.61);
+          }
+          for (const y of [p.keyY, 0.16]) {
+            at(0, y);
+            expect(out.metallic).toBe(0);
+            expect(out.color).toBeLessThan(0.04);
+            expect(out.height).toBeGreaterThan(0.000959);
+            expect(out.height).toBeLessThan(0.000977);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.35, 12);
+          }
+          for (const [x, y] of [
+            [0, p.bendY],
+            [0.25, p.bodyY],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(-0.2 + (0.4 * i) / 2048, -0.08);
+            const metal = out.metallic > 0.9;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(2);
+          runs = 0;
+          previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(0, 0.05 + (0.17 * i) / 2048);
+            const key = out.metallic < 0.1;
+            if (key && !previous) runs++;
+            previous = key;
+          }
+          expect(runs).toBe(1);
+        }
+    },
+  );
+  it('keeps both shackle arc/straight tangents and tube shoulders, covered roots, rounded body corners, solid keyhole union and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('brasspadlocks', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...uv(col, row, 0, p.bendY));
+          for (const radius of [p.radius, p.core])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                c = Math.cos(angle),
+                s = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  Math.sign(c) * p.straightX + radius * c,
+                  p.bodyY + Math.sign(s) * p.straightY + radius * s,
+                ),
+              );
+            }
+          for (const width of [p.shackleRadius, p.shackleCore])
+            for (const sign of [-1, 1]) {
+              const radius = p.bendRadius + sign * width;
+              for (let i = 0; i <= 64; i++) {
+                const angle = Math.PI + (i * Math.PI) / 64;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    radius * Math.cos(angle),
+                    p.bendY + radius * Math.sin(angle),
+                  ),
+                );
+              }
+              for (const side of [-1, 1])
+                for (const y of [p.bendY, -0.06, -0.02, p.endY])
+                  check(...uv(col, row, side * radius, y));
+            }
+          for (const radius of [p.keyRadius, p.keyCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  p.keyY + radius * Math.sin(angle),
+                ),
+              );
+            }
+          for (const radius of [p.stemRadius, p.stemCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                c = Math.cos(angle),
+                s = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * c,
+                  p.stemY + Math.sign(s) * p.stemStraight + radius * s,
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Polished pink graphic granite with coplanar pointed quartz intergrowth scripts', () => {
   const p = proceduralMaterialPresets.graphicgranite;
@@ -29526,6 +29720,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'dualinlinechips' &&
           kind !== 'flatflexcables' &&
           kind !== 'tactileswitches' &&
+          kind !== 'brasspadlocks' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -29550,6 +29745,7 @@ describe('periodic procedural material fields', () => {
         kind === 'dualinlinechips' ||
         kind === 'flatflexcables' ||
         kind === 'tactileswitches' ||
+        kind === 'brasspadlocks' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -38956,6 +39152,7 @@ describe('procedural preset acquisition and ownership', () => {
     'dualinlinechips',
     'flatflexcables',
     'tactileswitches',
+    'brasspadlocks',
     'standingseam',
     'damascus',
     'castiron',
@@ -39018,6 +39215,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'dualinlinechips' ||
           kind === 'flatflexcables' ||
           kind === 'tactileswitches' ||
+          kind === 'brasspadlocks' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
