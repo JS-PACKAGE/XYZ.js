@@ -7477,3 +7477,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 最終 Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 592-preset paisleybrocade、擷取畫面／512 base-color detail，見深藍織布、彎尖金色輪廓與三內點、內部仍藍布。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 paisleybrocade 並重算既有 591 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6673 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：矽膠烘焙刷（siliconepastrybrushes）
+
+- 目錄 592→593 種；0.32 m opaque dielectric tile、metallic 0，橘色一體長柄／寬頭／七分離低刷齒，非 haircombs 長脊密齒。Cached 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact capsule handle／rounded head／nearest-owner capsule prongs、三層 coherent replacement；head 蓋頸與根，各交接中心有 full coverage overlap，柄 pit 支撐全在 full handle、保持 solid，全部支撐限 cell／prong owner。Neutral opaque backing 為三形狀 union，齒隙保留背底。空 silhouette 略過 grain、空 handle 略過 pit、空 head 略過最終 replacement，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、毛刷／液體／彎折物理、食品接觸／耐熱認證。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 brushes ×7 prongs，刷齒 0.002559–0.002585 m／AO 0.98／metallic 0，齒根 head 高 >0.00061 m／AO 0.99，齒隙 <0.000201 m／AO 0.3／backing 1。Head 0.003199–0.003233 m，長柄高 >0.00036 m，solid pit 0.002639–0.002673 m／AO 0.91，比相鄰柄低 >0.00092 m。2049-point 橫剖面恰七齒、4097-point 中央長剖面恰一連接 silhouette；129² 與 exact handle caps／head corners／七齒 caps and roots／pit shoulders／nearest owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 593-preset siliconepastrybrushes、擷取畫面／512 base-color detail，見交錯橘色長柄寬刷頭、七條分離刷齒、opaque 中性底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 siliconepastrybrushes 並重算既有 592 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6678 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

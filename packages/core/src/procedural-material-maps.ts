@@ -1428,6 +1428,84 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'siliconepastrybrushes': {
+        const p = proceduralMaterialPresets.siliconepastrybrushes,
+          tones = new Float64Array(p.cells * p.cells),
+          handleSquared = p.handleRadius * p.handleRadius,
+          inverseHandle = 1 / (handleSquared - p.handleCore * p.handleCore),
+          headSquared = p.headRadius * p.headRadius,
+          inverseHead = 1 / (headSquared - p.headCore * p.headCore),
+          prongSquared = p.prongRadius * p.prongRadius,
+          inverseProng = 1 / (prongSquared - p.prongCore * p.prongCore),
+          pitSquared = p.pitRadius * p.pitRadius,
+          inversePit = 1 / (pitSquared - p.pitCore * p.pitCore),
+          inversePitch = 1 / p.pitch,
+          lastProng = (p.prongs - 1) / 2,
+          grainField = cachedNoise(128, 128, seed ^ 0x13b11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13b13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            hy = Math.max(0, Math.abs(y - p.handleY) - p.handleStraight),
+            handle = smooth(
+              clamp((handleSquared - x * x - hy * hy) * inverseHandle),
+            ),
+            hx = Math.max(0, Math.abs(x) - p.headStraightX),
+            by = Math.max(0, Math.abs(y - p.headY) - p.headStraightY),
+            head = smooth(
+              clamp((headSquared - hx * hx - by * by) * inverseHead),
+            ),
+            owner = Math.max(
+              -lastProng,
+              Math.min(lastProng, Math.round(x * inversePitch)),
+            ),
+            px = x - owner * p.pitch,
+            py = Math.max(0, Math.abs(y - p.prongY) - p.prongStraight),
+            prong = smooth(
+              clamp((prongSquared - px * px - py * py) * inverseProng),
+            );
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = (1 - handle) * (1 - head) * (1 - prong);
+          if (handle === 0 && head === 0 && prong === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (prong > 0) {
+            color += prong * (0.68 + 0.06 * tone + 0.02 * grain - color);
+            height += prong * (0.32 + 0.003 * grain - height);
+            roughness += prong * (p.roughness + 0.025 * grain - roughness);
+            occlusion += prong * (0.98 - occlusion);
+          }
+          if (handle > 0) {
+            const dy = y - p.pitY,
+              pit = smooth(clamp((pitSquared - x * x - dy * dy) * inversePit));
+            color +=
+              handle * (0.48 + 0.06 * tone + 0.02 * grain - 0.08 * pit - color);
+            height += handle * (0.45 + 0.004 * grain - 0.12 * pit - height);
+            roughness += handle * (0.79 + 0.03 * grain - roughness);
+            occlusion += handle * (0.99 - 0.08 * pit - occlusion);
+          }
+          if (head === 0) return;
+          // The wide silicone head covers the handle neck and all seven
+          // bristle roots; every gap still shows the opaque backing.
+          color += head * (0.62 + 0.07 * tone + 0.02 * grain - color);
+          height += head * (0.4 + 0.004 * grain - height);
+          roughness += head * (0.77 + 0.025 * grain - roughness);
+          occlusion += head * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'paisleybrocade': {
         const p = proceduralMaterialPresets.paisleybrocade,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -23672,6 +23750,7 @@ export function createSurfaceSampler(
     kind === 'celerycuts' ||
     kind === 'tactileswitches' ||
     kind === 'paisleybrocade' ||
+    kind === 'siliconepastrybrushes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

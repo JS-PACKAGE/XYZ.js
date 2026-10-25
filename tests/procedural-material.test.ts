@@ -630,7 +630,196 @@ const kinds: ProceduralMaterialKind[] = [
   'celerycuts',
   'tactileswitches',
   'paisleybrocade',
+  'siliconepastrybrushes',
 ];
+
+describe('One-piece silicone pastry brushes with long handles, wide heads and seven separated prongs', () => {
+  const p = proceduralMaterialPresets.siliconepastrybrushes;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins seven dielectric bristles to a broad head and long solid-dimpled handle without filling the bristle gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('siliconepastrybrushes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          for (let i = 0; i < p.prongs; i++) {
+            const x = (i - (p.prongs - 1) / 2) * p.pitch;
+            at(x, p.prongY);
+            const bristle = out.height;
+            expect(out.color).toBeGreaterThan(0.67);
+            expect(bristle).toBeGreaterThan(0.002559);
+            expect(bristle).toBeLessThan(0.002585);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            at(x, 0.218);
+            expect(out.height - bristle).toBeGreaterThan(0.00061);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.mortar).toBe(0);
+          }
+          for (let i = 0; i < p.prongs - 1; i++) {
+            at((i - (p.prongs - 2) / 2) * p.pitch, p.prongY);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.mortar).toBe(1);
+          }
+          at(0, p.headY);
+          const head = out.height;
+          expect(head).toBeGreaterThan(0.003199);
+          expect(head).toBeLessThan(0.003233);
+          for (const y of [-0.36, -0.22, -0.12, 0.01]) {
+            at(0, y);
+            expect(out.height - head).toBeGreaterThan(0.00036);
+            expect(out.mortar).toBe(0);
+          }
+          at(0, p.pitY);
+          const pit = out.height,
+            pitColor = out.color;
+          expect(pit).toBeGreaterThan(0.002639);
+          expect(pit).toBeLessThan(0.002673);
+          expect(out.occlusion).toBeCloseTo(0.91, 12);
+          expect(out.mortar).toBe(0);
+          at(0.025, p.pitY);
+          expect(out.height - pit).toBeGreaterThan(0.00092);
+          expect(out.color - pitColor).toBeGreaterThan(0.055);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(-0.19 + (0.38 * i) / 2048, p.prongY);
+            const foreground = out.mortar < 0.1;
+            if (foreground && !previous) runs++;
+            previous = foreground;
+          }
+          expect(runs).toBe(7);
+          runs = 0;
+          previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.45 + (0.87 * i) / 4096);
+            const foreground = out.mortar < 0.1;
+            if (foreground && !previous) runs++;
+            previous = foreground;
+          }
+          expect(runs).toBe(1);
+        }
+    },
+  );
+  it('keeps long handle caps, rounded head, all seven bristle caps and roots, solid hanging pit, nearest-prong owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('siliconepastrybrushes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [p.handleRadius, p.handleCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                c = Math.cos(angle),
+                s = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * c,
+                  p.handleY + Math.sign(s) * p.handleStraight + radius * s,
+                ),
+              );
+            }
+          for (const radius of [p.headRadius, p.headCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                c = Math.cos(angle),
+                s = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  Math.sign(c) * p.headStraightX + radius * c,
+                  p.headY + Math.sign(s) * p.headStraightY + radius * s,
+                ),
+              );
+            }
+          for (let prong = 0; prong < p.prongs; prong++) {
+            const x = (prong - (p.prongs - 1) / 2) * p.pitch;
+            for (const radius of [p.prongRadius, p.prongCore])
+              for (let i = 0; i < 32; i++) {
+                const angle = (i * Math.PI) / 16,
+                  c = Math.cos(angle),
+                  s = Math.sin(angle);
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    x + radius * c,
+                    p.prongY + Math.sign(s) * p.prongStraight + radius * s,
+                  ),
+                );
+              }
+            for (const y of [p.prongY, 0.218, p.headY])
+              for (const side of [-1, 1])
+                check(...uv(col, row, x + (side * p.pitch) / 2, y));
+          }
+          for (const radius of [p.pitRadius, p.pitCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  p.pitY + radius * Math.sin(angle),
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Navy paisley brocade with curved golden dielectric yarn outlines and three inset dots', () => {
   const p = proceduralMaterialPresets.paisleybrocade;
