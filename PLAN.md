@@ -769,6 +769,8 @@
 
 同輪追加 `rickracktrim`（波浪花邊織帶），目錄 613→614 種：六條八週期連續蛇行玫瑰色帶／雙側較高織邊／斜向細織紋，非既有 diagonal ribbonstreamer 或三股 braidedcord。0.12 m opaque dielectric tile、metallic 0，沿 neutral opaque backing／四圖／選用 height／ownership；不新增 geometry、透明帶間空隙、真實編織或 cloth physics；依功能驗證提交、不 push。
 
+同輪追加 `toroidalinductors`（環形電感頂面），目錄 614→615 種：十二道較高 smoother 銅繞線／深色 dielectric ferrite 磁芯環／中央孔 opaque neutral backing；銅 metallic 1、磁芯與 backing metallic 0、預設 factor 1。0.16 m opaque mixed-metal tile，沿四圖／選用 height／ownership；不新增 geometry、透明孔、漆包線絕緣、引腳、電磁／電熱模擬、額定值或安全認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

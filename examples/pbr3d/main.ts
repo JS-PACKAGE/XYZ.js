@@ -693,6 +693,7 @@ try {
     'balloonwhisks',
     'orthocerasstone',
     'rickracktrim',
+    'toroidalinductors',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

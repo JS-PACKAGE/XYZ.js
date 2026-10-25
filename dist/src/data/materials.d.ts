@@ -6027,6 +6027,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         fibers: 96;
         fiberSlant: 4;
     }>;
+    toroidalinductors: Readonly<{
+        dark: readonly [19, 18, 17];
+        light: readonly [230, 137, 75];
+        roughness: 0.79;
+        relief: 0.008;
+        cells: 4;
+        jitter: 0.02;
+        scale: 0.94;
+        scaleVariation: 0.04;
+        turns: 12;
+        innerRadius: 0.18;
+        outerRadius: 0.31;
+        innerShoulder: 0.003;
+        outerShoulder: 0.004;
+        wireCenter: 0.25;
+        wireStraight: 0.085;
+        wireRadius: 0.018;
+        wireCore: 0.014;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6644,4 +6663,5 @@ export declare const proceduralTileMeters: Readonly<{
     balloonwhisks: 0.8;
     orthocerasstone: 0.4;
     rickracktrim: 0.12;
+    toroidalinductors: 0.16;
 }>;

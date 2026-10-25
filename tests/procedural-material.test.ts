@@ -655,7 +655,251 @@ const kinds: ProceduralMaterialKind[] = [
   'balloonwhisks',
   'orthocerasstone',
   'rickracktrim',
+  'toroidalinductors',
 ];
+
+describe('Toroidal inductor faces with twelve higher copper turns over dielectric ferrite rings', () => {
+  const p = proceduralMaterialPresets.toroidalinductors;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x15115),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1511b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15117) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15119) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twelve higher smoother copper turns distinct from a connected dark dielectric ferrite annulus and opaque hole for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('toroidalinductors', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      const radius = Math.sqrt(
+        (p.innerRadius * p.innerRadius + p.outerRadius * p.outerRadius) / 2,
+      );
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          for (let turn = 0; turn < p.turns; turn++) {
+            const angle = (2 * Math.PI * turn) / p.turns,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            at(p.wireCenter * c, p.wireCenter * s);
+            const metal = out.height,
+              copper = out.color,
+              smooth = out.roughness;
+            expect(metal).toBeGreaterThan(0.0043599);
+            expect(metal).toBeLessThan(0.0043841);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.995, 12);
+            const gap = angle + Math.PI / p.turns;
+            at(radius * Math.cos(gap), radius * Math.sin(gap));
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.height).toBeGreaterThan(0.0031199);
+            expect(out.height).toBeLessThan(0.0031441);
+            expect(metal - out.height).toBeGreaterThan(0.00121);
+            expect(copper - out.color).toBeGreaterThan(0.58);
+            expect(out.roughness - smooth).toBeGreaterThan(0.53);
+            at(p.wireCenter * c - 0.016 * s, p.wireCenter * s + 0.016 * c);
+            expect(out.metallic).toBeGreaterThan(0);
+            expect(out.metallic).toBeLessThan(1);
+            expect(out.mortar).toBe(0);
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 1024; i++) {
+              const r = 0.1 + (i * 0.3) / 1024;
+              at(r * c, r * s);
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i < 8192; i++) {
+            const angle = Math.PI / p.turns + (2 * Math.PI * i) / 8192;
+            at(radius * Math.cos(angle), radius * Math.sin(angle));
+            expect(out.mortar).toBe(0);
+            const metal = out.metallic > 0.5;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(12);
+          for (const [x, y] of [
+            [0, 0],
+            [0.1, 0],
+            [-0.1, 0],
+            [0, 0.1],
+            [0, -0.1],
+            [0.4, 0],
+            [-0.4, 0],
+            [0, 0.4],
+            [0, -0.4],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0002001);
+          }
+        }
+    },
+  );
+  it('retains copper turn pixels as metal and ferrite central hole and exterior pixels as dielectric in the actual 512 maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('toroidalinductors', 512, seed),
+        metal = (col: number, row: number, x: number, y: number) => {
+          const [u, v] = uv(seed, col, row, x, y);
+          return maps.metallicRoughness[
+            (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4 + 2
+          ];
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let turn = 0; turn < p.turns; turn++) {
+            const a = (2 * Math.PI * turn) / p.turns;
+            for (const r of [0.17, 0.25, 0.33])
+              expect(metal(col, row, r * Math.cos(a), r * Math.sin(a))).toBe(
+                255,
+              );
+            const gap = a + Math.PI / p.turns;
+            expect(
+              metal(col, row, 0.25 * Math.cos(gap), 0.25 * Math.sin(gap)),
+            ).toBe(0);
+          }
+          for (const [x, y] of [
+            [0, 0],
+            [0.1, 0],
+            [0.4, 0],
+            [-0.4, 0],
+          ])
+            expect(metal(col, row, x, y)).toBe(0);
+        }
+    }
+  });
+  it('keeps radial annulus shoulders capsule tangents copper shoulders angular owners atan2 branch cut central guards and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('toroidalinductors', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let i = 0; i < 128; i++) {
+            const angle = (i * Math.PI) / 64;
+            for (const radius of [
+              p.innerRadius,
+              Math.sqrt(p.innerRadius * p.innerRadius + p.innerShoulder),
+              Math.sqrt(p.outerRadius * p.outerRadius - p.outerShoulder),
+              p.outerRadius,
+              p.wireCenter - p.wireStraight - p.wireRadius,
+              p.wireCenter + p.wireStraight + p.wireRadius,
+            ])
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+          }
+          for (let turn = 0; turn < p.turns; turn++) {
+            const angle = (2 * Math.PI * turn) / p.turns,
+              c = Math.cos(angle),
+              s = Math.sin(angle),
+              point = (along: number, across: number) =>
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    along * c - across * s,
+                    along * s + across * c,
+                  ),
+                );
+            for (const radius of [p.wireRadius, p.wireCore])
+              for (const sign of [-1, 1]) {
+                for (let i = 0; i <= 32; i++) {
+                  const a = (i * Math.PI) / 32;
+                  point(
+                    p.wireCenter +
+                      sign * (p.wireStraight + radius * Math.sin(a)),
+                    radius * Math.cos(a),
+                  );
+                }
+                for (const r of [0.165, 0.2, 0.25, 0.3, 0.335])
+                  point(r, sign * radius);
+              }
+            const boundary = angle + Math.PI / p.turns;
+            for (const r of [0, 0.1, 0.18, 0.25, 0.31, 0.4])
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(boundary),
+                  r * Math.sin(boundary),
+                ),
+              );
+          }
+          for (let i = 0; i <= 64; i++)
+            check(...uv(seed, col, row, -0.4 + (i * 0.8) / 64, 0));
+        }
+    }
+  });
+});
 
 describe('Rose continuous wavy rickrack trim with twin raised selvedges and diagonal fine weave', () => {
   const p = proceduralMaterialPresets.rickracktrim;
@@ -33415,6 +33659,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'binderclips' &&
           kind !== 'ceramicfuses' &&
           kind !== 'balloonwhisks' &&
+          kind !== 'toroidalinductors' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -42823,6 +43068,7 @@ describe('procedural preset acquisition and ownership', () => {
     'binderclips',
     'ceramicfuses',
     'balloonwhisks',
+    'toroidalinductors',
     'standingseam',
     'damascus',
     'castiron',
@@ -42891,6 +43137,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'binderclips' ||
           kind === 'ceramicfuses' ||
           kind === 'balloonwhisks' ||
+          kind === 'toroidalinductors' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

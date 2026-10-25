@@ -1441,6 +1441,98 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'toroidalinductors': {
+        const p = proceduralMaterialPresets.toroidalinductors,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(p.turns * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x15111),
+          innerSquared = p.innerRadius * p.innerRadius,
+          outerSquared = p.outerRadius * p.outerRadius,
+          middleSquared = (innerSquared + outerSquared) / 2,
+          inverseDome =
+            4 / ((outerSquared - innerSquared) * (outerSquared - innerSquared)),
+          inverseInner = 1 / p.innerShoulder,
+          inverseOuter = 1 / p.outerShoulder,
+          wireSquared = p.wireRadius * p.wireRadius,
+          inverseWire = 1 / wireSquared,
+          inverseWireShoulder = 1 / (wireSquared - p.wireCore * p.wireCore),
+          minimumWire = (p.wireCenter - p.wireStraight - p.wireRadius) ** 2,
+          maximumWire = (p.wireCenter + p.wireStraight + p.wireRadius) ** 2,
+          ownerScale = p.turns / TAU;
+        for (let i = 0; i < p.turns; i++) {
+          const a = (TAU * i) / p.turns;
+          axes[i * 2] = Math.cos(a);
+          axes[i * 2 + 1] = Math.sin(a);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15115);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15117) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15119) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1511b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1511d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y,
+            core =
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              smooth(clamp((outerSquared - q) * inverseOuter));
+          let wire = 0,
+            wireQ = 0;
+          // Every capsule fades before its angular owner changes; the hole skips atan2.
+          if (q > minimumWire && q < maximumWire) {
+            const index =
+                ((Math.floor(Math.atan2(y, x) * ownerScale + 0.5) % p.turns) +
+                  p.turns) %
+                p.turns,
+              j = index * 2,
+              along = x * axes[j] + y * axes[j + 1],
+              across = y * axes[j] - x * axes[j + 1],
+              end = Math.max(
+                0,
+                Math.abs(along - p.wireCenter) - p.wireStraight,
+              );
+            wireQ = across * across + end * end;
+            wire = smooth(clamp((wireSquared - wireQ) * inverseWireShoulder));
+          }
+          const coverage = 1 - (1 - core) * (1 - wire);
+          mortar = 1 - coverage;
+          metallic = wire;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (coverage === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5];
+          if (core > 0 && wire < 1) {
+            const offset = q - middleSquared,
+              dome = smooth(clamp(1 - offset * offset * inverseDome));
+            color += core * (0.07 + 0.035 * tone + 0.015 * grain - color);
+            height += core * (0.34 + 0.05 * dome + 0.003 * grain - height);
+            roughness += core * (0.79 + 0.025 * grain - roughness);
+            occlusion += core * (0.98 - occlusion);
+          }
+          if (wire > 0) {
+            const dome = smooth(clamp(1 - wireQ * inverseWire));
+            color += wire * (0.72 + 0.12 * tone + 0.025 * grain - color);
+            height += wire * (0.49 + 0.055 * dome + 0.003 * grain - height);
+            roughness += wire * (0.23 + 0.02 * grain - roughness);
+            occlusion += wire * (0.995 - occlusion);
+          }
+        };
+      }
       case 'rickracktrim': {
         const p = proceduralMaterialPresets.rickracktrim,
           phases = new Float64Array(p.columns),
@@ -25501,6 +25593,7 @@ export function createSurfaceSampler(
     kind === 'balloonwhisks' ||
     kind === 'orthocerasstone' ||
     kind === 'rickracktrim' ||
+    kind === 'toroidalinductors' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
