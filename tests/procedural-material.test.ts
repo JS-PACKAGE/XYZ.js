@@ -669,7 +669,216 @@ const kinds: ProceduralMaterialKind[] = [
   'papayacuts',
   'sewingthimbles',
   'boullebrassinlay',
+  'diamondpanelparquet',
 ];
+
+describe('Miter-framed diamond parquet with alternating diagonal board grain and recessed continuous dark joints', () => {
+  const p = proceduralMaterialPresets.diamondpanelparquet;
+  const xy = (s: number, t: number) =>
+    [(s - t) * Math.SQRT1_2, (s + t) * Math.SQRT1_2] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps four solid mitered frame boards around clipped diagonal diamonds with lower darker rougher joints for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('diamondpanelparquet', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      const board = (x: number, y: number) => {
+        sample(0.5 + x, 0.5 + y, out);
+        expect(out.height).toBeGreaterThan(0.0019199);
+        expect(out.height).toBeLessThan(0.0019381);
+        expect(out.color).toBeGreaterThanOrEqual(0.38);
+        expect(out.roughness).toBeGreaterThanOrEqual(0.5);
+        expect(out.roughness).toBeLessThan(0.5551);
+        expect(out.occlusion).toBe(0.99);
+        expect(out.mortar).toBe(0);
+        expect(out.metallic).toBe(0);
+      };
+      const joint = (x: number, y: number) => {
+        sample(0.5 + x, 0.5 + y, out);
+        expect(out.height).toBeCloseTo(0.0003, 12);
+        expect(out.color).toBeCloseTo(0.055, 12);
+        expect(out.roughness).toBe(0.9);
+        expect(out.occlusion).toBe(0.55);
+        expect(out.mortar).toBe(0);
+        expect(out.metallic).toBe(0);
+      };
+      for (const [x, y] of [
+        [0, -0.45],
+        [0, 0.45],
+        [-0.45, 0],
+        [0.45, 0],
+      ])
+        board(x, y);
+      for (let iy = -2; iy <= 2; iy++)
+        for (let ix = -2; ix <= 2; ix++)
+          if (Math.abs(ix) + Math.abs(iy) <= 2)
+            board(...xy(ix * p.pitch, iy * p.pitch));
+      for (const x of [-0.45, 0.45]) for (const y of [-0.45, 0.45]) joint(x, y);
+      for (let j = 0; j <= 128; j++) {
+        const t = -0.39 + (0.78 * j) / 128;
+        for (const k of [-0.5, -p.inner, p.inner, 0.5]) {
+          joint(k, t);
+          joint(t, k);
+        }
+        for (let i = -3; i <= 2; i++) {
+          const s = (i + 0.5) * p.pitch,
+            [x, y] = xy(s, t);
+          if (Math.max(Math.abs(x), Math.abs(y)) < p.inner - 0.01) joint(x, y);
+          const [a, b] = xy(t, s);
+          if (Math.max(Math.abs(a), Math.abs(b)) < p.inner - 0.01) joint(a, b);
+        }
+      }
+      for (const sign of [-1, 1])
+        for (let j = 0; j <= 128; j++) {
+          const d = sign * (0.41 + (0.08 * j) / 128);
+          joint(d, d);
+          joint(d, -d);
+        }
+      const s = 0.2,
+        t = 0.07,
+        [cx, cy] = xy(s, t);
+      board(cx, cy);
+      const height = out.height,
+        color = out.color,
+        rough = out.roughness;
+      joint(...xy(s, 0.1));
+      expect(height - out.height).toBeGreaterThan(0.0016199);
+      expect(color - out.color).toBeGreaterThan(0.3249);
+      expect(out.roughness - rough).toBeGreaterThan(0.3449);
+    },
+  );
+  it('turns the actual wood grain with horizontal vertical and alternating diagonal board directions instead of world-space striping', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diamondpanelparquet', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let along = 0,
+        across = 0;
+      const c = Math.SQRT1_2;
+      for (const [x, y, ax, ay, bx, by] of [
+        [0, -0.45, 1, 0, 0, 1],
+        [-0.45, 0, 0, 1, 1, 0],
+        [0, 0, c, c, -c, c],
+        [0.2 * c, 0.2 * c, -c, c, c, c],
+      ])
+        for (let j = 0; j < 24; j++)
+          for (let i = 0; i < 24; i++) {
+            const a = -0.025 + (0.05 * i) / 23,
+              b = -0.025 + (0.05 * j) / 23,
+              u = 0.5 + x + ax * a + bx * b,
+              v = 0.5 + y + ay * a + by * b;
+            sample(u, v, out);
+            const color = out.color;
+            sample(u + 0.0001 * ax, v + 0.0001 * ay, out);
+            along += (out.color - color) ** 2;
+            sample(u + 0.0001 * bx, v + 0.0001 * by, out);
+            across += (out.color - color) ** 2;
+          }
+      expect(across).toBeGreaterThan(9 * along);
+    }
+  });
+  it('resolves actual512 dark recessed miter perimeter and rotated grid joints between brighter dielectric wood pieces', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('diamondpanelparquet', 512, seed),
+        index = (x: number, y: number) =>
+          (Math.min(511, Math.floor((0.5 + y) * 512)) * 512 +
+            Math.min(511, Math.floor((0.5 + x) * 512))) *
+          4;
+      const wood = index(0, 0);
+      for (const [x, y] of [
+        [0.45, 0.45],
+        [-0.45, 0.45],
+        [p.inner, 0],
+        [0, p.inner],
+        xy(0.1, 0),
+        xy(0, 0.1),
+      ]) {
+        const seam = index(x, y);
+        expect(maps.baseColor[wood] - maps.baseColor[seam]).toBeGreaterThan(40);
+        expect(
+          maps.metallicRoughness[seam + 1] - maps.metallicRoughness[wood + 1],
+        ).toBeGreaterThan(80);
+        expect(maps.occlusion[wood] - maps.occlusion[seam]).toBeGreaterThan(
+          100,
+        );
+        expect(maps.metallicRoughness[wood + 2]).toBe(0);
+        expect(maps.metallicRoughness[seam + 2]).toBe(0);
+      }
+    }
+  });
+  it('keeps complete miter ownership frame-field clipping diagonal nearest-board ownership joint shoulders and UV panel wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diamondpanelparquet', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (x: number, y: number) => {
+        const u = 0.5 + x,
+          v = 0.5 + y;
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192 - 0.5, y / 192 - 0.5);
+      for (let j = 0; j <= 1024; j++) {
+        const t = -0.5 + j / 1024;
+        for (const sign of [-1, 1])
+          for (const d of [0, p.gap, p.gap + p.bevel]) {
+            check(sign * (0.5 - d), t);
+            check(t, sign * (0.5 - d));
+            check(sign * (p.inner - d), t);
+            check(t, sign * (p.inner - d));
+            check(sign * (p.inner + d), t);
+            check(t, sign * (p.inner + d));
+            check(t, t + sign * d);
+            check(t, -t + sign * d);
+          }
+        for (let i = -3; i <= 2; i++)
+          for (const d of [0, p.gap, p.gap + p.bevel])
+            for (const sign of [-1, 1]) {
+              const s = (i + 0.5) * p.pitch + sign * d;
+              check(...xy(s, t));
+              check(...xy(t, s));
+            }
+      }
+    }
+  });
+});
 
 describe('Coplanar brass S-scroll inlay with oval finials on polished synthetic tortoiseshell-inspired resin', () => {
   const p = proceduralMaterialPresets.boullebrassinlay;

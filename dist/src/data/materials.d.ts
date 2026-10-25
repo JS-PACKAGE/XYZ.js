@@ -6306,6 +6306,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.02;
     }>;
+    diamondpanelparquet: Readonly<{
+        dark: readonly [58, 29, 12];
+        light: readonly [205, 157, 94];
+        roughness: 0.5;
+        relief: 0.003;
+        inner: 0.4;
+        pitch: 0.2;
+        lookupHalf: 3;
+        gap: 0.0015;
+        bevel: 0.0025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6937,4 +6948,5 @@ export declare const proceduralTileMeters: Readonly<{
     papayacuts: 0.16;
     sewingthimbles: 0.16;
     boullebrassinlay: 0.24;
+    diamondpanelparquet: 0.8;
 }>;

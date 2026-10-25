@@ -797,6 +797,8 @@
 
 同輪追加 `boullebrassinlay`（布爾風黃銅捲草鑲嵌），目錄 627→628 種：鏡像連續 S 捲紋／兩橢圓端飾 M1、雲斑仿玳瑁 synthetic resin matrix M0，非全木 bowtie repair key 或全金屬 damascus strata。Metal/resin 共用拋光 height／AO1／整面 mortar 0、無鑲嵌台階或 AO 溝，金屬較亮且略粗、非金漆；預設 factor 1。0.24 m opaque tile，沿四圖／選用 height／ownership，重用現有 acetate pigment 預算；僅風格化 brass/synthetic-resin surface，不新增 geometry、真玳瑁／真材質來源、透明／transmission、體積／製作／修復或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `diamondpanelparquet`（四斜接框菱形拼木），目錄 628→629 種：四 mitered frame boards、45° square-grid clipped diamond field、交替 board-local diagonal grain、低暗粗連續木縫；非 logcabin 螺旋板或 chevron V板，不冒稱歷史 Versailles layout。0.8 m opaque dielectric panel，M0／整面含 joints mortar 0，沿現有木拼板的暗色自帶 joint 而非 neutral grout，四圖／選用 height／ownership 不變；不新增 geometry、真板／位移、地板碰撞／鋪設／變形或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -1441,6 +1441,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diamondpanelparquet': {
+        const p = proceduralMaterialPresets.diamondpanelparquet,
+          side = 2 * p.lookupHalf + 1,
+          tones = new Float64Array(4 + side * side),
+          grainField = cachedNoise(8, 96, seed ^ 0x15f11),
+          microField = cachedNoise(96, 96, seed ^ 0x15f17),
+          inversePitch = 1 / p.pitch,
+          inverseBevel = 1 / p.bevel;
+        for (let i = 0; i < 4; i++) tones[i] = hash(i, 0, seed ^ 0x15f13);
+        for (let row = 0; row < side; row++)
+          for (let col = 0; col < side; col++)
+            tones[4 + row * side + col] = hash(
+              col - p.lookupHalf,
+              row - p.lookupHalf,
+              seed ^ 0x15f15,
+            );
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          color = 0.055;
+          height = 0.1;
+          roughness = 0.9;
+          occlusion = 0.55;
+          metallic = 0;
+          mortar = 0;
+          let face, along, across, tone;
+          if (Math.max(ax, ay) >= p.inner) {
+            const horizontal = ay >= ax,
+              outer = horizontal ? ay : ax,
+              other = horizontal ? ax : ay;
+            face =
+              smooth(clamp((0.5 - outer - p.gap) * inverseBevel)) *
+              smooth(clamp((outer - p.inner - p.gap) * inverseBevel)) *
+              smooth(clamp((outer - other - p.gap) * inverseBevel));
+            if (face === 0) return;
+            along = horizontal ? x : y;
+            across = horizontal ? y : x;
+            tone = tones[horizontal ? (y < 0 ? 2 : 3) : x < 0 ? 0 : 1];
+          } else {
+            const s = (x + y) * Math.SQRT1_2,
+              t = (y - x) * Math.SQRT1_2,
+              ix = Math.floor(s * inversePitch + 0.5),
+              iy = Math.floor(t * inversePitch + 0.5),
+              ds = s - ix * p.pitch,
+              dt = t - iy * p.pitch;
+            face =
+              smooth(clamp((p.inner - ax - p.gap) * inverseBevel)) *
+              smooth(clamp((p.inner - ay - p.gap) * inverseBevel)) *
+              smooth(
+                clamp((p.pitch * 0.5 - Math.abs(ds) - p.gap) * inverseBevel),
+              ) *
+              smooth(
+                clamp((p.pitch * 0.5 - Math.abs(dt) - p.gap) * inverseBevel),
+              );
+            if (face === 0) return;
+            const forward = ((ix + iy) & 1) === 0;
+            along = forward ? ds : dt;
+            across = forward ? dt : ds;
+            tone = tones[4 + (iy + p.lookupHalf) * side + ix + p.lookupHalf];
+          }
+          const grain = grainField(along + tone, across + 0.3 * tone),
+            micro = microField(u, v);
+          color +=
+            face * (0.38 + 0.14 * tone + 0.25 * grain + 0.02 * micro - color);
+          height += face * (0.64 + 0.004 * grain + 0.002 * micro - height);
+          roughness +=
+            face * (p.roughness + 0.04 * grain + 0.015 * micro - roughness);
+          occlusion += face * (0.99 - occlusion);
+        };
+      }
       case 'boullebrassinlay': {
         const p = proceduralMaterialPresets.boullebrassinlay,
           matrix = proceduralMaterialPresets.tortoiseshellacetate,
@@ -26724,6 +26796,7 @@ export function createSurfaceSampler(
     kind === 'papayacuts' ||
     kind === 'sewingthimbles' ||
     kind === 'boullebrassinlay' ||
+    kind === 'diamondpanelparquet' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
