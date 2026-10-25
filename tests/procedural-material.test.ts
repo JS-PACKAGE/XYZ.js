@@ -613,7 +613,160 @@ const kinds: ProceduralMaterialKind[] = [
   'ballbearingfaces',
   'baseballleather',
   'toothbrushheads',
+  'bowtieinlay',
 ];
+
+describe('Flush butterfly wood repair keys with transverse grain across dark splits', () => {
+  const p = proceduralMaterialPresets.bowtieinlay;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  // Locate the seeded split only; all assertions observe real output fields.
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const v = (row + 0.5 + y) / p.rows,
+      phase = (v - Math.floor(v)) * 12,
+      iy = Math.floor(phase),
+      t = phase - iy,
+      s = t * t * (3 - 2 * t),
+      a = hash(col * 2 + 1, iy, seed ^ 0x12a19),
+      b = hash(col * 2 + 1, (iy + 1) % 12, seed ^ 0x12a19),
+      warp = p.warp * (2 * (a + (b - a) * s) - 1);
+    return [(col + 0.5 + warp + x) / p.columns, v] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps dark hourglass wings and a narrow waist flush with the board while restoring height and occlusion across the open split for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bowtieinlay', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const repaired = out.height;
+          expect(out.color).toBeLessThan(0.42);
+          expect(out.occlusion).toBeGreaterThan(0.98);
+          expect(out.metallic).toBe(0);
+          at(0, 0.4);
+          expect(repaired - out.height).toBeGreaterThan(0.0015);
+          expect(out.height).toBeLessThan(0.00115);
+          expect(out.occlusion).toBeLessThan(0.55);
+          for (const side of [-1, 1])
+            for (const end of [-1, 1]) {
+              at(side * 0.2, end * 0.14);
+              expect(out.color).toBeLessThan(0.42);
+              expect(out.height).toBeGreaterThan(0.00269);
+              expect(out.height).toBeLessThan(0.00274);
+              expect(out.occlusion).toBeGreaterThan(0.98);
+              at(side * 0.06, end * 0.14);
+              expect(out.color).toBeGreaterThan(0.77);
+              expect(out.height).toBeGreaterThan(0.00269);
+              expect(out.height).toBeLessThan(0.00274);
+              expect(Math.abs(out.height - repaired)).toBeLessThan(0.00004);
+            }
+        }
+    },
+  );
+  it('keeps board grain longitudinal and the flush repair-key grain transverse', () => {
+    const h = 1e-5;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bowtieinlay', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        energy = [
+          [0, 0],
+          [0, 0],
+        ];
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (let i = 0; i < 64; i++)
+            for (let region = 0; region < 2; region++) {
+              const [u, v] = region
+                ? uv(seed, col, row, -0.22 + (i / 63) * 0.44, 0)
+                : uv(seed, col, row, 0.36, -0.35 + (i / 63) * 0.7);
+              for (let axis = 0; axis < 2; axis++) {
+                sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+                sample(u + (axis ? 0 : h), v + (axis ? h : 0), b);
+                energy[region][axis] += (b.color - a.color) ** 2;
+              }
+            }
+      expect(energy[0][0]).toBeGreaterThan(energy[0][1] * 2);
+      expect(energy[1][1]).toBeGreaterThan(energy[1][0] * 2);
+    }
+  });
+  it('keeps hourglass shoulders, restored split edges, row owners and both UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bowtieinlay', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          for (const x of [
+            -p.halfLength,
+            -p.endCore,
+            0,
+            p.endCore,
+            p.halfLength,
+          ])
+            for (const y of [-0.14, 0, 0.14])
+              check(...uv(seed, col, row, x, y));
+          for (const x of [-0.24, -0.15, 0, 0.15, 0.24]) {
+            const t = Math.min(1, (x / p.flareRun) ** 2),
+              width = p.waist + p.flare * t * t * (3 - 2 * t);
+            for (const side of [-1, 1])
+              for (const y of [
+                width,
+                Math.sqrt(width * width - p.sideSquaredShoulder),
+              ])
+                check(...uv(seed, col, row, x, side * y));
+          }
+          for (const y of [-0.5, -0.4, 0.4, 0.5])
+            for (const x of [-p.crackWidth, 0, p.crackWidth])
+              check(...uv(seed, col, row, x, y));
+        }
+    }
+  });
+});
 
 describe('Capsule toothbrush heads with eighteen higher bristle tufts', () => {
   const p = proceduralMaterialPresets.toothbrushheads;

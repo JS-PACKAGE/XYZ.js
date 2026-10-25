@@ -1428,6 +1428,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bowtieinlay': {
+        const p = proceduralMaterialPresets.bowtieinlay,
+          tones = new Float64Array(p.columns * p.rows),
+          verticalGrain = cachedNoise(128, 8, seed ^ 0x12a11),
+          horizontalGrain = cachedNoise(8, 128, seed ^ 0x12a13),
+          microGrain = cachedNoise(96, 96, seed ^ 0x12a17),
+          warpField = cachedNoise(4, 12, seed ^ 0x12a19),
+          inverseCrack = 1 / (p.crackWidth * p.crackWidth),
+          lengthSquared = p.halfLength * p.halfLength,
+          inverseEnd = 1 / (lengthSquared - p.endCore * p.endCore),
+          inverseFlare = 1 / (p.flareRun * p.flareRun),
+          inverseSide = 1 / p.sideSquaredShoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x12a1d);
+        return () => {
+          const uc = u * p.columns,
+            vc = v * p.rows,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            warp = p.warp * (2 * warpField((col + 0.5) / p.columns, v) - 1),
+            x = fract(uc) - 0.5 - warp,
+            y = fract(vc) - 0.5,
+            crack = smooth(clamp(1 - x * x * inverseCrack)),
+            width = p.waist + p.flare * smooth(clamp(x * x * inverseFlare)),
+            key =
+              smooth(clamp((lengthSquared - x * x) * inverseEnd)) *
+              smooth(clamp((width * width - y * y) * inverseSide)),
+            grain = verticalGrain(u, v),
+            micro = microGrain(u, v);
+          color = 0.78 + 0.12 * grain + 0.02 * micro - 0.69 * crack;
+          height = 0.45 + 0.004 * micro + 0.002 * grain - 0.27 * crack;
+          roughness = p.roughness + 0.035 * grain + 0.02 * micro + 0.18 * crack;
+          occlusion = 0.99 - 0.45 * crack;
+          if (key === 0) return;
+          const crossGrain = horizontalGrain(u, v),
+            tone = tones[row * p.columns + col];
+          // The transverse repair key replaces the open split with flush wood,
+          // rather than adding a raised bow-tie badge on top of the board.
+          color += key * (0.24 + 0.1 * crossGrain + 0.06 * tone - color);
+          height += key * (0.45 + 0.004 * micro + 0.002 * crossGrain - height);
+          roughness +=
+            key *
+            (p.roughness -
+              0.08 +
+              0.04 * crossGrain +
+              0.015 * micro -
+              roughness);
+          occlusion += key * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'toothbrushheads': {
         const p = proceduralMaterialPresets.toothbrushheads,
           tuftCount = p.tuftColumns * p.tuftRows,
@@ -22536,6 +22588,7 @@ export function createSurfaceSampler(
     kind === 'ballbearingfaces' ||
     kind === 'baseballleather' ||
     kind === 'toothbrushheads' ||
+    kind === 'bowtieinlay' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

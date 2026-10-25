@@ -590,7 +590,8 @@ export type ProceduralMaterialKind =
   | 'fennelseeds'
   | 'ballbearingfaces'
   | 'baseballleather'
-  | 'toothbrushheads';
+  | 'toothbrushheads'
+  | 'bowtieinlay';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1415,6 +1416,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ballbearingfaces',
   'baseballleather',
   'toothbrushheads',
+  'bowtieinlay',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

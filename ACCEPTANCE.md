@@ -7341,3 +7341,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 575-preset toothbrushheads、擷取畫面；512 base-color detail 可見藍膠囊底與十八白冠。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 toothbrushheads 並重算既有 574 種（含 wirebrush／pillcapsule）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6583 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：蝴蝶木榫補片（bowtieinlay）
+
+- 目錄 575→576 種；0.6 m opaque dielectric tile、metallic 0，深色齊平蝴蝶木榫跨暗裂縫，板縱紋／榫橫紋交錯，非邊端 dovetailjoint 或凸徽章。Cached 6 tones／128×8 board grain／8×128 key grain／96×96 micro／4×12 warp／reciprocals、compact squared hourglass／coherent replacement，support 在 owner 前歸零、key 零略過橫紋。恢復裂線降低的高度／AO而非疊高；採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、結構補強／強度認證、斷裂／破壞或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、grain orientation、C1、determinism）：3 seeds ×6 榫的深色雙寬翼／窄腰、修補中心較開裂線高 >0.0015 m／AO >0.98，而未修處低於 0.00115 m／AO <0.55；榫／板同在 0.00269–0.00274 m 微高度包絡、相差 <0.00004 m。實際顏料梯度能量量測板 du >2×dv、榫 dv >2×du，證明相交木紋。129² 雙向與 exact hourglass／裂線／owners／wraps C1 通過，metallic 0。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 576-preset bowtieinlay、擷取畫面；512 base-color detail 可見深木蝴蝶補片跨暗彎裂縫及交錯木紋。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 bowtieinlay 並重算既有 575 種（含 dovetailjoint／sunburstveneer）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6589 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

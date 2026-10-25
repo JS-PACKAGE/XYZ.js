@@ -5413,6 +5413,22 @@ export const proceduralMaterialPresets = Object.freeze({
     tuftRadius: 0.038,
     tuftCore: 0.03,
   }),
+  bowtieinlay: Object.freeze({
+    dark: [42, 20, 7] as const,
+    light: [217, 176, 104] as const,
+    roughness: 0.66,
+    relief: 0.006,
+    columns: 2,
+    rows: 3,
+    warp: 0.08,
+    crackWidth: 0.024,
+    halfLength: 0.27,
+    endCore: 0.245,
+    flareRun: 0.24,
+    waist: 0.07,
+    flare: 0.14,
+    sideSquaredShoulder: 0.002,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5992,4 +6008,5 @@ export const proceduralTileMeters = Object.freeze({
   ballbearingfaces: 0.16,
   baseballleather: 0.24,
   toothbrushheads: 0.12,
+  bowtieinlay: 0.6,
 });
