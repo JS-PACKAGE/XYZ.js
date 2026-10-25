@@ -666,7 +666,315 @@ const kinds: ProceduralMaterialKind[] = [
   'conicalsampletubes',
   'botryoidalcopper',
   'pencilshavings',
+  'papayacuts',
 ];
+
+describe('Oval ripe papaya cuts with thick orange flesh and28 raised dark kernels in a lower central seed pit', () => {
+  const p = proceduralMaterialPresets.papayacuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15c15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15c1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15c17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15c19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const center = (
+    seed: number,
+    col: number,
+    row: number,
+    sx: number,
+    sy: number,
+  ) =>
+    [
+      (sx + 0.5 - p.seedColumns * 0.5) * p.seedPitchX +
+        p.seedJitter *
+          (2 *
+            hash(
+              col * p.seedColumns + sx,
+              row * p.seedRows + sy,
+              seed ^ 0x15c21,
+            ) -
+            1),
+      (sy + 0.5 - p.seedRows * 0.5) * p.seedPitchY +
+        p.seedJitter *
+          (2 *
+            hash(
+              col * p.seedColumns + sx,
+              row * p.seedRows + sy,
+              seed ^ 0x15c23,
+            ) -
+            1),
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps28 independently raised dark seeds above the lower pit but below the thick bright flesh inside one oval cut for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('papayacuts', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0.195, 0), out);
+          const flesh = out.height,
+            color = out.color,
+            rough = out.roughness;
+          expect(flesh).toBeGreaterThan(0.0027199);
+          expect(flesh).toBeLessThan(0.0027361);
+          expect(out.occlusion).toBe(0.99);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          sample(...world(seed, col, row, 0.24, 0), out);
+          expect(out.height).toBeGreaterThan(0.0024799);
+          expect(out.height).toBeLessThan(0.0024961);
+          expect(flesh - out.height).toBeGreaterThan(0.0002239);
+          expect(color - out.color).toBeGreaterThan(0.3999);
+          expect(out.roughness - rough).toBeGreaterThan(0.3099);
+          expect(out.occlusion).toBe(0.98);
+          expect(out.mortar).toBe(0);
+          for (let sy = 0; sy < p.seedRows; sy++) {
+            const count = p.seedRowLengths[sy],
+              start = (p.seedColumns - count) / 2;
+            for (let sx = start; sx < start + count; sx++) {
+              const [x, y] = center(seed, col, row, sx, sy);
+              sample(...world(seed, col, row, x, y), out);
+              const kernel = out.height,
+                kcolor = out.color,
+                krough = out.roughness;
+              expect(kernel).toBeGreaterThan(0.0018399);
+              expect(kernel).toBeLessThan(0.0018561);
+              expect(flesh - kernel).toBeGreaterThan(0.0008639);
+              expect(color - kcolor).toBeGreaterThan(0.7949);
+              expect(rough - krough).toBeGreaterThan(0.1599);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+              sample(...world(seed, col, row, x + 0.0195, y), out);
+              expect(out.height).toBeGreaterThan(0.0009599);
+              expect(out.height).toBeLessThan(0.0009761);
+              expect(kernel - out.height).toBeGreaterThan(0.0008639);
+              expect(out.color - kcolor).toBeGreaterThan(0.1249);
+              expect(out.roughness - krough).toBeGreaterThan(0.1199);
+              expect(out.occlusion).toBe(0.72);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              sample(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  (j / 1024 - 0.5) * count * p.seedPitchX,
+                  (sy + 0.5 - p.seedRows / 2) * p.seedPitchY,
+                ),
+                out,
+              );
+              const high = out.height > 0.00165;
+              if (high && !previous) runs++;
+              previous = high;
+              expect(out.mortar).toBe(0);
+            }
+            expect(runs).toBe(count);
+          }
+          const spans: number[] = [];
+          for (let axis = 0; axis < 2; axis++) {
+            let runs = 0,
+              inside = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              const t = -0.45 + (0.9 * j) / 1024;
+              sample(...world(seed, col, row, axis ? 0 : t, axis ? t : 0), out);
+              const body = out.mortar < 0.5;
+              if (body) inside++;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            spans.push((0.9 * (inside - 1)) / 1024);
+          }
+          expect(spans[0]).toBeGreaterThan(0.49);
+          expect(spans[0]).toBeLessThan(0.51);
+          expect(spans[1]).toBeGreaterThan(0.81);
+          expect(spans[1]).toBeLessThan(0.84);
+          expect(spans[1] / spans[0]).toBeGreaterThan(1.6);
+          for (const [x, y] of [
+            [0.28, 0],
+            [0, 0.45],
+            [0.25, 0.4],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeCloseTo(0.0001, 12);
+            expect(out.occlusion).toBe(0.3);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('resolves all28 actual512 kernels as distinct dark smoother dielectric seeds within brighter rougher orange flesh', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('papayacuts', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            flesh = index(0.195, 0);
+          for (let sy = 0; sy < p.seedRows; sy++) {
+            const count = p.seedRowLengths[sy],
+              start = (p.seedColumns - count) / 2;
+            for (let sx = start; sx < start + count; sx++) {
+              const kernel = index(...center(seed, col, row, sx, sy));
+              expect(maps.baseColor[kernel]).toBeLessThan(45);
+              expect(
+                maps.baseColor[flesh] - maps.baseColor[kernel],
+              ).toBeGreaterThan(160);
+              expect(
+                maps.metallicRoughness[flesh + 1] -
+                  maps.metallicRoughness[kernel + 1],
+              ).toBeGreaterThan(35);
+              expect(maps.metallicRoughness[kernel + 2]).toBe(0);
+              expect(maps.occlusion[kernel]).toBeGreaterThan(240);
+            }
+          }
+        }
+    }
+  });
+  it('keeps nested rind flesh pit ellipses rounded kernel shoulders and domes bounded seed owners pose owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('papayacuts', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const [rx, ry, edge] of [
+            [p.width, p.length, p.edge],
+            [p.fleshWidth, p.fleshLength, p.fleshEdge],
+            [p.pitWidth, p.pitLength, p.pitEdge],
+          ])
+            for (const scale of [1, Math.sqrt(1 - edge)])
+              for (let j = 0; j < 128; j++) {
+                const angle = (j * Math.PI) / 64;
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    scale * rx * Math.cos(angle),
+                    scale * ry * Math.sin(angle),
+                  ),
+                );
+              }
+          for (let sy = 0; sy < p.seedRows; sy++) {
+            const count = p.seedRowLengths[sy],
+              start = (p.seedColumns - count) / 2;
+            for (let sx = start; sx < start + count; sx++) {
+              const [x, y] = center(seed, col, row, sx, sy);
+              check(...world(seed, col, row, x, y));
+              for (const r of [p.seedCore, p.seedRadius])
+                for (let j = 0; j < 64; j++) {
+                  const angle = (j * Math.PI) / 32;
+                  check(
+                    ...world(
+                      seed,
+                      col,
+                      row,
+                      x + r * Math.cos(angle),
+                      y + r * Math.sin(angle),
+                    ),
+                  );
+                }
+            }
+          }
+          for (let j = 0; j <= 128; j++) {
+            const x = (j / 128 - 0.5) * p.seedColumns * p.seedPitchX,
+              y = (j / 128 - 0.5) * p.seedRows * p.seedPitchY;
+            for (let sy = 0; sy <= p.seedRows; sy++)
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  x,
+                  (sy - p.seedRows / 2) * p.seedPitchY,
+                ),
+              );
+            for (let sx = 0; sx <= p.seedColumns; sx++)
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  (sx - p.seedColumns / 2) * p.seedPitchX,
+                  y,
+                ),
+              );
+          }
+        }
+    }
+  });
+});
 
 describe('Half-annular pencil shaving fans with twelve radial flutes and smooth dark outer paint rim', () => {
   const p = proceduralMaterialPresets.pencilshavings;

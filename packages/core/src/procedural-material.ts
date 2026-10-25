@@ -640,7 +640,8 @@ export type ProceduralMaterialKind =
   | 'driedtamarindpods'
   | 'conicalsampletubes'
   | 'botryoidalcopper'
-  | 'pencilshavings';
+  | 'pencilshavings'
+  | 'papayacuts';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1515,6 +1516,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'conicalsampletubes',
   'botryoidalcopper',
   'pencilshavings',
+  'papayacuts',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

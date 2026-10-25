@@ -1441,6 +1441,137 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'papayacuts': {
+        const p = proceduralMaterialPresets.papayacuts,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          seeds = new Float64Array(
+            p.cells * p.cells * p.seedColumns * p.seedRows * 2,
+          ),
+          grainField = cachedNoise(128, 128, seed ^ 0x15c11),
+          inverseX = 1 / (p.width * p.width),
+          inverseY = 1 / (p.length * p.length),
+          inverseFleshX = 1 / (p.fleshWidth * p.fleshWidth),
+          inverseFleshY = 1 / (p.fleshLength * p.fleshLength),
+          inversePitX = 1 / (p.pitWidth * p.pitWidth),
+          inversePitY = 1 / (p.pitLength * p.pitLength),
+          inverseEdge = 1 / p.edge,
+          inverseFlesh = 1 / p.fleshEdge,
+          inversePit = 1 / p.pitEdge,
+          seedSquared = p.seedRadius * p.seedRadius,
+          inverseSeed = 1 / (seedSquared - p.seedCore * p.seedCore),
+          inverseDome = 1 / seedSquared,
+          inversePitchX = 1 / p.seedPitchX,
+          inversePitchY = 1 / p.seedPitchY,
+          seedOriginX = p.seedColumns * p.seedPitchX * 0.5,
+          seedOriginY = p.seedRows * p.seedPitchY * 0.5;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const face = row * p.cells + col,
+              i = face * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15c15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15c17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15c19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15c1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x15c1d);
+            for (let sy = 0; sy < p.seedRows; sy++) {
+              const start = (p.seedColumns - p.seedRowLengths[sy]) * 0.5;
+              for (let sx = start; sx < start + p.seedRowLengths[sy]; sx++) {
+                const j = ((face * p.seedRows + sy) * p.seedColumns + sx) * 2,
+                  gx = col * p.seedColumns + sx,
+                  gy = row * p.seedRows + sy;
+                seeds[j] =
+                  (sx + 0.5) * p.seedPitchX -
+                  seedOriginX +
+                  p.seedJitter * (2 * hash(gx, gy, seed ^ 0x15c21) - 1);
+                seeds[j + 1] =
+                  (sy + 0.5) * p.seedPitchY -
+                  seedOriginY +
+                  p.seedJitter * (2 * hash(gx, gy, seed ^ 0x15c23) - 1);
+              }
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            face = row * p.cells + col,
+            i = face * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            body = smooth(
+              clamp((1 - x * x * inverseX - y * y * inverseY) * inverseEdge),
+            );
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5],
+            flesh = smooth(
+              clamp(
+                (1 - x * x * inverseFleshX - y * y * inverseFleshY) *
+                  inverseFlesh,
+              ),
+            );
+          let c = 0.42 + 0.04 * tone + 0.02 * grain,
+            h = 0.62 + 0.004 * grain,
+            r = 0.75 + 0.02 * grain,
+            a = 0.98;
+          c += flesh * (0.84 + 0.08 * tone + 0.03 * grain - c);
+          h += flesh * (0.68 + 0.004 * grain - h);
+          r += flesh * (p.roughness + 0.02 * grain - r);
+          a += flesh * (0.99 - a);
+          if (flesh > 0) {
+            const pit = smooth(
+              clamp(
+                (1 - x * x * inversePitX - y * y * inversePitY) * inversePit,
+              ),
+            );
+            if (pit > 0) {
+              let pc = 0.17 + 0.03 * grain,
+                ph = 0.24 + 0.004 * grain,
+                pr = 0.38 + 0.02 * grain,
+                pa = 0.72;
+              const sx = Math.floor((x + seedOriginX) * inversePitchX),
+                sy = Math.floor((y + seedOriginY) * inversePitchY);
+              if (sx >= 0 && sx < p.seedColumns && sy >= 0 && sy < p.seedRows) {
+                const start = (p.seedColumns - p.seedRowLengths[sy]) * 0.5;
+                if (sx >= start && sx < start + p.seedRowLengths[sy]) {
+                  const j = ((face * p.seedRows + sy) * p.seedColumns + sx) * 2,
+                    dx = x - seeds[j],
+                    dy = y - seeds[j + 1],
+                    q = dx * dx + dy * dy,
+                    kernel = smooth(clamp((seedSquared - q) * inverseSeed));
+                  if (kernel > 0) {
+                    const dome = smooth(clamp(1 - q * inverseDome));
+                    pc += kernel * (0.025 + 0.02 * grain - pc);
+                    ph += kernel * (0.42 + 0.04 * dome + 0.004 * grain - ph);
+                    pr += kernel * (0.24 + 0.02 * grain - pr);
+                    pa += kernel * (0.95 + 0.03 * dome - pa);
+                  }
+                }
+              }
+              c += pit * (pc - c);
+              h += pit * (ph - h);
+              r += pit * (pr - r);
+              a += pit * (pa - a);
+            }
+          }
+          color += body * (c - color);
+          height += body * (h - height);
+          roughness += body * (r - roughness);
+          occlusion += body * (a - occlusion);
+        };
+      }
       case 'pencilshavings': {
         const p = proceduralMaterialPresets.pencilshavings,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26358,6 +26489,7 @@ export function createSurfaceSampler(
     kind === 'conicalsampletubes' ||
     kind === 'botryoidalcopper' ||
     kind === 'pencilshavings' ||
+    kind === 'papayacuts' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -791,6 +791,8 @@
 
 同輪追加 `pencilshavings`（鉛筆削花），目錄 624→625 種：16 個 seeded rotated 半環木扇、12 道放射皺褶／深色較平滑外緣漆層；不是 pencilends 六角木截面／中央石墨。漆邊僅 color／roughness，沿同一 corrugated height／AO；半環內／外及開口均為 opaque neutral backing、非透明孔。0.16 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、粒子／真木屑、彎曲／削鉛筆／損壞或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `papayacuts`（木瓜切面），目錄 625→626 種：seeded rotated 窄外皮／高亮厚橙果肉／低長橢圓種腔／28 顆獨立凸起深色種子；非 passionfruitslice 各自 jelly sacs 中的 kernel pigment。高度順序 flesh>seed>pit，kernel 改 height／roughness／AO、非黑點假種子或穿孔。0.16 m opaque dielectric tile、metallic 0，沿完整 body mortar／neutral backing／四圖／選用 height／ownership；風格化 bounded seed layout，不新增 geometry、透明／transmission、液體／成長／切割／腐敗或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
