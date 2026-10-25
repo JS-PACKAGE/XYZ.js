@@ -5679,6 +5679,26 @@ export const proceduralMaterialPresets = Object.freeze({
     vesselRadius: 0.012,
     vesselCore: 0.008,
   }),
+  tactileswitches: Object.freeze({
+    dark: [11, 14, 13] as const,
+    light: [215, 218, 208] as const,
+    roughness: 0.8,
+    relief: 0.008,
+    cells: 4,
+    straight: 0.21,
+    radius: 0.025,
+    core: 0.017,
+    plateStraight: 0.18,
+    plateRadius: 0.02,
+    plateCore: 0.014,
+    pinX: 0.275,
+    pinY: 0.125,
+    pinStraight: 0.055,
+    pinRadius: 0.018,
+    pinCore: 0.013,
+    plungerRadius: 0.07,
+    plungerCore: 0.06,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6273,4 +6293,5 @@ export const proceduralTileMeters = Object.freeze({
   chioggiabeetcuts: 0.24,
   flatflexcables: 0.24,
   celerycuts: 0.24,
+  tactileswitches: 0.24,
 });

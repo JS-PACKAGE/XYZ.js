@@ -605,7 +605,8 @@ export type ProceduralMaterialKind =
   | 'rubbergrommets'
   | 'chioggiabeetcuts'
   | 'flatflexcables'
-  | 'celerycuts';
+  | 'celerycuts'
+  | 'tactileswitches';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1445,6 +1446,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chioggiabeetcuts',
   'flatflexcables',
   'celerycuts',
+  'tactileswitches',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1649,6 +1651,7 @@ export class ProceduralMaterial {
         this.kind === 'slottedturners' ||
         this.kind === 'dualinlinechips' ||
         this.kind === 'flatflexcables' ||
+        this.kind === 'tactileswitches' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

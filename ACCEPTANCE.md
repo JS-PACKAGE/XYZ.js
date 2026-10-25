@@ -7461,3 +7461,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 590-preset celerycuts、擷取畫面／512 base-color detail，見隨機旋轉開口綠色彎月、薄皮／淺肉／五個暗色點、中性 opaque 底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 celerycuts 並重算既有 589 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6662 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：四腳輕觸開關（tactileswitches）
+
+- 目錄 590→591 種；0.24 m opaque mixed-metal tile、預設 factor 1，四枚低銀色腳／黑外殼／較高金屬蓋／最高黑色實芯按柱。Cached 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact 四層 coherent replacement；housing 蓋腳根清 metal、plunger 蓋上蓋清 metal，cover support 全在 full housing、plunger 全在 full cover，全部 support 限 cell。僅露出腳／蓋入 metal map、neutral backing 為 body/pin union，空 body/pin 略過 grain、空 body 略過 cover/plunger、空 cover 略過 plunger，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、按壓／導電／開關邏輯／耐久認證或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、ownership）：3 seeds ×16 switches，按柱 dielectric height 0.005199–0.005233 m、cover metal 0.003279–0.003305 m、housing dielectric 0.002719–0.002753 m、四腳 metal 0.001839–0.001857 m；按柱比蓋高 >0.00189 m、蓋比外殼高 >0.00052 m、根比腳高 >0.00085 m／metallic 0。2049-point 兩側各恰兩金屬腳，129² 與 exact housing/cover corners／四腳 caps and root occlusion／plunger shoulders／nearest-side owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 591-preset tactileswitches、擷取畫面／512 base-color detail，見四腳銀色方蓋／黑外殼細邊／中央黑按柱、中性 opaque 底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 tactileswitches 並重算既有 590 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6668 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

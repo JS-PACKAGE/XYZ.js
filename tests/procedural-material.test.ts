@@ -628,7 +628,183 @@ const kinds: ProceduralMaterialKind[] = [
   'chioggiabeetcuts',
   'flatflexcables',
   'celerycuts',
+  'tactileswitches',
 ];
+
+describe('Four-legged tactile switches with metal covers and raised insulated black plungers', () => {
+  const p = proceduralMaterialPresets.tactileswitches;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps exactly four low metal leads, an insulated root/housing, a higher metal cover and a still-higher nonmetal solid plunger for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tactileswitches', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          const plunger = out.height;
+          expect(out.metallic).toBe(0);
+          expect(out.color).toBeLessThan(0.111);
+          expect(plunger).toBeGreaterThan(0.005199);
+          expect(plunger).toBeLessThan(0.005233);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.72);
+          expect(out.roughness).toBeLessThanOrEqual(0.745);
+          at(0.22, 0);
+          const housing = out.height;
+          expect(out.metallic).toBe(0);
+          expect(out.color).toBeLessThan(0.19);
+          expect(housing).toBeGreaterThan(0.002719);
+          expect(housing).toBeLessThan(0.002753);
+          for (const [x, y] of [
+            [-0.13, 0],
+            [0.13, 0],
+            [0, -0.13],
+            [0, 0.13],
+          ]) {
+            at(x, y);
+            const cover = out.height;
+            expect(out.metallic).toBe(1);
+            expect(out.color).toBeGreaterThan(0.87);
+            expect(cover).toBeGreaterThan(0.003279);
+            expect(cover).toBeLessThan(0.003305);
+            expect(plunger - cover).toBeGreaterThan(0.00189);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(cover - housing).toBeGreaterThan(0.00052);
+          }
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1]) {
+              at(sx * p.pinX, sy * p.pinY);
+              const pin = out.height;
+              expect(out.metallic).toBe(1);
+              expect(pin).toBeGreaterThan(0.001839);
+              expect(pin).toBeLessThan(0.001857);
+              expect(out.occlusion).toBeCloseTo(0.97, 12);
+              at(sx * 0.215, sy * p.pinY);
+              expect(out.metallic).toBe(0);
+              expect(out.height - pin).toBeGreaterThan(0.00085);
+              expect(out.mortar).toBe(0);
+            }
+          for (const sx of [-1, 1]) {
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              at(sx * p.pinX, -0.19 + (0.38 * i) / 2048);
+              const metal = out.metallic > 0.9;
+              if (metal && !previous) runs++;
+              previous = metal;
+            }
+            expect(runs).toBe(2);
+          }
+          at(0, 0.29);
+          expect(out.metallic).toBe(0);
+          expect(out.height).toBeLessThan(0.000201);
+          expect(out.mortar).toBe(1);
+        }
+    },
+  );
+  it('keeps all rounded housing/cover corners, four lead caps and root occlusion, solid plunger shoulders, nearest-side owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tactileswitches', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const [straight, radius] of [
+            [p.straight, p.radius],
+            [p.straight, p.core],
+            [p.plateStraight, p.plateRadius],
+            [p.plateStraight, p.plateCore],
+          ])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                c = Math.cos(angle),
+                s = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  Math.sign(c) * straight + radius * c,
+                  Math.sign(s) * straight + radius * s,
+                ),
+              );
+            }
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (const radius of [p.pinRadius, p.pinCore])
+                for (let i = 0; i < 32; i++) {
+                  const angle = (i * Math.PI) / 16,
+                    c = Math.cos(angle),
+                    s = Math.sin(angle);
+                  check(
+                    ...uv(
+                      col,
+                      row,
+                      sx * p.pinX + Math.sign(c) * p.pinStraight + radius * c,
+                      sy * p.pinY + radius * s,
+                    ),
+                  );
+                }
+          for (const radius of [p.plungerRadius, p.plungerCore])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Open crescent celery cuts with pale flesh, thin rind and five solid vascular dimples', () => {
   const p = proceduralMaterialPresets.celerycuts;
@@ -28821,6 +28997,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'slottedturners' &&
           kind !== 'dualinlinechips' &&
           kind !== 'flatflexcables' &&
+          kind !== 'tactileswitches' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -28844,6 +29021,7 @@ describe('periodic procedural material fields', () => {
         kind === 'ballbearingfaces' ||
         kind === 'dualinlinechips' ||
         kind === 'flatflexcables' ||
+        kind === 'tactileswitches' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -38249,6 +38427,7 @@ describe('procedural preset acquisition and ownership', () => {
     'slottedturners',
     'dualinlinechips',
     'flatflexcables',
+    'tactileswitches',
     'standingseam',
     'damascus',
     'castiron',
@@ -38310,6 +38489,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'slottedturners' ||
           kind === 'dualinlinechips' ||
           kind === 'flatflexcables' ||
+          kind === 'tactileswitches' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

@@ -729,6 +729,8 @@
 
 `celerycuts` 預算 16 rotations／tones、五個 vascular centers、128² grain 與 squared ellipse／circle reciprocals。Outer ellipse 減 offset notch 的 smooth products 定開口 body，較小 outer／較大 notch 定 pale flesh，flesh 支撐全在 full body；五圈 smooth vascular product union 支撐全在 full flesh，形成較暗較低 solid dimple。Crescent 支撐限 cell，外皮／果肉 coherent replacement，body 零略過 grain／flesh、flesh 零略過 vascular。採樣無配置／hash／sqrt／trig；neutral opaque backing、非閉環、非透明孔。不新增 geometry、汁液、切割／生長／營養或物理模擬。
 
+`tactileswitches` 預算 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact 四層：capsule pins→rounded dielectric housing→rounded metal cover→solid black dielectric plunger。Housing 蓋腳根並清 metal，plate support 全在 full body、plunger 全在 full plate，各層 coherent replacement。Metal map 僅露出腳／上蓋、預設 factor 1；neutral backing coverage 為 body／pin union，support 限 cell。空 body/pin 略過 grain、空 body 略過 plate/plunger、空 plate 略過 plunger；採樣無配置／hash／sqrt／trig。不新增 geometry、按壓／導電／開關邏輯／耐久認證或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

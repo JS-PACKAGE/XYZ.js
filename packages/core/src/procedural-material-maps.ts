@@ -1428,6 +1428,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tactileswitches': {
+        const p = proceduralMaterialPresets.tactileswitches,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          plateSquared = p.plateRadius * p.plateRadius,
+          inversePlate = 1 / (plateSquared - p.plateCore * p.plateCore),
+          pinSquared = p.pinRadius * p.pinRadius,
+          inversePin = 1 / (pinSquared - p.pinCore * p.pinCore),
+          plungerSquared = p.plungerRadius * p.plungerRadius,
+          inversePlunger = 1 / (plungerSquared - p.plungerCore * p.plungerCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x13911);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13913);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.straight),
+            by = Math.max(0, Math.abs(y) - p.straight),
+            body = smooth(
+              clamp((radiusSquared - bx * bx - by * by) * inverseBody),
+            ),
+            px = Math.max(0, Math.abs(Math.abs(x) - p.pinX) - p.pinStraight),
+            py = Math.abs(y) - p.pinY,
+            pin = smooth(clamp((pinSquared - px * px - py * py) * inversePin));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = (1 - body) * (1 - pin);
+          if (body === 0 && pin === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color += pin * (0.84 + 0.06 * tone + 0.02 * grain - color);
+          height += pin * (0.23 + 0.002 * grain - height);
+          roughness += pin * (0.26 + 0.02 * grain - roughness);
+          occlusion += pin * (0.97 - occlusion);
+          metallic = pin;
+          if (body === 0) return;
+          color += body * (0.13 + 0.03 * tone + 0.02 * grain - color);
+          height += body * (0.34 + 0.004 * grain - height);
+          roughness += body * (p.roughness + 0.03 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          metallic *= 1 - body;
+          const ax = Math.max(0, Math.abs(x) - p.plateStraight),
+            ay = Math.max(0, Math.abs(y) - p.plateStraight),
+            plate = smooth(
+              clamp((plateSquared - ax * ax - ay * ay) * inversePlate),
+            );
+          if (plate === 0) return;
+          const plunger = smooth(
+            clamp((plungerSquared - x * x - y * y) * inversePlunger),
+          );
+          color += plate * (0.88 + 0.06 * tone + 0.02 * grain - color);
+          height += plate * (0.41 + 0.003 * grain - height);
+          roughness += plate * (0.29 + 0.02 * grain - roughness);
+          occlusion += plate * (0.99 - occlusion);
+          metallic += plate * (1 - metallic);
+          // The metal cover sits wholly on the molded dielectric housing.
+          // Its central solid black plunger hides the cover, including metal.
+          color += plunger * (0.075 + 0.02 * tone + 0.015 * grain - color);
+          height += plunger * (0.65 + 0.004 * grain - height);
+          roughness += plunger * (0.72 + 0.025 * grain - roughness);
+          occlusion += plunger * (0.99 - occlusion);
+          metallic *= 1 - plunger;
+          return;
+        };
+      }
       case 'celerycuts': {
         const p = proceduralMaterialPresets.celerycuts,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -23521,6 +23598,7 @@ export function createSurfaceSampler(
     kind === 'chioggiabeetcuts' ||
     kind === 'flatflexcables' ||
     kind === 'celerycuts' ||
+    kind === 'tactileswitches' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

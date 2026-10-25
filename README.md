@@ -11,7 +11,7 @@ Browser-native TypeScript game engine for 2D and 3D.
 XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊戲本體，也不包含視覺化編輯器。透過統一的 `xyz.js` 入口使用 `Game`、`Scene` 與遊戲物件，不必直接操作內部 ECS。
 
 - **2D**：Sprite、圖集與動畫、文字、Tilemap、粒子、UI、遮罩與混合。
-- **3D**：glTF／GLB、PBR 與可重用程序式材質（自然、建築、工業與生活素材，含淺肉薄綠皮五維管束凹點開口彎月芹菜切片、單端六銀色露出接點絕緣扁平軟排線、六圈紅白平齊顏料環白實芯 Chioggia 甜菜切片、高內唇低外法蘭閉環凹槽橡膠護線環、中性 opaque 底紅白連續圓鉤長管薄荷拐杖糖、乳白拋光平石面交叉金褐針束金紅石石英，可用 `tint` 配合色盤調色，並可經 `workerPool` 在 Worker 生成、以 `cache` 重用，`heightMap` 可接上 parallax）、光照與陰影、骨骼動畫、instancing、後處理。
+- **3D**：glTF／GLB、PBR 與可重用程序式材質（自然、建築、工業與生活素材，含金屬蓋四腳高黑絕緣按柱輕觸開關、淺肉薄綠皮五維管束凹點開口彎月芹菜切片、單端六銀色露出接點絕緣扁平軟排線、六圈紅白平齊顏料環白實芯 Chioggia 甜菜切片、高內唇低外法蘭閉環凹槽橡膠護線環、中性 opaque 底紅白連續圓鉤長管薄荷拐杖糖，可用 `tint` 配合色盤調色，並可經 `workerPool` 在 Worker 生成、以 `cache` 重用，`heightMap` 可接上 parallax）、光照與陰影、骨骼動畫、instancing、後處理。
 - **遊戲系統**：輸入、物理、導航、場景切換、資源載入、存檔，以及 OPM／取樣音訊。
 - **渲染**：WebGPU、WebGL2、Canvas2D；各 backend 的功能不同，詳見[目前支援契約](docs/CURRENT.md)。
 
@@ -120,7 +120,7 @@ XYZ.js is a browser-native TypeScript game engine with 2D/3D rendering, scenes, 
 
 **Start here:** with Node.js ≥22.13.0, run `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 examples`. Open `http://127.0.0.1:5173/examples/`. For your own project, install a GitHub release tarball or build and pack locally; npm is unpublished. The [English guide](docs/USAGE.md) covers installation, standalone 2D/3D starters and deployment.
 
-- Procedural PBR presets cover natural, architectural, industrial and everyday surfaces, including open crescent celery cuts with pale flesh, thin green rind and five vascular dimples, insulated flat flex cables with six exposed silver contacts at one end, filled Chioggia beet cuts with six flush red pigment rings and solid pale cores, molded rubber grommets with high inner lips and lower grooved flanges, red-white peppermint canes with continuous rounded hooks and long stems on neutral opaque backing, and opaque polished milky rutile quartz with crossed golden-brown needle bundles; maps are generated once and reusable, and `tint` recolors the pigment to fit a palette, `workerPool` generates them off the main thread, `cache` reuses identical generations, and `heightMap` feeds height-map parallax.
+- Procedural PBR presets cover natural, architectural, industrial and everyday surfaces, including four-legged tactile switches with metal covers and raised insulated black plungers, open crescent celery cuts with pale flesh, thin green rind and five vascular dimples, insulated flat flex cables with six exposed silver contacts at one end, filled Chioggia beet cuts with six flush red pigment rings and solid pale cores, molded rubber grommets with high inner lips and lower grooved flanges, and red-white peppermint canes with continuous rounded hooks and long stems on neutral opaque backing; maps are generated once and reusable, and `tint` recolors the pigment to fit a palette, `workerPool` generates them off the main thread, `cache` reuses identical generations, and `heightMap` feeds height-map parallax.
 - `auto` tries WebGPU → WebGL2 → Canvas2D at initialization only. Forced backends do not switch. Runtime GPU/GL recovery uses the same backend; recreate renderer-owned targets and snapshots.
 - Canvas2D is 2D-only and rejects native shader effects. Check `game.graphics.capabilities`; see [current contracts](docs/CURRENT.md) for feature-specific limits.
 - Unlock audio with `await game.audio.unlock()` inside a user gesture. Game pause does not pause audio. WebGPU/AudioWorklet need HTTPS or localhost; if OPM cannot start, samples and streams still play, so check `game.audio.opmState === 'ready'` before playing OPM assets.
@@ -133,7 +133,7 @@ XYZ.js はブラウザーのネイティブ API を使う TypeScript ゲーム�
 
 **まず動かす：** Node.js ≥22.13.0 で `npx pnpm@12.6.0 install`、続いて `npx pnpm@12.6.0 examples` を実行し、`http://127.0.0.1:5173/examples/` を開きます。npm は未公開のため、自分のプロジェクトには GitHub Release の tarball、またはローカルで build／pack したものをインストールしてください。導入・2D／3D starter・配信手順は [English guide](docs/USAGE.md) を参照してください。
 
-- プロシージャル PBR 材質は自然・建築・工業・生活用品の表面（淡い果肉と薄い緑の皮、五つの維管束のくぼみを持つ開いた三日月形のセロリ断面、片端に六本の銀色露出接点を持つ絶縁フラットフレックスケーブル、赤白六重の顔料環と白い実芯を同じ平面に持つキオッジャビーツ切片、高い内側リップと低い外側フランジ、閉じた環状溝を持つ非金属の成形ゴム製グロメット、中性色の不透明な台の上に連続した丸いフックと長い軸を持つ赤白のペパーミントケーン、乳白色の平らな研磨面に二組の金褐色針束が交差する不透明なルチルクォーツを含む）を扱い、マップは一度生成して再利用でき、`tint` で顔料色をパレットに合わせ、`workerPool` で Worker 上に生成し、`cache` で同一条件の生成結果を再利用し、`heightMap` で視差用ハイトマップも生成できます。
+- プロシージャル PBR 材質は自然・建築・工業・生活用品の表面（金属の上蓋と四本の脚、高い絶縁黒色プランジャーを持つタクトスイッチ、淡い果肉と薄い緑の皮、五つの維管束のくぼみを持つ開いた三日月形のセロリ断面、片端に六本の銀色露出接点を持つ絶縁フラットフレックスケーブル、赤白六重の顔料環と白い実芯を同じ平面に持つキオッジャビーツ切片、高い内側リップと低い外側フランジ、閉じた環状溝を持つ非金属の成形ゴム製グロメット、中性色の不透明な台の上に連続した丸いフックと長い軸を持つ赤白のペパーミントケーンを含む）を扱い、マップは一度生成して再利用でき、`tint` で顔料色をパレットに合わせ、`workerPool` で Worker 上に生成し、`cache` で同一条件の生成結果を再利用し、`heightMap` で視差用ハイトマップも生成できます。
 - `auto` は初期化時だけ WebGPU → WebGL2 → Canvas2D を試します。指定 backend は切り替わりません。実行中の GPU／GL 復旧は同じ backend を使い、render targets／snapshots は再作成が必要です。
 - Canvas2D は 2D 専用で native shader effects は非対応です。`game.graphics.capabilities` と[現在の契約](docs/CURRENT.md)で機能を確認してください。
 - 音声はユーザー操作内で `await game.audio.unlock()` が必要です。Game の pause は音声を停止しません。WebGPU／AudioWorklet には HTTPS または localhost が必要です。OPM を起動できない場合もサンプル／ストリーム音声は再生できるため、OPM の再生前に `game.audio.opmState === 'ready'` を確認してください。
