@@ -1441,6 +1441,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rickracktrim': {
+        const p = proceduralMaterialPresets.rickracktrim,
+          phases = new Float64Array(p.columns),
+          tones = new Float64Array(p.columns),
+          grainField = cachedNoise(128, 128, seed ^ 0x15011),
+          waveFrequency = TAU * p.cycles,
+          fiberFrequency = TAU * p.fibers,
+          slopeScale = (TAU * p.amplitude * p.cycles) / p.columns,
+          widthSquared = p.halfWidth * p.halfWidth,
+          inverseWidth = 1 / widthSquared,
+          inverseShoulder = 1 / (widthSquared - p.fullWidth * p.fullWidth),
+          inverseEdge = 1 / (p.edgeBand * p.edgeBand);
+        for (let col = 0; col < p.columns; col++) {
+          phases[col] = TAU * hash(col, 0, seed ^ 0x15013);
+          tones[col] = hash(col, 0, seed ^ 0x15015);
+        }
+        return () => {
+          const uc = u * p.columns,
+            col = Math.floor(uc),
+            phase = waveFrequency * v + phases[col],
+            center = p.amplitude * Math.sin(phase),
+            slope = slopeScale * Math.cos(phase),
+            dx = fract(uc) - 0.5 - center,
+            q = (dx * dx) / (1 + slope * slope),
+            body = smooth(clamp((widthSquared - q) * inverseShoulder));
+          mortar = 1 - body;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const relative = q * inverseWidth,
+            dome = smooth(clamp(1 - relative)),
+            edgeOffset = relative - p.edgePosition,
+            edge = smooth(clamp(1 - edgeOffset * edgeOffset * inverseEdge)),
+            fiber =
+              0.5 +
+              0.5 * Math.cos(fiberFrequency * v + TAU * p.fiberSlant * dx),
+            grain = grainField(u, v);
+          color +=
+            body *
+            (0.42 +
+              0.15 * tones[col] +
+              0.07 * fiber +
+              0.16 * edge +
+              0.02 * grain -
+              color);
+          height +=
+            body *
+            (0.28 +
+              0.04 * dome +
+              0.025 * fiber +
+              0.1 * edge +
+              0.003 * grain -
+              height);
+          roughness +=
+            body *
+            (p.roughness +
+              0.025 * grain -
+              0.025 * fiber -
+              0.035 * edge -
+              roughness);
+          occlusion += body * (0.97 + 0.025 * dome - occlusion);
+        };
+      }
       case 'orthocerasstone': {
         const p = proceduralMaterialPresets.orthocerasstone,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -25435,6 +25500,7 @@ export function createSurfaceSampler(
     kind === 'yagasuricloth' ||
     kind === 'balloonwhisks' ||
     kind === 'orthocerasstone' ||
+    kind === 'rickracktrim' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

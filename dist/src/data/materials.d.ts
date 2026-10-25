@@ -6012,6 +6012,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         septumRadius: 0.0065;
         septumCore: 0.0035;
     }>;
+    rickracktrim: Readonly<{
+        dark: readonly [65, 17, 25];
+        light: readonly [244, 170, 177];
+        roughness: 0.84;
+        relief: 0.002;
+        columns: 6;
+        cycles: 8;
+        amplitude: 0.18;
+        halfWidth: 0.05;
+        fullWidth: 0.045;
+        edgePosition: 0.64;
+        edgeBand: 0.12;
+        fibers: 96;
+        fiberSlant: 4;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6628,4 +6643,5 @@ export declare const proceduralTileMeters: Readonly<{
     yagasuricloth: 0.24;
     balloonwhisks: 0.8;
     orthocerasstone: 0.4;
+    rickracktrim: 0.12;
 }>;

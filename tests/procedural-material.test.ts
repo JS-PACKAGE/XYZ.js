@@ -654,7 +654,156 @@ const kinds: ProceduralMaterialKind[] = [
   'yagasuricloth',
   'balloonwhisks',
   'orthocerasstone',
+  'rickracktrim',
 ];
+
+describe('Rose continuous wavy rickrack trim with twin raised selvedges and diagonal fine weave', () => {
+  const p = proceduralMaterialPresets.rickracktrim;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, v: number) => {
+    const phase = 2 * Math.PI * (p.cycles * v + hash(col, 0, seed ^ 0x15013));
+    return {
+      center: p.amplitude * Math.sin(phase),
+      slope:
+        ((2 * Math.PI * p.amplitude * p.cycles) / p.columns) * Math.cos(phase),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six continuous eight-wave strips with two higher selvedges and slope-corrected width for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rickracktrim', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let col = 0; col < p.columns; col++) {
+        let minimum = Infinity,
+          maximum = -Infinity;
+        for (let i = 0; i <= 1024; i++) {
+          const v = i / 1024,
+            { center, slope } = pose(seed, col, v),
+            projection = Math.sqrt(1 + slope * slope),
+            u = (col + 0.5 + center) / p.columns;
+          sample(u, v, out);
+          const crown = out.height;
+          minimum = Math.min(minimum, crown);
+          maximum = Math.max(maximum, crown);
+          expect(crown).toBeGreaterThan(0.0006399);
+          expect(crown).toBeLessThan(0.0006961);
+          expect(out.occlusion).toBeCloseTo(0.995, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const sign of [-1, 1]) {
+            sample(u + (sign * 0.04 * projection) / p.columns, v, out);
+            expect(out.height - crown).toBeGreaterThan(0.00008);
+            expect(out.occlusion).toBeLessThan(0.98);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            sample(u + (sign * 0.06 * projection) / p.columns, v, out);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0000501);
+          }
+        }
+        expect(maximum - minimum).toBeGreaterThan(0.00004);
+        const widths: number[] = [];
+        for (const t of [0, 0.125, 0.25, 0.375]) {
+          const phase = hash(col, 0, seed ^ 0x15013),
+            v = ((1 - phase + t) % 1) / p.cycles,
+            { slope } = pose(seed, col, v);
+          let runs = 0,
+            width = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            sample((col + i / 4096) / p.columns, v, out);
+            const strip = out.mortar < 0.5;
+            if (strip && !previous) runs++;
+            if (strip) width++;
+            previous = strip;
+          }
+          expect(runs).toBe(1);
+          widths.push(width / 4096 / Math.sqrt(1 + slope * slope));
+        }
+        expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.001);
+        let crossings = 0,
+          previous = false;
+        const start = (1.25 - hash(col, 0, seed ^ 0x15013)) / p.cycles;
+        for (let i = 0; i < 8192; i++) {
+          sample((col + 0.5) / p.columns, start + i / 8192, out);
+          const strip = out.mortar < 0.5;
+          if (strip && !previous) crossings++;
+          previous = strip;
+        }
+        expect(crossings).toBe(16);
+      }
+    },
+  );
+  it('keeps wave extrema slope-adjusted edge shoulders raised selvedge shoulders column owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rickracktrim', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let col = 0; col < p.columns; col++)
+        for (let i = 0; i <= 128; i++) {
+          const v = i / 128,
+            { center, slope } = pose(seed, col, v),
+            projection = Math.sqrt(1 + slope * slope);
+          for (const width of [
+            0,
+            p.fullWidth,
+            p.halfWidth,
+            p.halfWidth * Math.sqrt(p.edgePosition - p.edgeBand),
+            p.halfWidth * Math.sqrt(p.edgePosition),
+            p.halfWidth * Math.sqrt(p.edgePosition + p.edgeBand),
+          ])
+            for (const sign of [-1, 1])
+              check(
+                (col + 0.5 + center + sign * width * projection) / p.columns,
+                v,
+              );
+        }
+    }
+  });
+});
 
 describe('Coplanar pointed orthoceras sections with eight curved septa in dark polished stone', () => {
   const p = proceduralMaterialPresets.orthocerasstone;
