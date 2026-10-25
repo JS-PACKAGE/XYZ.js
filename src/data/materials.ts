@@ -6627,6 +6627,20 @@ export const proceduralMaterialPresets = Object.freeze({
     gap: 0.008,
     shoulder: 0.014,
   }),
+  bismuthhoppers: Object.freeze({
+    dark: [39, 24, 90] as const,
+    light: [245, 205, 119] as const,
+    roughness: 0.3,
+    relief: 0.004,
+    cells: 4,
+    outerHalf: 0.34,
+    innerHalf: 0.115,
+    stepHalves: [0.3025, 0.265, 0.2275, 0.19, 0.1525] as const,
+    shoulder: 0.008,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7269,4 +7283,5 @@ export const proceduralTileMeters = Object.freeze({
   driedchillies: 0.16,
   utilityknifeblades: 0.24,
   windmillparquet: 0.8,
+  bismuthhoppers: 0.16,
 });

@@ -1441,6 +1441,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bismuthhoppers': {
+        const p = proceduralMaterialPresets.bismuthhoppers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16911),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16915);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16917) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16919) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1691b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1691d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (ax >= p.outerHalf || ay >= p.outerHalf) return;
+          const outer =
+              smooth(clamp((p.outerHalf - ax) * inverseShoulder)) *
+              smooth(clamp((p.outerHalf - ay) * inverseShoulder)),
+            inner =
+              smooth(clamp((p.innerHalf - ax) * inverseShoulder)) *
+              smooth(clamp((p.innerHalf - ay) * inverseShoulder)),
+            face = outer * (1 - inner);
+          if (face === 0) return;
+          let level = 0;
+          for (let k = 0; k < p.stepHalves.length; k++) {
+            const half = p.stepHalves[k];
+            level +=
+              smooth(clamp((half - ax) * inverseShoulder)) *
+              smooth(clamp((half - ay) * inverseShoulder));
+          }
+          const metalColor =
+              0.93 - 0.126 * level + 0.02 * poses[i + 5] + 0.015 * grain,
+            metalHeight = 0.78 - 0.075 * level + 0.003 * grain,
+            metalRoughness = p.roughness + 0.025 * level + 0.02 * grain,
+            metalAO = 0.99 - 0.045 * level;
+          color += face * (metalColor - color);
+          height += face * (metalHeight - height);
+          roughness += face * (metalRoughness - roughness);
+          occlusion += face * (metalAO - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+        };
+      }
       case 'windmillparquet': {
         const p = proceduralMaterialPresets.windmillparquet,
           tones = new Float64Array(p.cells * p.cells * 5),
@@ -27437,6 +27500,7 @@ export function createSurfaceSampler(
     kind === 'driedchillies' ||
     kind === 'utilityknifeblades' ||
     kind === 'windmillparquet' ||
+    kind === 'bismuthhoppers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

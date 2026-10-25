@@ -653,7 +653,8 @@ export type ProceduralMaterialKind =
   | 'internaltoothwashers'
   | 'driedchillies'
   | 'utilityknifeblades'
-  | 'windmillparquet';
+  | 'windmillparquet'
+  | 'bismuthhoppers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1541,6 +1542,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'driedchillies',
   'utilityknifeblades',
   'windmillparquet',
+  'bismuthhoppers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1760,6 +1762,7 @@ export class ProceduralMaterial {
         this.kind === 'boullebrassinlay' ||
         this.kind === 'internaltoothwashers' ||
         this.kind === 'utilityknifeblades' ||
+        this.kind === 'bismuthhoppers' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

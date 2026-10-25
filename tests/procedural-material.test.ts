@@ -679,7 +679,237 @@ const kinds: ProceduralMaterialKind[] = [
   'driedchillies',
   'utilityknifeblades',
   'windmillparquet',
+  'bismuthhoppers',
 ];
+
+describe('Gold-violet bismuth-inspired hoppers with six real descending square metallic terraces and an exposed recessed center', () => {
+  const p = proceduralMaterialPresets.bismuthhoppers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16915),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1691b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16917) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16919) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const radii = [0.32125, 0.28375, 0.24625, 0.20875, 0.17125, 0.13375];
+  it.each([0, 1, 0xffffffff])(
+    'keeps six closed square metal plateaus descending toward a genuine exposed nonmetal center instead of circular rings flat paint or solid pyrite cubes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bismuthhoppers', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const [x, y] of [
+            [0, 0],
+            [0.05, 0],
+            [-0.05, 0],
+            [0, 0.05],
+            [0, -0.05],
+            [0.4, 0],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeGreaterThan(0.0000999);
+            expect(out.height).toBeLessThan(0.0001081);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+          }
+          let previous: SurfaceSample | undefined;
+          for (let k = 0; k < radii.length; k++) {
+            const r = radii[k],
+              expected = (0.78 - 0.075 * k) * p.relief;
+            sample(...world(seed, col, row, r, 0), out);
+            const current = { ...out };
+            if (previous) {
+              expect(previous.height - current.height).toBeGreaterThan(
+                0.0002879,
+              );
+              expect(previous.color - current.color).toBeGreaterThan(0.1109);
+              expect(current.roughness - previous.roughness).toBeGreaterThan(
+                0.0049,
+              );
+              expect(previous.occlusion - current.occlusion).toBeCloseTo(
+                0.045,
+                12,
+              );
+            }
+            previous = current;
+            for (let j = 0; j <= 256; j++) {
+              const t = -r + (2 * r * j) / 256;
+              for (const [x, y] of [
+                [r, t],
+                [-r, t],
+                [t, r],
+                [t, -r],
+              ]) {
+                sample(...world(seed, col, row, x, y), out);
+                expect(out.height).toBeGreaterThan(expected - 0.0000001);
+                expect(out.height).toBeLessThan(expected + 0.0000121);
+                expect(out.occlusion).toBeCloseTo(0.99 - 0.045 * k, 12);
+                expect(out.metallic).toBe(1);
+                expect(out.mortar).toBe(0);
+              }
+            }
+          }
+          sample(...world(seed, col, row, 0.32, 0), out);
+          const axisHeight = out.height;
+          sample(...world(seed, col, row, 0.32, 0.32), out);
+          expect(Math.abs(out.height - axisHeight)).toBeLessThan(0.0000121);
+          const cornerHeight = out.height;
+          sample(
+            ...world(seed, col, row, 0.32 / Math.SQRT2, 0.32 / Math.SQRT2),
+            out,
+          );
+          expect(cornerHeight - out.height).toBeGreaterThan(0.00058);
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            sample(...world(seed, col, row, -0.4 + (0.8 * j) / 8192, 0), out);
+            const metal = out.metallic > 0.5;
+            if (metal && !inside) runs++;
+            inside = metal;
+          }
+          expect(runs).toBe(2);
+        }
+    },
+  );
+  it('keeps actual512 all six square rims fully metallic with inward darker rougher more occluded steps and a lower nonmetal center', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('bismuthhoppers', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (
+                (Math.min(511, Math.floor(v * 512)) * 512 +
+                  Math.min(511, Math.floor(u * 512))) *
+                4
+              );
+            },
+            center = index(0, 0);
+          expect(maps.metallicRoughness[center + 2]).toBe(0);
+          for (let k = 0; k < radii.length; k++) {
+            const r = radii[k],
+              at = index(r, 0);
+            for (const [x, y] of [
+              [r, 0],
+              [-r, 0],
+              [0, r],
+              [0, -r],
+              [r, r],
+              [-r, r],
+              [r, -r],
+              [-r, -r],
+            ])
+              expect(maps.metallicRoughness[index(x, y) + 2]).toBe(255);
+            expect(maps.occlusion[at] - maps.occlusion[center]).toBeGreaterThan(
+              115,
+            );
+            if (k) {
+              const prev = index(radii[k - 1], 0);
+              expect(maps.baseColor[prev] - maps.baseColor[at]).toBeGreaterThan(
+                21,
+              );
+              expect(
+                maps.metallicRoughness[at + 1] -
+                  maps.metallicRoughness[prev + 1],
+              ).toBeGreaterThanOrEqual(1);
+              expect(maps.occlusion[prev] - maps.occlusion[at]).toBeGreaterThan(
+                10,
+              );
+            }
+          }
+          const outer = index(radii[0], 0),
+            inner = index(radii[5], 0);
+          expect(maps.baseColor[outer] - maps.baseColor[inner]).toBeGreaterThan(
+            120,
+          );
+          expect(
+            maps.metallicRoughness[inner + 1] -
+              maps.metallicRoughness[outer + 1],
+          ).toBeGreaterThan(25);
+        }
+    }
+  });
+  it('keeps all seven square support/core shoulders product corners absaxis complete pose ownership and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bismuthhoppers', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const half of [p.outerHalf, ...p.stepHalves, p.innerHalf])
+            for (const r of [half, half - p.shoulder])
+              for (let j = 0; j <= 128; j++) {
+                const t = -0.4 + (0.8 * j) / 128;
+                check(...world(seed, col, row, r, t));
+                check(...world(seed, col, row, -r, t));
+                check(...world(seed, col, row, t, r));
+                check(...world(seed, col, row, t, -r));
+              }
+    }
+  });
+});
 
 describe('Five-board windmill parquet with rotating anisotropic wood grain and recessed rough dark wood joints', () => {
   const p = proceduralMaterialPresets.windmillparquet;
@@ -38963,6 +39193,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'boullebrassinlay' &&
           kind !== 'internaltoothwashers' &&
           kind !== 'utilityknifeblades' &&
+          kind !== 'bismuthhoppers' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -48379,6 +48610,7 @@ describe('procedural preset acquisition and ownership', () => {
     'boullebrassinlay',
     'internaltoothwashers',
     'utilityknifeblades',
+    'bismuthhoppers',
     'standingseam',
     'damascus',
     'castiron',
@@ -48455,6 +48687,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'boullebrassinlay' ||
           kind === 'internaltoothwashers' ||
           kind === 'utilityknifeblades' ||
+          kind === 'bismuthhoppers' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

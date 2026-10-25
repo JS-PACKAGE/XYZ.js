@@ -6476,6 +6476,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         gap: 0.008;
         shoulder: 0.014;
     }>;
+    bismuthhoppers: Readonly<{
+        dark: readonly [39, 24, 90];
+        light: readonly [245, 205, 119];
+        roughness: 0.3;
+        relief: 0.004;
+        cells: 4;
+        outerHalf: 0.34;
+        innerHalf: 0.115;
+        stepHalves: readonly [0.3025, 0.265, 0.2275, 0.19, 0.1525];
+        shoulder: 0.008;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7117,4 +7131,5 @@ export declare const proceduralTileMeters: Readonly<{
     driedchillies: 0.16;
     utilityknifeblades: 0.24;
     windmillparquet: 0.8;
+    bismuthhoppers: 0.16;
 }>;
