@@ -641,7 +641,8 @@ export type ProceduralMaterialKind =
   | 'conicalsampletubes'
   | 'botryoidalcopper'
   | 'pencilshavings'
-  | 'papayacuts';
+  | 'papayacuts'
+  | 'sewingthimbles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1517,6 +1518,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'botryoidalcopper',
   'pencilshavings',
   'papayacuts',
+  'sewingthimbles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1732,6 +1734,7 @@ export class ProceduralMaterial {
         this.kind === 'brassjinglebells' ||
         this.kind === 'coaxialcablecuts' ||
         this.kind === 'botryoidalcopper' ||
+        this.kind === 'sewingthimbles' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

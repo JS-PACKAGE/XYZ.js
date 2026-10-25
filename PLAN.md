@@ -793,6 +793,8 @@
 
 同輪追加 `papayacuts`（木瓜切面），目錄 625→626 種：seeded rotated 窄外皮／高亮厚橙果肉／低長橢圓種腔／28 顆獨立凸起深色種子；非 passionfruitslice 各自 jelly sacs 中的 kernel pigment。高度順序 flesh>seed>pit，kernel 改 height／roughness／AO、非黑點假種子或穿孔。0.16 m opaque dielectric tile、metallic 0，沿完整 body mortar／neutral backing／四圖／選用 height／ownership；風格化 bounded seed layout，不新增 geometry、透明／transmission、液體／成長／切割／腐敗或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `sewingthimbles`（銀色頂針表面），目錄 626→627 種：封圓頂／上窄下寬 silver-colored body／24 盲凹點／較高平滑更寬下捲邊，非 crowncaps 齒緣圓蓋或 knurledmetal 交叉菱紋。盲凹點低暗粗、仍同 body/rim metallic 1、不是 metallic 0 打孔；完整 silhouette mortar 0、預設 factor 1、backing M0。0.16 m opaque metal/dielectric tile，沿四圖／選用 height／ownership；僅 front-face shading，不新增 geometry、透明孔、真內腔、縫紉／穿刺／碰撞／變形／物理模擬或防護額定；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

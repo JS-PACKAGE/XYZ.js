@@ -667,7 +667,306 @@ const kinds: ProceduralMaterialKind[] = [
   'botryoidalcopper',
   'pencilshavings',
   'papayacuts',
+  'sewingthimbles',
 ];
+
+describe('Closed tapered silver thimble faces with24 blind metallic dimples and a higher smoother rolled lower lip', () => {
+  const p = proceduralMaterialPresets.sewingthimbles;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15d15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15d1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15d17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15d19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const center = (
+    seed: number,
+    col: number,
+    row: number,
+    sx: number,
+    sy: number,
+  ) =>
+    [
+      (sx + 0.5 - p.columns / 2) * p.pitchX +
+        p.dimpleJitter *
+          (2 * hash(col * p.columns + sx, row * p.rows + sy, seed ^ 0x15d21) -
+            1),
+      (sy + 0.5) * p.pitchY -
+        p.originY +
+        p.dimpleJitter *
+          (2 * hash(col * p.columns + sx, row * p.rows + sy, seed ^ 0x15d23) -
+            1),
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps24 truly lower blind dimples metallic inside a closed narrower-top wider-bottom thimble with a higher rolled lip for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sewingthimbles', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, -0.27), out);
+          const cap = out.height,
+            capRough = out.roughness;
+          expect(cap).toBeGreaterThan(0.0023199);
+          expect(cap).toBeLessThan(0.0023321);
+          expect(out.occlusion).toBe(0.98);
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+          for (const x of [-0.22, 0, 0.22]) {
+            sample(...world(seed, col, row, x, p.rimCenter), out);
+            expect(out.height).toBeGreaterThan(0.0026399);
+            expect(out.height).toBeLessThan(0.0026521);
+            expect(out.height - cap).toBeGreaterThan(0.0003079);
+            expect(capRough - out.roughness).toBeGreaterThan(0.1599);
+            expect(out.occlusion).toBe(1);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+          }
+          for (let sy = 0; sy < p.rows; sy++) {
+            for (let sx = 0; sx < p.columns; sx++) {
+              const [x, y] = center(seed, col, row, sx, sy);
+              sample(...world(seed, col, row, x, y), out);
+              const pit = out.height,
+                pitColor = out.color,
+                pitRough = out.roughness;
+              expect(pit).toBeGreaterThan(0.00142);
+              expect(pit).toBeLessThan(0.001613);
+              expect(out.occlusion).toBeCloseTo(0.73, 12);
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+              for (const gap of [-0.03, 0.03]) {
+                sample(...world(seed, col, row, x, y + gap), out);
+                expect(out.height - pit).toBeGreaterThan(0.00069);
+                expect(out.height - pit).toBeLessThan(0.00075);
+                expect(out.color - pitColor).toBeGreaterThan(0.315);
+                expect(pitRough - out.roughness).toBeGreaterThan(0.2199);
+                expect(out.occlusion).toBe(0.98);
+                expect(out.metallic).toBe(1);
+                expect(out.mortar).toBe(0);
+              }
+            }
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              sample(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  (j / 1024 - 0.5) * p.columns * p.pitchX,
+                  (sy + 0.5) * p.pitchY - p.originY,
+                ),
+                out,
+              );
+              const pit = out.height < 0.0018;
+              if (pit && !previous) runs++;
+              previous = pit;
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+            }
+            expect(runs).toBe(4);
+          }
+          const spans: number[] = [];
+          for (const y of [-0.2, 0.2]) {
+            let runs = 0,
+              inside = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              sample(
+                ...world(seed, col, row, -0.28 + (0.56 * j) / 1024, y),
+                out,
+              );
+              const body = out.mortar < 0.5;
+              if (body) inside++;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            spans.push((0.56 * (inside - 1)) / 1024);
+          }
+          expect(spans[0]).toBeGreaterThan(0.29);
+          expect(spans[0]).toBeLessThan(0.33);
+          expect(spans[1]).toBeGreaterThan(0.4);
+          expect(spans[1]).toBeLessThan(0.44);
+          expect(spans[1] - spans[0]).toBeGreaterThan(0.08);
+          for (const [x, y] of [
+            [0, -0.35],
+            [0, 0.36],
+            [0.27, 0.29],
+            [0.25, 0],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.height).toBeCloseTo(0.0001, 12);
+            expect(out.occlusion).toBe(0.3);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps every actual512 blind pit metallic instead of a dielectric punched hole while resolving its darker rougher finish', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('sewingthimbles', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let sy = 0; sy < p.rows; sy++)
+            for (let sx = 0; sx < p.columns; sx++) {
+              const [x, y] = center(seed, col, row, sx, sy),
+                pit = index(x, y),
+                gap = index(x, y + 0.03);
+              expect(maps.metallicRoughness[pit + 2]).toBe(255);
+              expect(maps.metallicRoughness[gap + 2]).toBe(255);
+              expect(maps.baseColor[gap] - maps.baseColor[pit]).toBeGreaterThan(
+                45,
+              );
+              expect(
+                maps.metallicRoughness[pit + 1] -
+                  maps.metallicRoughness[gap + 1],
+              ).toBeGreaterThan(50);
+            }
+          for (const x of [-0.22, 0, 0.22])
+            expect(maps.metallicRoughness[index(x, p.rimCenter) + 2]).toBe(255);
+        }
+    }
+  });
+  it('keeps smooth taper roundtop squared-positive cap join compact bottom product rolledlip blindpit shoulders complete owners union joins and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      smooth = (x: number) => x * x * (3 - 2 * x);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sewingthimbles', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let sy = 0; sy < p.rows; sy++)
+            for (let sx = 0; sx < p.columns; sx++) {
+              const [x, y] = center(seed, col, row, sx, sy);
+              check(...world(seed, col, row, x, y));
+              for (let j = 0; j < 64; j++) {
+                const angle = (j * Math.PI) / 32;
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    x + p.dimpleRadius * Math.cos(angle),
+                    y + p.dimpleRadius * Math.sin(angle),
+                  ),
+                );
+              }
+            }
+          for (let j = 0; j <= 256; j++) {
+            const y = p.top + ((p.bottom - p.top) * j) / 256,
+              t = (y - p.top) / (p.bottom - p.top),
+              width = p.topWidth + (p.bottomWidth - p.topWidth) * smooth(t),
+              cap = Math.max(0, p.capJoin - y) / p.capRadius;
+            for (const q of [1, 1 - p.edge])
+              if (cap * cap <= q) {
+                const x = width * Math.sqrt(q - cap * cap);
+                check(...world(seed, col, row, x, y));
+                check(...world(seed, col, row, -x, y));
+              }
+            const x = -0.27 + (0.54 * j) / 256;
+            for (const y of [
+              p.top,
+              p.capJoin,
+              p.bottom - p.bottomEdge,
+              p.bottom,
+            ])
+              check(...world(seed, col, row, x, y));
+          }
+          for (let j = 0; j <= 128; j++) {
+            const x = -0.26 + (0.52 * j) / 128,
+              y = p.rimCenter - p.rimY + (2 * p.rimY * j) / 128;
+            for (const k of [
+              -1,
+              -Math.sqrt(1 - p.edge),
+              Math.sqrt(1 - p.edge),
+              1,
+            ]) {
+              check(...world(seed, col, row, k * p.rimX, y));
+              check(...world(seed, col, row, x, p.rimCenter + k * p.rimY));
+            }
+            for (let sy = 0; sy <= p.rows; sy++)
+              check(...world(seed, col, row, x, sy * p.pitchY - p.originY));
+            for (let sx = 0; sx <= p.columns; sx++)
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  (sx - p.columns / 2) * p.pitchX,
+                  -p.originY + (p.rows * p.pitchY * j) / 128,
+                ),
+              );
+          }
+        }
+    }
+  });
+});
 
 describe('Oval ripe papaya cuts with thick orange flesh and28 raised dark kernels in a lower central seed pit', () => {
   const p = proceduralMaterialPresets.papayacuts;
@@ -35991,6 +36290,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'brassjinglebells' &&
           kind !== 'coaxialcablecuts' &&
           kind !== 'botryoidalcopper' &&
+          kind !== 'sewingthimbles' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -45403,6 +45703,7 @@ describe('procedural preset acquisition and ownership', () => {
     'brassjinglebells',
     'coaxialcablecuts',
     'botryoidalcopper',
+    'sewingthimbles',
     'standingseam',
     'damascus',
     'castiron',
@@ -45475,6 +45776,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'brassjinglebells' ||
           kind === 'coaxialcablecuts' ||
           kind === 'botryoidalcopper' ||
+          kind === 'sewingthimbles' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

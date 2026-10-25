@@ -1441,6 +1441,126 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sewingthimbles': {
+        const p = proceduralMaterialPresets.sewingthimbles,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          dimples = new Float64Array(
+            p.cells * p.cells * p.columns * p.rows * 2,
+          ),
+          grainField = cachedNoise(128, 128, seed ^ 0x15d11),
+          inverseSpan = 1 / (p.bottom - p.top),
+          inverseCap = 1 / p.capRadius,
+          inverseEdge = 1 / p.edge,
+          inverseBottom = 1 / p.bottomEdge,
+          inverseRimX = 1 / (p.rimX * p.rimX),
+          inverseRimY = 1 / (p.rimY * p.rimY),
+          inverseDimple = 1 / (p.dimpleRadius * p.dimpleRadius),
+          inversePitchX = 1 / p.pitchX,
+          inversePitchY = 1 / p.pitchY,
+          originX = p.columns * p.pitchX * 0.5;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const face = row * p.cells + col,
+              i = face * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15d15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15d17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15d19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15d1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x15d1d);
+            for (let sy = 0; sy < p.rows; sy++)
+              for (let sx = 0; sx < p.columns; sx++) {
+                const j = ((face * p.rows + sy) * p.columns + sx) * 2,
+                  gx = col * p.columns + sx,
+                  gy = row * p.rows + sy;
+                dimples[j] =
+                  (sx + 0.5) * p.pitchX -
+                  originX +
+                  p.dimpleJitter * (2 * hash(gx, gy, seed ^ 0x15d21) - 1);
+                dimples[j + 1] =
+                  (sy + 0.5) * p.pitchY -
+                  p.originY +
+                  p.dimpleJitter * (2 * hash(gx, gy, seed ^ 0x15d23) - 1);
+              }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            face = row * p.cells + col,
+            i = face * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            rimY = y - p.rimCenter,
+            rim =
+              smooth(clamp((1 - x * x * inverseRimX) * inverseEdge)) *
+              smooth(clamp((1 - rimY * rimY * inverseRimY) * inverseEdge));
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (rim === 1) {
+            const grain = grainField(u, v);
+            color = 0.87 + 0.04 * poses[i + 5] + 0.02 * grain;
+            height = 0.66 + 0.003 * grain;
+            roughness = 0.2 + 0.02 * grain;
+            occlusion = 1;
+            metallic = 1;
+            mortar = 0;
+            return;
+          }
+          const width =
+              p.topWidth +
+              (p.bottomWidth - p.topWidth) *
+                smooth(clamp((y - p.top) * inverseSpan)),
+            across = x / width,
+            cap = Math.max(0, p.capJoin - y) * inverseCap,
+            body =
+              smooth(clamp((1 - across * across - cap * cap) * inverseEdge)) *
+              smooth(clamp((p.bottom - y) * inverseBottom)),
+            shape = 1 - (1 - body) * (1 - rim);
+          if (shape === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5],
+            crown = smooth(clamp(1 - across * across));
+          let surfaceColor = 0.62 + 0.1 * crown + 0.05 * tone + 0.02 * grain,
+            surfaceHeight = 0.42 + 0.16 * crown + 0.003 * grain,
+            surfaceRoughness = p.roughness + 0.02 * grain,
+            surfaceAO = 0.98;
+          if (body > 0) {
+            const sx = Math.floor((x + originX) * inversePitchX),
+              sy = Math.floor((y + p.originY) * inversePitchY);
+            if (sx >= 0 && sx < p.columns && sy >= 0 && sy < p.rows) {
+              const j = ((face * p.rows + sy) * p.columns + sx) * 2,
+                dx = x - dimples[j],
+                dy = y - dimples[j + 1],
+                pit = smooth(clamp(1 - (dx * dx + dy * dy) * inverseDimple));
+              surfaceColor -= 0.34 * pit;
+              surfaceHeight -= p.dimpleDepth * pit;
+              surfaceRoughness += 0.24 * pit;
+              surfaceAO -= 0.25 * pit;
+            }
+          }
+          surfaceColor +=
+            rim * (0.87 + 0.04 * tone + 0.02 * grain - surfaceColor);
+          surfaceHeight += rim * (0.66 + 0.003 * grain - surfaceHeight);
+          surfaceRoughness += rim * (0.2 + 0.02 * grain - surfaceRoughness);
+          surfaceAO += rim * (1 - surfaceAO);
+          color += shape * (surfaceColor - color);
+          height += shape * (surfaceHeight - height);
+          roughness += shape * (surfaceRoughness - roughness);
+          occlusion += shape * (surfaceAO - occlusion);
+          metallic = shape;
+          mortar = 1 - shape;
+        };
+      }
       case 'papayacuts': {
         const p = proceduralMaterialPresets.papayacuts,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26490,6 +26610,7 @@ export function createSurfaceSampler(
     kind === 'botryoidalcopper' ||
     kind === 'pencilshavings' ||
     kind === 'papayacuts' ||
+    kind === 'sewingthimbles' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -6256,6 +6256,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    sewingthimbles: Readonly<{
+        dark: readonly [47, 50, 56];
+        light: readonly [219, 224, 231];
+        roughness: 0.38;
+        relief: 0.004;
+        cells: 4;
+        top: -0.32;
+        bottom: 0.31;
+        topWidth: 0.17;
+        bottomWidth: 0.22;
+        capJoin: -0.12;
+        capRadius: 0.2;
+        edge: 0.12;
+        bottomEdge: 0.025;
+        rimCenter: 0.29;
+        rimX: 0.245;
+        rimY: 0.04;
+        columns: 4;
+        rows: 6;
+        pitchX: 0.065;
+        pitchY: 0.07;
+        originY: 0.215;
+        dimpleRadius: 0.022;
+        dimpleDepth: 0.18;
+        dimpleJitter: 0.0025;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6885,4 +6914,5 @@ export declare const proceduralTileMeters: Readonly<{
     botryoidalcopper: 0.16;
     pencilshavings: 0.16;
     papayacuts: 0.16;
+    sewingthimbles: 0.16;
 }>;
