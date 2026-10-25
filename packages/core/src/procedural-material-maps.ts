@@ -1428,6 +1428,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'popcorn': {
+        const p = proceduralMaterialPresets.popcorn,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          lobes = new Float64Array(p.cells * p.cells * p.lobes * 3),
+          inverseShoulder = 1 / p.shoulder,
+          inverseHullX = 1 / p.hullX,
+          inverseHullY = 1 / p.hullY,
+          inverseHullShoulder = 1 / p.hullShoulder,
+          grainField = cachedNoise(128, 128, seed ^ 0x12e11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col,
+              angle = TAU * hash(col, row, seed ^ 0x12e13);
+            poses[cell * 3] = Math.cos(angle);
+            poses[cell * 3 + 1] = Math.sin(angle);
+            poses[cell * 3 + 2] = hash(col, row, seed ^ 0x12e15);
+            for (let i = 0; i < p.lobes; i++) {
+              const index = (cell * p.lobes + i) * 3,
+                turn =
+                  angle +
+                  (TAU * i) / (p.lobes - 1) +
+                  p.angleJitter * (2 * hash(cell, i, seed ^ 0x12e17) - 1),
+                distance =
+                  i === 0
+                    ? 0
+                    : p.distance +
+                      p.distanceVariation * hash(cell, i, seed ^ 0x12e19),
+                radius =
+                  i === 0
+                    ? p.centerRadius
+                    : p.radius +
+                      p.radiusVariation * hash(cell, i, seed ^ 0x12e1b);
+              lobes[index] = distance * Math.cos(turn);
+              lobes[index + 1] = distance * Math.sin(turn);
+              lobes[index + 2] = 1 / (radius * radius);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            cell = Math.floor(vc) * p.cells + Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5;
+          let outside = 1,
+            outsideDome = 1;
+          for (let i = 0; i < p.lobes; i++) {
+            const index = (cell * p.lobes + i) * 3,
+              dx = x - lobes[index],
+              dy = y - lobes[index + 1],
+              dome = clamp(1 - (dx * dx + dy * dy) * lobes[index + 2]);
+            outside *= 1 - smooth(clamp(dome * inverseShoulder));
+            outsideDome *= 1 - dome * dome;
+          }
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          const puff = 1 - outside;
+          if (puff === 0) return;
+          const pose = cell * 3,
+            hx =
+              (x * poses[pose] + y * poses[pose + 1] - p.hullOffsetX) *
+              inverseHullX,
+            hy =
+              (y * poses[pose] - x * poses[pose + 1] - p.hullOffsetY) *
+              inverseHullY,
+            hullCap = clamp(1 - hy * hy),
+            hullAcross = hx - p.hullBend * hullCap,
+            hull = smooth(
+              clamp(
+                (hullCap * hullCap - hullAcross * hullAcross) *
+                  inverseHullShoulder,
+              ),
+            ),
+            grain = grainField(u, v),
+            tone = poses[pose + 2],
+            dome = 1 - outsideDome;
+          // A coherent union retains irregular puff crowns without stacking
+          // overlapping lobe thickness; the toasted hull remains a low core.
+          color +=
+            puff * (0.7 + 0.18 * dome + 0.06 * tone + 0.035 * grain - color);
+          height += puff * (0.48 + 0.22 * dome + 0.004 * grain - height);
+          roughness += puff * (p.roughness + 0.04 * grain - roughness);
+          occlusion += puff * (0.87 + 0.12 * dome - occlusion);
+          color += hull * (0.2 + 0.06 * tone + 0.035 * grain - color);
+          height += hull * (0.3 + 0.025 * grain - height);
+          roughness += hull * (0.64 + 0.04 * grain - roughness);
+          occlusion += hull * (0.63 - occlusion);
+          return;
+        };
+      }
       case 'triglidesliders': {
         const p = proceduralMaterialPresets.triglidesliders,
           tones = new Float64Array(p.cells * p.cells),
@@ -22770,6 +22861,7 @@ export function createSurfaceSampler(
     kind === 'redcabbagecut' ||
     kind === 'slottedturners' ||
     kind === 'triglidesliders' ||
+    kind === 'popcorn' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

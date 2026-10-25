@@ -658,6 +658,7 @@ try {
     'redcabbagecut',
     'slottedturners',
     'triglidesliders',
+    'popcorn',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

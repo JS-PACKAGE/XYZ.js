@@ -617,7 +617,192 @@ const kinds: ProceduralMaterialKind[] = [
   'redcabbagecut',
   'slottedturners',
   'triglidesliders',
+  'popcorn',
 ];
+
+describe('Irregular popped corn crowns with lower toasted hull cores', () => {
+  const p = proceduralMaterialPresets.popcorn;
+  it.each([0, 1, 0xffffffff])(
+    'keeps irregular pale connected puffs above one lower golden hull, without cotton bracts, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('popcorn', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          let white = 0,
+            hull = 0,
+            whiteHeight = 0,
+            hullHeight = 0;
+          const occupied = new Set<number>();
+          for (let y = 0; y < 96; y++)
+            for (let x = 0; x < 96; x++) {
+              sample(
+                (col + (x + 0.5) / 96) / p.cells,
+                (row + (y + 0.5) / 96) / p.cells,
+                out,
+              );
+              expect(out.metallic).toBe(0);
+              if (out.height > 0.0028) occupied.add(y * 96 + x);
+              if (out.color > 0.85) {
+                white++;
+                whiteHeight += out.height;
+                expect(out.height).toBeGreaterThan(0.0054);
+                expect(out.height).toBeLessThan(0.00705);
+                expect(out.roughness).toBeGreaterThan(0.8);
+              } else if (
+                out.color > 0.19 &&
+                out.color < 0.3 &&
+                out.height > 0.0029 &&
+                out.height < 0.0033
+              ) {
+                hull++;
+                hullHeight += out.height;
+                expect(out.occlusion).toBeLessThan(0.7);
+              }
+            }
+          expect(white / 96 ** 2).toBeGreaterThan(0.08);
+          expect(white / 96 ** 2).toBeLessThan(0.3);
+          expect(hull / 96 ** 2).toBeGreaterThan(0.008);
+          expect(hull / 96 ** 2).toBeLessThan(0.035);
+          expect(whiteHeight / white - hullHeight / hull).toBeGreaterThan(
+            0.002,
+          );
+          // The puff silhouette is one connected kernel, not separate petals.
+          const pending = [occupied.values().next().value!],
+            visited = new Set(pending);
+          while (pending.length) {
+            const index = pending.pop()!,
+              x = index % 96,
+              y = Math.floor(index / 96);
+            for (const next of [
+              x > 0 ? index - 1 : -1,
+              x < 95 ? index + 1 : -1,
+              y > 0 ? index - 96 : -1,
+              y < 95 ? index + 96 : -1,
+            ]) {
+              if (occupied.has(next) && !visited.has(next)) {
+                visited.add(next);
+                pending.push(next);
+              }
+            }
+          }
+          expect(visited.size).toBe(occupied.size);
+          const radii: number[] = [];
+          for (let i = 0; i < 64; i++) {
+            const angle = (i * Math.PI) / 32;
+            let radius = 0;
+            for (let step = 0; step <= 128; step++) {
+              const r = (step * 0.47) / 128;
+              sample(
+                (col + 0.5 + r * Math.cos(angle)) / p.cells,
+                (row + 0.5 + r * Math.sin(angle)) / p.cells,
+                out,
+              );
+              if (out.height > 0.0028) radius = r;
+            }
+            radii.push(radius);
+          }
+          expect(Math.max(...radii) - Math.min(...radii)).toBeGreaterThan(
+            0.065,
+          );
+        }
+    },
+  );
+  it('keeps lobe unions, central hull shoulders, cell owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    // Locate seeded primitive edges without reproducing expected PBR values.
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('popcorn', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 256; y++)
+        for (let x = 0; x <= 256; x++) check(x / 256, y / 256);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cell = row * p.cells + col,
+            angle = 2 * Math.PI * hash(col, row, seed ^ 0x12e13),
+            c = Math.cos(angle),
+            s = Math.sin(angle);
+          const at = (x: number, y: number) =>
+            check((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          for (let lobe = 0; lobe < p.lobes; lobe++) {
+            const turn =
+                angle +
+                (2 * Math.PI * lobe) / (p.lobes - 1) +
+                p.angleJitter * (2 * hash(cell, lobe, seed ^ 0x12e17) - 1),
+              distance =
+                lobe === 0
+                  ? 0
+                  : p.distance +
+                    p.distanceVariation * hash(cell, lobe, seed ^ 0x12e19),
+              radius =
+                lobe === 0
+                  ? p.centerRadius
+                  : p.radius +
+                    p.radiusVariation * hash(cell, lobe, seed ^ 0x12e1b);
+            for (const edge of [radius, radius * Math.sqrt(1 - p.shoulder)])
+              for (let i = 0; i < 24; i++) {
+                const phi = (i * Math.PI) / 12;
+                at(
+                  distance * Math.cos(turn) + edge * Math.cos(phi),
+                  distance * Math.sin(turn) + edge * Math.sin(phi),
+                );
+              }
+          }
+          for (let i = 0; i <= 32; i++) {
+            const y = i / 16 - 1,
+              cap = 1 - y * y;
+            for (const shoulder of [0, p.hullShoulder]) {
+              if (cap * cap < shoulder) continue;
+              for (const sign of [-1, 1]) {
+                const hx =
+                    p.hullOffsetX +
+                    p.hullX *
+                      (p.hullBend * cap +
+                        sign * Math.sqrt(cap * cap - shoulder)),
+                  hy = p.hullOffsetY + p.hullY * y;
+                at(c * hx - s * hy, s * hx + c * hy);
+              }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Pinless molded triglide sliders with two closed strap windows', () => {
   const p = proceduralMaterialPresets.triglidesliders;

@@ -7373,3 +7373,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 579-preset triglidesliders、擷取畫面；512 base-color detail 可見塑膠雙窗／中桿、沒有扣針。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 triglidesliders 並重算既有 578 種（含 beltbuckles）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6605 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：爆米花（popcorn）
+
+- 目錄 579→580 種；0.24 m opaque dielectric tile、metallic 0，seeded 不規則淡白連接膨瓣／低焦金尖殼芯，非 cottonbolls 苞片。Cached 16 poses／112 lobe centers-radii／128×128 grain／reciprocals、compact squared lobe product unions／coherent replacement；角／距離／半徑變化、support 限 cell、重疊不疊加厚度，彎曲 tapered hull 在中心 puff 內覆低殼芯。空 puff 略過 hull／grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、爆裂／烹煮／熱傳導、營養或物理模擬。
+- 初版三個 morphology case 在白色 shoulder 高度下界失敗，C1／determinism 通過；512 detail 暴露白瓣太平／殼芯太圓。補 dome pigment 層次、改彎曲 pointed hull，fresh Bun 3 seeds ×16 粒 96² probe 高白冠面約 10.4–19.3%、低殼芯 1.16–1.24%，白冠最低 >0.00556 m、平均比殼芯高 >0.00330 m。依白冠／殼芯實際分層調整 consumer-visible bounds，再次 targeted 五項通過；延伸 exact lobe／hull shoulder C1 locator 時漏宣告 hash，補上既有獨立 placement helper。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 580-preset popcorn、擷取最終畫面／512 base-color detail，見不規則奶白膨瓣層次及焦金尖芯。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 popcorn 並重算既有 579 種（含 cottonbolls／corncob）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 補齊獨立 edge locator 後 exact C1／morphology／determinism targeted 五項通過。完整 gate：build、typecheck、lint、format:check、179 個測試檔／6610 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
