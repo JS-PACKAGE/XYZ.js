@@ -6337,6 +6337,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    bullionknots: Readonly<{
+        dark: readonly [13, 32, 58];
+        light: readonly [253, 215, 118];
+        roughness: 0.5;
+        relief: 0.004;
+        cells: 4;
+        halfLength: 0.3;
+        radius: 0.075;
+        core: 0.06;
+        endShoulder: 0.025;
+        turns: 12;
+        threads: 64;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6970,4 +6986,5 @@ export declare const proceduralTileMeters: Readonly<{
     boullebrassinlay: 0.24;
     diamondpanelparquet: 0.8;
     dendriticfrost: 0.12;
+    bullionknots: 0.12;
 }>;

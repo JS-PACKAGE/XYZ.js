@@ -1441,6 +1441,64 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bullionknots': {
+        const p = proceduralMaterialPresets.bullionknots,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16111),
+          radiusSquared = p.radius * p.radius,
+          inverseShoulder = 1 / (radiusSquared - p.core * p.core),
+          inverseEndShoulder = 1 / p.endShoulder,
+          ribFrequency = (TAU * p.turns) / (2 * p.halfLength);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x16115);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16117) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16119) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1611b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1611d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            end = Math.max(0, Math.abs(x) - p.halfLength),
+            body = smooth(
+              clamp((radiusSquared - end * end - y * y) * inverseShoulder),
+            ),
+            grain = grainField(u, v),
+            weave =
+              0.5 +
+              0.25 *
+                (Math.cos(TAU * p.threads * u) + Math.cos(TAU * p.threads * v));
+          color = 0.1 + 0.025 * weave + 0.02 * grain;
+          height = 0.1 + 0.01 * weave + 0.002 * grain;
+          roughness = 0.9 + 0.02 * grain;
+          occlusion = 0.97;
+          metallic = 0;
+          mortar = 0;
+          if (body === 0) return;
+          const rib =
+              smooth(clamp((p.halfLength - Math.abs(x)) * inverseEndShoulder)) *
+              (0.5 - 0.5 * Math.cos(ribFrequency * (x + p.halfLength))),
+            yarnColor = 0.75 + 0.12 * rib + 0.04 * poses[i + 5] + 0.01 * grain,
+            yarnHeight = 0.42 + 0.18 * rib + 0.004 * grain,
+            yarnRoughness = p.roughness + 0.08 * (1 - rib) + 0.02 * grain;
+          color += body * (yarnColor - color);
+          height += body * (yarnHeight - height);
+          roughness += body * (yarnRoughness - roughness);
+          occlusion += body * (0.9 + 0.08 * rib - occlusion);
+        };
+      }
       case 'dendriticfrost': {
         const p = proceduralMaterialPresets.dendriticfrost,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26888,6 +26946,7 @@ export function createSurfaceSampler(
     kind === 'boullebrassinlay' ||
     kind === 'diamondpanelparquet' ||
     kind === 'dendriticfrost' ||
+    kind === 'bullionknots' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

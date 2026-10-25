@@ -671,7 +671,263 @@ const kinds: ProceduralMaterialKind[] = [
   'boullebrassinlay',
   'diamondpanelparquet',
   'dendriticfrost',
+  'bullionknots',
 ];
+
+describe('Elongated golden bullion embroidery knots with twelve raised transverse wraps and rounded ends on dark-blue woven cloth', () => {
+  const p = proceduralMaterialPresets.bullionknots;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16115),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1611b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16117) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16119) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps twelve independently raised smoother transverse wraps over a continuous rounded opaque yarn body rather than round French knots or printed stripes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bullionknots', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        pitch = (2 * p.halfLength) / p.turns;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let rib = 0; rib < p.turns; rib++)
+            for (const y of [-0.045, 0, 0.045]) {
+              const x = -p.halfLength + (rib + 0.5) * pitch;
+              sample(...world(seed, col, row, x, y), out);
+              const crest = { ...out };
+              expect(crest.height).toBeGreaterThan(0.0023999);
+              expect(crest.height).toBeLessThan(0.0024161);
+              expect(crest.roughness).toBeGreaterThanOrEqual(0.5);
+              expect(crest.roughness).toBeLessThan(0.5201);
+              expect(crest.occlusion).toBeCloseTo(0.98, 12);
+              expect(crest.metallic).toBe(0);
+              expect(crest.mortar).toBe(0);
+              sample(...world(seed, col, row, x - pitch * 0.5, y), out);
+              expect(out.height).toBeGreaterThan(0.0016799);
+              expect(out.height).toBeLessThan(0.0016961);
+              expect(crest.height - out.height).toBeGreaterThan(0.0007039);
+              expect(crest.color - out.color).toBeGreaterThan(0.1099);
+              expect(out.roughness - crest.roughness).toBeGreaterThan(0.0599);
+              expect(out.occlusion).toBeCloseTo(0.9, 12);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+          let runs = 0,
+            prior = false;
+          for (let j = 0; j <= 4096; j++) {
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                -p.halfLength + (2 * p.halfLength * j) / 4096,
+                0,
+              ),
+              out,
+            );
+            const crest = out.height > 0.0022;
+            if (crest && !prior) runs++;
+            prior = crest;
+            expect(out.height).toBeGreaterThan(0.0016799);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          expect(runs).toBe(12);
+          for (const sign of [-1, 1]) {
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                sign * (p.halfLength + p.core - 0.001),
+                0,
+              ),
+              out,
+            );
+            const end = { ...out };
+            expect(end.height).toBeGreaterThan(0.0016799);
+            expect(end.height).toBeLessThan(0.0016961);
+            expect(end.occlusion).toBeCloseTo(0.9, 12);
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                sign * (p.halfLength + p.radius + 0.01),
+                0,
+              ),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0003999);
+            expect(out.height).toBeLessThan(0.0004481);
+            expect(end.height - out.height).toBeGreaterThan(0.0012319);
+            expect(end.color - out.color).toBeGreaterThan(0.6049);
+            expect(out.roughness - end.roughness).toBeGreaterThan(0.2999);
+            expect(out.occlusion).toBe(0.97);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          const widths: number[] = [];
+          for (const axis of [0, 1]) {
+            let count = 0,
+              runs = 0,
+              prior = false;
+            for (let j = 0; j <= 4096; j++) {
+              const v = -0.4 + (0.8 * j) / 4096;
+              sample(...world(seed, col, row, axis ? 0 : v, axis ? v : 0), out);
+              const yarn = out.height > 0.0012;
+              if (yarn && !prior) runs++;
+              if (yarn) count++;
+              prior = yarn;
+            }
+            expect(runs).toBe(1);
+            widths.push((count * 0.8) / 4096);
+          }
+          expect(widths[0]).toBeGreaterThan(0.72);
+          expect(widths[0]).toBeLessThan(0.751);
+          expect(widths[1]).toBeGreaterThan(0.12);
+          expect(widths[1]).toBeLessThan(0.151);
+          expect(widths[0] / widths[1]).toBeGreaterThan(4.7);
+        }
+    },
+  );
+  it('resolves actual512 twelve warmer smoother bright wraps and their darker rougher recessed yarn valleys without metal or cuts through the cloth', () => {
+    const pitch = (2 * p.halfLength) / p.turns;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('bullionknots', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let rib = 0; rib < p.turns; rib++) {
+            const x = -p.halfLength + (rib + 0.5) * pitch,
+              crest = index(x, 0),
+              valley = index(x - pitch * 0.5, 0);
+            expect(
+              maps.baseColor[crest] - maps.baseColor[valley],
+            ).toBeGreaterThan(14);
+            expect(
+              maps.metallicRoughness[valley + 1] -
+                maps.metallicRoughness[crest + 1],
+            ).toBeGreaterThan(8);
+            expect(
+              maps.occlusion[crest] - maps.occlusion[valley],
+            ).toBeGreaterThan(11);
+            expect(maps.metallicRoughness[crest + 2]).toBe(0);
+            expect(maps.metallicRoughness[valley + 2]).toBe(0);
+          }
+          const cap = index(p.halfLength + 0.03, 0),
+            cloth = index(p.halfLength + p.radius + 0.025, 0);
+          expect(maps.baseColor[cap] - maps.baseColor[cloth]).toBeGreaterThan(
+            140,
+          );
+          expect(
+            maps.metallicRoughness[cloth + 1] - maps.metallicRoughness[cap + 1],
+          ).toBeGreaterThan(70);
+        }
+    }
+  });
+  it('keeps capsule support and core sides rounded endpoint arcs projection tangencies rib endfade absaxis poseowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bullionknots', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const r of [p.core, p.radius])
+            for (let j = 0; j <= 128; j++) {
+              const t = j / 128,
+                x = -p.halfLength + 2 * p.halfLength * t,
+                a = t * 2 * Math.PI;
+              for (const sign of [-1, 1]) {
+                check(...world(seed, col, row, x, sign * r));
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    sign * p.halfLength + r * Math.cos(a),
+                    r * Math.sin(a),
+                  ),
+                );
+              }
+            }
+          for (const x of [
+            0,
+            -p.halfLength,
+            p.halfLength,
+            p.halfLength - p.endShoulder,
+            -p.halfLength + p.endShoulder,
+          ])
+            for (let j = 0; j <= 128; j++)
+              check(...world(seed, col, row, x, -0.1 + (0.2 * j) / 128));
+        }
+    }
+  });
+});
 
 describe('Raised rough opaque frost crystals with six connected spokes and24 sixty-degree sidebranches on a smooth dark-blue face', () => {
   const p = proceduralMaterialPresets.dendriticfrost;
