@@ -7381,3 +7381,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 580-preset popcorn、擷取最終畫面／512 base-color detail，見不規則奶白膨瓣層次及焦金尖芯。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 popcorn 並重算既有 579 種（含 cottonbolls／corncob）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 補齊獨立 edge locator 後 exact C1／morphology／determinism targeted 五項通過。完整 gate：build、typecheck、lint、format:check、179 個測試檔／6610 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：雙列直插 IC（dualinlinechips）
+
+- 目錄 580→581 種；0.16 m opaque mixed-metallic tile、factor 1，黑圓角 dielectric 封裝／雙列各七低金屬腳／第一腳實芯凹點。Cached 16 tones／96×96 grain／reciprocals、squared rounded covers／compact mirrored nearest capsule pins／dielectric-over-metal replacement；radius 0.019 <半 pitch 0.045，owner 前 support 歸零、角 support 限 cell。Metal 腳先覆背底、封裝再覆根消 metallic；marker 完全在 full package 內降高度、不成孔。空 body／pin 略過 fields／grain，空 body 略過 marker；採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、連線、電氣／邏輯／熱傳導／焊接或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 封裝、1025-point 各側橫掃精確七 metallic runs；十四 metal leads 為 1、封裝與覆根為 0，黑 top 0.00569–0.00575 m、比 pin 高 >0.0029 m，第一腳凹點 0.00439–0.00445 m、比 top 低 >0.00125 m，AO 0.81–0.83，對角無第二凹點。129² 與 exact rounded package corners／pin shoulders／owners／dimple shoulders／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 581-preset dualinlinechips、擷取畫面／512 base-color detail，見黑封裝、兩側各七銀腳與第一腳凹點。實際 factor 1、metallic B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 dualinlinechips 並重算既有 580 種（含 circuitboard／ceramiccapacitors／axialresistors）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6616 項測試（含新金屬 map extrema／資源 ownership）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

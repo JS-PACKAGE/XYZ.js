@@ -701,6 +701,8 @@
 
 同輪追加 `popcorn`（爆米花），目錄 579→580 種：seeded 不規則淡白膨瓣連成單粒、低焦金尖殼芯，不是 cottonbolls 四白絨球／綠褐苞片。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增食物 geometry、透明孔、爆裂／烹煮／熱傳導、營養或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `dualinlinechips`（雙列直插 IC），目錄 580→581 種：黑色 dielectric 圓角封裝、雙列各七低金屬腳與第一腳定位凹點。0.16 m opaque mixed-metallic tile、factor 1，沿四圖／選用 height／ownership；不新增元件 geometry、透明孔、電路連線／電氣／邏輯／熱傳導／焊接或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

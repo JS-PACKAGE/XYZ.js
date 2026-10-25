@@ -5356,6 +5356,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         hullShoulder: 0.35;
         hullBend: 0.28;
     }>;
+    dualinlinechips: Readonly<{
+        dark: readonly [3, 5, 7];
+        light: readonly [220, 229, 232];
+        roughness: 0.72;
+        relief: 0.01;
+        cells: 4;
+        straightX: 0.12;
+        straightY: 0.3;
+        radius: 0.035;
+        core: 0.025;
+        pinsPerSide: 7;
+        pinPitch: 0.09;
+        pinX: 0.23;
+        pinStraight: 0.08;
+        pinRadius: 0.019;
+        pinCore: 0.013;
+        markerX: -0.075;
+        markerY: -0.235;
+        markerRadius: 0.027;
+        markerCore: 0.018;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5939,4 +5960,5 @@ export declare const proceduralTileMeters: Readonly<{
     slottedturners: 0.32;
     triglidesliders: 0.16;
     popcorn: 0.24;
+    dualinlinechips: 0.16;
 }>;

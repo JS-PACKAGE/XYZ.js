@@ -595,7 +595,8 @@ export type ProceduralMaterialKind =
   | 'redcabbagecut'
   | 'slottedturners'
   | 'triglidesliders'
-  | 'popcorn';
+  | 'popcorn'
+  | 'dualinlinechips';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1425,6 +1426,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'slottedturners',
   'triglidesliders',
   'popcorn',
+  'dualinlinechips',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1627,6 +1629,7 @@ export class ProceduralMaterial {
         this.kind === 'sewingsnaps' ||
         this.kind === 'ceramiccapacitors' ||
         this.kind === 'slottedturners' ||
+        this.kind === 'dualinlinechips' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

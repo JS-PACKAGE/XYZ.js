@@ -618,7 +618,141 @@ const kinds: ProceduralMaterialKind[] = [
   'slottedturners',
   'triglidesliders',
   'popcorn',
+  'dualinlinechips',
 ];
+
+describe('Dual inline chips with fourteen metal leads and one recessed pin-one mark', () => {
+  const p = proceduralMaterialPresets.dualinlinechips;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two rows of seven lower metal pins covered at their roots by one dark dielectric package for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dualinlinechips', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0);
+          const top = out.height;
+          expect(top).toBeGreaterThan(0.00569);
+          expect(top).toBeLessThan(0.00575);
+          expect(out.color).toBeLessThan(0.15);
+          expect(out.metallic).toBe(0);
+          at(p.markerX, p.markerY);
+          expect(top - out.height).toBeGreaterThan(0.00125);
+          expect(out.height).toBeGreaterThan(0.00439);
+          expect(out.height).toBeLessThan(0.00445);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeGreaterThan(0.81);
+          expect(out.occlusion).toBeLessThan(0.83);
+          at(-p.markerX, -p.markerY);
+          expect(Math.abs(out.height - top)).toBeLessThan(0.00004);
+          for (const side of [-1, 1]) {
+            for (let pin = -3; pin <= 3; pin++) {
+              at(side * p.pinX, pin * p.pinPitch);
+              expect(out.metallic).toBe(1);
+              expect(out.color).toBeGreaterThan(0.87);
+              expect(out.roughness).toBeLessThan(0.27);
+              expect(top - out.height).toBeGreaterThan(0.0029);
+              at(side * 0.135, pin * p.pinPitch);
+              expect(out.metallic).toBe(0);
+              expect(out.height).toBeGreaterThan(0.00569);
+            }
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 1024; i++) {
+              at(side * p.pinX, (i / 1024 - 0.5) * 0.7);
+              const metal = out.metallic > 0.9;
+              if (metal && !previous) runs++;
+              previous = metal;
+            }
+            expect(runs).toBe(7);
+          }
+          at(0, -0.4);
+          expect(out.height).toBeLessThan(0.00026);
+          expect(out.metallic).toBe(0);
+        }
+    },
+  );
+  it('keeps package corners, pin shoulders and nearest owners, pin-one dimple and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dualinlinechips', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => check(...uv(col, row, x, y));
+          for (const radius of [p.markerRadius, p.markerCore])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              at(
+                p.markerX + radius * Math.cos(angle),
+                p.markerY + radius * Math.sin(angle),
+              );
+            }
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (const radius of [p.radius, p.core])
+                for (let i = 0; i <= 8; i++) {
+                  const angle = (i * Math.PI) / 16;
+                  at(
+                    sx * (p.straightX + radius * Math.cos(angle)),
+                    sy * (p.straightY + radius * Math.sin(angle)),
+                  );
+                }
+          for (const side of [-1, 1])
+            for (let pin = -3; pin <= 3; pin++)
+              for (const radius of [p.pinRadius, p.pinCore])
+                for (let i = 0; i <= 16; i++) {
+                  const angle = (i * Math.PI) / 16;
+                  at(
+                    side * (p.pinX + p.pinStraight + radius * Math.sin(angle)),
+                    pin * p.pinPitch + radius * Math.cos(angle),
+                  );
+                  at(side * p.pinX, pin * p.pinPitch + radius);
+                  at(side * p.pinX, (pin + 0.5) * p.pinPitch);
+                }
+        }
+    }
+  });
+});
 
 describe('Irregular popped corn crowns with lower toasted hull cores', () => {
   const p = proceduralMaterialPresets.popcorn;
@@ -27459,6 +27593,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'ceramiccapacitors' &&
           kind !== 'ballbearingfaces' &&
           kind !== 'slottedturners' &&
+          kind !== 'dualinlinechips' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -27480,6 +27615,7 @@ describe('periodic procedural material fields', () => {
         kind === 'sewingsnaps' ||
         kind === 'ceramiccapacitors' ||
         kind === 'ballbearingfaces' ||
+        kind === 'dualinlinechips' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -36883,6 +37019,7 @@ describe('procedural preset acquisition and ownership', () => {
     'ceramiccapacitors',
     'ballbearingfaces',
     'slottedturners',
+    'dualinlinechips',
     'standingseam',
     'damascus',
     'castiron',
@@ -36942,6 +37079,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'ceramiccapacitors' ||
           kind === 'ballbearingfaces' ||
           kind === 'slottedturners' ||
+          kind === 'dualinlinechips' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

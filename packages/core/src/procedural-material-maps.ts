@@ -1428,6 +1428,75 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dualinlinechips': {
+        const p = proceduralMaterialPresets.dualinlinechips,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          pinSquared = p.pinRadius * p.pinRadius,
+          inversePin = 1 / (pinSquared - p.pinCore * p.pinCore),
+          markerSquared = p.markerRadius * p.markerRadius,
+          inverseMarker = 1 / (markerSquared - p.markerCore * p.markerCore),
+          inversePitch = 1 / p.pinPitch,
+          lastPin = (p.pinsPerSide - 1) / 2,
+          grainField = cachedNoise(96, 96, seed ^ 0x12f11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12f13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.straightX),
+            by = Math.max(0, Math.abs(y) - p.straightY),
+            body = smooth(
+              clamp((radiusSquared - bx * bx - by * by) * inverseBody),
+            ),
+            owner = Math.max(
+              -lastPin,
+              Math.min(lastPin, Math.round(y * inversePitch)),
+            ),
+            px = Math.max(0, Math.abs(Math.abs(x) - p.pinX) - p.pinStraight),
+            py = y - owner * p.pinPitch,
+            pin = smooth(clamp((pinSquared - px * px - py * py) * inversePin));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          if (body === 0 && pin === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (pin > 0) {
+            color += pin * (0.88 + 0.06 * tone + 0.025 * grain - color);
+            height += pin * (0.27 + 0.003 * grain - height);
+            roughness += pin * (0.24 + 0.025 * grain - roughness);
+            occlusion += pin * (0.98 - occlusion);
+            metallic = pin;
+          }
+          if (body === 0) return;
+          const mx = x - p.markerX,
+            my = y - p.markerY,
+            marker = smooth(
+              clamp((markerSquared - mx * mx - my * my) * inverseMarker),
+            );
+          // The molded dielectric covers all lead roots. Its pin-one mark
+          // is a recessed solid dimple, not another lead or a drilled hole.
+          color +=
+            body * (0.1 + 0.025 * tone + 0.02 * grain - 0.045 * marker - color);
+          height += body * (0.57 + 0.004 * grain - 0.13 * marker - height);
+          roughness += body * (p.roughness + 0.035 * grain - roughness);
+          occlusion += body * (0.99 - 0.17 * marker - occlusion);
+          metallic *= 1 - body;
+          return;
+        };
+      }
       case 'popcorn': {
         const p = proceduralMaterialPresets.popcorn,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -22862,6 +22931,7 @@ export function createSurfaceSampler(
     kind === 'slottedturners' ||
     kind === 'triglidesliders' ||
     kind === 'popcorn' ||
+    kind === 'dualinlinechips' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
