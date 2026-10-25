@@ -748,6 +748,7 @@ try {
     'saffronthreads',
     'fishhooks',
     'violinfholes',
+    'palmiers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

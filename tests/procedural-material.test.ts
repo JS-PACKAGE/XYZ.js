@@ -710,7 +710,321 @@ const kinds: ProceduralMaterialKind[] = [
   'saffronthreads',
   'fishhooks',
   'violinfholes',
+  'palmiers',
 ];
+
+describe('Golden heart-shaped palmiers with two genuine mirrored recessed caramel spirals a central fold a notched double crown and a tapered lower point', () => {
+  const p = proceduralMaterialPresets.palmiers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18815),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1881b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18817) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18819) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps two full two-turn lower caramel coil traces with intact same-radius opposite-angle crumb controls a real center crease and heart silhouette for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('palmiers', seed),
+        out = empty(),
+        range = p.spiralOuterQ - p.spiralInnerQ;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          for (const side of [-1, 1]) {
+            for (let j = 0; j <= 1024; j++) {
+              const theta = (4 * Math.PI * j) / 1024,
+                q =
+                  p.spiralInnerQ +
+                  (range * (p.spiralPhase + theta / (2 * Math.PI))) /
+                    p.spiralTurns,
+                r = Math.sqrt(q),
+                dx = p.spiralRadiusX * r * Math.cos(theta),
+                dy = p.spiralRadiusY * r * Math.sin(theta),
+                coil = at(side * (p.lobeX + dx), p.lobeY + dy),
+                crumb = at(side * (p.lobeX - dx), p.lobeY - dy);
+              expect(coil.height).toBeGreaterThanOrEqual(0.0021599);
+              expect(coil.height).toBeLessThanOrEqual(0.0021721);
+              expect(coil.roughness).toBeGreaterThanOrEqual(0.7099999);
+              expect(coil.roughness).toBeLessThanOrEqual(0.7350001);
+              expect(coil.occlusion).toBeCloseTo(0.95, 12);
+              expect(crumb.occlusion).toBeCloseTo(0.99, 12);
+              expect(crumb.height - coil.height).toBeGreaterThan(0.0002279);
+              expect(crumb.color - coil.color).toBeGreaterThan(0.1749);
+              expect(crumb.roughness - coil.roughness).toBeGreaterThan(0.1049);
+              for (const a of [coil, crumb]) {
+                expect(a.metallic).toBe(0);
+                expect(a.mortar).toBe(0);
+              }
+            }
+            const origin = at(side * p.lobeX, p.lobeY);
+            expect(origin.occlusion).toBeCloseTo(0.99, 12);
+            expect(origin.height).toBeGreaterThanOrEqual(0.0023999);
+          }
+          const fold = at(0, p.lobeY),
+            crumb = at(p.lobeX, p.lobeY);
+          expect(fold.height).toBeGreaterThanOrEqual(0.0022199);
+          expect(fold.height).toBeLessThanOrEqual(0.0022321);
+          expect(fold.occlusion).toBeCloseTo(0.96, 12);
+          expect(fold.mortar).toBe(0);
+          expect(crumb.height - fold.height).toBeGreaterThan(0.0001679);
+          expect(crumb.color - fold.color).toBeGreaterThan(0.0949);
+          expect(fold.roughness - crumb.roughness).toBeGreaterThan(0.0349);
+          for (const side of [-1, 1]) {
+            const crown = at(side * p.lobeX, -0.24),
+              offPoint = at(side * 0.04, 0.27);
+            expect(crown.mortar).toBe(0);
+            expect(crown.occlusion).toBeCloseTo(0.99, 12);
+            expect(offPoint.mortar).toBe(1);
+            expect(offPoint.height).toBeCloseTo(0.0001, 12);
+          }
+          for (const [x, y] of [
+            [0, -0.26],
+            [0, p.tipY],
+          ]) {
+            const back = at(x!, y!);
+            expect(back.mortar).toBe(1);
+            expect(back.height).toBeCloseTo(0.0001, 12);
+            expect(back.occlusion).toBeCloseTo(0.3, 12);
+          }
+          expect(at(0, 0.27).mortar).toBe(0);
+          for (const [y, expected] of [
+            [-0.24, 2],
+            [p.lobeY, 1],
+            [0.27, 1],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = at(-0.34 + (0.68 * j) / 8192, y!),
+                next = a.mortar < 0.1;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+    },
+  );
+  it('writes true lower darker smoother caramel coils versus same-radius opposite-angle crumb and a distinct central fold in actual512 nonmetal PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('palmiers', 512, seed, {
+          heightMap: true,
+        }),
+        range = p.spiralOuterQ - p.spiralInnerQ;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (const side of [-1, 1])
+            for (let j = 0; j <= 6; j++) {
+              const theta = (j * Math.PI) / 2,
+                q =
+                  p.spiralInnerQ +
+                  (range * (p.spiralPhase + theta / (2 * Math.PI))) /
+                    p.spiralTurns,
+                r = Math.sqrt(q),
+                dx = p.spiralRadiusX * r * Math.cos(theta),
+                dy = p.spiralRadiusY * r * Math.sin(theta),
+                coil = pixel(side * (p.lobeX + dx), p.lobeY + dy),
+                crumb = pixel(side * (p.lobeX - dx), p.lobeY - dy);
+              expect(maps.baseColor[crumb]!).toBeGreaterThan(210);
+              expect(maps.baseColor[crumb + 1]!).toBeGreaterThan(160);
+              expect(maps.baseColor[crumb + 2]!).toBeGreaterThan(90);
+              expect(
+                maps.baseColor[crumb + 1]! - maps.baseColor[coil + 1]!,
+              ).toBeGreaterThan(24);
+              expect(
+                maps.height![crumb]! - maps.height![coil]!,
+              ).toBeGreaterThan(20);
+              expect(maps.height![coil]!).toBeGreaterThan(220);
+              expect(maps.height![crumb]!).toBeGreaterThan(245);
+              expect(
+                maps.metallicRoughness[crumb + 1]! -
+                  maps.metallicRoughness[coil + 1]!,
+              ).toBeGreaterThan(24);
+              expect(
+                maps.occlusion[crumb]! - maps.occlusion[coil]!,
+              ).toBeGreaterThan(8);
+              expect(maps.occlusion[coil]!).toBeGreaterThan(235);
+              for (const i of [coil, crumb])
+                expect(maps.metallicRoughness[i + 2]).toBe(0);
+            }
+          const fold = pixel(0, p.lobeY),
+            crumb = pixel(p.lobeX, p.lobeY);
+          expect(
+            maps.baseColor[crumb + 1]! - maps.baseColor[fold + 1]!,
+          ).toBeGreaterThan(12);
+          expect(maps.height![crumb]! - maps.height![fold]!).toBeGreaterThan(
+            16,
+          );
+          expect(
+            maps.metallicRoughness[fold + 1]! -
+              maps.metallicRoughness[crumb + 1]!,
+          ).toBeGreaterThan(7);
+          expect(
+            maps.occlusion[crumb]! - maps.occlusion[fold]!,
+          ).toBeGreaterThan(6);
+          expect(maps.metallicRoughness[fold + 2]).toBe(0);
+          for (const [x, y] of [
+            [0, -0.26],
+            [0, p.tipY + 0.02],
+            [-0.045, 0.27],
+            [0.045, 0.27],
+          ]) {
+            const i = pixel(x!, y!);
+            expect(maps.occlusion[i]!).toBeLessThan(80);
+            expect(maps.height![i]).toBe(0);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats golden heart silhouette double caramel coils fold and crumb PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('palmiers', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps lobe union silhouettes signed heart-tip planes central crease origin windows radial gates phase-band ties atan2 branch mirror owner pose grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ],
+      range = p.spiralOuterQ - p.spiralInnerQ,
+      triangleSlope = p.baseHalfX / (p.tipY - p.baseY);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('palmiers', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            local(0, -0.3 + 0.62 * t);
+            for (const r of [p.jointRadius, p.jointCore])
+              for (const sign of [-1, 1]) local(sign * r, -0.3 + 0.62 * t);
+            for (const side of [-1, 1]) {
+              for (const q of [1, p.faceCoreQ])
+                local(
+                  side * p.lobeX + p.lobeRadiusX * Math.sqrt(q) * ct,
+                  p.lobeY + p.lobeRadiusY * Math.sqrt(q) * st,
+                );
+              local(side * p.lobeX, p.lobeY);
+              for (const q of [
+                p.spiralInnerQ,
+                p.spiralFullInnerQ,
+                p.spiralFullOuterQ,
+                p.spiralOuterQ,
+              ])
+                local(
+                  side * (p.lobeX + p.spiralRadiusX * Math.sqrt(q) * ct),
+                  p.lobeY + p.spiralRadiusY * Math.sqrt(q) * st,
+                );
+              const angle = 4 * Math.PI * t;
+              for (const delta of [
+                -p.spiralBand,
+                -p.spiralCore,
+                p.spiralCore,
+                p.spiralBand,
+                0.5,
+              ]) {
+                const q =
+                    p.spiralInnerQ +
+                    (range * (p.spiralPhase + angle / (2 * Math.PI) + delta)) /
+                      p.spiralTurns,
+                  r = Math.sqrt(q);
+                local(
+                  side * (p.lobeX + p.spiralRadiusX * r * Math.cos(angle)),
+                  p.lobeY + p.spiralRadiusY * r * Math.sin(angle),
+                );
+              }
+              const q = p.spiralInnerQ + 0.01 + (range - 0.02) * t;
+              local(side * (p.lobeX - p.spiralRadiusX * Math.sqrt(q)), p.lobeY);
+            }
+            const y =
+                p.baseY -
+                p.triangleOverlap -
+                0.02 +
+                (p.tipY - p.baseY + p.triangleOverlap + 0.04) * t,
+              width = (p.tipY - y) * triangleSlope;
+            for (const side of [-1, 1])
+              for (const level of [0, p.planeShoulder])
+                local(side * (width - level), y);
+            for (const base of [p.baseY - p.triangleOverlap, p.baseY])
+              local(-0.32 + 0.64 * t, base);
+          }
+        }
+    }
+  });
+});
 
 describe('Paired mirrored cubic violin f holes in continuous warm wood with connected round terminal eyes and two genuinely cut side nicks per hole', () => {
   const p = proceduralMaterialPresets.violinfholes;

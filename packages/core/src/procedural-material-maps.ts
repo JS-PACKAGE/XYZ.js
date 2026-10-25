@@ -1441,6 +1441,118 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'palmiers': {
+        const p = proceduralMaterialPresets.palmiers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18811),
+          inverseLobeX = 1 / (p.lobeRadiusX * p.lobeRadiusX),
+          inverseLobeY = 1 / (p.lobeRadiusY * p.lobeRadiusY),
+          inverseFace = 1 / (1 - p.faceCoreQ),
+          triangleSlope = p.baseHalfX / (p.tipY - p.baseY),
+          inverseOverlap = 1 / p.triangleOverlap,
+          inversePlane = 1 / p.planeShoulder,
+          inverseSpiralX = 1 / p.spiralRadiusX,
+          inverseSpiralY = 1 / p.spiralRadiusY,
+          inverseSpiralInner = 1 / (p.spiralFullInnerQ - p.spiralInnerQ),
+          inverseSpiralOuter = 1 / (p.spiralOuterQ - p.spiralFullOuterQ),
+          phaseScale = p.spiralTurns / (p.spiralOuterQ - p.spiralInnerQ),
+          bandSquared = p.spiralBand * p.spiralBand,
+          inverseBand = 1 / (bandSquared - p.spiralCore * p.spiralCore),
+          jointSquared = p.jointRadius * p.jointRadius,
+          inverseJoint = 1 / (jointSquared - p.jointCore * p.jointCore),
+          reachSquared = p.reach * p.reach;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x18815);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18817) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18819) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1881b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1881d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const fx = u * p.cells,
+            fy = v * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy),
+            i = (row * p.cells + col) * 6,
+            dx = fx - col - 0.5 - poses[i + 2]!,
+            dy = fy - row - 0.5 - poses[i + 3]!,
+            x = (poses[i]! * dx + poses[i + 1]! * dy) * poses[i + 4]!,
+            y = (-poses[i + 1]! * dx + poses[i]! * dy) * poses[i + 4]!;
+          if (x * x + y * y >= reachSquared) return;
+          const ly = y - p.lobeY,
+            lx = x + p.lobeX,
+            rx = x - p.lobeX,
+            left = smooth(
+              clamp(
+                (1 - lx * lx * inverseLobeX - ly * ly * inverseLobeY) *
+                  inverseFace,
+              ),
+            ),
+            right = smooth(
+              clamp(
+                (1 - rx * rx * inverseLobeX - ly * ly * inverseLobeY) *
+                  inverseFace,
+              ),
+            ),
+            width = (p.tipY - y) * triangleSlope,
+            triangle =
+              smooth(clamp((width + x) * inversePlane)) *
+              smooth(clamp((width - x) * inversePlane)) *
+              smooth(clamp((y - p.baseY + p.triangleOverlap) * inverseOverlap));
+          mortar = (1 - left) * (1 - right) * (1 - triangle);
+          if (mortar === 1) return;
+          const body = 1 - mortar,
+            sx = (Math.abs(x) - p.lobeX) * inverseSpiralX,
+            sy = ly * inverseSpiralY,
+            q = sx * sx + sy * sy,
+            joint = smooth(clamp((jointSquared - x * x) * inverseJoint));
+          let spiral = 0;
+          if (q > p.spiralInnerQ && q < p.spiralOuterQ) {
+            // The compact window excludes angular origins and the mirror-owner seam.
+            const phase =
+                (q - p.spiralInnerQ) * phaseScale -
+                Math.atan2(sy, sx) / TAU -
+                p.spiralPhase,
+              distance = phase - Math.floor(phase + 0.5);
+            spiral =
+              smooth(clamp((bandSquared - distance * distance) * inverseBand)) *
+              smooth(clamp((q - p.spiralInnerQ) * inverseSpiralInner)) *
+              smooth(clamp((p.spiralOuterQ - q) * inverseSpiralOuter));
+          }
+          const grain = grainField(u, v),
+            tone = poses[i + 5]!;
+          color +=
+            body *
+            (0.84 +
+              0.035 * tone +
+              0.025 * grain -
+              0.2 * spiral -
+              0.12 * joint -
+              color);
+          height +=
+            body *
+            (0.6 + 0.003 * grain - 0.06 * spiral - 0.045 * joint - height);
+          roughness +=
+            body *
+            (p.roughness +
+              0.025 * grain -
+              0.13 * spiral +
+              0.06 * joint -
+              roughness);
+          occlusion += body * (0.99 - 0.04 * spiral - 0.03 * joint - occlusion);
+        };
+      }
       case 'violinfholes': {
         const p = proceduralMaterialPresets.violinfholes,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -30396,6 +30508,7 @@ export function createSurfaceSampler(
     kind === 'saffronthreads' ||
     kind === 'fishhooks' ||
     kind === 'violinfholes' ||
+    kind === 'palmiers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

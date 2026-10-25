@@ -684,7 +684,8 @@ export type ProceduralMaterialKind =
   | 'rectangularsocketfaces'
   | 'saffronthreads'
   | 'fishhooks'
-  | 'violinfholes';
+  | 'violinfholes'
+  | 'palmiers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1603,6 +1604,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'saffronthreads',
   'fishhooks',
   'violinfholes',
+  'palmiers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
