@@ -618,7 +618,8 @@ export type ProceduralMaterialKind =
   | 'grosgrainribbons'
   | 'azuritemalachite'
   | 'openendspanners'
-  | 'lentilseeds';
+  | 'lentilseeds'
+  | 'blueprintpaper';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1471,6 +1472,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'azuritemalachite',
   'openendspanners',
   'lentilseeds',
+  'blueprintpaper',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

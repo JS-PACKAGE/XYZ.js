@@ -1441,6 +1441,130 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'blueprintpaper': {
+        const p = proceduralMaterialPresets.blueprintpaper,
+          minorSquared = p.minorRadius * p.minorRadius,
+          inverseMinor = 1 / (minorSquared - p.minorCore * p.minorCore),
+          majorSquared = p.majorRadius * p.majorRadius,
+          inverseMajor = 1 / (majorSquared - p.majorCore * p.majorCore),
+          frameOuterSquared = p.frameOuter * p.frameOuter,
+          inverseFrameOuter =
+            1 / (frameOuterSquared - p.frameOuterCore * p.frameOuterCore),
+          frameInnerSquared = p.frameInner * p.frameInner,
+          inverseFrameInner =
+            1 / (frameInnerSquared - p.frameInnerCore * p.frameInnerCore),
+          circleOuterSquared = p.circleOuter * p.circleOuter,
+          inverseCircleOuter =
+            1 / (circleOuterSquared - p.circleOuterCore * p.circleOuterCore),
+          circleInnerSquared = p.circleInner * p.circleInner,
+          inverseCircleInner =
+            1 / (circleInnerSquared - p.circleInnerCore * p.circleInnerCore),
+          strokeSquared = p.strokeRadius * p.strokeRadius,
+          inverseStroke = 1 / (strokeSquared - p.strokeCore * p.strokeCore),
+          inverseFade = 1 / p.axisFade,
+          minorCells = p.cells * p.subdivisions,
+          glyphX = Math.max(
+            p.frameX + p.frameOuter,
+            p.axisX,
+            p.dimensionHalf + p.strokeRadius,
+          ),
+          glyphY = Math.max(
+            p.frameY + p.frameOuter,
+            p.axisY,
+            Math.abs(p.dimensionY) + p.dimensionTick + p.strokeRadius,
+          ),
+          cloudField = cachedNoise(8, 8, seed ^ 0x14611),
+          grainField = cachedNoise(192, 192, seed ^ 0x14613);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            fx = fract(u * minorCells + 0.5) - 0.5,
+            fy = fract(v * minorCells + 0.5) - 0.5,
+            gx = fract(uc + 0.5) - 0.5,
+            gy = fract(vc + 0.5) - 0.5,
+            minorX = smooth(clamp((minorSquared - fx * fx) * inverseMinor)),
+            minorY = smooth(clamp((minorSquared - fy * fy) * inverseMinor)),
+            majorX = smooth(clamp((majorSquared - gx * gx) * inverseMajor)),
+            majorY = smooth(clamp((majorSquared - gy * gy) * inverseMajor)),
+            minor = minorX + minorY - minorX * minorY,
+            major = majorX + majorY - majorX * majorY;
+          let ink = 0;
+          if (ax < glyphX && ay < glyphY) {
+            const bx = Math.max(0, ax - p.frameX),
+              by = Math.max(0, ay - p.frameY),
+              boxSquared = bx * bx + by * by;
+            ink =
+              smooth(
+                clamp((frameOuterSquared - boxSquared) * inverseFrameOuter),
+              ) -
+              smooth(
+                clamp((frameInnerSquared - boxSquared) * inverseFrameInner),
+              );
+            if (ink < 1) {
+              const radialSquared = x * x + y * y,
+                ring =
+                  smooth(
+                    clamp(
+                      (circleOuterSquared - radialSquared) * inverseCircleOuter,
+                    ),
+                  ) -
+                  smooth(
+                    clamp(
+                      (circleInnerSquared - radialSquared) * inverseCircleInner,
+                    ),
+                  );
+              ink += (1 - ink) * ring;
+            }
+            if (ink < 1) {
+              const strokeX = smooth(
+                  clamp((strokeSquared - x * x) * inverseStroke),
+                ),
+                strokeY = smooth(
+                  clamp((strokeSquared - y * y) * inverseStroke),
+                ),
+                horizontal =
+                  strokeY * smooth(clamp((p.axisX - ax) * inverseFade)),
+                vertical =
+                  strokeX * smooth(clamp((p.axisY - ay) * inverseFade));
+              ink +=
+                (1 - ink) * (horizontal + vertical - horizontal * vertical);
+            }
+            if (ink < 1) {
+              const dy = y - p.dimensionY,
+                barX = Math.max(0, ax - p.dimensionHalf),
+                tickX = ax - p.dimensionHalf,
+                tickY = Math.max(0, Math.abs(dy) - p.dimensionTick),
+                bar = smooth(
+                  clamp(
+                    (strokeSquared - barX * barX - dy * dy) * inverseStroke,
+                  ),
+                ),
+                ticks = smooth(
+                  clamp(
+                    (strokeSquared - tickX * tickX - tickY * tickY) *
+                      inverseStroke,
+                  ),
+                );
+              ink += (1 - ink) * (bar + ticks - bar * ticks);
+            }
+          }
+          const grain = grainField(u, v);
+          color = 0.055 + 0.025 * cloudField(u, v) + 0.01 * grain;
+          color += minor * (0.24 + 0.02 * grain - color);
+          color += major * (0.36 + 0.02 * grain - color);
+          color += ink * (0.94 + 0.02 * grain - color);
+          // Printed technical ink changes pigment only, never cuts grooves into the paper.
+          height = 0.42 + 0.001 * grain;
+          roughness = p.roughness + 0.015 * grain;
+          occlusion = 1;
+          mortar = 0;
+          return;
+        };
+      }
       case 'lentilseeds': {
         const p = proceduralMaterialPresets.lentilseeds,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -24538,6 +24662,7 @@ export function createSurfaceSampler(
     kind === 'azuritemalachite' ||
     kind === 'openendspanners' ||
     kind === 'lentilseeds' ||
+    kind === 'blueprintpaper' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

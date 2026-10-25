@@ -747,6 +747,8 @@
 
 同輪追加 `lentilseeds`（小扁豆種子），目錄 602→603 種：近圓整粒凸面／靠邊短低實心種臍，非 oatflakes 長中央壓痕、coffeebeans 深中央溝或 pumpkinseeds 高邊尖殼。0.04 m opaque dielectric tile、metallic 0，沿 neutral backing／四圖／選用 height／ownership；不新增 geometry、透明裂口、發芽／烹煮／營養或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `blueprintpaper`（工程藍圖紙），目錄 603→604 種：深藍紙底／大小分級格線／白色圓角板框、圓孔圖樣、十字中心線與有限尺寸線端刻線；印墨僅 pigment、紙面不刻溝，非 graphpaper 純格紙。0.4 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、CAD 解析／輸出、文字排版或文件認證；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

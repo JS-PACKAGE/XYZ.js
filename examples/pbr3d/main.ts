@@ -682,6 +682,7 @@ try {
     'azuritemalachite',
     'openendspanners',
     'lentilseeds',
+    'blueprintpaper',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

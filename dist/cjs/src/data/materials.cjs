@@ -11093,6 +11093,44 @@ var proceduralMaterialPresets = Object.freeze({
 		hilumStraight: .025,
 		hilumRadius: .012,
 		hilumCore: .008
+	}),
+	blueprintpaper: Object.freeze({
+		dark: [
+			8,
+			27,
+			75
+		],
+		light: [
+			225,
+			242,
+			250
+		],
+		roughness: .88,
+		relief: 4e-4,
+		cells: 4,
+		subdivisions: 4,
+		minorRadius: .022,
+		minorCore: .012,
+		majorRadius: .014,
+		majorCore: .008,
+		frameX: .22,
+		frameY: .15,
+		frameOuter: .03,
+		frameOuterCore: .027,
+		frameInner: .02,
+		frameInnerCore: .017,
+		circleOuter: .105,
+		circleOuterCore: .102,
+		circleInner: .095,
+		circleInnerCore: .092,
+		strokeRadius: .0065,
+		strokeCore: .0045,
+		axisX: .29,
+		axisY: .22,
+		axisFade: .02,
+		dimensionY: -.25,
+		dimensionHalf: .25,
+		dimensionTick: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -11698,7 +11736,8 @@ var proceduralTileMeters = Object.freeze({
 	grosgrainribbons: .06,
 	azuritemalachite: .2,
 	openendspanners: .4,
-	lentilseeds: .04
+	lentilseeds: .04,
+	blueprintpaper: .4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

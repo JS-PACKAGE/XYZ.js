@@ -641,7 +641,219 @@ const kinds: ProceduralMaterialKind[] = [
   'azuritemalachite',
   'openendspanners',
   'lentilseeds',
+  'blueprintpaper',
 ];
+
+describe('Flat technical blueprint paper with tiered grids and white dimensioned plate drawings', () => {
+  const p = proceduralMaterialPresets.blueprintpaper;
+  const uv = (col: number, row: number, x: number, y: number) =>
+    [(col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells] as const;
+  it.each([0, 1, 0xffffffff])(
+    'prints rounded plate outlines circles crosshairs and finite dimension ticks above two grid tiers without engraving for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('blueprintpaper', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let low = Infinity,
+        high = -Infinity;
+      const record = () => {
+        low = Math.min(low, out.height);
+        high = Math.max(high, out.height);
+        expect(out.metallic).toBe(0);
+        expect(out.occlusion).toBe(1);
+        expect(out.mortar).toBe(0);
+        expect(out.roughness).toBeGreaterThanOrEqual(p.roughness);
+        expect(out.roughness).toBeLessThanOrEqual(p.roughness + 0.015);
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...uv(col, row, x, y), out);
+            record();
+          };
+          at(0.15, 0.1);
+          const paper = out.color;
+          expect(paper).toBeLessThan(0.091);
+          at(0.25, 0.1);
+          const minor = out.color;
+          expect(minor).toBeGreaterThanOrEqual(0.24);
+          expect(minor).toBeLessThanOrEqual(0.26);
+          expect(minor - paper).toBeGreaterThan(0.14);
+          at(0.5, 0.1);
+          const major = out.color;
+          expect(major).toBeGreaterThanOrEqual(0.36);
+          expect(major).toBeLessThanOrEqual(0.38);
+          expect(major - minor).toBeGreaterThan(0.099);
+          for (const [x, y] of [
+            [0.245, 0.06],
+            [-0.245, 0.06],
+            [0.08, 0.175],
+            [0.08, -0.175],
+            [0.08, 0.06],
+            [-0.08, 0.06],
+            [0.26, 0],
+            [0, 0.19],
+            [0.08, -0.25],
+            [0.25, -0.27],
+            [-0.25, -0.27],
+          ]) {
+            at(x, y);
+            expect(out.color).toBeGreaterThanOrEqual(0.94);
+            expect(out.color).toBeLessThanOrEqual(0.96);
+            expect(out.color - major).toBeGreaterThan(0.55);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(-0.35 + (i * 0.7) / 4096, 0.06);
+            const white = out.color > 0.85;
+            if (white && !previous) runs++;
+            previous = white;
+          }
+          expect(runs).toBe(5);
+        }
+      expect(low).toBeGreaterThanOrEqual(0.000168);
+      expect(high).toBeLessThanOrEqual(0.0001684);
+      expect(high - low).toBeLessThan(0.0000004001);
+    },
+  );
+  it('keeps finite white dimension bars and their short end ticks legible after 512-pixel texel-center sampling', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('blueprintpaper', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const [x, y] of [
+            [-0.15, p.dimensionY],
+            [0.15, p.dimensionY],
+            [-p.dimensionHalf, p.dimensionY - 0.02],
+            [p.dimensionHalf, p.dimensionY - 0.02],
+          ]) {
+            const [u, v] = uv(col, row, x, y),
+              index = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            expect(maps.baseColor[index]).toBeGreaterThan(190);
+            expect(maps.baseColor[index + 1]).toBeGreaterThan(210);
+          }
+    }
+  });
+  it('keeps both grid tiers intersections rounded outline shoulders circular ink rings axes dimension caps and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blueprintpaper', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (const [cells, radius, core] of [
+        [p.cells * p.subdivisions, p.minorRadius, p.minorCore],
+        [p.cells, p.majorRadius, p.majorCore],
+      ])
+        for (let i = 0; i < cells; i++)
+          for (const sign of [-1, 1])
+            for (const width of [radius, core]) {
+              const q = (i + sign * width) / cells;
+              check(q, 0.371);
+              check(0.371, q);
+              check(q, q);
+            }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (const radius of [
+                p.frameOuter,
+                p.frameOuterCore,
+                p.frameInner,
+                p.frameInnerCore,
+              ])
+                for (let i = 0; i < 64; i++) {
+                  const angle = (i * Math.PI) / 32;
+                  check(
+                    ...uv(
+                      col,
+                      row,
+                      sx * p.frameX + radius * Math.cos(angle),
+                      sy * p.frameY + radius * Math.sin(angle),
+                    ),
+                  );
+                }
+          for (const radius of [
+            p.circleOuter,
+            p.circleOuterCore,
+            p.circleInner,
+            p.circleInnerCore,
+          ])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+          for (const sign of [-1, 1])
+            for (const length of [p.axisX, p.axisX - p.axisFade])
+              for (const y of [-p.strokeRadius, 0, p.strokeRadius])
+                check(...uv(col, row, sign * length, y));
+          for (const sign of [-1, 1])
+            for (const length of [p.axisY, p.axisY - p.axisFade])
+              for (const x of [-p.strokeRadius, 0, p.strokeRadius])
+                check(...uv(col, row, x, sign * length));
+          for (const side of [-1, 1])
+            for (const end of [-1, 0, 1])
+              for (const radius of [p.strokeRadius, p.strokeCore])
+                for (let i = 0; i < 64; i++) {
+                  const angle = (i * Math.PI) / 32;
+                  check(
+                    ...uv(
+                      col,
+                      row,
+                      side * p.dimensionHalf + radius * Math.cos(angle),
+                      p.dimensionY +
+                        end * p.dimensionTick +
+                        radius * Math.sin(angle),
+                    ),
+                  );
+                }
+        }
+    }
+  });
+});
 
 describe('Near-round convex lentil seeds with low solid short side hila', () => {
   const p = proceduralMaterialPresets.lentilseeds;
