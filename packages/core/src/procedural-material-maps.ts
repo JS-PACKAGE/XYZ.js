@@ -1441,6 +1441,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hazelnutshells': {
+        const p = proceduralMaterialPresets.hazelnutshells,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          inverseX = 1 / (p.halfX * p.halfX),
+          inverseY = 1 / (p.halfY * p.halfY),
+          inverseBody = 1 / p.shoulder,
+          inverseScarX = 1 / (p.scarRadiusX * p.scarRadiusX),
+          inverseScarY = 1 / (p.scarRadiusY * p.scarRadiusY),
+          inverseScar = 1 / p.scarShoulder,
+          woodField = cachedNoise(96, 12, seed ^ 0x14c11),
+          fineField = cachedNoise(128, 128, seed ^ 0x14c13);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14c15);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14c17) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14c19) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14c1b));
+            poses[index + 5] = hash(col, row, seed ^ 0x14c1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            cap = Math.max(0, 1 - y * y * inverseY),
+            field = (y < 0 ? cap * cap : cap) - x * x * inverseX,
+            body = smooth(clamp(field * inverseBody));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const sy = y - p.scarY,
+            scar = smooth(
+              clamp(
+                (1 - x * x * inverseScarX - sy * sy * inverseScarY) *
+                  inverseScar,
+              ),
+            ),
+            tone = poses[index + 5];
+          let pigment = 0,
+            surfaceHeight = 0,
+            surfaceRoughness = 0,
+            surfaceOcclusion = 0;
+          if (scar < 1) {
+            // Grain is evaluated in shell-local axes, so longitudinal fibers rotate with each nut.
+            const wood = woodField(x + 0.5, y + 0.5);
+            pigment = 0.4 + 0.15 * tone + 0.07 * wood;
+            surfaceHeight = 0.33 + 0.18 * smooth(field) + 0.008 * wood;
+            surfaceRoughness = p.roughness + 0.025 * wood;
+            surfaceOcclusion = 0.99;
+          }
+          if (scar > 0) {
+            const fine = fineField(u, v);
+            pigment += scar * (0.83 + 0.1 * tone + 0.025 * fine - pigment);
+            surfaceHeight += scar * (0.24 + 0.003 * fine - surfaceHeight);
+            surfaceRoughness += scar * (0.94 + 0.015 * fine - surfaceRoughness);
+            surfaceOcclusion += scar * (0.9 - surfaceOcclusion);
+          }
+          color += body * (pigment - color);
+          height += body * (surfaceHeight - height);
+          roughness += body * (surfaceRoughness - roughness);
+          occlusion += body * (surfaceOcclusion - occlusion);
+          return;
+        };
+      }
       case 'ceramicfuses': {
         const p = proceduralMaterialPresets.ceramicfuses,
           tones = new Float64Array(p.cells * p.cells),
@@ -25108,6 +25184,7 @@ export function createSurfaceSampler(
     kind === 'charoite' ||
     kind === 'chenilleyarn' ||
     kind === 'ceramicfuses' ||
+    kind === 'hazelnutshells' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

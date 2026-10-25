@@ -647,7 +647,218 @@ const kinds: ProceduralMaterialKind[] = [
   'charoite',
   'chenilleyarn',
   'ceramicfuses',
+  'hazelnutshells',
 ];
+
+describe('Whole hazelnut shells with pointed upper silhouettes local woody grain and low pale rough basal scars', () => {
+  const p = proceduralMaterialPresets.hazelnutshells;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14c15),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14c1b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14c17) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14c19) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a whole pointed-top rounded-base convex woody shell around a lower pale rough solid attachment scar for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('hazelnutshells', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          expect(out.height).toBeGreaterThan(0.0017849);
+          expect(out.height).toBeLessThan(0.0018131);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          at(0, p.scarY);
+          const scar = out.height,
+            pale = out.color,
+            rough = out.roughness;
+          expect(scar).toBeGreaterThan(0.0008399);
+          expect(scar).toBeLessThan(0.0008506);
+          expect(pale).toBeGreaterThanOrEqual(0.83);
+          expect(pale).toBeLessThan(0.9551);
+          expect(rough).toBeGreaterThanOrEqual(0.94);
+          expect(rough).toBeLessThanOrEqual(0.955);
+          expect(out.occlusion).toBeCloseTo(0.9, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const sign of [-1, 1]) {
+            at(sign * 0.18, p.scarY);
+            expect(out.height - scar).toBeGreaterThan(0.00045);
+            expect(pale - out.color).toBeGreaterThan(0.29);
+            expect(rough - out.roughness).toBeGreaterThan(0.14);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            expect(out.mortar).toBe(0);
+          }
+          const widths: number[] = [];
+          for (const sign of [-1, 1]) {
+            let runs = 0,
+              width = 0,
+              previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              at(-0.35 + (i * 0.7) / 4096, sign * 0.24);
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              if (body) width++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            widths.push((width * 0.7) / 4096);
+          }
+          expect(widths[1] - widths[0]).toBeGreaterThan(0.1);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.4 + (i * 0.8) / 4096);
+            const body = out.mortar < 0.5;
+            if (body && !previous) runs++;
+            previous = body;
+          }
+          expect(runs).toBe(1);
+          for (const [x, y] of [
+            [0.34, 0],
+            [-0.34, 0],
+            [0, -0.4],
+            [0, 0.4],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0000876);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps microscopic woody variation predominantly across shell-local longitudinal grain even when every shell rotates', () => {
+    const h = 0.001,
+      out: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hazelnutshells', seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const height = (x: number, y: number) => {
+            sample(...uv(seed, col, row, x, y), out);
+            return out.height;
+          };
+          let across = 0,
+            along = 0;
+          for (let iy = 0; iy < 9; iy++)
+            for (let ix = 0; ix < 9; ix++) {
+              const x = -0.1 + ix * 0.025,
+                y = -0.2 + iy * 0.02,
+                center = height(x, y),
+                a = height(x - h, y) - 2 * center + height(x + h, y),
+                b = height(x, y - h) - 2 * center + height(x, y + h);
+              across += a * a;
+              along += b * b;
+            }
+          expect(across).toBeGreaterThan(16 * along);
+        }
+    }
+  });
+  it('keeps pointed upper and rounded lower body shoulders equator join solid basal scar ellipse seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hazelnutshells', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const t of [-1, -0.9, -0.75, -0.5, 0, 0.5, 0.75, 0.9, 1]) {
+            const cap = 1 - t * t,
+              shape = t < 0 ? cap * cap : cap;
+            for (const field of [0, p.shoulder]) {
+              if (shape < field) continue;
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    sign * p.halfX * Math.sqrt(shape - field),
+                    t * p.halfY,
+                  ),
+                );
+            }
+          }
+          for (const field of [0, p.scarShoulder])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32,
+                r = Math.sqrt(1 - field);
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  p.scarRadiusX * r * Math.cos(angle),
+                  p.scarY + p.scarRadiusY * r * Math.sin(angle),
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Matte white ceramic cartridge fuses with two metal end caps and raised terminal collars', () => {
   const p = proceduralMaterialPresets.ceramicfuses;
