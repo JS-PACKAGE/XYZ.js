@@ -642,7 +642,261 @@ const kinds: ProceduralMaterialKind[] = [
   'openendspanners',
   'lentilseeds',
   'blueprintpaper',
+  'horsechestnutleaf',
 ];
+
+describe('Stylized horse-chestnut compound leaves with seven separately stalked blades and raised midribs', () => {
+  const p = proceduralMaterialPresets.horsechestnutleaf;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14713),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14719),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14715) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14717) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  const blade = (leaf: number, radial: number, across: number) => {
+    const angle = ((leaf - (p.leaflets - 1) / 2) * p.angleStep * Math.PI) / 180,
+      c = Math.sin(angle),
+      s = -Math.cos(angle);
+    return [c * radial - s * across, s * radial + c * across] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'separates all seven narrow petiolules and pointed leaflets while joining them to one petiole with higher brighter midribs for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('horsechestnutleaf', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0.23);
+          expect(out.height).toBeGreaterThan(0.0006499);
+          expect(out.height).toBeLessThan(0.0006576);
+          expect(out.occlusion).toBeCloseTo(0.975, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (let leaf = 0; leaf < p.leaflets; leaf++) {
+            const tip =
+                p.tipLength - p.tipStep * Math.abs(leaf - (p.leaflets - 1) / 2),
+              center = (p.bladeBase + tip) / 2;
+            at(...blade(leaf, 0.05, 0));
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.975, 12);
+            expect(out.height).toBeGreaterThan(0.0006499);
+            expect(out.height).toBeLessThan(0.0006576);
+            at(...blade(leaf, center, 0));
+            const ridge = out.height,
+              pale = out.color;
+            expect(ridge).toBeGreaterThan(0.0010374);
+            expect(ridge).toBeLessThan(0.0010451);
+            expect(out.occlusion).toBeCloseTo(0.995, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            for (const side of [-1, 1]) {
+              at(...blade(leaf, center, side * 0.025));
+              expect(ridge - out.height).toBeGreaterThan(0.000178);
+              expect(pale - out.color).toBeGreaterThan(0.115);
+              expect(out.occlusion).toBeCloseTo(0.985, 12);
+              expect(out.mortar).toBe(0);
+            }
+            at(...blade(leaf, tip + 0.015, 0));
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0000626);
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              at(...blade(leaf, -0.05 + (i * (tip + 0.08)) / 2048, 0));
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            if (leaf < p.leaflets - 1)
+              for (const radius of [0.05, 0.29]) {
+                const angle =
+                  ((leaf + 0.5 - (p.leaflets - 1) / 2) *
+                    p.angleStep *
+                    Math.PI) /
+                  180;
+                at(radius * Math.sin(angle), -radius * Math.cos(angle));
+                expect(out.mortar).toBe(1);
+                expect(out.occlusion).toBeCloseTo(0.3, 12);
+                expect(out.metallic).toBe(0);
+              }
+          }
+          for (const radius of [0.05, 0.29]) {
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              const angle = -Math.PI / 2 + (i * Math.PI) / 4096;
+              at(radius * Math.sin(angle), -radius * Math.cos(angle));
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(7);
+          }
+          for (const [x, y] of [
+            [0.43, 0],
+            [-0.43, 0],
+            [0, -0.43],
+            [0, 0.37],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0000626);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps seven pointed blade tips periodic serrations stalk caps junction and midrib shoulders seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('horsechestnutleaf', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [p.rootRadius, p.rootCore])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32;
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            }
+          for (const end of [0, 2 * p.petioleHalf])
+            for (const radius of [p.petioleRadius, p.petioleCore])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    radius * Math.cos(angle),
+                    end + radius * Math.sin(angle),
+                  ),
+                );
+              }
+          for (let leaf = 0; leaf < p.leaflets; leaf++) {
+            const tip =
+                p.tipLength - p.tipStep * Math.abs(leaf - (p.leaflets - 1) / 2),
+              length = tip - p.bladeBase;
+            for (const end of [0, 2 * p.petioluleHalf])
+              for (const radius of [p.petioluleRadius, p.petioluleCore])
+                for (let i = 0; i < 64; i++) {
+                  const angle = (i * Math.PI) / 32;
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      ...blade(
+                        leaf,
+                        end + radius * Math.cos(angle),
+                        radius * Math.sin(angle),
+                      ),
+                    ),
+                  );
+                }
+            for (const radial of [p.bladeBase, tip, (tip + p.bladeBase) / 2])
+              for (const side of [-1, 1])
+                for (const across of [0, p.veinRadius, p.veinCore])
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      ...blade(leaf, radial, side * across),
+                    ),
+                  );
+            for (let tooth = 0; tooth <= 2 * p.teeth; tooth++) {
+              const fraction = tooth / (2 * p.teeth),
+                radial = p.bladeBase + fraction * length,
+                t = 2 * fraction - 1,
+                cap = 1 - t * t,
+                phase =
+                  fraction * p.teeth - Math.floor(fraction * p.teeth) - 0.5,
+                q = 4 * phase * phase,
+                edge = 1 - p.serration + p.serration * q * q * (3 - 2 * q);
+              for (const field of [0, p.shoulder]) {
+                const crossSquared = cap * cap * edge * edge - field;
+                if (crossSquared < 0) continue;
+                for (const sign of [-1, 1])
+                  check(
+                    ...uv(
+                      seed,
+                      col,
+                      row,
+                      ...blade(
+                        leaf,
+                        radial,
+                        sign * p.halfWidth * Math.sqrt(crossSquared),
+                      ),
+                    ),
+                  );
+              }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Flat technical blueprint paper with tiered grids and white dimensioned plate drawings', () => {
   const p = proceduralMaterialPresets.blueprintpaper;

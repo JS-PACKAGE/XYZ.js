@@ -1441,6 +1441,145 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'horsechestnutleaf': {
+        const p = proceduralMaterialPresets.horsechestnutleaf,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(p.leaflets * 5),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder,
+          rootSquared = p.rootRadius * p.rootRadius,
+          inverseRoot = 1 / (rootSquared - p.rootCore * p.rootCore),
+          petioleSquared = p.petioleRadius * p.petioleRadius,
+          inversePetiole = 1 / (petioleSquared - p.petioleCore * p.petioleCore),
+          petioluleSquared = p.petioluleRadius * p.petioluleRadius,
+          inversePetiolule =
+            1 / (petioluleSquared - p.petioluleCore * p.petioluleCore),
+          veinSquared = p.veinRadius * p.veinRadius,
+          inverseVein = 1 / (veinSquared - p.veinCore * p.veinCore),
+          minimumEdgeSquared = (1 - p.serration) * (1 - p.serration),
+          extentSquared = Math.max(
+            p.tipLength * p.tipLength + p.halfWidth * p.halfWidth,
+            (2 * p.petioleHalf + p.petioleRadius) ** 2,
+          ),
+          grainField = cachedNoise(128, 128, seed ^ 0x14711);
+        for (let leaf = 0; leaf < p.leaflets; leaf++) {
+          const index = leaf * 5,
+            offset = leaf - (p.leaflets - 1) / 2,
+            angle = (offset * p.angleStep * Math.PI) / 180,
+            tip = p.tipLength - p.tipStep * Math.abs(offset),
+            length = tip - p.bladeBase;
+          axes[index] = Math.sin(angle);
+          axes[index + 1] = -Math.cos(angle);
+          axes[index + 2] = (tip + p.bladeBase) / 2;
+          axes[index + 3] = 2 / length;
+          axes[index + 4] = p.teeth / length;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14713);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14715) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14717) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14719));
+            poses[index + 5] = hash(col, row, seed ^ 0x1471b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            squared = x * x + y * y;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1;
+          if (squared >= extentSquared) return;
+          const stemY = Math.max(
+              0,
+              Math.abs(y - p.petioleHalf) - p.petioleHalf,
+            ),
+            root = smooth(clamp((rootSquared - squared) * inverseRoot));
+          let stem = smooth(
+            clamp((petioleSquared - x * x - stemY * stemY) * inversePetiole),
+          );
+          stem += (1 - stem) * root;
+          let blades = 0,
+            veins = 0;
+          for (let leaf = 0; leaf < p.leaflets; leaf++) {
+            const j = leaf * 5,
+              radial = x * axes[j] + y * axes[j + 1],
+              across = y * axes[j] - x * axes[j + 1],
+              branchAlong = Math.max(
+                0,
+                Math.abs(radial - p.petioluleHalf) - p.petioluleHalf,
+              ),
+              branch = smooth(
+                clamp(
+                  (petioluleSquared -
+                    across * across -
+                    branchAlong * branchAlong) *
+                    inversePetiolule,
+                ),
+              );
+            stem += (1 - stem) * branch;
+            const t = (radial - axes[j + 2]) * axes[j + 3];
+            if (Math.abs(t) >= 1) continue;
+            const cap = 1 - t * t,
+              capSquared = cap * cap,
+              crossSquared = across * across * inverseWidth;
+            if (capSquared <= crossSquared) continue;
+            let blade = 1;
+            if (capSquared * minimumEdgeSquared - crossSquared < p.shoulder) {
+              const phase = fract((radial - p.bladeBase) * axes[j + 4]) - 0.5,
+                edge =
+                  1 - p.serration + p.serration * smooth(4 * phase * phase);
+              blade = smooth(
+                clamp(
+                  (capSquared * edge * edge - crossSquared) * inverseShoulder,
+                ),
+              );
+            }
+            if (blade === 0) continue;
+            blades += (1 - blades) * blade;
+            const vein =
+              blade *
+              smooth(clamp((veinSquared - across * across) * inverseVein));
+            veins += (1 - veins) * vein;
+          }
+          const cover = stem + blades - stem * blades;
+          mortar = 1 - cover;
+          if (cover === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[index + 5];
+          if (stem > 0) {
+            color += stem * (0.35 + 0.08 * tone + 0.025 * grain - color);
+            height += stem * (0.26 + 0.003 * grain - height);
+            roughness += stem * (0.83 + 0.025 * grain - roughness);
+            occlusion += stem * (0.975 - occlusion);
+          }
+          if (blades > 0) {
+            // Seven separate blades join through thin petiolules, not a continuous maple-like palm.
+            color +=
+              blades *
+              (0.5 + 0.15 * tone + 0.03 * grain + 0.15 * veins - color);
+            height += blades * (0.34 + 0.003 * grain + 0.075 * veins - height);
+            roughness +=
+              blades *
+              (p.roughness + 0.025 * grain - 0.035 * veins - roughness);
+            occlusion += blades * (0.985 + 0.01 * veins - occlusion);
+          }
+          return;
+        };
+      }
       case 'blueprintpaper': {
         const p = proceduralMaterialPresets.blueprintpaper,
           minorSquared = p.minorRadius * p.minorRadius,
@@ -24663,6 +24802,7 @@ export function createSurfaceSampler(
     kind === 'openendspanners' ||
     kind === 'lentilseeds' ||
     kind === 'blueprintpaper' ||
+    kind === 'horsechestnutleaf' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -11131,6 +11131,43 @@ var proceduralMaterialPresets = Object.freeze({
 		dimensionY: -.25,
 		dimensionHalf: .25,
 		dimensionTick: .025
+	}),
+	horsechestnutleaf: Object.freeze({
+		dark: [
+			21,
+			61,
+			19
+		],
+		light: [
+			153,
+			190,
+			70
+		],
+		roughness: .77,
+		relief: .0025,
+		cells: 4,
+		jitter: .025,
+		scale: .92,
+		scaleVariation: .06,
+		leaflets: 7,
+		angleStep: 25,
+		tipLength: .38,
+		tipStep: .02,
+		bladeBase: .07,
+		halfWidth: .055,
+		shoulder: .2,
+		teeth: 8,
+		serration: .12,
+		rootRadius: .025,
+		rootCore: .02,
+		petioleHalf: .16,
+		petioleRadius: .009,
+		petioleCore: .006,
+		petioluleHalf: .065,
+		petioluleRadius: .007,
+		petioluleCore: .005,
+		veinRadius: .007,
+		veinCore: .0045
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -11737,7 +11774,8 @@ var proceduralTileMeters = Object.freeze({
 	azuritemalachite: .2,
 	openendspanners: .4,
 	lentilseeds: .04,
-	blueprintpaper: .4
+	blueprintpaper: .4,
+	horsechestnutleaf: .8
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

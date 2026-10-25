@@ -977,6 +977,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `blueprintpaper`（工程藍圖紙），深藍紙底／分級格線／白色圓角板框、圓孔、十字中心線與有限尺寸線短端刻線。使用 `await ProceduralMaterial.create('blueprintpaper', { seed: 7 })`；一張 UV tile 對應 0.4 m，印墨僅改 pigment、不改紙面 height／roughness／AO，非 graphpaper 純格紙。Opaque dielectric、metallic 0，maps／選用 height／ownership 不變，不新增 geometry、CAD 解析／輸出、文字排版或文件認證。
 
+另支援 `horsechestnutleaf`（風格化七葉樹複葉），七片尖端微鋸齒小葉，以細小葉柄接共同葉柄，凸中肋較亮。使用 `await ProceduralMaterial.create('horsechestnutleaf', { seed: 7 })`；一張 UV tile 對應 0.8 m，葉隙仍是 neutral opaque 背底，不作楓葉連續裂片或透明孔。Opaque dielectric、metallic 0，maps／選用 height／ownership 不變，不新增 geometry、植物生長／生理或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。
