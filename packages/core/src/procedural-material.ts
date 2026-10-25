@@ -611,7 +611,8 @@ export type ProceduralMaterialKind =
   | 'siliconepastrybrushes'
   | 'graphicgranite'
   | 'brasspadlocks'
-  | 'carrotcuts';
+  | 'carrotcuts'
+  | 'bluepushpins';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1457,6 +1458,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'graphicgranite',
   'brasspadlocks',
   'carrotcuts',
+  'bluepushpins',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1663,6 +1665,7 @@ export class ProceduralMaterial {
         this.kind === 'flatflexcables' ||
         this.kind === 'tactileswitches' ||
         this.kind === 'brasspadlocks' ||
+        this.kind === 'bluepushpins' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

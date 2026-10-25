@@ -733,6 +733,8 @@
 
 同輪追加 `carrotcuts`（胡蘿蔔切片），目錄 595→596 種：橙色平切面／淡實心髓心／12 道尖細放射色素紋／薄深色外皮，髓心與紋路不改變切面高度；非 Chioggia 同心紅環或 citrus 分隔凹槽。0.24 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明髓心、汁液／切割／生長／營養或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `bluepushpins`（藍色塑膠圖釘），目錄 596→597 種：高上凸緣／較低下凸緣／細塑膠腰身／更低露出金屬尖針；藍塑膠蓋住針根並清 metal，預設 factor 1。0.16 m opaque mixed-metal tile、neutral backing，沿四圖／選用 height／ownership；不新增 geometry、穿刺／固定承重／透明度或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

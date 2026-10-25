@@ -634,7 +634,202 @@ const kinds: ProceduralMaterialKind[] = [
   'graphicgranite',
   'brasspadlocks',
   'carrotcuts',
+  'bluepushpins',
 ];
+
+describe('Blue plastic double-flange pushpins with exposed metallic tapered needles', () => {
+  const p = proceduralMaterialPresets.bluepushpins;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two broad dielectric flanges above the narrow plastic waist and lower exposed metal needle while covering its root for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bluepushpins', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, p.neckY);
+          const neckHeight = out.height;
+          expect(out.color).toBeLessThan(0.18);
+          expect(neckHeight).toBeGreaterThan(0.003679);
+          expect(neckHeight).toBeLessThan(0.003713);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0.1, p.baseY);
+          const baseHeight = out.height;
+          expect(baseHeight - neckHeight).toBeGreaterThan(0.00076);
+          expect(out.color).toBeLessThan(0.28);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          at(0.1, p.topY);
+          expect(out.height - baseHeight).toBeGreaterThan(0.0006);
+          expect(out.color).toBeLessThan(0.35);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          for (const y of [0.25, 0.3, 0.35]) {
+            at(0, y);
+            expect(out.metallic).toBe(1);
+            expect(out.height).toBeGreaterThan(0.002239);
+            expect(out.height).toBeLessThan(0.002257);
+            expect(baseHeight - out.height).toBeGreaterThan(0.00221);
+            expect(out.color).toBeGreaterThan(0.94);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.23);
+            expect(out.roughness).toBeLessThanOrEqual(0.255);
+            expect(out.occlusion).toBeCloseTo(0.97, 12);
+          }
+          at(0, 0.15);
+          expect(out.metallic).toBe(0);
+          expect(out.height).toBeGreaterThan(0.004479);
+          expect(out.height).toBeLessThan(0.004513);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          for (const [x, y] of [
+            [0.12, p.neckY],
+            [0.04, 0.3],
+            [0, 0.46],
+            [0.2, p.topY],
+          ]) {
+            at(x, y);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+          }
+          let metalRuns = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(-0.05 + (i * 0.1) / 2048, 0.3);
+            const metal = out.metallic > 0.5;
+            if (metal && !previous) metalRuns++;
+            previous = metal;
+          }
+          expect(metalRuns).toBe(1);
+          let foregroundRuns = 0;
+          previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.33 + (i * 0.8) / 4096);
+            const foreground = out.height > 0.0003;
+            if (foreground && !previous) foregroundRuns++;
+            previous = foreground;
+          }
+          expect(foregroundRuns).toBe(1);
+        }
+    },
+  );
+  it('keeps both flange corners, waist caps, covered needle roots, pointed needle shoulders and tips, owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bluepushpins', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const cy of [p.topY, p.baseY])
+            for (const sx of [-1, 1])
+              for (const sy of [-1, 1])
+                for (const radius of [p.flangeCore, p.flangeRadius])
+                  for (let i = 0; i <= 16; i++) {
+                    const angle = (i * Math.PI) / 32;
+                    check(
+                      ...uv(
+                        col,
+                        row,
+                        sx * (p.flangeStraightX + radius * Math.cos(angle)),
+                        cy +
+                          sy * (p.flangeStraightY + radius * Math.sin(angle)),
+                      ),
+                    );
+                  }
+          for (const end of [-1, 1])
+            for (const radius of [p.neckCore, p.neckRadius])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    radius * Math.cos(angle),
+                    p.neckY + end * p.neckStraight + radius * Math.sin(angle),
+                  ),
+                );
+              }
+          for (let i = 0; i <= 64; i++) {
+            const t = -1 + i / 32,
+              cap = 1 - t * t;
+            for (const field of [0, p.needleShoulder]) {
+              if (cap * cap < field) continue;
+              const width = p.needleHalfWidth * Math.sqrt(cap * cap - field);
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    sign * width,
+                    p.needleCenter + t * p.needleHalfLength,
+                  ),
+                );
+            }
+          }
+          for (const sign of [-1, 1])
+            check(
+              ...uv(
+                col,
+                row,
+                0,
+                p.needleCenter +
+                  sign *
+                    p.needleHalfLength *
+                    Math.sqrt(1 - Math.sqrt(p.needleShoulder)),
+              ),
+            );
+          for (const y of [0.135, 0.15, 0.18, 0.19, 0.2])
+            check(...uv(col, row, 0, y));
+        }
+    }
+  });
+});
 
 describe('Carrot cuts with filled pale medullae and twelve coplanar radial pigment rays', () => {
   const p = proceduralMaterialPresets.carrotcuts;
@@ -29895,6 +30090,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'flatflexcables' &&
           kind !== 'tactileswitches' &&
           kind !== 'brasspadlocks' &&
+          kind !== 'bluepushpins' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -29920,6 +30116,7 @@ describe('periodic procedural material fields', () => {
         kind === 'flatflexcables' ||
         kind === 'tactileswitches' ||
         kind === 'brasspadlocks' ||
+        kind === 'bluepushpins' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -39327,6 +39524,7 @@ describe('procedural preset acquisition and ownership', () => {
     'flatflexcables',
     'tactileswitches',
     'brasspadlocks',
+    'bluepushpins',
     'standingseam',
     'damascus',
     'castiron',
@@ -39390,6 +39588,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'flatflexcables' ||
           kind === 'tactileswitches' ||
           kind === 'brasspadlocks' ||
+          kind === 'bluepushpins' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

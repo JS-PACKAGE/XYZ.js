@@ -7509,3 +7509,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 596-preset carrotcuts、擷取畫面與 512 base-color detail，見橙色實心切片、淡芯與 12 細放射紋／薄深皮／中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 carrotcuts 並重算既有 595 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6694 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：藍色塑膠圖釘（bluepushpins）
+
+- 目錄 596→597 種；0.16 m opaque mixed-metal tile、預設 factor 1，雙寬塑膠凸緣／細腰身／露出銀色金屬尖針，塑膠蓋根並清 metal。Cached 16 tones／128² grain／squared flange and neck radii／reciprocals，4×4 alternating ±45° compact silhouettes；rounded-rectangle flanges／capsule waist product union、cap²−across² pointed needle smooth cover。Needle→neck→base→top coherent replacement，full plastic 跳過 needle work、空 along 跳過 across、空 silhouette 跳過 grain、空 plastic 跳過 replacements；支撐限 cell、silhouette union 定 neutral backing，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、穿刺／固定承重／透明度或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、ownership）：3 seeds ×16 pushpins，塑膠腰身 height 0.003679–0.003713 m／metallic 0／AO 0.99，寬下凸緣比腰身高 >0.00076 m、上凸緣比下凸緣高 >0.00060 m；露出針 metallic 1／height 0.002239–0.002257 m／roughness 0.23–0.255／AO 0.97，比下凸緣低 >0.00221 m。針根被下凸緣覆蓋 metallic 0／height 0.004479–0.004513 m；腰側／針側／針尖外／凸緣外 backing 1／AO 0.3。2049-point needle cross profile 一 metal run、4097-point axial profile 一 connected foreground；129² 與 exact flange corners／waist caps／needle shoulders/tips／covered roots／owners／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 597-preset bluepushpins、擷取畫面與 512 base-color detail，見雙寬藍凸緣／細腰／單端銀色尖針／中性 opaque 背底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 bluepushpins 並重算既有 596 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6700 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

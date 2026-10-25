@@ -1428,6 +1428,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bluepushpins': {
+        const p = proceduralMaterialPresets.bluepushpins,
+          tones = new Float64Array(p.cells * p.cells),
+          flangeSquared = p.flangeRadius * p.flangeRadius,
+          inverseFlange = 1 / (flangeSquared - p.flangeCore * p.flangeCore),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / (neckSquared - p.neckCore * p.neckCore),
+          inverseNeedleLength = 1 / p.needleHalfLength,
+          inverseNeedleWidth = 1 / p.needleHalfWidth,
+          inverseNeedleShoulder = 1 / p.needleShoulder,
+          grainField = cachedNoise(128, 128, seed ^ 0x13f11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13f13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            fx = Math.max(0, Math.abs(x) - p.flangeStraightX),
+            ty = Math.max(0, Math.abs(y - p.topY) - p.flangeStraightY),
+            by = Math.max(0, Math.abs(y - p.baseY) - p.flangeStraightY),
+            ny = Math.max(0, Math.abs(y - p.neckY) - p.neckStraight),
+            top = smooth(
+              clamp((flangeSquared - fx * fx - ty * ty) * inverseFlange),
+            ),
+            base = smooth(
+              clamp((flangeSquared - fx * fx - by * by) * inverseFlange),
+            ),
+            neck = smooth(clamp((neckSquared - x * x - ny * ny) * inverseNeck)),
+            outside = (1 - top) * (1 - base) * (1 - neck);
+          let needle = 0;
+          if (outside > 0) {
+            const along = (y - p.needleCenter) * inverseNeedleLength;
+            if (Math.abs(along) < 1) {
+              const across = x * inverseNeedleWidth,
+                cap = 1 - along * along;
+              needle = smooth(
+                clamp((cap * cap - across * across) * inverseNeedleShoulder),
+              );
+            }
+          }
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = outside * (1 - needle);
+          if (outside === 1 && needle === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color += needle * (0.95 + 0.025 * grain - color);
+          height += needle * (0.28 + 0.002 * grain - height);
+          roughness += needle * (0.23 + 0.025 * grain - roughness);
+          occlusion += needle * (0.97 - occlusion);
+          metallic = needle;
+          if (outside === 1) return;
+          color += neck * (0.09 + 0.06 * tone + 0.02 * grain - color);
+          height += neck * (0.46 + 0.004 * grain - height);
+          roughness += neck * (0.48 + 0.03 * grain - roughness);
+          occlusion += neck * (0.99 - occlusion);
+          metallic *= 1 - neck;
+          color += base * (0.18 + 0.07 * tone + 0.025 * grain - color);
+          height += base * (0.56 + 0.004 * grain - height);
+          roughness += base * (p.roughness + 0.03 * grain - roughness);
+          occlusion += base * (0.99 - occlusion);
+          metallic *= 1 - base;
+          // Opaque molded flanges cover the neck and needle roots, including metal.
+          color += top * (0.24 + 0.07 * tone + 0.025 * grain - color);
+          height += top * (0.64 + 0.004 * grain - height);
+          roughness += top * (p.roughness + 0.03 * grain - roughness);
+          occlusion += top * (0.99 - occlusion);
+          metallic *= 1 - top;
+          return;
+        };
+      }
       case 'carrotcuts': {
         const p = proceduralMaterialPresets.carrotcuts,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -24003,6 +24084,7 @@ export function createSurfaceSampler(
     kind === 'graphicgranite' ||
     kind === 'brasspadlocks' ||
     kind === 'carrotcuts' ||
+    kind === 'bluepushpins' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -741,6 +741,8 @@
 
 `carrotcuts` 預算 16 rotation／jitter／inverse scale／tone poses、12 cached axes／128² grain／squared circle radii／reciprocals。4×4 seeded compact cuts，以 squared cap²−across² smooth covers／product union 定 12 tapered vascular rays，淡髓心 circle cover 蓋色；rind→flesh coherent replacement、髓心與紋路只改 pigment，共用 flat height／roughness／AO 0.99。空 body 跳過 grain、空 flesh 跳過 pith/rays、full pith 跳過 rays、空 along 跳過 across；尖端零斜率歸零、支撐全在 full flesh 及 cell。採樣無配置／hash／sqrt／trig；不新增 geometry、透明髓心、汁液／切割／生長／營養或物理模擬。
 
+`bluepushpins` 預算 16 tones／128² grain／squared flange and neck radii／reciprocals，4×4 alternating ±45° compact silhouettes。Top/base rounded-rectangle flanges 與 capsule waist product union 定 plastic support，尖針以 along cap²−across² smooth cover、端尖零斜率歸零；needle→neck→base→top coherent replacement，塑膠蓋 roots 並清 metal。Full plastic 跳過 needle work、空 needle along 跳過 across、空 silhouette 跳過 grain、空 plastic 跳過三層 replacement；silhouette product union 定 neutral backing、支撐限 cell，採樣無配置／hash／sqrt／trig。不新增 geometry、穿刺／固定承重／透明度或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
