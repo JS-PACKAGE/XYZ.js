@@ -615,7 +615,142 @@ const kinds: ProceduralMaterialKind[] = [
   'toothbrushheads',
   'bowtieinlay',
   'redcabbagecut',
+  'slottedturners',
 ];
+
+describe('Rounded metal turner blades with three closed slots and short flat necks', () => {
+  const p = proceduralMaterialPresets.slottedturners;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three closed low nonmetal slots within one continuous metal blade and a same-height neck, not open fork tines, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('slottedturners', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          at(0, 0.12);
+          const blade = out.height;
+          expect(out.metallic).toBe(1);
+          expect(blade).toBeGreaterThan(0.00219);
+          expect(blade).toBeLessThan(0.00223);
+          for (const y of [0.16, 0.35]) {
+            at(0, y);
+            expect(out.metallic).toBe(1);
+            expect(Math.abs(out.height - blade)).toBeLessThan(0.000025);
+            expect(out.roughness).toBeLessThan(0.35);
+          }
+          for (let slot = -1; slot <= 1; slot++) {
+            const x = slot * p.slotPitch;
+            at(x, p.bladeCenter);
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBeLessThan(0.00011);
+            expect(out.occlusion).toBeLessThan(0.4);
+            for (const y of [-0.3, 0.1]) {
+              at(x, y);
+              expect(out.metallic).toBe(1);
+              expect(out.height).toBeGreaterThan(0.00219);
+              expect(out.occlusion).toBeGreaterThan(0.98);
+            }
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at((i / 1024 - 0.5) * 0.44, p.bladeCenter);
+            const floor = out.metallic < 0.05;
+            if (floor && !previous) runs++;
+            previous = floor;
+          }
+          expect(runs).toBe(3);
+          for (const [x, y] of [
+            [0, 0.49],
+            [0.34, -0.1],
+          ]) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBeLessThan(0.00011);
+          }
+        }
+    },
+  );
+  it('keeps closed-slot owners, rounded blade corners, flat blade/neck joins and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('slottedturners', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) => check(...uv(col, row, x, y));
+          for (const radius of [p.cornerRadius, p.cornerCore])
+            for (const sx of [-1, 1])
+              for (const sy of [-1, 1])
+                for (let i = 0; i <= 8; i++) {
+                  const angle = (i * Math.PI) / 16;
+                  local(
+                    sx * (p.bladeX + radius * Math.cos(angle)),
+                    p.bladeCenter + sy * (p.bladeY + radius * Math.sin(angle)),
+                  );
+                }
+          for (let owner = -1; owner <= 2; owner++) {
+            const neck = owner === 2;
+            for (const radius of neck
+              ? [p.neckRadius, p.neckCore]
+              : [p.slotRadius, p.slotCore])
+              for (const sign of [-1, 1])
+                for (let i = 0; i <= 16; i++) {
+                  const angle = (i * Math.PI) / 16;
+                  local(
+                    (neck ? 0 : owner * p.slotPitch) + radius * Math.cos(angle),
+                    (neck ? p.neckCenter : p.bladeCenter) +
+                      sign *
+                        ((neck ? p.neckStraight : p.slotStraight) +
+                          radius * Math.sin(angle)),
+                  );
+                }
+          }
+          for (const x of [-p.slotPitch * 0.5, 0, p.slotPitch * 0.5])
+            for (const y of [-0.3, -0.1, 0.1, 0.135, 0.16, 0.18]) local(x, y);
+        }
+    }
+  });
+});
 
 describe('Filled purple cabbage cuts with folded pale veins and solid cores', () => {
   const p = proceduralMaterialPresets.redcabbagecut;
@@ -27018,6 +27153,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
           kind !== 'ballbearingfaces' &&
+          kind !== 'slottedturners' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -27038,7 +27174,8 @@ describe('periodic procedural material fields', () => {
         kind === 'axialresistors' ||
         kind === 'sewingsnaps' ||
         kind === 'ceramiccapacitors' ||
-        kind === 'ballbearingfaces'
+        kind === 'ballbearingfaces' ||
+        kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -36440,6 +36577,7 @@ describe('procedural preset acquisition and ownership', () => {
     'sewingsnaps',
     'ceramiccapacitors',
     'ballbearingfaces',
+    'slottedturners',
     'standingseam',
     'damascus',
     'castiron',
@@ -36498,6 +36636,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
           kind === 'ballbearingfaces' ||
+          kind === 'slottedturners' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

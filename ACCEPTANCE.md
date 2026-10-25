@@ -7357,3 +7357,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 577-preset redcabbagecut、擷取畫面；512 base-color detail 顯示紫層折曲淡脈與實芯。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 redcabbagecut 並重算既有 576 種（含 cabbage／onion）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6594 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：金屬煎鏟頭（slottedturners）
+
+- 目錄 577→578 種；0.32 m opaque mixed-metallic tile、factor 1，圓角金屬鏟面／齊平短頸／三封閉長槽，非 dinnerforks 開口齒。Cached 16 tones／8×128 brushed grain／reciprocals、rounded-rectangle／capsule union／compact slots／coherent coverage；slots 皆在 full blade cover 內、radius 0.035 <半 pitch 0.07，在 nearest owner 前歸零。Visible=union×(1−slot) 同覆各 fields／metallic、交會不疊高；空 body／visible 略過後續 fields／grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、完整長柄、透明槽、彎曲／翻炒／熱傳導或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、borrowed-map ownership）：3 seeds ×16 鏟的 1025-point 橫剖面恰三非金屬低槽，三槽上下皆為高 metal 1、無開口叉齒；blade／neck 高 0.00219–0.00223 m、交會差 <0.000025 m，槽低於 0.00011 m／AO <0.4，metal外圈 AO >0.98。129² 雙向、exact rounded corners／三槽端／neck／owners／wraps C1、factor 1／獨立 material／override ownership／destroy 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 578-preset slottedturners、擷取畫面；512 base-color detail 可見三封閉長槽與圓角鏟面／短頸。實際 factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 slottedturners 並重算既有 577 種（含 dinnerforks／slottedmetal）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6600 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

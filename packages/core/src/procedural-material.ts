@@ -592,7 +592,8 @@ export type ProceduralMaterialKind =
   | 'baseballleather'
   | 'toothbrushheads'
   | 'bowtieinlay'
-  | 'redcabbagecut';
+  | 'redcabbagecut'
+  | 'slottedturners';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1419,6 +1420,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'toothbrushheads',
   'bowtieinlay',
   'redcabbagecut',
+  'slottedturners',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1620,6 +1622,7 @@ export class ProceduralMaterial {
         this.kind === 'axialresistors' ||
         this.kind === 'sewingsnaps' ||
         this.kind === 'ceramiccapacitors' ||
+        this.kind === 'slottedturners' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

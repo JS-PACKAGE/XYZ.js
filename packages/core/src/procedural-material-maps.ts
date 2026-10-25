@@ -1428,6 +1428,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'slottedturners': {
+        const p = proceduralMaterialPresets.slottedturners,
+          tones = new Float64Array(p.cells * p.cells),
+          cornerSquared = p.cornerRadius * p.cornerRadius,
+          inverseCorner = 1 / (cornerSquared - p.cornerCore * p.cornerCore),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / (neckSquared - p.neckCore * p.neckCore),
+          slotSquared = p.slotRadius * p.slotRadius,
+          inverseSlot = 1 / (slotSquared - p.slotCore * p.slotCore),
+          inversePitch = 1 / p.slotPitch,
+          grainField = cachedNoise(8, 128, seed ^ 0x12c11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12c13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.bladeX),
+            by = Math.max(0, Math.abs(y - p.bladeCenter) - p.bladeY),
+            blade = smooth(
+              clamp((cornerSquared - bx * bx - by * by) * inverseCorner),
+            ),
+            ny = Math.max(0, Math.abs(y - p.neckCenter) - p.neckStraight),
+            neck = smooth(clamp((neckSquared - x * x - ny * ny) * inverseNeck)),
+            face = 1 - (1 - blade) * (1 - neck);
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          if (face === 0) return;
+          const slotOwner = Math.max(
+              -1,
+              Math.min(1, Math.floor(x * inversePitch + 0.5)),
+            ),
+            sx = x - slotOwner * p.slotPitch,
+            sy = Math.max(0, Math.abs(y - p.bladeCenter) - p.slotStraight),
+            slot = smooth(
+              clamp((slotSquared - sx * sx - sy * sy) * inverseSlot),
+            ),
+            visible = face * (1 - slot);
+          if (visible === 0) return;
+          // Three closed slot supports fit wholly inside the full blade cover.
+          // A shared metal layer keeps the blade/neck join flat, not double-height.
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color += visible * (0.72 + 0.08 * tone + 0.015 * grain - color);
+          height += visible * (0.55 + 0.005 * grain - height);
+          roughness += visible * (p.roughness + 0.02 * grain - roughness);
+          occlusion += visible * (0.99 - occlusion);
+          metallic = visible;
+          return;
+        };
+      }
       case 'redcabbagecut': {
         const p = proceduralMaterialPresets.redcabbagecut,
           tones = new Float64Array(p.cells * p.cells),
@@ -22655,6 +22716,7 @@ export function createSurfaceSampler(
     kind === 'toothbrushheads' ||
     kind === 'bowtieinlay' ||
     kind === 'redcabbagecut' ||
+    kind === 'slottedturners' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
