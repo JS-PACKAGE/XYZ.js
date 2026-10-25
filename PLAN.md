@@ -859,6 +859,8 @@
 
 同輪追加 `pencilsharpeners`（金屬削鉛筆器），目錄658→659種：九 seeded 真圓孔金屬殼、八低握槽、高磨刃與更高一字槽螺釘，非既有 utilityknifeblades 散刃換色。全金屬M1／孔與外隙M0，0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變，不新增 geometry、削切力學、精密五金或安全認證。形態、512圖與雙backend實測見 ACCEPTANCE。
 
+同輪追加 `scissors`（張開紅柄剪刀），目錄659→660種：九 seeded 雙真橢圓孔紅柄、連續銀頸、雙斜尖磨刃與高圓樞；非 utilityknifeblades 散刃或 dinnerforks 換色。紅柄M0／銀刃頸樞M1，0.25 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、活動鉸鏈、剪切力學或安全認證。形態、C1及雙backend實測見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

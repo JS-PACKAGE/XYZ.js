@@ -700,7 +700,283 @@ const kinds: ProceduralMaterialKind[] = [
   'bananaslices',
   'rosemarysprigs',
   'pencilsharpeners',
+  'scissors',
 ];
+
+describe('Open scissors with two true oval red handle holes continuous silver necks two splayed pointed blades and a raised round pivot', () => {
+  const p = proceduralMaterialPresets.scissors;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17e15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17e1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17e17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17e19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const armPoint = (arm: number, x: number, y: number) => {
+    const a = arm === 0 ? -p.armAngle : p.armAngle,
+      c = Math.cos(a),
+      s = Math.sin(a);
+    return [c * x - s * y, s * x + c * y] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine red-handled scissors with two genuinely open oval holes continuous necks two separate tapered blades and a high silver pivot for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('scissors', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            pivot = at(0, 0);
+          expect(pivot.height).toBeGreaterThanOrEqual(0.0031999);
+          expect(pivot.height).toBeLessThanOrEqual(0.0032121);
+          expect(pivot.metallic).toBe(1);
+          expect(pivot.mortar).toBe(0);
+          expect(pivot.occlusion).toBeCloseTo(0.99, 12);
+          for (let arm = 0; arm < 2; arm++) {
+            const local = (x: number, y: number) => at(...armPoint(arm, x, y)),
+              blade = local(0, -0.18),
+              handle = local((p.handleOuterX + p.handleInnerX) / 2, p.handleY);
+            expect(blade.height).toBeGreaterThanOrEqual(0.0021599);
+            expect(blade.height).toBeLessThanOrEqual(0.0021721);
+            expect(blade.metallic).toBe(1);
+            expect(blade.mortar).toBe(0);
+            expect(blade.color - handle.color).toBeGreaterThan(0.6899);
+            expect(handle.height - blade.height).toBeGreaterThan(0.0006279);
+            expect(handle.roughness - blade.roughness).toBeGreaterThan(0.2949);
+            expect(pivot.height - handle.height).toBeGreaterThan(0.0003879);
+            for (let j = 0; j <= 1024; j++) {
+              const theta = (2 * Math.PI * j) / 1024,
+                c = Math.cos(theta),
+                s = Math.sin(theta),
+                rim = local(
+                  (p.handleOuterX + p.handleInnerX) * 0.5 * c,
+                  p.handleY + (p.handleOuterY + p.handleInnerY) * 0.5 * s,
+                ),
+                hole = local(
+                  p.handleInnerX * 0.8 * c,
+                  p.handleY + p.handleInnerY * 0.8 * s,
+                );
+              expect(rim.height).toBeGreaterThanOrEqual(0.0027999);
+              expect(rim.height).toBeLessThanOrEqual(0.0028121);
+              expect(rim.metallic).toBe(0);
+              expect(rim.mortar).toBe(0);
+              expect(rim.occlusion).toBeCloseTo(0.99, 12);
+              expect(hole.height).toBeCloseTo(0.0001, 12);
+              expect(hole.metallic).toBe(0);
+              expect(hole.mortar).toBe(1);
+              expect(hole.occlusion).toBeCloseTo(0.3, 12);
+            }
+            for (let j = 0; j <= 512; j++) {
+              const y = -0.18 + (0.28 * j) / 512,
+                value = local(0, y);
+              expect(value.height).toBeGreaterThanOrEqual(0.0020199);
+              expect(value.mortar).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+            }
+            const y = -0.18,
+              width =
+                ((y - p.bladeTop) * p.bladeBaseHalfX) /
+                (p.bladeBottom - p.bladeTop),
+              hone = local(-width + 0.008, y);
+            expect(blade.height - hone.height).toBeGreaterThan(0.000024);
+            expect(blade.color - hone.color).toBeGreaterThan(0.006);
+            expect(hone.metallic).toBe(1);
+            expect(hone.mortar).toBe(0);
+          }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const value = at(-0.2 + (0.4 * j) / 8192, -0.18),
+              next = value.metallic > 0.9;
+            if (next && !inside) runs++;
+            inside = next;
+          }
+          expect(runs).toBe(2);
+        }
+    },
+  );
+  it('writes two open holes red M0 handle loops silver M1 blades and a higher M1 pivot into actual 512 PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('scissors', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            pivot = pixel(0, 0);
+          for (let arm = 0; arm < 2; arm++) {
+            const blade = pixel(...armPoint(arm, 0, -0.18)),
+              rim = pixel(
+                ...armPoint(
+                  arm,
+                  (p.handleOuterX + p.handleInnerX) / 2,
+                  p.handleY,
+                ),
+              ),
+              hole = pixel(...armPoint(arm, 0, p.handleY));
+            expect(maps.baseColor[blade]!).toBeGreaterThan(225);
+            expect(maps.baseColor[blade + 1]!).toBeGreaterThan(220);
+            expect(
+              maps.baseColor[rim]! - maps.baseColor[rim + 1]!,
+            ).toBeGreaterThan(65);
+            expect(
+              maps.baseColor[rim]! - maps.baseColor[rim + 2]!,
+            ).toBeGreaterThan(60);
+            expect(maps.metallicRoughness[blade + 2]).toBe(255);
+            expect(maps.metallicRoughness[pivot + 2]).toBe(255);
+            expect(maps.metallicRoughness[rim + 2]).toBe(0);
+            expect(maps.metallicRoughness[hole + 2]).toBe(0);
+            for (const i of [blade, rim, pivot])
+              expect(maps.occlusion[i]!).toBeGreaterThan(245);
+            expect(maps.occlusion[hole]!).toBeLessThan(80);
+            expect(maps.height![rim]! - maps.height![blade]!).toBeGreaterThan(
+              45,
+            );
+            expect(maps.height![pivot]! - maps.height![rim]!).toBeGreaterThan(
+              25,
+            );
+            expect(
+              maps.metallicRoughness[rim + 1]! -
+                maps.metallicRoughness[blade + 1]!,
+            ).toBeGreaterThan(70);
+          }
+        }
+    }
+  });
+  it('repeats red/silver classification true handle bores and tapered blade relief across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('scissors', 7),
+      other = createSurfaceSampler('scissors', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(40);
+  });
+  it('keeps signed triangle tip halfplanes blade hones neck capsules oval rings inner bores round pivot pose owners grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('scissors', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const r of [p.pivotRadius, p.pivotCore, p.reach])
+              local(r * ct, r * st);
+            for (let arm = 0; arm < 2; arm++) {
+              const point = (x: number, y: number) =>
+                  local(...armPoint(arm, x, y)),
+                y = p.bladeTop + (p.bladeBottom - p.bladeTop) * t,
+                width =
+                  ((y - p.bladeTop) * p.bladeBaseHalfX) /
+                  (p.bladeBottom - p.bladeTop);
+              for (const d of [0, p.planeShoulder, p.honeWidth])
+                for (const sign of [-1, 1]) point(sign * (width - d), y);
+              for (const yy of [
+                p.bladeTop,
+                p.bladeBottom,
+                p.bladeBottom - p.endShoulder,
+              ])
+                point(-0.05 + 0.1 * t, yy);
+              point(0, p.bladeTop);
+              for (const r of [p.neckRadius, p.neckCore])
+                for (const sign of [-1, 1]) {
+                  point(
+                    sign * r,
+                    p.neckY - p.neckStraightY + 2 * p.neckStraightY * t,
+                  );
+                  point(r * ct, p.neckY + sign * p.neckStraightY + r * st);
+                }
+              for (const q of [1, p.ellipseCoreQ])
+                for (const inner of [false, true]) {
+                  const rx = inner ? p.handleInnerX : p.handleOuterX,
+                    ry = inner ? p.handleInnerY : p.handleOuterY;
+                  point(
+                    rx * Math.sqrt(q) * ct,
+                    p.handleY + ry * Math.sqrt(q) * st,
+                  );
+                }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Metal pencil sharpeners with an open housing bore eight recessed grips raised honed blade and higher slotted screw', () => {
   const p = proceduralMaterialPresets.pencilsharpeners;
@@ -44762,6 +45038,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'kintsugiceramic' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
+          kind !== 'scissors' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -54185,6 +54462,7 @@ describe('procedural preset acquisition and ownership', () => {
     'kintsugiceramic',
     'insulatedringlugs',
     'pencilsharpeners',
+    'scissors',
     'standingseam',
     'damascus',
     'castiron',
@@ -54268,6 +54546,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'kintsugiceramic' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
+          kind === 'scissors' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

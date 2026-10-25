@@ -1441,6 +1441,127 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'scissors': {
+        const p = proceduralMaterialPresets.scissors,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array([
+            Math.cos(p.armAngle),
+            -Math.sin(p.armAngle),
+            Math.cos(p.armAngle),
+            Math.sin(p.armAngle),
+          ]),
+          grainField = cachedNoise(128, 128, seed ^ 0x17e11),
+          inverseLength = p.bladeBaseHalfX / (p.bladeBottom - p.bladeTop),
+          inversePlane = 1 / p.planeShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          inverseHone = 1 / p.honeWidth,
+          inverseOuterX = 1 / (p.handleOuterX * p.handleOuterX),
+          inverseOuterY = 1 / (p.handleOuterY * p.handleOuterY),
+          inverseInnerX = 1 / (p.handleInnerX * p.handleInnerX),
+          inverseInnerY = 1 / (p.handleInnerY * p.handleInnerY),
+          inverseEllipse = 1 / (1 - p.ellipseCoreQ),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / (neckSquared - p.neckCore * p.neckCore),
+          pivotSquared = p.pivotRadius * p.pivotRadius,
+          inversePivot = 1 / (pivotSquared - p.pivotCore * p.pivotCore),
+          reachSquared = p.reach * p.reach;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17e15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17e17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17e19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17e1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17e1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            squared = x * x + y * y;
+          if (squared >= reachSquared) return;
+          let outsidePlate = 1,
+            outsideHandles = 1,
+            outsideHone = 1;
+          for (let arm = 0; arm < 2; arm++) {
+            const c = axes[arm * 2]!,
+              s = axes[arm * 2 + 1]!,
+              ax = c * x + s * y,
+              ay = c * y - s * x,
+              width = (ay - p.bladeTop) * inverseLength,
+              left = width + ax,
+              blade =
+                smooth(clamp(left * inversePlane)) *
+                smooth(clamp((width - ax) * inversePlane)) *
+                smooth(clamp((p.bladeBottom - ay) * inverseEnd)),
+              ny = Math.max(0, Math.abs(ay - p.neckY) - p.neckStraightY),
+              neck = smooth(
+                clamp((neckSquared - ax * ax - ny * ny) * inverseNeck),
+              ),
+              hy = ay - p.handleY,
+              outer = smooth(
+                clamp(
+                  (1 - ax * ax * inverseOuterX - hy * hy * inverseOuterY) *
+                    inverseEllipse,
+                ),
+              ),
+              inner = smooth(
+                clamp(
+                  (1 - ax * ax * inverseInnerX - hy * hy * inverseInnerY) *
+                    inverseEllipse,
+                ),
+              ),
+              handle = outer * (1 - inner),
+              hone = 1 - smooth(clamp(left * inverseHone));
+            // Signed linear halfplanes meet smoothly at a true triangular tip;
+            // abs-x width subtraction would leave a cusp through a fading tip.
+            outsidePlate *= (1 - blade) * (1 - neck);
+            outsideHandles *= 1 - handle;
+            outsideHone *= 1 - blade * hone;
+          }
+          const plate = 1 - outsidePlate,
+            handles = 1 - outsideHandles,
+            pivot = smooth(clamp((pivotSquared - squared) * inversePivot));
+          mortar = outsidePlate * outsideHandles * (1 - pivot);
+          metallic = (1 - outsidePlate * (1 - pivot)) * outsideHandles;
+          if (mortar === 1) return;
+          const grain = grainField(u, v);
+          if (plate !== 0 && handles !== 1 && pivot !== 1) {
+            const hone = 1 - outsideHone;
+            color += plate * (0.94 + 0.025 * grain - 0.12 * hone - color);
+            height += plate * (0.54 - 0.035 * hone + 0.003 * grain - height);
+            roughness +=
+              plate * (0.26 + 0.025 * grain + 0.1 * hone - roughness);
+            occlusion += plate * (0.99 - occlusion);
+          }
+          if (handles !== 0) {
+            color +=
+              handles * (0.2 + 0.025 * poses[i + 5]! + 0.025 * grain - color);
+            height += handles * (0.7 + 0.003 * grain - height);
+            roughness += handles * (p.roughness + 0.025 * grain - roughness);
+            occlusion += handles * (0.99 - occlusion);
+          }
+          if (pivot !== 0) {
+            color += pivot * (0.82 + 0.025 * grain - color);
+            height += pivot * (0.8 + 0.003 * grain - height);
+            roughness += pivot * (0.3 + 0.025 * grain - roughness);
+            occlusion += pivot * (0.99 - occlusion);
+          }
+        };
+      }
       case 'pencilsharpeners': {
         const p = proceduralMaterialPresets.pencilsharpeners,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29404,6 +29525,7 @@ export function createSurfaceSampler(
     kind === 'bananaslices' ||
     kind === 'rosemarysprigs' ||
     kind === 'pencilsharpeners' ||
+    kind === 'scissors' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

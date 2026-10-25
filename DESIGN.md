@@ -867,6 +867,8 @@
 
 `pencilsharpeners` 為九 seeded 全金屬削鉛筆器表面：真圓孔低殼、八道低側握槽、較高磨刃與更高一字槽螺釘，非 utilityknifeblades 散刃或 pencilends 換色。Cached poses／128² grain／squared rounded housing-circle-strip-capsule profiles，nearest grip-row ties及mirror-side cusp在grip support外；housing／blade／screw product-complement metal union 保持 full-body exact M1／mortar0，孔與外隙才是低 opaque M0 backing。Full screw 跳hidden blade/body、full blade跳hidden housing、empty support跳grain，每點無配置／hash／sqrt／trig／逐握槽或鄰格掃描。低握槽、磨刃面與低螺釘槽分別改height／color／roughness／AO且皆M1。0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變，不新增 geometry、削切力學、精密五金尺寸或安全認證。
 
+`scissors` 為九 seeded 張開剪刀：雙真橢圓孔紅柄、連續銀頸、雙斜尖刃與更高圓銀樞。Cached two arm axes／nine poses／128² grain，squared ellipse annuli／neck-pivot profiles，尖刃以smooth signed linear halfplanes乘積收尖，不用有中心尖折的abs-width clipping。Full neck cores 同時重疊blade與ring core，neck support在inner holes前終止；product-complement unions維持連續full-body exact mortar0、紅柄M0、銀刃頸樞M1，孔與外部低opaque M0 backing。Full handles/pivots跳hidden plate，empty support跳grain，每點固定兩arm解析、無配置／hash／sqrt／trig；紅柄高粗於磨刃、低於銀樞。0.25 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、活動鉸鏈、剪切力學或安全認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
