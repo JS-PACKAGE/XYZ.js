@@ -656,7 +656,8 @@ export type ProceduralMaterialKind =
   | 'windmillparquet'
   | 'bismuthhoppers'
   | 'splitvanillapods'
-  | 'seamrippers';
+  | 'seamrippers'
+  | 'flakedarrowheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1547,6 +1548,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bismuthhoppers',
   'splitvanillapods',
   'seamrippers',
+  'flakedarrowheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

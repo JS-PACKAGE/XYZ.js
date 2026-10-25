@@ -1441,6 +1441,113 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'flakedarrowheads': {
+        const p = proceduralMaterialPresets.flakedarrowheads,
+          poses = new Float64Array(p.cells * p.cells * 8),
+          grainField = cachedNoise(128, 128, seed ^ 0x16c11),
+          inverseBladeLength = 1 / (p.base - p.tip),
+          inverseSide = 1 / p.sideShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          inverseStemEnd = 1 / p.stemShoulder,
+          inverseNotchX = 1 / (p.notchRadiusX * p.notchRadiusX),
+          inverseNotchY = 1 / (p.notchRadiusY * p.notchRadiusY),
+          inverseNotchEdge = 1 / p.notchEdge,
+          inverseRidge = 1 / (p.baseHalf * p.baseHalf),
+          inverseScarX = 1 / (p.scarRadiusX * p.scarRadiusX),
+          inverseScarZ = 1 / (p.scarRadiusZ * p.scarRadiusZ),
+          inverseScarEdge = 1 / p.scarEdge,
+          inverseScarPitch = 1 / p.scarPitch;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 8,
+              a = TAU * hash(col, row, seed ^ 0x16c15),
+              tone = hash(col, row, seed ^ 0x16c1d);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x16c17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x16c19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16c1b));
+            poses[i + 5] = tone;
+            poses[i + 6] = p.scarCenterX + p.scarCenterVariation * tone;
+            poses[i + 7] =
+              p.firstScarZ +
+              p.scarJitter * (2 * hash(col, row, seed ^ 0x16c1f) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 8,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            w = p.baseHalf * (y - p.tip) * inverseBladeLength,
+            blade =
+              smooth(clamp((w + x) * inverseSide)) *
+              smooth(clamp((w - x) * inverseSide)) *
+              smooth(clamp((y - p.tip) * inverseEnd)) *
+              smooth(clamp((p.base - y) * inverseEnd)),
+            stem =
+              smooth(clamp((p.stemHalf + x) * inverseSide)) *
+              smooth(clamp((p.stemHalf - x) * inverseSide)) *
+              smooth(clamp((y - p.stemTop) * inverseStemEnd)) *
+              smooth(clamp((p.stemBottom - y) * inverseStemEnd)),
+            body = 1 - (1 - blade) * (1 - stem),
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (body === 0) return;
+          const ny = y - p.notchY,
+            left = x + p.notchX,
+            right = x - p.notchX,
+            nq = ny * ny * inverseNotchY,
+            leftCut = smooth(
+              clamp((1 - left * left * inverseNotchX - nq) * inverseNotchEdge),
+            ),
+            rightCut = smooth(
+              clamp(
+                (1 - right * right * inverseNotchX - nq) * inverseNotchEdge,
+              ),
+            ),
+            face = body * (1 - leftCut) * (1 - rightCut);
+          if (face === 0) return;
+          const across = Math.abs(x),
+            ridge = smooth(clamp(1 - x * x * inverseRidge));
+          let scars = 0;
+          if (
+            across > poses[i + 6] - p.scarRadiusX &&
+            across < poses[i + 6] + p.scarRadiusX
+          ) {
+            const z = y - p.scarSlope * across,
+              k = Math.floor((z - poses[i + 7]) * inverseScarPitch + 0.5);
+            if (k >= 0 && k < p.scarRows) {
+              const sx = across - poses[i + 6],
+                sz = z - poses[i + 7] - k * p.scarPitch;
+              scars = smooth(
+                clamp(
+                  (1 - sx * sx * inverseScarX - sz * sz * inverseScarZ) *
+                    inverseScarEdge,
+                ),
+              );
+            }
+          }
+          const stoneColor =
+              0.64 + 0.07 * poses[i + 5] - 0.13 * scars + 0.025 * grain,
+            stoneHeight = 0.52 + 0.08 * ridge - 0.12 * scars + 0.004 * grain,
+            stoneRoughness = p.roughness + 0.09 * scars + 0.025 * grain,
+            stoneAO = 0.98 - 0.09 * scars;
+          color += face * (stoneColor - color);
+          height += face * (stoneHeight - height);
+          roughness += face * (stoneRoughness - roughness);
+          occlusion += face * (stoneAO - occlusion);
+          mortar = 1 - face;
+        };
+      }
       case 'seamrippers': {
         const p = proceduralMaterialPresets.seamrippers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27723,6 +27830,7 @@ export function createSurfaceSampler(
     kind === 'bismuthhoppers' ||
     kind === 'splitvanillapods' ||
     kind === 'seamrippers' ||
+    kind === 'flakedarrowheads' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

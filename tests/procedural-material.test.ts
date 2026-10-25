@@ -682,7 +682,312 @@ const kinds: ProceduralMaterialKind[] = [
   'bismuthhoppers',
   'splitvanillapods',
   'seamrippers',
+  'flakedarrowheads',
 ];
+
+describe('Stemmed flint-inspired arrowheads with two open lateral notches a raised center ridge and five real oblique flake-scar valleys on each face', () => {
+  const p = proceduralMaterialPresets.flakedarrowheads;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16c15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x16c1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16c17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16c19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const scars = (seed: number, col: number, row: number) =>
+    [
+      p.scarCenterX + p.scarCenterVariation * hash(col, row, seed ^ 0x16c1d),
+      p.firstScarZ + p.scarJitter * (2 * hash(col, row, seed ^ 0x16c1f) - 1),
+    ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected triangular stone point and narrow stem two exposed side notches a true raised ridge and five darker rougher lower flaking scars per side rather than pigment or a double-root tooth for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('flakedarrowheads', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 1024; j++) {
+            sample(
+              ...world(seed, col, row, 0, -0.33 + (0.625 * j) / 1024),
+              out,
+            );
+            expect(out.height).toBeGreaterThan(0.0023999);
+            expect(out.height).toBeLessThan(0.0024161);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          for (const side of [-1, 1]) {
+            for (const [x, y] of [
+              [side * 0.2, 0.12],
+              [side * 0.1, 0.22],
+            ]) {
+              sample(...world(seed, col, row, x, y), out);
+              expect(out.height).toBeGreaterThan(0.0000999);
+              expect(out.height).toBeLessThan(0.0001081);
+              expect(out.occlusion).toBeCloseTo(0.3, 12);
+              expect(out.mortar).toBe(1);
+              expect(out.metallic).toBe(0);
+            }
+            sample(...world(seed, col, row, side * 0.17, 0.065), out);
+            expect(out.height).toBeGreaterThan(0.002);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          sample(...world(seed, col, row, 0, 0), out);
+          const ridgeHeight = out.height;
+          for (const side of [-1, 1]) {
+            sample(...world(seed, col, row, side * 0.13, 0), out);
+            expect(ridgeHeight - out.height).toBeGreaterThan(0.00007);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          const [cx, firstZ] = scars(seed, col, row);
+          for (const side of [-1, 1]) {
+            for (let k = 0; k < p.scarRows; k++)
+              for (let j = 0; j <= 128; j++) {
+                const ax = cx - 0.008 + (0.016 * j) / 128,
+                  z = firstZ + k * p.scarPitch,
+                  gapZ = z + (k === p.scarRows - 1 ? -0.5 : 0.5) * p.scarPitch;
+                sample(
+                  ...world(seed, col, row, side * ax, gapZ + p.scarSlope * ax),
+                  out,
+                );
+                const plateau = { ...out };
+                expect(plateau.occlusion).toBeCloseTo(0.98, 12);
+                expect(plateau.mortar).toBe(0);
+                expect(plateau.metallic).toBe(0);
+                sample(
+                  ...world(seed, col, row, side * ax, z + p.scarSlope * ax),
+                  out,
+                );
+                expect(plateau.height - out.height).toBeGreaterThan(0.0004639);
+                expect(plateau.color - out.color).toBeGreaterThan(0.1049);
+                expect(out.roughness - plateau.roughness).toBeGreaterThan(
+                  0.0649,
+                );
+                expect(out.occlusion).toBeCloseTo(0.89, 12);
+                expect(out.mortar).toBe(0);
+                expect(out.metallic).toBe(0);
+              }
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const z =
+                firstZ -
+                0.025 +
+                (((p.scarRows - 1) * p.scarPitch + 0.05) * j) / 8192;
+              sample(
+                ...world(seed, col, row, side * cx, z + p.scarSlope * cx),
+                out,
+              );
+              const low = out.height < 0.00215;
+              if (low && !inside) runs++;
+              inside = low;
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+            expect(runs).toBe(5);
+          }
+        }
+    },
+  );
+  it('keeps actual512 five oblique darker rougher more occluded scar valleys on both stone faces and real lateral recesses distinct from high barbs and stem without metal', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('flakedarrowheads', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (
+                (Math.min(511, Math.floor(v * 512)) * 512 +
+                  Math.min(511, Math.floor(u * 512))) *
+                4
+              );
+            },
+            [cx, firstZ] = scars(seed, col, row);
+          for (const side of [-1, 1]) {
+            const notch = index(side * 0.2, 0.12),
+              barb = index(side * 0.16, 0.065),
+              stem = index(0, 0.2);
+            expect(
+              maps.occlusion[barb] - maps.occlusion[notch],
+            ).toBeGreaterThan(170);
+            expect(
+              maps.occlusion[stem] - maps.occlusion[notch],
+            ).toBeGreaterThan(170);
+            expect(
+              maps.metallicRoughness[notch + 1] -
+                maps.metallicRoughness[barb + 1],
+            ).toBeGreaterThan(40);
+            for (const at of [notch, barb, stem])
+              expect(maps.metallicRoughness[at + 2]).toBe(0);
+            for (let k = 0; k < p.scarRows; k++) {
+              const z = firstZ + k * p.scarPitch,
+                gap = z + (k === p.scarRows - 1 ? -0.5 : 0.5) * p.scarPitch,
+                scar = index(side * cx, z + p.scarSlope * cx),
+                plateau = index(side * cx, gap + p.scarSlope * cx);
+              expect(
+                maps.baseColor[plateau] - maps.baseColor[scar],
+              ).toBeGreaterThan(12);
+              expect(
+                maps.metallicRoughness[scar + 1] -
+                  maps.metallicRoughness[plateau + 1],
+              ).toBeGreaterThan(15);
+              expect(
+                maps.occlusion[plateau] - maps.occlusion[scar],
+              ).toBeGreaterThan(21);
+              expect(maps.metallicRoughness[scar + 2]).toBe(0);
+              expect(maps.metallicRoughness[plateau + 2]).toBe(0);
+            }
+          }
+        }
+    }
+  });
+  it('keeps triangular halfplane/end products stem corners both negativecut ellipses warpedscar support/core oblique owners absaxis poseowners andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('flakedarrowheads', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const [cx, firstZ] = scars(seed, col, row);
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              y = p.tip + (p.base - p.tip) * t,
+              w = p.baseHalf * t,
+              angle = 2 * Math.PI * t;
+            for (const x of [-w, -w + p.sideShoulder, 0, w - p.sideShoulder, w])
+              check(...world(seed, col, row, x, y));
+            for (const ey of [
+              p.tip,
+              p.tip + p.endShoulder,
+              p.base - p.endShoulder,
+              p.base,
+              p.stemTop,
+              p.stemTop + p.stemShoulder,
+              p.stemBottom - p.stemShoulder,
+              p.stemBottom,
+            ])
+              check(...world(seed, col, row, -0.25 + 0.5 * t, ey));
+            for (const x of [
+              -p.stemHalf,
+              -p.stemHalf + p.sideShoulder,
+              p.stemHalf - p.sideShoulder,
+              p.stemHalf,
+            ])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  x,
+                  p.stemTop + (p.stemBottom - p.stemTop) * t,
+                ),
+              );
+            for (const side of [-1, 1])
+              for (const q of [1, 1 - p.notchEdge]) {
+                const r = Math.sqrt(q);
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    side * p.notchX + p.notchRadiusX * r * Math.cos(angle),
+                    p.notchY + p.notchRadiusY * r * Math.sin(angle),
+                  ),
+                );
+              }
+          }
+          for (const side of [-1, 1])
+            for (let k = 0; k < p.scarRows; k++)
+              for (const q of [1, 1 - p.scarEdge])
+                for (let j = 0; j <= 64; j++) {
+                  const a = (2 * Math.PI * j) / 64,
+                    r = Math.sqrt(q),
+                    ax = cx + p.scarRadiusX * r * Math.cos(a),
+                    z =
+                      firstZ +
+                      k * p.scarPitch +
+                      p.scarRadiusZ * r * Math.sin(a);
+                  check(
+                    ...world(seed, col, row, side * ax, z + p.scarSlope * ax),
+                  );
+                }
+          for (let k = 0; k <= p.scarRows; k++)
+            for (let j = 0; j <= 64; j++)
+              for (const side of [-1, 1]) {
+                const ax = cx - p.scarRadiusX + (2 * p.scarRadiusX * j) / 64,
+                  z = firstZ + (k - 0.5) * p.scarPitch;
+                check(
+                  ...world(seed, col, row, side * ax, z + p.scarSlope * ax),
+                );
+              }
+        }
+    }
+  });
+});
 
 describe('Asymmetric steel seam rippers with a long curved tapered tine shorter blue protective ball-capped tine and a nonmetal navy handle', () => {
   const p = proceduralMaterialPresets.seamrippers;

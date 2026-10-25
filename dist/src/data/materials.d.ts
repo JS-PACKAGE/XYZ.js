@@ -6547,6 +6547,40 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    flakedarrowheads: Readonly<{
+        dark: readonly [49, 45, 39];
+        light: readonly [181, 167, 139];
+        roughness: 0.76;
+        relief: 0.004;
+        cells: 4;
+        tip: -0.36;
+        base: 0.14;
+        baseHalf: 0.22;
+        sideShoulder: 0.01;
+        endShoulder: 0.012;
+        stemTop: 0.1;
+        stemBottom: 0.31;
+        stemHalf: 0.055;
+        stemShoulder: 0.012;
+        notchX: 0.205;
+        notchY: 0.13;
+        notchRadiusX: 0.11;
+        notchRadiusY: 0.04;
+        notchEdge: 0.2;
+        scarRows: 5;
+        firstScarZ: -0.22;
+        scarPitch: 0.06;
+        scarSlope: 0.65;
+        scarCenterX: 0.04;
+        scarCenterVariation: 0.008;
+        scarJitter: 0.003;
+        scarRadiusX: 0.025;
+        scarRadiusZ: 0.018;
+        scarEdge: 0.3;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7191,4 +7225,5 @@ export declare const proceduralTileMeters: Readonly<{
     bismuthhoppers: 0.16;
     splitvanillapods: 0.6;
     seamrippers: 0.6;
+    flakedarrowheads: 0.4;
 }>;
