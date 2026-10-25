@@ -7889,3 +7889,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，各選出643-preset dandelionseeds 並擷取畫面與512 detail，見九組十六細白冠毛、相連低梗與棕籽。各獨立512 API 驗證 factor0／metal min0 max0／height true／destroyed true；page 及 about:blank cleanup errors 皆空，tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 dandelionseeds 並重算既有 642 種 size64／seed7 四圖 SHA256，changed0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6979 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：不透明障子風紙木格（shojipaperlattice）
+
+- 目錄643→644種，六乘六連續高棕木桟圍低白纖維紙，全 M0／mortar0，不是 trellis backing 洞、固定灰 grout 或磁磚變色。Cached 8×96 grain 隨桟轉向，交點覆水平木紋但不疊高；紙底使用3×5 formation／96² tooth／12×96 雙向 fibers。Full wood 跳紙底、full horizontal 跳垂直 grain、empty wood 跳 grain；採樣無配置／hash／sqrt／trig／鄰格掃描，週期 full-core／support profile C1。0.9 m tile／0.004 m relief，沿用四圖／height／Worker／cache／tint／ownership；不新增透光、透明、散射、榫接 geometry 或建築認證。
+- Targeted 六項通過（3-seed morphology／actual512／C1／determinism）。三 seeds 各36紙格，紙面 height0.0008799–0.0009201 m／color≥0.9／roughness≥0.94／AO0.88；每格兩軸各1025-point 木桟連續線 height0.0025599–0.0025761 m／AO0.99／M0／mortar0，比紙高 >0.0016399 m、color 低 >0.5199、roughness 低 >0.3999。兩方向整面33² paired patch energy 各 across >3×along；初測錯要求每個局部 noise 極值 patch 也達此比值，兩 seeds 未通過，改為全表面整合方向性斷言，sampler 未為測試改色／閾值。兩軸8193-point scan 各六個白紙 runs。Actual512 各36白紙 red>230／AO>220，木桟與交點 red 比紙低 >90codes、red 比 blue 高 >35、roughness G 比紙低 >100、AO 比紙高 >25，全部 M0。193² fields、六條桟的 exact support/core／halfcell ownership／intersections／UV wraps C1。
+- Managed Chromium 實際644-preset gallery 強制 WebGPU／WebGL2 選出材質並擷取畫面及512 detail，見連續棕木格圍不透明乳白紙。各 API512 factor0／metal min0 max0／height true／destroyed true；page／about:blank cleanup errors 空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、透光或效能。
+- Fresh Node 新 build 生成 shojipaperlattice 並重算既有643種 size64／seed7 四圖 SHA256，changed0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6985 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

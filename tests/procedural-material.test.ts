@@ -684,7 +684,190 @@ const kinds: ProceduralMaterialKind[] = [
   'seamrippers',
   'flakedarrowheads',
   'dandelionseeds',
+  'shojipaperlattice',
 ];
+
+describe('Opaque shoji-inspired paper lattice with a continuous six-by-six raised brown wood grid directional grain and lower white fibrous paper', () => {
+  const p = proceduralMaterialPresets.shojipaperlattice;
+  it.each([0, 1, 0xffffffff])(
+    'keeps full-length raised wood rails across all intersections surrounding genuinely lower brighter rougher opaque fibrous paper rather than holes or grout for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('shojipaperlattice', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      const grainEnergy = [
+        { along: 0, across: 0 },
+        { along: 0, across: 0 },
+      ];
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample((col + 0.5) / p.cells, (row + 0.5) / p.cells, out);
+          const paper = { ...out };
+          expect(paper.height).toBeGreaterThan(0.0008799);
+          expect(paper.height).toBeLessThan(0.0009201);
+          expect(paper.color).toBeGreaterThanOrEqual(0.9);
+          expect(paper.roughness).toBeGreaterThanOrEqual(0.94);
+          expect(paper.occlusion).toBeCloseTo(0.88, 12);
+          expect(paper.mortar).toBe(0);
+          expect(paper.metallic).toBe(0);
+          for (let j = 0; j <= 1024; j++) {
+            const t = j / 1024;
+            for (const [u, v] of [
+              [col / p.cells, (row + t) / p.cells],
+              [(col + t) / p.cells, row / p.cells],
+            ]) {
+              sample(u, v, out);
+              expect(out.height).toBeGreaterThan(0.0025599);
+              expect(out.height).toBeLessThan(0.0025761);
+              expect(out.height - paper.height).toBeGreaterThan(0.0016399);
+              expect(paper.color - out.color).toBeGreaterThan(0.5199);
+              expect(paper.roughness - out.roughness).toBeGreaterThan(0.3999);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          }
+          for (const horizontal of [false, true]) {
+            const energy = grainEnergy[horizontal ? 1 : 0];
+            for (let y = 0; y <= 32; y++)
+              for (let x = 0; x <= 32; x++) {
+                const axis = (col + 0.5) / p.cells - 0.03 + (0.06 * x) / 32,
+                  cross = row / p.cells - 0.005 + (0.01 * y) / 32,
+                  u = horizontal ? axis : cross,
+                  v = horizontal ? cross : axis,
+                  delta = 0.00001;
+                sample(u, v, out);
+                const base = out.color;
+                sample(
+                  u + (horizontal ? delta : 0),
+                  v + (horizontal ? 0 : delta),
+                  out,
+                );
+                energy.along += Math.abs(out.color - base);
+                sample(
+                  u + (horizontal ? 0 : delta),
+                  v + (horizontal ? delta : 0),
+                  out,
+                );
+                energy.across += Math.abs(out.color - base);
+              }
+          }
+        }
+      for (const energy of grainEnergy)
+        expect(energy.across).toBeGreaterThan(3 * energy.along);
+      for (const horizontal of [false, true]) {
+        let runs = 0,
+          inside = false;
+        for (let j = 0; j <= 8192; j++) {
+          const t = j / 8192;
+          sample(
+            horizontal ? t : 0.5 / p.cells,
+            horizontal ? 0.5 / p.cells : t,
+            out,
+          );
+          const white = out.color > 0.8;
+          if (white && !inside) runs++;
+          inside = white;
+        }
+        expect(runs).toBe(6);
+      }
+    },
+  );
+  it('keeps actual512 all36 white rough paper panes behind lower-color brown wood crossing rails with solid AO and zero metal', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('shojipaperlattice', 512, seed),
+        index = (u: number, v: number) =>
+          (Math.min(511, Math.floor(v * 512)) * 512 +
+            Math.min(511, Math.floor(u * 512))) *
+          4;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const paper = index((col + 0.5) / p.cells, (row + 0.5) / p.cells);
+          expect(maps.occlusion[paper]).toBeGreaterThan(220);
+          expect(maps.baseColor[paper]).toBeGreaterThan(230);
+          expect(maps.metallicRoughness[paper + 2]).toBe(0);
+          for (const [u, v] of [
+            [col / p.cells, (row + 0.5) / p.cells],
+            [(col + 0.5) / p.cells, row / p.cells],
+            [col / p.cells, row / p.cells],
+          ]) {
+            const wood = index(u, v);
+            expect(
+              maps.baseColor[paper] - maps.baseColor[wood],
+            ).toBeGreaterThan(90);
+            expect(
+              maps.baseColor[wood] - maps.baseColor[wood + 2],
+            ).toBeGreaterThan(35);
+            expect(
+              maps.metallicRoughness[paper + 1] -
+                maps.metallicRoughness[wood + 1],
+            ).toBeGreaterThan(100);
+            expect(
+              maps.occlusion[wood] - maps.occlusion[paper],
+            ).toBeGreaterThan(25);
+            expect(maps.metallicRoughness[wood + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps all rail support/core shoulders intersection crossgrain overlays halfcell distanceplateaus paperfields andUVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('shojipaperlattice', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let cell = 0; cell < p.cells; cell++)
+        for (const d of [
+          0,
+          p.railCore,
+          p.railHalf,
+          0.5,
+          1 - p.railHalf,
+          1 - p.railCore,
+          1,
+        ])
+          for (let j = 0; j <= 512; j++) {
+            check((cell + d) / p.cells, j / 512);
+            check(j / 512, (cell + d) / p.cells);
+          }
+    }
+  });
+});
 
 describe('Stylized dandelion seeds with sixteen thin off-white pappus fibers a connected lower tan stalk and a raised brown seed', () => {
   const p = proceduralMaterialPresets.dandelionseeds;

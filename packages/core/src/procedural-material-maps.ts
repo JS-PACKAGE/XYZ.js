@@ -1441,6 +1441,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'shojipaperlattice': {
+        const p = proceduralMaterialPresets.shojipaperlattice,
+          grainField = cachedNoise(8, 96, seed ^ 0x16e11),
+          formationField = cachedNoise(3, 5, seed ^ 0x16e13),
+          toothField = cachedNoise(96, 96, seed ^ 0x16e15),
+          fiberField = cachedNoise(12, 96, seed ^ 0x16e17),
+          inverseShoulder = 1 / (p.railHalf - p.railCore);
+        return () => {
+          const fx = fract(u * p.cells),
+            fy = fract(v * p.cells),
+            vertical = smooth(
+              clamp((p.railHalf - Math.min(fx, 1 - fx)) * inverseShoulder),
+            ),
+            horizontal = smooth(
+              clamp((p.railHalf - Math.min(fy, 1 - fy)) * inverseShoulder),
+            );
+          metallic = 0;
+          mortar = 0;
+          if (vertical === 1 || horizontal === 1) {
+            const grain =
+              horizontal === 1 ? grainField(u, v) : grainField(v, u);
+            color = 0.3 + 0.08 * grain;
+            height = 0.64 + 0.004 * grain;
+            roughness = p.roughness + 0.04 * grain;
+            occlusion = 0.99;
+            if (horizontal === 1) return;
+          } else {
+            const formation = formationField(u, v),
+              tooth = toothField(u, v),
+              fiber = (fiberField(u, v) + fiberField(v, u)) * 0.5;
+            color = 0.9 + 0.03 * formation + 0.025 * tooth + 0.01 * fiber;
+            height = 0.22 + 0.006 * tooth + 0.004 * fiber;
+            roughness = 0.94 + 0.03 * tooth;
+            occlusion = 0.88;
+            if (vertical !== 0) {
+              const grain = grainField(v, u);
+              color += vertical * (0.3 + 0.08 * grain - color);
+              height += vertical * (0.64 + 0.004 * grain - height);
+              roughness += vertical * (p.roughness + 0.04 * grain - roughness);
+              occlusion += vertical * (0.99 - occlusion);
+            }
+          }
+          if (horizontal !== 0) {
+            const grain = grainField(u, v);
+            color += horizontal * (0.3 + 0.08 * grain - color);
+            height += horizontal * (0.64 + 0.004 * grain - height);
+            roughness += horizontal * (p.roughness + 0.04 * grain - roughness);
+            occlusion += horizontal * (0.99 - occlusion);
+          }
+        };
+      }
       case 'dandelionseeds': {
         const p = proceduralMaterialPresets.dandelionseeds,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27938,6 +27989,7 @@ export function createSurfaceSampler(
     kind === 'seamrippers' ||
     kind === 'flakedarrowheads' ||
     kind === 'dandelionseeds' ||
+    kind === 'shojipaperlattice' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

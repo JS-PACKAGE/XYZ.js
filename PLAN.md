@@ -827,6 +827,8 @@
 
 同輪追加 `dandelionseeds`（冠毛蒲公英種子），目錄642→643種：九個 seeded rotated stylized 種子，十六條細乳白冠毛透過完整中央 hub 接低淡褐梗與較高棕籽，細輻之間露 opaque backing，不是十二寬花瓣的 daisy disk。0.09 m tile、全 M0，height／roughness／color／AO 區分冠毛、梗、籽，沿用四圖、選用 height 與 ownership；不新增 geometry、透明纖維／洞、植物／種子生長、風／飄飛或物理模擬，不認證微觀纖維或植物真實性。依功能驗證提交，不 push。
 
+同輪追加 `shojipaperlattice`（不透明障子風紙木格），目錄643→644種：六乘六連續高棕木桟圍低白纖維紙面，非 trellis 的開格 backing 或變色磁磚。0.9 m tile、全 M0／mortar0，紙面有 formation／tooth／雙向纖維細起伏與高粗糙度；木桟較高、暗、平滑，木紋隨水平／垂直桟旋轉，交點延續水平木紋且不疊加雙倍高度。沿用四圖、height、Worker／cache／tint 與 ownership；僅不透明程序表面，不新增 geometry、透光／透明、紙張散射、實體榫接或安裝／建築認證。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

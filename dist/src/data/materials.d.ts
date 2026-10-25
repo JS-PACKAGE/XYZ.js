@@ -6605,6 +6605,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    shojipaperlattice: Readonly<{
+        dark: readonly [70, 39, 15];
+        light: readonly [249, 245, 229];
+        roughness: 0.5;
+        relief: 0.004;
+        cells: 6;
+        railHalf: 0.07;
+        railCore: 0.045;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7251,4 +7260,5 @@ export declare const proceduralTileMeters: Readonly<{
     seamrippers: 0.6;
     flakedarrowheads: 0.4;
     dandelionseeds: 0.09;
+    shojipaperlattice: 0.9;
 }>;

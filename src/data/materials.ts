@@ -6756,6 +6756,15 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  shojipaperlattice: Object.freeze({
+    dark: [70, 39, 15] as const,
+    light: [249, 245, 229] as const,
+    roughness: 0.5,
+    relief: 0.004,
+    cells: 6,
+    railHalf: 0.07,
+    railCore: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7403,4 +7412,5 @@ export const proceduralTileMeters = Object.freeze({
   seamrippers: 0.6,
   flakedarrowheads: 0.4,
   dandelionseeds: 0.09,
+  shojipaperlattice: 0.9,
 });
