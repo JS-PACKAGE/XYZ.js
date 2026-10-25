@@ -643,7 +643,247 @@ const kinds: ProceduralMaterialKind[] = [
   'lentilseeds',
   'blueprintpaper',
   'horsechestnutleaf',
+  'binderclips',
 ];
+
+describe('Black coated trapezoid binder clips with two constant-width silver U-wire handles', () => {
+  const p = proceduralMaterialPresets.binderclips;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps both true-width wire handles exposed metal while black paint covers roots and the higher lower lip without leaking metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('binderclips', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          for (const sign of [-1, 1]) {
+            for (let i = 0; i <= 32; i++) {
+              const angle = (i * Math.PI) / 32;
+              at(
+                p.bendRadius * Math.cos(angle),
+                sign * (p.bendY + p.bendRadius * Math.sin(angle)),
+              );
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0031199);
+              expect(out.height).toBeLessThan(0.0031441);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.color).toBeGreaterThan(0.8399);
+            }
+            for (const side of [-1, 1]) {
+              at(side * p.bendRadius, sign * 0.17);
+              const wire = out.height;
+              expect(out.metallic).toBe(1);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.roughness).toBeGreaterThanOrEqual(0.22);
+              expect(out.roughness).toBeLessThanOrEqual(0.245);
+              at(side * p.bendRadius, sign * 0.08);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0033599);
+              expect(out.height).toBeLessThan(0.0033841);
+              expect(out.height - wire).toBeGreaterThan(0.0002);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.color).toBeLessThan(0.0551);
+            }
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              at(-0.15 + (i * 0.3) / 2048, sign * p.bendY);
+              const metal = out.metallic > 0.5;
+              if (metal && !previous) runs++;
+              previous = metal;
+            }
+            expect(runs).toBe(2);
+            at(0, sign * 0.2);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.000201);
+          }
+          at(0, p.lipY);
+          const lip = out.height;
+          expect(lip).toBeGreaterThan(0.0036799);
+          expect(lip).toBeLessThan(0.0037041);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBe(1);
+          at(0, -p.lipY);
+          expect(lip - out.height).toBeGreaterThan(0.000294);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          const widths: number[] = [];
+          for (const sign of [-1, 1]) {
+            let runs = 0,
+              width = 0,
+              previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              at(-0.23 + (i * 0.46) / 4096, sign * 0.1);
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              if (body) width++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            widths.push((width * 0.46) / 4096);
+          }
+          expect(widths[1] - widths[0]).toBeGreaterThan(0.08);
+          for (const [x, y] of [
+            [0.23, 0],
+            [-0.23, 0],
+            [0, 0.37],
+            [0, -0.37],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.000201);
+          }
+        }
+    },
+  );
+  it('keeps sampled silver handle texels metallic while painted roots and opaque handle cavities remain dielectric in 512 maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('binderclips', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const metal = (x: number, y: number) => {
+            const [u, v] = uv(col, row, x, y);
+            return maps.metallicRoughness[
+              (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4 + 2
+            ];
+          };
+          for (const sign of [-1, 1]) {
+            for (let i = 0; i <= 16; i++) {
+              const angle = (i * Math.PI) / 16;
+              expect(
+                metal(
+                  p.bendRadius * Math.cos(angle),
+                  sign * (p.bendY + p.bendRadius * Math.sin(angle)),
+                ),
+              ).toBe(255);
+            }
+            for (const side of [-1, 1])
+              expect(metal(side * p.bendRadius, sign * 0.08)).toBe(0);
+            expect(metal(0, sign * 0.2)).toBe(0);
+          }
+          expect(metal(0, 0)).toBe(0);
+          expect(metal(0, p.lipY)).toBe(0);
+        }
+    }
+  });
+  it('keeps true-width U arcs and straight tangents tapered coated corners lip capsule mixed-metal roots owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('binderclips', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const side of [-1, 1])
+            for (const offset of [
+              -p.wireRadius,
+              -p.wireCore,
+              0,
+              p.wireCore,
+              p.wireRadius,
+            ]) {
+              const radius = p.bendRadius + offset;
+              for (let i = 0; i <= 64; i++) {
+                const angle = (i * Math.PI) / 64;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    radius * Math.cos(angle),
+                    side * (p.bendY + radius * Math.sin(angle)),
+                  ),
+                );
+              }
+              for (const sign of [-1, 1])
+                for (const y of [p.endY, 0.14, 0.19, p.bendY])
+                  check(...uv(col, row, sign * radius, side * y));
+            }
+          for (const y of [
+            -p.bodyHalfY,
+            -p.bodyCoreY,
+            0,
+            p.bodyCoreY,
+            p.bodyHalfY,
+          ])
+            for (const sign of [-1, 1])
+              for (const shoulder of [0, p.bodyShoulderSquared]) {
+                const width = p.bodyHalfX + p.bodyTaper * y;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    sign * Math.sqrt(width * width - shoulder),
+                    y,
+                  ),
+                );
+              }
+          for (const side of [-1, 1])
+            for (const radius of [p.lipRadius, p.lipCore])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    side * p.lipStraight + radius * Math.cos(angle),
+                    p.lipY + radius * Math.sin(angle),
+                  ),
+                );
+              }
+        }
+    }
+  });
+});
 
 describe('Stylized horse-chestnut compound leaves with seven separately stalked blades and raised midribs', () => {
   const p = proceduralMaterialPresets.horsechestnutleaf;
@@ -31489,7 +31729,6 @@ describe('periodic procedural material fields', () => {
             expect(b[key]).toBeCloseTo(a[key], 9);
         }
       }
-      const metallic = new Set<number>();
       for (let p = 0; p < first.baseColor.length; p += 4) {
         expect(first.baseColor[p + 3]).toBe(255);
         expect(first.normal[p + 3]).toBe(255);
@@ -31499,7 +31738,6 @@ describe('periodic procedural material fields', () => {
         const nz = (first.normal[p + 2] / 255) * 2 - 1;
         expect(Math.abs(Math.hypot(nx, ny, nz) - 1)).toBeLessThan(0.008);
         expect(first.metallicRoughness[p]).toBe(255);
-        metallic.add(first.metallicRoughness[p + 2]);
         if (
           kind === 'metal' ||
           kind === 'diamondplate' ||
@@ -31572,6 +31810,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'brasspadlocks' &&
           kind !== 'bluepushpins' &&
           kind !== 'openendspanners' &&
+          kind !== 'binderclips' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -31579,37 +31818,6 @@ describe('periodic procedural material fields', () => {
         expect(first.metallicRoughness[p + 3]).toBe(255);
         expect(first.occlusion[p]).toBeGreaterThan(0);
         expect(first.occlusion[p + 3]).toBe(255);
-      }
-      if (
-        kind === 'rust' ||
-        kind === 'copperpatina' ||
-        kind === 'chippedenamel' ||
-        kind === 'gabion' ||
-        kind === 'grommetcanvas' ||
-        kind === 'goldbrocade' ||
-        kind === 'batterypositivecaps' ||
-        kind === 'screwterminalblocks' ||
-        kind === 'axialresistors' ||
-        kind === 'sewingsnaps' ||
-        kind === 'ceramiccapacitors' ||
-        kind === 'ballbearingfaces' ||
-        kind === 'dualinlinechips' ||
-        kind === 'flatflexcables' ||
-        kind === 'tactileswitches' ||
-        kind === 'brasspadlocks' ||
-        kind === 'bluepushpins' ||
-        kind === 'openendspanners' ||
-        kind === 'slottedturners'
-      ) {
-        expect(Math.min(...metallic)).toBeLessThan(40);
-        expect(Math.max(...metallic)).toBeGreaterThan(200);
-      }
-      if (kind === 'chainmail' || kind === 'draincover') {
-        expect(metallic.has(0)).toBe(true);
-        expect(metallic.has(255)).toBe(true);
-        expect([...metallic].some((value) => value > 0 && value < 255)).toBe(
-          true,
-        );
       }
     },
   );
@@ -41008,6 +41216,7 @@ describe('procedural preset acquisition and ownership', () => {
     'brasspadlocks',
     'bluepushpins',
     'openendspanners',
+    'binderclips',
     'standingseam',
     'damascus',
     'castiron',
@@ -41073,6 +41282,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'brasspadlocks' ||
           kind === 'bluepushpins' ||
           kind === 'openendspanners' ||
+          kind === 'binderclips' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

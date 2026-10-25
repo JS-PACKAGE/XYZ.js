@@ -1441,6 +1441,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'binderclips': {
+        const p = proceduralMaterialPresets.binderclips,
+          tones = new Float64Array(p.cells * p.cells),
+          bodyYSquared = p.bodyHalfY * p.bodyHalfY,
+          inverseBodyY = 1 / (bodyYSquared - p.bodyCoreY * p.bodyCoreY),
+          inverseBodyX = 1 / p.bodyShoulderSquared,
+          wireSquared = p.wireRadius * p.wireRadius,
+          inverseWire = 1 / (wireSquared - p.wireCore * p.wireCore),
+          inverseDome = 1 / wireSquared,
+          outerSquared = (p.bendRadius + p.wireRadius) ** 2,
+          innerSquared = (p.bendRadius - p.wireRadius) ** 2,
+          lipSquared = p.lipRadius * p.lipRadius,
+          inverseLip = 1 / (lipSquared - p.lipCore * p.lipCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x14811);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x14813);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bodyY = smooth(clamp((bodyYSquared - y * y) * inverseBodyY));
+          let body = 0;
+          if (bodyY > 0) {
+            const width = p.bodyHalfX + p.bodyTaper * y;
+            body =
+              bodyY * smooth(clamp((width * width - x * x) * inverseBodyX));
+          }
+          let wire = 0,
+            distanceSquared = 0;
+          if (body < 1) {
+            const ay = Math.abs(y),
+              bendY = ay - p.bendY;
+            if (bendY > 0) {
+              const radialSquared = x * x + bendY * bendY;
+              if (
+                radialSquared > innerSquared &&
+                radialSquared < outerSquared
+              ) {
+                // The real radial distance preserves constant width and straight/arc tangents.
+                const radial = Math.sqrt(radialSquared) - p.bendRadius;
+                distanceSquared = radial * radial;
+                wire = smooth(
+                  clamp((wireSquared - distanceSquared) * inverseWire),
+                );
+              }
+            } else {
+              const across = Math.abs(x) - p.bendRadius,
+                cap = Math.max(0, p.endY - ay);
+              distanceSquared = across * across + cap * cap;
+              wire = smooth(
+                clamp((wireSquared - distanceSquared) * inverseWire),
+              );
+            }
+          }
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = (1 - body) * (1 - wire);
+          if (body === 0 && wire === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (wire > 0) {
+            const dome = smooth(clamp(1 - distanceSquared * inverseDome));
+            color += wire * (0.84 + 0.09 * tone + 0.025 * grain - color);
+            height += wire * (0.32 + 0.07 * dome + 0.003 * grain - height);
+            roughness += wire * (0.22 + 0.025 * grain - roughness);
+            occlusion += wire * (0.98 - occlusion);
+            metallic = wire;
+          }
+          if (body === 0) return;
+          const lx = Math.max(0, Math.abs(x) - p.lipStraight),
+            ly = y - p.lipY,
+            lip = smooth(clamp((lipSquared - lx * lx - ly * ly) * inverseLip));
+          color += body * (0.035 + 0.012 * tone + 0.008 * grain - color);
+          height += body * (0.42 + 0.003 * grain + 0.04 * lip - height);
+          roughness +=
+            body * (p.roughness + 0.03 * grain - 0.04 * lip - roughness);
+          occlusion += body * (0.99 + 0.01 * lip - occlusion);
+          metallic *= 1 - body;
+          return;
+        };
+      }
       case 'horsechestnutleaf': {
         const p = proceduralMaterialPresets.horsechestnutleaf,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -24803,6 +24894,7 @@ export function createSurfaceSampler(
     kind === 'lentilseeds' ||
     kind === 'blueprintpaper' ||
     kind === 'horsechestnutleaf' ||
+    kind === 'binderclips' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

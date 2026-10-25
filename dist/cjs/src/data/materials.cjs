@@ -11168,6 +11168,35 @@ var proceduralMaterialPresets = Object.freeze({
 		petioluleCore: .005,
 		veinRadius: .007,
 		veinCore: .0045
+	}),
+	binderclips: Object.freeze({
+		dark: [
+			8,
+			11,
+			16
+		],
+		light: [
+			237,
+			242,
+			247
+		],
+		roughness: .5,
+		relief: .008,
+		cells: 4,
+		bodyHalfY: .13,
+		bodyCoreY: .115,
+		bodyHalfX: .15,
+		bodyTaper: .23,
+		bodyShoulderSquared: .003,
+		bendY: .23,
+		bendRadius: .1,
+		endY: .07,
+		wireRadius: .012,
+		wireCore: .009,
+		lipY: .095,
+		lipStraight: .12,
+		lipRadius: .012,
+		lipCore: .009
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -11775,7 +11804,8 @@ var proceduralTileMeters = Object.freeze({
 	openendspanners: .4,
 	lentilseeds: .04,
 	blueprintpaper: .4,
-	horsechestnutleaf: .8
+	horsechestnutleaf: .8,
+	binderclips: .32
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

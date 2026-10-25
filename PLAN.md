@@ -751,6 +751,8 @@
 
 同輪追加 `horsechestnutleaf`（風格化七葉樹複葉），目錄 604→605 種：七片尖端微鋸齒小葉，細小葉柄接共同葉柄、葉片中肋較高較亮，非 mapleleaf 連續裂片或 ginkgoleaf 連續扇面。0.8 m opaque dielectric tile、metallic 0，沿 neutral backing／四圖／選用 height／ownership；不新增 geometry、透明葉隙、植物生長／生理或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `binderclips`（長尾夾），目錄 605→606 種：兩等寬銀色 U 線柄／非金屬黑塗層梯形夾身／較高下緣 lip，露出 wire metallic 1、塗層／opaque 孔隙／外背 metallic 0，預設 factor 1。0.32 m opaque mixed-metal tile，沿四圖／選用 height／ownership；不新增 geometry、透明孔、夾持／彈簧／承重或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

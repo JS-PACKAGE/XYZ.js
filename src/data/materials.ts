@@ -6001,6 +6001,27 @@ export const proceduralMaterialPresets = Object.freeze({
     veinRadius: 0.007,
     veinCore: 0.0045,
   }),
+  binderclips: Object.freeze({
+    dark: [8, 11, 16] as const,
+    light: [237, 242, 247] as const,
+    roughness: 0.5,
+    relief: 0.008,
+    cells: 4,
+    bodyHalfY: 0.13,
+    bodyCoreY: 0.115,
+    bodyHalfX: 0.15,
+    bodyTaper: 0.23,
+    bodyShoulderSquared: 0.003,
+    bendY: 0.23,
+    bendRadius: 0.1,
+    endY: 0.07,
+    wireRadius: 0.012,
+    wireCore: 0.009,
+    lipY: 0.095,
+    lipStraight: 0.12,
+    lipRadius: 0.012,
+    lipCore: 0.009,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6610,4 +6631,5 @@ export const proceduralTileMeters = Object.freeze({
   lentilseeds: 0.04,
   blueprintpaper: 0.4,
   horsechestnutleaf: 0.8,
+  binderclips: 0.32,
 });
