@@ -7349,3 +7349,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 576-preset bowtieinlay、擷取畫面；512 base-color detail 可見深木蝴蝶補片跨暗彎裂縫及交錯木紋。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 bowtieinlay 並重算既有 575 種（含 dovetailjoint／sunburstveneer）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6589 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：紫甘藍切面（redcabbagecut）
+
+- 目錄 576→577 種；0.48 m opaque dielectric tile、metallic 0，紫葉層細蜿蜒淡脈／實淡芯／深外緣，非 cabbage 外葉或 onion 乾表皮。Cached 4 tones／96×96 grain／16×16 warp／32×32 fold／reciprocals、squared-radius warped phase／compact pith／coherent filled tissue；phase-floor plateau、無 polar angle／radius 除法。內部淡脈／芯不挖孔／不浮起，只改 pigment／roughness，face 零略過 grain、flesh 零略過 warp／fold／pith；採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明葉片、透射／subsurface 求解、植物生長／解剖認證或物理模擬。
+- Fresh Bun throwaway 192²×4 cuts／3 seeds：淡脈／芯占 15.7–16.0%、紫層約 80.5–80.7%，內高 0.004000–0.004032 m／AO 0.99；淡區 roughness 約 0.636–0.637、紫層約 0.749–0.750，兩者平均高度相等至微米級；2049-point 雙軸剖面 8–13 段淡脈。Targeted 五項首次通過（3 seeds morphology、C1、determinism）：限制白區 10–25%／紫區 70–90%、高度 0.00399–0.00404 m／AO >0.98、淡／紫平均高度差 <0.000004 m、roughness 差 >0.08，雙軸 5–18 淡脈 runs，pith／dark rim／背底分離；129²／exact rim／pith／wraps C1 通過，metallic 0。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 577-preset redcabbagecut、擷取畫面；512 base-color detail 顯示紫層折曲淡脈與實芯。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 redcabbagecut 並重算既有 576 種（含 cabbage／onion）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6594 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

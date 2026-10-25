@@ -10357,6 +10357,34 @@ var proceduralMaterialPresets = Object.freeze({
 		waist: .07,
 		flare: .14,
 		sideSquaredShoulder: .002
+	}),
+	redcabbagecut: Object.freeze({
+		dark: [
+			48,
+			6,
+			43
+		],
+		light: [
+			243,
+			223,
+			228
+		],
+		roughness: .74,
+		relief: .008,
+		cells: 2,
+		radius: .43,
+		edge: .41,
+		fleshRadius: .4,
+		fleshEdge: .38,
+		rings: 6,
+		warp: 2.4,
+		fold: .6,
+		veinWidth: .095,
+		veinShoulder: .045,
+		pithX: .055,
+		pithY: .11,
+		pithCenter: .08,
+		pithShoulder: .3
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10935,7 +10963,8 @@ var proceduralTileMeters = Object.freeze({
 	ballbearingfaces: .16,
 	baseballleather: .24,
 	toothbrushheads: .12,
-	bowtieinlay: .6
+	bowtieinlay: .6,
+	redcabbagecut: .48
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

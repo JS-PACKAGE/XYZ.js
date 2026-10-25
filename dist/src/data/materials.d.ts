@@ -5279,6 +5279,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         flare: 0.14;
         sideSquaredShoulder: 0.002;
     }>;
+    redcabbagecut: Readonly<{
+        dark: readonly [48, 6, 43];
+        light: readonly [243, 223, 228];
+        roughness: 0.74;
+        relief: 0.008;
+        cells: 2;
+        radius: 0.43;
+        edge: 0.41;
+        fleshRadius: 0.4;
+        fleshEdge: 0.38;
+        rings: 6;
+        warp: 2.4;
+        fold: 0.6;
+        veinWidth: 0.095;
+        veinShoulder: 0.045;
+        pithX: 0.055;
+        pithY: 0.11;
+        pithCenter: 0.08;
+        pithShoulder: 0.3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5858,4 +5878,5 @@ export declare const proceduralTileMeters: Readonly<{
     baseballleather: 0.24;
     toothbrushheads: 0.12;
     bowtieinlay: 0.6;
+    redcabbagecut: 0.48;
 }>;

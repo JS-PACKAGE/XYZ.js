@@ -693,6 +693,8 @@
 
 同輪追加 `bowtieinlay`（蝴蝶木榫補片），目錄 575→576 種：深色 hourglass keys 橫跨暗木裂縫、齊平恢復表面高度／AO，板縱紋與榫橫紋不同，非邊端 dovetailjoint 或凸起徽章。0.6 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增木作 geometry、透明裂孔、實際結構補強／接合強度認證、斷裂／破壞或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `redcabbagecut`（紫甘藍切面），目錄 576→577 種：填實紫葉層上蜿蜒淡脈／淡實芯與深色外葉緣，非 cabbage 外葉起伏或 onion 乾表皮。0.48 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；淡脈與芯僅顏料／roughness 差異、不挖孔／浮起；不新增葉層 geometry、透明葉片、透射／subsurface 求解、植物生長／解剖認證或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

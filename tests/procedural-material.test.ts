@@ -614,7 +614,141 @@ const kinds: ProceduralMaterialKind[] = [
   'baseballleather',
   'toothbrushheads',
   'bowtieinlay',
+  'redcabbagecut',
 ];
+
+describe('Filled purple cabbage cuts with folded pale veins and solid cores', () => {
+  const p = proceduralMaterialPresets.redcabbagecut;
+  it.each([0, 1, 0xffffffff])(
+    'keeps a purple cut with narrow pale folded tissue and a solid core, without holes or raised white ribs, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('redcabbagecut', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let count = 0,
+        white = 0,
+        purple = 0,
+        whiteHeight = 0,
+        purpleHeight = 0,
+        whiteRoughness = 0,
+        purpleRoughness = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+          at(0, p.pithCenter);
+          expect(out.color).toBeGreaterThan(0.9);
+          expect(out.height).toBeGreaterThan(0.00399);
+          expect(out.occlusion).toBeGreaterThan(0.98);
+          at(0.405, 0);
+          expect(out.color).toBeLessThan(0.27);
+          expect(out.occlusion).toBeGreaterThan(0.98);
+          at(0.46, 0);
+          expect(out.height).toBeLessThan(0.00021);
+          expect(out.occlusion).toBeLessThan(0.4);
+          for (let iy = 0; iy < 192; iy++)
+            for (let ix = 0; ix < 192; ix++) {
+              const x = ((ix + 0.5) / 192) * 0.7 - 0.35,
+                y = ((iy + 0.5) / 192) * 0.7 - 0.35;
+              if (x * x + y * y > 0.35 ** 2) continue;
+              at(x, y);
+              count++;
+              expect(out.height).toBeGreaterThan(0.00399);
+              expect(out.height).toBeLessThan(0.00404);
+              expect(out.occlusion).toBeGreaterThan(0.98);
+              expect(out.metallic).toBe(0);
+              if (out.color > 0.8) {
+                white++;
+                whiteHeight += out.height;
+                whiteRoughness += out.roughness;
+              }
+              if (out.color < 0.5) {
+                purple++;
+                purpleHeight += out.height;
+                purpleRoughness += out.roughness;
+              }
+            }
+          for (let axis = 0; axis < 2; axis++) {
+            let runs = 0,
+              previous = false;
+            for (let i = 0; i <= 2048; i++) {
+              const t = (i / 2048) * 0.68 - 0.34;
+              at(axis ? 0 : t, axis ? t : 0);
+              const pale = out.color > 0.8;
+              if (pale && !previous) runs++;
+              previous = pale;
+            }
+            expect(runs).toBeGreaterThanOrEqual(5);
+            expect(runs).toBeLessThanOrEqual(18);
+          }
+        }
+      expect(white / count).toBeGreaterThan(0.1);
+      expect(white / count).toBeLessThan(0.25);
+      expect(purple / count).toBeGreaterThan(0.7);
+      expect(purple / count).toBeLessThan(0.9);
+      expect(purpleRoughness / purple - whiteRoughness / white).toBeGreaterThan(
+        0.08,
+      );
+      expect(
+        Math.abs(whiteHeight / white - purpleHeight / purple),
+      ).toBeLessThan(0.000004);
+    },
+  );
+  it('keeps thin high-contrast folded veins, core and outer cut shoulders and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('redcabbagecut', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          for (const radius of [p.radius, p.edge, p.fleshRadius, p.fleshEdge])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32;
+              local(radius * Math.cos(angle), radius * Math.sin(angle));
+            }
+          for (const scale of [1, Math.sqrt(1 - p.pithShoulder)])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              local(
+                p.pithX * scale * Math.cos(angle),
+                p.pithCenter + p.pithY * scale * Math.sin(angle),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Flush butterfly wood repair keys with transverse grain across dark splits', () => {
   const p = proceduralMaterialPresets.bowtieinlay;

@@ -5429,6 +5429,26 @@ export const proceduralMaterialPresets = Object.freeze({
     flare: 0.14,
     sideSquaredShoulder: 0.002,
   }),
+  redcabbagecut: Object.freeze({
+    dark: [48, 6, 43] as const,
+    light: [243, 223, 228] as const,
+    roughness: 0.74,
+    relief: 0.008,
+    cells: 2,
+    radius: 0.43,
+    edge: 0.41,
+    fleshRadius: 0.4,
+    fleshEdge: 0.38,
+    rings: 6,
+    warp: 2.4,
+    fold: 0.6,
+    veinWidth: 0.095,
+    veinShoulder: 0.045,
+    pithX: 0.055,
+    pithY: 0.11,
+    pithCenter: 0.08,
+    pithShoulder: 0.3,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6009,4 +6029,5 @@ export const proceduralTileMeters = Object.freeze({
   baseballleather: 0.24,
   toothbrushheads: 0.12,
   bowtieinlay: 0.6,
+  redcabbagecut: 0.48,
 });

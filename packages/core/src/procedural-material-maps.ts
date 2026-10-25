@@ -1428,6 +1428,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'redcabbagecut': {
+        const p = proceduralMaterialPresets.redcabbagecut,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseEdge = 1 / (radiusSquared - p.edge * p.edge),
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshEdge * p.fleshEdge),
+          inverseRadius = 1 / fleshSquared,
+          inverseVein = 1 / p.veinShoulder,
+          inversePithX = 1 / (p.pithX * p.pithX),
+          inversePithY = 1 / (p.pithY * p.pithY),
+          inversePith = 1 / p.pithShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x12b11),
+          warpField = cachedNoise(16, 16, seed ^ 0x12b13),
+          foldField = cachedNoise(32, 32, seed ^ 0x12b17);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12b19);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            r2 = x * x + y * y,
+            face = smooth(clamp((radiusSquared - r2) * inverseEdge));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)],
+            flesh = smooth(clamp((fleshSquared - r2) * inverseFlesh));
+          color += face * (0.18 + 0.05 * tone + 0.02 * grain - color);
+          height += face * (0.5 + 0.004 * grain - height);
+          roughness += face * (0.78 + 0.02 * grain - roughness);
+          occlusion += face * (0.99 - occlusion);
+          if (flesh === 0) return;
+          const phase =
+              p.rings * r2 * inverseRadius +
+              p.warp * (warpField(u, v) - 0.5) +
+              p.fold * (foldField(u, v) - 0.5) +
+              0.5 * tone,
+            cycle = fract(phase),
+            vein = smooth(
+              clamp((p.veinWidth - Math.min(cycle, 1 - cycle)) * inverseVein),
+            ),
+            py = y - p.pithCenter,
+            pith = smooth(
+              clamp(
+                (1 - x * x * inversePithX - py * py * inversePithY) *
+                  inversePith,
+              ),
+            );
+          // Pale folded veins and the core are filled cut tissue: pigment and
+          // roughness vary, but neither opens holes nor raises floating ribs.
+          color +=
+            flesh * (0.28 + 0.1 * tone + 0.03 * grain + 0.58 * vein - color);
+          roughness +=
+            flesh * (p.roughness + 0.02 * grain - 0.13 * vein - roughness);
+          color += pith * (0.91 + 0.04 * grain - color);
+          roughness += pith * (0.67 + 0.02 * grain - roughness);
+          return;
+        };
+      }
       case 'bowtieinlay': {
         const p = proceduralMaterialPresets.bowtieinlay,
           tones = new Float64Array(p.columns * p.rows),
@@ -22589,6 +22654,7 @@ export function createSurfaceSampler(
     kind === 'baseballleather' ||
     kind === 'toothbrushheads' ||
     kind === 'bowtieinlay' ||
+    kind === 'redcabbagecut' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
