@@ -1441,6 +1441,106 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fishhooks': {
+        const p = proceduralMaterialPresets.fishhooks,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18611),
+          arcInnerSquared = p.arcInner * p.arcInner,
+          arcOuterSquared = p.arcOuter * p.arcOuter,
+          inverseArcInner =
+            1 / (p.arcInnerCore * p.arcInnerCore - arcInnerSquared),
+          inverseArcOuter =
+            1 / (arcOuterSquared - p.arcOuterCore * p.arcOuterCore),
+          inverseJoin = 1 / p.joinOverlap,
+          shankSquared = p.shankRadius * p.shankRadius,
+          inverseShank = 1 / (shankSquared - p.shankCore * p.shankCore),
+          eyeSquared = p.eyeOuter * p.eyeOuter,
+          inverseEye = 1 / (eyeSquared - p.eyeOuterCore * p.eyeOuterCore),
+          boreCoreSquared = p.eyeBoreCore * p.eyeBoreCore,
+          inverseBore = 1 / (boreCoreSquared - p.eyeBore * p.eyeBore),
+          pointSlope = p.pointHalfWidth / (p.bendY - p.pointTop),
+          inversePlane = 1 / p.planeShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          inverseBarb = 1 / p.barbLength,
+          reachSquared = p.reach * p.reach;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x18615);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18617) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18619) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1861b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1861d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const fx = u * p.cells,
+            fy = v * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy),
+            i = (row * p.cells + col) * 6,
+            dx = fx - col - 0.5 - poses[i + 2]!,
+            dy = fy - row - 0.5 - poses[i + 3]!,
+            x = (poses[i]! * dx + poses[i + 1]! * dy) * poses[i + 4]!,
+            y = (-poses[i + 1]! * dx + poses[i]! * dy) * poses[i + 4]!;
+          if (x * x + y * y >= reachSquared) return;
+          const ey = y - p.eyeY,
+            sx = x + p.bendRadius,
+            eyeQ = sx * sx + ey * ey,
+            bore = smooth(clamp((boreCoreSquared - eyeQ) * inverseBore));
+          if (bore === 1) return;
+          const eye = smooth(clamp((eyeSquared - eyeQ) * inverseEye)),
+            sy = Math.max(0, p.shankTop - y, y - p.bendY),
+            shank = smooth(
+              clamp((shankSquared - sx * sx - sy * sy) * inverseShank),
+            ),
+            ay = y - p.bendY,
+            arcQ = x * x + ay * ay,
+            arc =
+              smooth(clamp((arcQ - arcInnerSquared) * inverseArcInner)) *
+              smooth(clamp((arcOuterSquared - arcQ) * inverseArcOuter)) *
+              smooth(clamp((ay + p.joinOverlap) * inverseJoin)),
+            px = x - p.bendRadius,
+            width = (y - p.pointTop) * pointSlope,
+            point =
+              smooth(clamp((width + px) * inversePlane)) *
+              smooth(clamp((width - px) * inversePlane)) *
+              smooth(clamp((p.bendY + p.joinOverlap - y) * inverseEnd)),
+            by = y - p.barbY,
+            along = px * p.barbAxisX + by * p.barbAxisY,
+            across = -px * p.barbAxisY + by * p.barbAxisX,
+            barbWidth = p.barbHalfWidth * (1 - along * inverseBarb),
+            barb =
+              smooth(clamp((barbWidth + across) * inversePlane)) *
+              smooth(clamp((barbWidth - across) * inversePlane)) *
+              smooth(clamp(along * inverseEnd)),
+            body =
+              (1 -
+                (1 - eye) *
+                  (1 - shank) *
+                  (1 - arc) *
+                  (1 - point) *
+                  (1 - barb)) *
+              (1 - bore);
+          metallic = body;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5]!;
+          color += body * (0.9 + 0.025 * tone + 0.025 * grain - color);
+          height += body * (0.6 + 0.003 * grain - height);
+          roughness += body * (p.roughness + 0.025 * grain - roughness);
+          occlusion += body * (0.99 - occlusion);
+        };
+      }
       case 'saffronthreads': {
         const p = proceduralMaterialPresets.saffronthreads,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -30215,6 +30315,7 @@ export function createSurfaceSampler(
     kind === 'gnocchi' ||
     kind === 'rectangularsocketfaces' ||
     kind === 'saffronthreads' ||
+    kind === 'fishhooks' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

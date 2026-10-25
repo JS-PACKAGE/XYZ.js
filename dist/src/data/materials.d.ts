@@ -7188,6 +7188,41 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    fishhooks: Readonly<{
+        dark: readonly [40, 44, 48];
+        light: readonly [245, 247, 250];
+        roughness: 0.26;
+        relief: 0.004;
+        cells: 3;
+        bendY: 0.15;
+        bendRadius: 0.12;
+        arcInner: 0.108;
+        arcInnerCore: 0.112;
+        arcOuter: 0.132;
+        arcOuterCore: 0.128;
+        joinOverlap: 0.02;
+        shankTop: -0.242;
+        shankRadius: 0.012;
+        shankCore: 0.008;
+        eyeY: -0.27;
+        eyeOuter: 0.038;
+        eyeOuterCore: 0.033;
+        eyeBore: 0.019;
+        eyeBoreCore: 0.023;
+        pointTop: -0.07;
+        pointHalfWidth: 0.016;
+        planeShoulder: 0.003;
+        endShoulder: 0.006;
+        barbY: 0.03;
+        barbAxisX: -0.6;
+        barbAxisY: 0.8;
+        barbLength: 0.075;
+        barbHalfWidth: 0.016;
+        reach: 0.37;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7858,4 +7893,5 @@ export declare const proceduralTileMeters: Readonly<{
     gnocchi: 0.12;
     rectangularsocketfaces: 0.09;
     saffronthreads: 0.06;
+    fishhooks: 0.15;
 }>;

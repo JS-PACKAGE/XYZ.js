@@ -883,6 +883,8 @@
 
 `saffronthreads` 為九 seeded 同一完整根部的三彎紅絲、三擴圓尖與兩真低叉隙，非rosemary直針換色。Cached poses／128² grain／三固定unrolled squared capsules，x−sign*bend*(baseY−y)²曲線warp，半徑只在tip區C1擴張；warp跨軸向cap projection不clamp，避免off-axis derivative jump。Coverage及rounded crowns皆product-complement unions，非max／nearest-branch cusp，同根full cores exact mortar0／M0。Empty bounds跳所有capsules、empty body跳grain；每點固定三capsule、無配置／hash／sqrt／trig／鄰格掃描。Core ratio0.71以較寬肩保留既有differential guard；0.06 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增flower geometry、生長／烹煮模擬或食品／安全認證。
 
+`fishhooks` 為九 seeded 連續銀J鉤，真眼環／直柄／下半圓彎／上尖／內向倒鉤尖，非carabiner／safety pin換色。Cached poses／128² grain／squared shank capsule／circular inner-outer arc bands／eye disc與兩尖的signed linear halfplane products。Product-complement unions連full cores而不疊加height；最後一次bore subtraction切所有components含shank，眼孔保持真低開口。雙尖無abs-width cusp或zero-width division，J中腔一路向上開放，內倒鉤與空outward mirror分離。Full metal M1／exact mortar0，bore／open cup／backing低M0。Empty bounds跳profiles，full eye bore跳其餘profiles，empty body跳grain；每點無配置／hash／sqrt／trig／逐segment或鄰格掃描。0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變；此為opaque backing上的靜態外觀，不新增鉤體geometry、釣魚physics、強度或安全認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

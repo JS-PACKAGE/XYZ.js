@@ -875,6 +875,8 @@
 
 同輪追加 `saffronthreads`（同根三彎紅絲擴圓尖藏紅花），目錄666→667種：九 seeded 同一完整root三曲線red threads、三擴圓尖／兩真低叉隙，非rosemary直針換色。Fixed-three warped capsules與product-complement crown/coverage unions保留同根M0／full cores mortar0。0.06 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增flower geometry、生長／烹煮模擬或食品／安全認證；core0.75→0.71保留原finite-differential guard，形態與雙backend見 ACCEPTANCE。
 
+同輪追加 `fishhooks`（真眼環連續銀J倒鉤），目錄667→668種：九 seeded closed true-eye ring／straight shank／lower semicircular bend／tapered upper point及inward barb，非carabiner／safety pin換色。Bounded unions與全組件bore subtraction保持一連續M1／full cores mortar0鉤及真低眼孔／向上開放中腔；0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增鉤體geometry、釣魚physics、強度或安全認證；三seed path／512／C1／雙backend見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

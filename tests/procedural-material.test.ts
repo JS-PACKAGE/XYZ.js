@@ -708,7 +708,300 @@ const kinds: ProceduralMaterialKind[] = [
   'gnocchi',
   'rectangularsocketfaces',
   'saffronthreads',
+  'fishhooks',
 ];
+
+describe('Continuous silver barbed J hooks with closed true eye rings a connected shank and lower semicircular bend plus two smoothly tapered points', () => {
+  const p = proceduralMaterialPresets.fishhooks;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18615),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1861b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18617) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18619) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps one continuous conducting eye shank circular bend pointed neck and inward barb while the true eye bore and upward J opening remain low for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('fishhooks', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            full = (x: number, y: number) => {
+              const a = at(x, y);
+              expect(a.metallic).toBe(1);
+              expect(a.mortar).toBe(0);
+              expect(a.occlusion).toBeCloseTo(0.99, 12);
+              expect(a.height).toBeGreaterThanOrEqual(0.0023999);
+              expect(a.height).toBeLessThanOrEqual(0.0024121);
+              expect(a.roughness).toBeGreaterThanOrEqual(0.2599999);
+              expect(a.roughness).toBeLessThanOrEqual(0.2850001);
+            },
+            low = (x: number, y: number) => {
+              const a = at(x, y);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(1);
+              expect(a.occlusion).toBeCloseTo(0.3, 12);
+              expect(a.height).toBeCloseTo(0.0001, 12);
+            };
+          const eyeLane = (p.eyeOuterCore + p.eyeBoreCore) / 2;
+          for (let j = 0; j <= 1024; j++) {
+            const t = j / 1024,
+              theta = 2 * Math.PI * t;
+            full(
+              -p.bendRadius + eyeLane * Math.cos(theta),
+              p.eyeY + eyeLane * Math.sin(theta),
+            );
+            full(
+              p.bendRadius * Math.cos(Math.PI * t),
+              p.bendY + p.bendRadius * Math.sin(Math.PI * t),
+            );
+            low(
+              -p.bendRadius + p.eyeBore * 0.8 * Math.cos(theta),
+              p.eyeY + p.eyeBore * 0.8 * Math.sin(theta),
+            );
+            low(0, -0.25 + 0.485 * t);
+          }
+          for (let j = 0; j <= 512; j++) {
+            const t = j / 512;
+            full(-p.bendRadius, p.shankTop + (p.bendY - p.shankTop) * t);
+          }
+          for (let j = 0; j <= 256; j++) {
+            const t = j / 256;
+            full(
+              p.bendRadius,
+              p.pointTop + 0.05 + (p.bendY - p.pointTop - 0.05) * t,
+            );
+            const along = 0.007 + 0.053 * t;
+            full(
+              p.bendRadius + p.barbAxisX * along,
+              p.barbY + p.barbAxisY * along,
+            );
+          }
+          for (let j = 0; j <= 128; j++)
+            full(
+              p.bendRadius + (p.barbAxisX * 0.007 * j) / 128,
+              p.barbY + p.barbAxisY * 0.007,
+            );
+          full(p.bendRadius + p.barbAxisX * 0.03, p.barbY + p.barbAxisY * 0.03);
+          low(p.bendRadius - p.barbAxisX * 0.03, p.barbY + p.barbAxisY * 0.03);
+          full(p.bendRadius + 0.011, p.bendY - 0.02);
+          low(p.bendRadius + 0.011, p.pointTop + 0.08);
+          low(p.bendRadius, p.pointTop - 0.03);
+          for (const [y, expected] of [
+            [p.eyeY, 2],
+            [p.bendY, 2],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = at(-0.17 + (0.34 * j) / 8192, y!),
+                next = a.metallic > 0.9;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+    },
+  );
+  it('writes closed silver eye shank bend neck and inward barb while preserving a low true eye bore and open J cavity in actual512 PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('fishhooks', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            eyeLane = (p.eyeOuterCore + p.eyeBoreCore) / 2;
+          for (const [x, y] of [
+            [-p.bendRadius - eyeLane, p.eyeY],
+            [-p.bendRadius, 0],
+            [0, p.bendY + p.bendRadius],
+            [p.bendRadius, 0.08],
+            [p.bendRadius + p.barbAxisX * 0.03, p.barbY + p.barbAxisY * 0.03],
+          ]) {
+            const i = pixel(x!, y!);
+            expect(maps.baseColor[i]!).toBeGreaterThan(220);
+            expect(maps.baseColor[i + 1]!).toBeGreaterThan(225);
+            expect(maps.baseColor[i + 2]!).toBeGreaterThan(225);
+            expect(maps.metallicRoughness[i + 2]).toBe(255);
+            expect(maps.metallicRoughness[i + 1]!).toBeLessThan(75);
+            expect(maps.occlusion[i]!).toBeGreaterThan(250);
+            expect(maps.height![i]!).toBeGreaterThan(245);
+          }
+          for (const [x, y] of [
+            [-p.bendRadius, p.eyeY],
+            [0, 0],
+            [0, p.bendY],
+            [0, p.bendY + 0.08],
+            [p.bendRadius - p.barbAxisX * 0.03, p.barbY + p.barbAxisY * 0.03],
+            [p.bendRadius, p.pointTop - 0.03],
+          ]) {
+            const i = pixel(x!, y!);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+            expect(maps.occlusion[i]!).toBeLessThan(80);
+            expect(maps.height![i]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats conducting eye J bend point barb and genuine open cavity channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('fishhooks', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps true eye bore circular-band shoulders capsule projections smooth joins main and barb signed tip halfplanes pose grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ],
+      pointSlope = p.pointHalfWidth / (p.bendY - p.pointTop);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fishhooks', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta);
+            for (const r of [
+              p.eyeOuter,
+              p.eyeOuterCore,
+              p.eyeBore,
+              p.eyeBoreCore,
+            ])
+              local(-p.bendRadius + r * ct, p.eyeY + r * st);
+            for (const r of [
+              p.arcInner,
+              p.arcInnerCore,
+              p.arcOuter,
+              p.arcOuterCore,
+            ])
+              local(r * ct, p.bendY + r * st);
+            for (const y of [p.bendY - p.joinOverlap, p.bendY])
+              local(-0.16 + 0.32 * t, y);
+            for (const r of [p.shankRadius, p.shankCore]) {
+              for (const side of [-1, 1])
+                local(
+                  -p.bendRadius + side * r,
+                  p.shankTop + (p.bendY - p.shankTop) * t,
+                );
+              local(
+                -p.bendRadius + r * Math.cos(Math.PI * t),
+                p.shankTop - r * Math.sin(Math.PI * t),
+              );
+              local(
+                -p.bendRadius + r * Math.cos(Math.PI * t),
+                p.bendY + r * Math.sin(Math.PI * t),
+              );
+            }
+            local(-p.bendRadius - 0.02 + 0.04 * t, p.shankTop);
+            const pointY =
+                p.pointTop -
+                0.02 +
+                (p.bendY + p.joinOverlap - p.pointTop + 0.04) * t,
+              width = (pointY - p.pointTop) * pointSlope;
+            for (const side of [-1, 1])
+              for (const shift of [0, p.planeShoulder])
+                local(p.bendRadius + side * (width - shift), pointY);
+            for (const y of [
+              p.bendY + p.joinOverlap,
+              p.bendY + p.joinOverlap - p.endShoulder,
+            ])
+              local(p.bendRadius - 0.03 + 0.06 * t, y);
+            const along = -0.01 + (p.barbLength + 0.03) * t,
+              barbWidth = p.barbHalfWidth * (1 - along / p.barbLength);
+            for (const side of [-1, 1])
+              for (const shift of [0, p.planeShoulder]) {
+                const across = side * (barbWidth - shift);
+                local(
+                  p.bendRadius + p.barbAxisX * along - p.barbAxisY * across,
+                  p.barbY + p.barbAxisY * along + p.barbAxisX * across,
+                );
+              }
+            for (const s of [0, p.endShoulder]) {
+              const across = -0.025 + 0.05 * t;
+              local(
+                p.bendRadius + p.barbAxisX * s - p.barbAxisY * across,
+                p.barbY + p.barbAxisY * s + p.barbAxisX * across,
+              );
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Three curved red saffron threads joined at one intact root with widened rounded tips and two genuinely open fork gaps', () => {
   const p = proceduralMaterialPresets.saffronthreads;
@@ -47023,6 +47316,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'chipresistors' &&
           kind !== 'memorycardbacks' &&
           kind !== 'rectangularsocketfaces' &&
+          kind !== 'fishhooks' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -56452,6 +56746,7 @@ describe('procedural preset acquisition and ownership', () => {
     'chipresistors',
     'memorycardbacks',
     'rectangularsocketfaces',
+    'fishhooks',
     'standingseam',
     'damascus',
     'castiron',
@@ -56541,6 +56836,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'chipresistors' ||
           kind === 'memorycardbacks' ||
           kind === 'rectangularsocketfaces' ||
+          kind === 'fishhooks' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
