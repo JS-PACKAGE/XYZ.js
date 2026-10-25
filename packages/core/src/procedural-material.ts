@@ -681,7 +681,8 @@ export type ProceduralMaterialKind =
   | 'chipresistors'
   | 'memorycardbacks'
   | 'gnocchi'
-  | 'rectangularsocketfaces';
+  | 'rectangularsocketfaces'
+  | 'saffronthreads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1597,6 +1598,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'memorycardbacks',
   'gnocchi',
   'rectangularsocketfaces',
+  'saffronthreads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

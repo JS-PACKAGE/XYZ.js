@@ -707,7 +707,282 @@ const kinds: ProceduralMaterialKind[] = [
   'memorycardbacks',
   'gnocchi',
   'rectangularsocketfaces',
+  'saffronthreads',
 ];
+
+describe('Three curved red saffron threads joined at one intact root with widened rounded tips and two genuinely open fork gaps', () => {
+  const p = proceduralMaterialPresets.saffronthreads;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18515),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1851b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18517) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18519) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps three continuous curved core traces on one unbroken root three genuinely widened crowned tips and low open fork gaps instead of straight recolored needles for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('saffronthreads', seed),
+        out = empty(),
+        span = p.baseY - p.tipY;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          for (const sign of [-1, 0, 1]) {
+            for (let j = 0; j <= 1024; j++) {
+              const t = j / 1024,
+                a = at(sign * p.tipSpread * t * t, p.baseY - span * t);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+              expect(a.occlusion).toBeCloseTo(0.99, 12);
+              expect(a.height).toBeGreaterThanOrEqual(0.0023999);
+              expect(a.height).toBeLessThanOrEqual(0.0024121);
+              expect(a.roughness).toBeGreaterThanOrEqual(0.8399999);
+              expect(a.roughness).toBeLessThanOrEqual(0.8600001);
+            }
+            const direction = sign === 0 ? 1 : sign,
+              tip = at(sign * p.tipSpread, p.tipY),
+              flank = at(
+                sign * p.tipSpread + direction * p.flareRadius * 0.7,
+                p.tipY,
+              ),
+              wide = at(sign * p.tipSpread + direction * 0.014, p.tipY),
+              narrow = at(
+                sign * p.tipSpread * 0.25 + direction * 0.014,
+                p.baseY - span * 0.5,
+              );
+            expect(tip.height - flank.height).toBeGreaterThan(0.0001819);
+            expect(flank.mortar).toBe(0);
+            expect(wide.mortar).toBe(0);
+            expect(wide.height).toBeGreaterThan(0.0023374);
+            expect(narrow.mortar).toBe(1);
+            expect(narrow.height).toBeCloseTo(0.0001, 12);
+            expect(narrow.occlusion).toBeCloseTo(0.3, 12);
+          }
+          for (const sign of [-1, 1]) {
+            for (let j = 0; j <= 128; j++) {
+              const t = 0.5 + (0.5 * j) / 128,
+                gap = at(sign * p.tipSpread * t * t * 0.5, p.baseY - span * t);
+              expect(gap.mortar).toBe(1);
+              expect(gap.metallic).toBe(0);
+              expect(gap.height).toBeCloseTo(0.0001, 12);
+              expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            }
+            for (let j = 0; j <= 128; j++) {
+              const t = 0.2 + (0.6 * j) / 128,
+                old = at(sign * p.tipSpread * t, p.baseY - span * t),
+                curve = at(sign * p.tipSpread * t * t, p.baseY - span * t);
+              expect(old.mortar).toBe(1);
+              expect(old.height).toBeCloseTo(0.0001, 12);
+              expect(old.occlusion).toBeCloseTo(0.3, 12);
+              expect(curve.height - old.height).toBeGreaterThan(0.0022999);
+            }
+          }
+          for (const [t, expected] of [
+            [0, 1],
+            [0.1, 1],
+            [0.5, 3],
+            [1, 3],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = at(-0.23 + (0.46 * j) / 8192, p.baseY - span * t!),
+                next = a.mortar < 0.1;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+    },
+  );
+  it('writes three curved red raised nonmetal threads broad rounded tips and low old-chord and fork controls in actual512 PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('saffronthreads', 512, seed, {
+          heightMap: true,
+        }),
+        span = p.baseY - p.tipY;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+            const [u, v] = world(seed, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (const sign of [-1, 0, 1]) {
+            for (const t of [0.4, 0.7, 1]) {
+              const i = pixel(sign * p.tipSpread * t * t, p.baseY - span * t);
+              expect(maps.baseColor[i]!).toBeGreaterThan(200);
+              expect(maps.baseColor[i + 1]!).toBeLessThan(55);
+              expect(maps.baseColor[i + 2]!).toBeLessThan(28);
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+              expect(maps.metallicRoughness[i + 1]!).toBeGreaterThan(210);
+              expect(maps.occlusion[i]!).toBeGreaterThan(250);
+              expect(maps.height![i]!).toBeGreaterThan(235);
+            }
+            const direction = sign === 0 ? 1 : sign,
+              tip = pixel(sign * p.tipSpread, p.tipY),
+              edge = pixel(
+                sign * p.tipSpread + direction * p.flareRadius * 0.7,
+                p.tipY,
+              ),
+              wide = pixel(sign * p.tipSpread + direction * 0.014, p.tipY),
+              narrow = pixel(
+                sign * p.tipSpread * 0.25 + direction * 0.014,
+                p.baseY - span * 0.5,
+              );
+            expect(maps.height![tip]! - maps.height![edge]!).toBeGreaterThan(3);
+            expect(maps.occlusion[wide]!).toBeGreaterThan(250);
+            expect(maps.height![wide]!).toBeGreaterThan(225);
+            expect(maps.occlusion[narrow]!).toBeLessThan(80);
+            expect(maps.height![narrow]).toBe(0);
+            for (const i of [tip, wide, narrow])
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+          for (const sign of [-1, 1])
+            for (const t of [0.3, 0.5, 0.7]) {
+              const old = pixel(sign * p.tipSpread * t, p.baseY - span * t),
+                gap = pixel(
+                  sign * p.tipSpread * t * t * 0.5,
+                  p.baseY - span * t,
+                );
+              expect(maps.occlusion[old]!).toBeLessThan(80);
+              expect(maps.height![old]).toBe(0);
+              if (t >= 0.5) {
+                expect(maps.occlusion[gap]!).toBeLessThan(80);
+                expect(maps.height![gap]).toBe(0);
+              }
+            }
+        }
+    }
+  });
+  it('repeats joined curved red thread widened-tip fork-gap PBR channels across signed UV periods while retaining seeded poses', () => {
+    const sample = createSurfaceSampler('saffronthreads', 7),
+      other = createSurfaceSampler('saffronthreads', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.color - c.color);
+    }
+    expect(difference).toBeGreaterThan(25);
+  });
+  it('keeps curved capsule core-support axial projections flare start-end overlap unions rounded crowns pose grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ],
+      span = p.baseY - p.tipY,
+      bend = p.tipSpread / (span * span),
+      smooth = (value: number) => {
+        const t = Math.max(0, Math.min(1, value));
+        return t * t * (3 - 2 * t);
+      };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('saffronthreads', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta),
+              y = p.baseY - span * t,
+              radius =
+                p.radius +
+                (p.flareRadius - p.radius) *
+                  smooth((t - p.flareStart) / (1 - p.flareStart));
+            for (const sign of [-1, 0, 1]) {
+              const center = sign * p.tipSpread * t * t;
+              for (const ratio of [1, p.coreRatio]) {
+                for (const side of [-1, 1])
+                  local(center + side * radius * ratio, y);
+                const rootR = p.radius * ratio,
+                  rootY = p.baseY + rootR * st,
+                  tipR = p.flareRadius * ratio,
+                  tipY = p.tipY - tipR * st;
+                local(sign * bend * (p.baseY - rootY) ** 2 + rootR * ct, rootY);
+                local(sign * bend * (p.baseY - tipY) ** 2 + tipR * ct, tipY);
+              }
+              local(sign * p.tipSpread - 0.04 + 0.08 * t, p.tipY);
+              local(
+                sign * p.tipSpread * p.flareStart * p.flareStart -
+                  0.04 +
+                  0.08 * t,
+                p.baseY - span * p.flareStart,
+              );
+            }
+            local(-0.02 + 0.04 * t, p.baseY);
+          }
+        }
+    }
+  });
+});
 
 describe('Four-contact rectangular socket faces with a closed silver bezel an open low cavity and separate raised silver pads on an opaque high black tongue', () => {
   const p = proceduralMaterialPresets.rectangularsocketfaces;

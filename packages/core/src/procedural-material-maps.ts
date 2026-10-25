@@ -1441,6 +1441,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'saffronthreads': {
+        const p = proceduralMaterialPresets.saffronthreads,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18511),
+          span = p.baseY - p.tipY,
+          inverseSpan = 1 / span,
+          bend = p.tipSpread / (span * span),
+          inverseFlare = 1 / (1 - p.flareStart),
+          inverseShoulder = 1 / (1 - p.coreRatio * p.coreRatio),
+          sideReach = bend * (span + p.flareRadius) ** 2 + p.flareRadius,
+          top = p.tipY - p.flareRadius,
+          bottom = p.baseY + p.radius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x18515);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18517) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18519) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1851b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1851d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const fx = u * p.cells,
+            fy = v * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy),
+            i = (row * p.cells + col) * 6,
+            dx = fx - col - 0.5 - poses[i + 2]!,
+            dy = fy - row - 0.5 - poses[i + 3]!,
+            x = (poses[i]! * dx + poses[i + 1]! * dy) * poses[i + 4]!,
+            y = (-poses[i + 1]! * dx + poses[i]! * dy) * poses[i + 4]!;
+          if (Math.abs(x) >= sideReach || y <= top || y >= bottom) return;
+          const along = p.baseY - y,
+            radius =
+              p.radius +
+              (p.flareRadius - p.radius) *
+                smooth(
+                  clamp((along * inverseSpan - p.flareStart) * inverseFlare),
+                ),
+            inverseRadiusSquared = 1 / (radius * radius),
+            warped = bend * along * along,
+            cap = Math.max(0, p.tipY - y, y - p.baseY),
+            capSquared = cap * cap,
+            leftQ =
+              ((x + warped) * (x + warped) + capSquared) * inverseRadiusSquared,
+            middleQ = (x * x + capSquared) * inverseRadiusSquared,
+            rightQ =
+              ((x - warped) * (x - warped) + capSquared) * inverseRadiusSquared,
+            left = smooth(clamp((1 - leftQ) * inverseShoulder)),
+            middle = smooth(clamp((1 - middleQ) * inverseShoulder)),
+            right = smooth(clamp((1 - rightQ) * inverseShoulder));
+          mortar = (1 - left) * (1 - middle) * (1 - right);
+          if (mortar === 1) return;
+          const body = 1 - mortar,
+            leftDome = smooth(clamp(1 - leftQ)),
+            middleDome = smooth(clamp(1 - middleQ)),
+            rightDome = smooth(clamp(1 - rightQ)),
+            dome = 1 - (1 - leftDome) * (1 - middleDome) * (1 - rightDome),
+            grain = grainField(u, v),
+            tone = poses[i + 5]!;
+          color +=
+            body * (0.8 + 0.035 * tone + 0.025 * grain + 0.06 * dome - color);
+          height += body * (0.5 + 0.1 * dome + 0.003 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.02 * grain - 0.04 * dome - roughness);
+          occlusion += body * (0.99 - occlusion);
+        };
+      }
       case 'rectangularsocketfaces': {
         const p = proceduralMaterialPresets.rectangularsocketfaces,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -30137,6 +30214,7 @@ export function createSurfaceSampler(
     kind === 'memorycardbacks' ||
     kind === 'gnocchi' ||
     kind === 'rectangularsocketfaces' ||
+    kind === 'saffronthreads' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
