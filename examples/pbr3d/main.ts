@@ -747,6 +747,7 @@ try {
     'rectangularsocketfaces',
     'saffronthreads',
     'fishhooks',
+    'violinfholes',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

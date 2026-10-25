@@ -683,7 +683,8 @@ export type ProceduralMaterialKind =
   | 'gnocchi'
   | 'rectangularsocketfaces'
   | 'saffronthreads'
-  | 'fishhooks';
+  | 'fishhooks'
+  | 'violinfholes';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1601,6 +1602,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rectangularsocketfaces',
   'saffronthreads',
   'fishhooks',
+  'violinfholes',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

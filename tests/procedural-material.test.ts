@@ -709,7 +709,259 @@ const kinds: ProceduralMaterialKind[] = [
   'rectangularsocketfaces',
   'saffronthreads',
   'fishhooks',
+  'violinfholes',
 ];
+
+describe('Paired mirrored cubic violin f holes in continuous warm wood with connected round terminal eyes and two genuinely cut side nicks per hole', () => {
+  const p = proceduralMaterialPresets.violinfholes;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18715),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1871b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18717) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18719) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps two separate continuous mirrored S cutouts round terminal eyes and real side nicks in high intact warm wood rather than straight painted f marks for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('violinfholes', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            low = (x: number, y: number) => {
+              const a = at(x, y);
+              expect(a.height).toBeCloseTo(0.0001, 12);
+              expect(a.color).toBeCloseTo(0.02, 12);
+              expect(a.roughness).toBeCloseTo(0.95, 12);
+              expect(a.occlusion).toBeCloseTo(0.3, 12);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+            },
+            wood = (x: number, y: number) => {
+              const a = at(x, y);
+              expect(a.height).toBeGreaterThanOrEqual(0.0023199);
+              expect(a.color).toBeGreaterThanOrEqual(0.6799999);
+              expect(a.roughness).toBeLessThanOrEqual(0.7350001);
+              expect(a.occlusion).toBeCloseTo(0.99, 12);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+            };
+          for (const side of [-1, 1]) {
+            for (let j = 0; j <= 1024; j++) {
+              const t = -1 + (2 * j) / 1024,
+                y = p.halfLength * t;
+              low(side * (p.pairOffset + p.bend * (t * t * t - t)), y);
+            }
+            for (const end of [-1, 1])
+              for (let j = 0; j <= 512; j++) {
+                const theta = (2 * Math.PI * j) / 512,
+                  r = p.eyeCore * 0.75;
+                low(
+                  side * (p.pairOffset + r * Math.cos(theta)),
+                  end * p.halfLength + r * Math.sin(theta),
+                );
+              }
+            for (const sign of [-1, 1]) {
+              const y = (sign * p.halfLength) / 2,
+                t = y / p.halfLength,
+                curve = at(side * (p.pairOffset + p.bend * (t * t * t - t)), y),
+                old = at(side * p.pairOffset, y);
+              wood(side * p.pairOffset, y);
+              expect(old.height - curve.height).toBeGreaterThan(0.0022199);
+              expect(old.color - curve.color).toBeGreaterThan(0.6599999);
+              expect(curve.roughness - old.roughness).toBeGreaterThan(0.2149);
+              low(side * (p.pairOffset + sign * 0.024), 0);
+              wood(side * (p.pairOffset + sign * 0.024), sign * 0.045);
+            }
+          }
+          for (let j = 0; j <= 128; j++) wood(0, -0.32 + (0.64 * j) / 128);
+          for (const y of [
+            -p.halfLength,
+            -p.halfLength / 2,
+            0,
+            p.halfLength / 2,
+            p.halfLength,
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = at(-0.25 + (0.5 * j) / 8192, y),
+                next = a.occlusion < 0.4;
+              if (next && !inside) runs++;
+              inside = next;
+            }
+            expect(runs).toBe(2);
+          }
+        }
+    },
+  );
+  it('writes low dark brown cubic curves round terminal eyes and widened side nicks separated by high warm wood in actual512 nonmetal PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('violinfholes', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            low = (x: number, y: number) => {
+              const i = pixel(x, y);
+              expect(maps.baseColor[i]!).toBeLessThan(45);
+              expect(maps.baseColor[i + 1]!).toBeLessThan(25);
+              expect(maps.baseColor[i + 2]!).toBeLessThan(12);
+              expect(maps.metallicRoughness[i + 1]!).toBeGreaterThan(235);
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+              expect(maps.occlusion[i]!).toBeLessThan(80);
+              expect(maps.height![i]).toBe(0);
+            },
+            wood = (x: number, y: number) => {
+              const i = pixel(x, y);
+              expect(maps.baseColor[i]!).toBeGreaterThan(155);
+              expect(maps.baseColor[i + 1]!).toBeGreaterThan(110);
+              expect(maps.baseColor[i + 2]!).toBeGreaterThan(60);
+              expect(maps.metallicRoughness[i + 1]!).toBeLessThan(190);
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+              expect(maps.occlusion[i]!).toBeGreaterThan(250);
+              expect(maps.height![i]!).toBeGreaterThan(240);
+            };
+          for (const side of [-1, 1])
+            for (const sign of [-1, 1]) {
+              const y = (sign * p.halfLength) / 2,
+                t = y / p.halfLength;
+              low(side * (p.pairOffset + p.bend * (t * t * t - t)), y);
+              wood(side * p.pairOffset, y);
+              low(side * p.pairOffset, sign * p.halfLength);
+              low(side * (p.pairOffset + sign * 0.015), 0);
+              wood(side * (p.pairOffset + sign * 0.015), sign * 0.045);
+            }
+          wood(0, 0);
+        }
+    }
+  });
+  it('repeats cubic cut paired terminal eyes nicks warm wood and cavity channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('violinfholes', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps cubic slot core-support round terminal shoulders signed nick planes mirror owner pose-cell boundaries anisotropic grain fine and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ],
+      nickSlope = p.nickHalfWidth / p.nickHalfHeight;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('violinfholes', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let j = 0; j <= 96; j++) check(j / 96, (j * 0.41421356237) % 1);
+      for (let j = 0; j <= 12; j++) check((j * 0.61803398875) % 1, j / 12);
+      for (let j = 0; j <= 128; j++)
+        for (let edge = 0; edge <= p.cells; edge++) {
+          check(edge / p.cells, j / 128);
+          check(j / 128, edge / p.cells);
+        }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              ct = Math.cos(theta),
+              st = Math.sin(theta),
+              y = -p.halfLength + 2 * p.halfLength * t,
+              along = y / p.halfLength,
+              curve = p.bend * (along * along * along - along);
+            local(0, -0.34 + 0.68 * t);
+            for (const side of [-1, 1]) {
+              for (const r of [p.slotRadius, p.slotCore])
+                for (const sign of [-1, 1])
+                  local(side * (p.pairOffset + curve + sign * r), y);
+              for (const end of [-1, 1])
+                for (const r of [p.eyeRadius, p.eyeCore])
+                  local(
+                    side * (p.pairOffset + r * ct),
+                    end * p.halfLength + r * st,
+                  );
+              const ny =
+                -p.nickHalfHeight - 0.01 + (2 * p.nickHalfHeight + 0.02) * t;
+              for (const sx of [-1, 1])
+                for (const sy of [-1, 1])
+                  for (const level of [0, p.planeShoulder]) {
+                    const xx =
+                      sx * (level - p.nickHalfWidth - sy * nickSlope * ny);
+                    local(side * (p.pairOffset + xx), ny);
+                  }
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Continuous silver barbed J hooks with closed true eye rings a connected shank and lower semicircular bend plus two smoothly tapered points', () => {
   const p = proceduralMaterialPresets.fishhooks;

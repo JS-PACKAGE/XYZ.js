@@ -877,6 +877,8 @@
 
 同輪追加 `fishhooks`（真眼環連續銀J倒鉤），目錄667→668種：九 seeded closed true-eye ring／straight shank／lower semicircular bend／tapered upper point及inward barb，非carabiner／safety pin換色。Bounded unions與全組件bore subtraction保持一連續M1／full cores mortar0鉤及真低眼孔／向上開放中腔；0.15 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增鉤體geometry、釣魚physics、強度或安全認證；三seed path／512／C1／雙backend見 ACCEPTANCE。
 
+同輪追加 `violinfholes`（鏡對三次曲線f孔暖木紋），目錄668→669種：九 seeded pairs共十八低S孔，各端圓眼／兩側缺刻，非直線painted f。Five-value poses／world-periodic96×12 grain與128² fine避免cell背景seams，高木及低深棕腔皆M0／mortar0。0.45 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增violin／穿孔geometry、音源合成、聲學模擬或樂器認證；cubic-vs-straight／nick／端眼／512／C1／雙backend見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -1441,6 +1441,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'violinfholes': {
+        const p = proceduralMaterialPresets.violinfholes,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(96, 12, seed ^ 0x18711),
+          fineField = cachedNoise(128, 128, seed ^ 0x18713),
+          inverseLength = 1 / p.halfLength,
+          slotSquared = p.slotRadius * p.slotRadius,
+          inverseSlot = 1 / (slotSquared - p.slotCore * p.slotCore),
+          eyeSquared = p.eyeRadius * p.eyeRadius,
+          inverseEye = 1 / (eyeSquared - p.eyeCore * p.eyeCore),
+          nickSlope = p.nickHalfWidth / p.nickHalfHeight,
+          inversePlane = 1 / p.planeShoulder,
+          reachY = p.halfLength + p.eyeRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x18715);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18717) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18719) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1871b));
+          }
+        return () => {
+          metallic = 0;
+          mortar = 0;
+          const fx = u * p.cells,
+            fy = v * p.cells,
+            col = Math.floor(fx),
+            row = Math.floor(fy),
+            i = (row * p.cells + col) * 5,
+            dx = fx - col - 0.5 - poses[i + 2]!,
+            dy = fy - row - 0.5 - poses[i + 3]!,
+            x = (poses[i]! * dx + poses[i + 1]! * dy) * poses[i + 4]!,
+            y = (-poses[i + 1]! * dx + poses[i]! * dy) * poses[i + 4]!;
+          let cut = 0;
+          if (Math.abs(x) < p.sideReach && Math.abs(y) < reachY) {
+            const xx = Math.abs(x) - p.pairOffset,
+              t = y * inverseLength,
+              warped = xx - p.bend * (t * t * t - t),
+              cap = Math.max(0, Math.abs(y) - p.halfLength),
+              slot = smooth(
+                clamp(
+                  (slotSquared - warped * warped - cap * cap) * inverseSlot,
+                ),
+              ),
+              topY = y + p.halfLength,
+              bottomY = y - p.halfLength,
+              top = smooth(
+                clamp((eyeSquared - xx * xx - topY * topY) * inverseEye),
+              ),
+              bottom = smooth(
+                clamp((eyeSquared - xx * xx - bottomY * bottomY) * inverseEye),
+              ),
+              ny = nickSlope * y,
+              nick =
+                smooth(clamp((p.nickHalfWidth + xx + ny) * inversePlane)) *
+                smooth(clamp((p.nickHalfWidth - xx + ny) * inversePlane)) *
+                smooth(clamp((p.nickHalfWidth + xx - ny) * inversePlane)) *
+                smooth(clamp((p.nickHalfWidth - xx - ny) * inversePlane));
+            cut = 1 - (1 - slot) * (1 - top) * (1 - bottom) * (1 - nick);
+          }
+          color = 0.02;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          if (cut === 1) return;
+          // Uncut wood is world-periodic; per-cell pose tones would leave seams.
+          const intact = 1 - cut,
+            grain = grainField(u, v),
+            fine = fineField(u, v);
+          color += intact * (0.68 + 0.12 * grain + 0.025 * fine - color);
+          height += intact * (0.58 + 0.015 * grain + 0.003 * fine - height);
+          roughness +=
+            intact * (p.roughness + 0.04 * grain + 0.025 * fine - roughness);
+          occlusion += intact * (0.99 - occlusion);
+        };
+      }
       case 'fishhooks': {
         const p = proceduralMaterialPresets.fishhooks,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -30316,6 +30395,7 @@ export function createSurfaceSampler(
     kind === 'rectangularsocketfaces' ||
     kind === 'saffronthreads' ||
     kind === 'fishhooks' ||
+    kind === 'violinfholes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
