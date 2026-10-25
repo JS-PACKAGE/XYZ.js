@@ -711,6 +711,8 @@
 
 同輪追加 `rutilatedquartz`（針狀金紅石石英），目錄 584→585 種：乳白連續拋光面、兩組各三交叉金褐尖針 inclusion，非 quartz 六角晶柱／pyrite 金屬方晶。0.2 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增 geometry、透明／折射／透射、晶內深度、多層體積散射、礦物生長或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `peppermintcanes`（薄荷拐杖糖），目錄 585→586 種：紅白連續圓弧／長短兩端圓管，條紋只改 pigment、非 candy 連續平面高低條；沿既有 neutral backing mix。0.32 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；不新增糖果 geometry、透明孔、糖晶／溶化／烹煮、營養或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

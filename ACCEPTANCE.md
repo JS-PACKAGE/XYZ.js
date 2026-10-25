@@ -7421,3 +7421,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 585-preset rutilatedquartz、擷取畫面／512 base-color detail，見兩組交叉尖針束、連續乳白底及平 normal／全白 AO。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 rutilatedquartz 並重算既有 584 種（含 quartz／pyrite／dendriticagate）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6636 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：薄荷拐杖糖（peppermintcanes）
+
+- 目錄 585→586 種；0.32 m opaque dielectric tile、metallic 0，紅白連續圓管／upper hook／長短 rounded endcaps，非 candy 平面高低條。Cached 16 tones／96² grain／reciprocals，true squared centerline distance／compact cover；arc branch 一次必要 radial sqrt 保持等管徑、與直線 tangent C1 接合，owner／cell support 外切換。條紋只改 pigment、不分節 dome／roughness；body 零略過 grain／stripe，採樣無配置／hash／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、糖晶／溶化／烹煮、營養或物理模擬。
+- 首次 targeted 五項通過（3 seeds morphology、C1、determinism）；512 detail 發現紅背景吃掉紅條、看似白色斷節。沿用既有 mortar=1−body 中性 opaque backing mix，保留原 red／white pigment／height，將 mortar 也納入 C1 probe，五項再次通過。3 seeds ×16 cane 的 33-point semicircle、長軸／短尾皆 0.00629–0.00634 m／AO 0.99，短尾以外／鉤內／caps 外 <0.00026 m；1025-point 長軸剖面 3–5 紅區、紅白各 >30%、平均高度差 <0.000015 m，roughness 0.24–0.265、metallic 0。129² 與 exact inner/outer arc／caps／tangents／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 586-preset peppermintcanes、擷取最終畫面／512 base-color detail，見中性底上完整紅白弧鉤長管而非斷白段。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 peppermintcanes 並重算既有 585 種（含 candy）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6641 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

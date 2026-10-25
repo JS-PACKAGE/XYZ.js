@@ -623,7 +623,156 @@ const kinds: ProceduralMaterialKind[] = [
   'cathedralquilt',
   'buckwheathulls',
   'rutilatedquartz',
+  'peppermintcanes',
 ];
+
+describe('Hooked peppermint canes with continuous rounded tubes and pigment-only stripes', () => {
+  const p = proceduralMaterialPresets.peppermintcanes;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps the upper semicircle joined to a long stem and short hook, without pigment-driven height segmentation, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('peppermintcanes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          for (let i = 0; i <= 32; i++) {
+            const angle = Math.PI + (i * Math.PI) / 32;
+            at(
+              p.bendRadius * Math.cos(angle),
+              p.bendY + p.bendRadius * Math.sin(angle),
+            );
+            expect(out.height).toBeGreaterThanOrEqual(0.00629);
+            expect(out.height).toBeLessThan(0.00634);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          at(-p.bendRadius, 0.25);
+          expect(out.height).toBeGreaterThan(0.00629);
+          at(p.bendRadius, -0.1);
+          expect(out.height).toBeGreaterThan(0.00629);
+          at(p.bendRadius, 0.1);
+          expect(out.height).toBeLessThan(0.00026);
+          at(0, -0.18);
+          expect(out.height).toBeLessThan(0.00026);
+          for (const [x, y] of [
+            [-p.bendRadius, p.longEnd + 0.07],
+            [p.bendRadius, p.shortEnd + 0.07],
+            [0, p.bendY - p.bendRadius - 0.07],
+          ]) {
+            at(x, y);
+            expect(out.height).toBeLessThan(0.00026);
+          }
+          let red = 0,
+            white = 0,
+            redHeight = 0,
+            whiteHeight = 0,
+            runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at(-p.bendRadius, -0.16 + (i * 0.47) / 1024);
+            expect(out.height).toBeGreaterThan(0.00629);
+            expect(out.height).toBeLessThan(0.00634);
+            expect(out.metallic).toBe(0);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.24);
+            expect(out.roughness).toBeLessThanOrEqual(0.265);
+            const stripe = out.color < 0.15;
+            if (stripe && !previous) runs++;
+            previous = stripe;
+            if (stripe) {
+              red++;
+              redHeight += out.height;
+            }
+            if (out.color > 0.88) {
+              white++;
+              whiteHeight += out.height;
+            }
+          }
+          expect(runs).toBeGreaterThanOrEqual(3);
+          expect(runs).toBeLessThanOrEqual(5);
+          expect(red / 1025).toBeGreaterThan(0.3);
+          expect(white / 1025).toBeGreaterThan(0.3);
+          expect(Math.abs(redHeight / red - whiteHeight / white)).toBeLessThan(
+            0.000015,
+          );
+        }
+    },
+  );
+  it('keeps arc-to-stem tangents, rounded caps, pigment shoulders, cell owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('peppermintcanes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => check(...uv(col, row, x, y));
+          for (const radius of [p.radius, p.core])
+            for (let i = 0; i <= 64; i++) {
+              const angle = Math.PI + (i * Math.PI) / 64;
+              for (const side of [-1, 1])
+                at(
+                  (p.bendRadius + side * radius) * Math.cos(angle),
+                  p.bendY + (p.bendRadius + side * radius) * Math.sin(angle),
+                );
+              for (const side of [-1, 1]) {
+                const phi = (i * Math.PI) / 64,
+                  end = side < 0 ? p.longEnd : p.shortEnd;
+                at(
+                  side * p.bendRadius + radius * Math.cos(phi),
+                  end + radius * Math.sin(phi),
+                );
+                at(side * p.bendRadius + (i / 32 - 1) * radius, p.bendY);
+              }
+            }
+        }
+    }
+  });
+});
 
 describe('Polished milky rutile quartz with crossed dielectric needle bundles', () => {
   const p = proceduralMaterialPresets.rutilatedquartz;

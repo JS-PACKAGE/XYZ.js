@@ -600,7 +600,8 @@ export type ProceduralMaterialKind =
   | 'tortoiseshellacetate'
   | 'cathedralquilt'
   | 'buckwheathulls'
-  | 'rutilatedquartz';
+  | 'rutilatedquartz'
+  | 'peppermintcanes';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1435,6 +1436,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cathedralquilt',
   'buckwheathulls',
   'rutilatedquartz',
+  'peppermintcanes',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

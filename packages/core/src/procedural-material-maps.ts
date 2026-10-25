@@ -1428,6 +1428,75 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'peppermintcanes': {
+        const p = proceduralMaterialPresets.peppermintcanes,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseCover = 1 / (radiusSquared - p.core * p.core),
+          inverseRadius = 1 / radiusSquared,
+          inverseStripe = 1 / p.stripeShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x13411);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13413);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            by = y - p.bendY;
+          let distanceSquared: number;
+          if (by < 0) {
+            // One radial root gives the true constant-width upper semicircle;
+            // its squared distance matches both straight tangents at bendY.
+            const radial = Math.sqrt(x * x + by * by) - p.bendRadius;
+            distanceSquared = radial * radial;
+          } else {
+            const across = Math.abs(x) - p.bendRadius,
+              cap = Math.max(0, y - (x < 0 ? p.longEnd : p.shortEnd));
+            distanceSquared = across * across + cap * cap;
+          }
+          const body = smooth(
+            clamp((radiusSquared - distanceSquared) * inverseCover),
+          );
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          // Existing neutral backing mixing keeps red stripes distinguishable
+          // from the surrounding opaque surface without another color map.
+          mortar = 1 - body;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col],
+            phase = fract(
+              p.stripeFrequency * (x + p.stripeSlope * y) + 0.2 * tone,
+            ),
+            red = smooth(
+              clamp(
+                (p.stripeHalfWidth - Math.abs(phase - 0.5)) * inverseStripe,
+              ),
+            ),
+            dome = smooth(clamp(1 - distanceSquared * inverseRadius)),
+            white = 0.92 + 0.03 * grain;
+          // Peppermint stripes are pigment on one continuous tube, not
+          // alternating raised segments or grooves around the bend.
+          color +=
+            body *
+            (white +
+              red * (0.04 + 0.035 * tone + 0.02 * grain - white) -
+              color);
+          height += body * (0.45 + 0.18 * dome + 0.003 * grain - height);
+          roughness += body * (p.roughness + 0.025 * grain - roughness);
+          occlusion += body * (0.91 + 0.08 * dome - occlusion);
+          return;
+        };
+      }
       case 'rutilatedquartz': {
         const p = proceduralMaterialPresets.rutilatedquartz,
           poses = new Float64Array(p.cells * p.cells * 10),
@@ -23144,6 +23213,7 @@ export function createSurfaceSampler(
     kind === 'cathedralquilt' ||
     kind === 'buckwheathulls' ||
     kind === 'rutilatedquartz' ||
+    kind === 'peppermintcanes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
