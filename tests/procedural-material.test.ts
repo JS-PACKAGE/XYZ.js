@@ -603,7 +603,180 @@ const kinds: ProceduralMaterialKind[] = [
   'speakercones',
   'septarianstone',
   'axialresistors',
+  'tomatoslices',
 ];
+
+describe('Tomato slices with solid red septa and pale seeds in filled gel', () => {
+  const p = proceduralMaterialPresets.tomatoslices;
+  it.each([0, 1, 0xffffffff])(
+    'keeps five separate filled locules with two raised pale seeds each and solid central flesh for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tomatoslices', seed),
+        size = 192,
+        gel = new Uint8Array(size * size),
+        seeds = new Uint8Array(gel.length),
+        labels = new Uint8Array(gel.length),
+        colors = new Float64Array(gel.length),
+        heights = new Float64Array(gel.length),
+        queue = new Uint32Array(gel.length),
+        neighbors = new Int32Array(4),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      const neighborIndices = (i: number) => {
+        const x = i % size,
+          y = Math.floor(i / size);
+        neighbors[0] = x ? i - 1 : -1;
+        neighbors[1] = x + 1 < size ? i + 1 : -1;
+        neighbors[2] = y ? i - size : -1;
+        neighbors[3] = y + 1 < size ? i + size : -1;
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          gel.fill(0);
+          seeds.fill(0);
+          labels.fill(0);
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++) {
+              const dx = (x + 0.5) / size - 0.5,
+                dy = (y + 0.5) / size - 0.5,
+                i = y * size + x;
+              sample(
+                (col + 0.5 + dx) / p.cells,
+                (row + 0.5 + dy) / p.cells,
+                out,
+              );
+              colors[i] = out.color;
+              heights[i] = out.height;
+              if (dx * dx + dy * dy < 0.34 ** 2) {
+                expect(out.height).toBeGreaterThan(0.51 * p.relief);
+                expect(out.occlusion).toBeGreaterThan(0.98);
+                expect(out.metallic).toBe(0);
+              }
+              if (out.color > 0.6 && out.roughness < 0.3) gel[i] = 1;
+              if (out.color > 0.9) seeds[i] = 1;
+            }
+          let chambers = 0;
+          for (let i = 0; i < gel.length; i++) {
+            if (!gel[i]) continue;
+            chambers++;
+            gel[i] = 0;
+            queue[0] = i;
+            let end = 1;
+            for (let start = 0; start < end; start++) {
+              const at = queue[start];
+              labels[at] = chambers;
+              neighborIndices(at);
+              for (const next of neighbors)
+                if (next >= 0 && gel[next]) {
+                  gel[next] = 0;
+                  queue[end++] = next;
+                }
+            }
+            expect(end / gel.length).toBeGreaterThan(0.015);
+            expect(end / gel.length).toBeLessThan(0.05);
+          }
+          expect(chambers).toBe(5);
+          const counts = new Uint8Array(chambers + 1);
+          for (let i = 0; i < seeds.length; i++) {
+            if (!seeds[i]) continue;
+            const label = labels[i];
+            expect(label).toBeGreaterThan(0);
+            counts[label]++;
+            seeds[i] = 0;
+            queue[0] = i;
+            let end = 1,
+              crownHeight = 0,
+              haloHeight = 0,
+              haloCount = 0;
+            for (let start = 0; start < end; start++) {
+              const at = queue[start];
+              crownHeight += heights[at];
+              expect(labels[at]).toBe(label);
+              neighborIndices(at);
+              for (const next of neighbors) {
+                if (next < 0) continue;
+                if (seeds[next]) {
+                  seeds[next] = 0;
+                  queue[end++] = next;
+                }
+                if (colors[next] > 0.6 && colors[next] < 0.9) {
+                  haloHeight += heights[next];
+                  haloCount++;
+                }
+              }
+            }
+            expect(end).toBeGreaterThan(10);
+            expect(end).toBeLessThan(80);
+            expect(haloCount).toBeGreaterThan(0);
+            expect(crownHeight / end - haloHeight / haloCount).toBeGreaterThan(
+              0.00006,
+            );
+          }
+          for (let label = 1; label <= chambers; label++)
+            expect(counts[label]).toBe(2);
+          sample((col + 0.5) / p.cells, (row + 0.5) / p.cells, out);
+          expect(out.color).toBeGreaterThan(0.39);
+          expect(out.roughness).toBeGreaterThan(0.42);
+          expect(out.height).toBeGreaterThan(0.57 * p.relief);
+          sample((col + 0.89) / p.cells, (row + 0.5) / p.cells, out);
+          expect(out.color).toBeLessThan(0.16);
+          expect(out.height).toBeGreaterThan(0.55 * p.relief);
+        }
+    },
+  );
+  it('keeps red rind, solid core, chamber/seed supports and UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tomatoslices', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const radius of [
+            p.radius,
+            p.outerShoulder,
+            p.fleshRadius,
+            p.fleshShoulder,
+            p.coreRadius,
+          ])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32;
+              check(
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              );
+            }
+    }
+  });
+});
 
 describe('Axial resistors with insulating painted bodies and two metal leads', () => {
   const p = proceduralMaterialPresets.axialresistors;

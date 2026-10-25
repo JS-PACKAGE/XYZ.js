@@ -7254,3 +7254,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 axialresistors 並重算既有 564 種 size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6530 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：番茄切面（tomatoslices）
+
+- 目錄 565→566 種；0.32 m opaque dielectric tile、metallic 0，4×4 紅果皮／實心紅肉 septa／中央胎座、五個填實膠室各兩淡籽。沿 cached rotated chamber axes／compact radial covers，預算 4×4×5 axes、16 tones／96×96 grain，採樣無配置／hash／sqrt／trig，支撐外略過 grain／seed。膠室稍低但填實、籽微凸、AO 不刻洞，沿四圖／選用 height／ownership，不新增果實 geometry、透明／SSS／透射、生物或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）。3 seeds ×16 果實各 192² flood fill 證明五個分離膠室且每室恰兩個獨立淡籽，籽 crown 均比周邊膠質高 >0.00006 m，內切面 height >0.51 relief／AO >0.98／metallic 0，中心胎座與外紅果皮保留；129² 雙向 C1 與 exact outer／flesh／core radial shoulders／UV wrap 通過。Throwaway CPU 診斷實測每果十籽／五室，最小 seed-over-gel 平均高度差約 0.000094 m，無保留暫存檔。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 tomatoslices，566 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認紅果皮／隔膜、五個填實種室及淡籽；metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱果實 geometry、透明／SSS／透射、生物或物理模擬、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 tomatoslices 並重算既有 565 種 size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6535 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

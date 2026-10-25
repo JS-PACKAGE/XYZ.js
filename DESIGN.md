@@ -679,6 +679,8 @@
 
 `axialresistors` 沿 compact shaft／elliptical capsule／replacement field 慣例，4×4 交替 ±45° 本體保留細引腳在 size 32 的可見取樣，預算 16 tones／96×96 grain。兩端 compact lead 先覆 opaque backing，再以圓頭 capsule replacement 覆蓋高絕緣本體與 metallic fade；有限三道深環查單 nearest band，另一道淡環獨立，support 在 owner 邊界前歸零。塗裝只改 pigment／roughness，不改 height／metallic；body／lead 都零時略過 grain，採樣無配置／hash／sqrt／trig。不新增 geometry、阻值編碼、導電／電路／電熱或物理模擬。
 
+`tomatoslices` 沿 cached rotated chamber axes／compact radial covers 慣例，預算 4×4 ×5 種室 axes、16 tones／96×96 grain，rotation trig／hash 留在 constructor。Squared-radius outer／flesh covers 上，五個互不相接 compact ellipse gel 保留實心紅肉 septa／central core，各內兩 compact pale seed，gel 零時略過種子；所有支撐在 rind／owner 邊界前歸零。種室僅較低但填實、籽微凸，AO 不刻洞，body 外略過 grain／chambers；採樣無配置／hash／sqrt／trig。不新增 geometry、透明／SSS／透射、生物或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

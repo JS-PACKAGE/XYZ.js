@@ -1428,6 +1428,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tomatoslices': {
+        const p = proceduralMaterialPresets.tomatoslices,
+          axes = new Float64Array(p.cells * p.cells * p.chambers * 2),
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseOuter =
+            1 / (radiusSquared - p.outerShoulder * p.outerShoulder),
+          fleshSquared = p.fleshRadius * p.fleshRadius,
+          inverseFlesh = 1 / (fleshSquared - p.fleshShoulder * p.fleshShoulder),
+          inverseChamberLength = 1 / (p.chamberLength * p.chamberLength),
+          inverseChamberWidth = 1 / (p.chamberWidth * p.chamberWidth),
+          inverseSeedLength = 1 / (p.seedLength * p.seedLength),
+          inverseSeedWidth = 1 / (p.seedWidth * p.seedWidth),
+          inverseCore = 1 / (p.coreRadius * p.coreRadius),
+          inverseShoulder = 1 / p.shoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x12111);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col,
+              phase = TAU * hash(col, row, seed ^ 0x12113);
+            tones[cell] = hash(col, row, seed ^ 0x12117);
+            for (let chamber = 0; chamber < p.chambers; chamber++) {
+              const angle = phase + (TAU * chamber) / p.chambers,
+                offset = (cell * p.chambers + chamber) * 2;
+              axes[offset] = Math.cos(angle);
+              axes[offset + 1] = Math.sin(angle);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            cell = Math.floor(vc) * p.cells + Math.floor(uc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            squared = x * x + y * y,
+            face = smooth(clamp((radiusSquared - squared) * inverseOuter));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[cell],
+            flesh = smooth(clamp((fleshSquared - squared) * inverseFlesh)),
+            core = smooth(clamp(1 - squared * inverseCore));
+          let gel = 0,
+            seeds = 0;
+          // Compact chambers stay separated by solid red flesh and never
+          // reach the rind. Seed work is restricted to their filled support.
+          if (squared < fleshSquared)
+            for (let chamber = 0; chamber < p.chambers; chamber++) {
+              const offset = (cell * p.chambers + chamber) * 2,
+                along = x * axes[offset] + y * axes[offset + 1],
+                across = y * axes[offset] - x * axes[offset + 1],
+                radial = along - p.chamberCenter,
+                chamberFace = smooth(
+                  clamp(
+                    (1 -
+                      radial * radial * inverseChamberLength -
+                      across * across * inverseChamberWidth) *
+                      inverseShoulder,
+                  ),
+                );
+              gel += chamberFace;
+              if (chamberFace === 0) continue;
+              for (let sign = -1; sign <= 1; sign += 2) {
+                const sx = radial - sign * p.seedOffset,
+                  sy = across - sign * p.seedSide;
+                seeds +=
+                  chamberFace *
+                  smooth(
+                    clamp(
+                      (1 -
+                        sx * sx * inverseSeedLength -
+                        sy * sy * inverseSeedWidth) *
+                        inverseShoulder,
+                    ),
+                  );
+              }
+            }
+          const pigment =
+            0.1 +
+            0.025 * tone +
+            0.02 * grain +
+            flesh * (0.14 + 0.035 * tone) +
+            0.17 * core +
+            0.41 * gel +
+            0.3 * seeds;
+          color += face * (pigment - color);
+          height +=
+            face *
+            (0.56 +
+              0.02 * flesh +
+              0.004 * grain -
+              0.06 * gel +
+              0.045 * seeds -
+              height);
+          roughness +=
+            face *
+            (0.43 + 0.025 * grain - 0.2 * gel + 0.025 * seeds - roughness);
+          occlusion += face * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'axialresistors': {
         const p = proceduralMaterialPresets.axialresistors,
           tones = new Float64Array(p.cells * p.cells),
@@ -21923,6 +22027,7 @@ export function createSurfaceSampler(
     kind === 'speakercones' ||
     kind === 'septarianstone' ||
     kind === 'axialresistors' ||
+    kind === 'tomatoslices' ||
     fabricated ||
     botanical ||
     packaging ||

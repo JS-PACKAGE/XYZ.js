@@ -671,6 +671,8 @@
 
 同輪追加 `axialresistors`（軸向電阻），目錄 564→565 種：圓頭凸絕緣本體、三道深色與一道淡色塗裝環帶、兩端較低金屬引腳，不是電路板線路或端子台。0.12 m opaque mixed-metallic tile、material factor 1，沿四圖／選用 height／ownership；塗裝環帶仍非金屬且不刻凸環，不宣稱電阻值編碼，不新增元件 geometry、導電／電路／電熱或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `tomatoslices`（番茄切面），目錄 565→566 種：紅果皮／實心紅肉隔膜與中央胎座、五個填實膠質種室各含兩淡籽，並非 bellpepperslices 空腔或 pomegranate 凸紅籽囊。0.32 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；種室仍正值填實、不挖孔，不新增果實 geometry、透明／SSS／透射、生物或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

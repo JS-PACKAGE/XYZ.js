@@ -10093,6 +10093,35 @@ var proceduralMaterialPresets = Object.freeze({
 		bandPitch: .07,
 		bandRadius: .018,
 		lastBand: .12
+	}),
+	tomatoslices: Object.freeze({
+		dark: [
+			120,
+			12,
+			7
+		],
+		light: [
+			252,
+			219,
+			125
+		],
+		roughness: .46,
+		relief: .003,
+		cells: 4,
+		radius: .43,
+		outerShoulder: .4,
+		fleshRadius: .37,
+		fleshShoulder: .35,
+		chambers: 5,
+		chamberCenter: .21,
+		chamberLength: .12,
+		chamberWidth: .09,
+		shoulder: .25,
+		seedOffset: .04,
+		seedSide: .025,
+		seedLength: .025,
+		seedWidth: .014,
+		coreRadius: .075
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -10660,7 +10689,8 @@ var proceduralTileMeters = Object.freeze({
 	dragonfruitflesh: .06,
 	speakercones: .64,
 	septarianstone: .48,
-	axialresistors: .12
+	axialresistors: .12,
+	tomatoslices: .32
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
