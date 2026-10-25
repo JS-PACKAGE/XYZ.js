@@ -688,7 +688,300 @@ const kinds: ProceduralMaterialKind[] = [
   'nyloncableties',
   'weavingshuttles',
   'tailorstapes',
+  'woodenclothespins',
 ];
+
+describe('Stylized wooden clothespins with two continuous longitudinal-grain jaws a flared central slit and three exposed metal spring wraps', () => {
+  const p = proceduralMaterialPresets.woodenclothespins;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17215),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1721b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17217) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17219) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const smooth = (x: number) => {
+    const t = Math.max(0, Math.min(1, x));
+    return t * t * (3 - 2 * t);
+  };
+  const width = (y: number) =>
+    p.waistHalf + p.flare * smooth((y * y) / (p.flareLength * p.flareLength));
+  const gap = (y: number) =>
+    p.gapHalf +
+    p.noseSpread * smooth((-y - p.noseStart) / p.noseLength) +
+    p.tailSpread * smooth((y - p.tailStart) / p.tailLength);
+  it.each([0, 1, 0xffffffff])(
+    'keeps two independently continuous grained wooden jaws around genuine nose tail and inter-wrap clearances crossed by exactly three higher smoother metallic spring bands for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('woodenclothespins', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let along = 0,
+        across = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            return { ...out };
+          };
+          for (const y of [
+            -0.3,
+            -0.15,
+            -p.springPitch / 2,
+            p.springPitch / 2,
+            0.15,
+            0.3,
+          ]) {
+            const slit = at(0, y);
+            expect(slit.height).toBeGreaterThan(0.0000999);
+            expect(slit.height).toBeLessThan(0.0001081);
+            expect(slit.occlusion).toBeCloseTo(0.3, 12);
+            expect(slit.metallic).toBe(0);
+            expect(slit.mortar).toBe(1);
+          }
+          for (let j = 0; j <= 1024; j++) {
+            const y = -0.31 + (0.62 * j) / 1024;
+            for (const sign of [-1, 1]) {
+              const jaw = at((sign * (width(y) + gap(y))) / 2, y);
+              expect(jaw.height).toBeGreaterThan(0.0022399);
+              expect(jaw.height).toBeLessThan(0.0028921);
+              expect(jaw.occlusion).toBeCloseTo(0.99, 12);
+              expect(jaw.metallic).toBeGreaterThanOrEqual(0);
+              expect(jaw.metallic).toBeLessThanOrEqual(1);
+              expect(jaw.mortar).toBe(0);
+            }
+          }
+          const wood = at(0.07, 0.15);
+          expect(wood.height).toBeGreaterThan(0.0022399);
+          expect(wood.height).toBeLessThan(0.0022561);
+          expect(wood.metallic).toBe(0);
+          for (let wrap = -1; wrap <= 1; wrap++)
+            for (let j = 0; j <= 1024; j++) {
+              const wire = at(-0.06 + (0.12 * j) / 1024, wrap * p.springPitch);
+              expect(wire.height).toBeGreaterThan(0.0028799);
+              expect(wire.height).toBeLessThan(0.0028921);
+              expect(wire.height - wood.height).toBeGreaterThan(0.0006239);
+              expect(wire.color - wood.color).toBeGreaterThan(0.0699);
+              expect(wood.roughness - wire.roughness).toBeGreaterThan(0.2499);
+              expect(wire.occlusion).toBeCloseTo(0.99, 12);
+              expect(wire.metallic).toBe(1);
+              expect(wire.mortar).toBe(0);
+            }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const metal = at(0, -0.05 + (0.1 * j) / 8192).metallic > 0.5;
+            if (metal && !inside) runs++;
+            inside = metal;
+          }
+          expect(runs).toBe(3);
+          let jaws = 0,
+            inWood = false;
+          for (let j = 0; j <= 8192; j++) {
+            const solid = at(-0.16 + (0.32 * j) / 8192, 0.15).mortar < 0.5;
+            if (solid && !inWood) jaws++;
+            inWood = solid;
+          }
+          expect(jaws).toBe(2);
+          const clearWidth = (y: number) => {
+            for (let j = 0; j <= 4096; j++) {
+              const x = (0.09 * j) / 4096;
+              if (at(x, y).mortar < 0.5) return 2 * x;
+            }
+            return Infinity;
+          };
+          const waist = clearWidth(0.1),
+            nose = clearWidth(-0.3),
+            tail = clearWidth(0.3);
+          expect(waist).toBeLessThan(0.03);
+          expect(nose).toBeGreaterThan(0.07);
+          expect(tail).toBeGreaterThan(0.11);
+          expect(tail - nose).toBeGreaterThan(0.04);
+          for (const sign of [-1, 1])
+            for (let y = 0; y <= 32; y++)
+              for (let x = 0; x <= 32; x++) {
+                const xx = sign * (0.07 - 0.005 + (0.01 * x) / 32),
+                  yy = 0.13 + (0.09 * y) / 32,
+                  delta = 0.00001,
+                  base = at(xx, yy).color;
+                along += Math.abs(at(xx, yy + delta).color - base);
+                across += Math.abs(at(xx + delta, yy).color - base);
+              }
+        }
+      expect(across).toBeGreaterThan(3 * along);
+    },
+  );
+  it('keeps actual512 both warm dielectric wood jaws separated by opaque backing and crossed by three brighter smoother fully metallic spring wraps including their central bridges', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('woodenclothespins', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            wood = index(0.07, 0.15),
+            slit = index(0, 0.15);
+          expect(maps.metallicRoughness[wood + 2]).toBe(0);
+          expect(maps.metallicRoughness[slit + 2]).toBe(0);
+          expect(
+            maps.baseColor[wood] - maps.baseColor[wood + 2],
+          ).toBeGreaterThan(30);
+          expect(maps.occlusion[wood] - maps.occlusion[slit]).toBeGreaterThan(
+            170,
+          );
+          for (const sign of [-1, 1])
+            for (const y of [0.15, 0.28]) {
+              const jaw = index(sign * 0.07, sign * y);
+              expect(maps.metallicRoughness[jaw + 2]).toBe(0);
+              expect(
+                maps.occlusion[jaw] - maps.occlusion[slit],
+              ).toBeGreaterThan(170);
+            }
+          for (let wrap = -1; wrap <= 1; wrap++)
+            for (const x of [-0.05, 0, 0.05]) {
+              const wire = index(x, wrap * p.springPitch);
+              expect(maps.metallicRoughness[wire + 2]).toBe(255);
+              expect(
+                maps.baseColor[wire] - maps.baseColor[wood],
+              ).toBeGreaterThan(10);
+              expect(
+                maps.metallicRoughness[wood + 1] -
+                  maps.metallicRoughness[wire + 1],
+              ).toBeGreaterThan(60);
+              expect(
+                maps.occlusion[wire] - maps.occlusion[slit],
+              ).toBeGreaterThan(170);
+            }
+          for (const sign of [-1, 1]) {
+            const between = index(0, (sign * p.springPitch) / 2);
+            expect(maps.metallicRoughness[between + 2]).toBe(0);
+            expect(maps.occlusion[between]).toBeLessThan(80);
+          }
+        }
+    }
+  });
+  it('keeps flared jaw innerouter supportcore nose/tail transitions endshoulders squaredflare saturation three nearest springwrapcapsule joins localgrain poseowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('woodenclothespins', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 256; j++) {
+            const t = j / 256,
+              y = -p.halfLength + 2 * p.halfLength * t,
+              a = 2 * Math.PI * t,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            for (const sign of [-1, 1]) {
+              for (const x of [
+                gap(y),
+                gap(y) + p.sideEdge,
+                width(y),
+                width(y) - p.sideEdge,
+              ])
+                local(sign * x, y);
+              for (const yy of [
+                p.halfLength,
+                p.halfLength - p.endEdge,
+                p.flareLength,
+              ])
+                local(-0.14 + 0.28 * t, sign * yy);
+            }
+            for (const yy of [
+              -p.noseStart,
+              -p.noseStart - p.noseLength,
+              p.tailStart,
+              p.tailStart + p.tailLength,
+              0,
+            ])
+              local(-0.14 + 0.28 * t, yy);
+            for (let wrap = -1; wrap <= 1; wrap++) {
+              for (const r of [p.springRadius, p.springCore]) {
+                local(
+                  (c < 0 ? -p.springStraight : p.springStraight) + r * c,
+                  wrap * p.springPitch + r * s,
+                );
+                for (const sign of [-1, 1])
+                  local(
+                    -p.springStraight + 2 * p.springStraight * t,
+                    wrap * p.springPitch + sign * r,
+                  );
+              }
+              for (const sign of [-1, 1])
+                local(
+                  sign * p.springStraight,
+                  wrap * p.springPitch - 0.01 + 0.02 * t,
+                );
+              local(-0.1 + 0.2 * t, (wrap + 0.5) * p.springPitch);
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Unnumbered cream woven tailor tapes with dual-edge black short mid and long grouped graduations and continuous central cloth lanes', () => {
   const p = proceduralMaterialPresets.tailorstapes;
@@ -41379,6 +41672,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'bismuthhoppers' &&
           kind !== 'seamrippers' &&
           kind !== 'weavingshuttles' &&
+          kind !== 'woodenclothespins' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -50798,6 +51092,7 @@ describe('procedural preset acquisition and ownership', () => {
     'bismuthhoppers',
     'seamrippers',
     'weavingshuttles',
+    'woodenclothespins',
     'standingseam',
     'damascus',
     'castiron',
@@ -50877,6 +51172,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'bismuthhoppers' ||
           kind === 'seamrippers' ||
           kind === 'weavingshuttles' ||
+          kind === 'woodenclothespins' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

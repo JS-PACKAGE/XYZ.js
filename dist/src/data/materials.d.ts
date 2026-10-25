@@ -6696,6 +6696,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         exposureHalf: 0.4;
         exposureEdge: 0.08;
     }>;
+    woodenclothespins: Readonly<{
+        dark: readonly [68, 39, 16];
+        light: readonly [247, 241, 215];
+        roughness: 0.55;
+        relief: 0.004;
+        cells: 3;
+        waistHalf: 0.09;
+        flare: 0.04;
+        flareLength: 0.32;
+        halfLength: 0.34;
+        gapHalf: 0.009;
+        noseStart: 0.2;
+        noseLength: 0.12;
+        noseSpread: 0.025;
+        tailStart: 0.1;
+        tailLength: 0.2;
+        tailSpread: 0.045;
+        sideEdge: 0.008;
+        endEdge: 0.014;
+        springPitch: 0.025;
+        springStraight: 0.065;
+        springRadius: 0.008;
+        springCore: 0.006;
+        jitter: 0.015;
+        scale: 0.94;
+        scaleVariation: 0.04;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7346,4 +7373,5 @@ export declare const proceduralTileMeters: Readonly<{
     nyloncableties: 0.6;
     weavingshuttles: 0.6;
     tailorstapes: 0.1;
+    woodenclothespins: 0.6;
 }>;

@@ -835,6 +835,8 @@
 
 同輪追加 `tailorstapes`（無數字裁縫尺帶），目錄646→647種：四條連續乳白織布帶，雙側各100個黑刻度位置，每十格含八短、一中、一長，中央保留完整無印布面，非 graphpaper 的交叉格線或純色 pinstripe。沿用 warp/weft compact exposure 與印墨分層；0.1 m tile／0.001 m relief，全 M0，織布細起伏、較平滑黑墨與低 opaque backing 分離。沿用四圖／height／Worker／cache／tint／ownership，不新增字型／數字、量測 API、真實校準、布料物理或 geometry。
 
+同輪追加 `woodenclothespins`（木衣夾），目錄647→648種：九 seeded rotated stylized 開口木衣夾，兩片連續縱紋木夾片、前後展寬中縫及三道較高亮平滑金屬 spring wraps。縫與繞圈之間露真低 opaque backing；非單木火柴或線筒／織梭，M0 wood/backing、僅 spring M1，公開 factor1 保留混合圖。0.6 m tile／0.004 m relief，沿用四圖／height／Worker／cache／tint／ownership，不新增透明洞、geometry、鉗合／彈簧／力學／夾持模擬或產品安全認證。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

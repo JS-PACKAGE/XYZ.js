@@ -12376,6 +12376,41 @@ var proceduralMaterialPresets = Object.freeze({
 		weaveHalf: .45,
 		exposureHalf: .4,
 		exposureEdge: .08
+	}),
+	woodenclothespins: Object.freeze({
+		dark: [
+			68,
+			39,
+			16
+		],
+		light: [
+			247,
+			241,
+			215
+		],
+		roughness: .55,
+		relief: .004,
+		cells: 3,
+		waistHalf: .09,
+		flare: .04,
+		flareLength: .32,
+		halfLength: .34,
+		gapHalf: .009,
+		noseStart: .2,
+		noseLength: .12,
+		noseSpread: .025,
+		tailStart: .1,
+		tailLength: .2,
+		tailSpread: .045,
+		sideEdge: .008,
+		endEdge: .014,
+		springPitch: .025,
+		springStraight: .065,
+		springRadius: .008,
+		springCore: .006,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -13025,7 +13060,8 @@ var proceduralTileMeters = Object.freeze({
 	shojipaperlattice: .9,
 	nyloncableties: .6,
 	weavingshuttles: .6,
-	tailorstapes: .1
+	tailorstapes: .1,
+	woodenclothespins: .6
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
