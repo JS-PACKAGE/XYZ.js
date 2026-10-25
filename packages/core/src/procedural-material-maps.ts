@@ -1441,6 +1441,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pleatedfilterpapers': {
+        const p = proceduralMaterialPresets.pleatedfilterpapers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17611),
+          maximumSquared = (p.radius + p.rimRipple) ** 2,
+          minimumCoreSquared = (p.radius - p.rimRipple) ** 2 - p.edgeSquared,
+          innerSquared = p.foldInner * p.foldInner,
+          inverseRise = 1 / (p.foldOuter * p.foldOuter - innerSquared),
+          inverseEdge = 1 / p.edgeSquared;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x17615);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17617) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17619) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1761b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1761d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            x = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            y = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            squared = x * x + y * y;
+          if (squared >= maximumSquared) return;
+          let wave = 1,
+            rise = 0,
+            face = 1;
+          if (squared > innerSquared) {
+            const localX = poses[i]! * x + poses[i + 1]! * y;
+            // cos(2 theta), then four angle doublings give cos(32 theta).
+            // The flat central base hides the rational angular pole entirely.
+            wave = (2 * localX * localX) / squared - 1;
+            for (let fold = 0; fold < p.foldDoublings; fold++)
+              wave = 2 * wave * wave - 1;
+            rise = smooth(clamp((squared - innerSquared) * inverseRise));
+            if (squared > minimumCoreSquared) {
+              const radius = p.radius + p.rimRipple * wave;
+              face = smooth(clamp((radius * radius - squared) * inverseEdge));
+              if (face === 0) return;
+            }
+          }
+          const grain = grainField(u, v),
+            crease = rise * (1 - wave) * 0.5;
+          color +=
+            face *
+            (0.86 +
+              0.03 * poses[i + 5]! +
+              0.03 * grain -
+              0.14 * crease -
+              color);
+          height +=
+            face *
+            (0.22 +
+              0.4 * rise +
+              0.1 * (rise - crease) +
+              0.003 * grain -
+              height);
+          roughness +=
+            face * (p.roughness + 0.025 * grain - 0.035 * crease - roughness);
+          occlusion += face * (0.99 - 0.08 * crease - occlusion);
+          mortar = 1 - face;
+        };
+      }
       case 'kintsugiceramic': {
         const p = proceduralMaterialPresets.kintsugiceramic,
           sites = new Float64Array(p.cells * p.cells * 3),
@@ -28654,6 +28728,7 @@ export function createSurfaceSampler(
     kind === 'cinnamonbarkcoils' ||
     kind === 'compactcassettefaces' ||
     kind === 'kintsugiceramic' ||
+    kind === 'pleatedfilterpapers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

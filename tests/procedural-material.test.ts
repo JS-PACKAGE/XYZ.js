@@ -692,7 +692,264 @@ const kinds: ProceduralMaterialKind[] = [
   'cinnamonbarkcoils',
   'compactcassettefaces',
   'kintsugiceramic',
+  'pleatedfilterpapers',
 ];
+
+describe('Pleated filter papers with flat bases rising thirty-two-fold annular walls and phase-matched scalloped rims', () => {
+  const p = proceduralMaterialPresets.pleatedfilterpapers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17615),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1761b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17617) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17619) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine continuous cream paper bases joined to exactly thirty-two higher pleats and matching scalloped rim crests for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pleatedfilterpapers', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            polar = (r: number, angle: number) =>
+              at(r * Math.cos(angle), r * Math.sin(angle)),
+            base = at(0, 0);
+          for (let j = 0; j <= 1024; j++) {
+            const center = at(-0.14 + (0.28 * j) / 1024, 0);
+            expect(center.height).toBeGreaterThanOrEqual(0.00087999);
+            expect(center.height).toBeLessThanOrEqual(0.00089201);
+            expect(center.color).toBeGreaterThanOrEqual(0.85999);
+            expect(center.occlusion).toBeCloseTo(0.99, 12);
+            expect(center.mortar).toBe(0);
+            expect(center.metallic).toBe(0);
+          }
+          for (let fold = 0; fold < 32; fold++) {
+            const a = (2 * Math.PI * fold) / 32,
+              b = (2 * Math.PI * (fold + 0.5)) / 32,
+              crest = polar(0.29, a),
+              valley = polar(0.29, b),
+              rimCrest = polar(p.radius, a),
+              rimGap = polar(p.radius, b);
+            expect(crest.height).toBeGreaterThanOrEqual(0.00287999);
+            expect(crest.height).toBeLessThanOrEqual(0.00289201);
+            expect(valley.height).toBeGreaterThanOrEqual(0.00247999);
+            expect(valley.height).toBeLessThanOrEqual(0.00249201);
+            expect(crest.height - valley.height).toBeGreaterThan(0.0003879);
+            expect(crest.height - base.height).toBeGreaterThan(0.0019879);
+            expect(valley.height - base.height).toBeGreaterThan(0.0015879);
+            expect(crest.color - valley.color).toBeGreaterThan(0.1099);
+            expect(crest.roughness - valley.roughness).toBeGreaterThan(0.0099);
+            expect(crest.occlusion).toBeCloseTo(0.99, 12);
+            expect(valley.occlusion).toBeCloseTo(0.91, 12);
+            for (const value of [crest, valley, rimCrest]) {
+              expect(value.mortar).toBe(0);
+              expect(value.metallic).toBe(0);
+            }
+            expect(rimGap.height).toBeCloseTo(0.0001, 12);
+            expect(rimGap.occlusion).toBe(0.3);
+            expect(rimGap.mortar).toBe(1);
+            for (let j = 0; j <= 128; j++) {
+              const connected = polar((p.radius * j) / 128, a);
+              expect(connected.mortar).toBe(0);
+              expect(connected.metallic).toBe(0);
+              expect(connected.occlusion).toBeCloseTo(0.99, 12);
+              expect(connected.height).toBeGreaterThanOrEqual(0.00087999);
+            }
+          }
+          let pleatRuns = 0,
+            rimRuns = 0,
+            priorPleat = false,
+            priorRim = false;
+          for (let j = 0; j <= 8192; j++) {
+            const a = Math.PI / 32 + (2 * Math.PI * j) / 8192,
+              crest = polar(0.29, a).height > 0.00268,
+              rim = polar(p.radius, a).mortar < 0.5;
+            if (crest && !priorPleat) pleatRuns++;
+            if (rim && !priorRim) rimRuns++;
+            priorPleat = crest;
+            priorRim = rim;
+          }
+          expect(pleatRuns).toBe(32);
+          expect(rimRuns).toBe(32);
+          for (let j = 0; j <= 128; j++) {
+            const backing = polar(0.4, (2 * Math.PI * j) / 128);
+            expect(backing.height).toBeCloseTo(0.0001, 12);
+            expect(backing.occlusion).toBe(0.3);
+            expect(backing.mortar).toBe(1);
+            expect(backing.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('writes thirty-two visible ridge/valley contrasts and scalloped paper crests over low backing in actual 512 pixel PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('pleatedfilterpapers', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (r: number, a: number) => {
+              const [u, v] = world(
+                seed,
+                col,
+                row,
+                r * Math.cos(a),
+                r * Math.sin(a),
+              );
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            center = pixel(0, 0);
+          expect(maps.baseColor[center]!).toBeGreaterThan(230);
+          expect(maps.occlusion[center]!).toBeGreaterThan(250);
+          for (let fold = 0; fold < 32; fold++) {
+            const a = (2 * Math.PI * fold) / 32,
+              b = (2 * Math.PI * (fold + 0.5)) / 32,
+              ridge = pixel(0.29, a),
+              valley = pixel(0.29, b),
+              rim = pixel(0.33, a),
+              gap = pixel(0.34, b);
+            expect(
+              maps.baseColor[ridge]! - maps.baseColor[valley]!,
+            ).toBeGreaterThan(12);
+            expect(
+              maps.occlusion[ridge]! - maps.occlusion[valley]!,
+            ).toBeGreaterThan(16);
+            expect(
+              maps.height![ridge]! - maps.height![valley]!,
+            ).toBeGreaterThan(28);
+            expect(
+              maps.height![ridge]! - maps.height![center]!,
+            ).toBeGreaterThan(170);
+            expect(maps.occlusion[rim]!).toBeGreaterThan(245);
+            expect(maps.occlusion[gap]!).toBeLessThan(80);
+            expect(maps.occlusion[rim]! - maps.occlusion[gap]!).toBeGreaterThan(
+              165,
+            );
+            for (const i of [center, ridge, valley, rim, gap])
+              expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats paper height crease shading roughness coverage and nonmetal classification across positive and negative UV periods while retaining seeded placement', () => {
+    const sample = createSurfaceSampler('pleatedfilterpapers', 7),
+      other = createSurfaceSampler('pleatedfilterpapers', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let coverageDifference = 0;
+    for (let j = 0; j < 1024; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      coverageDifference += Math.abs(a.mortar - c.mortar);
+    }
+    expect(coverageDifference).toBeGreaterThan(15);
+  });
+  it('keeps flat base annular rise 32-fold crests/valleys phase-matched rim support/core pose owners grain and UV wraps C1 without an angular pole', () => {
+    // Fine 32-fold scalloping has high finite curvature; this step resolves
+    // derivative continuity rather than mistaking smooth curvature for a jump.
+    const h = 2e-8,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pleatedfilterpapers', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          for (let j = 0; j <= 256; j++) {
+            const angle = (2 * Math.PI * j) / 256,
+              c = Math.cos(angle),
+              s = Math.sin(angle),
+              radius = p.radius + p.rimRipple * Math.cos(32 * angle);
+            for (const r of [
+              p.foldInner,
+              p.foldOuter,
+              radius,
+              Math.sqrt(radius * radius - p.edgeSquared),
+            ])
+              check(...world(seed, col, row, r * c, r * s));
+            check(col / p.cells, (row + j / 256) / p.cells);
+            check((col + j / 256) / p.cells, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Kintsugi ceramic with continuous coplanar gold-filled fracture seams and C1 repaired triple junctions', () => {
   const p = proceduralMaterialPresets.kintsugiceramic;

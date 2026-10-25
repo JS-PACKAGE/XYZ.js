@@ -851,6 +851,8 @@
 
 `kintsugiceramic` 為十六 seeded-jitter 深青釉陶片與連續共面金色填縫網：陶片 M0、完整金縫 core M1、肩部平滑混合，material factor1 啟用金屬圖。兩相共用 micro-height 與 AO0.99，金繼為已填平修補，不是假空裂縫或凸金線。沿用 cached periodic nine-site patches、對稱 pair-plane normalization、片色與128² grain；每點九 squared distances 找最近 site，再乘所有 competing C1 half-planes，不能只選次近 seam 以免 partial triple junction 折痕，完整 gold core 遮蔽 nearest-owner 換界。Jitter0.1／support0.03 使被丟棄 competitor 在 patch-owner 換界處皆 inactive，每點無配置／hash／sqrt／trig，gold core 跳 hidden ceramic finish。0.32 m tile／0.0003 m relief，四圖／optional height／Worker／cache／tint／ownership 契約不變；只作金繼外觀，不新增破裂／修補模擬、位移 geometry、真金化學認證、分層塗層或 BRDF anisotropy。
 
+`pleatedfilterpapers` 為九 seeded 奶油紙濾杯端面：連續平坦微紋底、向外升高三十二徑向褶皺環壁、同相扇貝紙緣，crest／valley 同步改 height／color／roughness／AO，全紙 M0、full-body exact mortar0，緣外缺口露低 opaque backing 非透明洞。沿用 cached poses／128² grain／squared radial bounds／C1 rise profile；以有理 cos(2θ) 四次 angle doubling 得32-fold，flat center 遮蔽角度 pole，內部 full paper 跳 rim coverage、empty support 跳 grain/finish，每點無配置／hash／sqrt／atan2／trig，亦無逐褶掃描。0.36 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變；僅濾紙外觀，不新增實際杯體 geometry、紙纖維微孔／滲透率認證或過濾／流體模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
