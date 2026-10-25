@@ -608,7 +608,123 @@ const kinds: ProceduralMaterialKind[] = [
   'chrysanthemumstone',
   'sewingsnaps',
   'lathplaster',
+  'ceramiccapacitors',
 ];
+
+describe('Radial ceramic capacitors with domed dielectric discs and paired leads', () => {
+  const p = proceduralMaterialPresets.ceramiccapacitors;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (sign * x + y) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a convex nonmetal ceramic disc above two separated same-edge metal leads, including coated roots, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ceramiccapacitors', seed);
+      const at = (col: number, row: number, x: number, y: number) => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(...uv(col, row, x, y), out);
+        return out;
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const center = at(col, row, 0, p.centerY),
+            shoulder = at(col, row, 0.18, p.centerY),
+            gap = at(col, row, 0, 0.3);
+          expect(center.metallic).toBe(0);
+          expect(center.height - shoulder.height).toBeGreaterThan(0.0007);
+          expect(center.roughness).toBeGreaterThan(0.54);
+          expect(gap.metallic).toBe(0);
+          expect(gap.height).toBeLessThan(0.0003);
+          expect(gap.occlusion).toBeLessThan(0.4);
+          for (const sign of [-1, 1]) {
+            const lead = at(col, row, sign * p.leadOffset, 0.3),
+              root = at(col, row, sign * p.leadOffset, 0.09),
+              opposite = at(col, row, sign * p.leadOffset, -0.43);
+            expect(lead.metallic).toBe(1);
+            expect(lead.roughness).toBeLessThan(0.26);
+            expect(lead.color - center.color).toBeGreaterThan(0.2);
+            expect(center.height - lead.height).toBeGreaterThan(0.004);
+            expect(root.metallic).toBe(0);
+            expect(root.height - lead.height).toBeGreaterThan(0.0025);
+            expect(opposite.metallic).toBe(0);
+            expect(opposite.height).toBeLessThan(0.0003);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            const metal =
+              at(col, row, (i / 1024 - 0.5) * 0.4, 0.3).metallic > 0.9;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(2);
+        }
+    },
+  );
+  it('keeps paired-lead lookup, coated roots, disc shoulders and both UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ceramiccapacitors', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) => check(...uv(col, row, x, y));
+          for (const scale of [1, Math.sqrt(1 - p.shoulder)])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              local(
+                p.bodyX * scale * Math.cos(angle),
+                p.centerY + p.bodyY * scale * Math.sin(angle),
+              );
+            }
+          for (const y of [
+            p.leadTop,
+            p.leadTop + p.leadShoulder,
+            0.3,
+            p.leadEnd - p.leadShoulder,
+            p.leadEnd,
+          ])
+            for (const sign of [-1, 1])
+              for (const dx of [-p.leadRadius, 0, p.leadRadius])
+                local(sign * p.leadOffset + dx, y);
+        }
+    }
+  });
+});
 
 describe('Damaged plaster over lower horizontal timber laths', () => {
   const p = proceduralMaterialPresets.lathplaster;
@@ -26046,6 +26162,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'screwterminalblocks' &&
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
+          kind !== 'ceramiccapacitors' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -26064,7 +26181,8 @@ describe('periodic procedural material fields', () => {
         kind === 'batterypositivecaps' ||
         kind === 'screwterminalblocks' ||
         kind === 'axialresistors' ||
-        kind === 'sewingsnaps'
+        kind === 'sewingsnaps' ||
+        kind === 'ceramiccapacitors'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -35464,6 +35582,7 @@ describe('procedural preset acquisition and ownership', () => {
     'screwterminalblocks',
     'axialresistors',
     'sewingsnaps',
+    'ceramiccapacitors',
     'standingseam',
     'damascus',
     'castiron',
@@ -35520,6 +35639,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'screwterminalblocks' ||
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
+          kind === 'ceramiccapacitors' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

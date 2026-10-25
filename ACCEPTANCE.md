@@ -7301,3 +7301,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 lathplaster，570 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認淡灰泥／暴露水平木條／條間暗背底，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱牆體 geometry、透孔、釘／縫線、破壞／結構／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
 - Fresh Node 新 build 生成 lathplaster 並重算既有 569 種（含 peelingpaint／slottedwood）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6556 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：徑向陶瓷電容（ceramiccapacitors）
+
+- 目錄 570→571 種；0.12 m opaque mixed-metallic tile、factor 1，凸絕緣圓片與同側兩金屬引腳、覆層 roots，非兩端出腳的 axialresistors。Cached 16 tones／96×96 grain、compact ellipse／paired shaft coherent replacement；nearest-sign support 在 owner 前歸零，金屬外露引腳／非金屬陶瓷與背底分區，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增電容量編碼、元件 geometry、導電／電路／電熱或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、borrowed-map ownership）：3 seeds ×16 元件的陶瓷中心較肩部高 >0.0007 m、較外露引腳高 >0.004 m，雙 roots 仍 metallic 0；同側 1025-point 橫剖面恰兩金屬 runs、反側沒有引腳。129² 雙向與 exact disc／lead／coating shoulders C1、factor 1／獨立 material／override ownership／destroy 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 571-preset ceramiccapacitors 並擷取畫面；512 base-color detail 顯示交替斜向凸圓片與雙同側引腳。實際 createMaterial factor 1、metal map B min 0／max 255／partial true、height true／destroyed true；兩 backend page errors 與 about:blank cleanup errors 都為空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 ceramiccapacitors 並重算既有 570 種（含 axialresistors）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6562 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

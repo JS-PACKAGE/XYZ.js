@@ -5186,6 +5186,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         lathHalfWidth: 0.4;
         lathShoulder: 0.08;
     }>;
+    ceramiccapacitors: Readonly<{
+        dark: readonly [24, 9, 4];
+        light: readonly [251, 192, 105];
+        roughness: 0.55;
+        relief: 0.008;
+        cells: 4;
+        bodyX: 0.24;
+        bodyY: 0.26;
+        centerY: -0.1;
+        shoulder: 0.25;
+        leadOffset: 0.09;
+        leadRadius: 0.018;
+        leadTop: 0.04;
+        leadEnd: 0.44;
+        leadShoulder: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5759,4 +5775,5 @@ export declare const proceduralTileMeters: Readonly<{
     chrysanthemumstone: 0.48;
     sewingsnaps: 0.12;
     lathplaster: 0.8;
+    ceramiccapacitors: 0.12;
 }>;

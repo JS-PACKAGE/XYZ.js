@@ -812,6 +812,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `lathplaster`（木條灰泥牆）：高淡灰泥脫落露出較低水平木條與更深 opaque gap floor。沿 compact patch masks／coherent replacement，四 seeded rotated／warped loss 區 conservative support <0.437 owner、查單 cell；16 laths 的 row tone／fiber 在 owner 切換前隨 compact cover 歸零。預算 96×96 灰泥粒、4×128 水平木纖維、雙 8×8 warp；完整灰泥略過 wood sample，採樣無配置／hash／sqrt／trig，脫落向下露底而非捲高邊。使用 `await ProceduralMaterial.create('lathplaster', { seed: 7 })`；0.8 m opaque dielectric tile、metallic 0，沿 maps／選用 height／ownership，不新增牆體 geometry、通透孔、釘／縫線、破壞／結構或物理模擬。
 
+種類另支援 `ceramiccapacitors`（徑向陶瓷電容）：凸絕緣陶瓷圓片、同側雙金屬引腳與覆層 roots。沿 compact paired shafts／ellipse cover／coherent replacement，預算 16 tones／96×96 grain／reciprocal squared extents、4×4 交替斜向；nearest-sign 引腳 support 在 sign owner 切換前歸零。較低 metal leads 先覆背底，再以高 convex dielectric disc 包根，metallic 隨 coating coverage 歸零；雙 support 零時略過 grain，採樣無配置／hash／sqrt／trig。使用 `await ProceduralMaterial.create('ceramiccapacitors', { seed: 7 })`；0.12 m opaque mixed-metallic tile、factor 1，沿 maps／選用 height／ownership，不新增電容量編碼、元件 geometry、導電／電路／電熱或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

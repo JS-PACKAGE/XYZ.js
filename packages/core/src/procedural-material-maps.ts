@@ -1428,6 +1428,66 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ceramiccapacitors': {
+        const p = proceduralMaterialPresets.ceramiccapacitors,
+          tones = new Float64Array(p.cells * p.cells),
+          turnScale = Math.SQRT1_2,
+          inverseBodyX = 1 / (p.bodyX * p.bodyX),
+          inverseBodyY = 1 / (p.bodyY * p.bodyY),
+          inverseShoulder = 1 / p.shoulder,
+          inverseLead = 1 / (p.leadRadius * p.leadRadius),
+          inverseTip = 1 / p.leadShoulder,
+          grainField = cachedNoise(96, 96, seed ^ 0x12511);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12513);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * turnScale,
+            y = (dy - sign * dx) * turnScale,
+            by = y - p.centerY,
+            cap = clamp(1 - x * x * inverseBodyX - by * by * inverseBodyY),
+            body = smooth(clamp(cap * inverseShoulder)),
+            leadX = Math.abs(x) - p.leadOffset,
+            leadCap = clamp(1 - leadX * leadX * inverseLead),
+            lead =
+              smooth(leadCap) *
+              smooth(clamp((y - p.leadTop) * inverseTip)) *
+              smooth(clamp((p.leadEnd - y) * inverseTip));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          metallic = 0;
+          if (body === 0 && lead === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          if (lead > 0) {
+            color += lead * (0.9 + 0.06 * tone + 0.025 * grain - color);
+            height += lead * (0.21 + 0.035 * leadCap + 0.002 * grain - height);
+            roughness += lead * (0.23 + 0.02 * grain - roughness);
+            occlusion += lead * (0.98 - occlusion);
+            metallic = lead;
+          }
+          if (body === 0) return;
+          const dome = smooth(cap);
+          // Both leads enter the same edge; the raised dielectric disc covers
+          // their roots coherently instead of turning its coating metallic.
+          color +=
+            body * (0.5 + 0.1 * tone + 0.025 * grain + 0.06 * dome - color);
+          height += body * (0.6 + 0.18 * dome + 0.003 * grain - height);
+          roughness += body * (p.roughness + 0.025 * grain - roughness);
+          occlusion += body * (0.99 - occlusion);
+          metallic *= 1 - body;
+          return;
+        };
+      }
       case 'lathplaster': {
         const p = proceduralMaterialPresets.lathplaster,
           patches = new Float64Array(p.cells * p.cells * 4),
@@ -22204,6 +22264,7 @@ export function createSurfaceSampler(
     kind === 'chrysanthemumstone' ||
     kind === 'sewingsnaps' ||
     kind === 'lathplaster' ||
+    kind === 'ceramiccapacitors' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
