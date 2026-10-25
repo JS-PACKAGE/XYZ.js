@@ -600,7 +600,127 @@ const kinds: ProceduralMaterialKind[] = [
   'passionfruitslice',
   'screwterminalblocks',
   'dragonfruitflesh',
+  'speakercones',
 ];
+
+describe('Black speaker cones with paper dishes, dust caps and rubber rolls', () => {
+  const p = proceduralMaterialPresets.speakercones;
+  const field = (seed: number) => {
+    const sample = createSurfaceSampler('speakercones', seed);
+    return (col: number, row: number, x: number, y: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+      return out;
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a domed central cap above a filled paper dish, a higher rubber roll and fine radial relief for seed %s',
+    (seed) => {
+      const at = field(seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const cap = at(col, row, 0, 0),
+            cone = at(col, row, 0.2, 0),
+            roll = at(col, row, 0.33, 0),
+            frame = at(col, row, 0.39, 0),
+            backing = at(col, row, 0.47, 0);
+          expect(cap.height - cone.height).toBeGreaterThan(0.0019);
+          expect(roll.height - cap.height).toBeGreaterThan(0.0024);
+          expect(roll.height - frame.height).toBeGreaterThan(0.0025);
+          expect(cone.height).toBeGreaterThan(0.0035);
+          expect(cap.roughness).toBeLessThan(0.45);
+          expect(cone.roughness).toBeGreaterThan(0.75);
+          expect(roll.roughness).toBeGreaterThan(0.85);
+          expect(cone.color - roll.color).toBeGreaterThan(0.14);
+          expect(cap.occlusion - cone.occlusion).toBeGreaterThan(0.07);
+          for (const point of [cap, cone, roll, frame, backing])
+            expect(point.metallic).toBe(0);
+          let minimum = Infinity,
+            maximum = -Infinity;
+          for (let i = 0; i < 720; i++) {
+            const angle = (i * Math.PI) / 360,
+              point = at(
+                col,
+                row,
+                0.22 * Math.cos(angle),
+                0.22 * Math.sin(angle),
+              );
+            minimum = Math.min(minimum, point.height);
+            maximum = Math.max(maximum, point.height);
+          }
+          // Grain alone cannot reach this span; the annular paper ribs must
+          // contribute relief, without turning into deep transparent cuts.
+          expect(maximum - minimum).toBeGreaterThan(0.00006);
+          expect(maximum - minimum).toBeLessThan(0.0002);
+          expect(minimum).toBeGreaterThan(0.004);
+          expect(backing.height).toBeLessThan(0.0004);
+        }
+    },
+  );
+  it('keeps the central pole, radial rib fades, cap/cone shoulders, rolled surround and wrap C1', () => {
+    const h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const at = field(seed);
+      const check = (col: number, row: number, x: number, y: number) => {
+        for (const axis of [0, 1]) {
+          const a = at(col, row, x - (axis ? 0 : h), y - (axis ? h : 0)),
+            b = at(col, row, x, y),
+            c = at(col, row, x + (axis ? 0 : h), y + (axis ? h : 0));
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++)
+          check(0, 0, (p.cells * x) / 128 - 0.5, (p.cells * y) / 128 - 0.5);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(col, row, 0, 0);
+          for (const radius of [
+            p.radius,
+            p.outerShoulder,
+            p.coneRadius,
+            p.coneShoulder,
+            p.dustRadius,
+            p.dustShoulder,
+            p.ribInner,
+            p.ribInner + p.ribFade,
+            p.ribOuter - p.ribFade,
+            p.ribOuter,
+            Math.sqrt(
+              p.surroundRadius * p.surroundRadius - p.surroundSquaredWidth,
+            ),
+            Math.sqrt(
+              p.surroundRadius * p.surroundRadius + p.surroundSquaredWidth,
+            ),
+          ])
+            for (let i = 0; i < 16; i++) {
+              const angle = (i * Math.PI) / 8;
+              check(
+                col,
+                row,
+                radius * Math.cos(angle),
+                radius * Math.sin(angle),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('White dragon fruit flesh with embedded elongated black seeds', () => {
   const p = proceduralMaterialPresets.dragonfruitflesh;

@@ -673,6 +673,8 @@
 
 `dragonfruitflesh` 沿 cached compact seed owner 慣例，預算 20×20 jitter／rotation poses 與 96×96 grain，jitter + 最大半徑 0.44 <0.5 owner，查單 cell、不掃鄰格。細長 ellipse compact kernel 僅混合深色 pigment／較低 roughness，白果肉 height／AO 跨籽連續，避免把籽誤刻成孔；支撐在 owner 切換前歸零、grain 自身 periodic。取樣無配置／hash／sqrt／trig，不新增 geometry、透明／SSS／透射、生物或物理模擬。
 
+`speakercones` 沿既有 squared-radius covers／compact annular bands，預算 16 seeded rib phases／96×96 grain。正值 opaque backing 上逐層覆外框／rounded rubber roll、parabolic paper dish 與凸中央 dust cap，replacement blend 避免疊層抬高；48 細放射紋僅在 compact paper annulus 計算 atan／cos，雙 radial fades 完全排除極點與 paper／surround 接縫。Body／cone／dust 支撐外略過後續工作，grain 隨 coverage 淡出，採樣無配置／hash／sqrt。不新增 geometry、透孔、聲學／電機／振膜或物理模擬，不改 Audio。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

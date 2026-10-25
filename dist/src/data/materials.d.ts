@@ -5055,6 +5055,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedShort: 0.09;
         shoulder: 0.35;
     }>;
+    speakercones: Readonly<{
+        dark: readonly [6, 7, 8];
+        light: readonly [111, 113, 108];
+        roughness: 0.72;
+        relief: 0.012;
+        cells: 4;
+        radius: 0.43;
+        outerShoulder: 0.4;
+        surroundRadius: 0.33;
+        surroundSquaredWidth: 0.018;
+        coneRadius: 0.3;
+        coneShoulder: 0.28;
+        dustRadius: 0.13;
+        dustShoulder: 0.105;
+        ribInner: 0.14;
+        ribOuter: 0.28;
+        ribFade: 0.02;
+        ribs: 48;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -5620,4 +5639,5 @@ export declare const proceduralTileMeters: Readonly<{
     passionfruitslice: 0.32;
     screwterminalblocks: 0.08;
     dragonfruitflesh: 0.06;
+    speakercones: 0.64;
 }>;

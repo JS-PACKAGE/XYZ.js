@@ -1422,6 +1422,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'speakercones': {
+        const p = proceduralMaterialPresets.speakercones,
+          phases = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseOuter =
+            1 / (radiusSquared - p.outerShoulder * p.outerShoulder),
+          surroundSquared = p.surroundRadius * p.surroundRadius,
+          inverseSurround = 1 / p.surroundSquaredWidth,
+          coneSquared = p.coneRadius * p.coneRadius,
+          inverseCone = 1 / (coneSquared - p.coneShoulder * p.coneShoulder),
+          inverseConeSlope = 1 / coneSquared,
+          dustSquared = p.dustRadius * p.dustRadius,
+          inverseDust = 1 / (dustSquared - p.dustShoulder * p.dustShoulder),
+          inverseDome = 1 / dustSquared,
+          ribInnerSquared = p.ribInner * p.ribInner,
+          ribOuterSquared = p.ribOuter * p.ribOuter,
+          inverseRibInner =
+            1 / ((p.ribInner + p.ribFade) ** 2 - ribInnerSquared),
+          inverseRibOuter =
+            1 / (ribOuterSquared - (p.ribOuter - p.ribFade) ** 2),
+          grainField = cachedNoise(96, 96, seed ^ 0x11e11);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            phases[row * p.cells + col] = TAU * hash(col, row, seed ^ 0x11e13);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            squared = x * x + y * y,
+            face = smooth(clamp((radiusSquared - squared) * inverseOuter));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            d = (squared - surroundSquared) * inverseSurround,
+            surround = smooth(clamp(1 - d * d)),
+            cone = face * smooth(clamp((coneSquared - squared) * inverseCone)),
+            dust = cone * smooth(clamp((dustSquared - squared) * inverseDust));
+          color += face * (0.19 + 0.03 * grain - 0.08 * surround - color);
+          height += face * (0.48 + 0.22 * surround + 0.004 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.14 * surround + 0.02 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+          if (cone === 0) return;
+          let ribs = 0;
+          // Compact annular support excludes both the angular pole and the
+          // paper/surround join; inactive regions never evaluate atan/cos.
+          if (squared > ribInnerSquared && squared < ribOuterSquared) {
+            const support =
+              smooth(clamp((squared - ribInnerSquared) * inverseRibInner)) *
+              smooth(clamp((ribOuterSquared - squared) * inverseRibOuter));
+            ribs =
+              support *
+              (0.5 +
+                0.5 *
+                  Math.cos(
+                    p.ribs * Math.atan2(y, x) +
+                      phases[Math.floor(vc) * p.cells + Math.floor(uc)],
+                  ));
+          }
+          color += cone * (0.32 + 0.04 * grain - 0.025 * ribs - color);
+          height +=
+            cone *
+            (0.18 +
+              0.32 * squared * inverseConeSlope -
+              0.008 * ribs +
+              0.004 * grain -
+              height);
+          roughness += cone * (0.76 + 0.035 * grain - roughness);
+          occlusion += cone * (0.9 - occlusion);
+          if (dust === 0) return;
+          const dome = clamp(1 - squared * inverseDome);
+          color += dust * (0.4 + 0.035 * grain + 0.03 * dome - color);
+          height += dust * (0.22 + 0.27 * dome + 0.004 * grain - height);
+          roughness += dust * (0.39 + 0.03 * grain - roughness);
+          occlusion += dust * (0.99 - occlusion);
+        };
+      }
       case 'dragonfruitflesh': {
         const p = proceduralMaterialPresets.dragonfruitflesh,
           seeds = new Float64Array(p.cells * p.cells * 4),
@@ -21703,6 +21784,7 @@ export function createSurfaceSampler(
     kind === 'passionfruitslice' ||
     kind === 'screwterminalblocks' ||
     kind === 'dragonfruitflesh' ||
+    kind === 'speakercones' ||
     fabricated ||
     botanical ||
     packaging ||
