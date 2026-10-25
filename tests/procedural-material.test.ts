@@ -640,7 +640,200 @@ const kinds: ProceduralMaterialKind[] = [
   'grosgrainribbons',
   'azuritemalachite',
   'openendspanners',
+  'lentilseeds',
 ];
+
+describe('Near-round convex lentil seeds with low solid short side hila', () => {
+  const p = proceduralMaterialPresets.lentilseeds;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14513),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14519),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14515) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14517) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a convex near-round whole seed above a low solid finite side hilum without a central split for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lentilseeds', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const crown = out.height;
+          expect(crown).toBeGreaterThan(0.0008699);
+          expect(crown).toBeLessThan(0.0008746);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          for (const [x, y] of [
+            [0.25, 0],
+            [-0.25, 0],
+            [0, 0.225],
+            [0, -0.225],
+          ]) {
+            at(x, y);
+            expect(crown - out.height).toBeGreaterThan(0.00029);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          for (const y of [-0.02, 0, 0.02]) {
+            at(p.hilumX, y);
+            const scar = out.height,
+              dark = out.color;
+            expect(scar).toBeGreaterThan(0.000519);
+            expect(scar).toBeLessThan(0.000533);
+            expect(out.occlusion).toBeCloseTo(0.94, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            at(-p.hilumX, y);
+            expect(out.height - scar).toBeGreaterThan(0.000174);
+            expect(out.color - dark).toBeGreaterThan(0.18);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          at(p.hilumX, 0);
+          const hilum = out.height;
+          for (const y of [-0.05, 0.05]) {
+            at(p.hilumX, y);
+            expect(out.height - hilum).toBeGreaterThan(0.000145);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+          }
+          const widths: number[] = [];
+          for (let axis = 0; axis < 2; axis++) {
+            let runs = 0,
+              width = 0,
+              previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              const t = -0.35 + (i * 0.7) / 4096;
+              at(axis ? 0 : t, axis ? t : 0);
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              if (body) width++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            widths.push(width);
+          }
+          expect(widths[0] / widths[1]).toBeGreaterThan(1.05);
+          expect(widths[0] / widths[1]).toBeLessThan(1.18);
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(p.hilumX, -0.08 + (i * 0.16) / 2048);
+            const scar = out.occlusion < 0.96;
+            if (scar && !previous) runs++;
+            previous = scar;
+          }
+          expect(runs).toBe(1);
+          for (const [x, y] of [
+            [0.34, 0],
+            [-0.34, 0],
+            [0, 0.31],
+            [0, -0.31],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.height).toBeLessThan(0.0000376);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps elliptical body shoulders and nonsingular dome crown, side-hilum cap/straight tangents, seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lentilseeds', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...uv(seed, col, row, 0, 0));
+          for (const field of [0, p.shoulder])
+            for (let i = 0; i < 64; i++) {
+              const angle = (i * Math.PI) / 32,
+                r = Math.sqrt(1 - field);
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  p.halfX * r * Math.cos(angle),
+                  p.halfY * r * Math.sin(angle),
+                ),
+              );
+            }
+          for (const end of [-1, 1])
+            for (const radius of [p.hilumRadius, p.hilumCore])
+              for (let i = 0; i < 64; i++) {
+                const angle = (i * Math.PI) / 32;
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    p.hilumX + radius * Math.cos(angle),
+                    end * p.hilumStraight + radius * Math.sin(angle),
+                  ),
+                );
+              }
+          for (const sign of [-1, 1])
+            for (const radius of [p.hilumRadius, p.hilumCore])
+              for (const y of [-p.hilumStraight, 0, p.hilumStraight])
+                check(...uv(seed, col, row, p.hilumX + sign * radius, y));
+        }
+    }
+  });
+});
 
 describe('Double open-ended metal spanners with unequal jaws and solid cavity backing', () => {
   const p = proceduralMaterialPresets.openendspanners;

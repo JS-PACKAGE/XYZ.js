@@ -7559,3 +7559,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 602-preset openendspanners、擷取畫面與 512 base-color detail，見交錯雙頭開口銀色扳手／大小鉗口／細連柄／中性 opaque 凹口與背底。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 openendspanners 並重算既有 601 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6728 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：小扁豆種子（lentilseeds）
+
+- 目錄 602→603 種；0.04 m opaque dielectric tile、metallic 0，近圓整粒凸面／短側實心種臍，非 oatflakes 長中央壓痕、咖啡豆深中央溝或尖南瓜籽高殼邊。Cached 16 rotation／jitter／inverse scale／tone poses、128² grain／ellipse squared-axis reciprocals／hilum squared-radius reciprocal；compact ellipse body 的 smooth field 定 nonsingular convex dome，short side capsule 支撐全在 full body，種臍低 opaque 實芯。Coherent body replacement 同步 color／height／roughness／AO／neutral backing；空 body 跳過 hilum/grain、seed owners／caps/straight tangents／UV wraps C1，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明裂口、發芽／烹煮／營養或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、exact C1、determinism）：3 seeds ×16 seeds，crown height 0.0008699–0.0008746 m／AO 0.99／metallic 0／backing 0，比四側種面高 >0.00029 m；短 side hilum height 0.000519–0.000533 m／AO 0.94／backing 0，比對側相同 ellipse radius 低 >0.000174 m／色差 >0.18，兩短端外高回 >0.000145 m／AO 0.99。4097-point 兩軸剖面各一 connected seed run、寬高比 1.05–1.18；2049-point 種臍剖面一 finite scar run。129²／exact ellipse shoulders／dome crown／hilum cap and straight tangents／seeded owners／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 603-preset lentilseeds、擷取畫面與 512 base-color detail，見近圓橄欖棕整粒／短側種臍／中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 lentilseeds 並重算既有 602 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6733 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

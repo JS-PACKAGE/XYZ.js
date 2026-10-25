@@ -1441,6 +1441,72 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lentilseeds': {
+        const p = proceduralMaterialPresets.lentilseeds,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          inverseX = 1 / (p.halfX * p.halfX),
+          inverseY = 1 / (p.halfY * p.halfY),
+          inverseShoulder = 1 / p.shoulder,
+          hilumSquared = p.hilumRadius * p.hilumRadius,
+          inverseHilum = 1 / (hilumSquared - p.hilumCore * p.hilumCore),
+          grainField = cachedNoise(128, 128, seed ^ 0x14511);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const index = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14513);
+            poses[index] = Math.cos(angle);
+            poses[index + 1] = Math.sin(angle);
+            poses[index + 2] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14515) - 1);
+            poses[index + 3] =
+              p.jitter * (2 * hash(col, row, seed ^ 0x14517) - 1);
+            poses[index + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14519));
+            poses[index + 5] = hash(col, row, seed ^ 0x1451b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            index = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[index + 2]) * poses[index + 4],
+            dy = (fract(vc) - 0.5 - poses[index + 3]) * poses[index + 4],
+            x = dx * poses[index] + dy * poses[index + 1],
+            y = dy * poses[index] - dx * poses[index + 1],
+            field = 1 - x * x * inverseX - y * y * inverseY,
+            body = smooth(clamp(field * inverseShoulder));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const hx = x - p.hilumX,
+            hy = Math.max(0, Math.abs(y) - p.hilumStraight),
+            hilum = smooth(
+              clamp((hilumSquared - hx * hx - hy * hy) * inverseHilum),
+            ),
+            grain = grainField(u, v);
+          // The short side hilum is a solid scar on a convex seed, not a split hull.
+          color +=
+            body *
+            (0.54 +
+              0.18 * poses[index + 5] +
+              0.04 * grain -
+              0.23 * hilum -
+              color);
+          height +=
+            body *
+            (0.32 +
+              0.26 * smooth(clamp(field)) +
+              0.003 * grain -
+              0.12 * hilum -
+              height);
+          roughness +=
+            body * (p.roughness + 0.03 * grain + 0.04 * hilum - roughness);
+          occlusion += body * (0.99 - 0.05 * hilum - occlusion);
+          return;
+        };
+      }
       case 'openendspanners': {
         const p = proceduralMaterialPresets.openendspanners,
           tones = new Float64Array(p.cells * p.cells),
@@ -24471,6 +24537,7 @@ export function createSurfaceSampler(
     kind === 'grosgrainribbons' ||
     kind === 'azuritemalachite' ||
     kind === 'openendspanners' ||
+    kind === 'lentilseeds' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
