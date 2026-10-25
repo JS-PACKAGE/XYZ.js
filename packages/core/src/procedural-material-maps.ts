@@ -1441,6 +1441,96 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'driedtamarindpods': {
+        const p = proceduralMaterialPresets.driedtamarindpods,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          centers = new Float64Array(p.lobes * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x15811),
+          poreField = cachedNoise(24, 24, seed ^ 0x15813),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseShoulder = 1 / p.shoulder,
+          endY = ((p.lobes - 1) * p.pitch) / 2,
+          inverseEnd = 1 / (endY * endY),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          inversePore = 1 / p.poreShoulder;
+        for (let k = 0; k < p.lobes; k++) {
+          const y = (k - (p.lobes - 1) / 2) * p.pitch;
+          centers[k * 2] = p.curve * (1 - y * y * inverseEnd);
+          centers[k * 2 + 1] = y;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15815);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15817) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15819) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1581b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1581d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1];
+          let missing = 1,
+            missingDome = 1;
+          for (let k = 0; k < p.lobes; k++) {
+            const sx = x - centers[k * 2],
+              sy = y - centers[k * 2 + 1],
+              field = 1 - sx * sx * inverseX - sy * sy * inverseY;
+            missing *= 1 - smooth(clamp(field * inverseShoulder));
+            missingDome *= 1 - smooth(clamp(field));
+          }
+          const pod = 1 - missing,
+            dome = 1 - missingDome,
+            stemY = Math.max(Math.abs(y - p.stemCenter) - p.stemStraight, 0),
+            stem = smooth(
+              clamp((stemSquared - x * x - stemY * stemY) * inverseStem),
+            ),
+            body = 1 - (1 - pod) * (1 - stem);
+          mortar = 1 - body;
+          color = 0.015;
+          height = 0.02;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          if (stem > 0 && pod < 1) {
+            color +=
+              stem * (0.25 + 0.035 * poses[i + 5] + 0.02 * grain - color);
+            height += stem * (0.2 + 0.003 * grain - height);
+            roughness += stem * (0.88 + 0.02 * grain - roughness);
+            occlusion += stem * (0.9 - occlusion);
+          }
+          if (pod > 0) {
+            const pores = smooth(
+              clamp((poreField(u, v) - p.poreThreshold) * inversePore),
+            );
+            color +=
+              pod *
+              (0.48 +
+                0.11 * poses[i + 5] +
+                0.025 * grain +
+                0.1 * dome -
+                0.08 * pores -
+                color);
+            height +=
+              pod *
+              (0.34 + 0.15 * dome + 0.003 * grain - 0.01 * pores - height);
+            roughness +=
+              pod * (p.roughness + 0.025 * grain + 0.035 * pores - roughness);
+            occlusion += pod * (0.9 + 0.09 * dome - 0.02 * pores - occlusion);
+          }
+        };
+      }
       case 'shippocloth': {
         const p = proceduralMaterialPresets.shippocloth,
           grainField = cachedNoise(128, 128, seed ^ 0x15711),
@@ -26066,6 +26156,7 @@ export function createSurfaceSampler(
     kind === 'nutmeghalves' ||
     kind === 'coaxialcablecuts' ||
     kind === 'shippocloth' ||
+    kind === 'driedtamarindpods' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

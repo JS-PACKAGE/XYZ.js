@@ -662,7 +662,240 @@ const kinds: ProceduralMaterialKind[] = [
   'nutmeghalves',
   'coaxialcablecuts',
   'shippocloth',
+  'driedtamarindpods',
 ];
+
+describe('Four-lobed dry tamarind shells with three constricted waists powdery pores and short stalk', () => {
+  const p = proceduralMaterialPresets.driedtamarindpods;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15815),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1581b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15817) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15819) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  const center = (k: number) => {
+    const y = (k - 1.5) * p.pitch;
+    return [p.curve * (1 - (y * y) / 0.27 ** 2), y] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps four rough shell bulges three genuinely narrower lower connected waists and a lower short stalk for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('driedtamarindpods', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          let minPeak = 1,
+            minAO = 1;
+          const width = (y: number) => {
+            let min = 1,
+              max = -1,
+              runs = 0,
+              previous = false;
+            for (let j = 0; j <= 1024; j++) {
+              const x = -0.15 + (j * 0.4) / 1024;
+              at(x, y);
+              const body = out.mortar < 0.5;
+              if (body) {
+                min = Math.min(min, x);
+                max = Math.max(max, x);
+              }
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+            return max - min;
+          };
+          for (let k = 0; k < p.lobes; k++) {
+            const [x, y] = center(k);
+            at(x, y);
+            minPeak = Math.min(minPeak, out.height);
+            minAO = Math.min(minAO, out.occlusion);
+            expect(out.height).toBeGreaterThan(0.0019199);
+            expect(out.height).toBeLessThan(0.0019721);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.9);
+            expect(out.occlusion).toBeGreaterThanOrEqual(0.97);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+            expect(width(y)).toBeGreaterThan(0.17);
+            for (const sign of [-1, 1]) {
+              at(x + sign * 0.08, y);
+              expect(out.mortar).toBe(0);
+            }
+          }
+          for (let k = 0; k < p.lobes - 1; k++) {
+            const a = center(k),
+              b = center(k + 1),
+              x = (a[0] + b[0]) / 2,
+              y = (a[1] + b[1]) / 2;
+            at(x, y);
+            expect(out.mortar).toBe(0);
+            expect(minPeak - out.height).toBeGreaterThan(0.00015);
+            expect(minAO - out.occlusion).toBeGreaterThan(0.01);
+            expect(width(y)).toBeLessThan(0.15);
+            for (const sign of [-1, 1]) {
+              at(x + sign * 0.08, y);
+              expect(out.mortar).toBe(1);
+            }
+          }
+          let lobes = 0,
+            bodies = 0,
+            oldPeak = false,
+            oldBody = false;
+          for (let j = 0; j <= 4096; j++) {
+            const y = -0.39 + (j * 0.78) / 4096,
+              x = p.curve * (1 - (y * y) / 0.27 ** 2);
+            at(x, y);
+            const peak = out.height > 0.00185,
+              body = out.mortar < 0.5;
+            if (peak && !oldPeak) lobes++;
+            if (body && !oldBody) bodies++;
+            oldPeak = peak;
+            oldBody = body;
+          }
+          expect(lobes).toBe(4);
+          expect(bodies).toBe(1);
+          at(0, -0.418);
+          expect(out.height).toBeGreaterThan(0.0007999);
+          expect(out.height).toBeLessThan(0.0008121);
+          expect(minPeak - out.height).toBeGreaterThan(0.0011);
+          expect(out.occlusion).toBeCloseTo(0.9, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const [x, y] of [
+            [0.18, 0],
+            [-0.16, 0],
+            [0, -0.455],
+            [0, 0.43],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0000801);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps all lobe ellipse and dome shoulders four-way unions stalk capsule tangents pores seeded owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('driedtamarindpods', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let k = 0; k < p.lobes; k++) {
+            const [x, y] = center(k);
+            check(...uv(seed, col, row, x, y));
+            for (const q of [1, 1 - p.shoulder])
+              for (let j = 0; j < 128; j++) {
+                const a = (j * Math.PI) / 64,
+                  r = Math.sqrt(q);
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x + p.radiusX * r * Math.cos(a),
+                    y + p.radiusY * r * Math.sin(a),
+                  ),
+                );
+              }
+          }
+          for (let j = 0; j < 64; j++) {
+            const a = (j * Math.PI) / 32;
+            for (const sign of [-1, 1])
+              for (const r of [p.stemRadius, p.stemCore])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    r * Math.cos(a),
+                    p.stemCenter + sign * p.stemStraight + r * Math.sin(a),
+                  ),
+                );
+          }
+          for (let j = 0; j <= 64; j++) {
+            const x = -0.15 + (j * 0.3) / 64;
+            for (const sign of [-1, 1]) {
+              check(
+                ...uv(seed, col, row, x, p.stemCenter + sign * p.stemStraight),
+              );
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  sign * p.stemRadius,
+                  -0.44 + (j * 0.1) / 64,
+                ),
+              );
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  sign * p.stemCore,
+                  -0.44 + (j * 0.1) / 64,
+                ),
+              );
+            }
+          }
+        }
+    }
+  });
+});
 
 describe('Cream interlocking shippo circle pigment on continuous navy woven cloth', () => {
   const p = proceduralMaterialPresets.shippocloth;

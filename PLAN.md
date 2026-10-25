@@ -783,6 +783,8 @@
 
 同輪追加 `shippocloth`（七寶紋風布），目錄620→621種：深藍連續96-thread織面上奶油交疊完整圓環印花／四圓交點，印花只改pigment、不改height／roughness／AO。0.24 m opaque dielectric tile、metallic0／mortar0，沿四圖／選用height／ownership；預設256實際normal需可見雙軸細節。非seigaiha半圓tile或凸繡線，不新增geometry、透明孔、線纖維／布料／物理模擬；依功能驗證提交、不push。
 
+同輪追加 `driedtamarindpods`（乾羅望子莢），目錄 621→622 種：四個粉粗棕殼鼓包／三個實際縮窄且較低收腰／短果梗，非既有 greenpeapods 連續尖莢內藏 seed bulges。0.32 m opaque dielectric tile、metallic 0，沿 neutral opaque backing／四圖／選用 height／ownership；不新增 geometry、透明孔、可剝殼／果肉／種子、植物／食物／烹煮或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

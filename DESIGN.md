@@ -791,6 +791,8 @@
 
 `shippocloth` 預算128²grain／兩seeded lattice origins／一tone／squared-radius ring shoulder reciprocals／96-thread weave frequency。每latticecell四corner的squared-radius compact annuli以product-complement union合成完整交疊圓環，四圓交點精確full ink、跨owners同一圓環；採既有yagasuri的雙cos／alternating-overunder continuous weave，不建立第二織法。Ink只改color，height／roughness／AO獨立weave＋grain、fulltile mortar0；採樣無配置／hash／sqrt、只兩weave cos。Squared ring shoulders／四圓joins／cellownership／weave／UVwraps C1。實測預設256後relief由0.0012→0.0036，保留|normal−128|>2的可見門檻和>10%雙軸比例，不以降低斷言掩飾細節。不是凸繡線、半圓tile，不新增geometry、透明孔、線纖維／布料／物理模擬。
 
+`driedtamarindpods` 預算 16 rotation／jitter／inverse scale／tone poses、四個略彎 chain centers／128² grain／24² pore field／ellipse-stalk-pore reciprocals。四 compact ellipse coverage 與 nonsingular dome 各用 product-complement union，鼓包外輪廓真縮成三窄腰、非 continuous lens 上貼內部凸點；同方式接短 capsule stalk，coherent stalk→powdery shell finish，full body 精確 mortar0。Pores 同步細微 dark／lower／rougher／AO；空 body 跳 detail、無 pod 跳 pores、full pod 跳 stalk finish。固定四 lobe samples、採樣無配置／hash／sqrt／trig；ellipse/dome shoulders／union joins／stalk tangents and shoulders／seed owners／UV wraps C1。不新增 geometry、透明孔、剝殼／內果肉／種子、植物／食物／烹煮或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

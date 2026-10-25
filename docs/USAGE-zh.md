@@ -1011,6 +1011,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `shippocloth`（七寶紋風布），深藍連續96-thread織面上奶油交疊完整圓環印花。使用 `await ProceduralMaterial.create('shippocloth', { seed: 7 })`；一張UVtile對應0.24 m。Ink只改pigment、height／roughness／AO仍由weave獨立控制，預設256兩色區都有雙軸normal細節。Opaque dielectric、metallic0／mortar0，沿maps／選用height／ownership；非凸繡線或半圓tile，不新增geometry、透明孔、線纖維／布料／物理模擬。
 
+另支援 `driedtamarindpods`（乾羅望子莢），四個粉粗棕殼鼓包／三個真正縮窄較低收腰／短果梗，非連續尖莢內部凸點。使用 `await ProceduralMaterial.create('driedtamarindpods', { seed: 7 })`；一張 UV tile 對應 0.32 m。Opaque dielectric、metallic 0，neutral backing／maps／選用 height／ownership 不變；僅風格化乾殼 shading，不新增 geometry、透明孔、剝殼／內果肉／種子、植物／食物／烹煮或物理模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。
