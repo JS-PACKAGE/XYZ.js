@@ -6269,8 +6269,15 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pinstripewool':
       case 'twillweave': {
-        const p = proceduralMaterialPresets.twillweave;
+        const pinstripe = kind === 'pinstripewool',
+          p = pinstripe
+            ? proceduralMaterialPresets.pinstripewool
+            : proceduralMaterialPresets.twillweave,
+          stripeEvery = pinstripe
+            ? proceduralMaterialPresets.pinstripewool.stripeEvery
+            : 0;
         const grainField = cachedNoise(128, 128, seed ^ 0x2f65);
         const inverseWidthSquared = 1 / (p.halfWidth * p.halfWidth),
           inverseExposure = 1 / p.exposureShoulder;
@@ -6292,8 +6299,12 @@ export function createSurfaceSampler(
               : 0;
           const warpTop = 0.46 * warp + 0.18 * weft * (1 - warp),
             weftTop = 0.46 * weft + 0.18 * warp * (1 - weft),
-            warpColor = 0.08 + 0.2 * warp + 0.65 * weft * (1 - warp),
-            weftColor = 0.08 + 0.65 * weft + 0.2 * warp * (1 - weft),
+            warpColor = pinstripe
+              ? 0.06 + 0.015 * warp + (col % stripeEvery === 0 ? 0.8 * warp : 0)
+              : 0.08 + 0.2 * warp + 0.65 * weft * (1 - warp),
+            weftColor = pinstripe
+              ? 0.06 + 0.015 * weft
+              : 0.08 + 0.65 * weft + 0.2 * warp * (1 - weft),
             dominant = warp * (1 - exposure) + weft * exposure,
             coverage = 1 - (1 - warp) * (1 - weft),
             grain = grainField(u, v);
@@ -21961,6 +21972,7 @@ export function createSurfaceSampler(
     kind === 'squarewashers' ||
     kind === 'eucalyptusleaf' ||
     kind === 'twillweave' ||
+    kind === 'pinstripewool' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

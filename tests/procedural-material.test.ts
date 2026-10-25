@@ -604,7 +604,110 @@ const kinds: ProceduralMaterialKind[] = [
   'septarianstone',
   'axialresistors',
   'tomatoslices',
+  'pinstripewool',
 ];
+
+describe('Pinstripe wool with pale warp yarns over dark two-over-two twill', () => {
+  const p = proceduralMaterialPresets.pinstripewool;
+  it.each([0, 1, 0xffffffff])(
+    'keeps narrow vertical dyed warps interrupted by dark wefts, without raising painted stripes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pinstripewool', seed);
+      const at = (col: number, row: number, x = 0, y = 0) => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+        return out;
+      };
+      for (let row = 0; row < p.cells; row++) {
+        let bright = 0;
+        for (let col = 0; col < p.cells; col++) {
+          const point = at(col, row);
+          if (point.color > 0.7) bright++;
+          expect(point.metallic).toBe(0);
+          expect(point.roughness).toBeGreaterThan(0.83);
+          if (col % p.stripeEvery !== 0) expect(point.color).toBeLessThan(0.13);
+        }
+        expect(bright).toBe(
+          row % 4 === 1 || row % 4 === 2 ? p.cells / p.stripeEvery : 0,
+        );
+      }
+      for (let col = 0; col < p.cells; col += p.stripeEvery)
+        for (let row = 0; row < p.cells; row++) {
+          const dyed = at(col, row),
+            ground = at(col + 4, row);
+          if (row % 4 === 1 || row % 4 === 2) {
+            expect(dyed.color - ground.color).toBeGreaterThan(0.75);
+            expect(at(col, row, 0.28).color).toBeLessThan(0.3);
+            expect(at(col, row, p.halfWidth).color).toBeLessThan(0.13);
+          } else expect(dyed.color).toBeLessThan(0.13);
+          expect(Math.abs(dyed.height - ground.height)).toBeLessThan(0.0000028);
+          expect(dyed.occlusion).toBe(ground.occlusion);
+          expect(Math.abs(dyed.roughness - ground.roughness)).toBeLessThan(
+            0.021,
+          );
+        }
+      const warp = at(0, 1),
+        valley = at(0, 1, 0.49, 0.49);
+      expect(warp.height - valley.height).toBeGreaterThan(0.00019);
+      expect(warp.occlusion - valley.occlusion).toBeGreaterThan(0.45);
+      expect(valley.height).toBeGreaterThan(0);
+      expect(valley.occlusion).toBeGreaterThan(0);
+    },
+  );
+  it('keeps dye ownership, compact yarn ends, diagonal exposure shoulders and wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pinstripewool', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let col = 0; col < p.cells; col += p.stripeEvery)
+        for (let row = 0; row < 4; row++)
+          for (const edge of [
+            -0.5,
+            -p.exposureHalf,
+            p.exposureShoulder - p.exposureHalf,
+            -p.halfWidth,
+            0,
+            p.halfWidth,
+            p.exposureHalf - p.exposureShoulder,
+            p.exposureHalf,
+            0.5,
+          ]) {
+            check((col + 0.5 + edge) / p.cells, (row + 0.5) / p.cells);
+            check((col + 0.5) / p.cells, (row + 0.5 + edge) / p.cells);
+          }
+    }
+  });
+});
 
 describe('Tomato slices with solid red septa and pale seeds in filled gel', () => {
   const p = proceduralMaterialPresets.tomatoslices;

@@ -673,6 +673,8 @@
 
 同輪追加 `tomatoslices`（番茄切面），目錄 565→566 種：紅果皮／實心紅肉隔膜與中央胎座、五個填實膠質種室各含兩淡籽，並非 bellpepperslices 空腔或 pomegranate 凸紅籽囊。0.32 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；種室仍正值填實、不挖孔，不新增果實 geometry、透明／SSS／透射、生物或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `pinstripewool`（細直條羊毛布），目錄 566→567 種：深藍 2-over-2 twill 上每八根經紗一根淡色，深緯紗在 crossing 蓋住淡紗，非 tartan 雙向格紋或 corduroy 凸肋。0.08 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；染色不增凸直條，不新增紗線 geometry、透孔、毛髮／sheen BRDF、布料或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -7263,3 +7263,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 tomatoslices 並重算既有 565 種 size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6535 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：細直條羊毛布（pinstripewool）
+
+- 目錄 566→567 種；0.08 m opaque dielectric tile、metallic 0，深藍 2-over-2 twill 上每八根經紗一根淡色、深緯紗在 crossing 遮住淡紗，不是雙向格紋或凸肋。共用 twillweave 的 compact 紗線／exposure／relief，僅分支 pigment，舊 preset／運算不改；48×48 紗線／128×128 cached grain，染色不改 height／roughness／AO，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增紗線 geometry、透孔、毛髮／sheen BRDF、布料或物理模擬。
+- 初次 targeted 暴露兩點：64 線在 size 32 所有 half-pixel samples 正好落 gap，導致不同 seed 全圖相同，改為完整 4／8 repeat 的 48 線修復真實低解析退化；窄紗肩測點 x=0.25 仍有合法 0.34 pigment，將 probe 移到真正較外 shoulder x=0.28，保留原 <0.3 斷言，不改幾何或放寬對比。
+- 修正後 targeted 6 項通過（3 seeds morphology、C1、pinstripewool 與原 twillweave determinism）。逐 row／col 證明六條淡經紗依 2-over-2 交替露出／被遮住、其餘經紗保持深色；同相位染／未染紗線 height 差 <0.0000028 m（僅 grain）、AO 相同，染色不形成凸條。129² 雙向 C1、exact 紗寬／exposure shoulders／owner 邊界／wrap 通過。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 pinstripewool，567 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認深藍地與被深緯紗中斷的六條淡經紗，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱紗線 geometry、透孔、毛髮／sheen BRDF、布料／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 pinstripewool 並重算既有 566 種（含共用 sampler 的 twillweave）size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6540 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

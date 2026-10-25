@@ -681,6 +681,8 @@
 
 `tomatoslices` 沿 cached rotated chamber axes／compact radial covers 慣例，預算 4×4 ×5 種室 axes、16 tones／96×96 grain，rotation trig／hash 留在 constructor。Squared-radius outer／flesh covers 上，五個互不相接 compact ellipse gel 保留實心紅肉 septa／central core，各內兩 compact pale seed，gel 零時略過種子；所有支撐在 rind／owner 邊界前歸零。種室僅較低但填實、籽微凸，AO 不刻洞，body 外略過 grain／chambers；採樣無配置／hash／sqrt／trig。不新增 geometry、透明／SSS／透射、生物或物理模擬。
 
+`pinstripewool` 與 twillweave 共用既有 compact warp／weft、2-over-2 exposure／top relief，保留舊 preset／運算順序，只分支換 narrow dyed warp pigment。48×48 紗線、每八根一根淡經紗、128×128 cached grain；compact warp 讓 col ownership 前染色歸零，深緯紗依既有 exposure 遮住淡紗，dye 不改 height／roughness／AO。48 密度避免 size 32 的半像素剛好全落在 64 紗線 gap，亦維持 4／8 的完整 repeat。採樣無配置／hash／sqrt／trig，不新增 geometry、透孔、毛髮／sheen BRDF、布料或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
