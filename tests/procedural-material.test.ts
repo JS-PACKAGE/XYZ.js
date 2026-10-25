@@ -696,7 +696,300 @@ const kinds: ProceduralMaterialKind[] = [
   'splitcedarshakes',
   'swavepavers',
   'mushroomslices',
+  'insulatedringlugs',
 ];
+
+describe('Insulated ring lugs with a continuous silver eyelet neck higher red nonmetal collar and two recessed polymer crimp bands', () => {
+  const p = proceduralMaterialPresets.insulatedringlugs;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17a15),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17a1b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17a17) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17a19) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine continuous hollow silver ring plates and necks covered by higher dielectric red collars whose two crimp indentations never become metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('insulatedringlugs', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            plate = at(0.12, p.headY),
+            collar = at(0, p.collarY);
+          for (let j = 0; j <= 1024; j++) {
+            const a = (2 * Math.PI * j) / 1024,
+              ring = at(0.12 * Math.cos(a), p.headY + 0.12 * Math.sin(a));
+            expect(ring.height).toBeGreaterThanOrEqual(0.0020799);
+            expect(ring.height).toBeLessThanOrEqual(0.0020921);
+            expect(ring.color).toBeGreaterThanOrEqual(0.93999);
+            expect(ring.roughness).toBeGreaterThanOrEqual(0.25999);
+            expect(ring.roughness).toBeLessThanOrEqual(0.28501);
+            expect(ring.occlusion).toBeCloseTo(0.99, 12);
+            expect(ring.mortar).toBe(0);
+            expect(ring.metallic).toBe(1);
+            const neck = at(0, -0.02 + (0.04 * j) / 1024);
+            expect(neck.mortar).toBe(0);
+            expect(neck.metallic).toBe(1);
+            expect(neck.occlusion).toBeCloseTo(0.99, 12);
+            const bore = at(0.07 * Math.cos(a), p.headY + 0.07 * Math.sin(a));
+            expect(bore.height).toBeCloseTo(0.0001, 12);
+            expect(bore.occlusion).toBe(0.3);
+            expect(bore.mortar).toBe(1);
+            expect(bore.metallic).toBe(0);
+          }
+          expect(collar.height).toBeGreaterThanOrEqual(0.0027999);
+          expect(collar.height).toBeLessThanOrEqual(0.0028121);
+          expect(collar.height - plate.height).toBeGreaterThan(0.0007079);
+          expect(plate.color - collar.color).toBeGreaterThan(0.7449);
+          expect(collar.roughness - plate.roughness).toBeGreaterThan(0.2949);
+          for (const sign of [-1, 1])
+            for (let j = 0; j <= 256; j++) {
+              const crimp = at(
+                -0.065 + (0.13 * j) / 256,
+                p.collarY + sign * p.crimpOffset,
+              );
+              expect(crimp.height).toBeGreaterThanOrEqual(0.0025799);
+              expect(crimp.height).toBeLessThanOrEqual(0.0025921);
+              expect(collar.height - crimp.height).toBeGreaterThan(0.0002079);
+              expect(collar.color - crimp.color).toBeGreaterThan(0.0549);
+              expect(collar.roughness - crimp.roughness).toBeGreaterThan(
+                0.0199,
+              );
+              expect(crimp.occlusion).toBeCloseTo(0.94, 12);
+              expect(crimp.mortar).toBe(0);
+              expect(crimp.metallic).toBe(0);
+            }
+          let bands = 0,
+            previous = false;
+          for (let j = 0; j <= 8192; j++) {
+            const y = 0.055 + (0.25 * j) / 8192,
+              value = at(0, y);
+            expect(value.metallic).toBe(0);
+            expect(value.mortar).toBe(0);
+            const indented = value.height < 0.0027;
+            if (indented && !previous) bands++;
+            previous = indented;
+          }
+          expect(bands).toBe(2);
+          let rings = 0;
+          previous = false;
+          for (let j = 0; j <= 8192; j++) {
+            const value = at(-0.18 + (0.36 * j) / 8192, p.headY),
+              metal = value.metallic > 0.5;
+            if (metal && !previous) rings++;
+            previous = metal;
+          }
+          expect(rings).toBe(2);
+          for (let j = 0; j <= 1024; j++) {
+            const connected = at(0.04, -0.07 + (0.36 * j) / 1024);
+            expect(connected.mortar).toBe(0);
+            expect(connected.height).toBeGreaterThanOrEqual(0.0020799);
+          }
+        }
+    },
+  );
+  it('writes silver M1 plate red M0 collar two lower M0 crimp bands and an actual low empty bore in 512 pixel PBR and optional height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('insulatedringlugs', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            plate = pixel(0.12, p.headY),
+            collar = pixel(0, p.collarY),
+            bore = pixel(0, p.headY);
+          expect(maps.metallicRoughness[plate + 2]).toBe(255);
+          expect(maps.baseColor[plate + 1]!).toBeGreaterThan(220);
+          expect(maps.baseColor[plate + 2]!).toBeGreaterThan(215);
+          expect(maps.metallicRoughness[collar + 2]).toBe(0);
+          expect(
+            maps.baseColor[collar]! - maps.baseColor[collar + 1]!,
+          ).toBeGreaterThan(140);
+          expect(
+            maps.baseColor[collar]! - maps.baseColor[collar + 2]!,
+          ).toBeGreaterThan(145);
+          expect(
+            maps.metallicRoughness[collar + 1]! -
+              maps.metallicRoughness[plate + 1]!,
+          ).toBeGreaterThan(70);
+          expect(maps.height![collar]! - maps.height![plate]!).toBeGreaterThan(
+            60,
+          );
+          expect(maps.occlusion[plate]!).toBeGreaterThan(250);
+          expect(maps.occlusion[collar]!).toBeGreaterThan(250);
+          expect(maps.occlusion[bore]!).toBeLessThan(80);
+          expect(maps.metallicRoughness[bore + 2]).toBe(0);
+          for (const sign of [-1, 1]) {
+            const i = pixel(0, p.collarY + sign * p.crimpOffset);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+            expect(maps.height![collar]! - maps.height![i]!).toBeGreaterThan(
+              15,
+            );
+            expect(
+              maps.metallicRoughness[collar + 1]! -
+                maps.metallicRoughness[i + 1]!,
+            ).toBeGreaterThan(4);
+            expect(
+              maps.occlusion[collar]! - maps.occlusion[i]!,
+            ).toBeGreaterThan(10);
+            expect(
+              maps.baseColor[collar + 1]! - maps.baseColor[i + 1]!,
+            ).toBeGreaterThan(12);
+          }
+        }
+    }
+  });
+  it('repeats silver/nonmetal classification crimp relief collar pigment and coverage across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('insulatedringlugs', 7),
+      other = createSurfaceSampler('insulatedringlugs', 8),
+      a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      },
+      b = { ...a },
+      c = { ...a };
+    let coverageDifference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      coverageDifference += Math.abs(a.mortar - c.mortar);
+    }
+    expect(coverageDifference).toBeGreaterThan(150);
+  });
+  it('keeps eyelet and bore circles neck/collar rounded profiles hidden-metal transitions mirrored crimp capsule shoulders pose owners grain and UV wraps C1', () => {
+    // Fine crimp and bore shoulders are sampled below their finite-curvature scale.
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('insulatedringlugs', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              angle = 2 * Math.PI * t,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            for (const r of [
+              p.headRadius,
+              p.headCore,
+              p.boreRadius,
+              p.boreCore,
+            ])
+              local(r * c, p.headY + r * s);
+            for (const [sx, sy, cy, r] of [
+              [p.neckStraightX, p.neckStraightY, p.neckY, p.neckRadius],
+              [p.neckStraightX, p.neckStraightY, p.neckY, p.neckCore],
+              [p.collarStraightX, p.collarStraightY, p.collarY, p.collarRadius],
+              [p.collarStraightX, p.collarStraightY, p.collarY, p.collarCore],
+            ]) {
+              local(
+                (c < 0 ? -sx! : sx!) + r! * c,
+                cy! + (s < 0 ? -sy! : sy!) + r! * s,
+              );
+              for (const sign of [-1, 1]) {
+                local(sign * (sx! + r!), cy! - sy! + 2 * sy! * t);
+                local(-sx! + 2 * sx! * t, cy! + sign * (sy! + r!));
+              }
+            }
+            for (const sign of [-1, 1])
+              for (const r of [p.crimpRadius, p.crimpCore]) {
+                const y = p.collarY + sign * p.crimpOffset;
+                for (const end of [-p.crimpStraightX, p.crimpStraightX])
+                  local(end + r * c, y + r * s);
+                for (const side of [-1, 1])
+                  local(
+                    -p.crimpStraightX + 2 * p.crimpStraightX * t,
+                    y + side * r,
+                  );
+                for (const end of [-p.crimpStraightX, p.crimpStraightX])
+                  local(end, y - 2 * r + 4 * r * t);
+              }
+            local(0, -0.33 + 0.67 * t);
+          }
+        }
+    }
+  });
+});
 
 describe('Mushroom slices with a cream dome lower brown skin twelve exposed gill fingers and a continuous fibrous stem', () => {
   const p = proceduralMaterialPresets.mushroomslices;
@@ -43593,6 +43886,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'weavingshuttles' &&
           kind !== 'woodenclothespins' &&
           kind !== 'kintsugiceramic' &&
+          kind !== 'insulatedringlugs' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -53014,6 +53308,7 @@ describe('procedural preset acquisition and ownership', () => {
     'weavingshuttles',
     'woodenclothespins',
     'kintsugiceramic',
+    'insulatedringlugs',
     'standingseam',
     'damascus',
     'castiron',
@@ -53095,6 +53390,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'weavingshuttles' ||
           kind === 'woodenclothespins' ||
           kind === 'kintsugiceramic' ||
+          kind === 'insulatedringlugs' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

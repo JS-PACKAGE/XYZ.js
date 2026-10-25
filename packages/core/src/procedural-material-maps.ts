@@ -1441,6 +1441,110 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'insulatedringlugs': {
+        const p = proceduralMaterialPresets.insulatedringlugs,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x17a11),
+          headSquared = p.headRadius * p.headRadius,
+          inverseHead = 1 / (headSquared - p.headCore * p.headCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (boreSquared - p.boreCore * p.boreCore),
+          neckSquared = p.neckRadius * p.neckRadius,
+          inverseNeck = 1 / (neckSquared - p.neckCore * p.neckCore),
+          collarSquared = p.collarRadius * p.collarRadius,
+          inverseCollar = 1 / (collarSquared - p.collarCore * p.collarCore),
+          crimpSquared = p.crimpRadius * p.crimpRadius,
+          inverseCrimp = 1 / (crimpSquared - p.crimpCore * p.crimpCore),
+          neckHalfX = p.neckStraightX + p.neckRadius,
+          neckTop = p.neckY - p.neckStraightY - p.neckRadius,
+          neckBottom = p.neckY + p.neckStraightY + p.neckRadius,
+          top = p.headY - p.headRadius,
+          bottom = p.collarY + p.collarStraightY + p.collarRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17a15);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17a17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17a19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x17a1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x17a1d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            ax = Math.abs(x);
+          if (ax >= p.headRadius || y <= top || y >= bottom) return;
+          const cx = Math.max(0, ax - p.collarStraightX),
+            cy = Math.max(0, Math.abs(y - p.collarY) - p.collarStraightY),
+            collar = smooth(
+              clamp((collarSquared - cx * cx - cy * cy) * inverseCollar),
+            );
+          let metal = 0;
+          if (collar !== 1) {
+            const hy = y - p.headY,
+              hq = x * x + hy * hy;
+            let ring = 0,
+              neck = 0;
+            if (hq < headSquared)
+              ring = smooth(clamp((headSquared - hq) * inverseHead));
+            if (ax < neckHalfX && y > neckTop && y < neckBottom) {
+              const nx = Math.max(0, ax - p.neckStraightX),
+                ny = Math.max(0, Math.abs(y - p.neckY) - p.neckStraightY);
+              neck = smooth(
+                clamp((neckSquared - nx * nx - ny * ny) * inverseNeck),
+              );
+            }
+            // Drill after joining the plate and neck: the neck must not fill
+            // the lower arc of the eyelet bore where their supports overlap.
+            metal =
+              (1 - (1 - ring) * (1 - neck)) *
+              (1 - smooth(clamp((boreSquared - hq) * inverseBore)));
+          }
+          mortar = (1 - metal) * (1 - collar);
+          if (mortar === 1) return;
+          const grain = grainField(u, v),
+            tone = poses[i + 5]!;
+          if (metal !== 0) {
+            color += metal * (0.94 + 0.015 * tone + 0.025 * grain - color);
+            height += metal * (0.52 + 0.003 * grain - height);
+            roughness += metal * (p.metalRoughness + 0.025 * grain - roughness);
+            occlusion += metal * (0.99 - occlusion);
+          }
+          metallic = metal * (1 - collar);
+          if (collar !== 0) {
+            // The mirrored crimp supports are disjoint and wholly inside the
+            // full polymer: indenting them must never expose metallic coating.
+            const bx = Math.max(0, ax - p.crimpStraightX),
+              by = Math.abs(y - p.collarY) - p.crimpOffset,
+              crimp = smooth(
+                clamp((crimpSquared - bx * bx - by * by) * inverseCrimp),
+              );
+            color +=
+              collar *
+              (0.15 + 0.02 * tone + 0.025 * grain - 0.08 * crimp - color);
+            height +=
+              collar * (0.7 - p.crimpDepth * crimp + 0.003 * grain - height);
+            roughness +=
+              collar *
+              (p.roughness + 0.025 * grain - 0.045 * crimp - roughness);
+            occlusion += collar * (0.99 - 0.05 * crimp - occlusion);
+          }
+        };
+      }
       case 'mushroomslices': {
         const p = proceduralMaterialPresets.mushroomslices,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28972,6 +29076,7 @@ export function createSurfaceSampler(
     kind === 'splitcedarshakes' ||
     kind === 'swavepavers' ||
     kind === 'mushroomslices' ||
+    kind === 'insulatedringlugs' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

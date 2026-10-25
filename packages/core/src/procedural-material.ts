@@ -670,7 +670,8 @@ export type ProceduralMaterialKind =
   | 'pleatedfilterpapers'
   | 'splitcedarshakes'
   | 'swavepavers'
-  | 'mushroomslices';
+  | 'mushroomslices'
+  | 'insulatedringlugs';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1575,6 +1576,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'splitcedarshakes',
   'swavepavers',
   'mushroomslices',
+  'insulatedringlugs',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1799,6 +1801,7 @@ export class ProceduralMaterial {
         this.kind === 'weavingshuttles' ||
         this.kind === 'woodenclothespins' ||
         this.kind === 'kintsugiceramic' ||
+        this.kind === 'insulatedringlugs' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

@@ -859,6 +859,8 @@
 
 `mushroomslices` 為九 seeded 蘑菇切片：連續乳白 dome／縱纖維 stalk、較低暗粗棕外皮與十二附著低暗 gill fingers，其間為真低 opaque backing，非 mushroomgills 整面菌褶扇形。沿用 cached poses／128² grain／local64×8 stem fibers／squared ellipse-roundedrect-capsule profiles／mirrored nearest-gill lookup，halfPitch0.016>radius0.011 使 owner 在 support 外換界；full cap 跳 hidden stem/gills，empty support 跳 finish，product-complement union 維持 full-body exact mortar0，全相 M0。每點無配置／hash／sqrt／trig／鄰格或逐 gill 掃描。0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變；只作切片外觀，不新增 geometry、透明洞、真菌生長或物種／可食性認證。
 
+`insulatedringlugs` 為九 seeded 銀色環端子：連續中空 eyelet／neck 平金屬片與較高紅絕緣 collar，兩道對稱低 crimp bands 真降低 polymer height／color／roughness／AO 但維持 M0，銀片 M1／紅套 M0／factor1 啟用混合金屬圖。孔與外隙露低 opaque backing。沿用 cached poses／128² grain／squared annular-roundedrect-capsule profiles／product-complement union；ring-neck union 後才切 bore，頸不填入孔下緣；full collar 跳 hidden metal、empty support 跳 finish，兩 crimp supports disjoint 且在 full polymer 內，full-body exact mortar0。每點無配置／hash／sqrt／trig／鄰格或逐帶掃描，0.18 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership 不變；不新增 geometry、電路連通／導電模擬、壓接力學、絕緣安全／電壓認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
