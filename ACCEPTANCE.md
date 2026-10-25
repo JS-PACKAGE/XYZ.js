@@ -7283,3 +7283,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 chrysanthemumstone 並重算既有 567 種（含 crystallineglaze／daisy）size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6545 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：公母金屬暗釦（sewingsnaps）
+
+- 目錄 568→569 種；0.12 m opaque mixed-metallic tile、material factor 1，公凸柱／母凹座交替、rounded rim 與四 cardinal 縫孔，沿四圖／選用 height／ownership。Squared-radius covers／annular ridge replacement，金屬 face／post／socket 與 opaque 非金屬孔底一致分區；最近一孔 lookup support 在 axis／sign ownership 前歸零，cached 16 tones／96×96 grain，採樣無配置／hash／sqrt／trig。不新增 geometry、通透孔、縫線、扣合／彈簧或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、borrowed-map ownership）。3 seeds ×16 暗釦證明公凸柱高於金屬 rim／盤面、母孔低底與仍金屬 collar；各 720-point 圓周恰四個非金屬縫孔、1025-point 徑向剖面公／母分別三／四個金屬 runs。孔底 height <0.0002 m／AO <0.4／roughness >0.9／metallic 0，129² 雙向及 exact radial／hole shoulders C1 通過；公開 factor 1／獨立 material／override ownership／destroy 契約通過。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 sewingsnaps，569 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認公／母中心差異與四縫孔，material metallic 1、實際 metallic B min 0／max 255／partial true、height true、destroyed true，預覽隨頁清除。不宣稱 geometry、通透孔、縫線、扣合／彈簧／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- 八份修改文件的相對連結無失效。
+- Fresh Node 新 build 生成 sewingsnaps 並重算既有 568 種（含 button／grommetcanvas）size 64／seed 7 四圖 SHA256，changed 0。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6551 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

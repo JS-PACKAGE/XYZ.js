@@ -606,7 +606,157 @@ const kinds: ProceduralMaterialKind[] = [
   'tomatoslices',
   'pinstripewool',
   'chrysanthemumstone',
+  'sewingsnaps',
 ];
+
+describe('Sew-on snaps with alternating metal studs and recessed sockets', () => {
+  const p = proceduralMaterialPresets.sewingsnaps;
+  const holes = [
+    [p.holeOffset, 0],
+    [-p.holeOffset, 0],
+    [0, p.holeOffset],
+    [0, -p.holeOffset],
+  ] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised male posts, backed female sockets and four isolated nonmetal sewing holes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sewingsnaps', seed);
+      const at = (col: number, row: number, x: number, y: number) => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+        return out;
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const female = (col + row) & 1,
+            center = at(col, row, 0, 0),
+            plate = at(col, row, 0.18, 0.05),
+            rim = at(col, row, p.rimRadius, 0),
+            backing = at(col, row, 0.46, 0);
+          expect(plate.metallic).toBe(1);
+          expect(rim.metallic).toBe(1);
+          expect(backing.metallic).toBe(0);
+          expect(rim.height - plate.height).toBeGreaterThan(0.001);
+          if (female) {
+            const socket = at(col, row, 0.11, 0);
+            expect(center.metallic).toBe(0);
+            expect(center.height).toBeLessThan(0.0002);
+            expect(center.occlusion).toBeLessThan(0.4);
+            expect(socket.metallic).toBe(1);
+            expect(socket.height - center.height).toBeGreaterThan(0.0005);
+            expect(plate.height - socket.height).toBeGreaterThan(0.0014);
+          } else {
+            expect(center.metallic).toBe(1);
+            expect(center.height - rim.height).toBeGreaterThan(0.0016);
+            expect(center.color - plate.color).toBeGreaterThan(0.08);
+            expect(center.roughness).toBeLessThan(0.25);
+          }
+          for (const [x, y] of holes) {
+            const hole = at(col, row, x, y);
+            expect(hole.metallic).toBe(0);
+            expect(hole.height).toBeLessThan(0.0002);
+            expect(hole.color).toBeLessThan(0.04);
+            expect(hole.occlusion).toBeLessThan(0.4);
+            expect(hole.roughness).toBeGreaterThan(0.9);
+          }
+          let holeRuns = 0,
+            previousHole = false,
+            firstHole = false;
+          for (let i = 0; i < 720; i++) {
+            const angle = (i * Math.PI) / 360,
+              point = at(
+                col,
+                row,
+                p.holeOffset * Math.cos(angle),
+                p.holeOffset * Math.sin(angle),
+              ),
+              hole = point.metallic < 0.1;
+            if (!i) firstHole = hole;
+            if (hole && !previousHole) holeRuns++;
+            previousHole = hole;
+          }
+          if (firstHole && previousHole) holeRuns--;
+          expect(holeRuns).toBe(4);
+          let metalRuns = 0,
+            previousMetal = false;
+          for (let i = 0; i <= 1024; i++) {
+            const metal = at(col, row, i / 1024 - 0.5, 0).metallic > 0.9;
+            if (metal && !previousMetal) metalRuns++;
+            previousMetal = metal;
+          }
+          expect(metalRuns).toBe(female ? 4 : 3);
+        }
+    },
+  );
+  it('keeps all metal/backing replacements, squared-radius shoulders, hole lookup and wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sewingsnaps', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells);
+          for (const radius of [
+            0,
+            p.radius,
+            p.shoulder,
+            p.socketRadius,
+            p.socketShoulder,
+            p.boreRadius,
+            p.boreShoulder,
+            p.postRadius,
+            p.postShoulder,
+            Math.sqrt(p.rimRadius ** 2 - p.rimSquaredWidth),
+            Math.sqrt(p.rimRadius ** 2 + p.rimSquaredWidth),
+          ])
+            for (let i = 0; i < 16; i++) {
+              const angle = (i * Math.PI) / 8;
+              local(radius * Math.cos(angle), radius * Math.sin(angle));
+            }
+          for (const [x, y] of holes)
+            for (const radius of [p.holeRadius, p.holeShoulder])
+              for (let i = 0; i < 16; i++) {
+                const angle = (i * Math.PI) / 8;
+                local(
+                  x + radius * Math.cos(angle),
+                  y + radius * Math.sin(angle),
+                );
+              }
+        }
+    }
+  });
+});
 
 describe('Chrysanthemum stone with embedded pale radial crystal blades', () => {
   const p = proceduralMaterialPresets.chrysanthemumstone;
@@ -25748,6 +25898,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'batterypositivecaps' &&
           kind !== 'screwterminalblocks' &&
           kind !== 'axialresistors' &&
+          kind !== 'sewingsnaps' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -25765,7 +25916,8 @@ describe('periodic procedural material fields', () => {
         kind === 'goldbrocade' ||
         kind === 'batterypositivecaps' ||
         kind === 'screwterminalblocks' ||
-        kind === 'axialresistors'
+        kind === 'axialresistors' ||
+        kind === 'sewingsnaps'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -35164,6 +35316,7 @@ describe('procedural preset acquisition and ownership', () => {
     'batterypositivecaps',
     'screwterminalblocks',
     'axialresistors',
+    'sewingsnaps',
     'standingseam',
     'damascus',
     'castiron',
@@ -35219,6 +35372,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'batterypositivecaps' ||
           kind === 'screwterminalblocks' ||
           kind === 'axialresistors' ||
+          kind === 'sewingsnaps' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

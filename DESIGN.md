@@ -685,6 +685,8 @@
 
 `chrysanthemumstone` 沿 cached rotated compact ellipse 慣例，預算 16 rosette poses／每組 12 blades 的 axes 與 reciprocal squared extents／96×96 grain。Jitter + conservative bound 0.454 <0.5 owner，查單 cell；支撐外略過 blades，compact union 的 outside=0 提早停瓣，無角度極點。白晶紋／共用 pale hub 只混 pigment／較低 roughness，height 與 AO 跨晶紋連續；不疊凸起、不雕花心。採樣無配置／hash／sqrt／trig，不新增 geometry、透明／晶體折射、礦物鑑定／地質或物理模擬。
 
+`sewingsnaps` 沿 squared-radius covers／compact annular ridge／mixed-metallic replacement，預算 16 tones／96×96 grain。交替 male domed post 與 female metal socket／opaque bore，rounded rim 較高於盤面；四個 cardinal 縫孔只查最近一孔，compact support 在 axis／sign owner 邊界前歸零。孔底 coherent replacement 色／高度／roughness／AO／metallic，非金屬底不被 factor 1 金屬化；body 零時略過後續工作，採樣無配置／hash／sqrt／trig。不新增 geometry、通透孔、縫線、扣合／彈簧或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

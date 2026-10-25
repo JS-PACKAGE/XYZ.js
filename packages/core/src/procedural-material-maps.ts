@@ -1428,6 +1428,93 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sewingsnaps': {
+        const p = proceduralMaterialPresets.sewingsnaps,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseOuter = 1 / (radiusSquared - p.shoulder * p.shoulder),
+          rimSquared = p.rimRadius * p.rimRadius,
+          inverseRim = 1 / p.rimSquaredWidth,
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeShoulder * p.holeShoulder),
+          socketSquared = p.socketRadius * p.socketRadius,
+          inverseSocket =
+            1 / (socketSquared - p.socketShoulder * p.socketShoulder),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (boreSquared - p.boreShoulder * p.boreShoulder),
+          postSquared = p.postRadius * p.postRadius,
+          inversePost = 1 / (postSquared - p.postShoulder * p.postShoulder),
+          inverseDome = 1 / postSquared,
+          grainField = cachedNoise(96, 96, seed ^ 0x12311);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x12313);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            squared = x * x + y * y,
+            face = smooth(clamp((radiusSquared - squared) * inverseOuter));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.35;
+          metallic = 0;
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            tone = tones[row * p.cells + col],
+            r = (squared - rimSquared) * inverseRim,
+            rim = smooth(clamp(1 - r * r));
+          color +=
+            face * (0.7 + 0.08 * tone + 0.025 * grain + 0.08 * rim - color);
+          height += face * (0.38 + 0.18 * rim + 0.004 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.025 * grain - 0.06 * rim - roughness);
+          occlusion += face * (0.99 - occlusion);
+          metallic = face;
+          if ((col + row) & 1) {
+            const socket = smooth(
+                clamp((socketSquared - squared) * inverseSocket),
+              ),
+              bore = smooth(clamp((boreSquared - squared) * inverseBore));
+            color += socket * (0.4 + 0.04 * tone + 0.02 * grain - color);
+            height += socket * (0.12 + 0.003 * grain - height);
+            roughness += socket * (0.34 + 0.02 * grain - roughness);
+            occlusion += socket * (0.76 - occlusion);
+            color += bore * (0.025 - color);
+            height += bore * (0.025 - height);
+            roughness += bore * (0.95 - roughness);
+            occlusion += bore * (0.35 - occlusion);
+            metallic *= 1 - bore;
+          } else {
+            const post = smooth(clamp((postSquared - squared) * inversePost)),
+              dome = clamp(1 - squared * inverseDome);
+            color +=
+              post * (0.84 + 0.06 * tone + 0.025 * grain + 0.04 * dome - color);
+            height += post * (0.72 + 0.13 * dome + 0.003 * grain - height);
+            roughness += post * (0.22 + 0.025 * grain - roughness);
+            occlusion += post * (0.99 - occlusion);
+          }
+          // Only one cardinal sewing hole can contribute. Its compact support
+          // vanishes well before the nearest-axis/sign ownership boundaries.
+          const horizontal = Math.abs(x) > Math.abs(y),
+            hx = x - (horizontal ? (x < 0 ? -p.holeOffset : p.holeOffset) : 0),
+            hy = y - (horizontal ? 0 : y < 0 ? -p.holeOffset : p.holeOffset),
+            hole = smooth(
+              clamp((holeSquared - hx * hx - hy * hy) * inverseHole),
+            );
+          if (hole === 0) return;
+          color += hole * (0.025 - color);
+          height += hole * (0.025 - height);
+          roughness += hole * (0.95 - roughness);
+          occlusion += hole * (0.35 - occlusion);
+          metallic *= 1 - hole;
+          return;
+        };
+      }
       case 'chrysanthemumstone': {
         const p = proceduralMaterialPresets.chrysanthemumstone,
           stride = 3 + p.arms * 4,
@@ -22051,6 +22138,7 @@ export function createSurfaceSampler(
     kind === 'twillweave' ||
     kind === 'pinstripewool' ||
     kind === 'chrysanthemumstone' ||
+    kind === 'sewingsnaps' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

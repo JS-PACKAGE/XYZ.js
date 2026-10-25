@@ -677,6 +677,8 @@
 
 同輪追加 `chrysanthemumstone`（菊花石），目錄 567→568 種：黑色拋光石內嵌淡色放射晶瓣、共用淡色中心，非 daisy 凹花心／凸花瓣或 crystallineglaze 圓形釉斑。0.48 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；晶紋僅改 pigment／roughness，height 只留微 grain、不雕凸花或凹坑，不新增岩石／晶體 geometry、透明／晶體折射、礦物鑑定／地質或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `sewingsnaps`（公母金屬暗釦），目錄 568→569 種：公釦凸柱／母釦凹座交替、rounded rim 與四個 cardinal 縫孔，非普通四孔鈕釦或單一 grommet 環。0.12 m opaque mixed-metallic tile、material factor 1，金屬 face／post／socket 與非金屬 opaque 孔底分區，沿四圖／選用 height／ownership；不新增 geometry、通透孔、縫線、扣合／彈簧或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

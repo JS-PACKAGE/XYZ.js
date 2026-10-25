@@ -583,7 +583,8 @@ export type ProceduralMaterialKind =
   | 'axialresistors'
   | 'tomatoslices'
   | 'pinstripewool'
-  | 'chrysanthemumstone';
+  | 'chrysanthemumstone'
+  | 'sewingsnaps';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1401,6 +1402,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tomatoslices',
   'pinstripewool',
   'chrysanthemumstone',
+  'sewingsnaps',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1600,6 +1602,7 @@ export class ProceduralMaterial {
         this.kind === 'batterypositivecaps' ||
         this.kind === 'screwterminalblocks' ||
         this.kind === 'axialresistors' ||
+        this.kind === 'sewingsnaps' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||
