@@ -589,7 +589,8 @@ export type ProceduralMaterialKind =
   | 'ceramiccapacitors'
   | 'fennelseeds'
   | 'ballbearingfaces'
-  | 'baseballleather';
+  | 'baseballleather'
+  | 'toothbrushheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1413,6 +1414,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fennelseeds',
   'ballbearingfaces',
   'baseballleather',
+  'toothbrushheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

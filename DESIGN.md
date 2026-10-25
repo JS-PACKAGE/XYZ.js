@@ -697,6 +697,8 @@
 
 `baseballleather` 沿 cached grain／compact seam／capsule thread／coherent replacement，預算 40 row tones／96×96 grain。Periodic polynomial bow 導數於 v wrap 歸零、雙列鏡向；最近 side 的成對膠囊紅線先於 side／row owner 歸零，不逐線 scan。White grained leather→低接縫→高紅線按同一 cover 覆蓋 PBR fields，預算 reciprocal，採樣無配置／hash／sqrt／trig。不新增 geometry、完整球面裁片 UV、規格認證、縫製／布料／碰撞或物理模擬。
 
+`toothbrushheads` 沿 squared capsule cover／compact crown／nearest-grid coherent replacement，預算 16 base tones／288 tuft tones／96×96 grain／256×256 bristle grain／reciprocals。4×4 交替斜向，每頭 3×6 crowns；radius 0.038 <半格距 0.05，nearest tuft owner 切換前 support 歸零，十八束皆在 capsule full cover 內。高粗白冠面覆較低光滑藍塑膠，face 零略過 tuft／grain、tuft 零略過 bristle grain；採樣無配置／hash／sqrt／trig。不新增 geometry、刷柄、透明孔、彎曲／清潔或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -1428,6 +1428,88 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'toothbrushheads': {
+        const p = proceduralMaterialPresets.toothbrushheads,
+          tuftCount = p.tuftColumns * p.tuftRows,
+          tones = new Float64Array(p.cells * p.cells),
+          tuftTones = new Float64Array(p.cells * p.cells * tuftCount),
+          radiusSquared = p.radius * p.radius,
+          inverseEdge = 1 / (radiusSquared - p.edge * p.edge),
+          tuftSquared = p.tuftRadius * p.tuftRadius,
+          inverseTuft = 1 / tuftSquared,
+          inverseTuftEdge = 1 / (tuftSquared - p.tuftCore * p.tuftCore),
+          inversePitch = 1 / p.pitch,
+          halfColumns = (p.tuftColumns - 1) * 0.5,
+          halfRows = (p.tuftRows - 1) * 0.5,
+          grainField = cachedNoise(96, 96, seed ^ 0x12911),
+          bristles = cachedNoise(256, 256, seed ^ 0x12913);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const cell = row * p.cells + col;
+            tones[cell] = hash(col, row, seed ^ 0x12917);
+            for (let tuft = 0; tuft < tuftCount; tuft++)
+              tuftTones[cell * tuftCount + tuft] = hash(
+                cell,
+                tuft,
+                seed ^ 0x12919,
+              );
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            end = Math.max(0, Math.abs(y) - p.straight),
+            face = smooth(
+              clamp((radiusSquared - x * x - end * end) * inverseEdge),
+            );
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          if (face === 0) return;
+          const cell = row * p.cells + col,
+            grain = grainField(u, v);
+          color += face * (0.54 + 0.08 * tones[cell] + 0.02 * grain - color);
+          height += face * (0.28 + 0.004 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.94 - occlusion);
+          // All eighteen compact crowns fit inside the full plastic cover.
+          // Their gaps remove nearest-grid ownership before any owner switches.
+          const tx = Math.max(
+              0,
+              Math.min(
+                p.tuftColumns - 1,
+                Math.floor(x * inversePitch + halfColumns + 0.5),
+              ),
+            ),
+            ty = Math.max(
+              0,
+              Math.min(
+                p.tuftRows - 1,
+                Math.floor(y * inversePitch + halfRows + 0.5),
+              ),
+            ),
+            ex = x - (tx - halfColumns) * p.pitch,
+            ey = y - (ty - halfRows) * p.pitch,
+            r2 = ex * ex + ey * ey,
+            tuft = smooth(clamp((tuftSquared - r2) * inverseTuftEdge));
+          if (tuft === 0) return;
+          const dome = smooth(clamp(1 - r2 * inverseTuft)),
+            fiber = bristles(u, v),
+            tone = tuftTones[cell * tuftCount + ty * p.tuftColumns + tx];
+          color += tuft * (0.9 + 0.06 * tone + 0.03 * fiber - color);
+          height += tuft * (0.66 + 0.09 * dome + 0.015 * fiber - height);
+          roughness += tuft * (0.81 + 0.04 * fiber - roughness);
+          occlusion += tuft * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'baseballleather': {
         const p = proceduralMaterialPresets.baseballleather,
           tones = new Float64Array(p.columns * p.rows),
@@ -22453,6 +22535,7 @@ export function createSurfaceSampler(
     kind === 'fennelseeds' ||
     kind === 'ballbearingfaces' ||
     kind === 'baseballleather' ||
+    kind === 'toothbrushheads' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

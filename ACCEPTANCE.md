@@ -7333,3 +7333,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Targeted 初次 morphology／determinism 四項通過，C1 一項因細紅線 high-contrast curvature 的有限 stencil 差 >0.02 失敗；fresh Bun throwaway 找出最差 grid point，h 1e-8／1e-9／1e-10／1e-11 的導數差依序 0.48825／0.048824／0.004888／0.000444，證實向同一導數收斂而非 seam。僅將該測試 h 改 1e-10、保留 0.02 bound，sampler 不變；五項全通過。3 seeds ×40 stitch rows 的 1025-point 橫剖面各兩紅線、線頂較白皮高 >0.0005 m、縫低 >0.0003 m、row gaps 無染紅；129²／exact seam／capsule／owners／wraps C1 通過。
 - Fresh Node 新 build 生成 baseballleather 並重算既有 573 種（含 rugbyball／saddlestitch）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6578 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：牙刷頭（toothbrushheads）
+
+- 目錄 574→575 種；0.12 m opaque dielectric tile、metallic 0，低藍膠囊塑膠底與每頭十八高白粗刷毛冠面。Cached 16 base tones／288 tuft tones／96×96 grain／256×256 bristle grain／reciprocals，compact capsule／3×6 nearest-grid crowns／coherent replacement；radius 0.038 <半格距 0.05、support 先於 owner 歸零，十八束皆在 full plastic cover 內。Face 零略過 tufts／grain、tuft 零略過 bristle grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、刷柄、透明孔、刷毛彎曲／刷牙／清潔或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 頭 ×18 冠，白冠高 >0.0059 m、較塑膠高 >0.0036 m、顏料差 >0.25；塑膠高 0.0022–0.0023 m，冠 roughness >0.8、底 <0.47；1025-point 橫／縱剖面恰 3／6 高冠 runs，尖外 opaque 背底低於 0.00021 m。129² 雙向、exact capsule／crown shoulders／grid owners／wraps C1 通過，metallic 0。
+- Managed Chromium 實際 `/examples/pbr3d/` 分別強制 WebGPU／WebGL2，選出 575-preset toothbrushheads、擷取畫面；512 base-color detail 可見藍膠囊底與十八白冠。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 都空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 toothbrushheads 並重算既有 574 種（含 wirebrush／pillcapsule）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6583 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
