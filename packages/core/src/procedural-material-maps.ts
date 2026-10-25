@@ -1441,6 +1441,45 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'solderlessbreadboard': {
+        const p = proceduralMaterialPresets.solderlessbreadboard,
+          grainField = cachedNoise(128, 128, seed ^ 0x16311),
+          inversePitch = 1 / p.pitch,
+          inverseRadius = 1 / p.holeRadius,
+          inverseHoleEdge = 1 / p.holeEdge,
+          inverseChannel = 1 / p.channelShoulder,
+          inverseRows = 1 / p.rows;
+        return () => {
+          const x = Math.abs(u - 0.5),
+            grain = grainField(u, v),
+            channel = smooth(clamp((p.channelWidth - x) * inverseChannel));
+          color = 0.83 + 0.02 * grain;
+          height = 0.6 + 0.003 * grain;
+          roughness = p.roughness + 0.03 * grain;
+          occlusion = 0.98;
+          metallic = 0;
+          mortar = 0;
+          if (channel > 0) {
+            color += channel * (0.12 + 0.015 * grain - color);
+            height += channel * (0.22 + 0.003 * grain - height);
+            roughness += channel * (0.82 + 0.025 * grain - roughness);
+            occlusion += channel * (0.6 - occlusion);
+            return;
+          }
+          const col = Math.floor((x - p.firstColumn) * inversePitch + 0.5);
+          if (col < 0 || col >= p.columns) return;
+          const dx = (x - p.firstColumn - col * p.pitch) * inverseRadius,
+            dy = (fract(v * p.rows) - 0.5) * inverseRows * inverseRadius,
+            xx = dx * dx,
+            yy = dy * dy,
+            hole = smooth(clamp((1 - xx * xx - yy * yy) * inverseHoleEdge));
+          if (hole === 0) return;
+          color += hole * (0.08 + 0.012 * grain - color);
+          height += hole * (0.18 + 0.003 * grain - height);
+          roughness += hole * (0.9 + 0.02 * grain - roughness);
+          occlusion += hole * (0.55 - occlusion);
+        };
+      }
       case 'orecchiette': {
         const p = proceduralMaterialPresets.orecchiette,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27011,6 +27050,7 @@ export function createSurfaceSampler(
     kind === 'dendriticfrost' ||
     kind === 'bullionknots' ||
     kind === 'orecchiette' ||
+    kind === 'solderlessbreadboard' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

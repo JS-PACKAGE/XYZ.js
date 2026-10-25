@@ -647,7 +647,8 @@ export type ProceduralMaterialKind =
   | 'diamondpanelparquet'
   | 'dendriticfrost'
   | 'bullionknots'
-  | 'orecchiette';
+  | 'orecchiette'
+  | 'solderlessbreadboard';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1529,6 +1530,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dendriticfrost',
   'bullionknots',
   'orecchiette',
+  'solderlessbreadboard',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

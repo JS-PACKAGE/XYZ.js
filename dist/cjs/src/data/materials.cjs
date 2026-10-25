@@ -11917,6 +11917,28 @@ var proceduralMaterialPresets = Object.freeze({
 		jitter: .02,
 		scale: .94,
 		scaleVariation: .04
+	}),
+	solderlessbreadboard: Object.freeze({
+		dark: [
+			21,
+			24,
+			27
+		],
+		light: [
+			244,
+			242,
+			230
+		],
+		roughness: .54,
+		relief: .003,
+		columns: 5,
+		rows: 16,
+		pitch: .0625,
+		firstColumn: .09375,
+		holeRadius: .014,
+		holeEdge: .25,
+		channelWidth: .035,
+		channelShoulder: .007
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -12551,7 +12573,8 @@ var proceduralTileMeters = Object.freeze({
 	diamondpanelparquet: .8,
 	dendriticfrost: .12,
 	bullionknots: .12,
-	orecchiette: .16
+	orecchiette: .16,
+	solderlessbreadboard: .04064
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -805,6 +805,8 @@
 
 同輪追加 `orecchiette`（耳形麵），目錄 631→632 種：16 seeded rotated cupped golden semolina faces、連續高 rolled rim、偏心較低暗粗 opaque bowl，非 ravioli 凸餡枕、macaroni 短彎管或透明洞。0.16 m opaque dielectric tile、M0／dough face mortar 0、外 backing mortar 1，沿四圖／選用 height／ownership；不新增 geometry、真麵形／位移／厚度／洞、烹煮／吸水／變形／食品／物理模擬。依功能驗證提交、不 push。
 
+同輪追加 `solderlessbreadboard`（免焊麵包板表面），目錄 632→633 種：白 opaque plastic face、16 rows×左右各5方形blind recesses（160）、獨立較低連續central trough，四方向白橋完整，非無間斷均勻perforated grid。0.04064 m tile，孔pitch0.0625 UV對應2.54 mm，兩內列中心距7.62 mm；M0／含floors及trough全mortar 0，沿四圖／選用height／ownership。不新增geometry、真洞／hidden metal contacts／電源軌／標號／接線、電路／電氣／插拔／物理模擬；依功能驗證提交、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

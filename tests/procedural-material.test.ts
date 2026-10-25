@@ -673,7 +673,231 @@ const kinds: ProceduralMaterialKind[] = [
   'dendriticfrost',
   'bullionknots',
   'orecchiette',
+  'solderlessbreadboard',
 ];
+
+describe('Opaque white solderless breadboard face with two banks of five square recesses per row and a continuous lower central trough', () => {
+  const p = proceduralMaterialPresets.solderlessbreadboard;
+  it.each([0, 1, 0xffffffff])(
+    'keeps160 individual square blind recesses in two fivehole banks with continuous white bridges and a separate lower central trough for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('solderlessbreadboard', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.rows; row++) {
+        const v = (row + 0.5) / p.rows;
+        for (const side of [-1, 1])
+          for (let col = 0; col < p.columns; col++) {
+            const u = 0.5 + side * (p.firstColumn + col * p.pitch);
+            for (const dx of [-0.009, 0, 0.009])
+              for (const dy of [-0.009, 0, 0.009]) {
+                sample(u + dx, v + dy, out);
+                expect(out.height).toBeGreaterThan(0.0005399);
+                expect(out.height).toBeLessThan(0.0005491);
+                expect(out.color).toBeGreaterThanOrEqual(0.08);
+                expect(out.color).toBeLessThan(0.0921);
+                expect(out.roughness).toBeGreaterThanOrEqual(0.9);
+                expect(out.roughness).toBeLessThan(0.9201);
+                expect(out.occlusion).toBeCloseTo(0.55, 12);
+                expect(out.metallic).toBe(0);
+                expect(out.mortar).toBe(0);
+              }
+            sample(u, v, out);
+            const floor = { ...out };
+            for (const [dx, dy] of [
+              [-0.023, 0],
+              [0.023, 0],
+              [0, -0.023],
+              [0, 0.023],
+            ]) {
+              sample(u + dx, v + dy, out);
+              expect(out.height).toBeGreaterThan(0.0017999);
+              expect(out.height).toBeLessThan(0.0018091);
+              expect(out.height - floor.height).toBeGreaterThan(0.0012509);
+              expect(out.color - floor.color).toBeGreaterThan(0.7379);
+              expect(floor.roughness - out.roughness).toBeGreaterThan(0.3299);
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          }
+        let runs = 0,
+          prior = false;
+        for (let j = 0; j <= 8192; j++) {
+          sample(j / 8192, v, out);
+          const low = out.height < 0.0011;
+          if (low && !prior) runs++;
+          prior = low;
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+        }
+        expect(runs).toBe(11);
+        for (const side of [-1, 1]) {
+          let holes = 0,
+            prior = false;
+          for (let j = 0; j <= 4096; j++) {
+            const x =
+              p.firstColumn - p.pitch / 2 + (p.columns * p.pitch * j) / 4096;
+            sample(0.5 + side * x, v, out);
+            const low = out.height < 0.0011;
+            if (low && !prior) holes++;
+            prior = low;
+          }
+          expect(holes).toBe(5);
+        }
+        sample(0.5, row / p.rows, out);
+        expect(out.height).toBeGreaterThan(0.0006599);
+        expect(out.height).toBeLessThan(0.0006691);
+        expect(out.occlusion).toBeCloseTo(0.6, 12);
+        sample(0.5 + 0.05, row / p.rows, out);
+        expect(out.height).toBeGreaterThan(0.0017999);
+        expect(out.occlusion).toBeCloseTo(0.98, 12);
+      }
+      for (const side of [-1, 1])
+        for (let col = 0; col < p.columns; col++) {
+          let holes = 0,
+            prior = false;
+          for (let j = 0; j <= 8192; j++) {
+            sample(0.5 + side * (p.firstColumn + col * p.pitch), j / 8192, out);
+            const low = out.height < 0.0011;
+            if (low && !prior) holes++;
+            prior = low;
+          }
+          expect(holes).toBe(16);
+        }
+      for (let j = 0; j <= 4096; j++)
+        for (const dx of [-0.027, 0, 0.027]) {
+          sample(0.5 + dx, j / 4096, out);
+          expect(out.height).toBeGreaterThan(0.0006599);
+          expect(out.height).toBeLessThan(0.0006691);
+          expect(out.color).toBeGreaterThanOrEqual(0.12);
+          expect(out.color).toBeLessThan(0.1351);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.82);
+          expect(out.roughness).toBeLessThan(0.8451);
+          expect(out.occlusion).toBeCloseTo(0.6, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+        }
+    },
+  );
+  it('resolves actual512 all160 square opaque floors separate from smoothwhite fourway bridges and a distinct continuouscentraltrough', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('solderlessbreadboard', 512, seed),
+        index = (u: number, v: number) =>
+          (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+      for (let row = 0; row < p.rows; row++)
+        for (const side of [-1, 1])
+          for (let col = 0; col < p.columns; col++) {
+            const u = 0.5 + side * (p.firstColumn + col * p.pitch),
+              v = (row + 0.5) / p.rows,
+              hole = index(u, v);
+            for (const [dx, dy] of [
+              [-0.023, 0],
+              [0.023, 0],
+              [0, -0.023],
+              [0, 0.023],
+            ]) {
+              const face = index(u + dx, v + dy);
+              expect(
+                maps.baseColor[face] - maps.baseColor[hole],
+              ).toBeGreaterThan(155);
+              expect(
+                maps.metallicRoughness[hole + 1] -
+                  maps.metallicRoughness[face + 1],
+              ).toBeGreaterThan(80);
+              expect(
+                maps.occlusion[face] - maps.occlusion[hole],
+              ).toBeGreaterThan(105);
+              expect(maps.metallicRoughness[hole + 2]).toBe(0);
+              expect(maps.metallicRoughness[face + 2]).toBe(0);
+            }
+            const channel = index(0.5, v);
+            expect(
+              maps.baseColor[channel] - maps.baseColor[hole],
+            ).toBeGreaterThan(4);
+            expect(
+              maps.occlusion[channel] - maps.occlusion[hole],
+            ).toBeGreaterThan(10);
+            expect(maps.metallicRoughness[channel + 1]).toBeLessThan(
+              maps.metallicRoughness[hole + 1],
+            );
+            expect(maps.metallicRoughness[channel + 2]).toBe(0);
+          }
+    }
+  });
+  it('keeps quartic square support and floor shoulders channel shoulders absaxis complete nearestcolumn and rowowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('solderlessbreadboard', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 256; y++)
+        for (let x = 0; x <= 256; x++) check(x / 256, y / 256);
+      for (let row = 0; row < p.rows; row++)
+        for (const side of [-1, 1])
+          for (let col = 0; col < p.columns; col++) {
+            const u = 0.5 + side * (p.firstColumn + col * p.pitch),
+              v = (row + 0.5) / p.rows;
+            for (const q of [1, 1 - p.holeEdge])
+              for (let j = 0; j <= 128; j++) {
+                const a = (j * Math.PI) / 64,
+                  c = Math.cos(a),
+                  s = Math.sin(a),
+                  r = p.holeRadius * Math.pow(q / (c ** 4 + s ** 4), 0.25);
+                check(u + r * c, v + r * s);
+              }
+            for (let j = 0; j <= 32; j++) {
+              const dy = -0.03125 + (0.0625 * j) / 32;
+              for (const sign of [-1, 1])
+                check(u + (sign * p.pitch) / 2, v + dy);
+              check(u - 0.03 + (0.06 * j) / 32, row / p.rows);
+            }
+          }
+      for (let j = 0; j <= 1024; j++)
+        for (const dx of [
+          0,
+          -p.channelWidth,
+          p.channelWidth,
+          -p.channelWidth + p.channelShoulder,
+          p.channelWidth - p.channelShoulder,
+        ])
+          check(0.5 + dx, j / 1024);
+    }
+  });
+});
 
 describe('Cupped golden semolina ear pasta with continuous high rolled rims and lower darker rougher off-center bowls', () => {
   const p = proceduralMaterialPresets.orecchiette;
