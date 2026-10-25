@@ -1428,6 +1428,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rubbergrommets': {
+        const p = proceduralMaterialPresets.rubbergrommets,
+          tones = new Float64Array(p.cells * p.cells),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.outerCore * p.outerCore),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (p.boreCore * p.boreCore - boreSquared),
+          collarSquared = p.collarRadius * p.collarRadius,
+          inverseCollar = 1 / (collarSquared - p.collarCore * p.collarCore),
+          grooveSquared = p.grooveRadius * p.grooveRadius,
+          inverseGroove = 1 / p.grooveBand,
+          grainField = cachedNoise(96, 96, seed ^ 0x13511);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13513);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            r2 = x * x + y * y,
+            body =
+              smooth(clamp((outerSquared - r2) * inverseOuter)) *
+              smooth(clamp((r2 - boreSquared) * inverseBore));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const collar = smooth(clamp((collarSquared - r2) * inverseCollar)),
+            d = (r2 - grooveSquared) * inverseGroove,
+            groove = smooth(clamp(1 - d * d)),
+            grain = grainField(u, v),
+            tone = tones[Math.floor(vc) * p.cells + Math.floor(uc)];
+          // One molded rubber layer has a high inner lip, low outer flange
+          // and a closed recessed groove; no brass eyelet or fabric layer.
+          color +=
+            body *
+            (0.22 +
+              0.07 * tone +
+              0.02 * grain +
+              0.035 * collar -
+              0.04 * groove -
+              color);
+          height +=
+            body *
+            (0.38 + 0.26 * collar - 0.07 * groove + 0.003 * grain - height);
+          roughness += body * (p.roughness + 0.04 * grain - roughness);
+          occlusion += body * (0.97 - 0.12 * groove - occlusion);
+          return;
+        };
+      }
       case 'peppermintcanes': {
         const p = proceduralMaterialPresets.peppermintcanes,
           tones = new Float64Array(p.cells * p.cells),
@@ -23214,6 +23266,7 @@ export function createSurfaceSampler(
     kind === 'buckwheathulls' ||
     kind === 'rutilatedquartz' ||
     kind === 'peppermintcanes' ||
+    kind === 'rubbergrommets' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

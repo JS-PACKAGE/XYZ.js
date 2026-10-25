@@ -624,7 +624,123 @@ const kinds: ProceduralMaterialKind[] = [
   'buckwheathulls',
   'rutilatedquartz',
   'peppermintcanes',
+  'rubbergrommets',
 ];
+
+describe('Molded rubber grommets with raised inner lips and lower grooved flanges', () => {
+  const p = proceduralMaterialPresets.rubbergrommets;
+  it.each([0, 1, 0xffffffff])(
+    'keeps a high nonmetal inner collar, lower outer flange, closed low groove and opaque bore backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rubbergrommets', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+          for (let i = 0; i < 32; i++) {
+            const angle = (i * Math.PI) / 16,
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            at(c * 0.23, s * 0.23);
+            const lip = out.height;
+            expect(lip).toBeGreaterThanOrEqual(0.00512);
+            expect(lip).toBeLessThan(0.005145);
+            expect(out.metallic).toBe(0);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.86);
+            expect(out.roughness).toBeLessThanOrEqual(0.9);
+            at(c * 0.37, s * 0.37);
+            const flange = out.height;
+            expect(flange).toBeGreaterThanOrEqual(0.00304);
+            expect(flange).toBeLessThan(0.003065);
+            expect(lip - flange).toBeGreaterThan(0.00205);
+            expect(out.occlusion).toBeCloseTo(0.97, 12);
+            expect(out.metallic).toBe(0);
+            at(c * p.grooveRadius, s * p.grooveRadius);
+            expect(out.height).toBeGreaterThanOrEqual(0.00248);
+            expect(out.height).toBeLessThan(0.002505);
+            expect(flange - out.height).toBeGreaterThan(0.00053);
+            expect(out.occlusion).toBeCloseTo(0.85, 12);
+            expect(out.metallic).toBe(0);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 1024; i++) {
+            at((i / 1024 - 0.5) * 0.9, 0);
+            const collar = out.height > 0.0048;
+            if (collar && !previous) runs++;
+            previous = collar;
+          }
+          expect(runs).toBe(2);
+          for (const x of [0, 0.1, 0.46]) {
+            at(x, 0);
+            expect(out.height).toBeLessThan(0.000201);
+            expect(out.color).toBeLessThan(0.02);
+            expect(out.occlusion).toBeLessThan(0.31);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps stepped radial shoulders, closed groove shoulders, cell owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = ['color', 'height', 'roughness', 'occlusion', 'metallic'] as const,
+      radii = [
+        p.outerRadius,
+        p.outerCore,
+        p.boreRadius,
+        p.boreCore,
+        p.collarRadius,
+        p.collarCore,
+        p.grooveRadius,
+        Math.sqrt(p.grooveRadius ** 2 - p.grooveBand),
+        Math.sqrt(p.grooveRadius ** 2 + p.grooveBand),
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rubbergrommets', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const radius of radii)
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16;
+              check(
+                (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+                (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+              );
+            }
+    }
+  });
+});
 
 describe('Hooked peppermint canes with continuous rounded tubes and pigment-only stripes', () => {
   const p = proceduralMaterialPresets.peppermintcanes;

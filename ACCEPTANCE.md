@@ -7429,3 +7429,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 586-preset peppermintcanes、擷取最終畫面／512 base-color detail，見中性底上完整紅白弧鉤長管而非斷白段。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 peppermintcanes 並重算既有 585 種（含 candy）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6641 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：橡膠護線環（rubbergrommets）
+
+- 目錄 586→587 種；0.16 m opaque dielectric tile、metallic 0，高內唇／低外法蘭／閉環凹槽，全非金屬，非 grommetcanvas 金屬雞眼。Cached 16 tones／96² grain／squared radii／reciprocals，compact outer/bore products／stepped collar／squared radial groove／coherent replacement；modifiers 皆在 full body 支撐內，孔底／外背低 opaque dielectric、support 限 cell。Body 零略過 collar／groove／grain，採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明孔、彈性／密封／穿線／電氣絕緣認證或物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、C1、determinism）：3 seeds ×16 環×32 angles，內唇 0.005120–0.005145 m、法蘭 0.003040–0.003065 m、凹槽 0.002480–0.002505 m；內唇比法蘭高 >0.00205 m、槽比法蘭低 >0.00053 m，AO 法蘭／槽 0.97／0.85，roughness 0.86–0.9、metallic 0。1025-point 直徑剖面兩高唇、孔底／外背 <0.000201 m／AO <0.31。129² 與 exact outer／bore／collar／groove squared shoulders／owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 587-preset rubbergrommets、擷取畫面／512 base-color detail，見深色橡膠環高內唇與低法蘭／環槽、無金屬或帆布。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 rubbergrommets 並重算既有 586 種（含 grommetcanvas／rubber／splitlockwashers）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6646 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

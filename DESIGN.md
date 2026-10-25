@@ -721,6 +721,8 @@
 
 `peppermintcanes` 沿 true squared distance to hooked centerline／compact tube cover／pigment-only stripes，預算 16 tones／96² grain／reciprocals。4×4 交替斜向，upper semicircle 用一次必要 radial sqrt 維持等管徑，接兩直線 tangent 與長短 rounded caps；owner 與 cell 邊界皆在 support 外。Tube dome／roughness 不隨紅白 stripe 起伏，stripe wrap 前 plateau 歸零；沿現有 mortar=1−body 混中性 opaque 底，避免紅背景吃掉紅條。空 body 略過 grain／stripe，採樣無配置／hash／trig。不新增 geometry、透明孔、溶化／烹煮或物理模擬。
 
+`rubbergrommets` 沿 compact squared annulus／stepped collar／closed squared groove／coherent replacement，預算 16 tones／96² grain／squared radii／reciprocals。4×4 圓環 outer/bore smooth products 定 body，同橡膠層高內唇／低外法蘭與較低 closed groove；collar／groove 皆在 full body 支撐內，孔底／外背保持低 opaque 非金屬。Support 限 cell，空 body 略過 collar／groove／grain，採樣無配置／hash／sqrt／trig。不新增 geometry、透明孔、彈性／密封／穿線／絕緣認證或物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
