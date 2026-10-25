@@ -603,7 +603,8 @@ export type ProceduralMaterialKind =
   | 'rutilatedquartz'
   | 'peppermintcanes'
   | 'rubbergrommets'
-  | 'chioggiabeetcuts';
+  | 'chioggiabeetcuts'
+  | 'flatflexcables';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1441,6 +1442,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'peppermintcanes',
   'rubbergrommets',
   'chioggiabeetcuts',
+  'flatflexcables',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1644,6 +1646,7 @@ export class ProceduralMaterial {
         this.kind === 'ceramiccapacitors' ||
         this.kind === 'slottedturners' ||
         this.kind === 'dualinlinechips' ||
+        this.kind === 'flatflexcables' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

@@ -1428,6 +1428,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'flatflexcables': {
+        const p = proceduralMaterialPresets.flatflexcables,
+          tones = new Float64Array(p.cells * p.cells),
+          radiusSquared = p.radius * p.radius,
+          inverseBody = 1 / (radiusSquared - p.core * p.core),
+          contactSquared = p.contactRadius * p.contactRadius,
+          inverseContact = 1 / (contactSquared - p.contactCore * p.contactCore),
+          inversePitch = 1 / p.pitch,
+          inverseTrace = 1 / (p.traceRadius * p.traceRadius),
+          inverseShoulder = 1 / p.traceShoulder,
+          lastContact = (p.contacts - 1) / 2,
+          grainField = cachedNoise(128, 128, seed ^ 0x13711);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x13713);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            sign = (col + row) & 1 ? 1 : -1,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = (dx + sign * dy) * Math.SQRT1_2,
+            y = (dy - sign * dx) * Math.SQRT1_2,
+            bx = Math.max(0, Math.abs(x) - p.straightX),
+            by = Math.max(0, Math.abs(y) - p.straightY),
+            body = smooth(
+              clamp((radiusSquared - bx * bx - by * by) * inverseBody),
+            );
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const owner =
+              Math.max(
+                0,
+                Math.min(
+                  p.contacts - 1,
+                  Math.round(x * inversePitch + lastContact),
+                ),
+              ) - lastContact,
+            cx = x - owner * p.pitch,
+            cy = Math.max(0, Math.abs(y - p.contactY) - p.contactStraight),
+            contact = smooth(
+              clamp((contactSquared - cx * cx - cy * cy) * inverseContact),
+            ),
+            trace =
+              smooth(clamp(1 - cx * cx * inverseTrace)) *
+              smooth(clamp((y - p.traceStart) * inverseShoulder)) *
+              smooth(clamp((p.traceEnd - y) * inverseShoulder)),
+            grain = grainField(u, v),
+            tone = tones[row * p.cells + col];
+          color +=
+            body * (0.45 + 0.06 * tone + 0.02 * grain + 0.06 * trace - color);
+          height += body * (0.32 + 0.003 * grain + 0.008 * trace - height);
+          roughness +=
+            body * (p.roughness + 0.03 * grain - 0.02 * trace - roughness);
+          occlusion += body * (0.99 - occlusion);
+          // Buried traces stay dielectric. Only the six exposed pads at
+          // the positive end replace insulation with a metallic surface.
+          color += contact * (0.92 + 0.025 * grain - color);
+          height += contact * (0.29 + 0.002 * grain - height);
+          roughness += contact * (0.23 + 0.02 * grain - roughness);
+          metallic = contact;
+          return;
+        };
+      }
       case 'chioggiabeetcuts': {
         const p = proceduralMaterialPresets.chioggiabeetcuts,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -23339,6 +23410,7 @@ export function createSurfaceSampler(
     kind === 'peppermintcanes' ||
     kind === 'rubbergrommets' ||
     kind === 'chioggiabeetcuts' ||
+    kind === 'flatflexcables' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

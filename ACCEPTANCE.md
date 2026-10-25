@@ -7445,3 +7445,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 588-preset chioggiabeetcuts、擷取畫面／512 base-color detail，見實芯白心、六圈紅白環與薄紅皮，中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 chioggiabeetcuts 並重算既有 587 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6651 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：扁平軟排線（flatflexcables）
+
+- 目錄 588→589 種；0.24 m opaque mixed-metal tile，琥珀絕緣薄片／六條埋藏導線淺脊，單端六枚較低銀色接點。Cached 16 tones／128² grain／squared radii／reciprocals，4×4 alternating ±45° compact rounded strips、half-integer nearest-contact owner／trace axial taper／rounded capsules，trace／contact support 皆在 full body、全部 support 限 cell。Coherent pad replacement 僅 contact coverage 定 metal，film／trace／縫／對端／背底零、預設 factor 1；body 零略過 owner／grain／contact，採樣無配置／hash／sqrt／trig。沿 neutral opaque backing／四圖／選用 height／ownership，不新增 cable／connector geometry、透明膜、彎折／導電／耐熱認證或物理模擬。
+- Targeted 六項首次通過（3 seeds morphology、C1、determinism、ownership）：3 seeds ×16 strips ×6 pads，接點 metallic 1／AO 0.99、height 0.002319–0.002337 m、roughness 0.23–0.25；對端／接點根／端外仍 dielectric，film 比 pad 高 >0.00022 m，埋藏線比間隙高 >0.000035 m／pigment 差 >0.03，2049-point 橫向 profile 恰六枚 metal 接點。129² 與 exact body corners／contact caps／trace shoulders and axial tapers／nearest owners／wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 589-preset flatflexcables、擷取畫面／512 base-color detail，見交錯琥珀薄排線、六條 dielectric 淺線與單端六銀色接點。實際 factor 1／height true／metallic B min 0 max 255 partial true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 flatflexcables 並重算既有 588 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6657 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

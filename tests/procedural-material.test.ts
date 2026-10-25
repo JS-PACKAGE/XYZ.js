@@ -626,7 +626,169 @@ const kinds: ProceduralMaterialKind[] = [
   'peppermintcanes',
   'rubbergrommets',
   'chioggiabeetcuts',
+  'flatflexcables',
 ];
+
+describe('Flat flex cables with insulated traces and six exposed contacts at only one end', () => {
+  const p = proceduralMaterialPresets.flatflexcables;
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const sign = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - sign * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + sign * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six lower metal contact fingers at one end while the opposite end, buried traces and gaps remain dielectric for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('flatflexcables', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(col, row, x, y), out);
+          for (let i = 0; i < p.contacts; i++) {
+            const x = (i - (p.contacts - 1) / 2) * p.pitch;
+            at(x, p.contactY);
+            const contactHeight = out.height;
+            expect(out.metallic).toBe(1);
+            expect(out.color).toBeGreaterThan(0.91);
+            expect(contactHeight).toBeGreaterThan(0.002319);
+            expect(contactHeight).toBeLessThan(0.002337);
+            expect(out.roughness).toBeGreaterThanOrEqual(0.23);
+            expect(out.roughness).toBeLessThanOrEqual(0.25);
+            expect(out.occlusion).toBeCloseTo(0.99, 12);
+            for (const y of [-p.contactY, 0.18, 0.38]) {
+              at(x, y);
+              expect(out.metallic).toBe(0);
+              expect(out.height - contactHeight).toBeGreaterThan(0.00022);
+              expect(out.mortar).toBe(0);
+            }
+            at(x, -0.12);
+            const traceHeight = out.height,
+              traceColor = out.color;
+            expect(out.metallic).toBe(0);
+            at(x + 0.03, -0.12);
+            expect(out.metallic).toBe(0);
+            expect(traceHeight - out.height).toBeGreaterThan(0.000035);
+            expect(traceColor - out.color).toBeGreaterThan(0.03);
+          }
+          for (let i = 0; i < p.contacts - 1; i++) {
+            at((i - (p.contacts - 2) / 2) * p.pitch, p.contactY);
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBeGreaterThan(0.00255);
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 2048; i++) {
+            at(-0.21 + (0.42 * i) / 2048, p.contactY);
+            const metal = out.metallic > 0.9;
+            if (metal && !previous) runs++;
+            previous = metal;
+          }
+          expect(runs).toBe(6);
+          at(0.27, 0);
+          expect(out.height).toBeLessThan(0.000201);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(1);
+        }
+    },
+  );
+  it('keeps rounded insulation, six contact caps, buried trace tapers, nearest-contact owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('flatflexcables', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const radius of [p.radius, p.core])
+            for (let i = 0; i < 32; i++) {
+              const angle = (i * Math.PI) / 16,
+                x = Math.cos(angle),
+                y = Math.sin(angle);
+              check(
+                ...uv(
+                  col,
+                  row,
+                  Math.sign(x) * p.straightX + radius * x,
+                  Math.sign(y) * p.straightY + radius * y,
+                ),
+              );
+            }
+          for (let contact = 0; contact < p.contacts; contact++) {
+            const x = (contact - (p.contacts - 1) / 2) * p.pitch;
+            for (const radius of [p.contactRadius, p.contactCore])
+              for (let i = 0; i < 32; i++) {
+                const angle = (i * Math.PI) / 16,
+                  c = Math.cos(angle),
+                  s = Math.sin(angle);
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    x + radius * c,
+                    p.contactY + Math.sign(s) * p.contactStraight + radius * s,
+                  ),
+                );
+              }
+            for (const y of [
+              p.traceStart,
+              p.traceStart + p.traceShoulder,
+              p.traceEnd - p.traceShoulder,
+              p.traceEnd,
+              -0.12,
+              p.contactY,
+            ])
+              for (const dx of [
+                -p.pitch / 2,
+                -p.traceRadius,
+                0,
+                p.traceRadius,
+                p.pitch / 2,
+              ])
+                check(...uv(col, row, x + dx, y));
+          }
+        }
+    }
+  });
+});
 
 describe('Filled Chioggia beet cuts with six flush red pigment rings and pale cores', () => {
   const p = proceduralMaterialPresets.chioggiabeetcuts;
@@ -28490,6 +28652,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'ballbearingfaces' &&
           kind !== 'slottedturners' &&
           kind !== 'dualinlinechips' &&
+          kind !== 'flatflexcables' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -28512,6 +28675,7 @@ describe('periodic procedural material fields', () => {
         kind === 'ceramiccapacitors' ||
         kind === 'ballbearingfaces' ||
         kind === 'dualinlinechips' ||
+        kind === 'flatflexcables' ||
         kind === 'slottedturners'
       ) {
         expect(Math.min(...metallic)).toBeLessThan(40);
@@ -37916,6 +38080,7 @@ describe('procedural preset acquisition and ownership', () => {
     'ballbearingfaces',
     'slottedturners',
     'dualinlinechips',
+    'flatflexcables',
     'standingseam',
     'damascus',
     'castiron',
@@ -37976,6 +38141,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'ballbearingfaces' ||
           kind === 'slottedturners' ||
           kind === 'dualinlinechips' ||
+          kind === 'flatflexcables' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

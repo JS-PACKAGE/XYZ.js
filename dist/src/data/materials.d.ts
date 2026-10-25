@@ -5480,6 +5480,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         ringHalfWidth: 0.018;
         ringCore: 0.0135;
     }>;
+    flatflexcables: Readonly<{
+        dark: readonly [104, 57, 12];
+        light: readonly [235, 238, 220];
+        roughness: 0.54;
+        relief: 0.008;
+        cells: 4;
+        straightX: 0.22;
+        straightY: 0.38;
+        radius: 0.02;
+        core: 0.012;
+        contacts: 6;
+        pitch: 0.07;
+        contactY: 0.29;
+        contactStraight: 0.065;
+        contactRadius: 0.017;
+        contactCore: 0.012;
+        traceRadius: 0.011;
+        traceStart: -0.34;
+        traceEnd: 0.185;
+        traceShoulder: 0.035;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6071,4 +6092,5 @@ export declare const proceduralTileMeters: Readonly<{
     peppermintcanes: 0.32;
     rubbergrommets: 0.16;
     chioggiabeetcuts: 0.24;
+    flatflexcables: 0.24;
 }>;
