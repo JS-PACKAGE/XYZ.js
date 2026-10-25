@@ -6274,6 +6274,26 @@ export const proceduralMaterialPresets = Object.freeze({
     veinThreshold: 0.7,
     veinShoulder: 0.2,
   }),
+  coaxialcablecuts: Object.freeze({
+    dark: [14, 15, 16] as const,
+    light: [240, 239, 229] as const,
+    roughness: 0.85,
+    relief: 0.003,
+    cells: 4,
+    jitter: 0.015,
+    scale: 0.94,
+    scaleVariation: 0.04,
+    outerRadius: 0.33,
+    fullRadius: 0.318,
+    dielectricRadius: 0.225,
+    dielectricFull: 0.217,
+    conductorRadius: 0.075,
+    conductorFull: 0.065,
+    strands: 40,
+    shieldRadius: 0.25,
+    strandRadius: 0.017,
+    strandFull: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6897,4 +6917,5 @@ export const proceduralTileMeters = Object.freeze({
   lepidolitemica: 0.2,
   brassjinglebells: 0.16,
   nutmeghalves: 0.12,
+  coaxialcablecuts: 0.12,
 });

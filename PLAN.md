@@ -779,6 +779,8 @@
 
 同輪追加 `nutmeghalves`（肉豆蔻切面），目錄618→619種：低粗深外皮圍住近平淺棕果仁切面、扭曲深紋僅改pigment、不變成凸凹脈溝。0.12 m opaque dielectric tile、metallic0，沿 neutral opaque backing／四圖／選用height／ownership；風格化種子切面，不新增geometry、透明／transmission、食物／植物／烹煮或物理模擬；依功能驗證提交、不push。
 
+同輪追加 `coaxialcablecuts`（同軸電纜切面），目錄619→620種：同平面銀色中央導體／淡色介電層／四十個isolated屏蔽線截面／黑外皮；導體與屏蔽線metallic1、介電層／外皮／neutral opaque外背metallic0、預設factor1。0.12 m opaque mixed-metal tile，沿四圖／選用height／ownership；不新增geometry、透明／transmission、真實線束、接頭、電／電磁／RF模擬、規格／安全認證；依功能驗證提交、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

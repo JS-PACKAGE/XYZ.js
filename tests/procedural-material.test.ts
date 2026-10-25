@@ -660,7 +660,226 @@ const kinds: ProceduralMaterialKind[] = [
   'lepidolitemica',
   'brassjinglebells',
   'nutmeghalves',
+  'coaxialcablecuts',
 ];
+
+describe('Coplanar coaxial cable cuts with silver conductor forty shield strands pale dielectric and black jacket', () => {
+  const p = proceduralMaterialPresets.coaxialcablecuts;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15615),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1561b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15617) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15619) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a flat metal conductor pale dielectric forty isolated metal shield sections and dark insulating jacket for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('coaxialcablecuts', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const plane = out.height,
+            metalColor = out.color,
+            metalRough = out.roughness;
+          expect(out.metallic).toBe(1);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBe(1);
+          expect(plane).toBeGreaterThan(0.0011999);
+          expect(plane).toBeLessThan(0.0012061);
+          for (let k = 0; k < p.strands; k++) {
+            const a = (k * 2 * Math.PI) / p.strands,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            at(0.15 * c, 0.15 * s);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBe(1);
+            expect(out.color - metalColor).toBeGreaterThan(0.1299);
+            expect(out.roughness - metalRough).toBeGreaterThan(0.3699);
+            expect(Math.abs(out.height - plane)).toBeLessThan(0.0000061);
+            at(p.shieldRadius * c, p.shieldRadius * s);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBe(1);
+            expect(Math.abs(out.height - plane)).toBeLessThan(0.0000061);
+            expect(out.color).toBeGreaterThanOrEqual(0.67);
+            expect(out.color).toBeLessThan(0.7901);
+            const b = ((k + 0.5) * 2 * Math.PI) / p.strands;
+            at(p.shieldRadius * Math.cos(b), p.shieldRadius * Math.sin(b));
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBe(1);
+            expect(out.color).toBeLessThan(0.0801);
+            expect(Math.abs(out.height - plane)).toBeLessThan(0.0000061);
+            at(0.3 * c, 0.3 * s);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            expect(out.occlusion).toBe(1);
+            expect(out.color).toBeGreaterThanOrEqual(0.045);
+            expect(out.color).toBeLessThan(0.0801);
+            expect(out.roughness - metalRough).toBeGreaterThan(0.5699);
+            expect(Math.abs(out.height - plane)).toBeLessThan(0.0000061);
+          }
+          let runs = 0,
+            previous = false;
+          for (let j = 0; j <= 8192; j++) {
+            const a = (j / 8192 + 0.5 / p.strands) * 2 * Math.PI;
+            at(p.shieldRadius * Math.cos(a), p.shieldRadius * Math.sin(a));
+            const metal = out.metallic > 0.5;
+            if (metal && !previous) runs++;
+            previous = metal;
+            expect(out.mortar).toBe(0);
+          }
+          expect(runs).toBe(40);
+          runs = 0;
+          previous = false;
+          for (let j = 0; j <= 2048; j++) {
+            at(-0.4 + (j * 0.8) / 2048, 0);
+            const body = out.mortar < 0.5;
+            if (body && !previous) runs++;
+            previous = body;
+          }
+          expect(runs).toBe(1);
+          at(0.4, 0);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(1);
+          expect(out.occlusion).toBeCloseTo(0.3, 12);
+          expect(out.height).toBeLessThan(0.0000751);
+        }
+    },
+  );
+  it('keeps actual512 central conductor and all forty isolated shield centers metallic and dielectric jacket gaps nonmetallic', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('coaxialcablecuts', 512, seed),
+        metal = (col: number, row: number, x: number, y: number) => {
+          const [u, v] = uv(seed, col, row, x, y);
+          return maps.metallicRoughness[
+            (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4 + 2
+          ];
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          expect(metal(col, row, 0, 0)).toBe(255);
+          expect(metal(col, row, 0.15, 0)).toBe(0);
+          expect(metal(col, row, 0.3, 0)).toBe(0);
+          expect(metal(col, row, 0.4, 0)).toBe(0);
+          for (let k = 0; k < p.strands; k++) {
+            const a = (k * 2 * Math.PI) / p.strands,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            expect(
+              metal(col, row, p.shieldRadius * c, p.shieldRadius * s),
+            ).toBe(255);
+            expect(metal(col, row, 0.285 * c, 0.285 * s)).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps exact disc dielectric conductor and shield shoulders radial guards angular owners atan2 branch cut seed owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('coaxialcablecuts', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j < 128; j++) {
+            const a = (j * Math.PI) / 64;
+            for (const r of [
+              0,
+              p.outerRadius,
+              p.fullRadius,
+              p.dielectricRadius,
+              p.dielectricFull,
+              p.conductorRadius,
+              p.conductorFull,
+              p.shieldRadius - p.strandRadius,
+              p.shieldRadius + p.strandRadius,
+            ])
+              check(...uv(seed, col, row, r * Math.cos(a), r * Math.sin(a)));
+          }
+          for (let k = 0; k < p.strands; k++) {
+            const a = (k * 2 * Math.PI) / p.strands,
+              x = p.shieldRadius * Math.cos(a),
+              y = p.shieldRadius * Math.sin(a);
+            for (let j = 0; j < 32; j++) {
+              const a = (j * Math.PI) / 16;
+              for (const r of [p.strandRadius, p.strandFull])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x + r * Math.cos(a),
+                    y + r * Math.sin(a),
+                  ),
+                );
+            }
+            const owner = ((k + 0.5) * 2 * Math.PI) / p.strands;
+            for (let j = 0; j <= 32; j++) {
+              const r = (j * 0.4) / 32;
+              check(
+                ...uv(seed, col, row, r * Math.cos(owner), r * Math.sin(owner)),
+              );
+            }
+          }
+          for (let j = 0; j <= 64; j++)
+            check(...uv(seed, col, row, (-j * 0.4) / 64, 0));
+        }
+    }
+  });
+});
 
 describe('Oval nutmeg cut faces with dark rind and coplanar twisted dark marbling', () => {
   const p = proceduralMaterialPresets.nutmeghalves;
@@ -34447,6 +34666,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'balloonwhisks' &&
           kind !== 'toroidalinductors' &&
           kind !== 'brassjinglebells' &&
+          kind !== 'coaxialcablecuts' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -43857,6 +44077,7 @@ describe('procedural preset acquisition and ownership', () => {
     'balloonwhisks',
     'toroidalinductors',
     'brassjinglebells',
+    'coaxialcablecuts',
     'standingseam',
     'damascus',
     'castiron',
@@ -43927,6 +44148,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'balloonwhisks' ||
           kind === 'toroidalinductors' ||
           kind === 'brassjinglebells' ||
+          kind === 'coaxialcablecuts' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

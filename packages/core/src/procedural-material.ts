@@ -634,7 +634,8 @@ export type ProceduralMaterialKind =
   | 'pennerigate'
   | 'lepidolitemica'
   | 'brassjinglebells'
-  | 'nutmeghalves';
+  | 'nutmeghalves'
+  | 'coaxialcablecuts';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1503,6 +1504,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lepidolitemica',
   'brassjinglebells',
   'nutmeghalves',
+  'coaxialcablecuts',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1716,6 +1718,7 @@ export class ProceduralMaterial {
         this.kind === 'balloonwhisks' ||
         this.kind === 'toroidalinductors' ||
         this.kind === 'brassjinglebells' ||
+        this.kind === 'coaxialcablecuts' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

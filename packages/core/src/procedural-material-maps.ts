@@ -1441,6 +1441,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'coaxialcablecuts': {
+        const p = proceduralMaterialPresets.coaxialcablecuts,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          centers = new Float64Array(p.strands * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x15611),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseBody = 1 / (outerSquared - p.fullRadius * p.fullRadius),
+          dielectricSquared = p.dielectricRadius * p.dielectricRadius,
+          inverseDielectric =
+            1 / (dielectricSquared - p.dielectricFull * p.dielectricFull),
+          conductorSquared = p.conductorRadius * p.conductorRadius,
+          inverseConductor =
+            1 / (conductorSquared - p.conductorFull * p.conductorFull),
+          strandSquared = p.strandRadius * p.strandRadius,
+          inverseStrand = 1 / (strandSquared - p.strandFull * p.strandFull),
+          guardMin = (p.shieldRadius - p.strandRadius) ** 2,
+          guardMax = (p.shieldRadius + p.strandRadius) ** 2,
+          ownerScale = p.strands / TAU;
+        for (let k = 0; k < p.strands; k++) {
+          const a = (k * TAU) / p.strands;
+          centers[k * 2] = p.shieldRadius * Math.cos(a);
+          centers[k * 2 + 1] = p.shieldRadius * Math.sin(a);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x15615);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15617) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15619) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1561b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1561d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y,
+            body = smooth(clamp((outerSquared - q) * inverseBody));
+          mortar = 1 - body;
+          metallic = 0;
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          let strand = 0;
+          if (q > guardMin && q < guardMax) {
+            const k =
+                (((Math.floor(Math.atan2(y, x) * ownerScale + 0.5) %
+                  p.strands) +
+                  p.strands) %
+                  p.strands) *
+                2,
+              sx = x - centers[k],
+              sy = y - centers[k + 1];
+            strand = smooth(
+              clamp((strandSquared - sx * sx - sy * sy) * inverseStrand),
+            );
+          }
+          const conductor = smooth(
+              clamp((conductorSquared - q) * inverseConductor),
+            ),
+            metal = 1 - (1 - conductor) * (1 - strand),
+            grain = grainField(u, v);
+          let c = 0,
+            r = 0;
+          if (metal < 1) {
+            const dielectric = smooth(
+              clamp((dielectricSquared - q) * inverseDielectric),
+            );
+            c = 0.045 + 0.025 * poses[i + 5] + 0.01 * grain;
+            r = p.roughness + 0.02 * grain;
+            c += dielectric * (0.92 + 0.025 * grain - c);
+            r += dielectric * (0.65 + 0.02 * grain - r);
+          }
+          if (metal > 0) {
+            c += metal * (0.67 + 0.1 * poses[i + 5] + 0.02 * grain - c);
+            r += metal * (0.26 + 0.02 * grain - r);
+          }
+          metallic = body * metal;
+          color += body * (c - color);
+          height += body * (0.4 + 0.002 * grain - height);
+          roughness += body * (r - roughness);
+          occlusion += body * (1 - occlusion);
+        };
+      }
       case 'nutmeghalves': {
         const p = proceduralMaterialPresets.nutmeghalves,
           poses = new Float64Array(p.cells * p.cells * 8),
@@ -25930,6 +26023,7 @@ export function createSurfaceSampler(
     kind === 'lepidolitemica' ||
     kind === 'brassjinglebells' ||
     kind === 'nutmeghalves' ||
+    kind === 'coaxialcablecuts' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

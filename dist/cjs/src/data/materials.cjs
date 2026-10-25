@@ -11556,6 +11556,34 @@ var proceduralMaterialPresets = Object.freeze({
 		warp: 1.8,
 		veinThreshold: .7,
 		veinShoulder: .2
+	}),
+	coaxialcablecuts: Object.freeze({
+		dark: [
+			14,
+			15,
+			16
+		],
+		light: [
+			240,
+			239,
+			229
+		],
+		roughness: .85,
+		relief: .003,
+		cells: 4,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04,
+		outerRadius: .33,
+		fullRadius: .318,
+		dielectricRadius: .225,
+		dielectricFull: .217,
+		conductorRadius: .075,
+		conductorFull: .065,
+		strands: 40,
+		shieldRadius: .25,
+		strandRadius: .017,
+		strandFull: .012
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -12177,7 +12205,8 @@ var proceduralTileMeters = Object.freeze({
 	pennerigate: .16,
 	lepidolitemica: .2,
 	brassjinglebells: .16,
-	nutmeghalves: .12
+	nutmeghalves: .12,
+	coaxialcablecuts: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
