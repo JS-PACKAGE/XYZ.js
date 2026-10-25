@@ -1441,6 +1441,148 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'compactcassettefaces': {
+        const p = proceduralMaterialPresets.compactcassettefaces,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          axes = new Float64Array(p.spokes * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x17411),
+          bodySquared = p.bodyRadius * p.bodyRadius,
+          inverseBody = 1 / (bodySquared - p.bodyCore * p.bodyCore),
+          windowSquared = p.windowRadius * p.windowRadius,
+          inverseWindow = 1 / (windowSquared - p.windowCore * p.windowCore),
+          reelSquared = p.reelRadius * p.reelRadius,
+          inverseReel = 1 / (reelSquared - p.reelCore * p.reelCore),
+          innerSquared = p.reelInner * p.reelInner,
+          inverseInner = 1 / (innerSquared - p.reelInnerCore * p.reelInnerCore),
+          spokeSquared = p.spokeRadius * p.spokeRadius,
+          inverseSpoke = 1 / (spokeSquared - p.spokeCore * p.spokeCore),
+          minimumSpokeSquared = (p.spokeStart - p.spokeRadius) ** 2,
+          maximumSpokeSquared = (p.spokeEnd + p.spokeRadius) ** 2,
+          inverseAngle = p.spokes / TAU,
+          labelSquared = p.labelRadius * p.labelRadius,
+          inverseLabel = 1 / (labelSquared - p.labelCore * p.labelCore),
+          guideSquared = p.guideRadius * p.guideRadius,
+          inverseGuide = 1 / (guideSquared - p.guideCore * p.guideCore),
+          inverseSlot = 1 / p.slotEdge,
+          inverseTape = 1 / p.tapeEdge;
+        for (let spoke = 0; spoke < p.spokes; spoke++) {
+          const a = (TAU * spoke) / p.spokes;
+          axes[spoke * 2] = Math.cos(a);
+          axes[spoke * 2 + 1] = Math.sin(a);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x17415);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x17417) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x17419) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1741b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1741d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            grain = grainField(u, v);
+          color = 0.04 + 0.015 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (
+            Math.abs(x) > p.bodyStraightX + p.bodyRadius ||
+            Math.abs(y) > p.bodyStraightY + p.bodyRadius
+          )
+            return;
+          const bx = Math.max(0, Math.abs(x) - p.bodyStraightX),
+            by = Math.max(0, Math.abs(y) - p.bodyStraightY),
+            outer = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            ),
+            rx = Math.abs(x) - p.reelOffset,
+            q = rx * rx + y * y,
+            window = smooth(clamp((windowSquared - q) * inverseWindow)),
+            hy = y - p.headY,
+            head =
+              smooth(clamp((p.headHalfX - Math.abs(x)) * inverseSlot)) *
+              smooth(clamp((p.headHalfY - Math.abs(hy)) * inverseSlot)),
+            gx = Math.abs(x) - p.guideOffset,
+            guide = smooth(
+              clamp((guideSquared - gx * gx - hy * hy) * inverseGuide),
+            ),
+            body = outer * (1 - window) * (1 - head) * (1 - guide),
+            lx = Math.max(0, Math.abs(x) - p.labelStraightX),
+            ly = Math.max(0, Math.abs(y - p.labelY) - p.labelStraightY),
+            label = smooth(
+              clamp((labelSquared - lx * lx - ly * ly) * inverseLabel),
+            ),
+            tape =
+              smooth(clamp((p.tapeHalfX - Math.abs(x)) * inverseTape)) *
+              smooth(clamp((p.tapeHalfY - Math.abs(hy)) * inverseTape));
+          let reel = 0;
+          if (q < reelSquared) {
+            const ring =
+              smooth(clamp((reelSquared - q) * inverseReel)) *
+              (1 - smooth(clamp((innerSquared - q) * inverseInner)));
+            let spoke = 0;
+            if (
+              ring !== 1 &&
+              q > minimumSpokeSquared &&
+              q < maximumSpokeSquared
+            ) {
+              let owner = Math.floor(Math.atan2(y, rx) * inverseAngle + 0.5);
+              if (owner < 0) owner += p.spokes;
+              const ax = axes[owner * 2],
+                ay = axes[owner * 2 + 1],
+                projection = Math.max(
+                  p.spokeStart,
+                  Math.min(p.spokeEnd, rx * ax + y * ay),
+                ),
+                sx = rx - ax * projection,
+                sy = y - ay * projection;
+              spoke = smooth(
+                clamp((spokeSquared - sx * sx - sy * sy) * inverseSpoke),
+              );
+            }
+            reel = 1 - (1 - ring) * (1 - spoke);
+          }
+          mortar = (1 - body) * (1 - reel) * (1 - label) * (1 - tape);
+          if (mortar === 1) return;
+          const tone = poses[i + 5];
+          if (body !== 0 && label !== 1) {
+            color += body * (0.06 + 0.02 * tone + 0.02 * grain - color);
+            height += body * (0.6 + 0.004 * grain - height);
+            roughness += body * (p.roughness + 0.03 * grain - roughness);
+            occlusion += body * (0.99 - occlusion);
+          }
+          if (reel !== 0) {
+            color += reel * (0.68 + 0.05 * tone + 0.025 * grain - color);
+            height += reel * (0.44 + 0.003 * grain - height);
+            roughness += reel * (0.5 + 0.03 * grain - roughness);
+            occlusion += reel * (0.98 - occlusion);
+          }
+          if (tape !== 0) {
+            color += tape * (0.25 + 0.03 * grain - color);
+            height += tape * (0.25 + 0.003 * grain - height);
+            roughness += tape * (0.68 + 0.025 * grain - roughness);
+            occlusion += tape * (0.98 - occlusion);
+          }
+          if (label !== 0) {
+            color += label * (0.94 + 0.025 * grain - color);
+            height += label * (0.64 + 0.003 * grain - height);
+            roughness += label * (0.88 + 0.025 * grain - roughness);
+            occlusion += label * (0.99 - occlusion);
+          }
+        };
+      }
       case 'cinnamonbarkcoils': {
         const p = proceduralMaterialPresets.cinnamonbarkcoils,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28415,6 +28557,7 @@ export function createSurfaceSampler(
     kind === 'tailorstapes' ||
     kind === 'woodenclothespins' ||
     kind === 'cinnamonbarkcoils' ||
+    kind === 'compactcassettefaces' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

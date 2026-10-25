@@ -12437,6 +12437,55 @@ var proceduralMaterialPresets = Object.freeze({
 		jitter: .015,
 		scale: .94,
 		scaleVariation: .04
+	}),
+	compactcassettefaces: Object.freeze({
+		dark: [
+			12,
+			12,
+			10
+		],
+		light: [
+			246,
+			230,
+			197
+		],
+		roughness: .58,
+		relief: .004,
+		cells: 3,
+		bodyStraightX: .325,
+		bodyStraightY: .195,
+		bodyRadius: .035,
+		bodyCore: .027,
+		reelOffset: .14,
+		windowRadius: .105,
+		windowCore: .099,
+		reelRadius: .095,
+		reelCore: .089,
+		reelInner: .057,
+		reelInnerCore: .05,
+		spokes: 6,
+		spokeStart: .034,
+		spokeEnd: .075,
+		spokeRadius: .009,
+		spokeCore: .006,
+		labelY: -.16,
+		labelStraightX: .25,
+		labelStraightY: .02,
+		labelRadius: .02,
+		labelCore: .014,
+		headY: .17,
+		headHalfX: .055,
+		headHalfY: .035,
+		guideOffset: .16,
+		guideRadius: .025,
+		guideCore: .019,
+		slotEdge: .006,
+		tapeHalfX: .045,
+		tapeHalfY: .006,
+		tapeEdge: .002,
+		jitter: .015,
+		scale: .94,
+		scaleVariation: .04
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -13088,7 +13137,8 @@ var proceduralTileMeters = Object.freeze({
 	weavingshuttles: .6,
 	tailorstapes: .1,
 	woodenclothespins: .6,
-	cinnamonbarkcoils: .09
+	cinnamonbarkcoils: .09,
+	compactcassettefaces: .45
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

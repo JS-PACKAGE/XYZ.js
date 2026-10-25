@@ -690,7 +690,329 @@ const kinds: ProceduralMaterialKind[] = [
   'tailorstapes',
   'woodenclothespins',
   'cinnamonbarkcoils',
+  'compactcassettefaces',
 ];
+
+describe('Compact cassette faces with two lower hollow six-spoke reels a raised blank cream title label three lower access openings and a visible magnetic ribbon', () => {
+  const p = proceduralMaterialPresets.compactcassettefaces;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x17415),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1741b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17417) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x17419) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a continuous dark cassette shell and raised blank paper label around two lower six-spoke hollow plastic reels and three real lower openings crossed by a visible lower ribbon for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('compactcassettefaces', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            body = at(0.3, 0);
+          for (let j = 0; j <= 1024; j++) {
+            const t = j / 1024;
+            for (const [x, y] of [
+              [-0.3 + 0.6 * t, -0.21],
+              [-0.3 + 0.6 * t, 0.21],
+              [-0.3, -0.21 + 0.42 * t],
+              [0.3, -0.21 + 0.42 * t],
+            ]) {
+              const shell = at(x, y);
+              expect(shell.height).toBeGreaterThan(0.0023999);
+              expect(shell.height).toBeLessThan(0.0024161);
+              expect(shell.color).toBeLessThanOrEqual(0.1001);
+              expect(shell.occlusion).toBeCloseTo(0.99, 12);
+              expect(shell.mortar).toBe(0);
+              expect(shell.metallic).toBe(0);
+            }
+            const label = at(-0.23 + 0.46 * t, p.labelY);
+            expect(label.height).toBeGreaterThan(0.0025599);
+            expect(label.height).toBeLessThan(0.0025721);
+            expect(label.height - body.height).toBeGreaterThan(0.0001439);
+            expect(label.color - body.color).toBeGreaterThan(0.8399);
+            expect(label.roughness - body.roughness).toBeGreaterThan(0.2699);
+            expect(label.mortar).toBe(0);
+            expect(label.metallic).toBe(0);
+          }
+          for (const sign of [-1, 1]) {
+            const cx = sign * p.reelOffset,
+              center = at(cx, 0);
+            expect(center.height).toBeGreaterThan(0.0000999);
+            expect(center.height).toBeLessThan(0.0001081);
+            expect(center.occlusion).toBeCloseTo(0.3, 12);
+            expect(center.mortar).toBe(1);
+            for (let j = 0; j <= 1024; j++) {
+              const a = (2 * Math.PI * j) / 1024,
+                ring = at(cx + 0.07 * Math.cos(a), 0.07 * Math.sin(a));
+              expect(ring.height).toBeGreaterThan(0.0017599);
+              expect(ring.height).toBeLessThan(0.0017721);
+              expect(body.height - ring.height).toBeGreaterThan(0.0006279);
+              expect(ring.occlusion).toBeCloseTo(0.98, 12);
+              expect(ring.mortar).toBe(0);
+              expect(ring.metallic).toBe(0);
+            }
+            for (let spoke = 0; spoke < 6; spoke++) {
+              const a = (2 * Math.PI * spoke) / 6;
+              for (let j = 0; j <= 128; j++) {
+                const r =
+                    p.spokeStart + ((p.spokeEnd - p.spokeStart) * j) / 128,
+                  beam = at(cx + r * Math.cos(a), r * Math.sin(a));
+                expect(beam.height).toBeGreaterThan(0.0017599);
+                expect(beam.height).toBeLessThan(0.0017721);
+                expect(beam.occlusion).toBeCloseTo(0.98, 12);
+                expect(beam.mortar).toBe(0);
+                expect(beam.metallic).toBe(0);
+              }
+              const gap = at(
+                cx + 0.04 * Math.cos(a + Math.PI / 6),
+                0.04 * Math.sin(a + Math.PI / 6),
+              );
+              expect(gap.mortar).toBe(1);
+              expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            }
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              const a = Math.PI / 6 + (2 * Math.PI * j) / 8192,
+                solid =
+                  at(cx + 0.04 * Math.cos(a), 0.04 * Math.sin(a)).mortar < 0.5;
+              if (solid && !inside) runs++;
+              inside = solid;
+            }
+            expect(runs).toBe(6);
+          }
+          for (const [x, y] of [
+            [-p.guideOffset, p.headY],
+            [p.guideOffset, p.headY],
+            [0, p.headY - 0.021],
+            [0, p.headY + 0.021],
+          ]) {
+            const gap = at(x, y);
+            expect(gap.mortar).toBe(1);
+            expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            expect(gap.metallic).toBe(0);
+          }
+          for (let j = 0; j <= 512; j++) {
+            const tape = at(-0.04 + (0.08 * j) / 512, p.headY);
+            expect(tape.height).toBeGreaterThan(0.0009999);
+            expect(tape.height).toBeLessThan(0.0010121);
+            expect(tape.color - body.color).toBeGreaterThan(0.1499);
+            expect(tape.roughness - body.roughness).toBeGreaterThan(0.0699);
+            expect(tape.occlusion).toBeCloseTo(0.98, 12);
+            expect(tape.mortar).toBe(0);
+            expect(tape.metallic).toBe(0);
+          }
+          let ports = 0,
+            inGap = false;
+          for (let j = 0; j <= 8192; j++) {
+            const open =
+              at(-0.25 + (0.5 * j) / 8192, p.headY - 0.021).mortar > 0.5;
+            if (open && !inGap) ports++;
+            inGap = open;
+          }
+          expect(ports).toBe(3);
+        }
+    },
+  );
+  it('keeps actual512 two six-spoke dielectric reels and open hubs around dark shell with a brighter rougher paper label and three lower access holes containing a darker opaque magnetic strip', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('compactcassettefaces', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            body = index(0.3, 0),
+            label = index(0, p.labelY),
+            tape = index(0, p.headY),
+            head = index(0, p.headY - 0.021);
+          expect(maps.baseColor[label] - maps.baseColor[body]).toBeGreaterThan(
+            190,
+          );
+          expect(
+            maps.metallicRoughness[label + 1] -
+              maps.metallicRoughness[body + 1],
+          ).toBeGreaterThan(65);
+          expect(maps.baseColor[head] - maps.baseColor[tape]).toBeGreaterThan(
+            65,
+          );
+          expect(maps.occlusion[tape] - maps.occlusion[head]).toBeGreaterThan(
+            165,
+          );
+          for (const k of [body, label, tape, head])
+            expect(maps.metallicRoughness[k + 2]).toBe(0);
+          for (const sign of [-1, 1]) {
+            const cx = sign * p.reelOffset,
+              hub = index(cx, 0),
+              guide = index(sign * p.guideOffset, p.headY);
+            expect(maps.occlusion[hub]).toBeLessThan(80);
+            expect(maps.occlusion[guide]).toBeLessThan(80);
+            for (let spoke = 0; spoke < 6; spoke++) {
+              const a = (2 * Math.PI * spoke) / 6,
+                beam = index(cx + 0.04 * Math.cos(a), 0.04 * Math.sin(a)),
+                ring = index(cx + 0.07 * Math.cos(a), 0.07 * Math.sin(a)),
+                gap = index(
+                  cx + 0.04 * Math.cos(a + Math.PI / 6),
+                  0.04 * Math.sin(a + Math.PI / 6),
+                );
+              for (const k of [beam, ring]) {
+                expect(
+                  maps.baseColor[k] - maps.baseColor[body],
+                ).toBeGreaterThan(130);
+                expect(maps.occlusion[k] - maps.occlusion[hub]).toBeGreaterThan(
+                  165,
+                );
+                expect(maps.metallicRoughness[k + 2]).toBe(0);
+              }
+              expect(maps.occlusion[gap]).toBeLessThan(80);
+              expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            }
+          }
+        }
+    }
+  });
+  it('keeps bodylabel roundedrectangles dualwindow nearestownership annularreel profiles six angularspokes projectionjoins guideholes headport/ribbon shoulders poseowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('compactcassettefaces', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              ang = 2 * Math.PI * t,
+              c = Math.cos(ang),
+              s = Math.sin(ang);
+            for (const [sx, sy, r, cy] of [
+              [p.bodyStraightX, p.bodyStraightY, p.bodyRadius, 0],
+              [p.bodyStraightX, p.bodyStraightY, p.bodyCore, 0],
+              [p.labelStraightX, p.labelStraightY, p.labelRadius, p.labelY],
+              [p.labelStraightX, p.labelStraightY, p.labelCore, p.labelY],
+            ]) {
+              local(
+                (c < 0 ? -sx : sx) + r * c,
+                cy + (s < 0 ? -sy : sy) + r * s,
+              );
+              for (const sign of [-1, 1]) {
+                local(sign * (sx + r), cy - sy + 2 * sy * t);
+                local(-sx + 2 * sx * t, cy + sign * (sy + r));
+              }
+            }
+            for (const sign of [-1, 1]) {
+              const cx = sign * p.reelOffset;
+              for (const r of [
+                p.windowRadius,
+                p.windowCore,
+                p.reelRadius,
+                p.reelCore,
+                p.reelInner,
+                p.reelInnerCore,
+                p.spokeStart - p.spokeRadius,
+                p.spokeEnd + p.spokeRadius,
+              ])
+                local(cx + r * c, r * s);
+              for (const r of [p.guideRadius, p.guideCore])
+                local(sign * p.guideOffset + r * c, p.headY + r * s);
+              for (let spoke = 0; spoke < 6; spoke++) {
+                const a = (2 * Math.PI * spoke) / 6,
+                  ax = Math.cos(a),
+                  ay = Math.sin(a);
+                for (const r of [p.spokeRadius, p.spokeCore]) {
+                  for (const end of [p.spokeStart, p.spokeEnd])
+                    local(cx + end * ax + r * c, end * ay + r * s);
+                  for (const side of [-1, 1]) {
+                    const k = p.spokeStart + (p.spokeEnd - p.spokeStart) * t;
+                    local(cx + k * ax - side * r * ay, k * ay + side * r * ax);
+                  }
+                }
+                const b = a + Math.PI / 6,
+                  r = 0.11 * t;
+                local(cx + r * Math.cos(b), r * Math.sin(b));
+              }
+            }
+            for (const [x, y, e] of [
+              [p.headHalfX, p.headHalfY, p.slotEdge],
+              [p.tapeHalfX, p.tapeHalfY, p.tapeEdge],
+            ])
+              for (const sign of [-1, 1])
+                for (const d of [0, e]) {
+                  local(sign * (x - d), p.headY - y + 2 * y * t);
+                  local(-x + 2 * x * t, p.headY + sign * (y - d));
+                }
+            local(0, -0.23 + 0.46 * t);
+          }
+        }
+    }
+  });
+});
 
 describe('Open cinnamon bark coils with three and a half continuous raised spiral turns lower darker rougher outer bark and true center and inter-turn clearances', () => {
   const p = proceduralMaterialPresets.cinnamonbarkcoils;

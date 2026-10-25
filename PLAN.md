@@ -839,6 +839,8 @@
 
 同輪追加 `cinnamonbarkcoils`（開放肉桂樹皮捲），目錄648→649種：九 seeded rotated 捲端面，三圈半連續高暖棕螺旋、較低暗粗外皮、中央及圈間真低 opaque backing 空隙，非實心 cinnamonswirl pastry 或同心環。0.09 m tile／0.003 m relief、全 M0，四圖與 height 區分切面／外皮／空隙，沿用 Worker／cache／tint／ownership；不新增透明洞、geometry、捲曲／食品物理或植物真實性認證。
 
+同輪追加 `compactcassettefaces`（卡式錄音帶端面），目錄649→650種：九 seeded rotated 黑圓角殼、雙低中空六輻塑膠捲盤、高乳白空白紙標籤、下方中央磁頭孔及兩導孔，磁頭孔內可見較低磁帶，開口露 opaque backing，非 filmstrip perforation 圖或可播放音訊。0.45 m tile／0.004 m relief、全 M0，沿用四圖／height／Worker／cache／tint／ownership；空白標籤是刻意未印字的表面，不新增字型、透明洞、geometry、錄放音／磁性／走帶物理或音訊功能。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
