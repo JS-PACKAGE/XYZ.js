@@ -1441,6 +1441,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'grosgrainribbons': {
+        const p = proceduralMaterialPresets.grosgrainribbons,
+          tones = new Float64Array(p.columns),
+          bodySquared = p.radius * p.radius,
+          inverseBody = 1 / (bodySquared - p.core * p.core),
+          weftSquared = p.weftRadius * p.weftRadius,
+          inverseWeft = 1 / (weftSquared - p.weftCore * p.weftCore),
+          edgeSquared = p.edgeRadius * p.edgeRadius,
+          inverseEdge = 1 / (edgeSquared - p.edgeCore * p.edgeCore),
+          inversePitch = 1 / p.edgePitch,
+          grainField = cachedNoise(96, 256, seed ^ 0x14211);
+        for (let col = 0; col < p.columns; col++)
+          tones[col] = hash(col, 0, seed ^ 0x14213);
+        return () => {
+          const uc = u * p.columns,
+            col = Math.floor(uc),
+            x = Math.abs(fract(uc) - 0.5),
+            body = smooth(clamp((bodySquared - x * x) * inverseBody));
+          color = 0.015;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1 - body;
+          if (body === 0) return;
+          const y = fract(v * p.weftRows) - 0.5,
+            weft = smooth(clamp((weftSquared - y * y) * inverseWeft)),
+            owner = Math.max(
+              0,
+              Math.min(
+                p.edgeCount - 1,
+                Math.round((x - p.edgeFirst) * inversePitch),
+              ),
+            ),
+            distance = x - p.edgeFirst - owner * p.edgePitch,
+            edge = smooth(
+              clamp((edgeSquared - distance * distance) * inverseEdge),
+            ),
+            grain = grainField(u, v);
+          // Finite transverse ribs meet three continuous selvedge wales per side.
+          // All six wale supports lie wholly inside full ribbon coverage.
+          color +=
+            body *
+            (0.28 +
+              0.1 * tones[col] +
+              0.12 * weft +
+              0.025 * grain +
+              0.16 * edge -
+              color);
+          height +=
+            body * (0.3 + 0.08 * weft + 0.003 * grain + 0.12 * edge - height);
+          roughness +=
+            body *
+            (p.roughness -
+              0.04 * weft -
+              0.04 * edge +
+              0.025 * grain -
+              roughness);
+          occlusion += body * (0.97 + 0.02 * weft + 0.01 * edge - occlusion);
+          return;
+        };
+      }
       case 'oatflakes': {
         const p = proceduralMaterialPresets.oatflakes,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -24243,6 +24304,7 @@ export function createSurfaceSampler(
     kind === 'carrotcuts' ||
     kind === 'bluepushpins' ||
     kind === 'oatflakes' ||
+    kind === 'grosgrainribbons' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

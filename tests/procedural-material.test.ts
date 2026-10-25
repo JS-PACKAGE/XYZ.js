@@ -637,7 +637,159 @@ const kinds: ProceduralMaterialKind[] = [
   'bluepushpins',
   'oatflakes',
   'tigerfur',
+  'grosgrainribbons',
 ];
+
+describe('Grosgrain ribbons with transverse ribs and three selvedge wales per edge', () => {
+  const p = proceduralMaterialPresets.grosgrainribbons;
+  const uv = (col: number, x: number, v: number) =>
+    [(col + 0.5 + x) / p.columns, v] as const;
+  it.each([0, 1, 0xffffffff])(
+    'keeps sixty-four cross ribs and six higher longitudinal selvedge wales on each opaque ribbon above neutral gutters for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('grosgrainribbons', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let col = 0; col < p.columns; col++) {
+        const at = (x: number, v: number) => sample(...uv(col, x, v), out);
+        for (let row = 0; row < p.weftRows; row++) {
+          const v = (row + 0.5) / p.weftRows;
+          at(0, v);
+          const crest = out.height,
+            pale = out.color;
+          expect(crest).toBeGreaterThan(0.0003799);
+          expect(crest).toBeLessThan(0.0003831);
+          expect(out.occlusion).toBeCloseTo(0.99, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          at(0, row / p.weftRows);
+          expect(crest - out.height).toBeGreaterThan(0.000076);
+          expect(pale - out.color).toBeGreaterThan(0.09);
+          expect(out.occlusion).toBeCloseTo(0.97, 12);
+          for (const sign of [-1, 1])
+            for (let i = 0; i < p.edgeCount; i++) {
+              const x = sign * (p.edgeFirst + i * p.edgePitch);
+              at(x, v);
+              const edge = out.height,
+                edgeColor = out.color;
+              expect(edge).toBeGreaterThan(0.0004999);
+              expect(edge).toBeLessThan(0.0005031);
+              expect(out.occlusion).toBeCloseTo(1, 12);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+              at(x + sign * 0.012, v);
+              expect(edge - out.height).toBeGreaterThan(0.000116);
+              expect(edgeColor - out.color).toBeGreaterThan(0.13);
+            }
+        }
+        let edgeRuns = 0,
+          previous = false;
+        for (let i = 0; i <= 4096; i++) {
+          at(-0.41 + (i * 0.82) / 4096, 0.5 / p.weftRows);
+          const raised = out.height > 0.00045;
+          if (raised && !previous) edgeRuns++;
+          previous = raised;
+        }
+        expect(edgeRuns).toBe(6);
+        at(0, 4095 / 4096);
+        previous = out.height > 0.00035;
+        let ribRuns = 0;
+        for (let i = 0; i < 4096; i++) {
+          at(0, i / 4096);
+          const rib = out.height > 0.00035;
+          if (rib && !previous) ribRuns++;
+          previous = rib;
+        }
+        expect(ribRuns).toBe(64);
+        for (const x of [-0.48, 0.48])
+          for (const v of [0, 0.5 / p.weftRows, 0.5, 1]) {
+            at(x, v);
+            expect(out.height).toBeLessThan(0.0000251);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.mortar).toBe(1);
+            expect(out.metallic).toBe(0);
+          }
+      }
+    },
+  );
+  it('keeps ribbon edges and gutters, all rib and selvedge shoulders, nearest-wale owners and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('grosgrainribbons', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let col = 0; col < p.columns; col++) {
+        for (const sign of [-1, 1]) {
+          const xs = [sign * p.radius, sign * p.core];
+          for (let i = 0; i < p.edgeCount; i++)
+            for (const offset of [
+              -p.edgeRadius,
+              -p.edgeCore,
+              p.edgeCore,
+              p.edgeRadius,
+            ])
+              xs.push(sign * (p.edgeFirst + i * p.edgePitch + offset));
+          for (let i = 0; i < p.edgeCount - 1; i++)
+            xs.push(sign * (p.edgeFirst + (i + 0.5) * p.edgePitch));
+          for (const x of xs)
+            for (const v of [
+              0,
+              0.25 / p.weftRows,
+              0.5 / p.weftRows,
+              0.75 / p.weftRows,
+              0.5,
+              1,
+            ])
+              check(...uv(col, x, v));
+        }
+        for (let row = 0; row < p.weftRows; row++)
+          for (const offset of [
+            -p.weftRadius,
+            -p.weftCore,
+            p.weftCore,
+            p.weftRadius,
+          ])
+            for (const x of [0, -p.edgeFirst, p.edgeFirst, -p.core, p.core])
+              check(...uv(col, x, (row + 0.5 + offset) / p.weftRows));
+      }
+    }
+  });
+});
 
 describe('Orange tiger fur with connected forked dark stripes and independent directional pile', () => {
   const p = proceduralMaterialPresets.tigerfur;

@@ -7534,3 +7534,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 599-preset tigerfur、擷取畫面與 512 base-color detail，見橙底波紋深主帶與連根尖細分枝。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、photoreal fur 或效能。
 - Fresh Node 新 build 生成 tigerfur 並重算既有 598 種 size 64／seed 7 四圖 SHA256，changed 0（含共用 shortFur 的既有材質）；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6712 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：羅紋織帶（grosgrainribbons）
+
+- 目錄 599→600 種；0.06 m opaque dielectric tile、metallic 0，四藍織帶／64 compact 橫肋／雙側各三道較高連續布邊縱紋／中性 opaque 帶隙，非全面 corduroy 縱絨肋或扭曲 ribbonstreamer。Cached 四 tones／96×256 grain／squared radii／reciprocals，squared-distance body/weft/selvedge covers，布邊支撐全在 full body、nearest-wale owner 交界零支撐。Coherent body replacement 同步 color／height／roughness／AO、帶 owner 與兩 UV wraps C1；空 body 跳過 ribs／wales／grain、採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增 geometry、透明帶隙、打結／布料／物理模擬。
+- Targeted 五項首次通過（3 seeds morphology、exact C1、determinism）：3 seeds ×4 ribbons ×64 rows，橫肋 crest height 0.0003799–0.0003831 m／AO 0.99／metallic 0／backing 0，比低隙高 >0.000076 m／顏料差 >0.09；六布邊 height 0.0004999–0.0005031 m／AO 1，比鄰織面高 >0.000116 m／色差 >0.13。4097-point cross profile 恰六高布邊 runs，4096-point cyclic axial profile 恰64 rib runs；帶隙 backing 1／AO 0.3。129²、exact ribbon/rib/selvedge shoulders／nearest-wale owners／UV wraps C1 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 600-preset grosgrainribbons、擷取畫面與 512 base-color detail，見四條密橫肋藍織帶／雙側多道連續布邊／中性 opaque 帶隙。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
+- Fresh Node 新 build 生成 grosgrainribbons 並重算既有 599 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6717 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
