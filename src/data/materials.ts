@@ -6140,6 +6140,29 @@ export const proceduralMaterialPresets = Object.freeze({
     bandRadius: 0.008,
     bandCore: 0.005,
   }),
+  orthocerasstone: Object.freeze({
+    dark: [12, 14, 16] as const,
+    light: [217, 218, 214] as const,
+    roughness: 0.27,
+    relief: 0.001,
+    cells: 4,
+    jitter: 0.016,
+    scale: 0.92,
+    scaleVariation: 0.04,
+    tipY: -0.37,
+    baseY: 0.35,
+    capStart: 0.27,
+    capRadius: 0.08,
+    halfWidth: 0.12,
+    edgeSlope: 0.07,
+    tipShoulder: 0.0005,
+    septumCount: 8,
+    septumFirst: -0.24,
+    septumPitch: 0.075,
+    septumBend: 0.04,
+    septumRadius: 0.0065,
+    septumCore: 0.0035,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -6756,4 +6779,5 @@ export const proceduralTileMeters = Object.freeze({
   hazelnutshells: 0.1,
   yagasuricloth: 0.24,
   balloonwhisks: 0.8,
+  orthocerasstone: 0.4,
 });

@@ -653,7 +653,256 @@ const kinds: ProceduralMaterialKind[] = [
   'hazelnutshells',
   'yagasuricloth',
   'balloonwhisks',
+  'orthocerasstone',
 ];
+
+describe('Coplanar pointed orthoceras sections with eight curved septa in dark polished stone', () => {
+  const p = proceduralMaterialPresets.orthocerasstone;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x14f15),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14f1b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x14f17) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x14f19) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a pointed narrow apex broad rounded base and eight solid curved chamber septa for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('orthocerasstone', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          for (let septum = 0; septum < p.septumCount; septum++) {
+            const y = p.septumFirst + septum * p.septumPitch;
+            at(0, y);
+            const dark = out.color;
+            expect(dark).toBeGreaterThanOrEqual(0.23);
+            expect(dark).toBeLessThan(0.3901);
+            expect(out.occlusion).toBe(1);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+            at(0, y + 0.02);
+            expect(out.color - dark).toBeGreaterThan(0.3);
+            expect(out.color).toBeGreaterThanOrEqual(0.58);
+            if (septum >= 5)
+              for (const sign of [-1, 1]) {
+                const x = sign * 0.07,
+                  bend = p.septumBend * (x / p.halfWidth) ** 2;
+                at(x, y + bend);
+                const curved = out.color;
+                at(x, y);
+                expect(out.color - curved).toBeGreaterThan(0.3);
+              }
+          }
+          let runs = 0,
+            previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.3 + (i * 0.62) / 4096);
+            const septum = out.color < 0.4;
+            if (septum && !previous) runs++;
+            previous = septum;
+          }
+          expect(runs).toBe(8);
+          const widths: number[] = [];
+          for (const y of [-0.18, 0.18]) {
+            runs = 0;
+            previous = false;
+            let width = 0;
+            for (let i = 0; i <= 4096; i++) {
+              at(-0.15 + (i * 0.3) / 4096, y);
+              const face = out.color > 0.2;
+              if (face && !previous) runs++;
+              if (face) width++;
+              previous = face;
+            }
+            expect(runs).toBe(1);
+            widths.push((width * 0.3) / 4096);
+          }
+          expect(widths[1] - widths[0]).toBeGreaterThan(0.1);
+          runs = 0;
+          previous = false;
+          for (let i = 0; i <= 4096; i++) {
+            at(0, -0.4 + (i * 0.8) / 4096);
+            const face = out.color > 0.15;
+            if (face && !previous) runs++;
+            previous = face;
+          }
+          expect(runs).toBe(1);
+          for (const [x, y] of [
+            [0.15, 0.18],
+            [-0.15, 0.18],
+            [0, -0.39],
+            [0, 0.39],
+          ]) {
+            at(x, y);
+            expect(out.color).toBeLessThan(0.0751);
+            expect(out.occlusion).toBe(1);
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps contrasting chambers septa fossil outlines and dark matrix on one polished plane instead of engraving or raising the fossil', () => {
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('orthocerasstone', seed);
+      let minimum = Infinity,
+        maximum = -Infinity;
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          sample((x + 0.5) / 128, (y + 0.5) / 128, out);
+          minimum = Math.min(minimum, out.height);
+          maximum = Math.max(maximum, out.height);
+          expect(out.occlusion).toBe(1);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.27);
+          expect(out.roughness).toBeLessThanOrEqual(0.29);
+        }
+      expect(minimum).toBeGreaterThanOrEqual(0.00036);
+      expect(maximum).toBeLessThanOrEqual(0.000361);
+      expect(maximum - minimum).toBeLessThan(0.00000101);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let i = 0; i < p.septumCount; i++) {
+            const y = p.septumFirst + i * p.septumPitch;
+            sample(...uv(seed, col, row, 0, y), out);
+            const dark = out.color,
+              height = out.height,
+              rough = out.roughness;
+            sample(...uv(seed, col, row, 0, y + 0.02), out);
+            expect(out.color - dark).toBeGreaterThan(0.3);
+            expect(Math.abs(out.height - height)).toBeLessThan(0.00000101);
+            expect(Math.abs(out.roughness - rough)).toBeLessThan(0.02001);
+          }
+    }
+  });
+  it('keeps pointed cone tips variable-width shoulders rounded basal cap curved septum shoulders owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('orthocerasstone', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const y of [
+            p.tipY - 0.02,
+            p.tipY,
+            p.tipY + 0.01,
+            -0.3,
+            -0.24,
+            -0.18,
+            0,
+            0.18,
+            p.capStart,
+            p.capStart + 0.04,
+            p.baseY,
+            p.baseY + 0.02,
+          ]) {
+            const z = Math.max(0, (y - p.tipY) / (p.baseY - p.tipY)),
+              offset = Math.max(0, (y - p.capStart) / p.capRadius),
+              shape = z * z * Math.max(0, 1 - offset * offset),
+              denominator = p.edgeSlope * z + p.tipShoulder;
+            for (const field of [0, 1]) {
+              if (shape < field * denominator) continue;
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    sign * p.halfWidth * Math.sqrt(shape - field * denominator),
+                    y,
+                  ),
+                );
+            }
+          }
+          for (let i = 0; i <= 32; i++)
+            check(...uv(seed, col, row, -0.15 + (i * 0.3) / 32, p.capStart));
+          for (let i = 0; i < p.septumCount; i++)
+            for (const x of [-0.1, -0.07, -0.03, 0, 0.03, 0.07, 0.1])
+              for (const d of [
+                -p.septumPitch / 2,
+                -p.septumRadius,
+                -p.septumCore,
+                0,
+                p.septumCore,
+                p.septumRadius,
+                p.septumPitch / 2,
+              ])
+                check(
+                  ...uv(
+                    seed,
+                    col,
+                    row,
+                    x,
+                    p.septumFirst +
+                      i * p.septumPitch +
+                      p.septumBend * (x / p.halfWidth) ** 2 +
+                      d,
+                  ),
+                );
+        }
+    }
+  });
+});
 
 describe('Metal balloon whisks with three oval wire loops connected necks and four raised grip rings', () => {
   const p = proceduralMaterialPresets.balloonwhisks;

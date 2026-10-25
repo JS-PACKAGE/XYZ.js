@@ -1441,6 +1441,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'orthocerasstone': {
+        const p = proceduralMaterialPresets.orthocerasstone,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x14f11),
+          cloudField = cachedNoise(8, 8, seed ^ 0x14f13),
+          inverseLength = 1 / (p.baseY - p.tipY),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseCap = 1 / p.capRadius,
+          inversePitch = 1 / p.septumPitch,
+          septumSquared = p.septumRadius * p.septumRadius,
+          inverseSeptumShoulder =
+            1 / (septumSquared - p.septumCore * p.septumCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x14f15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x14f17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x14f19) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x14f1b));
+            poses[i + 5] = hash(col, row, seed ^ 0x14f1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            z = Math.max(0, (y - p.tipY) * inverseLength),
+            capOffset = Math.max(0, (y - p.capStart) * inverseCap),
+            cap = Math.max(0, 1 - capOffset * capOffset),
+            xx = x * x * inverseWidth,
+            body = smooth(
+              clamp((z * z * cap - xx) / (p.edgeSlope * z + p.tipShoulder)),
+            ),
+            grain = grainField(u, v);
+          height = 0.36 + 0.001 * grain;
+          roughness += 0.02 * grain;
+          occlusion = 1;
+          color =
+            body < 1 ? 0.025 + 0.035 * cloudField(u, v) + 0.015 * grain : 0;
+          if (body === 0) return;
+          const shearY = y - p.septumBend * xx,
+            index = Math.floor((shearY - p.septumFirst) * inversePitch + 0.5);
+          let septum = 0;
+          if (index >= 0 && index < p.septumCount) {
+            const d = shearY - p.septumFirst - index * p.septumPitch;
+            septum = smooth(
+              clamp((septumSquared - d * d) * inverseSeptumShoulder),
+            );
+          }
+          // Mineral-filled chambers and septa share the polished matrix plane.
+          color +=
+            body *
+            (0.58 + 0.12 * poses[i + 5] + 0.04 * grain - 0.35 * septum - color);
+        };
+      }
       case 'balloonwhisks': {
         const p = proceduralMaterialPresets.balloonwhisks,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -25373,6 +25434,7 @@ export function createSurfaceSampler(
     kind === 'hazelnutshells' ||
     kind === 'yagasuricloth' ||
     kind === 'balloonwhisks' ||
+    kind === 'orthocerasstone' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

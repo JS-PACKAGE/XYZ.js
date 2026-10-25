@@ -765,6 +765,8 @@
 
 同輪追加 `balloonwhisks`（氣球式打蛋器），目錄 611→612 種：三層 projected oval metal loops／連續頸柄／四道較高握柄凸環，線圈與柄 metallic 1、線間和外側 opaque neutral backing metallic 0、預設 factor 1。0.8 m opaque mixed-metal tile，沿四圖／選用 height／ownership；不新增 geometry、透明開孔、攪拌／食物接觸認證或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `orthocerasstone`（直角石化石石材），目錄 612→613 種：尖長窄上／較寬圓下殼切面／八道彎曲隔壁，填礦化石與深色拋光基質同一平面，非既有 coil fossil limestone 或 trilobite 三軸殼體。0.4 m opaque dielectric tile、metallic 0／AO1／mortar0，沿四圖／選用 height／ownership；不新增 geometry、浮雕／挖孔、古生物或石材來源認證／生長或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
