@@ -5321,6 +5321,21 @@ export const proceduralMaterialPresets = Object.freeze({
     postRadius: 0.105,
     postShoulder: 0.085,
   }),
+  lathplaster: Object.freeze({
+    dark: [23, 17, 12] as const,
+    light: [239, 233, 214] as const,
+    roughness: 0.89,
+    relief: 0.025,
+    cells: 2,
+    jitter: 0.04,
+    patchLength: 0.34,
+    patchWidth: 0.27,
+    shoulder: 0.25,
+    warp: 0.08,
+    laths: 16,
+    lathHalfWidth: 0.4,
+    lathShoulder: 0.08,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -5894,4 +5909,5 @@ export const proceduralTileMeters = Object.freeze({
   pinstripewool: 0.08,
   chrysanthemumstone: 0.48,
   sewingsnaps: 0.12,
+  lathplaster: 0.8,
 });

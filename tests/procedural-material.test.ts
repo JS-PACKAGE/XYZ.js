@@ -607,7 +607,154 @@ const kinds: ProceduralMaterialKind[] = [
   'pinstripewool',
   'chrysanthemumstone',
   'sewingsnaps',
+  'lathplaster',
 ];
+
+describe('Damaged plaster over lower horizontal timber laths', () => {
+  const p = proceduralMaterialPresets.lathplaster;
+  it.each([0, 1, 0xffffffff])(
+    'keeps coherent lost-plaster patches, exposed horizontal timber and deeper opaque gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lathplaster', seed),
+        size = 256,
+        mask = new Uint8Array(size * size),
+        queue = new Uint32Array(mask.length),
+        neighbors = new Uint32Array(4),
+        out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      let plaster = 0,
+        wood = 0,
+        backing = 0,
+        plasterHeight = 0,
+        woodHeight = 0,
+        backingHeight = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          expect(out.height).toBeGreaterThan(0.0019);
+          expect(out.metallic).toBe(0);
+          if (out.color > 0.82) {
+            plaster++;
+            plasterHeight += out.height;
+          }
+          if (out.color > 0.3 && out.color < 0.5 && out.roughness < 0.8) {
+            wood++;
+            woodHeight += out.height;
+          }
+          if (out.color < 0.08) {
+            backing++;
+            backingHeight += out.height;
+          }
+          if (out.color < 0.6) mask[y * size + x] = 1;
+        }
+      expect(plaster / mask.length).toBeGreaterThan(0.6);
+      expect(plaster / mask.length).toBeLessThan(0.85);
+      expect(wood / mask.length).toBeGreaterThan(0.1);
+      expect(wood / mask.length).toBeLessThan(0.25);
+      expect(backing / mask.length).toBeGreaterThan(0.025);
+      expect(backing / mask.length).toBeLessThan(0.1);
+      expect(plasterHeight / plaster - woodHeight / wood).toBeGreaterThan(
+        0.009,
+      );
+      expect(woodHeight / wood - backingHeight / backing).toBeGreaterThan(
+        0.005,
+      );
+      let components = 0;
+      for (let index = 0; index < mask.length; index++) {
+        if (!mask[index]) continue;
+        components++;
+        mask[index] = 0;
+        queue[0] = index;
+        let end = 1;
+        for (let start = 0; start < end; start++) {
+          const i = queue[start],
+            x = i % size,
+            y = Math.floor(i / size);
+          neighbors[0] = y * size + ((x + size - 1) % size);
+          neighbors[1] = y * size + ((x + 1) % size);
+          neighbors[2] = ((y + size - 1) % size) * size + x;
+          neighbors[3] = ((y + 1) % size) * size + x;
+          for (const next of neighbors)
+            if (mask[next]) {
+              mask[next] = 0;
+              queue[end++] = next;
+            }
+        }
+        expect(end / mask.length).toBeGreaterThan(0.04);
+        expect(end / mask.length).toBeLessThan(0.09);
+      }
+      expect(components).toBe(4);
+      const gap = { ...out };
+      let exposedPairs = 0;
+      for (let row = 0; row < p.laths; row++)
+        for (let i = 0; i < 256; i++) {
+          const u = (i + 0.5) / 256;
+          sample(u, (row + 0.5) / p.laths, out);
+          sample(u, row / p.laths, gap);
+          if (
+            out.color > 0.3 &&
+            out.color < 0.5 &&
+            out.roughness < 0.8 &&
+            gap.color < 0.08 &&
+            gap.occlusion < 0.31
+          ) {
+            exposedPairs++;
+            expect(out.height - gap.height).toBeGreaterThan(0.006);
+            expect(out.occlusion - gap.occlusion).toBeGreaterThan(0.5);
+          }
+        }
+      expect(exposedPairs).toBeGreaterThan(16);
+    },
+  );
+  it('keeps warped damage, wood-owner gaps, lath shoulders and UV wraps C1', () => {
+    const h = 1e-9,
+      keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lathplaster', seed),
+        a = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.laths; row++)
+        for (const edge of [
+          -0.5,
+          -p.lathHalfWidth,
+          p.lathShoulder - p.lathHalfWidth,
+          0,
+          p.lathHalfWidth - p.lathShoulder,
+          p.lathHalfWidth,
+          0.5,
+        ])
+          for (let x = 0; x <= 64; x++)
+            check(x / 64, (row + 0.5 + edge) / p.laths);
+    }
+  });
+});
 
 describe('Sew-on snaps with alternating metal studs and recessed sockets', () => {
   const p = proceduralMaterialPresets.sewingsnaps;

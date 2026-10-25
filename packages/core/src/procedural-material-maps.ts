@@ -1428,6 +1428,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lathplaster': {
+        const p = proceduralMaterialPresets.lathplaster,
+          patches = new Float64Array(p.cells * p.cells * 4),
+          tones = new Float64Array(p.laths),
+          inverseLength = 1 / (p.patchLength * p.patchLength),
+          inverseWidth = 1 / (p.patchWidth * p.patchWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inverseLath = 1 / p.lathShoulder,
+          plasterField = cachedNoise(96, 96, seed ^ 0x12411),
+          woodField = cachedNoise(4, 128, seed ^ 0x12413),
+          warpX = cachedNoise(8, 8, seed ^ 0x12417),
+          warpY = cachedNoise(8, 8, seed ^ 0x12419);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const offset = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1241b);
+            patches[offset] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1241d) - 1);
+            patches[offset + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x12421) - 1);
+            patches[offset + 2] = Math.cos(angle);
+            patches[offset + 3] = Math.sin(angle);
+          }
+        for (let row = 0; row < p.laths; row++)
+          tones[row] = hash(row, 0, seed ^ 0x12423);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            offset = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - patches[offset] + p.warp * (warpX(u, v) - 0.5),
+            dy = fract(vc) - patches[offset + 1] + p.warp * (warpY(u, v) - 0.5),
+            x = dx * patches[offset + 2] + dy * patches[offset + 3],
+            y = dy * patches[offset + 2] - dx * patches[offset + 3],
+            loss = smooth(
+              clamp(
+                (1 - x * x * inverseLength - y * y * inverseWidth) *
+                  inverseShoulder,
+              ),
+            ),
+            plaster = plasterField(u, v);
+          color = 0.87 + 0.06 * plaster;
+          height = 0.78 + 0.006 * plaster;
+          roughness = p.roughness + 0.025 * plaster;
+          occlusion = 0.99;
+          if (loss === 0) return;
+          const lathV = v * p.laths,
+            lath = smooth(
+              clamp(
+                (p.lathHalfWidth - Math.abs(fract(lathV) - 0.5)) * inverseLath,
+              ),
+            ),
+            fiber = woodField(u, v),
+            tone = tones[Math.floor(lathV)];
+          // Missing plaster reveals lower laths and opaque deep backing.
+          // It does not curl upward like paint or cut transparent wall holes.
+          color +=
+            loss * (0.025 + lath * (0.3 + 0.1 * tone + 0.035 * fiber) - color);
+          height += loss * (0.08 + lath * (0.26 + 0.006 * fiber) - height);
+          roughness +=
+            loss * (0.97 + lath * (-0.25 + 0.025 * fiber) - roughness);
+          occlusion += loss * (0.3 + 0.66 * lath - occlusion);
+          return;
+        };
+      }
       case 'sewingsnaps': {
         const p = proceduralMaterialPresets.sewingsnaps,
           tones = new Float64Array(p.cells * p.cells),
@@ -22139,6 +22203,7 @@ export function createSurfaceSampler(
     kind === 'pinstripewool' ||
     kind === 'chrysanthemumstone' ||
     kind === 'sewingsnaps' ||
+    kind === 'lathplaster' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

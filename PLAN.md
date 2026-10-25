@@ -679,6 +679,8 @@
 
 同輪追加 `sewingsnaps`（公母金屬暗釦），目錄 568→569 種：公釦凸柱／母釦凹座交替、rounded rim 與四個 cardinal 縫孔，非普通四孔鈕釦或單一 grommet 環。0.12 m opaque mixed-metallic tile、material factor 1，金屬 face／post／socket 與非金屬 opaque 孔底分區，沿四圖／選用 height／ownership；不新增 geometry、通透孔、縫線、扣合／彈簧或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `lathplaster`（木條灰泥牆），目錄 569→570 種：淡色灰泥脫落後露出較低水平木條與更深 opaque 背底，非單層 peelingpaint 捲邊或 slottedwood 整面穿槽。0.8 m opaque dielectric tile、metallic 0，沿四圖／選用 height／ownership；三層表面高度／AO 清楚分離，不新增牆體 geometry、通透孔、釘／縫線、破壞／結構或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -7292,3 +7292,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 八份修改文件的相對連結無失效。
 - Fresh Node 新 build 生成 sewingsnaps 並重算既有 568 種（含 button／grommetcanvas）size 64／seed 7 四圖 SHA256，changed 0。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6551 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：木條灰泥牆（lathplaster）
+
+- 目錄 569→570 種；0.8 m opaque dielectric tile、metallic 0，灰泥脫落露出較低水平木條與更深背底，沿四圖／選用 height／ownership。Cached 四 rotated／warped compact loss patches、16 row tones／96×96 灰泥粒／4×128 木纖維／雙 8×8 warp，conservative support <0.437 owner，採樣無配置／hash／sqrt／trig。Coherent replacement 三層 fields，木 tone／fiber 隨 compact cover 淡出，完整灰泥略過 wood sample；非捲漆邊或通透洞，不新增 geometry、釘／縫線、破壞／結構或物理模擬。
+- Throwaway CPU 三 seeds 各 512² 實測 intact plaster 71.7–73.2%、exposed wood 16.1–17.2%、dark gap 5.65–5.82%，平均高度分別約 0.01956／0.00863／0.00208 m；每 seed 四個連貫 loss regions，未保留暫存檔。
+- 首次 morphology pair probe 把仍覆少量灰泥的 gap 誤列完全露底，因而低於原 0.006 m 高差；以 gap AO <0.31 排除過渡區後，保留原高度／AO 斷言，sampler 未改。修正後 targeted 五項通過（3 seeds morphology、C1、determinism）：256² 分類／toroidal flood fill 確認四塊脫落區及三層高度差，水平木條中心／鄰 gap 多組高差 >0.006 m、AO 差 >0.5，129² 雙向與 exact lath／owner shoulders C1 通過。
+- managed headless Chromium blank-first 同一分頁經 `about:blank` cleanup 分別驗證正式 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選取 lathplaster，570 種與 plain、25 球及四圖正常；兩次 errors 與離頁 cleanup errors 均空。WebGPU 公開 API size 512／seed 7／heightMap true 等比例 baseColor 預覽確認淡灰泥／暴露水平木條／條間暗背底，metallic 0、height true、destroyed true，預覽隨頁清除。不宣稱牆體 geometry、透孔、釘／縫線、破壞／結構／物理、像素 parity、Canvas2D 3D、Safari、實機或效能認證；依功能提交、不 push。
+- Fresh Node 新 build 生成 lathplaster 並重算既有 569 種（含 peelingpaint／slottedwood）size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6556 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
