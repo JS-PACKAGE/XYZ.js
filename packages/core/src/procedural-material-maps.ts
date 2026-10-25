@@ -1441,6 +1441,118 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'boullebrassinlay': {
+        const p = proceduralMaterialPresets.boullebrassinlay,
+          matrix = proceduralMaterialPresets.tortoiseshellacetate,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          macro = cachedNoise(
+            matrix.macroCells,
+            matrix.macroCells,
+            seed ^ 0x15e11,
+          ),
+          detailField = cachedNoise(
+            matrix.detailCells,
+            matrix.detailCells,
+            seed ^ 0x15e13,
+          ),
+          warpX = cachedNoise(
+            matrix.warpCells,
+            matrix.warpCells,
+            seed ^ 0x15e15,
+          ),
+          warpY = cachedNoise(
+            matrix.warpCells,
+            matrix.warpCells,
+            seed ^ 0x15e17,
+          ),
+          grainField = cachedNoise(
+            matrix.grainCells,
+            matrix.grainCells,
+            seed ^ 0x15e19,
+          ),
+          radiusSquared = p.radius * p.radius,
+          bandSquared = p.bandQ * p.bandQ,
+          inverseBand = 1 / (bandSquared - p.coreQ * p.coreQ),
+          inverseEnd = 1 / p.endShoulder,
+          inverseBudX = 1 / (p.budX * p.budX),
+          inverseBudY = 1 / (p.budY * p.budY),
+          inverseBud = 1 / p.budShoulder,
+          inversePigment = 1 / matrix.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = p.angle * (2 * hash(col, row, seed ^ 0x15e21) - 1);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15e23) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15e25) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15e27));
+            poses[i + 5] = hash(col, row, seed ^ 0x15e29);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x =
+              ((col + row) & 1 ? -1 : 1) *
+              (dx * poses[i] + dy * poses[i + 1]) *
+              poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            topY = y + p.radius,
+            bottomY = y - p.radius,
+            topDelta = x * x + topY * topY - radiusSquared,
+            bottomDelta = x * x + bottomY * bottomY - radiusSquared,
+            upper =
+              smooth(clamp((bandSquared - topDelta * topDelta) * inverseBand)) *
+              smooth(clamp((x + p.endPad) * inverseEnd)),
+            lower =
+              smooth(
+                clamp((bandSquared - bottomDelta * bottomDelta) * inverseBand),
+              ) * smooth(clamp((p.endPad - x) * inverseEnd)),
+            budUpper = smooth(
+              clamp(
+                (1 -
+                  (x + p.budCenterX) * (x + p.budCenterX) * inverseBudX -
+                  (y + p.budCenterY) * (y + p.budCenterY) * inverseBudY) *
+                  inverseBud,
+              ),
+            ),
+            budLower = smooth(
+              clamp(
+                (1 -
+                  (x - p.budCenterX) * (x - p.budCenterX) * inverseBudX -
+                  (y - p.budCenterY) * (y - p.budCenterY) * inverseBudY) *
+                  inverseBud,
+              ),
+            ),
+            metal =
+              1 - (1 - upper) * (1 - lower) * (1 - budUpper) * (1 - budLower),
+            grain = grainField(u, v),
+            brass = 0.85 + 0.07 * poses[i + 5] + 0.02 * grain;
+          height = 0.38 + 0.001 * grain;
+          roughness = p.roughness + 0.018 * grain + 0.12 * metal;
+          occlusion = 1;
+          metallic = metal;
+          mortar = 0;
+          if (metal === 1) {
+            color = brass;
+            return;
+          }
+          const wx = u + matrix.warp * (warpX(u, v) - 0.5),
+            wy = v + matrix.warp * (warpY(u, v) - 0.5),
+            pigment =
+              matrix.macroWeight * macro(wx, wy) +
+              (1 - matrix.macroWeight) * detailField(wx, wy),
+            dark = smooth(clamp((pigment - matrix.threshold) * inversePigment)),
+            resin = 0.35 - 0.28 * dark + 0.015 * grain;
+          color = resin + metal * (brass - resin);
+        };
+      }
       case 'sewingthimbles': {
         const p = proceduralMaterialPresets.sewingthimbles,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -26611,6 +26723,7 @@ export function createSurfaceSampler(
     kind === 'pencilshavings' ||
     kind === 'papayacuts' ||
     kind === 'sewingthimbles' ||
+    kind === 'boullebrassinlay' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -795,6 +795,8 @@
 
 同輪追加 `sewingthimbles`（銀色頂針表面），目錄 626→627 種：封圓頂／上窄下寬 silver-colored body／24 盲凹點／較高平滑更寬下捲邊，非 crowncaps 齒緣圓蓋或 knurledmetal 交叉菱紋。盲凹點低暗粗、仍同 body/rim metallic 1、不是 metallic 0 打孔；完整 silhouette mortar 0、預設 factor 1、backing M0。0.16 m opaque metal/dielectric tile，沿四圖／選用 height／ownership；僅 front-face shading，不新增 geometry、透明孔、真內腔、縫紉／穿刺／碰撞／變形／物理模擬或防護額定；依功能驗證提交、不 push。
 
+同輪追加 `boullebrassinlay`（布爾風黃銅捲草鑲嵌），目錄 627→628 種：鏡像連續 S 捲紋／兩橢圓端飾 M1、雲斑仿玳瑁 synthetic resin matrix M0，非全木 bowtie repair key 或全金屬 damascus strata。Metal/resin 共用拋光 height／AO1／整面 mortar 0、無鑲嵌台階或 AO 溝，金屬較亮且略粗、非金漆；預設 factor 1。0.24 m opaque tile，沿四圖／選用 height／ownership，重用現有 acetate pigment 預算；僅風格化 brass/synthetic-resin surface，不新增 geometry、真玳瑁／真材質來源、透明／transmission、體積／製作／修復或物理模擬；依功能驗證提交、不 push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

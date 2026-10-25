@@ -668,7 +668,249 @@ const kinds: ProceduralMaterialKind[] = [
   'pencilshavings',
   'papayacuts',
   'sewingthimbles',
+  'boullebrassinlay',
 ];
+
+describe('Coplanar brass S-scroll inlay with oval finials on polished synthetic tortoiseshell-inspired resin', () => {
+  const p = proceduralMaterialPresets.boullebrassinlay;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = p.angle * (2 * hash(col, row, seed ^ 0x15e21) - 1),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x15e27),
+      mx = (col + row) & 1 ? -x : x;
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15e23) - 1) +
+        scale * (c * mx - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x15e25) - 1) +
+        scale * (s * mx + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a connected mirrored brass S with two metal finials and dielectric amber voids on one unstepped polished face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('boullebrassinlay', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, -p.radius), out);
+          const resinColor = out.color,
+            resinRough = out.roughness;
+          expect(out.color).toBeGreaterThan(0.0699);
+          expect(out.color).toBeLessThan(0.3651);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.2);
+          expect(out.roughness).toBeLessThan(0.2181);
+          expect(out.metallic).toBe(0);
+          expect(out.occlusion).toBe(1);
+          expect(out.mortar).toBe(0);
+          for (const [x, y] of [
+            [0, p.radius],
+            [-p.radius, -p.radius],
+            [p.radius, p.radius],
+            [0.3, 0],
+          ]) {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.metallic).toBe(0);
+            expect(out.occlusion).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.0007599);
+            expect(out.height).toBeLessThan(0.0007621);
+          }
+          const metal = (x: number, y: number) => {
+            sample(...world(seed, col, row, x, y), out);
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.color - resinColor).toBeGreaterThan(0.4849);
+            expect(out.roughness - resinRough).toBeGreaterThan(0.1019);
+            expect(out.height).toBeGreaterThan(0.0007599);
+            expect(out.height).toBeLessThan(0.0007621);
+            expect(out.occlusion).toBe(1);
+          };
+          for (let j = 0; j <= 1024; j++) {
+            const angle = -Math.PI / 2 + (Math.PI * j) / 1024,
+              x = p.radius * Math.cos(angle),
+              y = p.radius * Math.sin(angle);
+            metal(x, -p.radius + y);
+            metal(-x, p.radius + y);
+          }
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64;
+            metal(
+              -p.budCenterX * t,
+              -2 * p.radius + (2 * p.radius - p.budCenterY) * t,
+            );
+            metal(
+              p.budCenterX * t,
+              2 * p.radius - (2 * p.radius - p.budCenterY) * t,
+            );
+          }
+        }
+      let dark = Infinity,
+        light = -Infinity,
+        low = Infinity,
+        high = -Infinity;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          low = Math.min(low, out.height);
+          high = Math.max(high, out.height);
+          expect(out.mortar).toBe(0);
+          expect(out.occlusion).toBe(1);
+          if (out.metallic === 0) {
+            dark = Math.min(dark, out.color);
+            light = Math.max(light, out.color);
+          }
+        }
+      expect(light - dark).toBeGreaterThan(0.22);
+      expect(high - low).toBeLessThan(0.0000021);
+    },
+  );
+  it('resolves actual512 mirrored scrolls and finials as brighter rougher metal rather than painted dielectric ornaments', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('boullebrassinlay', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            resin = index(0, -p.radius);
+          expect(maps.metallicRoughness[resin + 2]).toBe(0);
+          const metal = (x: number, y: number) => {
+            const i = index(x, y);
+            expect(maps.metallicRoughness[i + 2]).toBe(255);
+            expect(maps.baseColor[i] - maps.baseColor[resin]).toBeGreaterThan(
+              90,
+            );
+            expect(
+              maps.metallicRoughness[i + 1] - maps.metallicRoughness[resin + 1],
+            ).toBeGreaterThan(24);
+          };
+          for (let j = 0; j <= 32; j++) {
+            const a = -Math.PI / 2 + (Math.PI * j) / 32,
+              x = p.radius * Math.cos(a),
+              y = p.radius * Math.sin(a);
+            metal(x, -p.radius + y);
+            metal(-x, p.radius + y);
+          }
+          metal(-p.budCenterX, -p.budCenterY);
+          metal(p.budCenterX, p.budCenterY);
+          for (const [x, y] of [
+            [0, p.radius],
+            [-p.radius, -p.radius],
+            [p.radius, p.radius],
+          ])
+            expect(maps.metallicRoughness[index(x, y) + 2]).toBe(0);
+        }
+    }
+  });
+  it('keeps q-offset ring shoulders clipped arc ends two finial ellipses tangent union joins pigment shoulder mirrored cell owners common polished height and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('boullebrassinlay', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          for (const cy of [-p.radius, p.radius])
+            for (const q of [-p.bandQ, -p.coreQ, p.coreQ, p.bandQ]) {
+              const r = Math.sqrt(p.radius * p.radius + q);
+              for (let j = 0; j < 128; j++) {
+                const angle = (j * Math.PI) / 64;
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    r * Math.cos(angle),
+                    cy + r * Math.sin(angle),
+                  ),
+                );
+              }
+            }
+          for (const sign of [-1, 1])
+            for (const scale of [1, Math.sqrt(1 - p.budShoulder)])
+              for (let j = 0; j < 128; j++) {
+                const angle = (j * Math.PI) / 64;
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    sign * p.budCenterX + scale * p.budX * Math.cos(angle),
+                    sign * p.budCenterY + scale * p.budY * Math.sin(angle),
+                  ),
+                );
+              }
+          for (let j = 0; j <= 256; j++) {
+            const y = -0.4 + (0.8 * j) / 256;
+            for (const x of [
+              -p.endPad,
+              -p.endPad + p.endShoulder,
+              p.endPad - p.endShoulder,
+              p.endPad,
+            ])
+              check(...world(seed, col, row, x, y));
+          }
+        }
+    }
+  });
+});
 
 describe('Closed tapered silver thimble faces with24 blind metallic dimples and a higher smoother rolled lower lip', () => {
   const p = proceduralMaterialPresets.sewingthimbles;
@@ -36291,6 +36533,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'coaxialcablecuts' &&
           kind !== 'botryoidalcopper' &&
           kind !== 'sewingthimbles' &&
+          kind !== 'boullebrassinlay' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -45704,6 +45947,7 @@ describe('procedural preset acquisition and ownership', () => {
     'coaxialcablecuts',
     'botryoidalcopper',
     'sewingthimbles',
+    'boullebrassinlay',
     'standingseam',
     'damascus',
     'castiron',
@@ -45777,6 +46021,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'coaxialcablecuts' ||
           kind === 'botryoidalcopper' ||
           kind === 'sewingthimbles' ||
+          kind === 'boullebrassinlay' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
