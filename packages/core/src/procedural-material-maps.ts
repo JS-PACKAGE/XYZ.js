@@ -1441,6 +1441,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'nutmeghalves': {
+        const p = proceduralMaterialPresets.nutmeghalves,
+          poses = new Float64Array(p.cells * p.cells * 8),
+          grainField = cachedNoise(128, 128, seed ^ 0x15511),
+          warpX = cachedNoise(8, 8, seed ^ 0x15513),
+          warpY = cachedNoise(8, 8, seed ^ 0x15514),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseShoulder = 1 / p.shoulder,
+          inverseFlesh = 1 / p.fleshShoulder,
+          frequencyX = TAU * p.veins,
+          frequencyY = TAU * p.veins * 0.8,
+          warpScale = TAU * p.warp,
+          inverseVein = 1 / p.veinShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 8,
+              angle = TAU * hash(col, row, seed ^ 0x15515);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x15517) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x15519) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1551b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1551d);
+            poses[i + 6] = TAU * hash(col, row, seed ^ 0x1551e);
+            poses[i + 7] = TAU * hash(col, row, seed ^ 0x1551f);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 8,
+            dx = (fract(uc) - 0.5 - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - 0.5 - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x * inverseX + y * y * inverseY,
+            body = smooth(clamp((1 - q) * inverseShoulder));
+          mortar = 1 - body;
+          color = 0.015;
+          height = 0.02;
+          roughness = 0.96;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            flesh = smooth(clamp((p.fleshQ - q) * inverseFlesh));
+          let c = 0,
+            h = 0,
+            r = 0,
+            ao = 0;
+          if (flesh < 1) {
+            c = 0.16 + 0.07 * poses[i + 5] + 0.02 * grain;
+            h = 0.33 + 0.002 * grain;
+            r = p.roughness + 0.02 * grain;
+            ao = 0.94;
+          }
+          if (flesh > 0) {
+            const a = smooth(
+                clamp(
+                  (Math.cos(
+                    frequencyX * x +
+                      warpScale * (warpX(x + 0.5, y + 0.5) - 0.5) +
+                      poses[i + 6],
+                  ) -
+                    p.veinThreshold) *
+                    inverseVein,
+                ),
+              ),
+              b = smooth(
+                clamp(
+                  (Math.cos(
+                    frequencyY * y +
+                      warpScale * (warpY(x + 0.5, y + 0.5) - 0.5) +
+                      poses[i + 7],
+                  ) -
+                    p.veinThreshold) *
+                    inverseVein,
+                ),
+              ),
+              vein = 1 - (1 - a) * (1 - b);
+            c +=
+              flesh *
+              (0.68 + 0.1 * poses[i + 5] + 0.02 * grain - 0.38 * vein - c);
+            h += flesh * (0.36 + 0.002 * grain - h);
+            r += flesh * (0.69 + 0.02 * grain - r);
+            ao += flesh * (0.98 - ao);
+          }
+          color += body * (c - color);
+          height += body * (h - height);
+          roughness += body * (r - roughness);
+          occlusion += body * (ao - occlusion);
+        };
+      }
       case 'brassjinglebells': {
         const p = proceduralMaterialPresets.brassjinglebells,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -25836,6 +25929,7 @@ export function createSurfaceSampler(
     kind === 'pennerigate' ||
     kind === 'lepidolitemica' ||
     kind === 'brassjinglebells' ||
+    kind === 'nutmeghalves' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

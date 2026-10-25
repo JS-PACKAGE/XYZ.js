@@ -6104,6 +6104,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         seamWidth: 0.0075;
         seamCore: 0.004;
     }>;
+    nutmeghalves: Readonly<{
+        dark: readonly [62, 28, 10];
+        light: readonly [228, 190, 133];
+        roughness: 0.82;
+        relief: 0.003;
+        cells: 4;
+        jitter: 0.018;
+        scale: 0.94;
+        scaleVariation: 0.04;
+        radiusX: 0.29;
+        radiusY: 0.37;
+        shoulder: 0.08;
+        fleshQ: 0.78;
+        fleshShoulder: 0.06;
+        veins: 6;
+        warp: 1.8;
+        veinThreshold: 0.7;
+        veinShoulder: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6725,4 +6744,5 @@ export declare const proceduralTileMeters: Readonly<{
     pennerigate: 0.16;
     lepidolitemica: 0.2;
     brassjinglebells: 0.16;
+    nutmeghalves: 0.12;
 }>;

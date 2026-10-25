@@ -777,6 +777,8 @@
 
 同輪追加 `brassjinglebells`（黃銅鈴鐺頂面），目錄 617→618 種：高凸黃銅殼／較高平滑環形壓邊／中央圓凹與四圓端十字低暗粗槽。黃銅 metallic1、槽／外背 metallic0、預設 factor1。0.16 m opaque mixed-metal tile，沿 neutral backing／四圖／選用 height／ownership；僅 stylized top-face shading，不新增 geometry、透明通孔、內部珠、吊耳、敲擊／音效、聲學或物理模擬；依功能驗證提交、不 push。
 
+同輪追加 `nutmeghalves`（肉豆蔻切面），目錄618→619種：低粗深外皮圍住近平淺棕果仁切面、扭曲深紋僅改pigment、不變成凸凹脈溝。0.12 m opaque dielectric tile、metallic0，沿 neutral opaque backing／四圖／選用height／ownership；風格化種子切面，不新增geometry、透明／transmission、食物／植物／烹煮或物理模擬；依功能驗證提交、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

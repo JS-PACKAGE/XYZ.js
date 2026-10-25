@@ -659,7 +659,190 @@ const kinds: ProceduralMaterialKind[] = [
   'pennerigate',
   'lepidolitemica',
   'brassjinglebells',
+  'nutmeghalves',
 ];
+
+describe('Oval nutmeg cut faces with dark rind and coplanar twisted dark marbling', () => {
+  const p = proceduralMaterialPresets.nutmeghalves;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (seed: number, col: number, row: number, x: number, y: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x15515),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1551b),
+      jx = p.jitter * (2 * hash(col, row, seed ^ 0x15517) - 1),
+      jy = p.jitter * (2 * hash(col, row, seed ^ 0x15519) - 1);
+    return [
+      (col + 0.5 + jx + (c * x - s * y) * scale) / p.cells,
+      (row + 0.5 + jy + (s * x + c * y) * scale) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps one oval with lower rough dark rind surrounding a flat two-tone marbled cut face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('nutmeghalves', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), out);
+          at(0, 0);
+          const face = out.height,
+            rough = out.roughness;
+          expect(face).toBeGreaterThan(0.0010799);
+          expect(face).toBeLessThan(0.0010861);
+          expect(out.occlusion).toBeCloseTo(0.98, 12);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (let side = 0; side < 32; side++) {
+            const a = (side * 2 * Math.PI) / 32,
+              r = Math.sqrt(0.87);
+            at(p.radiusX * r * Math.cos(a), p.radiusY * r * Math.sin(a));
+            expect(out.height).toBeGreaterThan(0.0009899);
+            expect(out.height).toBeLessThan(0.0009961);
+            expect(face - out.height).toBeGreaterThan(0.0000839);
+            expect(out.color).toBeGreaterThanOrEqual(0.16);
+            expect(out.color).toBeLessThan(0.2501);
+            expect(out.roughness - rough).toBeGreaterThan(0.1099);
+            expect(out.occlusion).toBeCloseTo(0.94, 12);
+            expect(out.mortar).toBe(0);
+            expect(out.metallic).toBe(0);
+          }
+          let min = 1,
+            max = 0,
+            minH = 1,
+            maxH = 0,
+            dark = 0,
+            light = 0,
+            total = 0,
+            minR = 1,
+            maxR = 0;
+          for (let iy = 0; iy <= 64; iy++)
+            for (let ix = 0; ix <= 64; ix++) {
+              const x = (ix / 64 - 0.5) * 1.6,
+                y = (iy / 64 - 0.5) * 1.6;
+              if (x * x + y * y > 0.64) continue;
+              at(x * p.radiusX, y * p.radiusY);
+              min = Math.min(min, out.color);
+              max = Math.max(max, out.color);
+              minH = Math.min(minH, out.height);
+              maxH = Math.max(maxH, out.height);
+              minR = Math.min(minR, out.roughness);
+              maxR = Math.max(maxR, out.roughness);
+              if (out.color < 0.46) dark++;
+              if (out.color > 0.62) light++;
+              total++;
+              expect(out.occlusion).toBeCloseTo(0.98, 12);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          expect(max - min).toBeGreaterThan(0.34);
+          expect(dark / total).toBeGreaterThan(0.02);
+          expect(light / total).toBeGreaterThan(0.1);
+          expect(maxH - minH).toBeLessThan(0.0000061);
+          expect(maxR - minR).toBeLessThan(0.0201);
+          at(0, 0.35);
+          expect(out.mortar).toBe(0);
+          at(0.35, 0);
+          expect(out.mortar).toBe(1);
+          for (const axis of [0, 1]) {
+            let runs = 0,
+              previous = false;
+            for (let j = 0; j <= 2048; j++) {
+              const t = -0.43 + (j * 0.86) / 2048;
+              at(axis ? 0 : t, axis ? t : 0);
+              const body = out.mortar < 0.5;
+              if (body && !previous) runs++;
+              previous = body;
+            }
+            expect(runs).toBe(1);
+          }
+          for (const [x, y] of [
+            [0.4, 0],
+            [-0.4, 0],
+            [0, -0.43],
+            [0, 0.43],
+          ]) {
+            at(x, y);
+            expect(out.mortar).toBe(1);
+            expect(out.occlusion).toBeCloseTo(0.3, 12);
+            expect(out.height).toBeLessThan(0.0000601);
+            expect(out.metallic).toBe(0);
+          }
+        }
+    },
+  );
+  it('keeps marbled fields exact elliptical silhouette and rind-flesh shoulders seed owners and UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nutmeghalves', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const q of [
+            1,
+            1 - p.shoulder,
+            p.fleshQ,
+            p.fleshQ - p.fleshShoulder,
+          ])
+            for (let j = 0; j < 128; j++) {
+              const a = (j * Math.PI) / 64,
+                r = Math.sqrt(q);
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  p.radiusX * r * Math.cos(a),
+                  p.radiusY * r * Math.sin(a),
+                ),
+              );
+            }
+    }
+  });
+});
 
 describe('Raised brass jingle bell faces with crimped seam and four round-ended low opaque cross slots', () => {
   const p = proceduralMaterialPresets.brassjinglebells;

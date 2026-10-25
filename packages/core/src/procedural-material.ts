@@ -633,7 +633,8 @@ export type ProceduralMaterialKind =
   | 'toroidalinductors'
   | 'pennerigate'
   | 'lepidolitemica'
-  | 'brassjinglebells';
+  | 'brassjinglebells'
+  | 'nutmeghalves';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1501,6 +1502,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pennerigate',
   'lepidolitemica',
   'brassjinglebells',
+  'nutmeghalves',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
