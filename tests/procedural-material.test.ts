@@ -636,7 +636,135 @@ const kinds: ProceduralMaterialKind[] = [
   'carrotcuts',
   'bluepushpins',
   'oatflakes',
+  'tigerfur',
 ];
+
+describe('Orange tiger fur with connected forked dark stripes and independent directional pile', () => {
+  const p = proceduralMaterialPresets.tigerfur;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const forkU = (seed: number, row: number, t: number, fork: number) =>
+    (0.5 + t * p.forkHalfLength - hash(row, 0, seed ^ 0x14113) + fork) /
+    p.forks;
+  it.each([0, 1, 0xffffffff])(
+    'joins each dark branch to its parent band before separating its pointed tip over continuous orange pile for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tigerfur', seed),
+        zebra = createSurfaceSampler('zebrafur', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        other = { ...out };
+      for (let row = 0; row < p.rows; row++)
+        for (let fork = 0; fork < p.forks; fork++)
+          for (const t of [-0.7, 0.7]) {
+            const u = forkU(seed, row, t, fork),
+              ranges: number[][] = [];
+            let previous = false;
+            for (let i = 0; i <= 4096; i++) {
+              const y = -0.499 + (i * 0.998) / 4096;
+              sample(u, (row + 0.5 + y) / p.rows, out);
+              const dark = out.color < 0.15;
+              if (dark && !previous) ranges.push([y]);
+              if (!dark && previous) ranges[ranges.length - 1].push(y);
+              previous = dark;
+            }
+            expect(ranges.length).toBe(t < 0 ? 1 : 2);
+            for (const range of ranges)
+              expect(range[1] - range[0]).toBeGreaterThan(0.01);
+            if (t > 0) {
+              const gap = (ranges[0][1] + ranges[1][0]) * 0.5;
+              expect(ranges[1][0] - ranges[0][1]).toBeGreaterThan(0.025);
+              sample(u, (row + 0.5 + gap) / p.rows, out);
+              expect(out.color).toBeGreaterThan(0.8);
+              expect(out.mortar).toBe(0);
+              expect(out.metallic).toBe(0);
+            }
+          }
+      let dark = 0,
+        orange = 0;
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          const u = (x + 0.37) / 96,
+            v = (y + 0.29) / 96;
+          sample(u, v, out);
+          zebra(u, v, other);
+          if (out.color < 0.15) dark++;
+          if (out.color > 0.8) orange++;
+          // A different pigment pattern must not carve a second fur geometry.
+          expect(out.height).toBe(other.height);
+          expect(out.roughness).toBe(other.roughness);
+          expect(out.occlusion).toBe(other.occlusion);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+        }
+      expect(dark / (96 * 96)).toBeGreaterThan(0.15);
+      expect(dark / (96 * 96)).toBeLessThan(0.4);
+      expect(orange / (96 * 96)).toBeGreaterThan(0.5);
+    },
+  );
+  it('keeps pointed branch tips and shoulders, compact stripe row ownership, reused hair boundaries and both UV wraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tigerfur', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.02,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++) {
+        for (let i = 0; i <= 128; i++) check(i / 128, row / p.rows);
+        for (let fork = 0; fork < p.forks; fork++)
+          for (const t of [
+            -1,
+            1,
+            -Math.sqrt(1 - Math.sqrt(p.forkShoulder)),
+            Math.sqrt(1 - Math.sqrt(p.forkShoulder)),
+          ])
+            for (let i = 0; i <= 64; i++)
+              check(
+                forkU(seed, row, t, fork),
+                (row + 0.05 + (i * 0.9) / 64) / p.rows,
+              );
+      }
+    }
+  });
+});
 
 describe('Broad flattened oat flakes with low solid creases and six fine fibers', () => {
   const p = proceduralMaterialPresets.oatflakes;
@@ -27841,7 +27969,12 @@ describe('periodic procedural material fields', () => {
     );
   });
   describe('short patterned fur', () => {
-    const furKinds = ['zebrafur', 'leopardfur', 'giraffefur'] as const;
+    const furKinds = [
+      'zebrafur',
+      'leopardfur',
+      'giraffefur',
+      'tigerfur',
+    ] as const;
     const empty = (): SurfaceSample => ({
       color: 0,
       height: 0,

@@ -5701,6 +5701,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberHalfWidth: 0.007;
         detailShoulder: 0.2;
     }>;
+    tigerfur: Readonly<{
+        dark: readonly [14, 8, 4];
+        light: readonly [244, 156, 54];
+        roughness: 0.87;
+        relief: 0.002;
+        rows: 6;
+        warp: 0.12;
+        bandWidth: 0.11;
+        bandVariation: 0.025;
+        bandShoulder: 0.0025;
+        forks: 2;
+        forkHalfLength: 0.3;
+        forkHalfWidth: 0.045;
+        forkReach: 0.28;
+        forkShoulder: 0.2;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -6302,4 +6318,5 @@ export declare const proceduralTileMeters: Readonly<{
     carrotcuts: 0.24;
     bluepushpins: 0.16;
     oatflakes: 0.06;
+    tigerfur: 0.4;
 }>;

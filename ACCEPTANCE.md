@@ -7526,3 +7526,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 最終修正後 Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 598-preset oatflakes、擷取畫面與 512 base-color detail，見寬扁淡燕麥薄片／中央深壓痕／六條較清楚的細淡纖維／中性 opaque 背底。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity 或效能。
 - Fresh Node 新 build 生成 oatflakes 並重算既有 597 種 size 64／seed 7 四圖 SHA256，changed 0；八份修改文件相對連結無失效。
 - 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6705 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。
+
+## 2026-10-25 程序材質：虎斑毛皮（tigerfur）
+
+- 目錄 598→599 種；0.4 m opaque dielectric tile、metallic 0，橙底／六波紋主帶／每行兩連根尖分枝。擴充既有 shortFur，重用 5×7 warp／96×64 grain／40×32 compact C1 directional hair records 和 pigment-independent pile height／roughness／AO；只新增六行 fork phase／side、四 reciprocals。Squared-distance parent band 與 cap²−across² branches product union 定 pigment，row 邊界前支撐歸零；full band 跳過 fork、空 along 跳過 across，新增 pigment 採樣無配置／hash／sqrt／trig。沿四圖／選用 height／ownership，不新增毛髮 geometry、透明度、動物／毛髮／物理模擬。
+- Targeted 七項首次通過（3 seed morphology、exact C1、determinism、既有 shared fur directional pile 與 C1 checks）：3 seeds ×6 rows ×2 forks，4097-point 各行剖面在 t=-0.7 一連接 dark run、t=0.7 兩 dark runs，寬各 >0.01 row units、分枝間 orange gap >0.025／color >0.8／metallic 0／backing 0。96² grid 深色比例 15–40%／橙底 >50%；相同 seed 的 height／roughness／AO 與既有 zebrafur 逐點相同，確認 pigment 未造新 pile geometry。129²／pointed branch tips and shoulders／row owners／shared hair boundaries／UV wraps C1，既有 directional energy／低 pigment-height correlation 與收斂 slope checks 通過。
+- Managed Chromium 實際 `/examples/pbr3d/` 強制 WebGPU／WebGL2，選出 599-preset tigerfur、擷取畫面與 512 base-color detail，見橙底波紋深主帶與連根尖細分枝。實際 factor 0／height true／destroyed true；兩 backend page／about:blank cleanup errors 皆空、tab 已關閉。未認證 Safari、實機、Canvas2D 3D、backend parity、photoreal fur 或效能。
+- Fresh Node 新 build 生成 tigerfur 並重算既有 598 種 size 64／seed 7 四圖 SHA256，changed 0（含共用 shortFur 的既有材質）；八份修改文件相對連結無失效。
+- 完整 gate：build、typecheck、lint、format:check、179 個測試檔／6712 項測試、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與 distribution（367 exports）全部通過；未提升版本，未 push。

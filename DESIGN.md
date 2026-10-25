@@ -745,6 +745,8 @@
 
 `oatflakes` 預算 16 rotation／jitter／inverse scale／tone poses、三 cached fiber rows／inverse lengths、64² rim／192² grain／reciprocals。4×4 compact ellipse flakes，僅 rim transition 採樣 noise 變動邊界；coarse field 排空、full coverage 跳過 rim noise。Low pointed central crease 與三對 pointed fiber ridges 全支撐在 full body，cap²−across² smooth covers 端尖零斜率；nearest-row owners 交界在零支撐，較寬纖維顏料對比維持 >0.07。Body coherent replacement 定 low dome／opaque crease 與 neutral backing，空 body 跳過 detail/grain、空 along/cross 支撐跳過後續；採樣無配置／hash／sqrt／trig。不新增 geometry、透明裂縫、烹煮／營養或物理模擬。
 
+`tigerfur` 擴充既有 shortFur 分支，重用 5×7 warp／96×64 grain／40×32 compact C1 directional hair records 與 pile height／roughness／AO，不另建毛髮架構；僅預算六行 fork phase／side 與四 reciprocals。六個 compact squared-distance 波紋帶、每行兩個 cap²−across² 尖枝由根連出再分離，product union 定深色 pigment，橙底與深條紋不改 pile。Row 邊界留零 pigment 支撐、UV wrap periodic；full band 跳過 fork、空 along 跳過 across，新增顏料採樣無配置／hash／sqrt／trig。不新增 geometry、透明度、動物／毛髮／物理模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

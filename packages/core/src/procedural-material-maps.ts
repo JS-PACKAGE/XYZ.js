@@ -397,6 +397,7 @@ export function createSurfaceSampler(
     kind === 'zebrafur' ||
     kind === 'leopardfur' ||
     kind === 'giraffefur' ||
+    kind === 'tigerfur' ||
     kind === 'cowhide';
   const furWarp = shortFur ? cachedNoise(5, 7, seed ^ 0x72b9) : null;
   const furGrain = shortFur ? cachedNoise(96, 64, seed ^ 0x4c13) : null;
@@ -421,6 +422,18 @@ export function createSurfaceSampler(
         furFibers[offset + 2] = Math.cos(angle);
         furFibers[offset + 3] = Math.sin(angle);
       }
+  const tigerPreset =
+      kind === 'tigerfur' ? proceduralMaterialPresets.tigerfur : null,
+    tigerForks = tigerPreset ? new Float64Array(tigerPreset.rows * 2) : null,
+    inverseTigerBand = tigerPreset ? 1 / tigerPreset.bandShoulder : 0,
+    inverseTigerLength = tigerPreset ? 1 / tigerPreset.forkHalfLength : 0,
+    inverseTigerWidth = tigerPreset ? 1 / tigerPreset.forkHalfWidth : 0,
+    inverseTigerShoulder = tigerPreset ? 1 / tigerPreset.forkShoulder : 0;
+  if (tigerForks)
+    for (let row = 0; row < tigerPreset!.rows; row++) {
+      tigerForks[row * 2] = hash(row, 0, seed ^ 0x14113);
+      tigerForks[row * 2 + 1] = hash(row, 0, seed ^ 0x14115) < 0.5 ? -1 : 1;
+    }
   const rosettes = kind === 'leopardfur' ? new Float64Array(5 * 5 * 7) : null;
   if (rosettes)
     for (let y = 0; y < 5; y++)
@@ -16486,6 +16499,7 @@ export function createSurfaceSampler(
       case 'zebrafur':
       case 'leopardfur':
       case 'giraffefur':
+      case 'tigerfur':
       case 'cowhide':
         return () => {
           const warp = furWarp!(u, v),
@@ -16518,6 +16532,37 @@ export function createSurfaceSampler(
               0.04 +
               0.92 *
                 smooth(clamp((pigment - p.patchLow) * inverseCowTransition));
+          } else if (kind === 'tigerfur') {
+            const p = tigerPreset!,
+              rc = v * p.rows,
+              row = Math.floor(rc),
+              bend = furWarp!(u, (row + 0.5) / p.rows),
+              center = p.warp * (2 * bend - 1),
+              width = p.bandWidth + p.bandVariation * bend,
+              delta = fract(rc) - 0.5 - center,
+              band = smooth(
+                clamp((width * width - delta * delta) * inverseTigerBand),
+              );
+            let outside = 1 - band;
+            if (outside > 0) {
+              const t =
+                (fract(u * p.forks + tigerForks![row * 2]) - 0.5) *
+                inverseTigerLength;
+              if (Math.abs(t) < 1) {
+                const cap = 1 - t * t,
+                  across =
+                    (delta -
+                      tigerForks![row * 2 + 1] * p.forkReach * (t + 1) * 0.5) *
+                    inverseTigerWidth;
+                outside *=
+                  1 -
+                  smooth(
+                    clamp((cap * cap - across * across) * inverseTigerShoulder),
+                  );
+              }
+            }
+            const orange = 0.84 + 0.1 * warp;
+            color = orange + (1 - outside) * (0.035 + 0.025 * grain - orange);
           } else if (kind === 'zebrafur') {
             const bend =
                 0.42 * Math.sin(TAU * 2 * v + phase) + 0.75 * (warp - 0.5),
