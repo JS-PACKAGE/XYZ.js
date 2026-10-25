@@ -649,7 +649,8 @@ export type ProceduralMaterialKind =
   | 'bullionknots'
   | 'orecchiette'
   | 'solderlessbreadboard'
-  | 'kyaniteblades';
+  | 'kyaniteblades'
+  | 'internaltoothwashers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1533,6 +1534,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'orecchiette',
   'solderlessbreadboard',
   'kyaniteblades',
+  'internaltoothwashers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1750,6 +1752,7 @@ export class ProceduralMaterial {
         this.kind === 'botryoidalcopper' ||
         this.kind === 'sewingthimbles' ||
         this.kind === 'boullebrassinlay' ||
+        this.kind === 'internaltoothwashers' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

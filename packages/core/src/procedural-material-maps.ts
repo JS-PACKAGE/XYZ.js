@@ -1441,6 +1441,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'internaltoothwashers': {
+        const p = proceduralMaterialPresets.internaltoothwashers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x16511),
+          outerSquared = p.outerRadius * p.outerRadius,
+          tipSquared = (p.rootRadius - p.toothDepth) ** 2,
+          inverseOuter = 1 / (outerSquared - p.fullOuter * p.fullOuter),
+          inverseInner = 1 / p.innerSquaredShoulder,
+          bendSquared = p.bendRoot * p.bendRoot,
+          inverseBend = 1 / (bendSquared - p.fullBend * p.fullBend),
+          halfTeeth = p.teeth * 0.5;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x16515);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16517) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x16519) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1651b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1651d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y,
+            grain = grainField(u, v);
+          color = 0.05 + 0.02 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.94;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (q <= tipSquared || q >= outerSquared) return;
+          const a = Math.atan2(y, x),
+            tooth = 0.5 + 0.5 * Math.cos(p.teeth * a),
+            inner = p.rootRadius - p.toothDepth * tooth,
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - inner * inner) * inverseInner));
+          if (face === 0) return;
+          const bend =
+              smooth(clamp((bendSquared - q) * inverseBend)) *
+              tooth *
+              Math.cos(halfTeeth * a),
+            metalColor = 0.82 + 0.06 * poses[i + 5] + 0.025 * grain,
+            metalHeight = 0.5 + 0.1 * bend + 0.003 * grain;
+          color += face * (metalColor - color);
+          height += face * (metalHeight - height);
+          roughness += face * (p.roughness + 0.03 * grain - roughness);
+          occlusion += face * (0.98 + 0.01 * bend - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+        };
+      }
       case 'kyaniteblades': {
         const p = proceduralMaterialPresets.kyaniteblades,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -27115,6 +27178,7 @@ export function createSurfaceSampler(
     kind === 'orecchiette' ||
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
+    kind === 'internaltoothwashers' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

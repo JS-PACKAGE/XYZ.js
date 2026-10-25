@@ -6554,6 +6554,24 @@ export const proceduralMaterialPresets = Object.freeze({
     scale: 0.94,
     scaleVariation: 0.04,
   }),
+  internaltoothwashers: Object.freeze({
+    dark: [27, 33, 40] as const,
+    light: [237, 241, 246] as const,
+    roughness: 0.32,
+    relief: 0.004,
+    cells: 4,
+    outerRadius: 0.32,
+    fullOuter: 0.3,
+    rootRadius: 0.22,
+    toothDepth: 0.08,
+    innerSquaredShoulder: 0.003,
+    bendRoot: 0.24,
+    fullBend: 0.19,
+    teeth: 12,
+    jitter: 0.02,
+    scale: 0.94,
+    scaleVariation: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -7192,4 +7210,5 @@ export const proceduralTileMeters = Object.freeze({
   orecchiette: 0.16,
   solderlessbreadboard: 0.04064,
   kyaniteblades: 0.16,
+  internaltoothwashers: 0.16,
 });

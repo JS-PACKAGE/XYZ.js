@@ -675,7 +675,239 @@ const kinds: ProceduralMaterialKind[] = [
   'orecchiette',
   'solderlessbreadboard',
   'kyaniteblades',
+  'internaltoothwashers',
 ];
+
+describe('Closed silver-colored washer rims with twelve inward metal teeth alternating six raised and six lowered tips around an opaque star-shaped recess', () => {
+  const p = proceduralMaterialPresets.internaltoothwashers;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16515),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1651b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16517) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x16519) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a fully closedmetal outerrim and twelve inwardconnected metalteeth with six actualraised and six actuallowered tips rather than external sawteeth or a splitring for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('internaltoothwashers', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 1024; j++) {
+            const a = (j * Math.PI) / 512;
+            sample(
+              ...world(seed, col, row, 0.28 * Math.cos(a), 0.28 * Math.sin(a)),
+              out,
+            );
+            expect(out.metallic).toBe(1);
+            expect(out.mortar).toBe(0);
+            expect(out.height).toBeGreaterThan(0.0019999);
+            expect(out.height).toBeLessThan(0.0020121);
+            expect(out.occlusion).toBeCloseTo(0.98, 12);
+          }
+          const tips: number[] = [];
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const a = (tooth * 2 * Math.PI) / p.teeth,
+              c = Math.cos(a),
+              s = Math.sin(a);
+            sample(...world(seed, col, row, 0.28 * c, 0.28 * s), out);
+            const root = { ...out };
+            sample(...world(seed, col, row, 0.18 * c, 0.18 * s), out);
+            const tip = { ...out };
+            tips.push(tip.height);
+            expect(tip.metallic).toBe(1);
+            expect(tip.mortar).toBe(0);
+            expect(Math.abs(tip.color - root.color)).toBeLessThan(0.0251);
+            expect(Math.abs(tip.roughness - root.roughness)).toBeLessThan(
+              0.0301,
+            );
+            if (tooth % 2 === 0) {
+              expect(tip.height).toBeGreaterThan(0.0023999);
+              expect(tip.height).toBeLessThan(0.0024121);
+              expect(tip.height - root.height).toBeGreaterThan(0.0003879);
+              expect(tip.occlusion).toBeCloseTo(0.99, 12);
+            } else {
+              expect(tip.height).toBeGreaterThan(0.0015999);
+              expect(tip.height).toBeLessThan(0.0016121);
+              expect(root.height - tip.height).toBeGreaterThan(0.0003879);
+              expect(tip.occlusion).toBeCloseTo(0.97, 12);
+            }
+            for (let j = 0; j <= 64; j++) {
+              const r = 0.18 + (0.1 * j) / 64;
+              sample(...world(seed, col, row, r * c, r * s), out);
+              expect(out.metallic).toBe(1);
+              expect(out.mortar).toBe(0);
+              expect(out.height).toBeGreaterThan(0.0015999);
+            }
+            const gap = a + Math.PI / p.teeth;
+            for (const [x, y] of [
+              [0.18 * Math.cos(gap), 0.18 * Math.sin(gap)],
+              [0.1 * c, 0.1 * s],
+              [(p.outerRadius + 0.01) * c, (p.outerRadius + 0.01) * s],
+            ]) {
+              sample(...world(seed, col, row, x, y), out);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(1);
+              expect(out.height).toBeGreaterThan(0.0000999);
+              expect(out.height).toBeLessThan(0.0001081);
+              expect(out.occlusion).toBeCloseTo(0.3, 12);
+            }
+          }
+          for (let j = 0; j < p.teeth; j += 2)
+            expect(tips[j] - tips[(j + 1) % p.teeth]).toBeGreaterThan(
+              0.0007879,
+            );
+          let teeth = 0,
+            raised = 0,
+            prior = false,
+            priorRaised = false;
+          for (let j = 0; j <= 8192; j++) {
+            const a = Math.PI / p.teeth + (j * Math.PI) / 4096;
+            sample(
+              ...world(seed, col, row, 0.18 * Math.cos(a), 0.18 * Math.sin(a)),
+              out,
+            );
+            const metal = out.metallic > 0.95,
+              high = metal && out.height > 0.0022;
+            if (metal && !prior) teeth++;
+            if (high && !priorRaised) raised++;
+            prior = metal;
+            priorRaised = high;
+          }
+          expect(teeth).toBe(12);
+          expect(raised).toBe(6);
+        }
+    },
+  );
+  it('resolves actual512 all12metal innerteeth and fullouterband versus opaque dielectric starrecess gullets without painting different materials on alternating tips', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('internaltoothwashers', 512, seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const index = (r: number, a: number) => {
+            const [u, v] = world(
+              seed,
+              col,
+              row,
+              r * Math.cos(a),
+              r * Math.sin(a),
+            );
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const a = (tooth * 2 * Math.PI) / p.teeth,
+              tip = index(0.18, a),
+              gap = index(0.18, a + Math.PI / p.teeth),
+              rim = index(0.28, a);
+            expect(maps.metallicRoughness[tip + 2]).toBe(255);
+            expect(maps.metallicRoughness[rim + 2]).toBe(255);
+            expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            expect(maps.baseColor[tip] - maps.baseColor[gap]).toBeGreaterThan(
+              45,
+            );
+            expect(
+              maps.metallicRoughness[gap + 1] - maps.metallicRoughness[tip + 1],
+            ).toBeGreaterThan(145);
+            expect(maps.occlusion[tip] - maps.occlusion[gap]).toBeGreaterThan(
+              165,
+            );
+          }
+        }
+    }
+  });
+  it('keeps allouter/core circles innertooth support and core curves bend shoulders atan2 seam center poseowners and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('internaltoothwashers', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          check(...world(seed, col, row, 0, 0));
+          for (let j = 0; j <= 2048; j++) {
+            const a = (j * Math.PI) / 1024,
+              c = Math.cos(a),
+              s = Math.sin(a),
+              inner =
+                p.rootRadius -
+                p.toothDepth * (0.5 + 0.5 * Math.cos(p.teeth * a));
+            for (const r of [
+              p.outerRadius,
+              p.fullOuter,
+              p.bendRoot,
+              p.fullBend,
+              p.rootRadius - p.toothDepth,
+              inner,
+              Math.sqrt(inner * inner + p.innerSquaredShoulder),
+            ])
+              check(...world(seed, col, row, r * c, r * s));
+          }
+          for (let j = 0; j <= 256; j++)
+            check(...world(seed, col, row, -0.34 + (0.34 * j) / 256, 0));
+        }
+    }
+  });
+});
 
 describe('Opaque blue kyanite-inspired bundles of three parallel cleaved blades with staggered oblique ends and three raised longitudinal striae on darker matrix', () => {
   const p = proceduralMaterialPresets.kyaniteblades;
@@ -38004,6 +38236,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'botryoidalcopper' &&
           kind !== 'sewingthimbles' &&
           kind !== 'boullebrassinlay' &&
+          kind !== 'internaltoothwashers' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -47418,6 +47651,7 @@ describe('procedural preset acquisition and ownership', () => {
     'botryoidalcopper',
     'sewingthimbles',
     'boullebrassinlay',
+    'internaltoothwashers',
     'standingseam',
     'damascus',
     'castiron',
@@ -47492,6 +47726,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'botryoidalcopper' ||
           kind === 'sewingthimbles' ||
           kind === 'boullebrassinlay' ||
+          kind === 'internaltoothwashers' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||
