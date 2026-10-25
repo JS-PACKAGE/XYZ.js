@@ -6675,6 +6675,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         scale: 0.94;
         scaleVariation: 0.04;
     }>;
+    tailorstapes: Readonly<{
+        dark: readonly [29, 29, 27];
+        light: readonly [248, 240, 209];
+        roughness: 0.9;
+        relief: 0.001;
+        rows: 4;
+        halfWidth: 0.29;
+        edge: 0.025;
+        ticks: 100;
+        tickHalf: 0.18;
+        tickCore: 0.1;
+        markOuter: 0.25;
+        markEdge: 0.012;
+        majorLength: 0.18;
+        midLength: 0.13;
+        minorLength: 0.08;
+        weaveCells: 128;
+        weaveHalf: 0.45;
+        exposureHalf: 0.4;
+        exposureEdge: 0.08;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7324,4 +7345,5 @@ export declare const proceduralTileMeters: Readonly<{
     shojipaperlattice: 0.9;
     nyloncableties: 0.6;
     weavingshuttles: 0.6;
+    tailorstapes: 0.1;
 }>;

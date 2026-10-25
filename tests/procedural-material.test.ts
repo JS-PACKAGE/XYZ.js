@@ -687,7 +687,227 @@ const kinds: ProceduralMaterialKind[] = [
   'shojipaperlattice',
   'nyloncableties',
   'weavingshuttles',
+  'tailorstapes',
 ];
+
+describe('Unnumbered cream woven tailor tapes with dual-edge black short mid and long grouped graduations and continuous central cloth lanes', () => {
+  const p = proceduralMaterialPresets.tailorstapes;
+  it.each([0, 1, 0xffffffff])(
+    'keeps four continuous opaque woven strips with true gaps and both edge scales visibly separating hundred short twenty medium and ten long ink runs without crossing the central cloth lane for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tailorstapes', seed),
+        out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+      for (let row = 0; row < p.rows; row++) {
+        for (let j = 0; j <= 1024; j++) {
+          const u = j / 1024;
+          sample(u, (row + 0.5) / p.rows, out);
+          expect(out.height).toBeGreaterThan(0.0004003);
+          expect(out.height).toBeLessThan(0.0004072);
+          expect(out.color).toBeGreaterThanOrEqual(0.88);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.9);
+          expect(out.occlusion).toBeGreaterThanOrEqual(0.97);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+          sample(u, row / p.rows, out);
+          expect(out.height).toBeGreaterThan(0.0000249);
+          expect(out.height).toBeLessThan(0.0000271);
+          expect(out.occlusion).toBeCloseTo(0.3, 12);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(1);
+        }
+        for (const sign of [-1, 1]) {
+          for (let tick = 0; tick < 100; tick++)
+            for (const [depth, active] of [
+              [0.21, true],
+              [0.15, tick % 5 === 0],
+              [0.1, tick % 10 === 0],
+            ] as const) {
+              const u = tick / 100,
+                v = (row + 0.5 + sign * depth) / p.rows;
+              sample(u, v, out);
+              const pigment = { ...out };
+              sample(u + 0.005, v, out);
+              if (active) {
+                expect(out.color - pigment.color).toBeGreaterThan(0.8299);
+                expect(out.roughness - pigment.roughness).toBeGreaterThan(
+                  0.0999,
+                );
+                expect(pigment.occlusion).toBeCloseTo(0.99, 12);
+                expect(pigment.height).toBeGreaterThan(0.0004023);
+                expect(pigment.height).toBeLessThan(0.0004092);
+              } else expect(pigment.color).toBeGreaterThanOrEqual(0.88);
+              expect(out.color).toBeGreaterThanOrEqual(0.88);
+              expect(pigment.metallic).toBe(0);
+              expect(pigment.mortar).toBe(0);
+            }
+          for (const [depth, expected] of [
+            [0.21, 100],
+            [0.15, 20],
+            [0.1, 10],
+          ]) {
+            let runs = 0,
+              inside = false;
+            for (let j = 0; j <= 8192; j++) {
+              sample(
+                0.005 + j / 8192,
+                (row + 0.5 + sign * depth) / p.rows,
+                out,
+              );
+              const black = out.color < 0.2;
+              if (black && !inside) runs++;
+              inside = black;
+            }
+            expect(runs).toBe(expected);
+          }
+        }
+        for (let cell = 0; cell < 16; cell++) {
+          const i = cell + 8,
+            j = row * 32 + 16;
+          sample((i + 0.5) / 128, (j + 0.5) / 128, out);
+          const crossing = out.height;
+          sample(i / 128, j / 128, out);
+          expect(crossing - out.height).toBeGreaterThan(0.0000006);
+        }
+      }
+    },
+  );
+  it('keeps actual512 all hundred graduations at both strip edges with twenty medium ten deep marks and a bright unprinted center on rough dielectric woven tape rather than a paper grid', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('tailorstapes', 512, seed),
+        index = (u: number, v: number) =>
+          (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+      for (let row = 0; row < p.rows; row++)
+        for (const sign of [-1, 1]) {
+          for (const [depth, expected] of [
+            [0.21, 100],
+            [0.15, 20],
+            [0.1, 10],
+          ]) {
+            let black = 0;
+            for (let tick = 0; tick < 100; tick++) {
+              const u = tick / 100,
+                v = (row + 0.5 + sign * depth) / p.rows,
+                mark = index(u, v),
+                gap = index(u + 0.005, v);
+              if (maps.baseColor[mark] < 80) {
+                black++;
+                expect(
+                  maps.baseColor[gap] - maps.baseColor[mark],
+                ).toBeGreaterThan(175);
+                expect(
+                  maps.metallicRoughness[gap + 1] -
+                    maps.metallicRoughness[mark + 1],
+                ).toBeGreaterThan(24);
+              } else expect(maps.baseColor[mark]).toBeGreaterThan(215);
+              expect(maps.baseColor[gap]).toBeGreaterThan(215);
+              expect(maps.occlusion[mark]).toBeGreaterThan(245);
+              expect(maps.metallicRoughness[mark + 2]).toBe(0);
+              expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            }
+            expect(black).toBe(expected);
+          }
+          for (let tick = 0; tick < 100; tick++) {
+            const center = index(tick / 100, (row + 0.5) / p.rows);
+            expect(maps.baseColor[center]).toBeGreaterThan(215);
+            expect(maps.metallicRoughness[center + 2]).toBe(0);
+          }
+        }
+    }
+  });
+  it('keeps tape edgecore shoulders hundred tick supports owner lengthchanges mark ends wovenwarpweft compactexposure parity and UVwraps C1', () => {
+    const h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tailorstapes', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        },
+        b = { ...a },
+        c = { ...a };
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.03,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (const sign of [-1, 1]) {
+          for (let j = 0; j <= 1024; j++)
+            for (const d of [p.halfWidth, p.halfWidth - p.edge])
+              check(j / 1024, (row + 0.5 + sign * d) / p.rows);
+          for (let tick = 0; tick < 100; tick++) {
+            const length =
+              tick % 10 === 0
+                ? p.majorLength
+                : tick % 5 === 0
+                  ? p.midLength
+                  : p.minorLength;
+            for (let j = 0; j <= 32; j++) {
+              const t = j / 32;
+              for (const d of [
+                -p.tickHalf,
+                -p.tickCore,
+                0,
+                p.tickCore,
+                p.tickHalf,
+                0.5,
+              ])
+                check(
+                  (tick + d) / 100,
+                  (row +
+                    0.5 +
+                    sign *
+                      (p.markOuter - length - 0.02 + (length + 0.04) * t)) /
+                    p.rows,
+                );
+              for (const d of [
+                p.markOuter,
+                p.markOuter - p.markEdge,
+                p.markOuter - length,
+                p.markOuter - length + p.markEdge,
+              ])
+                check(
+                  (tick - 0.2 + 0.4 * t) / 100,
+                  (row + 0.5 + sign * d) / p.rows,
+                );
+            }
+          }
+        }
+      for (let cell = 0; cell < 128; cell++)
+        for (const d of [0, 0.05, 0.1, 0.18, 0.5, 0.82, 0.9, 0.95, 1])
+          for (let j = 0; j <= 16; j++) {
+            check((cell + d) / 128, j / 16);
+            check(j / 16, (cell + d) / 128);
+          }
+    }
+  });
+});
 
 describe('Pointed hollow wooden boat weaving shuttles with longitudinal wood grain twelve cream yarn windings and exposed metal spindle ends', () => {
   const p = proceduralMaterialPresets.weavingshuttles;

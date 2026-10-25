@@ -1441,6 +1441,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tailorstapes': {
+        const p = proceduralMaterialPresets.tailorstapes,
+          grainField = cachedNoise(128, 128, seed ^ 0x17111),
+          lengths = new Float64Array(10),
+          inverseTape = 1 / p.edge,
+          inverseTick = 1 / (p.tickHalf - p.tickCore),
+          inverseMark = 1 / p.markEdge,
+          inverseWeave = 1 / (p.weaveHalf * p.weaveHalf),
+          inverseExposure = 1 / p.exposureEdge;
+        for (let i = 0; i < lengths.length; i++)
+          lengths[i] =
+            i === 0 ? p.majorLength : i === 5 ? p.midLength : p.minorLength;
+        return () => {
+          const y = fract(v * p.rows) - 0.5,
+            face = smooth(clamp((p.halfWidth - Math.abs(y)) * inverseTape)),
+            grain = grainField(u, v);
+          color = 0.04 + 0.015 * grain;
+          height = 0.025 + 0.002 * grain;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1 - face;
+          if (face === 0) return;
+          const wu = u * p.weaveCells,
+            wv = v * p.weaveCells,
+            wx = fract(wu) - 0.5,
+            wy = fract(wv) - 0.5,
+            warp = smooth(clamp(1 - wx * wx * inverseWeave)),
+            weft = smooth(clamp(1 - wy * wy * inverseWeave)),
+            exposure =
+              (Math.floor(wu) - Math.floor(wv)) & 1
+                ? smooth(
+                    clamp((p.exposureHalf - Math.abs(wx)) * inverseExposure),
+                  ) *
+                  smooth(
+                    clamp((p.exposureHalf - Math.abs(wy)) * inverseExposure),
+                  )
+                : 0,
+            dominant = warp * (1 - exposure) + weft * exposure,
+            coverage = 1 - (1 - warp) * (1 - weft),
+            woven =
+              0.05 +
+              (0.46 * warp + 0.18 * weft * (1 - warp)) * (1 - exposure) +
+              (0.46 * weft + 0.18 * warp * (1 - weft)) * exposure;
+          color += face * (0.88 + 0.025 * grain + 0.015 * dominant - color);
+          height += face * (0.4 + 0.008 * woven + 0.003 * grain - height);
+          roughness +=
+            face *
+            (p.roughness + 0.03 * grain + 0.02 * (1 - dominant) - roughness);
+          occlusion += face * (0.97 + 0.02 * coverage - occlusion);
+          const tu = u * p.ticks + 0.5,
+            owner = Math.floor(tu),
+            sx = fract(tu) - 0.5,
+            tick = smooth(clamp((p.tickHalf - Math.abs(sx)) * inverseTick));
+          if (tick === 0) return;
+          const length = lengths[owner % 10],
+            ink =
+              tick *
+              smooth(clamp((p.markOuter - Math.abs(y)) * inverseMark)) *
+              smooth(clamp((Math.abs(y) - p.markOuter + length) * inverseMark));
+          if (ink === 0) return;
+          color += ink * (0.04 + 0.01 * grain - color);
+          height += 0.002 * ink;
+          roughness += ink * (0.78 + 0.02 * grain - roughness);
+          occlusion += ink * (0.99 - occlusion);
+        };
+      }
       case 'weavingshuttles': {
         const p = proceduralMaterialPresets.weavingshuttles,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -28200,6 +28267,7 @@ export function createSurfaceSampler(
     kind === 'shojipaperlattice' ||
     kind === 'nyloncableties' ||
     kind === 'weavingshuttles' ||
+    kind === 'tailorstapes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
