@@ -702,7 +702,265 @@ const kinds: ProceduralMaterialKind[] = [
   'pencilsharpeners',
   'scissors',
   'serpentinesprings',
+  'impellerfaces',
 ];
+
+describe('Swept impeller faces with six pointed silver blades six open sectors a higher annular hub and a true center bore', () => {
+  const p = proceduralMaterialPresets.impellerfaces;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x18015),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1801b);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18017) - 1) +
+        scale * (c * x - s * y)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x18019) - 1) +
+        scale * (s * x + c * y)) /
+        p.cells,
+    ] as const;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const sweep = (r: number) =>
+    (p.sweep * (r * r - p.bladeInnerFull * p.bladeInnerFull)) /
+    (p.bladeOuterCore * p.bladeOuterCore - p.bladeInnerFull * p.bladeInnerFull);
+  const polar = (r: number, blade: number, phase = 0) => {
+    const theta = (blade * 2 * Math.PI) / p.blades + sweep(r) + phase;
+    return [r * Math.cos(theta), r * Math.sin(theta)] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps nine bored annular hubs each continuously joined to six genuinely swept pointed blades separated by six open sectors rather than a closed gear rim for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('impellerfaces', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            hub = at(0.08, 0);
+          for (let j = 0; j <= 1024; j++) {
+            const theta = (2 * Math.PI * j) / 1024,
+              c = Math.cos(theta),
+              s = Math.sin(theta),
+              ring = at(0.08 * c, 0.08 * s),
+              bore = at(0.025 * c, 0.025 * s);
+            expect(ring.height).toBeGreaterThanOrEqual(0.0029999);
+            expect(ring.height).toBeLessThanOrEqual(0.0030121);
+            expect(ring.metallic).toBe(1);
+            expect(ring.mortar).toBe(0);
+            expect(ring.occlusion).toBeCloseTo(0.99, 12);
+            expect(bore.height).toBeCloseTo(0.0001, 12);
+            expect(bore.metallic).toBe(0);
+            expect(bore.mortar).toBe(1);
+            expect(bore.occlusion).toBeCloseTo(0.3, 12);
+          }
+          for (let blade = 0; blade < p.blades; blade++) {
+            const inner = at(...polar(0.15, blade)),
+              outer = at(...polar(0.3, blade));
+            expect(outer.height - inner.height).toBeGreaterThan(0.00025);
+            expect(hub.height - outer.height).toBeGreaterThan(0.0006);
+            const oldAngle = (blade * 2 * Math.PI) / p.blades + sweep(0.15),
+              straight = at(0.3 * Math.cos(oldAngle), 0.3 * Math.sin(oldAngle));
+            expect(straight.metallic).toBe(0);
+            expect(straight.mortar).toBe(1);
+            for (let j = 0; j <= 512; j++) {
+              const r = 0.105 + (0.195 * j) / 512,
+                value = at(...polar(r, blade));
+              expect(value.height).toBeGreaterThanOrEqual(0.0020799);
+              expect(value.metallic).toBe(1);
+              expect(value.mortar).toBe(0);
+              expect(value.occlusion).toBeCloseTo(0.99, 12);
+              const gap = at(
+                ...polar(0.14 + (0.16 * j) / 512, blade, Math.PI / p.blades),
+              );
+              expect(gap.height).toBeCloseTo(0.0001, 12);
+              expect(gap.metallic).toBe(0);
+              expect(gap.mortar).toBe(1);
+              expect(gap.occlusion).toBeCloseTo(0.3, 12);
+            }
+            const r = 0.2,
+              width =
+                (p.halfAngle *
+                  (p.bladeOuterRadius * p.bladeOuterRadius - r * r)) /
+                (p.bladeOuterRadius * p.bladeOuterRadius -
+                  p.bladeInnerFull * p.bladeInnerFull),
+              flat = at(...polar(r, blade)),
+              hone = at(...polar(r, blade, -width + 0.03));
+            expect(flat.height - hone.height).toBeGreaterThan(0.0000372);
+            expect(flat.color - hone.color).toBeGreaterThan(0.0135);
+            expect(hone.roughness - flat.roughness).toBeGreaterThan(0.0101);
+            expect(hone.metallic).toBe(1);
+            expect(hone.mortar).toBe(0);
+          }
+          let runs = 0,
+            inside = false;
+          for (let j = 0; j <= 8192; j++) {
+            const theta = (2 * Math.PI * j) / 8192,
+              value = at(0.25 * Math.cos(theta), 0.25 * Math.sin(theta)),
+              next = value.metallic > 0.9;
+            if (next && !inside) runs++;
+            inside = next;
+          }
+          expect(runs).toBe(6);
+        }
+    },
+  );
+  it('writes six swept silver blades six open sectors an elevated metal hub and a genuine nonmetal bore in actual 512 packed PBR and height maps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('impellerfaces', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pixel = (x: number, y: number) => {
+              const [u, v] = world(seed, col, row, x, y);
+              return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+            },
+            hub = pixel(0.08, 0),
+            bore = pixel(0, 0);
+          expect(maps.metallicRoughness[hub + 2]).toBe(255);
+          expect(maps.occlusion[hub]!).toBeGreaterThan(245);
+          expect(maps.metallicRoughness[bore + 2]).toBe(0);
+          expect(maps.occlusion[bore]!).toBeLessThan(80);
+          for (let blade = 0; blade < p.blades; blade++) {
+            const inner = pixel(...polar(0.15, blade)),
+              outer = pixel(...polar(0.28, blade)),
+              gap = pixel(...polar(0.25, blade, Math.PI / p.blades));
+            for (const i of [inner, outer]) {
+              expect(maps.baseColor[i]!).toBeGreaterThan(220);
+              expect(maps.baseColor[i + 1]!).toBeGreaterThan(225);
+              expect(maps.metallicRoughness[i + 2]).toBe(255);
+              expect(maps.occlusion[i]!).toBeGreaterThan(245);
+            }
+            expect(maps.height![outer]! - maps.height![inner]!).toBeGreaterThan(
+              12,
+            );
+            expect(maps.height![hub]! - maps.height![outer]!).toBeGreaterThan(
+              45,
+            );
+            expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            expect(maps.occlusion[gap]!).toBeLessThan(80);
+            expect(maps.height![gap]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats bored hub swept tips bevel and gap PBR channels across signed UV periods while retaining seeded orientation', () => {
+    const sample = createSurfaceSampler('impellerfaces', 7),
+      other = createSurfaceSampler('impellerfaces', 8),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let difference = 0;
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      other(u, v, c);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+      difference += Math.abs(a.metallic - c.metallic);
+    }
+    expect(difference).toBeGreaterThan(100);
+  });
+  it('keeps radial shoulders annular bore hub-hidden angle boundary signed tapered halfplanes pointed tips phase owners atan2 branchcut pose grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('impellerfaces', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          local(0, 0);
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t;
+            for (const r of [
+              p.hubRadius,
+              p.hubCore,
+              p.boreRadius,
+              p.boreCore,
+              p.bladeInnerFull,
+              p.bladeOuterCore,
+              p.bladeOuterRadius,
+            ])
+              local(r * Math.cos(theta), r * Math.sin(theta));
+            const r = p.bladeOuterRadius * t,
+              width =
+                p.halfAngle *
+                Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    (p.bladeOuterRadius * p.bladeOuterRadius - r * r) /
+                      (p.bladeOuterRadius * p.bladeOuterRadius -
+                        p.bladeInnerFull * p.bladeInnerFull),
+                  ),
+                );
+            for (let blade = 0; blade < p.blades; blade++) {
+              for (const d of [0, p.angleShoulder, p.honeAngle])
+                for (const sign of [-1, 1])
+                  local(...polar(r, blade, sign * (width - d)));
+              local(...polar(r, blade, Math.PI / p.blades));
+              local(...polar(p.bladeOuterRadius, blade));
+            }
+            local(-r, 0);
+          }
+        }
+    }
+  });
+});
 
 describe('Serpentine springs with six continuous silver runs five alternating true semicircular U turns and two rounded free ends', () => {
   const p = proceduralMaterialPresets.serpentinesprings;
@@ -45299,6 +45557,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
           kind !== 'serpentinesprings' &&
+          kind !== 'impellerfaces' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -54724,6 +54983,7 @@ describe('procedural preset acquisition and ownership', () => {
     'pencilsharpeners',
     'scissors',
     'serpentinesprings',
+    'impellerfaces',
     'standingseam',
     'damascus',
     'castiron',
@@ -54809,6 +55069,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||
           kind === 'serpentinesprings' ||
+          kind === 'impellerfaces' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

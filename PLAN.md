@@ -863,6 +863,8 @@
 
 同輪追加 `serpentinesprings`（蛇形彈簧線），目錄660→661種：九 seeded 六直段、五交替真半圓 U 彎、雙圓自由端單連續銀線，非六分離條或螺旋圈。M1 wire／M0 gaps，0.2 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、螺旋彈簧構造、彈性／力學或安全認證。True line/arc join C1與雙backend實測見 ACCEPTANCE。
 
+同輪追加 `impellerfaces`（六後掠尖葉輪），目錄661→662種：九 seeded 六後掠尖銀葉、六開扇隙、高圓環hub與真中心孔，非spurgears閉rim換色。Core M1／孔扇隙M0，0.3 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、旋轉、流體／空力或安全認證。尖端halfplane C1及雙backend實測見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

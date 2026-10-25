@@ -871,6 +871,8 @@
 
 `serpentinesprings` 為九 seeded 單連續銀蛇形彈簧線：六直段、五交替真半圓 U 彎與雙圓自由端，非六分離直條或螺旋線圈。Cached poses／128² grain／exact piecewise squared-distance field，straight rows／三右二左turns／end owners都在空support換主；line/arc join離開中心線仍value與一階導數相同。只在eligible U-turn annulus通過中心與外部cull後取一次sqrt，不能用implicit-ring近似取代而破壞接合；每點無配置／hash／trig／鄰格或逐run掃描。Compact core-support及smooth圓冠改height／roughness，full wire core維持M1／exact mortar0，隙為低opaque M0 backing。0.2 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、螺旋彈簧構造、彈性／力學或安全認證。
 
+`impellerfaces` 為九 seeded 六後掠尖銀葉輪、六開扇隙、高圓環hub與真中心孔，非連續rim的spurgears換色。Cached poses／128² grain／squared radial profiles／sixfold angular phase隨q後掠；width隨q線性縮尖，兩smooth signed angular halfplanes乘積形成真尖端，不用abs-phase cusp或vanishing-width division。Phase ties在support外、full hub跳hidden angles/finish、origin不查angle；每eligible annulus一次atan2，每點無配置／hash／sqrt／sin/cos／逐葉或鄰格掃描。Product-complement hub/blade union保持連續core M1／exact mortar0，孔及扇隙低opaque M0；radial blade height向外升、低暗粗磨刃仍低於hub。0.3 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增geometry、旋轉、流體／空力或安全認證。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

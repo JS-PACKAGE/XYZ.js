@@ -1441,6 +1441,106 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'impellerfaces': {
+        const p = proceduralMaterialPresets.impellerfaces,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x18011),
+          hubSquared = p.hubRadius * p.hubRadius,
+          hubCoreSquared = p.hubCore * p.hubCore,
+          inverseHub = 1 / (hubSquared - hubCoreSquared),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (boreSquared - p.boreCore * p.boreCore),
+          innerSquared = p.bladeInnerFull * p.bladeInnerFull,
+          outerSquared = p.bladeOuterRadius * p.bladeOuterRadius,
+          outerCoreSquared = p.bladeOuterCore * p.bladeOuterCore,
+          inverseOuter = 1 / (outerSquared - outerCoreSquared),
+          inverseSpan = 1 / (outerCoreSquared - innerSquared),
+          inverseTaper = 1 / (outerSquared - innerSquared),
+          inverseAngle = 1 / p.angleShoulder,
+          inverseHone = 1 / p.honeAngle,
+          inversePeriod = p.blades / TAU,
+          anglePeriod = TAU / p.blades;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              a = TAU * hash(col, row, seed ^ 0x18015);
+            poses[i] = Math.cos(a);
+            poses[i + 1] = Math.sin(a);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18017) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18019) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1801b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1801d);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - 0.5 - poses[i + 2]!) * poses[i + 4]!,
+            dy = (fract(vc) - 0.5 - poses[i + 3]!) * poses[i + 4]!,
+            x = poses[i]! * dx + poses[i + 1]! * dy,
+            y = poses[i]! * dy - poses[i + 1]! * dx,
+            q = x * x + y * y;
+          if (q >= outerSquared) return;
+          const bore = smooth(clamp((boreSquared - q) * inverseBore)),
+            hub = smooth(clamp((hubSquared - q) * inverseHub)) * (1 - bore);
+          let blade = 0,
+            hone = 0,
+            span = 0;
+          if (q > hubCoreSquared) {
+            span = clamp((q - innerSquared) * inverseSpan);
+            const sweep = p.sweep * (q - innerSquared) * inverseSpan,
+              phase =
+                (fract((Math.atan2(y, x) - sweep) * inversePeriod + 0.5) -
+                  0.5) *
+                anglePeriod,
+              width = p.halfAngle * clamp((outerSquared - q) * inverseTaper),
+              left = width + phase;
+            // Signed halfplanes taper to a genuine tip without abs-phase
+            // cusps or division by a width that vanishes at the point.
+            blade =
+              smooth(clamp(left * inverseAngle)) *
+              smooth(clamp((width - phase) * inverseAngle)) *
+              smooth(clamp((outerSquared - q) * inverseOuter));
+            hone = 1 - smooth(clamp(left * inverseHone));
+          }
+          mortar = (1 - blade) * (1 - hub);
+          metallic = 1 - mortar;
+          if (metallic === 0) return;
+          const grain = grainField(u, v);
+          if (blade !== 0 && hub !== 1) {
+            color +=
+              blade *
+              (0.91 +
+                0.025 * poses[i + 5]! +
+                0.025 * grain -
+                0.11 * hone -
+                color);
+            height +=
+              blade *
+              (0.52 +
+                0.08 * smooth(span) -
+                0.035 * hone +
+                0.003 * grain -
+                height);
+            roughness +=
+              blade * (p.roughness + 0.025 * grain + 0.1 * hone - roughness);
+            occlusion += blade * (0.99 - occlusion);
+          }
+          if (hub !== 0) {
+            color += hub * (0.82 + 0.025 * grain - color);
+            height += hub * (0.75 + 0.003 * grain - height);
+            roughness += hub * (0.3 + 0.025 * grain - roughness);
+            occlusion += hub * (0.99 - occlusion);
+          }
+        };
+      }
       case 'serpentinesprings': {
         const p = proceduralMaterialPresets.serpentinesprings,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -29627,6 +29727,7 @@ export function createSurfaceSampler(
     kind === 'pencilsharpeners' ||
     kind === 'scissors' ||
     kind === 'serpentinesprings' ||
+    kind === 'impellerfaces' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
