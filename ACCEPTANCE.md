@@ -8499,3 +8499,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之parchment512五maps；既有709種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7462項測試（922.29s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：雙道陡斜肋騎兵斜紋（cavalrytwill）
+
+- 目錄710→711種：橄欖綠成對粗／細陡斜肋，72經／36緯約63.4°、六步經面110100 draft逐row前進一經；不是plain或單道三步twill，也不認證歷史織法規格。沿用既有compact yarn／lift／fibers；owner前C1漸消，無逐點配置／hash／trig／sqrt。全opaque M0／mortar0、0.024 m tile／0.0003 m relief；不新增geometry、透明紗隙、各向異性或布料模擬。
+- 專項6項全部通過（1.32s）：三seed六步成對wale沿每row斜移之明／暗經緯面對比與實際交叉高度、512²成對明經肋／暗緯binding opaque dielectric像素、4096 signed UV週期、三seed draft／yarn supports／UV seams雙軸C1。
+- managed Chromium150 headless正式PBR gallery已實際擷取；WebGPU／WebGL2均顯示711種並選取cavalrytwill。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後成功；成功頁面與cleanup errors空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之cavalrytwill512五maps；既有710種（含共用poplin／gabardine／ottoman）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7469項測試（902.13s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

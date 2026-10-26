@@ -2894,19 +2894,25 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
       case 'poplin': {
         const gabardine = kind === 'gabardine',
+          cavalry = kind === 'cavalrytwill',
+          twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
-          p = ottoman
-            ? proceduralMaterialPresets.ottoman
-            : gabardine
-              ? proceduralMaterialPresets.gabardine
-              : proceduralMaterialPresets.poplin,
-          warpBase = gabardine ? 0.34 : 0.3,
-          weftBase = ottoman ? 0.52 : gabardine ? 0.34 : 0.44,
-          weftCrown = ottoman ? 0.1 : gabardine ? 0.04 : 0.07,
+          p = cavalry
+            ? proceduralMaterialPresets.cavalrytwill
+            : ottoman
+              ? proceduralMaterialPresets.ottoman
+              : gabardine
+                ? proceduralMaterialPresets.gabardine
+                : proceduralMaterialPresets.poplin,
+          cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
+          warpBase = twill ? 0.34 : 0.3,
+          weftBase = ottoman ? 0.52 : twill ? 0.34 : 0.44,
+          weftCrown = ottoman ? 0.1 : twill ? 0.04 : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,
@@ -2927,9 +2933,11 @@ export function createSurfaceSampler(
             qy = fy * fy * inverseWeft,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
             weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
-            warpOver = gabardine
-              ? (col - row + p.warpThreads) % 3 < 2
-              : ((col + (ottoman ? Math.floor(row / 2) : row)) & 1) === 0,
+            warpOver = cavalry
+              ? cavalryDraft[(col - row + p.warpThreads) % cavalryDraft.length]
+              : gabardine
+                ? (col - row + p.warpThreads) % 3 < 2
+                : ((col + (ottoman ? Math.floor(row / 2) : row)) & 1) === 0,
             warpWeight = warpOver ? warp : warp * (1 - weft),
             weftWeight = warpOver ? weft * (1 - warp) : weft,
             coverage = warpWeight + weftWeight;
@@ -2938,7 +2946,7 @@ export function createSurfaceSampler(
           roughness = 0.96;
           occlusion = 0.45;
           if (coverage === 0) return;
-          // Ottoman binds paired wefts; gabardine is twill, poplin is plain.
+          // Cavalry's six-step draft pairs steep wales; Ottoman pairs wefts.
           // Lift fades before row/column ownership changes, even along unbroken yarns.
           const sign = warpOver ? 1 : -1,
             liftX = smooth(
@@ -33096,6 +33104,7 @@ export function createSurfaceSampler(
     kind === 'fluorite' ||
     kind === 'wenge' ||
     kind === 'parchment' ||
+    kind === 'cavalrytwill' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

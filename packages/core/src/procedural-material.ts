@@ -725,7 +725,8 @@ export type ProceduralMaterialKind =
   | 'watercaltrops'
   | 'fluorite'
   | 'wenge'
-  | 'parchment';
+  | 'parchment'
+  | 'cavalrytwill';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1685,6 +1686,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fluorite',
   'wenge',
   'parchment',
+  'cavalrytwill',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

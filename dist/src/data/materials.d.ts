@@ -7991,6 +7991,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         poreShoulder: 0.3;
         poreDepth: 0.012;
     }>;
+    cavalrytwill: Readonly<{
+        dark: readonly [43, 48, 38];
+        light: readonly [183, 193, 160];
+        roughness: 0.74;
+        relief: 0.0003;
+        warpThreads: 72;
+        weftThreads: 36;
+        warpRadius: 0.495;
+        warpCore: 0.44;
+        weftRadius: 0.25;
+        weftCore: 0.18;
+        warpLiftHalf: 0.46;
+        weftLiftHalf: 0.34;
+        liftShoulder: 0.06;
+        lift: 0.1;
+        warpFibers: 288;
+        weftFibers: 144;
+        draft: readonly [true, true, false, true, false, false];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8704,4 +8723,5 @@ export declare const proceduralTileMeters: Readonly<{
     fluorite: 0.06;
     wenge: 0.12;
     parchment: 0.04;
+    cavalrytwill: 0.024;
 }>;

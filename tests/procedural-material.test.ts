@@ -751,7 +751,111 @@ const kinds: ProceduralMaterialKind[] = [
   'fluorite',
   'wenge',
   'parchment',
+  'cavalrytwill',
 ];
+
+describe('Cavalry twill with paired steep diagonal wales', () => {
+  const p = proceduralMaterialPresets.cavalrytwill;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'advances a broad and narrow wale diagonally rather than plain or single twill for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cavalrytwill', seed),
+        a = empty();
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let group = 0; group < p.warpThreads / 6; group++) {
+          let light = 1,
+            dark = 0;
+          for (let phase = 0; phase < 6; phase++) {
+            const col = (row + group * 6 + phase) % p.warpThreads;
+            sample((col + 0.5) / p.warpThreads, (row + 0.5) / p.weftThreads, a);
+            if (phase === 0 || phase === 1 || phase === 3)
+              light = Math.min(light, a.color);
+            else dark = Math.max(dark, a.color);
+            expect(a.height).toBeGreaterThan(0.00013);
+            expect(a.height).toBeLessThan(0.00015);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(0);
+          }
+          expect(light - dark).toBeGreaterThan(0.1);
+        }
+    },
+  );
+  it('writes paired steep light warp wales and darker weft bindings as opaque dielectric at actual512', () => {
+    const maps = generateProceduralMaps('cavalrytwill', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.weftThreads; row++) {
+      let light = 255,
+        dark = 0;
+      for (let phase = 0; phase < 6; phase++) {
+        const col = (row + phase) % p.warpThreads,
+          u = (col + 0.5) / p.warpThreads,
+          v = (row + 0.5) / p.weftThreads,
+          i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+        if (phase === 0 || phase === 1 || phase === 3)
+          light = Math.min(light, maps.baseColor[i]);
+        else dark = Math.max(dark, maps.baseColor[i]);
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+      }
+      expect(light - dark).toBeGreaterThan(10);
+    }
+  });
+  it('repeats paired steep wales and all PBR channels on signed UV translations', () => {
+    const sample = createSurfaceSampler('cavalrytwill', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps six-step draft transitions yarn supports and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cavalrytwill', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row <= p.weftThreads; row++)
+        for (let col = 0; col <= p.warpThreads; col++)
+          for (const [du, dv] of [
+            [0, 0],
+            [0.5, 0.5],
+            [0.5 + p.warpRadius, 0.5],
+            [0.5, 0.5 + p.weftRadius],
+          ]) {
+            check((col + du) / p.warpThreads, (row + dv) / p.weftThreads);
+          }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Cream parchment with shallow residual follicles and scraped undertones', () => {
   const p = proceduralMaterialPresets.parchment;
