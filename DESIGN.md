@@ -899,6 +899,8 @@
 
 `larimar` 快取6×6礦物pool各七值（中心、旋轉、inverse radii及fiber phase），以固定3×3週期候選查詢混合rotated compact ellipses，非nearest-owner切換；最大support小於一格，進出候選集合的pool已歸零。藍色coverage及邊肩纖維皆bounded product-complement unions，纖維只在非飽和肩部以週期多項式profile呈現，full core跳過fiber。128² grain／5×5 cloud全域連續；pigment不影響height或AO，height僅0.0005–0.0005008 m的拋光微紋，AO1。全opaque M0／mortar0，0.25 m tile／0.001 m relief，逐點無配置／hash／trig／sqrt，沿既有maps與ownership，不新增geometry、透光、SSS、anisotropy或礦物生長模擬。
 
+`paperbark` 為3×8薄片的六值pose cache加八個seeded row phases，24² edge field正反座標扭曲兩軸撕邊，parabolic彎曲單側下緣。`0.45 + 0.018 + 0.02 < 0.5`及`0.33 + 0.04 + 0.3×0.45² + 0.04 < 0.5`保證coverage先於column／row owner切換歸零；compact squared shoulders與lip／shadow profiles維持C1。下唇增加真height，下方陰影只改pigment／AO；上緣不做對稱隆起。6×192橫纖維、12×8 cloud常駐，128² grain只取樣可見薄片；pigment正向係數總上界1，不靠clamp藏溢出。全opaque M0／mortar0、0.4 m tile／0.002 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描，maps與ownership沿用，不新增geometry、displacement或剝皮模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

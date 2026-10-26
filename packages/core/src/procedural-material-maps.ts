@@ -1441,6 +1441,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'paperbark': {
+        const p = proceduralMaterialPresets.paperbark,
+          pieces = new Float64Array(p.columns * p.rows * 6),
+          phases = new Float64Array(p.rows),
+          edgeField = cachedNoise(24, 24, seed ^ 0x18e23),
+          fiberField = cachedNoise(6, 192, seed ^ 0x18e11),
+          cloudField = cachedNoise(12, 8, seed ^ 0x18e13),
+          grainField = cachedNoise(128, 128, seed ^ 0x18e15),
+          inverseShoulderX = 1 / p.shoulderX,
+          inverseShoulderY = 1 / p.shoulderY,
+          inverseLip = 1 / p.lipRadius,
+          inverseShadow = 1 / p.shadowRadius;
+        for (let row = 0; row < p.rows; row++)
+          phases[row] = hash(row, 0, seed ^ 0x18e25);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 6;
+            pieces[i] = p.jitterX * (2 * hash(col, row, seed ^ 0x18e17) - 1);
+            pieces[i + 1] =
+              p.jitterY * (2 * hash(col, row, seed ^ 0x18e19) - 1);
+            pieces[i + 2] =
+              1 /
+              (p.halfWidth + p.widthVariation * hash(col, row, seed ^ 0x18e1b));
+            pieces[i + 3] =
+              1 /
+              (p.halfHeight +
+                p.heightVariation * hash(col, row, seed ^ 0x18e1d));
+            pieces[i + 4] = p.bend * (2 * hash(col, row, seed ^ 0x18e1f) - 1);
+            pieces[i + 5] = hash(col, row, seed ^ 0x18e21);
+          }
+        return () => {
+          const yCell = v * p.rows,
+            row = Math.floor(yCell),
+            xCell = u * p.columns + phases[row],
+            col = Math.floor(xCell) % p.columns,
+            i = (row * p.columns + col) * 6,
+            x =
+              fract(xCell) -
+              0.5 -
+              pieces[i] -
+              p.edgeX * (2 * edgeField(v, u) - 1),
+            y =
+              fract(yCell) -
+              0.5 -
+              pieces[i + 1] -
+              pieces[i + 4] * x * x -
+              p.edgeY * (2 * edgeField(u, v) - 1),
+            qx = x * pieces[i + 2],
+            qy = y * pieces[i + 3],
+            face =
+              smooth(clamp((1 - qx * qx) * inverseShoulderX)) *
+              smooth(clamp((1 - qy * qy) * inverseShoulderY)),
+            fiber = fiberField(u, v),
+            cloud = cloudField(u, v);
+          color = 0.62 + 0.06 * fiber + 0.04 * cloud;
+          height = 0.19 + 0.016 * fiber + 0.025 * cloud;
+          roughness += 0.03 * fiber;
+          occlusion = 0.82;
+          if (face === 0) return;
+          const lipDistance = (qy - p.lipCenter) * inverseLip,
+            shadowDistance = (qy - p.shadowCenter) * inverseShadow,
+            lip = smooth(clamp(1 - lipDistance * lipDistance)),
+            shadow = smooth(clamp(1 - shadowDistance * shadowDistance)),
+            grain = grainField(u, v);
+          // Only the lower edge rolls upward; it is not a symmetric raised tile.
+          // Compact pieces vanish before both staggered row and column owners change.
+          color +=
+            face *
+            (0.15 +
+              0.03 * pieces[i + 5] +
+              0.02 * grain +
+              0.08 * lip -
+              0.18 * shadow);
+          height += face * (0.17 + 0.018 * grain + 0.38 * lip);
+          roughness += face * (-0.06 + 0.015 * lip);
+          occlusion += face * (0.16 - 0.2 * shadow);
+          return;
+        };
+      }
       case 'larimar': {
         const p = proceduralMaterialPresets.larimar,
           pools = new Float64Array(p.cells * p.cells * 7),
@@ -30924,6 +31003,7 @@ export function createSurfaceSampler(
     kind === 'lacewood' ||
     kind === 'papyrus' ||
     kind === 'larimar' ||
+    kind === 'paperbark' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

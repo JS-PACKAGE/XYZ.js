@@ -716,7 +716,220 @@ const kinds: ProceduralMaterialKind[] = [
   'lacewood',
   'papyrus',
   'larimar',
+  'paperbark',
 ];
+
+describe('Paperbark with raised rolled lower lips over fibrous underbark', () => {
+  const p = proceduralMaterialPresets.paperbark;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  type StripPose = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    bend: number;
+  };
+  const pose = (col: number, row: number, seed: number): StripPose => ({
+    x:
+      col +
+      0.5 -
+      hash(row, 0, seed ^ 0x18e25) +
+      p.jitterX * (2 * hash(col, row, seed ^ 0x18e17) - 1),
+    y: row + 0.5 + p.jitterY * (2 * hash(col, row, seed ^ 0x18e19) - 1),
+    width: p.halfWidth + p.widthVariation * hash(col, row, seed ^ 0x18e1b),
+    height: p.halfHeight + p.heightVariation * hash(col, row, seed ^ 0x18e1d),
+    bend: p.bend * (2 * hash(col, row, seed ^ 0x18e1f) - 1),
+  });
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const lowerSection = (
+    sample: (u: number, v: number, out: SurfaceSample) => void,
+    a: StripPose,
+    x = 0,
+  ) => {
+    const out = empty();
+    let height = -Infinity,
+      occlusion = 1,
+      lipY = 0,
+      shadowY = 0;
+    for (let j = 0; j <= 96; j++) {
+      const y = a.y + a.bend * x * x + (0.3 + (0.9 * j) / 96) * a.height;
+      sample((a.x + x) / p.columns, y / p.rows, out);
+      if (out.height > height) {
+        height = out.height;
+        lipY = y;
+      }
+      if (out.occlusion < occlusion) {
+        occlusion = out.occlusion;
+        shadowY = y;
+      }
+    }
+    return { height, occlusion, lipY, shadowY };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'raises only each strip lower lip and exposes lower opaque fibrous backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('paperbark', seed),
+        center = empty(),
+        upper = empty(),
+        lip = empty(),
+        backing = empty();
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const a = pose(col, row, seed);
+          sample(a.x / p.columns, a.y / p.rows, center);
+          sample(
+            a.x / p.columns,
+            (a.y - p.lipCenter * a.height) / p.rows,
+            upper,
+          );
+          sample(
+            (col - hash(row, 0, seed ^ 0x18e25)) / p.columns,
+            a.y / p.rows,
+            backing,
+          );
+          const lower = lowerSection(sample, a);
+          expect(center.height - backing.height).toBeGreaterThan(0.00025);
+          expect(Math.abs(upper.height - center.height)).toBeLessThan(0.00009);
+          expect(center.color - backing.color).toBeGreaterThan(0.029);
+          expect(upper.occlusion - lower.occlusion).toBeGreaterThan(0.17);
+          expect(backing.height).toBeLessThan(0.000463);
+          for (let j = 0; j <= 32; j++) {
+            const x = (j / 32 - 0.5) * a.width,
+              y = a.y + a.bend * x * x,
+              lower = lowerSection(sample, a, x);
+            sample((a.x + x) / p.columns, y / p.rows, center);
+            sample((a.x + x) / p.columns, lower.lipY / p.rows, lip);
+            expect(lip.height - center.height).toBeGreaterThan(0.00066);
+            expect(lip.occlusion).toBeCloseTo(0.98, 10);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, center);
+          expect(center.color).toBeGreaterThanOrEqual(0);
+          expect(center.color).toBeLessThanOrEqual(1);
+          expect(center.height).toBeGreaterThanOrEqual(0.00038);
+          expect(center.height).toBeLessThanOrEqual(0.001598);
+          expect(center.occlusion).toBeGreaterThanOrEqual(0.78);
+          expect(center.metallic).toBe(0);
+          expect(center.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes resolved raised lower rolls pale plate faces and fibrous backing into actual512 maps', () => {
+    const maps = generateProceduralMaps('paperbark', 512, 7, {
+        heightMap: true,
+      }),
+      sample = createSurfaceSampler('paperbark', 7);
+    const pixel = (x: number, y: number) => {
+      const u = (((x / p.columns) % 1) + 1) % 1,
+        v = (((y / p.rows) % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++) {
+        const a = pose(col, row, 7),
+          lower = lowerSection(sample, a),
+          center = pixel(a.x, a.y),
+          lip = pixel(a.x, lower.lipY),
+          shadow = pixel(a.x, lower.shadowY),
+          backing = pixel(col - hash(row, 0, 7 ^ 0x18e25), a.y);
+        expect(maps.height![lip]! - maps.height![center]!).toBeGreaterThan(120);
+        expect(maps.height![center]! - maps.height![backing]!).toBeGreaterThan(
+          50,
+        );
+        expect(maps.baseColor[center]).toBeGreaterThan(205);
+        expect(maps.baseColor[lip]).toBeGreaterThan(215);
+        expect(maps.baseColor[backing]).toBeLessThan(205);
+        expect(
+          maps.occlusion[center]! - maps.occlusion[shadow]!,
+        ).toBeGreaterThan(35);
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.baseColor[i]! - maps.baseColor[i + 2]!).toBeGreaterThan(40);
+    }
+  });
+  it('repeats staggered curled pieces and underbark across signed torus periods', () => {
+    const sample = createSurfaceSampler('paperbark', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps warped lower rolls and seeded row and column owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('paperbark', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let edge = 0; edge <= 24; edge++)
+        for (let j = 0; j <= 128; j++) {
+          check(edge / 24, j / 128);
+          check(j / 128, edge / 24);
+        }
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const a = pose(col, row, seed);
+          for (let j = 0; j <= 64; j++) {
+            const x = (j / 64 - 0.5) * 2 * a.width,
+              y = a.y + a.bend * x * x;
+            for (const q of [
+              -1,
+              1,
+              -Math.sqrt(1 - p.shoulderY),
+              Math.sqrt(1 - p.shoulderY),
+              p.lipCenter - p.lipRadius,
+              p.lipCenter,
+              p.lipCenter + p.lipRadius,
+              p.shadowCenter - p.shadowRadius,
+              p.shadowCenter,
+              p.shadowCenter + p.shadowRadius,
+            ])
+              check((a.x + x) / p.columns, (y + q * a.height) / p.rows);
+            check(
+              (col - hash(row, 0, seed ^ 0x18e25)) / p.columns,
+              (row + j / 64) / p.rows,
+            );
+            check((col + j / 64) / p.columns, row / p.rows);
+          }
+        }
+    }
+  });
+});
 
 describe('Larimar with merging blue mineral pools and pale fibers on a polished plane', () => {
   const p = proceduralMaterialPresets.larimar;

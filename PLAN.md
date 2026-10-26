@@ -891,6 +891,8 @@
 
 同輪追加 `larimar`（拉利瑪石），目錄674→675種：相互融合的藍色礦物雲塊、乳白間隙與淺色彎曲纖維脈，區別於綠松石暗網脈與瑪瑙同心帶。6×6 seeded rotated pools以bounded product unions混合，保留同一拋光平面；0.25 m tile／0.001 m relief、opaque dielectric／metallic 0。前674種maps、公開options、Worker／cache及ownership不變，不新增晶體geometry、透光、SSS或anisotropy；依功能驗證後commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `paperbark`（紙皮樹皮），目錄675→676種：seeded錯位的淡色薄片、波狀撕邊、真正抬高的單側下捲唇與下方暗縫，露出仍opaque的纖維底皮。區別於白樺黑色皮孔、懸鈴木平坦斑片與厚樹皮縱裂；0.4 m tile／0.002 m relief、M0／mortar0，既有675種maps與公開options／Worker／cache／ownership不變。不新增geometry、displacement或剝落模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -8153,3 +8153,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一，pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之larimar512五maps；既有674種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7210項測試（733.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：捲邊薄片紙皮樹皮（paperbark）
+
+- 目錄675→676種，3×8淡色薄片單側下緣真捲唇、暗縫與opaque纖維底皮。初次512細節圖過於規則、近似磚排；改為seeded row phase、24²雙軸撕邊warp、較強parabolic彎曲及較淺纖維底皮後再次觀察。六值pose cache加八row phases，support在row／column owner之前歸零，6×192纖維／12×8 cloud全域連續、128² grain只取樣可見薄片。全opaque M0／mortar0、0.4 m tile／0.002 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描，不新增geometry、displacement或剝皮模擬。
+- Refinement後測試發現三seed局部pigment略大於1；降低纖維／tone／grain正向係數至總上界1，不增加clamp或放寬color界線。最終targeted六項通過（4.52s）及typecheck通過：三seed全部24片中心比底皮高>0.00025 m、上緣相對中心差<0.00009 m，下唇33-point橫向traces比片面高>0.00066 m、AO0.98；下方暗縫AO比上緣低>0.17。129² fields color0–1、height0.00038–0.001598 m、AO≥0.78／M0／mortar0。
+- Actual512每片下唇比片心height高>120 codes、片心比底皮高>50 codes，片心R>205／捲唇R>215／底皮R<205，暗縫AO比片心低>35 codes；全圖R−B>40／M0／alpha255。2048-point六通道signed periods，129² fields、24² edge-grid、彎曲下唇與seeded row／column owners之C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際676-preset gallery各選出paperbark並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖見錯位薄片與波狀撕邊，factor0、height存在及destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之paperbark512五maps；既有675種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7217項測試（717.33s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

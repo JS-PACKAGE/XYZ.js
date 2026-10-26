@@ -690,7 +690,8 @@ export type ProceduralMaterialKind =
   | 'oxfordweave'
   | 'lacewood'
   | 'papyrus'
-  | 'larimar';
+  | 'larimar'
+  | 'paperbark';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1615,6 +1616,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lacewood',
   'papyrus',
   'larimar',
+  'paperbark',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
