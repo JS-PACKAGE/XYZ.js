@@ -8193,3 +8193,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之flystitch512五maps；既有678種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7239項測試（725.41s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：單側五孔凹面鮑魚殼（abaloneshells）
+
+- 目錄679→680種，九枚seeded旋轉的彎耳形凹殼內面、較高殼緣、九道靜態淺生長帶及單側五低呼吸孔。六值pose cache／Cartesian skew與parabolic bend，support在cell-owner前歸零；單次nearest-row索引選孔，0.02 support小於0.05半pitch，另一側及孔間橋不挖空。Quartic growth pulses只呈static nacre-inspired pigment／微紋，128² grain僅finish可見殼。全opaque M0／mortar0、0.45 m tile／0.006 m relief，逐點無配置／hash／trig／sqrt或鄰格／孔列掃描，不新增geometry、透明孔洞、虹彩／thin-film shader、透光或貝類模擬。
+- Targeted六項通過（5.23s）及typecheck通過：三seed全部九枚center height約0.00132–0.001374 m、rim比center高>0.0017 m；各五孔h0.00024 m／color0.02／AO0.5，另一側比孔高>0.0018 m／color高>0.43／AO高>0.4。孔間橋h>0.0021 m／AO>0.92，另一側129-point全長trace h>0.0013 m。129² fields color0–1、height約0.00024–0.003474 m／roughness0.26–0.95／AO0.5–0.96／M0／mortar0。
+- Actual512 bowl center height>85 codes、rim比center高>135 codes／center R>105；各五孔height code0，另一側比孔高>150 height codes／R高>80／AO高>100 codes，全圖G−R>20／M0／alpha255。2048-point六通道signed periods、129² fields、shell support／rim／quartic growth wraps／孔core-support／bore-owner／cell-owner C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際680-preset gallery各選出abaloneshells並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖見單側五孔、生長帶及低中心高殼緣，factor0、height存在及destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之abaloneshells512五maps；既有679種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7246項測試（731.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

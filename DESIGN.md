@@ -907,6 +907,8 @@
 
 `flystitch` 每組快取cos／sin／雙jitter／tone五值，兩個clamped arm projections及一個closed-form stem組成三rounded capsules，product-complement union保證Y接點不疊高度；端點平方距離與compact smooth profiles維持C1。`hypot(0.27, 0.28) + 0.036 + 0.015 < 0.5`保證cell-owner為空針腳底布，tight local rectangle先跳過空glyph projections。128² grain共享底布／線，192條雙向quartic週期pulse呈細織紋；full yarn不計被遮底布，body0不finish線。Convex weights保留底布與線各自height／roughness，不是文字貼花或三線疊高；AO0.94–0.99、opaque M0／mortar0。0.12 m tile／0.0012 m relief，逐點無配置／hash／trig／sqrt，maps與ownership沿用，不新增線geometry、透孔或布料模擬。
 
+`abaloneshells` 每枚快取cos／sin／雙jitter／tone／growth phase六值，Cartesian skew與parabolic bend扭曲橢圓；`0.37 + 0.07×0.37 + 0.14×0.37² + 0.012 < 0.5`保證旋轉後support仍在cell。單側五孔只做一次nearest-row索引，0.02 support小於0.05半pitch，孔owner切換在空support；另一側與孔間橋不挖空。Height隨q向邊緣升高，compact rim再抬高、中心更低；九道quartic growth pulses為靜態nacre-inspired pigment／微紋，非虹彩shader。128² grain僅finish可見殼，full孔及空shell跳過finish；全opaque M0／mortar0、0.45 m tile／0.006 m relief。逐點無配置／hash／trig／sqrt或鄰格／孔列掃描，maps與ownership沿用，不新增geometry、透明孔洞、thin-film或貝類模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

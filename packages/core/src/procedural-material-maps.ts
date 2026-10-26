@@ -1441,6 +1441,95 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'abaloneshells': {
+        const p = proceduralMaterialPresets.abaloneshells,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x19211),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseShoulder = 1 / p.shoulder,
+          inversePitch = 1 / p.holePitch,
+          inverseHoleSquared = 1 / (p.holeRadius * p.holeRadius),
+          inverseHole = 1 / (1 - p.holeCoreQ),
+          inverseRim = 1 / p.rimWidth;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x19215);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x19217) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x19219) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1921b);
+            poses[i + 5] = hash(col, row, seed ^ 0x1921d);
+          }
+        return () => {
+          color = 0.02;
+          height = 0.04;
+          roughness = 0.95;
+          occlusion = 0.5;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 6,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            warpedX = x + p.skew * y + p.bend * y * y,
+            q = warpedX * warpedX * inverseX + y * y * inverseY;
+          if (q >= 1) return;
+          const holeRow = Math.max(
+              0,
+              Math.min(
+                p.holes - 1,
+                Math.round((y - p.holeFirstY) * inversePitch),
+              ),
+            ),
+            hx = warpedX - p.holeX,
+            hy = y - p.holeFirstY - holeRow * p.holePitch,
+            hole = smooth(
+              clamp(
+                (1 - (hx * hx + hy * hy) * inverseHoleSquared) * inverseHole,
+              ),
+            ),
+            body = smooth(clamp((1 - q) * inverseShoulder)) * (1 - hole);
+          if (body === 0) return;
+          // One bore row follows the curved edge; the opposite side stays intact.
+          // A lower center and raised rim form an interior bowl, not a convex shell dome.
+          const phase = fract(p.bands * q + poses[i + 5]),
+            growth = 16 * phase * phase * (1 - phase) * (1 - phase),
+            r = (q - p.rimQ) * inverseRim,
+            rim = smooth(clamp(1 - r * r)),
+            grain = grainField(u, v);
+          color +=
+            body *
+            (0.46 +
+              0.23 * growth +
+              0.1 * poses[i + 4] +
+              0.025 * grain +
+              0.08 * rim -
+              color);
+          height +=
+            body *
+            (0.22 +
+              0.28 * q +
+              0.07 * rim +
+              0.003 * grain +
+              0.006 * growth -
+              height);
+          roughness +=
+            body *
+            (p.roughness +
+              0.06 * growth +
+              0.015 * grain +
+              0.1 * rim -
+              roughness);
+          occlusion += body * (0.9 + 0.06 * q - 0.025 * rim - occlusion);
+          return;
+        };
+      }
       case 'flystitch': {
         const p = proceduralMaterialPresets.flystitch,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31223,6 +31312,7 @@ export function createSurfaceSampler(
     kind === 'horseshoes' ||
     kind === 'durianpeel' ||
     kind === 'flystitch' ||
+    kind === 'abaloneshells' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

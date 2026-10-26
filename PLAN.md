@@ -899,6 +899,8 @@
 
 同輪追加 `flystitch`（飛針繡），目錄678→679種：36組交替朝向的淺色Y形V雙臂及短固定莖，抬高於深色細織底布，交會處不疊高度。三個rounded yarn profiles以product union連續相接，192條quartic細織紋不逐點trig；全opaque M0／mortar0、0.12 m tile／0.0012 m relief。前678種maps與options／Worker／cache／ownership不變，不新增線geometry、透孔、針線或布料模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `abaloneshells`（鮑魚殼內面），目錄679→680種：九枚seeded旋轉的彎耳形凹面、較高殼緣、靜態淺色生長帶與單側五個低呼吸孔。相對另一側完整殼面與孔間橋保留連通，非凸殼dome或中央長裂縫；opaque M0／mortar0、0.45 m tile／0.006 m relief。前679種maps及options／Worker／cache／ownership不變，不新增geometry、透明孔洞、虹彩／thin-film shader或貝類模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

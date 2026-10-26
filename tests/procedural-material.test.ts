@@ -720,7 +720,235 @@ const kinds: ProceduralMaterialKind[] = [
   'horseshoes',
   'durianpeel',
   'flystitch',
+  'abaloneshells',
 ];
+
+describe('Abalone shells with concave interiors and one row of five respiratory holes', () => {
+  const p = proceduralMaterialPresets.abaloneshells;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  type ShellPose = {
+    x: number;
+    y: number;
+    cos: number;
+    sin: number;
+    phase: number;
+  };
+  const pose = (col: number, row: number, seed: number): ShellPose => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19215);
+    return {
+      x: col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19217) - 1),
+      y: row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19219) - 1),
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+      phase: hash(col, row, seed ^ 0x1921d),
+    };
+  };
+  const uv = (a: ShellPose, warpedX: number, y: number): [number, number] => {
+    const x = warpedX - p.skew * y - p.bend * y * y;
+    return [
+      (a.x + x * a.cos - y * a.sin) / p.cells,
+      (a.y + x * a.sin + y * a.cos) / p.cells,
+    ];
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps each bowl lower than its rim and only five one-sided holes below intact opposite shell for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('abaloneshells', seed),
+        center = empty(),
+        rim = empty(),
+        hole = empty(),
+        intact = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          sample(...uv(a, 0, 0), center);
+          sample(...uv(a, -p.radiusX * Math.sqrt(p.rimQ), 0), rim);
+          expect(center.height).toBeGreaterThan(0.0013199);
+          expect(center.height).toBeLessThan(0.0013741);
+          expect(rim.height - center.height).toBeGreaterThan(0.0017);
+          for (let n = 0; n < p.holes; n++) {
+            const y = p.holeFirstY + n * p.holePitch;
+            sample(...uv(a, p.holeX, y), hole);
+            sample(...uv(a, -p.holeX, y), intact);
+            expect(hole.height).toBeCloseTo(0.00024, 12);
+            expect(hole.color).toBe(0.02);
+            expect(hole.occlusion).toBe(0.5);
+            expect(intact.height - hole.height).toBeGreaterThan(0.0018);
+            expect(intact.color - hole.color).toBeGreaterThan(0.43);
+            expect(intact.occlusion - hole.occlusion).toBeGreaterThan(0.4);
+            if (n + 1 < p.holes) {
+              sample(...uv(a, p.holeX, y + p.holePitch * 0.5), intact);
+              expect(intact.height).toBeGreaterThan(0.0021);
+              expect(intact.occlusion).toBeGreaterThan(0.92);
+            }
+          }
+          for (let j = 0; j <= 128; j++) {
+            sample(...uv(a, -0.12, -0.28 + (j * 0.56) / 128), intact);
+            expect(intact.height).toBeGreaterThan(0.0013);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, center);
+          expect(center.color).toBeGreaterThanOrEqual(0);
+          expect(center.color).toBeLessThanOrEqual(1);
+          expect(center.height).toBeGreaterThan(0.0002399);
+          expect(center.height).toBeLessThan(0.0034741);
+          expect(center.roughness).toBeGreaterThanOrEqual(0.26);
+          expect(center.roughness).toBeLessThanOrEqual(0.95);
+          expect(center.occlusion).toBeGreaterThanOrEqual(0.5);
+          expect(center.occlusion).toBeLessThanOrEqual(0.96);
+          expect(center.metallic).toBe(0);
+          expect(center.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes five actual512 low opaque bores beside intact nacre and a raised rim around each lower bowl', () => {
+    const maps = generateProceduralMaps('abaloneshells', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (a: ShellPose, x: number, y: number) => {
+      const [u, v] = uv(a, x, y);
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const a = pose(col, row, 7),
+          center = pixel(a, 0, 0),
+          rim = pixel(a, -p.radiusX * Math.sqrt(p.rimQ), 0);
+        expect(maps.height![center]).toBeGreaterThan(85);
+        expect(maps.height![rim]! - maps.height![center]!).toBeGreaterThan(135);
+        expect(maps.baseColor[center]).toBeGreaterThan(105);
+        for (let n = 0; n < p.holes; n++) {
+          const y = p.holeFirstY + n * p.holePitch,
+            hole = pixel(a, p.holeX, y),
+            intact = pixel(a, -p.holeX, y);
+          expect(maps.height![hole]).toBe(0);
+          expect(maps.height![intact]! - maps.height![hole]!).toBeGreaterThan(
+            150,
+          );
+          expect(
+            maps.baseColor[intact]! - maps.baseColor[hole]!,
+          ).toBeGreaterThan(80);
+          expect(
+            maps.occlusion[intact]! - maps.occlusion[hole]!,
+          ).toBeGreaterThan(100);
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.baseColor[i + 1]! - maps.baseColor[i]!).toBeGreaterThan(20);
+    }
+  });
+  it('repeats curved bowls growth bands and bore rows across signed UV periods', () => {
+    const sample = createSurfaceSampler('abaloneshells', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('blends bowl supports raised rims quartic growth wraps bores nearest bore owners and cell owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('abaloneshells', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          for (const q of [
+            1,
+            1 - p.shoulder,
+            p.rimQ - p.rimWidth,
+            p.rimQ,
+            p.rimQ + p.rimWidth,
+          ])
+            for (let j = 0; j <= 128; j++) {
+              const theta = (j * Math.PI) / 64,
+                r = Math.sqrt(q);
+              check(
+                ...uv(
+                  a,
+                  p.radiusX * r * Math.cos(theta),
+                  p.radiusY * r * Math.sin(theta),
+                ),
+              );
+            }
+          for (let band = 0; band <= p.bands; band++) {
+            const q = (band - a.phase) / p.bands;
+            if (q < 0 || q > 1) continue;
+            for (let j = 0; j <= 32; j++) {
+              const theta = (j * Math.PI) / 16,
+                r = Math.sqrt(q);
+              check(
+                ...uv(
+                  a,
+                  p.radiusX * r * Math.cos(theta),
+                  p.radiusY * r * Math.sin(theta),
+                ),
+              );
+            }
+          }
+          for (let n = 0; n < p.holes; n++) {
+            const y = p.holeFirstY + n * p.holePitch;
+            for (const q of [1, p.holeCoreQ])
+              for (let j = 0; j <= 128; j++) {
+                const theta = (j * Math.PI) / 64,
+                  r = p.holeRadius * Math.sqrt(q);
+                check(
+                  ...uv(
+                    a,
+                    p.holeX + r * Math.cos(theta),
+                    y + r * Math.sin(theta),
+                  ),
+                );
+              }
+            if (n + 1 < p.holes)
+              for (let j = 0; j <= 128; j++)
+                check(...uv(a, j / 128 - 0.5, y + p.holePitch * 0.5));
+          }
+          for (let j = 0; j <= 128; j++) {
+            check(col / p.cells, j / 128);
+            check(j / 128, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Flystitch with connected Y shaped thread over finely woven cloth', () => {
   const p = proceduralMaterialPresets.flystitch;
