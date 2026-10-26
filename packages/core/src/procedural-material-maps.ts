@@ -2185,8 +2185,15 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gabardine':
       case 'poplin': {
-        const p = proceduralMaterialPresets.poplin,
+        const gabardine = kind === 'gabardine',
+          p = gabardine
+            ? proceduralMaterialPresets.gabardine
+            : proceduralMaterialPresets.poplin,
+          warpBase = gabardine ? 0.34 : 0.3,
+          weftBase = gabardine ? 0.34 : 0.44,
+          weftCrown = gabardine ? 0.04 : 0.07,
           grainField = cachedNoise(128, 128, seed ^ 0x19711),
           inverseWarp = 1 / (p.warpRadius * p.warpRadius),
           inverseWeft = 1 / (p.weftRadius * p.weftRadius),
@@ -2204,7 +2211,9 @@ export function createSurfaceSampler(
             qy = fy * fy * inverseWeft,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
             weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
-            warpOver = ((col + row) & 1) === 0,
+            warpOver = gabardine
+              ? (col - row + p.warpThreads) % 3 < 2
+              : ((col + row) & 1) === 0,
             warpWeight = warpOver ? warp : warp * (1 - weft),
             weftWeight = warpOver ? weft * (1 - warp) : weft,
             coverage = warpWeight + weftWeight;
@@ -2213,7 +2222,7 @@ export function createSurfaceSampler(
           roughness = 0.96;
           occlusion = 0.45;
           if (coverage === 0) return;
-          // Single fine warp/coarse weft crossings alternate one-over-one.
+          // Gabardine advances two-over-one on unequal pitches; poplin is plain.
           // Lift fades before row/column ownership changes, even along unbroken yarns.
           const sign = warpOver ? 1 : -1,
             liftX = smooth(
@@ -2237,15 +2246,15 @@ export function createSurfaceSampler(
           height =
             outside * height +
             warpWeight *
-              (0.3 +
+              (warpBase +
                 sign * p.lift * liftY +
                 0.04 * crownX +
                 0.003 * grain +
                 0.003 * warpFiber) +
             weftWeight *
-              (0.44 -
+              (weftBase -
                 sign * p.lift * liftX +
-                0.07 * crownY +
+                weftCrown * crownY +
                 0.003 * grain +
                 0.003 * weftFiber);
           roughness =
@@ -32358,6 +32367,7 @@ export function createSurfaceSampler(
     kind === 'rambutanskin' ||
     kind === 'rackgears' ||
     kind === 'poplin' ||
+    kind === 'gabardine' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

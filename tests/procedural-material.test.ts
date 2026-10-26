@@ -738,7 +738,142 @@ const kinds: ProceduralMaterialKind[] = [
   'turnbuckles',
   'rhodochrosite',
   'bayleaf',
+  'gabardine',
 ];
+
+describe('Dense warp-faced two-over-one gabardine twill', () => {
+  const p = proceduralMaterialPresets.gabardine;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'advances a two-warp one-weft draft on steep unequal pitches with physical crossing lift for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('gabardine', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.weftThreads; row++) {
+        let warpCount = 0;
+        for (let col = 0; col < p.warpThreads; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads,
+            over = (col - row + p.warpThreads) % 3 < 2;
+          sample(u, v, a);
+          if (over) {
+            expect(a.color).toBeGreaterThan(0.8);
+            warpCount++;
+          } else {
+            expect(a.color).toBeLessThan(0.7);
+            sample(u, (row + 0.77) / p.weftThreads, b);
+            expect(a.height - b.height).toBeGreaterThan(0.000055);
+          }
+          sample(u + 1 / p.warpThreads, v + 1 / p.weftThreads, b);
+          expect(b.color > 0.75).toBe(over);
+          expect(a.occlusion).toBeCloseTo(0.99, 12);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+        expect(warpCount).toBe(32);
+      }
+      sample(0, 0, a);
+      expect(a.height).toBeCloseTo(0.0000075, 12);
+      expect(a.occlusion).toBe(0.45);
+    },
+  );
+  it('writes khaki warp floats and darker weft crossings with opaque dielectric actual512 maps', () => {
+    const maps = generateProceduralMaps('gabardine', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        const i =
+          (Math.floor(((row + 0.5) / p.weftThreads) * 512) * 512 +
+            Math.floor(((col + 0.5) / p.warpThreads) * 512)) *
+          4;
+        if ((col - row + p.warpThreads) % 3 < 2)
+          expect(maps.baseColor[i]).toBeGreaterThan(170);
+        else expect(maps.baseColor[i]).toBeLessThan(160);
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+    }
+  });
+  it('repeats the complete draft fibers and PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('gabardine', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps draft owners yarn supports cores lift shoulders fiber resets and tile seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gabardine', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          for (const x of [
+            -0.5,
+            0,
+            0.5,
+            -p.warpRadius,
+            p.warpRadius,
+            -p.warpCore,
+            p.warpCore,
+            -p.warpLiftHalf,
+            p.warpLiftHalf,
+            p.warpLiftHalf - p.liftShoulder,
+          ])
+            for (const y of [-0.5, 0, 0.27, 0.5])
+              check(
+                (col + 0.5 + x) / p.warpThreads,
+                (row + 0.5 + y) / p.weftThreads,
+              );
+          for (const y of [
+            -p.weftRadius,
+            p.weftRadius,
+            -p.weftCore,
+            p.weftCore,
+            -p.weftLiftHalf,
+            p.weftLiftHalf,
+            p.weftLiftHalf - p.liftShoulder,
+          ])
+            check((col + 0.5) / p.warpThreads, (row + 0.5 + y) / p.weftThreads);
+        }
+      for (let j = 0; j <= p.warpFibers; j++) check(j / p.warpFibers, 0.417);
+      for (let j = 0; j <= p.weftFibers; j++) check(0.371, j / p.weftFibers);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Pointed olive bay leaves with recurved paired veins', () => {
   const p = proceduralMaterialPresets.bayleaf;

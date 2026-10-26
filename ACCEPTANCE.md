@@ -8382,3 +8382,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之bayleaf512五maps；既有696種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7369項測試（977.54s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：密經二上一下陡斜紋軋別丁（gabardine）
+
+- 目錄697→698種：卡其色48經×24緯、二上一下經面draft逐緯移一經，形成約63.4°陡斜紋。經radius／core0.495／0.44、緯0.25／0.18；沿用poplin compact coverage／lift／fibers路徑，不是只改色的1×1或2×2織紋。全opaque M0／mortar0、0.018 m tile／0.0003 m relief；不新增紗線geometry、透明孔洞或布料模擬。
+- 專項6項全部通過（2.02s）：三seed逐緯32經面／16緯面交點、斜向draft步進、實際crossing lift、512²經緯色差／opaque M0、4096 signed UV週期及yarn support／core／lift／fiber／owner／tile seam C1。初次512²畫面顯示經隙過寬，收密經向support後再驗證，保留真正低縫而非alpha孔洞。
+- managed Chromium150 headless source sampler 512² baseColor／normal與正式PBR gallery皆已實際擷取；強制WebGPU／WebGL2均顯示698種並選取gabardine。WebGL2首次fullPage capture遇工具Target closed，改800×1000 viewport截圖成功；成功頁面及cleanup errors皆空，未改引擎遮掩。未外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之gabardine512五maps；既有697種（含共用sampler的poplin）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7376項測試（930.27s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
