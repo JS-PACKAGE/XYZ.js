@@ -921,6 +921,8 @@
 
 `ooliticlimestone` 每鮞粒快取雙center、inverse radius²、tone與3／4 cortex count五值；radius0.32–0.42、jitter0.03令support≤0.45<0.5。雙periodic sine warp保留C1，cell-units正模運算防止`fract(-epsilon)`浮點捨入1而越table。Squared q以0.15 shoulder接基質，quartic phase pulse呈同心皮殼、q0.04–0.07 smooth暗核；無sqrt／atan2或鄰粒掃描。128² grain只影響共同磨面微高差／finish，16² noise調基質，height始終`0.35+0.002grain`、AO1，不把核／皮殼做成珠或洞；全高差≤0.24 μm。逐點兩次trig，無配置／hash／sqrt／nearest曲線迭代。全opaque M0／mortar0、0.024 m tile／0.00012 m relief，maps與ownership沿用，無geometry、displacement、透光或地質生長模擬。
 
+`ogeetiles` 以偶數六rows／六columns維持staggered torus，半寬`w(t)=0.5(1-smooth(t))`與鄰row的`w(1-t)`恰加0.5，兩個固定row候選填滿平面。平方margin `w²-dx²`避免窄尖端bevel遇axis的abs cusp；q0.0049起、0.004 smooth bevel過渡至高釉面。Nearest-column與row候選owner切換全在低灰縫support，36個seeded tones及128² grain僅finish可見face，空face提前回傳。這是field-based縫，不宣稱固定Euclidean縫寬；上下尖端自然融入灰縫。逐點無配置／hash／trig／sqrt或鄰格掃描。全opaque M0、0.72 m tile／0.004 m relief，maps與ownership沿用；無geometry、displacement、透明縫、施工或釉面光學模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

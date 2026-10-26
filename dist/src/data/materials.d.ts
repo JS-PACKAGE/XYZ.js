@@ -7568,6 +7568,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         nucleusOuterQ: 0.07;
         nucleusCoreQ: 0.04;
     }>;
+    ogeetiles: Readonly<{
+        dark: readonly [8, 62, 72];
+        light: readonly [74, 183, 188];
+        roughness: 0.23;
+        relief: 0.004;
+        columns: 6;
+        rows: 6;
+        groutQ: 0.0049;
+        bevelQ: 0.004;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8257,4 +8267,5 @@ export declare const proceduralTileMeters: Readonly<{
     rackgears: 0.6;
     poplin: 0.016;
     ooliticlimestone: 0.024;
+    ogeetiles: 0.72;
 }>;

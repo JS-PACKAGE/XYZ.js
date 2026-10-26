@@ -1441,6 +1441,51 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ogeetiles': {
+        const p = proceduralMaterialPresets.ogeetiles,
+          tones = new Float64Array(p.columns * p.rows),
+          grainField = cachedNoise(128, 128, seed ^ 0x19911),
+          inverseBevel = 1 / p.bevelQ;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x19915);
+        return () => {
+          color = 0.35;
+          height = 0.05;
+          roughness = 0.96;
+          occlusion = 0.4;
+          mortar = 1;
+          const x = u * p.columns,
+            y = v * p.rows,
+            row = Math.floor(y),
+            t = fract(y),
+            s = smooth(t),
+            stagger = (row & 1) * 0.5,
+            col0 = Math.round(x - stagger),
+            col1 = Math.round(x - 0.5 + stagger),
+            dx0 = x - col0 - stagger,
+            dx1 = x - col1 - 0.5 + stagger,
+            width0 = 0.5 * (1 - s),
+            width1 = 0.5 * s,
+            q0 = width0 * width0 - dx0 * dx0,
+            q1 = width1 * width1 - dx1 * dx1,
+            lower = q0 >= q1,
+            face = smooth(clamp(((lower ? q0 : q1) - p.groutQ) * inverseBevel));
+          if (face === 0) return;
+          // Complementary cubic half-widths close both S sides of staggered lanterns.
+          // Squared margins avoid an absolute-value cusp when a narrow tip bevel meets its axis.
+          const ownerRow = (row + (lower ? 0 : 1)) % p.rows,
+            ownerCol = (lower ? col0 : col1) % p.columns,
+            tone = tones[ownerRow * p.columns + ownerCol],
+            grain = grainField(u, v);
+          color += face * (0.45 + 0.35 * tone + 0.03 * grain - color);
+          height += face * (0.58 + 0.006 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.99 - occlusion);
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'ooliticlimestone': {
         const p = proceduralMaterialPresets.ooliticlimestone,
           grains = new Float64Array(p.cells * p.cells * 5),
@@ -31668,6 +31713,7 @@ export function createSurfaceSampler(
     kind === 'rackgears' ||
     kind === 'poplin' ||
     kind === 'ooliticlimestone' ||
+    kind === 'ogeetiles' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

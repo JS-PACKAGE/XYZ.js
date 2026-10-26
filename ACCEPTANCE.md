@@ -8272,3 +8272,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之ooliticlimestone512五maps；既有685種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7290項測試（968.14s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：對稱S曲青綠釉面燈籠磚（ogeetiles）
+
+- 目錄686→687種，6×6交錯青綠釉面燈籠磚，閉合cubic S側邊與上下尖端；互補半寬與固定兩row候選填滿平面。Squared-margin bevel消除窄尖端axis的abs cusp；釉面真高／連續灰縫真低，全opaque M0、0.72 m tile／0.004 m relief。Field-based縫不宣稱固定Euclidean縫寬。
+- Throwaway數值probe實算262144個候選位置，重疊0／未覆蓋0；六項定向4.61s通過，含三seed全36閉合邊／高低height與PBR界限、actual512青綠face／低中性灰縫／全opaque非金屬、signed torus等值及三seed完整curve／bevel／tip-axis／owner／noise-grid／UV C1。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖確認完整交錯S曲燈籠磚與凹縫；factor0／destroy成功，errors空。不是波浪矩形磚、geometry、displacement、透明縫、施工或釉面光學模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示687種、選中ogeetiles，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之ogeetiles512五maps；既有686種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7297項測試（959.18s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

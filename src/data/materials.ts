@@ -7719,6 +7719,16 @@ export const proceduralMaterialPresets = Object.freeze({
     nucleusOuterQ: 0.07,
     nucleusCoreQ: 0.04,
   }),
+  ogeetiles: Object.freeze({
+    dark: [8, 62, 72] as const,
+    light: [74, 183, 188] as const,
+    roughness: 0.23,
+    relief: 0.004,
+    columns: 6,
+    rows: 6,
+    groutQ: 0.0049,
+    bevelQ: 0.004,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8409,4 +8419,5 @@ export const proceduralTileMeters = Object.freeze({
   rackgears: 0.6,
   poplin: 0.016,
   ooliticlimestone: 0.024,
+  ogeetiles: 0.72,
 });
