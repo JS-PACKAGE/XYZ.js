@@ -8454,3 +8454,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之ottoman512五maps；既有704種（含共用poplin／gabardine）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過。第一輪完整suite為178檔通過／1檔失敗、7425項通過／1項既有rectangularsocketfaces密集C1測試達30000ms timeout（1052.87s），無assertion失敗；未改該測試／timeout／sampler。瀏覽器驗證結束後重跑原完整suite，179檔／7426項全部通過（1009.59s）；負載是否為逾時原因未確認。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：U形弓橫銷卸扣（shackles）
+
+- 目錄705→706種：九枚seeded旋轉銀色U形管弓、兩個加大端boss、單一較高橫銷與帶小孔扁銷頭。compact union／normalized height避免接點重疊加倍；弧與腿用連續最近曲線距離銜接，每點一個hypot、無配置／hash／trig。中央及銷頭孔為opaque M0暗底，metal face mask乘factor1、mortar0；0.6 m tile／0.004 m relief。不新增geometry、透明孔、displacement、螺紋操作或承載物理。
+- 專項6項全部通過（1.55s）：三seed沿完整弧／雙腿／橫銷連通金屬中心線與height範圍，中央／銷頭小孔低M0；512²對應opaque backing／steel pin像素；4096 signed UV週期；三seed弧腿接點／boss overlap／圓孔／tile邊界雙軸C1。公開facade金屬mask消費契約同步。
+- managed Chromium150 headless正式PBR gallery已實際擷取；強制WebGPU／WebGL2均顯示706種並選取shackles。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後截圖成功；成功頁面與cleanup errors皆空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之shackles512五maps；既有705種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7434項測試（960.62s；本次在browser smoke完成後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

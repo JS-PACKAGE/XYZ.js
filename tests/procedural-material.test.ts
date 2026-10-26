@@ -746,7 +746,177 @@ const kinds: ProceduralMaterialKind[] = [
   'mulberrypaper',
   'howlite',
   'ottoman',
+  'shackles',
 ];
+
+describe('Closed U-bow shackles with cross-pins and drilled pin tabs', () => {
+  const p = proceduralMaterialPresets.shackles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1ab13),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ab15) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ab17) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'closes the U-bow through both bosses and a single raised cross-pin for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('shackles', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              theta = Math.PI * t;
+            for (const [x, y] of [
+              [
+                p.bowRadius * Math.cos(theta),
+                p.arcY - p.bowRadius * Math.sin(theta),
+              ],
+              [-p.bowRadius, p.arcY + t * (p.pinY - p.arcY)],
+              [p.bowRadius, p.arcY + t * (p.pinY - p.arcY)],
+              [-p.pinHalf + 2 * p.pinHalf * t, p.pinY],
+            ]) {
+              sample(...world(seed, col, row, x, y), a);
+              expect(a.metallic).toBeGreaterThan(0.99);
+              expect(a.height).toBeGreaterThan(0.0022);
+              expect(a.height).toBeLessThan(0.0028);
+            }
+          }
+          sample(...world(seed, col, row, 0, 0), a);
+          sample(...world(seed, col, row, p.holeX, p.holeY), b);
+          expect(a.metallic).toBe(0);
+          expect(b.metallic).toBe(0);
+          expect(a.height).toBeLessThan(0.0002);
+          expect(b.height).toBeLessThan(0.0002);
+        }
+    },
+  );
+  it('writes steel pins around opaque nonmetal center and pin-tab holes at actual512', () => {
+    const maps = generateProceduralMaps('shackles', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (const [x, y, metal] of [
+          [0, 0, 0],
+          [p.holeX, p.holeY, 0],
+          [0, p.pinY, 255],
+        ]) {
+          const [u, v] = world(7, col, row, x, y),
+            i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(metal);
+        }
+  });
+  it('repeats closed bow cross-pin and all PBR channels on signed UV periods', () => {
+    const sample = createSurfaceSampler('shackles', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps arc-leg junctions pin ends boss overlaps holes and tile owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('shackles', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 64; j++) {
+            const theta = (2 * Math.PI * j) / 64;
+            for (const r of [
+              p.tubeRadius,
+              p.tubeCore,
+              p.bossRadius,
+              p.bossCore,
+              p.holeRadius,
+              p.holeShoulder,
+            ]) {
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.bowRadius + r * Math.cos(theta),
+                  p.arcY + r * Math.sin(theta),
+                ),
+              );
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.bowRadius + r * Math.cos(theta),
+                  p.pinY + r * Math.sin(theta),
+                ),
+              );
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  p.holeX + r * Math.cos(theta),
+                  p.holeY + r * Math.sin(theta),
+                ),
+              );
+            }
+          }
+      for (let k = 0; k <= 128; k++)
+        for (const edge of [0, 1]) {
+          check(edge, k / 128);
+          check(k / 128, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Ottoman cloth with paired thick weft ribs', () => {
   const p = proceduralMaterialPresets.ottoman;
@@ -53983,6 +54153,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'doubleedgerazorblades' &&
           kind !== 'turnbuckles' &&
           kind !== 'brakediscs' &&
+          kind !== 'shackles' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -63420,6 +63591,7 @@ describe('procedural preset acquisition and ownership', () => {
     'doubleedgerazorblades',
     'turnbuckles',
     'brakediscs',
+    'shackles',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -63517,6 +63689,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'doubleedgerazorblades' ||
           kind === 'turnbuckles' ||
           kind === 'brakediscs' ||
+          kind === 'shackles' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||

@@ -1441,6 +1441,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'shackles': {
+        const p = proceduralMaterialPresets.shackles,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ab11),
+          tubeSquared = p.tubeRadius * p.tubeRadius,
+          inverseTube = 1 / (tubeSquared - p.tubeCore * p.tubeCore),
+          pinSquared = p.pinRadius * p.pinRadius,
+          inversePin = 1 / (pinSquared - p.pinCore * p.pinCore),
+          bossSquared = p.bossRadius * p.bossRadius,
+          inverseBoss = 1 / (bossSquared - p.bossCore * p.bossCore),
+          inverseHeadX = 1 / (p.headRadiusX * p.headRadiusX),
+          inverseHeadY = 1 / (p.headRadiusY * p.headRadiusY),
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (p.holeShoulder * p.holeShoulder - holeSquared);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1ab13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ab15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ab17) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            radial = Math.hypot(x, Math.min(0, y - p.arcY)) - p.bowRadius,
+            beyond = Math.max(0, y - p.pinY),
+            bowQ = radial * radial + beyond * beyond,
+            bow = smooth(clamp((tubeSquared - bowQ) * inverseTube)),
+            bowDome = smooth(clamp(1 - bowQ / tubeSquared)),
+            pinEnd = Math.max(0, ax - p.pinHalf),
+            pinDy = y - p.pinY,
+            pinQ = pinEnd * pinEnd + pinDy * pinDy,
+            pin = smooth(clamp((pinSquared - pinQ) * inversePin)),
+            bossDx = ax - p.bowRadius,
+            bossQ = bossDx * bossDx + pinDy * pinDy,
+            boss = smooth(clamp((bossSquared - bossQ) * inverseBoss)),
+            headDx = x - p.headX,
+            headQ =
+              headDx * headDx * inverseHeadX + pinDy * pinDy * inverseHeadY,
+            holeDx = x - p.holeX,
+            holeDy = y - p.holeY,
+            holeQ = holeDx * holeDx + holeDy * holeDy,
+            holeOutside = smooth(clamp((holeQ - holeSquared) * inverseHole)),
+            head = smooth(clamp((1 - headQ) / 0.25)) * holeOutside,
+            total = bow + boss + pin + head;
+          color = 0.06;
+          height = 0.035;
+          roughness = 0.94;
+          occlusion = 0.4;
+          if (total === 0) return;
+          // U-bow and cross-pin form one closed metal component; normalized
+          // overlap avoids doubled thickness at the two enlarged end bosses.
+          const face = 1 - (1 - bow) * (1 - boss) * (1 - pin) * (1 - head),
+            relief =
+              (bow * (0.47 + 0.12 * bowDome) +
+                boss * 0.59 +
+                pin * 0.66 +
+                head * 0.68) /
+              total,
+            grain = grainField(u, v);
+          color += face * (0.72 + 0.04 * grain + 0.025 * bowDome - color);
+          height += face * (relief + 0.002 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.035 * grain - 0.035 * bowDome - roughness);
+          occlusion += face * (0.97 - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'howlite': {
         const p = proceduralMaterialPresets.howlite,
           sites = new Float64Array(p.cells * p.cells * 2),
@@ -32776,6 +32855,7 @@ export function createSurfaceSampler(
     kind === 'mulberrypaper' ||
     kind === 'howlite' ||
     kind === 'ottoman' ||
+    kind === 'shackles' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
