@@ -8400,3 +8400,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之oilspotglaze512五maps；既有698種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7383項測試（958.46s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：八向深籽橙色柿子切面（persimmonslice）
+
+- 目錄699→700種：九枚seeded旋轉橙色圓切面、八向分離深籽、淡色中心與細深色外皮；籽／果肉／皮共切面、grain微高差≤8 μm，深籽不是凹洞。全opaque M0／mortar0、0.24 m tile／0.002 m relief；不新增geometry、透明果肉、SSS或植物模擬。
+- 專項6項全部通過（2.31s）：三seed逐片八籽／間隔果肉的色與粗糙度差、籽／皮實際flush高度及連續AO、淡中心與外皮、512²全部72籽中心與opaque M0、4096 signed UV週期及seed origin／ellipse肩部／fruit／rind／pith／owner／tile seams C1。
+- managed Chromium150 headless source sampler 512² baseColor／normal及正式PBR gallery實際擷取；強制WebGPU／WebGL2均顯示700種並選取persimmonslice。同eval第二個WebGL2 capture仍遇工具Target closed（即使中間close kill），分開eval開啟WebGL2後800×1000 viewport截圖成功；成功頁面與cleanup errors皆空，未改引擎。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之persimmonslice512五maps；既有699種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7390項測試（933.82s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

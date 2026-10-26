@@ -1441,6 +1441,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'persimmonslice': {
+        const p = proceduralMaterialPresets.persimmonslice,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          axes = new Float64Array(p.seeds * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a511),
+          radiusSquared = p.radius * p.radius,
+          rindStartSquared = p.rindStart * p.rindStart,
+          inverseFace = 1 / p.faceShoulder,
+          inverseRind = 1 / (p.rindFull * p.rindFull - rindStartSquared),
+          pithSquared = p.pithRadius * p.pithRadius,
+          inversePith = 1 / p.pithShoulder,
+          inverseSeedLength = 1 / (p.seedLength * p.seedLength),
+          inverseSeedWidth = 1 / (p.seedWidth * p.seedWidth),
+          inverseSeedShoulder = 1 / p.seedShoulder;
+        for (let j = 0; j < p.seeds; j++) {
+          const angle = (TAU * j) / p.seeds;
+          axes[j * 2] = Math.cos(angle);
+          axes[j * 2 + 1] = Math.sin(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1a513);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a515) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a517) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            r2 = x * x + y * y,
+            face = smooth(clamp((radiusSquared - r2) * inverseFace));
+          color = 0.025;
+          height = 0.04;
+          roughness = 0.95;
+          occlusion = 0.4;
+          if (face === 0) return;
+          const rind = smooth(clamp((r2 - rindStartSquared) * inverseRind)),
+            pith = smooth(clamp((pithSquared - r2) * inversePith)),
+            grain = grainField(u, v);
+          let complement = 1;
+          for (let j = 0; j < p.seeds; j++) {
+            const along = x * axes[j * 2] + y * axes[j * 2 + 1] - p.seedCenter,
+              across = y * axes[j * 2] - x * axes[j * 2 + 1],
+              q =
+                along * along * inverseSeedLength +
+                across * across * inverseSeedWidth;
+            complement *= 1 - smooth(clamp((1 - q) * inverseSeedShoulder));
+          }
+          const seeds = 1 - complement;
+          color +=
+            face *
+            (0.73 +
+              0.02 * grain -
+              0.19 * rind +
+              0.15 * pith -
+              0.62 * seeds -
+              color);
+          // Embedded seeds and rind share the pulp's flush cut, not open cavities.
+          height += face * (0.48 + 0.004 * grain);
+          roughness +=
+            face *
+            (p.roughness +
+              0.02 * grain +
+              0.07 * rind +
+              0.12 * seeds -
+              roughness);
+          occlusion += 0.58 * face;
+          return;
+        };
+      }
       case 'oilspotglaze': {
         const p = proceduralMaterialPresets.oilspotglaze,
           poses = new Float64Array(p.cells * p.cells * 7),
@@ -32421,6 +32500,7 @@ export function createSurfaceSampler(
     kind === 'poplin' ||
     kind === 'gabardine' ||
     kind === 'oilspotglaze' ||
+    kind === 'persimmonslice' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

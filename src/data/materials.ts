@@ -7947,6 +7947,25 @@ export const proceduralMaterialPresets = Object.freeze({
     rimStart: 0.5,
     rimShoulder: 0.15,
   }),
+  persimmonslice: Object.freeze({
+    dark: [57, 25, 10] as const,
+    light: [255, 181, 64] as const,
+    roughness: 0.3,
+    relief: 0.002,
+    cells: 3,
+    jitter: 0.025,
+    radius: 0.38,
+    faceShoulder: 0.012,
+    rindStart: 0.33,
+    rindFull: 0.35,
+    pithRadius: 0.05,
+    pithShoulder: 0.0015,
+    seeds: 8,
+    seedCenter: 0.18,
+    seedLength: 0.065,
+    seedWidth: 0.026,
+    seedShoulder: 0.2,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8650,4 +8669,5 @@ export const proceduralTileMeters = Object.freeze({
   bayleaf: 0.24,
   gabardine: 0.018,
   oilspotglaze: 0.16,
+  persimmonslice: 0.24,
 });

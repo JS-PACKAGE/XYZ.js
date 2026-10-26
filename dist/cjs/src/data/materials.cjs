@@ -13892,6 +13892,33 @@ var proceduralMaterialPresets = Object.freeze({
 		outerShoulder: .12,
 		rimStart: .5,
 		rimShoulder: .15
+	}),
+	persimmonslice: Object.freeze({
+		dark: [
+			57,
+			25,
+			10
+		],
+		light: [
+			255,
+			181,
+			64
+		],
+		roughness: .3,
+		relief: .002,
+		cells: 3,
+		jitter: .025,
+		radius: .38,
+		faceShoulder: .012,
+		rindStart: .33,
+		rindFull: .35,
+		pithRadius: .05,
+		pithShoulder: .0015,
+		seeds: 8,
+		seedCenter: .18,
+		seedLength: .065,
+		seedWidth: .026,
+		seedShoulder: .2
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14593,7 +14620,8 @@ var proceduralTileMeters = Object.freeze({
 	rhodochrosite: .18,
 	bayleaf: .24,
 	gabardine: .018,
-	oilspotglaze: .16
+	oilspotglaze: .16,
+	persimmonslice: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

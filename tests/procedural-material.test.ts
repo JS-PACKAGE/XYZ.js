@@ -740,7 +740,175 @@ const kinds: ProceduralMaterialKind[] = [
   'bayleaf',
   'gabardine',
   'oilspotglaze',
+  'persimmonslice',
 ];
+
+describe('Orange persimmon slices with eight flush radial dark seeds', () => {
+  const p = proceduralMaterialPresets.persimmonslice;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a513),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a515) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a517) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves eight separate dark seeds pale centers and thin rinds on one flush pulp face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('persimmonslice', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          sample(...uv(0, 0), a);
+          sample(...uv(0.08, 0), b);
+          expect(a.color - b.color).toBeGreaterThan(0.12);
+          for (let j = 0; j < p.seeds; j++) {
+            const angle = (j * Math.PI) / 4;
+            sample(
+              ...uv(
+                p.seedCenter * Math.cos(angle),
+                p.seedCenter * Math.sin(angle),
+              ),
+              a,
+            );
+            sample(
+              ...uv(
+                p.seedCenter * Math.cos(angle + Math.PI / 8),
+                p.seedCenter * Math.sin(angle + Math.PI / 8),
+              ),
+              b,
+            );
+            expect(b.color - a.color).toBeGreaterThan(0.59);
+            expect(a.roughness - b.roughness).toBeGreaterThan(0.095);
+            expect(Math.abs(a.height - b.height)).toBeLessThanOrEqual(0.000008);
+            expect(a.occlusion).toBeCloseTo(b.occlusion, 12);
+            expect(a.occlusion).toBeGreaterThan(0.97);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(0);
+          }
+          sample(...uv(0.355, 0), a);
+          sample(...uv(0.3, 0), b);
+          expect(b.color - a.color).toBeGreaterThan(0.16);
+          expect(Math.abs(a.height - b.height)).toBeLessThanOrEqual(0.000008);
+          sample(...uv(0.4, 0), a);
+          expect(a.occlusion).toBe(0.4);
+        }
+    },
+  );
+  it('writes all eight dark seed centers in orange opaque nonmetal flesh at actual512', () => {
+    const maps = generateProceduralMaps('persimmonslice', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7);
+        for (let j = 0; j < p.seeds; j++) {
+          const angle = (j * Math.PI) / 4,
+            point = uv(
+              p.seedCenter * Math.cos(angle),
+              p.seedCenter * Math.sin(angle),
+            ),
+            i =
+              (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) *
+              4;
+          expect(maps.baseColor[i]).toBeLessThan(100);
+          expect(maps.occlusion[i]).toBeGreaterThan(245);
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+    }
+  });
+  it('repeats fruit edges seeds and every PBR channel over signed UV periods', () => {
+    const sample = createSurfaceSampler('persimmonslice', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps seed origins ellipse shoulders fruit and rind supports pith owners and seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('persimmonslice', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          check(...uv(0, 0));
+          for (let j = 0; j < 32; j++) {
+            const angle = (j * Math.PI) / 16;
+            for (const r of [
+              p.radius,
+              Math.sqrt(p.radius ** 2 - p.faceShoulder),
+              p.rindStart,
+              p.rindFull,
+              p.pithRadius,
+              Math.sqrt(p.pithRadius ** 2 - p.pithShoulder),
+            ])
+              check(...uv(r * Math.cos(angle), r * Math.sin(angle)));
+            for (let k = 0; k < p.seeds; k++) {
+              const a = (k * Math.PI) / 4,
+                cos = Math.cos(a),
+                sin = Math.sin(a);
+              for (const q of [0, 1 - p.seedShoulder, 1]) {
+                const x =
+                    p.seedCenter +
+                    p.seedLength * Math.sqrt(q) * Math.cos(angle),
+                  y = p.seedWidth * Math.sqrt(q) * Math.sin(angle);
+                check(...uv(x * cos - y * sin, x * sin + y * cos));
+              }
+            }
+            check(col / p.cells, j / 32);
+            check(j / 32, row / p.cells);
+          }
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Glossy black ceramic oil spots with brown iron oxide rims', () => {
   const p = proceduralMaterialPresets.oilspotglaze;
