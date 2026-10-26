@@ -8355,3 +8355,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1、單Worker completed1 failed0、獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之gabbro512五maps；既有693種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7347項測試（1009.95s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：雙眼螺紋花籃螺栓（turnbuckles）
+
+- 目錄694→695種：九枚seeded旋轉閉框鋼件、低框心、連接螺桿、雙側反向低螺紋與兩個閉眼環；孔洞保持opaque暗色非金屬底，不是透明穿孔。金屬mask乘factor1、mortar0、0.24 m tile／0.003 m relief；不新增geometry、displacement或機械模擬。
+- 專項6項全部通過（1.51s）：三seed逐件閉框／眼孔／螺桿連通、實際高度與色彩／粗糙度／AO螺紋差、512² steel與非金屬孔洞、4096 signed UV週期及框／眼／螺桿／螺紋／owner邊界C1。
+- managed Chromium150 headless正式PBR gallery強制WebGPU及WebGL2均顯示695種，實際選取turnbuckles並截圖，頁面與cleanup errors皆空；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist的NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之turnbuckles512五maps；既有694種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7355項測試（911.48s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

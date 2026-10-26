@@ -709,7 +709,8 @@ export type ProceduralMaterialKind =
   | 'chiastolite'
   | 'dimity'
   | 'juniperberries'
-  | 'gabbro';
+  | 'gabbro'
+  | 'turnbuckles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1653,6 +1654,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dimity',
   'juniperberries',
   'gabbro',
+  'turnbuckles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1861,6 +1863,7 @@ export class ProceduralMaterial {
         this.kind === 'brasspadlocks' ||
         this.kind === 'bluepushpins' ||
         this.kind === 'openendspanners' ||
+        this.kind === 'turnbuckles' ||
         this.kind === 'binderclips' ||
         this.kind === 'ceramicfuses' ||
         this.kind === 'balloonwhisks' ||

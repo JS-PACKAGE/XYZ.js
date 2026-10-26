@@ -1441,6 +1441,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'turnbuckles': {
+        const p = proceduralMaterialPresets.turnbuckles,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a111);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1a113);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a115) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a117) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            q = (x / p.frameX) ** 4 + (y / p.frameY) ** 4,
+            qi = (x / p.openingX) ** 4 + (y / p.openingY) ** 4,
+            frame =
+              smooth(clamp((1 - q) / 0.15)) * smooth(clamp((qi - 0.75) / 0.25)),
+            eq = (ax - p.eyeX) ** 2 + y * y,
+            eye =
+              smooth(
+                clamp(
+                  (p.eyeRadius ** 2 - eq) / (p.eyeRadius ** 2 - p.eyeCore ** 2),
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (eq - p.holeRadius ** 2) /
+                    (p.holeShoulder ** 2 - p.holeRadius ** 2),
+                ),
+              ),
+            rod =
+              smooth(
+                clamp(
+                  (p.rodHalf ** 2 - (ax - p.rodX) ** 2) /
+                    (p.rodHalf ** 2 - p.rodCore ** 2),
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (p.rodRadius ** 2 - y * y) /
+                    (p.rodRadius ** 2 - p.rodInner ** 2),
+                ),
+              ),
+            body = 1 - (1 - frame) * (1 - rod) * (1 - eye);
+          color = 0.07;
+          height = 0.06;
+          roughness = 0.94;
+          occlusion = 0.4;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            phase = ax * p.threadFrequency + 4 * y,
+            distance = phase - Math.floor(phase + 0.5),
+            thread = smooth(clamp((0.0144 - distance * distance) / 0.0119));
+          height += frame * (0.53 - height);
+          height += rod * (0.45 - 0.06 * thread - height);
+          height += eye * (0.55 - height);
+          color += body * (0.65 + 0.05 * grain - color) - rod * 0.16 * thread;
+          roughness +=
+            body * (p.roughness + 0.03 * grain - roughness) +
+            rod * 0.05 * thread;
+          occlusion += body * (0.96 - occlusion) - rod * 0.06 * thread;
+          metallic = body;
+          return;
+        };
+      }
       case 'gabbro': {
         const p = proceduralMaterialPresets.gabbro,
           sites = new Float64Array(p.cells * p.cells * 6),
@@ -32164,6 +32240,7 @@ export function createSurfaceSampler(
     kind === 'dimity' ||
     kind === 'juniperberries' ||
     kind === 'gabbro' ||
+    kind === 'turnbuckles' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

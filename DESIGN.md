@@ -937,6 +937,8 @@
 
 `gabbro` 沿用granite的compact normalized mineral weights，但12×12粗晶、六值快取site雙offset／tone／cos／sin／phase，色分dark pyroxene與pale plagioclase；僅淡晶有12-frequency compact平行雙晶pigment。Site在0.3–0.7、support radius1.2，省略site最短1.3，owner切換前weight為零；own site squared distance≤0.98<1.44，denominator嚴格正不需epsilon。Cap連續平方四次形成16次權重，normalized blend平滑接角狀晶粒，3×3固定lookup無逐點配置／hash／trig／sqrt。128² grain供共同磨面`0.35+0.002grain`、物理微高差≤0.24 μm／AO1；晶界與雙晶不是凹槽或凸塊。全opaque M0／mortar0、0.18 m tile／0.00012 m relief；maps、ownership與既有height map正規化不變，不新增geometry、displacement、透光或地質模擬。
 
+`turnbuckles`（雙眼螺紋花籃螺栓）新增九枚seeded旋轉鋼件：閉合中央長框、真低框心、兩側連接螺桿與閉合眼環，孔洞維持opaque非金屬暗底而非透明。雙側鏡像細螺紋具有較低高度、較暗色與較高粗糙度；金屬mask乘factor1。0.24 m tile／0.003 m relief、mortar0；沿用height、tint、repeats、Worker／cache與ownership，不新增幾何、穿孔、displacement或機械模擬。 Compact quartic框、squared眼環與螺桿肩部C1連接；四值pose及128² grain快取，逐點無配置或trig。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -735,7 +735,176 @@ const kinds: ProceduralMaterialKind[] = [
   'dimity',
   'juniperberries',
   'gabbro',
+  'turnbuckles',
 ];
+
+describe('Connected eye-eye threaded turnbuckles', () => {
+  const p = proceduralMaterialPresets.turnbuckles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a113),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a115) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a117) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves open centers closed eyes connected rods and recessed opposing threads for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('turnbuckles', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (const x of [0, -p.eyeX, p.eyeX]) {
+            sample(...uv(x, 0), a);
+            expect(a.metallic).toBe(0);
+            expect(a.occlusion).toBeCloseTo(0.4, 12);
+          }
+          for (const sign of [-1, 1]) {
+            for (const point of [
+              [0, sign * 0.08],
+              [sign * p.eyeX, 0.053],
+            ]) {
+              sample(...uv(point[0], point[1]), a);
+              expect(a.metallic).toBeCloseTo(1, 12);
+              expect(a.height).toBeGreaterThan(0.0015);
+            }
+            for (let x = 0.165; x <= 0.275; x += 0.002) {
+              sample(...uv(sign * x, 0), a);
+              expect(a.metallic).toBeGreaterThan(0.99);
+            }
+            sample(...uv(sign * 0.225, 0), a);
+            sample(...uv(sign * 0.23125, 0), b);
+            expect(b.height - a.height).toBeGreaterThan(0.00017);
+            expect(a.roughness - b.roughness).toBeGreaterThan(0.035);
+            expect(b.color - a.color).toBeGreaterThan(0.11);
+            expect(b.occlusion - a.occlusion).toBeGreaterThan(0.055);
+          }
+        }
+    },
+  );
+  it('writes opaque steel rings and frames around genuinely nonmetal openings at actual512', () => {
+    const maps = generateProceduralMaps('turnbuckles', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7);
+        for (const [x, y, steel] of [
+          [0, 0, false],
+          [p.eyeX, 0, false],
+          [-p.eyeX, 0, false],
+          [0, 0.08, true],
+          [p.eyeX, 0.053, true],
+        ] as const) {
+          const point = uv(x, y),
+            i =
+              (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) *
+              4;
+          expect(maps.metallicRoughness[i + 2]).toBe(steel ? 255 : 0);
+          expect(maps.baseColor[i + 3]).toBe(255);
+          if (steel) expect(maps.baseColor[i]).toBeGreaterThan(130);
+          else expect(maps.occlusion[i]).toBe(102);
+        }
+      }
+  });
+  it('repeats geometry threads and every PBR channel across signed UV periods', () => {
+    const sample = createSurfaceSampler('turnbuckles', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps eye hole shoulders frame boundaries thread resets and cell owners C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('turnbuckles', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (let j = 0; j < 64; j++) {
+            const angle = (j * Math.PI) / 32,
+              cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            for (const r of [
+              p.eyeRadius,
+              p.eyeCore,
+              p.holeRadius,
+              p.holeShoulder,
+            ])
+              for (const sign of [-1, 1])
+                check(...uv(sign * p.eyeX + r * cos, r * sin));
+            const scale = (cos ** 4 + sin ** 4) ** -0.25;
+            for (const [x, y, q] of [
+              [p.frameX, p.frameY, 1],
+              [p.frameX, p.frameY, 0.85],
+              [p.openingX, p.openingY, 0.75],
+              [p.openingX, p.openingY, 1],
+            ])
+              check(
+                ...uv(x * cos * scale * q ** 0.25, y * sin * scale * q ** 0.25),
+              );
+            check(j / 64, row / p.cells);
+            check(col / p.cells, j / 64);
+          }
+          for (const phase of [-0.5, -0.12, -0.05, 0.05, 0.12, 0.5])
+            check(...uv((18 + phase) / p.threadFrequency, 0));
+          for (const x of [
+            p.rodX - p.rodHalf,
+            p.rodX - p.rodCore,
+            p.rodX + p.rodCore,
+            p.rodX + p.rodHalf,
+          ])
+            check(...uv(x, 0));
+          for (const y of [-p.rodRadius, -p.rodInner, p.rodInner, p.rodRadius])
+            check(...uv(p.rodX, y));
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished dark gabbro with coarse pale twinned plagioclase grains', () => {
   const p = proceduralMaterialPresets.gabbro;
@@ -52454,6 +52623,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'cloisonne' &&
           kind !== 'rackgears' &&
           kind !== 'doubleedgerazorblades' &&
+          kind !== 'turnbuckles' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -61889,6 +62059,7 @@ describe('procedural preset acquisition and ownership', () => {
     'cloisonne',
     'rackgears',
     'doubleedgerazorblades',
+    'turnbuckles',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -61984,6 +62155,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'cloisonne' ||
           kind === 'rackgears' ||
           kind === 'doubleedgerazorblades' ||
+          kind === 'turnbuckles' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||
