@@ -1441,6 +1441,74 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'papyrus': {
+        const p = proceduralMaterialPresets.papyrus,
+          tones = new Float64Array(p.strips * 2),
+          edgeField = cachedNoise(p.strips, p.edgeSteps, seed ^ 0x18c11),
+          fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x18c13),
+          formationField = cachedNoise(4, 4, seed ^ 0x18c15),
+          inverseShoulder = 1 / p.shoulder;
+        for (let i = 0; i < p.strips; i++) {
+          tones[i * 2] = hash(i, 0, seed ^ 0x18c17);
+          tones[i * 2 + 1] = hash(i, 0, seed ^ 0x18c19);
+        }
+        return () => {
+          const x = u * p.strips,
+            col = Math.floor(x),
+            dx =
+              x -
+              col -
+              0.5 -
+              p.edgeJitter * (2 * edgeField(col / p.strips, v) - 1),
+            top = smooth(clamp((p.halfWidth - Math.abs(dx)) * inverseShoulder)),
+            fiberV = top === 0 ? 0 : fiberField(u, v),
+            fiberH = fiberField(v, u),
+            formation = formationField(u, v),
+            topColor =
+              0.62 +
+              0.1 * tones[col * 2]! +
+              0.12 * fiberV +
+              0.04 * fiberH +
+              0.025 * formation,
+            topHeight = p.topHeight + 0.008 * fiberV + 0.002 * formation,
+            topRoughness = p.roughness + 0.02 * formation - 0.02 * fiberV;
+          // Fully pressed upper strips hide the lower layer, including its
+          // edge/noise work; ownership never alternates as in woven cloth.
+          if (top === 1) {
+            color = topColor;
+            height = topHeight;
+            roughness = topRoughness;
+            occlusion = 0.99;
+            return;
+          }
+          const y = v * p.strips,
+            row = Math.floor(y),
+            dy =
+              y -
+              row -
+              0.5 -
+              p.edgeJitter * (2 * edgeField(row / p.strips, u) - 1),
+            under = smooth(
+              clamp((p.halfWidth - Math.abs(dy)) * inverseShoulder),
+            );
+          color =
+            0.3 + under * (0.15 + 0.04 * tones[row * 2 + 1]! + 0.035 * fiberH);
+          height =
+            p.backingHeight +
+            under *
+              (p.underHeight +
+                0.008 * fiberH +
+                0.002 * formation -
+                p.backingHeight);
+          roughness = 0.96 - under * (0.03 + 0.015 * fiberH);
+          occlusion = 0.85 + 0.1 * under;
+          if (top === 0) return;
+          color += top * (topColor - color);
+          height += top * (topHeight - height);
+          roughness += top * (topRoughness - roughness);
+          occlusion += top * (0.99 - occlusion);
+        };
+      }
       case 'lacewood': {
         const p = proceduralMaterialPresets.lacewood,
           rays = new Float64Array(p.columns * p.rows * 6),
@@ -30772,6 +30840,7 @@ export function createSurfaceSampler(
     kind === 'barbedwire' ||
     kind === 'oxfordweave' ||
     kind === 'lacewood' ||
+    kind === 'papyrus' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

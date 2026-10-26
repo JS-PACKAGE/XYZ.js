@@ -887,6 +887,8 @@
 
 同輪追加 `lacewood`（蕾絲木紋），目錄672→673種：直向暖木紋上散佈大小、斜度及輕微彎曲各異的淺色長木射線斑，並非鳥眼節眼或隆起鱗片。0.35 m tile／0.001 m relief，opaque dielectric、metallic 0；木射線以pigment／roughness呈現，保持近乎平整。前672種maps、公開options、Worker／cache與ownership不變，不新增木材geometry或anisotropic shader；依功能驗證後commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `papyrus`（莎草紙），目錄673→674種：八條直向上層寬草條壓覆於橫向下層，窄接邊露出較低草條與更低但不透明的紙底，搭配長纖維及成紙雲紋。上層始終在上而非交替編織，full top跳過隱藏下層取樣。0.3 m tile／0.0015 m relief、opaque dielectric／metallic 0，前673種maps、公開options、Worker／cache及ownership不變，不新增geometry、透孔或造紙模擬；依功能驗證後commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

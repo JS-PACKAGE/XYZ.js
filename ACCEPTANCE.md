@@ -8135,3 +8135,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Shipped dist的Worker驗證先於Vite遇Unknown-kind；單執行緒Python靜態server另遇module fan-out連線reset，均未改產品或降低驗證。改用既有strict-CSP `deployment-server.mjs dist /dist/ 5189`後，512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同。Cache5242880 bytes／一hit一miss，Worker completed1／failed0，textures各自擁有、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist的lacewood512五maps；既有672種各64²／seed7四maps與HEAD之SHA256全部不變，九份相關Markdown相對連結無缺失。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7196項測試（723.62s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步；逐功能commit、不push。
+
+## 2026-10-26 程序材質：兩層壓覆長纖維莎草紙（papyrus）
+
+- 目錄673→674種，八條淺色直向上層寬草條壓覆橫向下層，窄接邊露出lower strips及更低但仍opaque的暖紙底，配192×6長纖維及轉置橫紋、4×4成紙雲紋。上層始終在上而非交替織紋；full top略過隱藏下層edge，empty top略過上層纖維。Periodic jitter及compact core/support保持owner及full-top branches C1。三層皆M0／mortar0、不透明且保留暖pigment；0.3 m tile／0.0015 m relief，逐點無配置／hash／trig／sqrt，不新增geometry、透孔或造紙模擬。
+- 最終targeted六項通過（2.30s）：三seed所有64交點top比under高 >0.00026 m／color高 >0.09，under比backing高 >0.00022 m，AO分別0.99／0.95／0.85，backing h0.00033 m；各上層1025-point全長traces h≥0.00084 m／AO0.99，不隨row交替。Actual512 top R>190／under R<185、差 >10codes，上比下height高 >120、下比紙底高 >95codes；三層R−B>50／M0／alpha255。2048-point六通道signed periods、129² fields、strip-owner／fiber-grid／UV boundaries C1 guards通過。
+- Managed Chromium實際強制WebGPU／WebGL2的674-preset gallery各選出papyrus並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖見寬草條、長纖維與接邊露出的較低橫層；factor0、height存在、destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之papyrus512五maps；既有673種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7203項測試（711.96s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步；逐功能commit、不push。

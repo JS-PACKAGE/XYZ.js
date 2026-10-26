@@ -714,7 +714,128 @@ const kinds: ProceduralMaterialKind[] = [
   'barbedwire',
   'oxfordweave',
   'lacewood',
+  'papyrus',
 ];
+
+describe('Papyrus with pressed upper plant strips and an exposed perpendicular lower layer', () => {
+  const p = proceduralMaterialPresets.papyrus;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps every upper strip continuous and above the horizontal layer without alternating weave or open holes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('papyrus', seed),
+        top = empty(),
+        under = empty(),
+        backing = empty();
+      for (let row = 0; row < p.strips; row++)
+        for (let col = 0; col < p.strips; col++) {
+          sample((col + 0.5) / p.strips, (row + 0.5) / p.strips, top);
+          sample(col / p.strips, (row + 0.5) / p.strips, under);
+          sample(col / p.strips, row / p.strips, backing);
+          expect(top.height - under.height).toBeGreaterThan(0.00026);
+          expect(under.height - backing.height).toBeGreaterThan(0.00022);
+          expect(top.color - under.color).toBeGreaterThan(0.09);
+          expect(top.occlusion).toBeCloseTo(0.99, 12);
+          expect(under.occlusion).toBeCloseTo(0.95, 12);
+          expect(backing.occlusion).toBeCloseTo(0.85, 12);
+          expect(backing.height).toBeCloseTo(0.00033, 12);
+          for (const out of [top, under, backing]) {
+            expect(out.metallic).toBe(0);
+            expect(out.mortar).toBe(0);
+          }
+        }
+      for (let col = 0; col < p.strips; col++)
+        for (let j = 0; j <= 1024; j++) {
+          sample((col + 0.5) / p.strips, j / 1024, top);
+          expect(top.height).toBeGreaterThanOrEqual(0.00084);
+          expect(top.occlusion).toBeCloseTo(0.99, 12);
+        }
+    },
+  );
+  it('preserves warm pressed strips and both lower levels in the actual512 maps rather than neutral grout', () => {
+    const maps = generateProceduralMaps('papyrus', 512, 7, { heightMap: true });
+    const pixel = (x: number, y: number) =>
+      (Math.floor((y / p.strips) * 512) * 512 +
+        Math.floor((x / p.strips) * 512)) *
+      4;
+    for (let row = 0; row < p.strips; row++)
+      for (let col = 0; col < p.strips; col++) {
+        const top = pixel(col + 0.5, row + 0.5),
+          under = pixel(col, row + 0.5),
+          backing = pixel(col, row);
+        expect(maps.baseColor[top]!).toBeGreaterThan(190);
+        expect(maps.baseColor[under]!).toBeLessThan(185);
+        expect(maps.baseColor[top]! - maps.baseColor[under]!).toBeGreaterThan(
+          10,
+        );
+        expect(maps.height![top]! - maps.height![under]!).toBeGreaterThan(120);
+        expect(maps.height![under]! - maps.height![backing]!).toBeGreaterThan(
+          95,
+        );
+        expect(maps.occlusion[top]!).toBeGreaterThan(250);
+        expect(maps.occlusion[under]!).toBeGreaterThan(240);
+        expect(maps.occlusion[backing]!).toBeGreaterThan(215);
+        for (const i of [top, under, backing]) {
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.baseColor[i]! - maps.baseColor[i + 2]!).toBeGreaterThan(
+            50,
+          );
+          expect(maps.baseColor[i + 3]).toBe(255);
+        }
+      }
+  });
+  it('repeats top lower and backing pigment relief roughness and AO over signed UV periods', () => {
+    const sample = createSurfaceSampler('papyrus', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps feathered strip edges hidden-layer gates owner changes fiber lattices and UV wraps C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('papyrus', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let strip = 0; strip <= p.strips; strip++)
+        for (let j = 0; j <= 512; j++) {
+          check(strip / p.strips, j / 512);
+          check(j / 512, strip / p.strips);
+        }
+      for (let j = 0; j <= p.fiberColumns; j++) {
+        check(j / p.fiberColumns, 0.41421356237);
+        check(0.61803398875, j / p.fiberColumns);
+      }
+    }
+  });
+});
 
 describe('Lacewood with pale medullary ray flecks across continuous wood grain', () => {
   const p = proceduralMaterialPresets.lacewood;
