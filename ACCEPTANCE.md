@@ -8240,3 +8240,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之rambutanskin512五maps；既有682種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7268項測試（931.94s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：七齒雙安裝孔直齒條（rackgears）
+
+- 目錄683→684種，九枚seeded旋轉銀色直齒條、七梯形齒連完整齒根、雙低安裝孔與低縱加工槽。單次nearest-tooth lookup與鏡像孔，owner切換在空齒support；五值pose cache、128² grain僅可見face。鋼面M1／低底孔M0、全opaque／mortar0、factor1、0.6 m tile／0.007 m relief，既有maps／options／Worker／cache／ownership不變。
+- 七項定向（含borrowed-map consumer）與typecheck實際通過：三seed逐九rack／七齒完整高齒尖至齒根／兩側收窄／高根低谷／雙低孔／真低groove與field範圍、actual512 metallic tooth／root／低谷孔及opaque、signed periodicity、三seed tooth flanks／bevel lands／hole shoulders／groove／owner／noise-grid C1。
+- Source API actual512 seed7 height五maps實際生成，baseColor／normal／metallicRoughness截圖見七齒完整根、雙低孔與低槽；factor1／destroy成功，errors空。非圓形spur gear、交錯zipper、geometry、透明孔、involute精密工程模型或機械模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示684種、選中rackgears，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之rackgears512五maps；既有683種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7276項測試（932.17s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

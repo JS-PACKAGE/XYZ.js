@@ -1441,6 +1441,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rackgears': {
+        const p = proceduralMaterialPresets.rackgears,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x19611),
+          inverseBevel = 1 / p.bevel,
+          inversePitch = 1 / p.toothPitch,
+          inverseSpan = 1 / (p.toothTop - p.toothBottom),
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore),
+          inverseGroove = 1 / p.grooveWidth;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x19615);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x19617) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x19619) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1961b);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.035;
+          roughness = 0.95;
+          occlusion = 0.45;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            end = smooth(clamp((p.halfLength - Math.abs(x)) * inverseBevel));
+          if (end === 0 || y <= p.baseBottom || y >= p.toothTop) return;
+          const base =
+              end *
+              smooth(clamp((y - p.baseBottom) * inverseBevel)) *
+              smooth(clamp((p.baseTop - y) * inverseBevel)),
+            owner = Math.max(
+              0,
+              Math.min(
+                p.teeth - 1,
+                Math.round((x - p.toothFirst) * inversePitch),
+              ),
+            ),
+            tx = x - p.toothFirst - owner * p.toothPitch,
+            t = clamp((y - p.toothBottom) * inverseSpan),
+            width = p.rootHalfWidth + (p.tipHalfWidth - p.rootHalfWidth) * t,
+            tooth =
+              smooth(clamp((width - Math.abs(tx)) * inverseBevel)) *
+              smooth(clamp((y - p.toothBottom) * inverseBevel)) *
+              smooth(clamp((p.toothTop - y) * inverseBevel)),
+            hx = Math.abs(x) - p.holeX,
+            hy = y - p.holeY,
+            hole = smooth(
+              clamp((holeSquared - hx * hx - hy * hy) * inverseHole),
+            ),
+            face = (1 - (1 - base) * (1 - tooth)) * (1 - hole);
+          if (face === 0) return;
+          // The rack root stays continuous under seven separated trapezoidal tooth tips.
+          const g = (y - p.grooveY) * inverseGroove,
+            groove = smooth(clamp(1 - g * g)),
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.78 + 0.04 * poses[i + 4] + 0.025 * grain - 0.1 * groove - color);
+          height += face * (0.58 + 0.004 * grain - 0.022 * groove - height);
+          roughness +=
+            face * (p.roughness + 0.04 * grain + 0.06 * groove - roughness);
+          occlusion += face * (0.97 - 0.12 * groove - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'rambutanskin': {
         const p = proceduralMaterialPresets.rambutanskin,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31467,6 +31541,7 @@ export function createSurfaceSampler(
     kind === 'gyroidinfill' ||
     kind === 'cloisonne' ||
     kind === 'rambutanskin' ||
+    kind === 'rackgears' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

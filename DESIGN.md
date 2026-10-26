@@ -915,6 +915,8 @@
 
 `rambutanskin` 每根快取cos／sin、雙jitter與tone五值，以quadratic centerline `bend×(0.65+0.35tone)×t²`形成彎毛，width隨t由0.065縮至0.018；squared橫斷面與smooth兩端cap使root／tip接底C1。0.085半徑根瘤與毛高度正向加成，continuous低果皮保留128²全域grain；seeded tone只作用毛身。`hypot(0.32,0.28+0.018)+0.05<0.488<0.5`保證旋轉毛support不越cell，根瘤亦在cell。bounding空support跳毛寬／cap與曲線；逐點無配置／hash／trig／sqrt或鄰格掃描，無nearest-curve迭代。全opaque M0／mortar0、0.12 m tile／0.0035 m relief，沿用maps／ownership，不新增hair geometry、displacement、透明縫、SSS或生長模擬。
 
+`rackgears` 每枚cos／sin、雙jitter與tone五值快取，compact矩形齒根與七梯形齒採product-union，齒寬由0.037縮至0.019、0.008 smooth bevel。單次nearest-tooth lookup，最大half-width0.037<半pitch0.045，owner切換在空齒support；齒根與齒重疊0.025，完整齒根不被齒間谷切斷。`hypot(0.36,0.13)+0.025<0.408<0.5`，旋轉後不跨cell。abs鏡像一次計算雙孔，full低孔跳grain；低縱groove只作用face，M1鋼面／M0低底孔，全opaque／mortar0。Bounding與空face略過finish，128² grain僅可見齒條；逐點無配置／hash／trig／sqrt、鄰格或齒列掃描。0.6 m tile／0.007 m relief、factor1，maps／ownership沿用；不是involute嚙合模型、geometry、透孔或機械模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

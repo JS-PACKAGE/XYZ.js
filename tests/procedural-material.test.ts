@@ -724,7 +724,257 @@ const kinds: ProceduralMaterialKind[] = [
   'gyroidinfill',
   'cloisonne',
   'rambutanskin',
+  'rackgears',
 ];
+
+describe('Straight gear racks with seven connected trapezoidal teeth and two recessed mounting bores', () => {
+  const p = proceduralMaterialPresets.rackgears;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const uv = (
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+    seed: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19615);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x19617) - 1) +
+        x * Math.cos(angle) -
+        y * Math.sin(angle)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x19619) - 1) +
+        x * Math.sin(angle) +
+        y * Math.cos(angle)) /
+        p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps seven distinct flat metallic tooth tips connected along a solid root with two lower bores for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rackgears', seed),
+        tip = empty(),
+        valley = empty(),
+        root = empty(),
+        bore = empty(),
+        groove = empty(),
+        land = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let tooth = 0; tooth < p.teeth; tooth++) {
+            const x = p.toothFirst + tooth * p.toothPitch;
+            for (let j = 0; j <= 64; j++) {
+              sample(...uv(col, row, x, -0.03 + (0.145 * j) / 64, seed), tip);
+              expect(tip.metallic).toBe(1);
+              expect(tip.height).toBeGreaterThan(0.00405);
+              expect(tip.height).toBeLessThan(0.00409);
+            }
+            sample(
+              ...uv(
+                col,
+                row,
+                x + 0.027,
+                p.toothBottom + 0.2 * (p.toothTop - p.toothBottom),
+                seed,
+              ),
+              root,
+            );
+            sample(
+              ...uv(
+                col,
+                row,
+                x + 0.027,
+                p.toothBottom + 0.8 * (p.toothTop - p.toothBottom),
+                seed,
+              ),
+              tip,
+            );
+            expect(root.height - tip.height).toBeGreaterThan(0.0033);
+            if (tooth + 1 < p.teeth) {
+              const gapX = x + p.toothPitch / 2;
+              sample(...uv(col, row, gapX, 0.055, seed), valley);
+              sample(...uv(col, row, gapX, -0.035, seed), root);
+              expect(valley.metallic).toBe(0);
+              expect(root.metallic).toBe(1);
+              expect(root.height - valley.height).toBeGreaterThan(0.0038);
+            }
+          }
+          for (const sign of [-1, 1]) {
+            sample(...uv(col, row, sign * p.holeX, p.holeY, seed), bore);
+            sample(...uv(col, row, sign * p.holeX, p.holeY + 0.03, seed), land);
+            expect(bore.metallic).toBe(0);
+            expect(land.metallic).toBe(1);
+            expect(land.height - bore.height).toBeGreaterThan(0.0038);
+          }
+          for (let j = 0; j <= 64; j++) {
+            const x = -0.28 + (0.56 * j) / 64;
+            sample(...uv(col, row, x, p.grooveY, seed), groove);
+            sample(...uv(col, row, x, p.grooveY - 0.02, seed), land);
+            expect(groove.metallic).toBe(1);
+            expect(land.height - groove.height).toBeGreaterThan(0.00012);
+            expect(groove.roughness - land.roughness).toBeGreaterThan(0.019);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, tip);
+          expect(tip.color).toBeGreaterThanOrEqual(0);
+          expect(tip.color).toBeLessThanOrEqual(1);
+          expect(tip.height).toBeGreaterThanOrEqual(0.000245);
+          expect(tip.height).toBeLessThan(0.00409);
+          expect(tip.metallic).toBeGreaterThanOrEqual(0);
+          expect(tip.metallic).toBeLessThanOrEqual(1);
+          expect(tip.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 silver metallic teeth and solid roots over lower opaque tooth gaps and bores', () => {
+    const maps = generateProceduralMaps('rackgears', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (uv: [number, number]) =>
+      (Math.floor(uv[1] * 512) * 512 + Math.floor(uv[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        for (let tooth = 0; tooth < p.teeth; tooth++) {
+          const x = p.toothFirst + tooth * p.toothPitch,
+            tip = pixel(uv(col, row, x, 0.08, 7));
+          expect(maps.metallicRoughness[tip + 2]).toBe(255);
+          expect(maps.height![tip]).toBeGreaterThan(250);
+          if (tooth + 1 < p.teeth) {
+            const gapX = x + p.toothPitch / 2,
+              gap = pixel(uv(col, row, gapX, 0.055, 7)),
+              root = pixel(uv(col, row, gapX, -0.035, 7));
+            expect(maps.metallicRoughness[gap + 2]).toBe(0);
+            expect(maps.metallicRoughness[root + 2]).toBe(255);
+            expect(maps.height![root]! - maps.height![gap]!).toBeGreaterThan(
+              245,
+            );
+          }
+        }
+        for (const sign of [-1, 1]) {
+          const bore = pixel(uv(col, row, sign * p.holeX, p.holeY, 7)),
+            land = pixel(uv(col, row, sign * p.holeX, p.holeY + 0.03, 7));
+          expect(maps.metallicRoughness[bore + 2]).toBe(0);
+          expect(maps.height![bore]).toBe(0);
+          expect(maps.baseColor[land]! - maps.baseColor[bore]!).toBeGreaterThan(
+            120,
+          );
+        }
+      }
+    for (let i = 3; i < maps.baseColor.length; i += 4)
+      expect(maps.baseColor[i]).toBe(255);
+  });
+  it('repeats gear teeth bores and metallic classification across both signed UV periods', () => {
+    const sample = createSurfaceSampler('rackgears', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps all tapered tooth flanks bevel lands bore shoulders groove edges and owner transitions C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rackgears', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.15,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              y = p.toothBottom + t * (p.toothTop - p.toothBottom),
+              width = p.rootHalfWidth + (p.tipHalfWidth - p.rootHalfWidth) * t,
+              x = -0.4 + 0.8 * t,
+              angle = t * 2 * Math.PI;
+            for (const edge of [
+              p.baseBottom,
+              p.baseBottom + p.bevel,
+              p.baseTop - p.bevel,
+              p.baseTop,
+              p.toothBottom,
+              p.toothBottom + p.bevel,
+              p.toothTop - p.bevel,
+              p.toothTop,
+              p.grooveY - p.grooveWidth,
+              p.grooveY,
+              p.grooveY + p.grooveWidth,
+            ])
+              check(...uv(col, row, x, edge, seed));
+            for (const sign of [-1, 1]) {
+              for (const radius of [p.holeCore, p.holeRadius])
+                check(
+                  ...uv(
+                    col,
+                    row,
+                    sign * p.holeX + radius * Math.cos(angle),
+                    p.holeY + radius * Math.sin(angle),
+                    seed,
+                  ),
+                );
+              check(
+                ...uv(col, row, sign * p.halfLength, -0.14 + 0.3 * t, seed),
+              );
+              check(
+                ...uv(
+                  col,
+                  row,
+                  sign * (p.halfLength - p.bevel),
+                  -0.14 + 0.3 * t,
+                  seed,
+                ),
+              );
+            }
+            for (let tooth = 0; tooth < p.teeth; tooth++) {
+              const cx = p.toothFirst + tooth * p.toothPitch;
+              for (const sign of [-1, 1])
+                for (const inset of [0, p.bevel])
+                  check(...uv(col, row, cx + sign * (width - inset), y, seed));
+              check(...uv(col, row, cx + p.toothPitch / 2, y, seed));
+            }
+            check(col / p.cells, (row + t) / p.cells);
+            check((col + t) / p.cells, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Rambutan skin with rooted curved tapering fruit hairs over unbroken rind', () => {
   const p = proceduralMaterialPresets.rambutanskin;
@@ -50364,6 +50614,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'woodenclothespins' &&
           kind !== 'kintsugiceramic' &&
           kind !== 'cloisonne' &&
+          kind !== 'rackgears' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -59797,6 +60048,7 @@ describe('procedural preset acquisition and ownership', () => {
     'woodenclothespins',
     'kintsugiceramic',
     'cloisonne',
+    'rackgears',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -59890,6 +60142,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'woodenclothespins' ||
           kind === 'kintsugiceramic' ||
           kind === 'cloisonne' ||
+          kind === 'rackgears' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||

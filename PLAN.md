@@ -907,6 +907,8 @@
 
 同輪追加 `rambutanskin`（紅毛丹果皮），目錄682→683種：144根seeded旋轉與jitter的彎曲漸尖果毛、自抬高根瘤長出，紅色低底皮連續不挖空；不同於榴槤六面尖刺或藏紅花三叉散絲。全opaque M0／mortar0、0.12 m tile／0.0035 m relief。前682種maps與既有options／Worker／cache／ownership不變，不新增hair geometry、displacement、透明縫、SSS或生長／果實模擬。驗證後獨立commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `rackgears`（七齒直齒條），目錄683→684種：九枚seeded旋轉銀色直齒條，各七梯形齒尖連在完整齒根、雙低安裝孔及連續低縱加工槽；非圓形spur gear或交錯zipper。實體M1／低底與孔M0、全opaque／mortar0、factor1、0.6 m tile／0.007 m relief；前683種maps與options／Worker／cache／ownership不變，不新增geometry、透明孔、齒輪嚙合、involute精密工程模型或機械模擬。驗證後獨立commit、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
