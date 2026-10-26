@@ -7875,6 +7875,20 @@ export const proceduralMaterialPresets = Object.freeze({
     rodInner: 0.012,
     threadFrequency: 80,
   }),
+  rhodochrosite: Object.freeze({
+    dark: [165, 42, 67] as const,
+    light: [252, 238, 221] as const,
+    roughness: 0.18,
+    relief: 0.00012,
+    bands: 6,
+    warp: 0.75,
+    fineWarp: 0.18,
+    wideRadius: 0.12,
+    wideCore: 0.065,
+    fineRadius: 0.04,
+    fineCore: 0.018,
+    companionOffset: 0.23,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8574,4 +8588,5 @@ export const proceduralTileMeters = Object.freeze({
   juniperberries: 0.064,
   gabbro: 0.18,
   turnbuckles: 0.24,
+  rhodochrosite: 0.18,
 });

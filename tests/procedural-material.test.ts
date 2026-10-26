@@ -736,7 +736,117 @@ const kinds: ProceduralMaterialKind[] = [
   'juniperberries',
   'gabbro',
   'turnbuckles',
+  'rhodochrosite',
 ];
+
+describe('Polished rose rhodochrosite with paired wavy white laminae', () => {
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps six broad and six fine optical laminae flush with the pink matrix for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rhodochrosite', seed),
+        a = empty();
+      let low = Infinity,
+        high = -Infinity;
+      for (const u of [0.17, 0.53, 0.81]) {
+        const white: boolean[] = [];
+        for (let j = 0; j < 4096; j++) {
+          sample(u, j / 4096, a);
+          white.push(a.color > 0.85);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          expect(a.occlusion).toBe(1);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+        const start = white.findIndex((value) => !value),
+          widths: number[] = [];
+        let width = 0;
+        for (let j = 1; j <= 4096; j++) {
+          if (white[(start + j) % 4096]) width++;
+          else if (width) {
+            widths.push(width);
+            width = 0;
+          }
+        }
+        expect(widths).toHaveLength(12);
+        widths.sort((x, y) => x - y);
+        expect(widths[6]).toBeGreaterThan(widths[5] * 1.5);
+        expect(white.filter(Boolean).length).toBeLessThan(1600);
+        expect(white.filter(Boolean).length).toBeGreaterThan(500);
+      }
+      expect(high - low).toBeLessThanOrEqual(0.00000024);
+    },
+  );
+  it('writes ivory laminae and rose matrix without metallic pixels or AO trenches at actual512', () => {
+    const maps = generateProceduralMaps('rhodochrosite', 512, 7, {
+      heightMap: true,
+    });
+    let rose = 0,
+      ivory = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.occlusion[i]).toBe(255);
+      if (maps.baseColor[i + 1] > 210) ivory++;
+      if (maps.baseColor[i + 1] < 130) rose++;
+    }
+    expect(ivory).toBeGreaterThan(20000);
+    expect(rose).toBeGreaterThan(120000);
+  });
+  it('repeats both lamina scales and all PBR channels over signed UV periods', () => {
+    const sample = createSurfaceSampler('rhodochrosite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps warped laminae noise lattice boundaries and signed tile seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rhodochrosite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let j = 0; j < 65536; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      for (const n of [3, 9, 12, 128])
+        for (let k = 0; k <= n; k++)
+          for (let j = 0; j < 32; j++) {
+            check(k / n, j / 32);
+            check(j / 32, k / n);
+          }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Connected eye-eye threaded turnbuckles', () => {
   const p = proceduralMaterialPresets.turnbuckles;

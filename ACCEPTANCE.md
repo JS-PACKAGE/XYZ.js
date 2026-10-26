@@ -8364,3 +8364,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist的NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之turnbuckles512五maps；既有694種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7355項測試（911.48s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：粉白波狀層帶菱錳礦（rhodochrosite）
+
+- 目錄695→696種：粉紅基質、六組寬白波狀層帶與細伴生帶，非瑪瑙閉合環。層帶僅改pigment／roughness，共同磨面微高差≤0.24 μm／AO1；全opaque M0／mortar0、0.18 m tile／0.00012 m relief。不新增geometry、displacement、透光或地質模擬。
+- 專項6項全部通過（2.35s）：三seed跨列完整六寬六細層帶與明確寬度區分、物理磨面高度上限、512²粉紅／象牙白區域及M0／AO1、4096 signed UV週期、warp／pigment／grain lattice與tile seams C1。
+- managed Chromium150 headless已擷取source sampler 512² baseColor／normal；正式PBR gallery強制WebGPU及WebGL2均顯示696種並實際選取rhodochrosite截圖，頁面及cleanup errors皆空。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之rhodochrosite512五maps；既有695種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7362項測試（991.32s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

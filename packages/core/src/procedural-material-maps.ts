@@ -1441,6 +1441,48 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rhodochrosite': {
+        const p = proceduralMaterialPresets.rhodochrosite,
+          warpField = cachedNoise(3, 3, seed ^ 0x1a211),
+          fineField = cachedNoise(9, 3, seed ^ 0x1a213),
+          pigmentField = cachedNoise(12, 12, seed ^ 0x1a215),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a217),
+          phaseOffset = hash(0, 0, seed ^ 0x1a219),
+          wideShoulder = p.wideRadius ** 2 - p.wideCore ** 2,
+          fineShoulder = p.fineRadius ** 2 - p.fineCore ** 2;
+        return () => {
+          const phase =
+              p.bands * v +
+              p.warp * warpField(u, v) +
+              p.fineWarp * fineField(u, v) +
+              phaseOffset,
+            wideDistance = phase - Math.floor(phase + 0.5),
+            companion = phase - p.companionOffset,
+            fineDistance = companion - Math.floor(companion + 0.5),
+            wide = smooth(
+              clamp(
+                (p.wideRadius ** 2 - wideDistance * wideDistance) /
+                  wideShoulder,
+              ),
+            ),
+            fine = smooth(
+              clamp(
+                (p.fineRadius ** 2 - fineDistance * fineDistance) /
+                  fineShoulder,
+              ),
+            ),
+            calcite = 1 - (1 - wide) * (1 - fine),
+            pigment = pigmentField(u, v),
+            grain = grainField(u, v);
+          color = 0.22 + 0.14 * pigment;
+          color += calcite * (0.94 - color);
+          // Laminae are optical bands on one polished face, not carved grooves.
+          height = 0.4 + 0.002 * grain;
+          roughness += 0.03 * pigment + 0.025 * calcite;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'turnbuckles': {
         const p = proceduralMaterialPresets.turnbuckles,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -32241,6 +32283,7 @@ export function createSurfaceSampler(
     kind === 'juniperberries' ||
     kind === 'gabbro' ||
     kind === 'turnbuckles' ||
+    kind === 'rhodochrosite' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

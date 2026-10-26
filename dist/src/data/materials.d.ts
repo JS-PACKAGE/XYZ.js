@@ -7724,6 +7724,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         rodInner: 0.012;
         threadFrequency: 80;
     }>;
+    rhodochrosite: Readonly<{
+        dark: readonly [165, 42, 67];
+        light: readonly [252, 238, 221];
+        roughness: 0.18;
+        relief: 0.00012;
+        bands: 6;
+        warp: 0.75;
+        fineWarp: 0.18;
+        wideRadius: 0.12;
+        wideCore: 0.065;
+        fineRadius: 0.04;
+        fineCore: 0.018;
+        companionOffset: 0.23;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8422,4 +8436,5 @@ export declare const proceduralTileMeters: Readonly<{
     juniperberries: 0.064;
     gabbro: 0.18;
     turnbuckles: 0.24;
+    rhodochrosite: 0.18;
 }>;
