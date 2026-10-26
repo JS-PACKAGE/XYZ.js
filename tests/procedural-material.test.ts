@@ -750,7 +750,144 @@ const kinds: ProceduralMaterialKind[] = [
   'watercaltrops',
   'fluorite',
   'wenge',
+  'parchment',
 ];
+
+describe('Cream parchment with shallow residual follicles and scraped undertones', () => {
+  const p = proceduralMaterialPresets.parchment;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const follicle = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1af17),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      width =
+        p.widthMinimum + p.widthVariation * hash(col, row, seed ^ 0x1af19),
+      length =
+        p.lengthMinimum + p.lengthVariation * hash(col, row, seed ^ 0x1af1b),
+      cx = 0.2 + 0.6 * hash(col, row, seed ^ 0x1af1d),
+      cy = 0.2 + 0.6 * hash(col, row, seed ^ 0x1af1f);
+    return {
+      width,
+      length,
+      uv: (x: number, y: number): [number, number] => [
+        (col + cx + x * cos - y * sin) / p.cells,
+        (row + cy + x * sin + y * cos) / p.cells,
+      ],
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps writing skin smooth with only micrometer shallow follicles for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('parchment', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = follicle(seed, col, row);
+          sample(...f.uv(0, 0), a);
+          sample(...f.uv(-2 * f.width, 0), b);
+          sample(...f.uv(2 * f.width, 0), c);
+          const depth = (b.height + c.height) / 2 - a.height;
+          expect(depth).toBeGreaterThan(0.0000018);
+          expect(depth).toBeLessThan(0.000003);
+          expect(a.color).toBeLessThan(Math.min(b.color, c.color));
+          expect(a.occlusion).toBeLessThan(Math.min(b.occlusion, c.occlusion));
+          for (const s of [a, b, c]) {
+            expect(s.height).toBeGreaterThanOrEqual(0.0000776);
+            expect(s.height).toBeLessThanOrEqual(0.0000834);
+            expect(s.metallic).toBe(0);
+            expect(s.mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('writes faint tan follicles without transparent holes or metallic skin at actual512', () => {
+    const maps = generateProceduralMaps('parchment', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const f = follicle(7, col, row),
+          [u, v] = f.uv(0, 0),
+          [su, sv] = f.uv(2 * f.width, 0),
+          i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4,
+          si = (Math.floor(sv * 512) * 512 + Math.floor(su * 512)) * 4;
+        expect(maps.baseColor[i]).toBeLessThan(maps.baseColor[si]);
+        expect(maps.occlusion[i]).toBeLessThan(maps.occlusion[si]);
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+      }
+  });
+  it('repeats follicles scraped undertones and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('parchment', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps follicle cores elliptical supports cell owners and scraped noise seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('parchment', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = follicle(seed, col, row);
+          for (let j = 0; j < 32; j++)
+            for (const r of [Math.sqrt(1 - p.poreShoulder), 1]) {
+              const theta = (2 * Math.PI * j) / 32;
+              check(
+                ...f.uv(
+                  r * f.width * Math.cos(theta),
+                  r * f.length * Math.sin(theta),
+                ),
+              );
+            }
+        }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j <= 16; j++) {
+          check(k / 128, j / 16);
+          check(j / 16, k / 128);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Wenge wood with long open vessel pores', () => {
   const p = proceduralMaterialPresets.wenge;

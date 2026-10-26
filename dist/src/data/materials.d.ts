@@ -7978,6 +7978,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         bandRadius: 0.12;
         bandCore: 0.06;
     }>;
+    parchment: Readonly<{
+        dark: readonly [170, 139, 93];
+        light: readonly [250, 243, 221];
+        roughness: 0.83;
+        relief: 0.0002;
+        cells: 16;
+        widthMinimum: 0.035;
+        widthVariation: 0.02;
+        lengthMinimum: 0.055;
+        lengthVariation: 0.025;
+        poreShoulder: 0.3;
+        poreDepth: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8690,4 +8703,5 @@ export declare const proceduralTileMeters: Readonly<{
     watercaltrops: 0.24;
     fluorite: 0.06;
     wenge: 0.12;
+    parchment: 0.04;
 }>;

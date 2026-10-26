@@ -8129,6 +8129,19 @@ export const proceduralMaterialPresets = Object.freeze({
     bandRadius: 0.12,
     bandCore: 0.06,
   }),
+  parchment: Object.freeze({
+    dark: [170, 139, 93] as const,
+    light: [250, 243, 221] as const,
+    roughness: 0.83,
+    relief: 0.0002,
+    cells: 16,
+    widthMinimum: 0.035,
+    widthVariation: 0.02,
+    lengthMinimum: 0.055,
+    lengthVariation: 0.025,
+    poreShoulder: 0.3,
+    poreDepth: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8842,4 +8855,5 @@ export const proceduralTileMeters = Object.freeze({
   watercaltrops: 0.24,
   fluorite: 0.06,
   wenge: 0.12,
+  parchment: 0.04,
 });

@@ -8490,3 +8490,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之wenge512五maps；既有708種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7455項測試（914.18s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：乳白書寫用皮紙（parchment）
+
+- 目錄709→710種：乳白雲狀底色、細縱向刮製色紋與256個任意旋轉淺殘留毛孔，不是粗粒皮革或紙漿纖維。16×16毛孔各六值快取與三cached fields；support0.08小於owner最近0.2、無逐點配置／hash／trig／sqrt。孔低2.4 μm、皮面雲狀高差≤3 μm加微粒≤0.4 μm、AO≥0.96；全opaque M0／mortar0、0.04 m tile／0.0002 m relief。不新增geometry、透明／透光、displacement、文字或製程模擬。
+- 專項6項全部通過（1.44s）：三seed毛孔與兩側平滑皮面的1.8–3.0 μm深度差／tan pigment／AO，512²淺棕毛孔及opaque dielectric像素，4096 signed UV週期，以及三seed橢圓core／support／owner／scrape noise seams C1。
+- managed Chromium150 headless source512² baseColor與正式gallery均已實際擷取；WebGPU／WebGL2均顯示710種並選取parchment。source detail最初因run options參數錯誤未執行，修正後三圖capture遇20s工具timeout，釋放後以640×900單張actual512頁截圖成功；WebGL2首次capture遇Target closed，獨立釋放重開後成功。成功頁面與cleanup errors空，未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之parchment512五maps；既有709種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7462項測試（922.29s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

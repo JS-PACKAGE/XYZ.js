@@ -1441,6 +1441,54 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'parchment': {
+        const p = proceduralMaterialPresets.parchment,
+          follicles = new Float64Array(p.cells * p.cells * 6),
+          cloudField = cachedNoise(4, 4, seed ^ 0x1af11),
+          scrapeField = cachedNoise(96, 8, seed ^ 0x1af13),
+          grainField = cachedNoise(128, 128, seed ^ 0x1af15);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1af17),
+              width =
+                p.widthMinimum +
+                p.widthVariation * hash(col, row, seed ^ 0x1af19),
+              length =
+                p.lengthMinimum +
+                p.lengthVariation * hash(col, row, seed ^ 0x1af1b);
+            follicles[i] = 0.2 + 0.6 * hash(col, row, seed ^ 0x1af1d);
+            follicles[i + 1] = 0.2 + 0.6 * hash(col, row, seed ^ 0x1af1f);
+            follicles[i + 2] = Math.cos(angle);
+            follicles[i + 3] = Math.sin(angle);
+            follicles[i + 4] = 1 / (width * width);
+            follicles[i + 5] = 1 / (length * length);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.cells + col) * 6,
+            dx = x - col - follicles[i],
+            dy = y - row - follicles[i + 1],
+            a = dx * follicles[i + 2] + dy * follicles[i + 3],
+            b = dy * follicles[i + 2] - dx * follicles[i + 3],
+            q = a * a * follicles[i + 4] + b * b * follicles[i + 5],
+            pore = smooth(clamp((1 - q) / p.poreShoulder)),
+            cloud = cloudField(u, v),
+            scrape = scrapeField(u, v),
+            grain = grainField(u, v);
+          // Scraped writing skin is smooth, not coarse leather pebbling or
+          // woven paper fibers; residual follicles are only micrometers deep.
+          color = 0.68 + 0.18 * cloud + 0.025 * scrape + 0.008 * grain;
+          color += 0.35 * pore * (0.25 - color);
+          height = 0.4 + 0.015 * cloud + 0.002 * grain - p.poreDepth * pore;
+          roughness += 0.02 * grain + 0.02 * pore;
+          occlusion = 1 - 0.04 * pore;
+          return;
+        };
+      }
       case 'wenge': {
         const p = proceduralMaterialPresets.wenge,
           pores = new Float64Array(p.columns * p.rows * 4),
@@ -33047,6 +33095,7 @@ export function createSurfaceSampler(
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
     kind === 'wenge' ||
+    kind === 'parchment' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
