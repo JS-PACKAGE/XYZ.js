@@ -8463,3 +8463,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之shackles512五maps；既有705種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7434項測試（960.62s；本次在browser smoke完成後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：雙彎角菱角果殼（watercaltrops）
+
+- 目錄706→707種：九枚seeded旋轉黑褐圓殼、兩條對稱上彎漸尖角、細縱皺與低果柄疤。沿用compact曲線support／isolated poses，以bounded union及normalized relief連接果殼與雙角；support保守半徑<0.465連同jitter仍小於0.5，無逐點配置／hash／trig／sqrt。全opaque M0／mortar0、0.24 m tile／0.003 m relief；不新增geometry、透明背景、displacement或生長模擬。
+- 專項6項全部通過（1.40s）：三seed雙角中心線連接／凹側低空隙與物理高度、512² curved horn對比與opaque dielectric像素、4096 signed UV週期、三seed角側／漸尖端／殼交界與tile邊界C1。
+- managed Chromium150 headless source512² baseColor／normal／AO與正式PBR gallery皆已實際擷取；WebGPU／WebGL2均顯示707種並選取watercaltrops。首次source module頁capture遇detached Frame，改開HTML examples頁並產生同512² maps後截圖成功；首次WebGL2 capture遇Target closed，釋放並獨立重開後成功。成功頁面與cleanup errors空，未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之watercaltrops512五maps；既有706種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7441項測試（955.61s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

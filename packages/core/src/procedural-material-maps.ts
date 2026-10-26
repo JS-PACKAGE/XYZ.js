@@ -1441,6 +1441,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'watercaltrops': {
+        const p = proceduralMaterialPresets.watercaltrops,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ac11),
+          warpField = cachedNoise(8, 8, seed ^ 0x1ac13),
+          inverseBodyX = 1 / (p.bodyX * p.bodyX),
+          inverseBodyY = 1 / (p.bodyY * p.bodyY),
+          inverseHorn = 1 / (p.hornEnd - p.hornStart),
+          inverseRoot = 1 / p.rootShoulder,
+          inverseTip = 1 / p.tipShoulder,
+          inverseScar = 1 / (p.scarRadius * p.scarRadius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1ac15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ac17) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ac19) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1ac1b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            by = y - p.bodyCenterY,
+            q = x * x * inverseBodyX + by * by * inverseBodyY,
+            body = smooth(clamp((1 - q) / p.bodyShoulder)),
+            dome = smooth(clamp(1 - q)),
+            t = clamp((ax - p.hornStart) * inverseHorn);
+          let horn = 0;
+          if (ax > p.hornStart && ax < p.hornEnd) {
+            const center = p.hornRootY - p.hornBend * smooth(t),
+              width = p.hornWidth + (p.hornTipWidth - p.hornWidth) * t,
+              side = (y - center) / width;
+            horn =
+              smooth(clamp(1 - side * side)) *
+              smooth(clamp((ax - p.hornStart) * inverseRoot)) *
+              smooth(clamp((p.hornEnd - ax) * inverseTip));
+          }
+          const total = body + horn;
+          color = 0.07;
+          height = 0.035;
+          roughness = 0.94;
+          occlusion = 0.45;
+          if (total === 0) return;
+          const grain = grainField(u, v),
+            phase =
+              fract((x + 0.015 * (warpField(u, v) - 0.5)) * p.creaseFrequency) -
+              0.5,
+            crease = smooth(clamp(1 - 4 * phase * phase)),
+            scarDy = y - p.scarY,
+            scar = smooth(clamp(1 - (x * x + scarDy * scarDy) * inverseScar)),
+            face = body + horn - body * horn,
+            relief =
+              (body * (0.46 + 0.14 * dome - 0.018 * crease - 0.035 * scar) +
+                horn * (0.45 + 0.08 * t)) /
+              total;
+          // The paired curved horns grow out of the shell, not detached hair;
+          // bounded union and normalized relief preserve connected root thickness.
+          color +=
+            face *
+            (0.27 +
+              0.06 * poses[i + 4] +
+              0.04 * grain +
+              0.08 * dome -
+              0.045 * crease -
+              0.07 * scar -
+              color);
+          height += face * (relief + 0.003 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.04 * grain + 0.04 * crease - roughness);
+          occlusion += face * (0.97 - 0.06 * crease - occlusion);
+          return;
+        };
+      }
       case 'shackles': {
         const p = proceduralMaterialPresets.shackles,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -32856,6 +32939,7 @@ export function createSurfaceSampler(
     kind === 'howlite' ||
     kind === 'ottoman' ||
     kind === 'shackles' ||
+    kind === 'watercaltrops' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

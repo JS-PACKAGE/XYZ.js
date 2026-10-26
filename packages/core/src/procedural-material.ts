@@ -721,7 +721,8 @@ export type ProceduralMaterialKind =
   | 'mulberrypaper'
   | 'howlite'
   | 'ottoman'
-  | 'shackles';
+  | 'shackles'
+  | 'watercaltrops';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1677,6 +1678,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'howlite',
   'ottoman',
   'shackles',
+  'watercaltrops',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

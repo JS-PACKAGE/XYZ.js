@@ -747,7 +747,149 @@ const kinds: ProceduralMaterialKind[] = [
   'howlite',
   'ottoman',
   'shackles',
+  'watercaltrops',
 ];
+
+describe('Water caltrop shells with two curved tapered horns', () => {
+  const p = proceduralMaterialPresets.watercaltrops;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1ac15),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ac17) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ac19) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  const hornY = (t: number): number =>
+    p.hornRootY - p.hornBend * t * t * (3 - 2 * t);
+  it.each([0, 1, 0xffffffff])(
+    'connects both curved horns to the rounded shell while leaving concave side gaps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('watercaltrops', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, p.bodyCenterY), a);
+          expect(a.height).toBeGreaterThan(0.0015);
+          for (const sign of [-1, 1]) {
+            for (let j = 1; j <= 9; j++) {
+              const t = j / 10,
+                x = sign * (p.hornStart + (p.hornEnd - p.hornStart) * t);
+              sample(...world(seed, col, row, x, hornY(t)), a);
+              expect(a.height).toBeGreaterThan(0.0005);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+            }
+            sample(...world(seed, col, row, sign * 0.3, hornY(2 / 3)), a);
+            sample(...world(seed, col, row, sign * 0.3, 0), b);
+            expect(a.height - b.height).toBeGreaterThan(0.001);
+            expect(a.occlusion - b.occlusion).toBeGreaterThan(0.4);
+          }
+        }
+    },
+  );
+  it('writes opaque black-brown curved horn silhouettes rather than straight spikes at actual512', () => {
+    const maps = generateProceduralMaps('watercaltrops', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (const sign of [-1, 1]) {
+          const [u, v] = world(7, col, row, sign * 0.3, hornY(2 / 3)),
+            [bu, bv] = world(7, col, row, sign * 0.3, 0),
+            i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4,
+            bi = (Math.floor(bv * 512) * 512 + Math.floor(bu * 512)) * 4;
+          expect(maps.baseColor[i]).toBeGreaterThan(maps.baseColor[bi]);
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+        }
+  });
+  it('repeats curved horns wrinkles and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('watercaltrops', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps curved sides tapered tips shell junctions and tile seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('watercaltrops', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              x = p.hornStart + (p.hornEnd - p.hornStart) * t,
+              width = p.hornWidth + (p.hornTipWidth - p.hornWidth) * t,
+              theta = 2 * Math.PI * t;
+            for (const sign of [-1, 1])
+              for (const across of [-width, 0, width])
+                check(...world(seed, col, row, sign * x, hornY(t) + across));
+            check(
+              ...world(
+                seed,
+                col,
+                row,
+                p.bodyX * Math.cos(theta),
+                p.bodyCenterY + p.bodyY * Math.sin(theta),
+              ),
+            );
+          }
+      for (let k = 0; k <= 128; k++)
+        for (const edge of [0, 1]) {
+          check(edge, k / 128);
+          check(k / 128, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Closed U-bow shackles with cross-pins and drilled pin tabs', () => {
   const p = proceduralMaterialPresets.shackles;
