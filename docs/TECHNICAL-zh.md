@@ -1048,6 +1048,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `bittermelonskin`（縱肋圓疣苦瓜表皮）：十二條平緩warp的完整綠縱肋、96枚seeded大小／offset圓疣及相連低溝。每疣五值快取offset／inverse radius²／tone，另快取十二rib tones、12×8 periodic warp noise與128² grain。正值`(coordinate+0.5)%period`選nearest owner；rib radius0.44，疣X support≤0.34+0.04=0.38、Y≤0.41+0.035=0.445，均<0.5，owner切換前C1歸零。Squared compact smooth pulse呈圓鈍疣，非尖刺；底層rib不隨row分段。Raw height `0.12+0.32ridge+0.24bump+0.006grain`保留疣／肋／溝三級真高低；逐點無配置／hash／trig／sqrt或鄰格掃描。全opaque M0／mortar0、0.18 m tile／0.0045 m relief；maps、height、tint、repeats、Worker／cache與ownership不變，不新增果實geometry、displacement、透明孔、SSS或生長模擬。
 
+種類另支援 `cocobolo`（橙紅深紋心材）：磨面橙紅底、寬深流紋、細暗紋與縱向纖維。4×2 cached noise以0.08幅度warp共同x，正值`(u+warp+1)%1`維持period；u導數絕對值≤0.48，映射斜率≥0.52不摺返。12×2／48×3 cached fields以0.16／0.45、0.12／0.28 smooth thresholds成寬／細pigment，192×8纖維調細色變。Color界限0.08–0.86；深紋不改height，始終`0.35+0.002fiber`／全微高差≤0.32 μm／AO1，非凸肋或凹裂。逐點無配置／hash／trig／sqrt或鄰格掃描；全opaque M0／mortar0、0.24 m tile／0.00016 m relief。maps、height、tint、repeats、Worker／cache與ownership不變，不新增geometry、displacement、SSS、anisotropy shader或木材生長模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

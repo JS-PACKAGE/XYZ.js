@@ -8292,3 +8292,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之bittermelonskin512五maps；既有687種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7304項測試（936.70s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：橙紅流動深紋心材（cocobolo）
+
+- 目錄688→689種，橙紅底心材、寬深流紋、細暗紋及縱纖維；四份cached periodic noise共用monotone warp。深紋僅pigment，磨面微高差≤0.32 μm／AO1，全opaque M0／mortar0、0.24 m tile／0.00016 m relief。
+- 六項定向6.10s通過：三seed高對比縱向木理／橫跨紋理variation>縱向三倍、全PBR及共同微高差界限、actual512橙紅與深棕／近乎平面normal／AO255／opaque M0、signed torus等值及三seed所有warped broad／fine／fiber grid、warp lattice、UV C1。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖見寬細深紋與近乎平面磨面，factor0／destroy成功、errors空。不是凸肋、凹裂、geometry、displacement、SSS、anisotropy shader或木材生長模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示689種、選中cocobolo，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之cocobolo512五maps；既有688種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7311項測試（855.98s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

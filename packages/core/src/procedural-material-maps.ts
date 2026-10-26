@@ -1441,6 +1441,30 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cocobolo': {
+        const p = proceduralMaterialPresets.cocobolo,
+          warpField = cachedNoise(p.warpColumns, p.warpRows, seed ^ 0x19b11),
+          broadField = cachedNoise(p.broadColumns, p.broadRows, seed ^ 0x19b13),
+          fineField = cachedNoise(p.fineColumns, p.fineRows, seed ^ 0x19b15),
+          fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x19b17),
+          inverseBroad = 1 / p.broadShoulder,
+          inverseFine = 1 / p.fineShoulder;
+        return () => {
+          const x = (u + p.warp * (warpField(u, v) - 0.5) + 1) % 1,
+            broad =
+              1 -
+              smooth(clamp((broadField(x, v) - p.broadCore) * inverseBroad)),
+            fine =
+              1 - smooth(clamp((fineField(x, v) - p.fineCore) * inverseFine)),
+            fiber = fiberField(x, v);
+          color = 0.76 + 0.1 * fiber - 0.52 * broad - 0.16 * fine;
+          // Dark interleaved streaks are polished heartwood pigment, never raised ribs or cracks.
+          height = 0.35 + 0.002 * fiber;
+          roughness = p.roughness + 0.035 * fiber + 0.025 * broad;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'bittermelonskin': {
         const p = proceduralMaterialPresets.bittermelonskin,
           papillae = new Float64Array(p.columns * p.rows * 5),
@@ -31770,6 +31794,7 @@ export function createSurfaceSampler(
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
+    kind === 'cocobolo' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -7594,6 +7594,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         radiusY: 0.3;
         radiusYVariation: 0.11;
     }>;
+    cocobolo: Readonly<{
+        dark: readonly [32, 9, 11];
+        light: readonly [230, 115, 45];
+        roughness: 0.28;
+        relief: 0.00016;
+        warp: 0.08;
+        warpColumns: 4;
+        warpRows: 2;
+        broadColumns: 12;
+        broadRows: 2;
+        broadCore: 0.16;
+        broadShoulder: 0.45;
+        fineColumns: 48;
+        fineRows: 3;
+        fineCore: 0.12;
+        fineShoulder: 0.28;
+        fiberColumns: 192;
+        fiberRows: 8;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8285,4 +8304,5 @@ export declare const proceduralTileMeters: Readonly<{
     ooliticlimestone: 0.024;
     ogeetiles: 0.72;
     bittermelonskin: 0.18;
+    cocobolo: 0.24;
 }>;

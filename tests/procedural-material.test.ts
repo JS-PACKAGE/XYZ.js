@@ -729,7 +729,177 @@ const kinds: ProceduralMaterialKind[] = [
   'ooliticlimestone',
   'ogeetiles',
   'bittermelonskin',
+  'cocobolo',
 ];
+
+describe('Polished cocobolo heartwood with flowing dark streaks and fine interleaved fibers', () => {
+  const p = proceduralMaterialPresets.cocobolo;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const warpedCoordinates = (seed: number) => {
+    const hash = (x: number, y: number): number => {
+      let n =
+        (seed ^
+          0x19b11 ^
+          Math.imul(x, 0x9e3779b1) ^
+          Math.imul(y, 0x85ebca6b)) >>>
+        0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const values = new Float64Array(p.warpColumns * p.warpRows);
+    for (let y = 0; y < p.warpRows; y++)
+      for (let x = 0; x < p.warpColumns; x++)
+        values[y * p.warpColumns + x] = hash(x, y);
+    const warp = (u: number, v: number) => {
+      const x = (((u % 1) + 1) % 1) * p.warpColumns,
+        y = (((v % 1) + 1) % 1) * p.warpRows,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        tx = x - ix,
+        ty = y - iy,
+        sx = tx * tx * (3 - 2 * tx),
+        sy = ty * ty * (3 - 2 * ty),
+        a = values[iy * p.warpColumns + ix],
+        b = values[iy * p.warpColumns + ((ix + 1) % p.warpColumns)],
+        c = values[((iy + 1) % p.warpRows) * p.warpColumns + ix],
+        d =
+          values[
+            ((iy + 1) % p.warpRows) * p.warpColumns + ((ix + 1) % p.warpColumns)
+          ];
+      return (
+        p.warp * ((a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy - 0.5)
+      );
+    };
+    return (x: number, v: number): [number, number] => {
+      let low = x - p.warp,
+        high = x + p.warp;
+      for (let j = 0; j < 40; j++) {
+        const mid = (low + high) / 2;
+        if (mid + warp(mid, v) < x) low = mid;
+        else high = mid;
+      }
+      return [(low + high) / 2, v];
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps high contrast grain longitudinal rather than cloudlike and pigment on one nearly flat opaque face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cocobolo', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let minColor = 1,
+        maxColor = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity,
+        transverseVariation = 0,
+        longitudinalVariation = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          const u = x / 128,
+            v = y / 128;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          minColor = Math.min(minColor, a.color);
+          maxColor = Math.max(maxColor, a.color);
+          minHeight = Math.min(minHeight, a.height);
+          maxHeight = Math.max(maxHeight, a.height);
+          transverseVariation += Math.abs(b.color - a.color);
+          longitudinalVariation += Math.abs(c.color - a.color);
+          expect(a.height).toBeGreaterThanOrEqual(0.000056);
+          expect(a.height).toBeLessThanOrEqual(0.000056320001);
+          expect(a.color).toBeGreaterThanOrEqual(0.079999);
+          expect(a.color).toBeLessThanOrEqual(0.86);
+          expect(a.roughness).toBeGreaterThanOrEqual(0.28);
+          expect(a.roughness).toBeLessThanOrEqual(0.34);
+          expect(a.occlusion).toBe(1);
+          expect(a.mortar).toBe(0);
+          expect(a.metallic).toBe(0);
+        }
+      expect(maxColor - minColor).toBeGreaterThan(0.45);
+      expect(transverseVariation).toBeGreaterThan(3 * longitudinalVariation);
+      expect(maxHeight - minHeight).toBeLessThanOrEqual(0.000000320001);
+    },
+  );
+  it('writes actual512 dark reddish brown to orange pigment while normal and occlusion retain a polished uncut face', () => {
+    const maps = generateProceduralMaps('cocobolo', 512, 7, {
+      heightMap: true,
+    });
+    let minRed = 255,
+      maxRed = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const red = maps.baseColor[i]!,
+        green = maps.baseColor[i + 1]!,
+        blue = maps.baseColor[i + 2]!;
+      minRed = Math.min(minRed, red);
+      maxRed = Math.max(maxRed, red);
+      expect(red).toBeGreaterThan(green);
+      expect(green).toBeGreaterThan(blue);
+      expect(Math.abs(maps.normal[i]! - 128)).toBeLessThanOrEqual(2);
+      expect(Math.abs(maps.normal[i + 1]! - 128)).toBeLessThanOrEqual(2);
+      expect(maps.normal[i + 2]).toBe(255);
+      expect(maps.occlusion[i]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+    expect(maxRed - minRed).toBeGreaterThan(90);
+  });
+  it('repeats flowing broad streaks interleaved lines finish and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('cocobolo', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps all warped broad fine and fiber lattice boundaries warp grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cocobolo', seed),
+        uv = warpedCoordinates(seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (const columns of [p.broadColumns, p.fineColumns, p.fiberColumns])
+        for (let y = 0; y <= 64; y++)
+          for (let x = 0; x <= columns; x++) check(...uv(x / columns, y / 64));
+      for (const rows of [p.warpRows, p.broadRows, p.fineRows, p.fiberRows])
+        for (let y = 0; y <= rows; y++)
+          for (let x = 0; x <= 512; x++) check(x / 512, y / rows);
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Bitter melon green skin with continuous axial ribs and rounded irregular papillae', () => {
   const p = proceduralMaterialPresets.bittermelonskin;

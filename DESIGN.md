@@ -925,6 +925,8 @@
 
 `bittermelonskin` 快取96疣的雙offset／inverse radius²／tone五值與十二rib tones；12×8 periodic noise平緩warp，128² grain共用finish。Nearest-owner cell以正值`(coordinate+0.5)%period`歸一化；rib radius0.44、疣X radius≤0.34+jitter0.04=0.38、Y≤0.41+0.035=0.445，均小於0.5，在owner切換前C1歸零。Squared compact smooth pulse形成圓鈍疣，不用sqrt或尖冠；連續rib不隨row分段。Raw height為`0.12+0.32ridge+0.24bump+0.006grain`，保留疣／肋／溝三級真height。逐點無配置／hash／trig／sqrt或鄰格掃描；全opaque M0／mortar0、0.18 m tile／0.0045 m relief，maps與ownership沿用，無果實geometry、displacement、透明孔、SSS或生長模擬。
 
+`cocobolo` 沿用既有磨面木紋pigment／微finish方式：4×2 cached noise以0.08幅度warp共同x，正值`(u+warp+1)%1`保留torus；warp的u導數絕對值≤0.48，映射斜率≥0.52，不摺返。12×2寬深紋與48×3細紋以0.16／0.45及0.12／0.28的smooth threshold漸變，192×8纖維加細色變。Color界限0.08–0.86，深紋不改height；height始終`0.35+0.002fiber`、全微高差≤0.32 μm／AO1。四份noise皆快取，逐點無配置／hash／trig／sqrt／鄰格掃描；全opaque M0／mortar0、0.24 m tile／0.00016 m relief，maps與ownership沿用。無geometry、displacement、SSS、anisotropy shader或生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
