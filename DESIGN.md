@@ -917,6 +917,8 @@
 
 `rackgears` 每枚cos／sin、雙jitter與tone五值快取，compact矩形齒根與七梯形齒採product-union，齒寬由0.037縮至0.019、0.008 smooth bevel。單次nearest-tooth lookup，最大half-width0.037<半pitch0.045，owner切換在空齒support；齒根與齒重疊0.025，完整齒根不被齒間谷切斷。`hypot(0.36,0.13)+0.025<0.408<0.5`，旋轉後不跨cell。abs鏡像一次計算雙孔，full低孔跳grain；低縱groove只作用face，M1鋼面／M0低底孔，全opaque／mortar0。Bounding與空face略過finish，128² grain僅可見齒條；逐點無配置／hash／trig／sqrt、鄰格或齒列掃描。0.6 m tile／0.007 m relief、factor1，maps／ownership沿用；不是involute嚙合模型、geometry、透孔或機械模擬。
 
+`poplin` 沿用既有Oxford單層ownership／compact lift方式但改為單紗1×1與不等密度：48細經／24粗緯，radius／core分別0.22／0.16及0.4／0.32，皆在owner前C1歸零。各crossing parity決定單一上層；lift在經0.30／緯0.46半寬與0.06肩內消退，跨row／col時連續紗不跳height。細經base0.30／crown0.04、粗緯base0.44／crown0.07，交錯±0.12 lift呈橫肋，不是色彩checker。192經纖／96緯纖為quartic-like smooth compact脈，128² seeded grain只finish可見紗；空coverage提前回傳。逐點無配置／hash／trig／sqrt或鄰紗掃描，偶數48／24令signed UV torus與parity一致。全opaque M0／mortar0、0.016 m tile／0.0003 m relief，maps與ownership沿用；無紗線geometry、透明織孔、cloth physics或anisotropy shader。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

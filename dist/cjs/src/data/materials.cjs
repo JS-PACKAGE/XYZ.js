@@ -13512,6 +13512,32 @@ var proceduralMaterialPresets = Object.freeze({
 		holeCore: .009,
 		grooveY: -.075,
 		grooveWidth: .008
+	}),
+	poplin: Object.freeze({
+		dark: [
+			102,
+			54,
+			68
+		],
+		light: [
+			236,
+			181,
+			192
+		],
+		roughness: .8,
+		relief: 3e-4,
+		warpThreads: 48,
+		weftThreads: 24,
+		warpRadius: .22,
+		warpCore: .16,
+		weftRadius: .4,
+		weftCore: .32,
+		warpLiftHalf: .3,
+		weftLiftHalf: .46,
+		liftShoulder: .06,
+		lift: .12,
+		warpFibers: 192,
+		weftFibers: 96
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14198,7 +14224,8 @@ var proceduralTileMeters = Object.freeze({
 	gyroidinfill: .16,
 	cloisonne: .18,
 	rambutanskin: .12,
-	rackgears: .6
+	rackgears: .6,
+	poplin: .016
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

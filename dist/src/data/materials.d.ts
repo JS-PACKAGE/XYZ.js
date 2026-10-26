@@ -7536,6 +7536,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveY: -0.075;
         grooveWidth: 0.008;
     }>;
+    poplin: Readonly<{
+        dark: readonly [102, 54, 68];
+        light: readonly [236, 181, 192];
+        roughness: 0.8;
+        relief: 0.0003;
+        warpThreads: 48;
+        weftThreads: 24;
+        warpRadius: 0.22;
+        warpCore: 0.16;
+        weftRadius: 0.4;
+        weftCore: 0.32;
+        warpLiftHalf: 0.3;
+        weftLiftHalf: 0.46;
+        liftShoulder: 0.06;
+        lift: 0.12;
+        warpFibers: 192;
+        weftFibers: 96;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8223,4 +8241,5 @@ export declare const proceduralTileMeters: Readonly<{
     cloisonne: 0.18;
     rambutanskin: 0.12;
     rackgears: 0.6;
+    poplin: 0.016;
 }>;

@@ -1441,6 +1441,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'poplin': {
+        const p = proceduralMaterialPresets.poplin,
+          grainField = cachedNoise(128, 128, seed ^ 0x19711),
+          inverseWarp = 1 / (p.warpRadius * p.warpRadius),
+          inverseWeft = 1 / (p.weftRadius * p.weftRadius),
+          inverseWarpShoulder = 1 / (1 - p.warpCore * p.warpCore * inverseWarp),
+          inverseWeftShoulder = 1 / (1 - p.weftCore * p.weftCore * inverseWeft),
+          inverseLift = 1 / p.liftShoulder;
+        return () => {
+          const x = u * p.warpThreads,
+            y = v * p.weftThreads,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = fract(x) - 0.5,
+            fy = fract(y) - 0.5,
+            qx = fx * fx * inverseWarp,
+            qy = fy * fy * inverseWeft,
+            warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
+            weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
+            warpOver = ((col + row) & 1) === 0,
+            warpWeight = warpOver ? warp : warp * (1 - weft),
+            weftWeight = warpOver ? weft * (1 - warp) : weft,
+            coverage = warpWeight + weftWeight;
+          color = 0.06;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.45;
+          if (coverage === 0) return;
+          // Single fine warp/coarse weft crossings alternate one-over-one.
+          // Lift fades before row/column ownership changes, even along unbroken yarns.
+          const sign = warpOver ? 1 : -1,
+            liftX = smooth(
+              clamp((p.warpLiftHalf - Math.abs(fx)) * inverseLift),
+            ),
+            liftY = smooth(
+              clamp((p.weftLiftHalf - Math.abs(fy)) * inverseLift),
+            ),
+            crownX = smooth(clamp(1 - qx)),
+            crownY = smooth(clamp(1 - qy)),
+            fiberX = fract(u * p.warpFibers) - 0.5,
+            fiberY = fract(v * p.weftFibers) - 0.5,
+            warpFiber = smooth(clamp(1 - 4 * fiberX * fiberX)),
+            weftFiber = smooth(clamp(1 - 4 * fiberY * fiberY)),
+            outside = (1 - warp) * (1 - weft),
+            grain = grainField(u, v);
+          color =
+            outside * color +
+            warpWeight * (0.82 + 0.025 * grain + 0.025 * warpFiber) +
+            weftWeight * (0.63 + 0.025 * grain + 0.025 * weftFiber);
+          height =
+            outside * height +
+            warpWeight *
+              (0.3 +
+                sign * p.lift * liftY +
+                0.04 * crownX +
+                0.003 * grain +
+                0.003 * warpFiber) +
+            weftWeight *
+              (0.44 -
+                sign * p.lift * liftX +
+                0.07 * crownY +
+                0.003 * grain +
+                0.003 * weftFiber);
+          roughness =
+            outside * roughness +
+            warpWeight * (p.roughness + 0.03 * grain - 0.02 * warpFiber) +
+            weftWeight * (p.roughness + 0.03 * grain - 0.02 * weftFiber);
+          occlusion += 0.54 * coverage;
+          return;
+        };
+      }
       case 'rackgears': {
         const p = proceduralMaterialPresets.rackgears,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31542,6 +31613,7 @@ export function createSurfaceSampler(
     kind === 'cloisonne' ||
     kind === 'rambutanskin' ||
     kind === 'rackgears' ||
+    kind === 'poplin' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

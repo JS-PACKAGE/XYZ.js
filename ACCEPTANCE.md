@@ -8250,3 +8250,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之rackgears512五maps；既有683種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7276項測試（932.17s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：細經粗緯單紗平紋府綢（poplin）
+
+- 目錄684→685種，48細經／24粗緯玫瑰棉紗一上一下，真lift與較寬橫緯肋，非成對2×2 Oxford或只色彩checker。Compact ownership／lift沿用既有方式，192／96纖維脈與128² seeded grain；全opaque M0／mortar0、0.016 m tile／0.0003 m relief。
+- 六項定向與typecheck實際通過：三seed逐1152 crossing上層色／真lift／粗細側緣／低gap與field界限、actual512兩種交錯高度與色／低gap／全opaque非金屬、signed torus等值、三seed全support／core／lift／owner／fiber／noise-grid C1。
+- 初次C1測試因逐點大量assert overhead觸發30s timeout；保留全部同一採樣點、同一0.15閾值與三seed，改累積最差derivative jump後assert，六項定向3.94s通過，不縮小採樣或放寬時間／精度。
+- Source API actual512 seed7 height五maps實際生成、截圖baseColor／normal，見細經粗緯交錯；factor0／destroy成功，errors空。不是紗線geometry、透明織孔、cloth physics或anisotropy shader。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示685種、選中poplin，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之poplin512五maps；既有684種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7283項測試（902.56s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

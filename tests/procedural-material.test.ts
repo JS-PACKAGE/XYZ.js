@@ -725,7 +725,192 @@ const kinds: ProceduralMaterialKind[] = [
   'cloisonne',
   'rambutanskin',
   'rackgears',
+  'poplin',
 ];
+
+describe('Poplin with finer denser warp and coarser one-over-one weft ribs', () => {
+  const p = proceduralMaterialPresets.poplin;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'alternates single yarn exposure and real crossing lift with wider weft ribs for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('poplin', seed),
+        cross = empty(),
+        neighbor = empty(),
+        warp = empty(),
+        weft = empty(),
+        gap = empty();
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads,
+            warpOver = ((col + row) & 1) === 0;
+          sample(u, v, cross);
+          sample((col + 1.5) / p.warpThreads, v, neighbor);
+          sample(u, (row + 1) / p.weftThreads, warp);
+          sample((col + 1) / p.warpThreads, v, weft);
+          sample((col + 1) / p.warpThreads, (row + 1) / p.weftThreads, gap);
+          expect(cross.occlusion).toBe(0.99);
+          expect(gap.height).toBeCloseTo(0.0000075, 12);
+          expect(gap.color).toBe(0.06);
+          expect(gap.occlusion).toBe(0.45);
+          expect(weft.height - warp.height).toBeGreaterThan(0.000049);
+          if (warpOver) {
+            expect(cross.color - neighbor.color).toBeGreaterThan(0.16);
+            expect(neighbor.height - cross.height).toBeGreaterThan(0.000049);
+            expect(cross.height - warp.height).toBeGreaterThan(0.000035);
+            expect(weft.height - cross.height).toBeGreaterThan(0.000014);
+          } else {
+            expect(neighbor.color - cross.color).toBeGreaterThan(0.16);
+            expect(cross.height - neighbor.height).toBeGreaterThan(0.000049);
+            expect(cross.height - weft.height).toBeGreaterThan(0.000035);
+          }
+          sample(
+            (col + 0.5 + 0.3) / p.warpThreads,
+            (row + 1) / p.weftThreads,
+            warp,
+          );
+          sample(
+            (col + 1) / p.warpThreads,
+            (row + 0.5 + 0.3) / p.weftThreads,
+            weft,
+          );
+          expect(warp.height).toBeCloseTo(gap.height, 12);
+          expect(weft.height - gap.height).toBeGreaterThan(0.00008);
+        }
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) {
+          sample(x / 192, y / 192, cross);
+          expect(cross.color).toBeGreaterThanOrEqual(0);
+          expect(cross.color).toBeLessThanOrEqual(1);
+          expect(cross.height).toBeGreaterThanOrEqual(0.00000749);
+          expect(cross.height).toBeLessThan(0.000191);
+          expect(cross.metallic).toBe(0);
+          expect(cross.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 alternating high coarse weft and paler fine warp above lower opaque interstices', () => {
+    const maps = generateProceduralMaps('poplin', 512, 7, { heightMap: true });
+    const pixel = (u: number, v: number) =>
+      (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        const cross = pixel(
+            (col + 0.5) / p.warpThreads,
+            (row + 0.5) / p.weftThreads,
+          ),
+          gap = pixel(
+            (col + 0.99) / p.warpThreads,
+            (row + 0.99) / p.weftThreads,
+          );
+        expect(maps.height![gap]).toBe(0);
+        expect(maps.occlusion[cross]! - maps.occlusion[gap]!).toBeGreaterThan(
+          130,
+        );
+        if (((col + row) & 1) === 0) {
+          expect(maps.height![cross]).toBeGreaterThan(175);
+          expect(maps.height![cross]).toBeLessThan(190);
+          expect(maps.baseColor[cross + 1]).toBeGreaterThan(155);
+        } else {
+          expect(maps.height![cross]).toBeGreaterThan(245);
+          expect(maps.baseColor[cross + 1]).toBeLessThan(145);
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats yarn exposure lift and every PBR channel across both signed UV axes', () => {
+    const sample = createSurfaceSampler('poplin', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps unequal yarn supports cores single-crossing owners lift ends fiber grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('poplin', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++)
+          for (let j = 0; j <= 16; j++) {
+            for (const d of [
+              -0.5,
+              -0.25,
+              0,
+              0.25,
+              0.5,
+              -p.warpRadius,
+              p.warpRadius,
+              -p.warpCore,
+              p.warpCore,
+              -p.warpLiftHalf,
+              p.warpLiftHalf,
+              p.warpLiftHalf - p.liftShoulder,
+              p.liftShoulder - p.warpLiftHalf,
+            ])
+              check(
+                (col + 0.5 + d) / p.warpThreads,
+                (row + j / 16) / p.weftThreads,
+              );
+            for (const d of [
+              -0.5,
+              -0.25,
+              0,
+              0.25,
+              0.5,
+              -p.weftRadius,
+              p.weftRadius,
+              -p.weftCore,
+              p.weftCore,
+              -p.weftLiftHalf,
+              p.weftLiftHalf,
+              p.weftLiftHalf - p.liftShoulder,
+              p.liftShoulder - p.weftLiftHalf,
+            ])
+              check(
+                (col + j / 16) / p.warpThreads,
+                (row + 0.5 + d) / p.weftThreads,
+              );
+          }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Straight gear racks with seven connected trapezoidal teeth and two recessed mounting bores', () => {
   const p = proceduralMaterialPresets.rackgears;
