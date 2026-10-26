@@ -1441,6 +1441,80 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'juniperberries': {
+        const p = proceduralMaterialPresets.juniperberries,
+          berries = new Float64Array(p.cells * p.cells * 5),
+          bloomField = cachedNoise(32, 32, seed ^ 0x19f11),
+          grainField = cachedNoise(128, 128, seed ^ 0x19f13),
+          inverseShoulder = 1 / p.shoulder,
+          seamQ = p.seamRadius * p.seamRadius,
+          inverseSeam = 1 / (seamQ - p.seamCore * p.seamCore),
+          scarQ = p.scarRadius * p.scarRadius,
+          inverseScar = 1 / (scarQ - p.scarCore * p.scarCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x19f15),
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x19f17);
+            berries[i] = Math.cos(angle);
+            berries[i + 1] = Math.sin(angle);
+            berries[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19f19) - 1);
+            berries[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19f1b) - 1);
+            berries[i + 4] = 1 / (radius * radius);
+          }
+        return () => {
+          color = 0.05;
+          height = 0.08;
+          roughness = 0.95;
+          occlusion = 0.35;
+          const uc = (u * p.cells) % p.cells,
+            vc = (v * p.cells) % p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - berries[i + 2],
+            dy = fract(vc) - berries[i + 3],
+            r2 = dx * dx + dy * dy,
+            cap = 1 - r2 * berries[i + 4];
+          if (cap <= 0) return;
+          const face = smooth(clamp(cap * inverseShoulder)),
+            dome = smooth(cap),
+            x = dx * berries[i] + dy * berries[i + 1],
+            y = dy * berries[i] - dx * berries[i + 1];
+          let unseamed = 1;
+          for (let ray = 0; ray < 3; ray++) {
+            const cos = ray === 0 ? 1 : -0.5,
+              sin =
+                ray === 0
+                  ? 0
+                  : ray === 1
+                    ? 0.8660254037844386
+                    : -0.8660254037844386,
+              along = x * cos + y * sin,
+              across = y * cos - x * sin,
+              end = along - Math.max(0, Math.min(p.seamLength, along)),
+              seam = smooth(
+                clamp((seamQ - end * end - across * across) * inverseSeam),
+              );
+            unseamed *= 1 - seam;
+          }
+          const seams = 1 - unseamed,
+            scar = smooth(clamp((scarQ - r2) * inverseScar)),
+            bloom = bloomField(u, v),
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.4 + 0.14 * dome + 0.1 * bloom - 0.25 * seams - 0.12 * scar);
+          height +=
+            face *
+            (0.28 + 0.4 * dome - 0.09 * seams - 0.14 * scar + 0.005 * grain);
+          roughness +=
+            face * (p.roughness + 0.08 * bloom + 0.04 * scar - roughness);
+          occlusion += face * (0.94 - 0.08 * seams - 0.1 * scar - occlusion);
+          return;
+        };
+      }
       case 'dimity': {
         const p = proceduralMaterialPresets.dimity,
           grainField = cachedNoise(128, 128, seed ^ 0x19e11),
@@ -32017,6 +32091,7 @@ export function createSurfaceSampler(
     kind === 'doubleedgerazorblades' ||
     kind === 'chiastolite' ||
     kind === 'dimity' ||
+    kind === 'juniperberries' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

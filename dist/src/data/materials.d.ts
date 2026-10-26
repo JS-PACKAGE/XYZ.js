@@ -7671,6 +7671,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         warpFibers: 192;
         weftFibers: 192;
     }>;
+    juniperberries: Readonly<{
+        dark: readonly [15, 24, 42];
+        light: readonly [134, 156, 177];
+        roughness: 0.7;
+        relief: 0.006;
+        cells: 4;
+        jitter: 0.025;
+        radius: 0.36;
+        radiusVariation: 0.06;
+        shoulder: 0.2;
+        seamLength: 0.29;
+        seamRadius: 0.018;
+        seamCore: 0.009;
+        scarRadius: 0.06;
+        scarCore: 0.035;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8366,4 +8382,5 @@ export declare const proceduralTileMeters: Readonly<{
     doubleedgerazorblades: 0.18;
     chiastolite: 0.12;
     dimity: 0.02;
+    juniperberries: 0.064;
 }>;

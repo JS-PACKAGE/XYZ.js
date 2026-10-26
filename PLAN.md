@@ -925,6 +925,8 @@
 
 同輪追加 `dimity`（成對高經肋細平紋棉布），目錄691→692種：48×48單紗一上一下，每八經紗含兩粗高cord與六細經紗，共六對縱肋；象牙棉紗與連續緯紗真高低，非Oxford雙向成對或只直條pigment。全opaque M0／mortar0、0.02 m tile／0.0003 m relief；前691種maps與options／Worker／cache／ownership不變，不新增紗線geometry、透明織孔、cloth physics或anisotropy shader，驗證後獨立commit、不push。
 
+同輪追加 `juniperberries`（藍灰果霜杜松果），目錄692→693種：16枚seeded旋轉圓果頂、三條真低放射鱗縫與較低中央scar，藍灰霜色非胡椒皺紋。全opaque M0／mortar0、0.064 m tile／0.006 m relief；前692種maps與options／Worker／cache／ownership不變，不新增果實geometry、透明果肉、SSS或生長模擬，驗證後獨立commit、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

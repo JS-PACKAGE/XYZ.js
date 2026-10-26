@@ -933,6 +933,8 @@
 
 `dimity` 沿用既有poplin compact yarn ownership／lift，48×48 parity選單一上層；每八經紗前兩條cord，radius／core0.36／0.30，六細紗0.22／0.16，緯0.28／0.22。Cord warp加0.16height，同列連續weft以0.46半寬／0.1肩的carrier lift越cord，在owner前C1歸零，避免只提高warp而緯紗斷階。單紗±0.1 lift於經0.44／緯0.36半寬、0.06肩內消退；共同base0.29／crown0.05。192² compact纖維與128² grain只finish可見coverage，空coverage提前回傳；逐點無配置／hash／trig／sqrt或鄰紗掃描。48與八整除且偶數，signed UV保留cord groups與parity。全opaque M0／mortar0、0.02 m tile／0.0003 m relief；maps與ownership沿用，無紗線geometry、透明織孔、cloth physics或anisotropy shader。
 
+`juniperberries` 每果快取cos／sin、雙offset與inverse-radius-squared五值，4×4 seeded owner；最大radius0.42加jitter0.025≤0.445<0.5。Squared radial cap以0.2 shoulder接深底，smooth cap成圓果頂；局部旋轉三條120°有限capsule，長0.29、radius／core0.018／0.009，以product-union形成三淺縫，中心scar radius／core0.06／0.035。Squared capsule距離及smooth compact肩在原點、端點、support與owners維持C1，無atan2 branch或sqrt奇點。32² cached bloom調霜色／roughness，128² grain只微finish；空support提前回傳，逐點無配置／hash／trig／sqrt或鄰格掃描。真height分層為果頂、低三縫／scar、深底；全opaque M0／mortar0、0.064 m tile／0.006 m relief，maps與ownership不變，無geometry、透明果肉、SSS或生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

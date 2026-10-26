@@ -8334,3 +8334,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之dimity512五maps；既有691種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7333項測試（932.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：藍灰果霜三放射縫杜松果（juniperberries）
+
+- 目錄692→693種，16枚seeded旋轉圓果頂、三條真低放射鱗縫與較低中央scar；藍灰霜色安靜果面高於縫，非胡椒皺網或只畫深線。全opaque M0／mortar0、0.064 m tile／0.006 m relief。
+- 六項定向2.66s通過：三seed16果各三臂多半徑的height／色／AO差及PBR界限、actual512三低縫與藍灰opaque高果面／scar、signed torus與三seed dome／support／capsule core及肩／端點／scar／owner／noise-grid／UV C1。
+- Source API actual512 seed7五maps生成，baseColor／normal截圖見三放射縫與藍灰果霜、factor0／destroy成功、errors空。不新增果實geometry、透明果肉、SSS或生長模擬。
+- Managed Chromium150 headless正式PBR3D gallery以960×1200 viewport整頁capture分別強制WebGPU／WebGL2：實際693種／選中juniperberries、sphere與maps可見，goto about:blank cleanup errors均空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1、單Worker completed1 failed0、獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之juniperberries512五maps；既有692種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7340項測試（980.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

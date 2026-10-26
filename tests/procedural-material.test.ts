@@ -733,7 +733,212 @@ const kinds: ProceduralMaterialKind[] = [
   'doubleedgerazorblades',
   'chiastolite',
   'dimity',
+  'juniperberries',
 ];
+
+describe('Blue bloomed juniper berries with three recessed scale seams on rounded domes', () => {
+  const p = proceduralMaterialPresets.juniperberries;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19f15),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19f19) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19f1b) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts exactly three lower radial seams and a central scar while preserving higher rounded bloomed sectors for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('juniperberries', seed),
+        seam = empty(),
+        skin = empty(),
+        scar = empty(),
+        shoulder = empty(),
+        backing = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          sample(...uv(0, 0), scar);
+          sample(
+            ...uv(0.08 * Math.cos(Math.PI / 3), 0.08 * Math.sin(Math.PI / 3)),
+            shoulder,
+          );
+          expect(shoulder.height - scar.height).toBeGreaterThan(0.0012);
+          for (let ray = 0; ray < 3; ray++) {
+            const angle = (ray * 2 * Math.PI) / 3;
+            for (const radius of [0.12, 0.18, 0.24]) {
+              sample(
+                ...uv(radius * Math.cos(angle), radius * Math.sin(angle)),
+                seam,
+              );
+              sample(
+                ...uv(
+                  radius * Math.cos(angle + Math.PI / 3),
+                  radius * Math.sin(angle + Math.PI / 3),
+                ),
+                skin,
+              );
+              expect(skin.height - seam.height).toBeGreaterThan(0.000509);
+              expect(skin.color - seam.color).toBeGreaterThan(0.149);
+              expect(skin.occlusion - seam.occlusion).toBeCloseTo(0.08, 10);
+            }
+          }
+          sample(...uv(0.47, 0), backing);
+          expect(backing.height).toBeCloseTo(0.00048, 12);
+          expect(shoulder.height - backing.height).toBeGreaterThan(0.0038);
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, skin);
+          expect(skin.height).toBeGreaterThanOrEqual(0.000479999);
+          expect(skin.height).toBeLessThanOrEqual(0.004590001);
+          expect(skin.color).toBeGreaterThanOrEqual(0.049999);
+          expect(skin.color).toBeLessThanOrEqual(0.69);
+          expect(skin.roughness).toBeGreaterThanOrEqual(0.7);
+          expect(skin.roughness).toBeLessThanOrEqual(0.950001);
+          expect(skin.occlusion).toBeGreaterThanOrEqual(0.35);
+          expect(skin.occlusion).toBeLessThanOrEqual(0.940001);
+          expect(skin.mortar).toBe(0);
+          expect(skin.metallic).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 blue gray opaque sectors above three dark recessed radial seams and a lower center scar', () => {
+    const maps = generateProceduralMaps('juniperberries', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (point: [number, number]) =>
+      (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7),
+          scar = pixel(uv(0, 0));
+        for (let ray = 0; ray < 3; ray++) {
+          const angle = (ray * 2 * Math.PI) / 3,
+            skin = pixel(
+              uv(
+                0.18 * Math.cos(angle + Math.PI / 3),
+                0.18 * Math.sin(angle + Math.PI / 3),
+              ),
+            ),
+            point = uv(0.18 * Math.cos(angle), 0.18 * Math.sin(angle));
+          let seam = pixel(point);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const i = pixel([point[0] + dx / 512, point[1] + dy / 512]);
+              if (maps.height![i]! < maps.height![seam]!) seam = i;
+            }
+          expect(maps.height![skin]! - maps.height![seam]!).toBeGreaterThan(25);
+          expect(
+            maps.baseColor[skin + 2]! - maps.baseColor[skin]!,
+          ).toBeGreaterThan(35);
+          expect(maps.baseColor[skin]! - maps.baseColor[seam]!).toBeGreaterThan(
+            14,
+          );
+          expect(maps.occlusion[skin]! - maps.occlusion[scar]!).toBeGreaterThan(
+            35,
+          );
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats seeded berry domes three seam orientations bloom and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('juniperberries', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps berry domes and support three capsule shoulders endpoints center scar owners noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('juniperberries', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed),
+            radius =
+              p.radius + p.radiusVariation * hash(col, row, seed ^ 0x19f17);
+          check(...uv(0, 0));
+          for (let j = 0; j <= 256; j++) {
+            const angle = (j * Math.PI) / 128;
+            for (const r of [
+              radius,
+              radius * Math.sqrt(1 - p.shoulder),
+              p.scarCore,
+              p.scarRadius,
+            ])
+              check(...uv(r * Math.cos(angle), r * Math.sin(angle)));
+            for (let ray = 0; ray < 3; ray++) {
+              const a = (ray * 2 * Math.PI) / 3,
+                cos = Math.cos(a),
+                sin = Math.sin(a);
+              for (const r of [p.seamCore, p.seamRadius]) {
+                const along = (p.seamLength * j) / 256;
+                for (const sign of [-1, 1])
+                  check(
+                    ...uv(
+                      along * cos - sign * r * sin,
+                      along * sin + sign * r * cos,
+                    ),
+                  );
+                for (const endpoint of [0, p.seamLength]) {
+                  const x = endpoint + r * Math.cos(angle),
+                    y = r * Math.sin(angle);
+                  check(...uv(x * cos - y * sin, x * sin + y * cos));
+                }
+              }
+            }
+          }
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Ivory dimity cotton with two raised warp cords in every eight-end plain weave repeat', () => {
   const p = proceduralMaterialPresets.dimity;
