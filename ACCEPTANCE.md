@@ -8144,3 +8144,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之papyrus512五maps；既有673種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7203項測試（711.96s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步；逐功能commit、不push。
+
+## 2026-10-26 程序材質：藍色礦物雲塊與淺色纖維脈拉利瑪石（larimar）
+
+- 目錄674→675種，6×6 seeded rotated pools形成融合藍色礦物雲塊、乳白間隙與細彎纖維脈，非綠松石暗網脈或瑪瑙同心帶。七值pose cache／bounded 3×3 compact supports以product-complement unions混色，無nearest-owner crease；full core略過fiber，128² grain／5×5 cloud全域連續。Pigment不影響height／AO，同一拋光面height僅0.0005–0.0005008 m、AO1，opaque M0／mortar0。0.25 m tile／0.001 m relief，逐點無配置／hash／trig／sqrt，既有maps／height／options／Worker／cache／ownership不變，不新增geometry、透光、SSS、anisotropy或礦物模擬。
+- Targeted六項通過（3.79s）及typecheck通過：三seed全部36 pool centers color<0.4，129² fields含深藍與淺脈、color跨度>0.45，height跨度<1e-6 m、roughness0.22–0.245／AO1／M0／mortar0。Actual512各pool center R<110／B−R>80，含R>200淺脈、全圖AO255／M0／alpha255；2048-point六通道signed periods，129² fields、所有pool core／support曲線及query-owner邊界C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際675-preset gallery各選出larimar並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖可見融合雲塊與彎纖維；factor0、height存在、destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一，pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之larimar512五maps；既有674種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7210項測試（733.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

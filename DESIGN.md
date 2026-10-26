@@ -897,6 +897,8 @@
 
 `papyrus` 以八組seeded雙向tone與periodic edge field塑造兩層交叉寬草條，長纖維為192×6 cached noise及轉置取樣，formation為4×4。`halfWidth + edgeJitter < 0.5`保證owner切換前coverage歸零，飽和core使abs-center及full-top early return維持C1。直向層一律高於橫向層，不做棋盤上下織，權重不疊加交點height；full top不取樣下層edge，top為0不取樣隱藏上層纖維。三層皆為暖色opaque M0／mortar0，0.3 m tile／0.0015 m relief；沿既有maps與ownership，逐點無配置／hash／trig／sqrt，不新增geometry、透明孔洞或造紙模擬。
 
+`larimar` 快取6×6礦物pool各七值（中心、旋轉、inverse radii及fiber phase），以固定3×3週期候選查詢混合rotated compact ellipses，非nearest-owner切換；最大support小於一格，進出候選集合的pool已歸零。藍色coverage及邊肩纖維皆bounded product-complement unions，纖維只在非飽和肩部以週期多項式profile呈現，full core跳過fiber。128² grain／5×5 cloud全域連續；pigment不影響height或AO，height僅0.0005–0.0005008 m的拋光微紋，AO1。全opaque M0／mortar0，0.25 m tile／0.001 m relief，逐點無配置／hash／trig／sqrt，沿既有maps與ownership，不新增geometry、透光、SSS、anisotropy或礦物生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

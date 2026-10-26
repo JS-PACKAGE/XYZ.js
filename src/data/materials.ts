@@ -7509,6 +7509,23 @@ export const proceduralMaterialPresets = Object.freeze({
     underHeight: 0.37,
     backingHeight: 0.22,
   }),
+  larimar: Object.freeze({
+    dark: [14, 118, 157] as const,
+    light: [237, 248, 242] as const,
+    roughness: 0.22,
+    relief: 0.001,
+    cells: 6,
+    jitter: 0.22,
+    radiusX: 0.58,
+    radiusXVariation: 0.28,
+    radiusY: 0.5,
+    radiusYVariation: 0.3,
+    coreQ: 0.4,
+    fibers: 9,
+    fiberRadius: 0.14,
+    fiberCore: 0.06,
+    fiberBend: 0.6,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8187,4 +8204,5 @@ export const proceduralTileMeters = Object.freeze({
   oxfordweave: 0.08,
   lacewood: 0.35,
   papyrus: 0.3,
+  larimar: 0.25,
 });

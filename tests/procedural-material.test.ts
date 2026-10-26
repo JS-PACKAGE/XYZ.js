@@ -715,7 +715,148 @@ const kinds: ProceduralMaterialKind[] = [
   'oxfordweave',
   'lacewood',
   'papyrus',
+  'larimar',
 ];
+
+describe('Larimar with merging blue mineral pools and pale fibers on a polished plane', () => {
+  const p = proceduralMaterialPresets.larimar;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (col: number, row: number, seed: number) => ({
+    x: col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18d15) - 1),
+    y: row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18d17) - 1),
+    angle: 2 * Math.PI * hash(col, row, seed ^ 0x18d19),
+    rx: p.radiusX + p.radiusXVariation * hash(col, row, seed ^ 0x18d1b),
+    ry: p.radiusY + p.radiusYVariation * hash(col, row, seed ^ 0x18d1d),
+  });
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps pool centers blue and pale veins on the same smooth nonmetallic plane for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('larimar', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          sample(a.x / p.cells, a.y / p.cells, out);
+          expect(out.color).toBeLessThan(0.4);
+        }
+      let minColor = 1,
+        maxColor = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          minColor = Math.min(minColor, out.color);
+          maxColor = Math.max(maxColor, out.color);
+          minHeight = Math.min(minHeight, out.height);
+          maxHeight = Math.max(maxHeight, out.height);
+          expect(out.color).toBeGreaterThanOrEqual(0);
+          expect(out.color).toBeLessThanOrEqual(1);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.22);
+          expect(out.roughness).toBeLessThanOrEqual(0.245);
+          expect(out.occlusion).toBe(1);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+        }
+      expect(minColor).toBeLessThan(0.4);
+      expect(maxColor).toBeGreaterThan(0.8);
+      expect(maxColor - minColor).toBeGreaterThan(0.45);
+      expect(minHeight).toBeGreaterThanOrEqual(0.0005);
+      expect(maxHeight).toBeLessThanOrEqual(0.0005008);
+      expect(maxHeight - minHeight).toBeLessThan(0.000001);
+    },
+  );
+  it('writes blue pool cores and milky pale veins into actual512 color while retaining an unbroken polished AO surface', () => {
+    const maps = generateProceduralMaps('larimar', 512, 7, { heightMap: true });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const a = pose(col, row, 7),
+          i =
+            (Math.floor((a.y / p.cells) * 512) * 512 +
+              Math.floor((a.x / p.cells) * 512)) *
+            4;
+        expect(maps.baseColor[i]!).toBeLessThan(110);
+        expect(maps.baseColor[i + 2]! - maps.baseColor[i]!).toBeGreaterThan(80);
+      }
+    let paleRed = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      paleRed = Math.max(paleRed, maps.baseColor[i]!);
+      expect(maps.occlusion[i]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+    expect(paleRed).toBeGreaterThan(200);
+  });
+  it('repeats overlapping pool and fiber fields across positive and negative torus periods', () => {
+    const sample = createSurfaceSampler('larimar', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('blends overlapping rotated pool supports saturated cores fiber wraps and periodic query owners without pigment creases', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('larimar', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed),
+            cos = Math.cos(a.angle),
+            sin = Math.sin(a.angle);
+          for (const q of [1, p.coreQ])
+            for (let j = 0; j <= 128; j++) {
+              const theta = (2 * Math.PI * j) / 128,
+                along = a.rx * Math.sqrt(q) * Math.cos(theta),
+                across = a.ry * Math.sqrt(q) * Math.sin(theta);
+              check(
+                (a.x + along * cos - across * sin) / p.cells,
+                (a.y + along * sin + across * cos) / p.cells,
+              );
+            }
+        }
+      for (let owner = 0; owner <= p.cells; owner++)
+        for (let j = 0; j <= 128; j++) {
+          check(owner / p.cells, j / 128);
+          check(j / 128, owner / p.cells);
+        }
+    }
+  });
+});
 
 describe('Papyrus with pressed upper plant strips and an exposed perpendicular lower layer', () => {
   const p = proceduralMaterialPresets.papyrus;

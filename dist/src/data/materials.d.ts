@@ -7358,6 +7358,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         underHeight: 0.37;
         backingHeight: 0.22;
     }>;
+    larimar: Readonly<{
+        dark: readonly [14, 118, 157];
+        light: readonly [237, 248, 242];
+        roughness: 0.22;
+        relief: 0.001;
+        cells: 6;
+        jitter: 0.22;
+        radiusX: 0.58;
+        radiusXVariation: 0.28;
+        radiusY: 0.5;
+        radiusYVariation: 0.3;
+        coreQ: 0.4;
+        fibers: 9;
+        fiberRadius: 0.14;
+        fiberCore: 0.06;
+        fiberBend: 0.6;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8035,4 +8052,5 @@ export declare const proceduralTileMeters: Readonly<{
     oxfordweave: 0.08;
     lacewood: 0.35;
     papyrus: 0.3;
+    larimar: 0.25;
 }>;

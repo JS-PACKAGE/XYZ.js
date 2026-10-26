@@ -1441,6 +1441,88 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'larimar': {
+        const p = proceduralMaterialPresets.larimar,
+          pools = new Float64Array(p.cells * p.cells * 7),
+          grainField = cachedNoise(128, 128, seed ^ 0x18d11),
+          cloudField = cachedNoise(5, 5, seed ^ 0x18d13),
+          inverseShoulder = 1 / (1 - p.coreQ),
+          fiberSquared = p.fiberRadius * p.fiberRadius,
+          inverseFiber = 1 / (fiberSquared - p.fiberCore * p.fiberCore),
+          reach = Math.max(
+            p.radiusX + p.radiusXVariation,
+            p.radiusY + p.radiusYVariation,
+          );
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x18d19),
+              rx =
+                p.radiusX + p.radiusXVariation * hash(col, row, seed ^ 0x18d1b),
+              ry =
+                p.radiusY + p.radiusYVariation * hash(col, row, seed ^ 0x18d1d);
+            pools[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18d15) - 1);
+            pools[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18d17) - 1);
+            pools[i + 2] = Math.cos(angle);
+            pools[i + 3] = Math.sin(angle);
+            pools[i + 4] = 1 / (rx * rx);
+            pools[i + 5] = 1 / (ry * ry);
+            pools[i + 6] = hash(col, row, seed ^ 0x18d1f);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let outsideBlue = 1,
+            outsideFiber = 1;
+          // Supports may overlap, so sum all eligible periodic neighbors rather
+          // than switching a nearest-pool owner (which would crease the pigment).
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                i =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  7,
+                dx = x - cx - pools[i]!,
+                dy = y - cy - pools[i + 1]!;
+              if (Math.abs(dx) >= reach || Math.abs(dy) >= reach) continue;
+              const along = dx * pools[i + 2]! + dy * pools[i + 3]!,
+                across = dy * pools[i + 2]! - dx * pools[i + 3]!,
+                q =
+                  along * along * pools[i + 4]! +
+                  across * across * pools[i + 5]!;
+              if (q >= 1) continue;
+              const pool = smooth(clamp((1 - q) * inverseShoulder));
+              outsideBlue *= 1 - pool;
+              if (pool === 1) continue;
+              const phase =
+                  fract(
+                    p.fibers * along + p.fiberBend * q + pools[i + 6]! + 0.5,
+                  ) - 0.5,
+                fiber = smooth(
+                  clamp((fiberSquared - phase * phase) * inverseFiber),
+                );
+              outsideFiber *= 1 - 4 * pool * (1 - pool) * fiber;
+            }
+          const grain = grainField(u, v),
+            cloud = cloudField(u, v);
+          color =
+            0.88 -
+            0.64 * (1 - outsideBlue) +
+            0.03 * grain +
+            0.035 * cloud +
+            0.08 * (1 - outsideFiber);
+          // Blue pools and pale fibers share one polished plane, not relief cracks.
+          height = 0.5 + 0.0008 * grain;
+          roughness = p.roughness + 0.025 * grain;
+          occlusion = 1;
+        };
+      }
       case 'papyrus': {
         const p = proceduralMaterialPresets.papyrus,
           tones = new Float64Array(p.strips * 2),
@@ -30841,6 +30923,7 @@ export function createSurfaceSampler(
     kind === 'oxfordweave' ||
     kind === 'lacewood' ||
     kind === 'papyrus' ||
+    kind === 'larimar' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
