@@ -8373,3 +8373,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之rhodochrosite512五maps；既有695種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7362項測試（991.32s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：尖橢圓月桂葉與彎曲側脈（bayleaf）
+
+- 目錄696→697種：九枚seeded旋轉橄欖綠尖橢圓平滑葉片、短葉柄、高中脈、七對彎曲側脈及細邊緣脈。全opaque M0／mortar0、0.24 m tile／0.0016 m relief；不新增geometry、透明cutout、SSS或植物模擬。
+- 專項6項全部通過（2.09s）：三seed逐葉尖端／葉柄／中脈／七對實際凸側脈及邊緣脈、512²葉片與暗底PBR、4096 signed UV週期，以及葉尖／support／葉柄／側脈肩部／axis fade／owner／tile seams C1。初版微粒高度超過側脈，改為≤6.4 μm、低於40 μm側脈；刪除受grain影響的任意色／粗糙度差值門檻，沒有重新鎖定門檻。
+- managed Chromium150 headless正式PBR gallery強制WebGPU及WebGL2均顯示697種並實際選取bayleaf截圖，頁面及cleanup errors皆空。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之bayleaf512五maps；既有696種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7369項測試（977.54s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

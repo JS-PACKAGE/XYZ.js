@@ -737,7 +737,182 @@ const kinds: ProceduralMaterialKind[] = [
   'gabbro',
   'turnbuckles',
   'rhodochrosite',
+  'bayleaf',
 ];
+
+describe('Pointed olive bay leaves with recurved paired veins', () => {
+  const p = proceduralMaterialPresets.bayleaf;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a313),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a315) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a317) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves tapered blades stems raised midribs curved paired veins and margins for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bayleaf', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          sample(...uv(0, 0), a);
+          sample(...uv(0.025, 0), b);
+          expect(a.height - b.height).toBeGreaterThan(0.00007);
+          expect(a.color - b.color).toBeGreaterThan(0.1);
+          sample(...uv(0, -0.35), a);
+          expect(a.height).toBeCloseTo(0.00048, 10);
+          for (const point of [
+            [0.15, 0],
+            [0, 0.33],
+            [0.07, 0.27],
+          ]) {
+            sample(...uv(point[0], point[1]), a);
+            expect(a.occlusion).toBe(0.4);
+          }
+          for (let j = 0; j < p.veinPairs; j++)
+            for (const sign of [-1, 1]) {
+              const x = sign * 0.04,
+                y =
+                  (j - 3) * p.veinSpacing +
+                  p.veinSlope * Math.abs(x) +
+                  p.veinBend * x * x;
+              sample(...uv(x, y), a);
+              sample(...uv(x, y - 0.018), b);
+              sample(...uv(x, y + 0.018), c);
+              expect(a.height - (b.height + c.height) * 0.5).toBeGreaterThan(
+                0.000025,
+              );
+            }
+          sample(...uv(0.112, 0), a);
+          sample(...uv(0.106, 0), b);
+          sample(...uv(0.118, 0), c);
+          expect(a.height - (b.height + c.height) * 0.5).toBeGreaterThan(
+            0.000025,
+          );
+        }
+    },
+  );
+  it('writes opaque olive leaves above dark nonmetal backing at actual512', () => {
+    const maps = generateProceduralMaps('bayleaf', 512, 7, { heightMap: true });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7),
+          center = uv(0, 0),
+          outside = uv(0.2, 0),
+          i =
+            (Math.floor(center[1] * 512) * 512 + Math.floor(center[0] * 512)) *
+            4,
+          k =
+            (Math.floor(outside[1] * 512) * 512 +
+              Math.floor(outside[0] * 512)) *
+            4;
+        expect(maps.baseColor[i + 1] - maps.baseColor[k + 1]).toBeGreaterThan(
+          60,
+        );
+        expect(maps.occlusion[i]).toBeGreaterThan(240);
+        expect(maps.occlusion[k]).toBe(102);
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+    }
+  });
+  it('repeats blades stems and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('bayleaf', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps tips stems blade supports vein shoulders axis fades owners and seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bayleaf', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (let j = 0; j <= 128; j++) {
+            const y = (j / 64 - 1) * p.halfLength,
+              envelope = Math.max(0, 1 - (y / p.halfLength) ** 2);
+            for (const sign of [-1, 1]) {
+              check(...uv(sign * p.halfWidth * envelope, y));
+              check(...uv(sign * p.midribRadius, y));
+              check(...uv(sign * p.axisFade, y));
+            }
+            check(...uv(0, y));
+            check(col / p.cells, j / 128);
+            check(j / 128, row / p.cells);
+          }
+          for (const y of [
+            p.stemStart,
+            p.stemStart + 0.015,
+            p.stemEnd - 0.015,
+            p.stemEnd,
+          ])
+            for (const x of [0, -p.stemRadius, p.stemRadius])
+              check(...uv(x, y));
+          for (let j = 0; j < p.veinPairs; j++)
+            for (const x of [-0.065, 0, 0.065])
+              for (const d of [-p.veinRadius, 0, p.veinRadius])
+                check(
+                  ...uv(
+                    x,
+                    (j - 3) * p.veinSpacing +
+                      p.veinSlope * Math.abs(x) +
+                      p.veinBend * x * x +
+                      d,
+                  ),
+                );
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished rose rhodochrosite with paired wavy white laminae', () => {
   const empty = (): SurfaceSample => ({

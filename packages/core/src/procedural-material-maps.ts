@@ -1441,6 +1441,91 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bayleaf': {
+        const p = proceduralMaterialPresets.bayleaf,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          roots = new Float64Array(p.veinPairs),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a311),
+          inverseLength = 1 / p.halfLength,
+          inverseWidthSquared = 1 / (p.halfWidth * p.halfWidth),
+          inverseMidribSquared = 1 / (p.midribRadius * p.midribRadius),
+          inverseVeinSquared = 1 / (p.veinRadius * p.veinRadius),
+          inverseStemSquared = 1 / (p.stemRadius * p.stemRadius),
+          inverseMarginSquared = 1 / (p.marginShoulder * p.marginShoulder);
+        for (let j = 0; j < p.veinPairs; j++)
+          roots[j] = (j - (p.veinPairs - 1) * 0.5) * p.veinSpacing;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1a313);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a315) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a317) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            a = Math.abs(x),
+            ny = y * inverseLength,
+            envelope = clamp(1 - ny * ny),
+            side = x * x * inverseWidthSquared,
+            blade = smooth(clamp((envelope * envelope - side) / p.shoulder)),
+            stem =
+              smooth(clamp((y - p.stemStart) / 0.015)) *
+              smooth(clamp((p.stemEnd - y) / 0.015)) *
+              smooth(clamp(1 - x * x * inverseStemSquared)),
+            coverage = 1 - (1 - blade) * (1 - stem);
+          color = 0.08;
+          height = 0.06;
+          roughness = p.roughness + 0.24;
+          occlusion = 0.4;
+          if (coverage === 0) return;
+          const midrib = smooth(clamp(1 - x * x * inverseMidribSquared)),
+            marginDistance = side - p.marginFraction ** 2 * envelope * envelope,
+            margin = smooth(
+              clamp(1 - marginDistance * marginDistance * inverseMarginSquared),
+            ),
+            axis = smooth(clamp(a / p.axisFade)),
+            veinY = y - p.veinSlope * a - p.veinBend * x * x;
+          let complement = 1;
+          for (let j = 0; j < p.veinPairs; j++) {
+            const d = veinY - roots[j];
+            complement *= 1 - smooth(clamp(1 - d * d * inverseVeinSquared));
+          }
+          // Axis fading removes the absolute-distance cusp under the midrib.
+          const branches = (1 - complement) * axis,
+            grain = grainField(u, v);
+          color +=
+            blade *
+              (0.46 +
+                p.grainColor * grain +
+                0.14 * midrib +
+                0.06 * branches +
+                0.04 * margin) +
+            (1 - blade) * 0.25 * stem;
+          height +=
+            blade *
+              (0.43 +
+                0.13 * envelope +
+                p.grainHeight * grain +
+                0.06 * midrib +
+                0.025 * branches +
+                0.02 * margin) +
+            (1 - blade) * 0.24 * stem;
+          roughness +=
+            -0.24 * coverage + blade * (0.02 * grain - 0.05 * midrib);
+          occlusion += 0.57 * coverage;
+          return;
+        };
+      }
       case 'rhodochrosite': {
         const p = proceduralMaterialPresets.rhodochrosite,
           warpField = cachedNoise(3, 3, seed ^ 0x1a211),
@@ -32284,6 +32369,7 @@ export function createSurfaceSampler(
     kind === 'gabbro' ||
     kind === 'turnbuckles' ||
     kind === 'rhodochrosite' ||
+    kind === 'bayleaf' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

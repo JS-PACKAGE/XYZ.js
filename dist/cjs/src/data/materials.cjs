@@ -13810,6 +13810,39 @@ var proceduralMaterialPresets = Object.freeze({
 		fineRadius: .04,
 		fineCore: .018,
 		companionOffset: .23
+	}),
+	bayleaf: Object.freeze({
+		dark: [
+			25,
+			34,
+			13
+		],
+		light: [
+			165,
+			174,
+			79
+		],
+		roughness: .38,
+		relief: .0016,
+		cells: 3,
+		jitter: .02,
+		halfLength: .32,
+		halfWidth: .14,
+		shoulder: .16,
+		stemStart: -.39,
+		stemEnd: -.28,
+		stemRadius: .008,
+		midribRadius: .009,
+		veinPairs: 7,
+		veinSpacing: .065,
+		veinSlope: .35,
+		veinBend: 3,
+		veinRadius: .006,
+		axisFade: .025,
+		marginFraction: .8,
+		marginShoulder: .03,
+		grainHeight: .004,
+		grainColor: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14508,7 +14541,8 @@ var proceduralTileMeters = Object.freeze({
 	juniperberries: .064,
 	gabbro: .18,
 	turnbuckles: .24,
-	rhodochrosite: .18
+	rhodochrosite: .18,
+	bayleaf: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

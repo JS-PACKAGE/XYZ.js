@@ -7738,6 +7738,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         fineCore: 0.018;
         companionOffset: 0.23;
     }>;
+    bayleaf: Readonly<{
+        dark: readonly [25, 34, 13];
+        light: readonly [165, 174, 79];
+        roughness: 0.38;
+        relief: 0.0016;
+        cells: 3;
+        jitter: 0.02;
+        halfLength: 0.32;
+        halfWidth: 0.14;
+        shoulder: 0.16;
+        stemStart: -0.39;
+        stemEnd: -0.28;
+        stemRadius: 0.008;
+        midribRadius: 0.009;
+        veinPairs: 7;
+        veinSpacing: 0.065;
+        veinSlope: 0.35;
+        veinBend: 3;
+        veinRadius: 0.006;
+        axisFade: 0.025;
+        marginFraction: 0.8;
+        marginShoulder: 0.03;
+        grainHeight: 0.004;
+        grainColor: 0.025;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8437,4 +8462,5 @@ export declare const proceduralTileMeters: Readonly<{
     gabbro: 0.18;
     turnbuckles: 0.24;
     rhodochrosite: 0.18;
+    bayleaf: 0.24;
 }>;
