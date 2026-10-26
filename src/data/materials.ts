@@ -7785,6 +7785,18 @@ export const proceduralMaterialPresets = Object.freeze({
     honeStart: 0.105,
     honeEnd: 0.165,
   }),
+  chiastolite: Object.freeze({
+    dark: [31, 22, 14] as const,
+    light: [222, 184, 119] as const,
+    roughness: 0.72,
+    relief: 0.00012,
+    cells: 3,
+    jitter: 0.025,
+    radius: 0.35,
+    faceCoreQ: 0.7,
+    crossWidth: 0.018,
+    crossFlare: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8479,4 +8491,5 @@ export const proceduralTileMeters = Object.freeze({
   bittermelonskin: 0.18,
   cocobolo: 0.24,
   doubleedgerazorblades: 0.18,
+  chiastolite: 0.12,
 });

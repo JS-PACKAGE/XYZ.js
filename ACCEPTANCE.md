@@ -8313,3 +8313,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之doubleedgerazorblades512五maps；既有689種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7319項測試（862.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：晶體內深十字空晶石（chiastolite）
+
+- 目錄690→691種，九枚seeded旋轉褐色quartic晶體切面、四暖象限及連接且向外漸寬的深色石墨質十字臂；support<0.442<0.5。晶體／十字為pigment，共同磨面微高差≤0.24 μm／AO1，全opaque M0／mortar0、0.12 m tile／0.00012 m relief。
+- 六項定向3.69s通過：三seed逐九晶體／四象限／完整四臂／實際向外漸寬與共同微高差、actual512深十字與暖象限／近乎平面normal／AO255／opaque M0、signed torus及三seed quartic core／outer shoulders、cross support／axes／owners／noise-grid／UV C1。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖見深十字四象限及近乎平面共同磨面，factor0／destroy成功、errors空。不是凸塊、刻溝、geometry、displacement、透光或礦物生長模擬。
+- 第一輪整合build成功，typecheck捕捉測試中tuple union spread的TS2556；改為明確讀取`point[0]`／`point[1]`，沒有變更sampler或任何行為門檻，再執行typecheck與後續完整gate。
+- Managed Chromium150 headless正式PBR3D gallery以960×1200 viewport整頁capture分別強制WebGPU／WebGL2：實際691種／選中chiastolite、sphere與maps可見，goto about:blank cleanup errors均空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之chiastolite512五maps；既有690種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：前輪已成功的build，以及修正tuple呼叫後的typecheck、lint、format:check、179個測試檔／7326項測試（928.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與distribution（367 exports）。依功能獨立commit、不push。

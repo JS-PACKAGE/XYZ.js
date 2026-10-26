@@ -731,7 +731,193 @@ const kinds: ProceduralMaterialKind[] = [
   'bittermelonskin',
   'cocobolo',
   'doubleedgerazorblades',
+  'chiastolite',
 ];
+
+describe('Polished chiastolite with four flaring graphitic cross arms inside brown crystal sections', () => {
+  const p = proceduralMaterialPresets.chiastolite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19d15),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19d17) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19d19) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains four warm quadrants around connected outward-flaring dark arms without lifting or cutting the common face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chiastolite', seed),
+        warm = empty(),
+        dark = empty(),
+        proximal = empty(),
+        distal = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1]) {
+              sample(...uv(sx * 0.2, sy * 0.2), warm);
+              for (const t of [0, 0.1, 0.2, 0.29])
+                for (const point of [
+                  [sx * t, 0],
+                  [0, sy * t],
+                ] as const) {
+                  sample(...uv(point[0], point[1]), dark);
+                  expect(warm.color - dark.color).toBeGreaterThan(0.5);
+                  expect(Math.abs(warm.height - dark.height)).toBeLessThan(
+                    0.000000240001,
+                  );
+                  expect(dark.occlusion).toBe(1);
+                }
+              for (const axis of [0, 1]) {
+                sample(
+                  ...uv(
+                    axis === 0 ? sx * 0.1 : sy * 0.029,
+                    axis === 0 ? sy * 0.029 : sx * 0.1,
+                  ),
+                  proximal,
+                );
+                sample(
+                  ...uv(
+                    axis === 0 ? sx * 0.28 : sy * 0.029,
+                    axis === 0 ? sy * 0.029 : sx * 0.28,
+                  ),
+                  distal,
+                );
+                expect(proximal.color - distal.color).toBeGreaterThan(0.25);
+              }
+            }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, warm);
+          expect(warm.height).toBeGreaterThanOrEqual(0.000041999999);
+          expect(warm.height).toBeLessThanOrEqual(0.000042240001);
+          expect(warm.color).toBeGreaterThanOrEqual(0.059999);
+          expect(warm.color).toBeLessThanOrEqual(0.86);
+          expect(warm.roughness).toBeGreaterThanOrEqual(0.34);
+          expect(warm.roughness).toBeLessThanOrEqual(0.75);
+          expect(warm.occlusion).toBe(1);
+          expect(warm.mortar).toBe(0);
+          expect(warm.metallic).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 dark crosses within four warm quadrants on a nearly flat fully occlusion-free opaque nonmetal cut face', () => {
+    const maps = generateProceduralMaps('chiastolite', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (point: [number, number]) =>
+      (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7),
+          center = pixel(uv(0, 0));
+        for (const sx of [-1, 1])
+          for (const sy of [-1, 1]) {
+            const warm = pixel(uv(sx * 0.2, sy * 0.2));
+            expect(
+              maps.baseColor[warm]! - maps.baseColor[center]!,
+            ).toBeGreaterThan(90);
+            expect(
+              maps.baseColor[warm]! - maps.baseColor[warm + 2]!,
+            ).toBeGreaterThan(70);
+          }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(Math.abs(maps.normal[i]! - 128)).toBeLessThanOrEqual(2);
+      expect(Math.abs(maps.normal[i + 1]! - 128)).toBeLessThanOrEqual(2);
+      expect(maps.normal[i + 2]).toBe(255);
+      expect(maps.occlusion[i]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats rotated crystal ownership flared crosses host finish and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('chiastolite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps quartic crystal core and outer shoulders flared cross supports axes owners noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chiastolite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (let j = 0; j <= 256; j++) {
+            const angle = (j * Math.PI) / 128,
+              cos = Math.cos(angle),
+              sin = Math.sin(angle),
+              x = p.radius * Math.sign(cos) * Math.sqrt(Math.abs(cos)),
+              y = p.radius * Math.sign(sin) * Math.sqrt(Math.abs(sin));
+            for (const q of [p.faceCoreQ, 1]) {
+              const scale = q ** 0.25;
+              check(...uv(x * scale, y * scale));
+            }
+            const t = -p.radius + (2 * p.radius * j) / 256,
+              r = Math.min(1, (t * t) / (p.radius * p.radius)),
+              width = p.crossWidth + p.crossFlare * r * r * (3 - 2 * r);
+            for (const sign of [-1, 0, 1]) {
+              check(...uv(t, sign * width));
+              check(...uv(sign * width, t));
+            }
+          }
+        }
+      for (let j = 0; j <= 512; j++)
+        for (let owner = 0; owner <= p.cells; owner++) {
+          check(owner / p.cells, j / 512);
+          check(j / 512, owner / p.cells);
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Double edge steel razor blades with connected three-lobe slots and two lower polished long facets', () => {
   const p = proceduralMaterialPresets.doubleedgerazorblades;

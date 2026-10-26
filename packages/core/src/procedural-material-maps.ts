@@ -1441,6 +1441,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chiastolite': {
+        const p = proceduralMaterialPresets.chiastolite,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x19d11),
+          matrixField = cachedNoise(16, 16, seed ^ 0x19d13),
+          inverseRadiusQ = 1 / (p.radius * p.radius),
+          inverseShoulder = 1 / (1 - p.faceCoreQ);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x19d15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19d17) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19d19) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x19d1b);
+          }
+        return () => {
+          const uc = (u * p.cells) % p.cells,
+            vc = (v * p.cells) % p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            xx = x * x,
+            yy = y * y,
+            qx = xx * inverseRadiusQ,
+            qy = yy * inverseRadiusQ,
+            face =
+              1 -
+              smooth(
+                clamp((qx * qx + qy * qy - p.faceCoreQ) * inverseShoulder),
+              ),
+            grain = grainField(u, v);
+          color = 0.22 + 0.08 * matrixField(u, v) + 0.01 * grain;
+          // Crystal and graphitic cross share the host's polished cut plane.
+          height = 0.35 + 0.002 * grain;
+          roughness = p.roughness + 0.03 * grain;
+          occlusion = 1;
+          if (face === 0) return;
+          const wx = p.crossWidth + p.crossFlare * smooth(clamp(qx)),
+            wy = p.crossWidth + p.crossFlare * smooth(clamp(qy)),
+            horizontal = 1 - smooth(clamp(yy / (wx * wx))),
+            vertical = 1 - smooth(clamp(xx / (wy * wy))),
+            cross = 1 - (1 - horizontal) * (1 - vertical),
+            tone = poses[i + 4],
+            crystalColor =
+              0.66 + 0.18 * tone + 0.02 * grain - cross * (0.6 + 0.12 * tone);
+          color += face * (crystalColor - color);
+          roughness += face * (0.34 + 0.02 * grain + 0.025 * cross - roughness);
+          return;
+        };
+      }
       case 'doubleedgerazorblades': {
         const p = proceduralMaterialPresets.doubleedgerazorblades,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31876,6 +31932,7 @@ export function createSurfaceSampler(
     kind === 'bittermelonskin' ||
     kind === 'cocobolo' ||
     kind === 'doubleedgerazorblades' ||
+    kind === 'chiastolite' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

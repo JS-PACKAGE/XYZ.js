@@ -705,7 +705,8 @@ export type ProceduralMaterialKind =
   | 'ogeetiles'
   | 'bittermelonskin'
   | 'cocobolo'
-  | 'doubleedgerazorblades';
+  | 'doubleedgerazorblades'
+  | 'chiastolite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1645,6 +1646,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bittermelonskin',
   'cocobolo',
   'doubleedgerazorblades',
+  'chiastolite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
