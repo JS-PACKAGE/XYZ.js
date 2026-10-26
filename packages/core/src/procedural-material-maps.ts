@@ -1441,6 +1441,56 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'lacewood': {
+        const p = proceduralMaterialPresets.lacewood,
+          rays = new Float64Array(p.columns * p.rows * 6),
+          grainField = cachedNoise(p.grainColumns, p.grainRows, seed ^ 0x18b11),
+          fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x18b13),
+          inverseRayShoulder = 1 / (1 - p.rayCoreQ),
+          inversePore = 1 / 0.18;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 6,
+              length =
+                p.rayLength +
+                p.rayLengthVariation * hash(col, row, seed ^ 0x18b19),
+              width =
+                p.rayWidth +
+                p.rayWidthVariation * hash(col, row, seed ^ 0x18b1b);
+            rays[i] =
+              0.5 + p.jitterX * (2 * hash(col, row, seed ^ 0x18b15) - 1);
+            rays[i + 1] =
+              0.5 + p.jitterY * (2 * hash(col, row, seed ^ 0x18b17) - 1);
+            rays[i + 2] = 1 / (length * length);
+            rays[i + 3] = 1 / (width * width);
+            rays[i + 4] = p.raySlope * (2 * hash(col, row, seed ^ 0x18b1d) - 1);
+            rays[i + 5] = p.rayBend * (2 * hash(col, row, seed ^ 0x18b1f) - 1);
+          }
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.columns + col) * 6,
+            dx = x - col - rays[i]!,
+            dy =
+              y -
+              row -
+              rays[i + 1]! -
+              rays[i + 4]! * dx -
+              rays[i + 5]! * dx * dx,
+            q = dx * dx * rays[i + 2]! + dy * dy * rays[i + 3]!,
+            ray = smooth(clamp((1 - q) * inverseRayShoulder)),
+            grain = grainField(u, v),
+            fiber = fiberField(u, v),
+            pore = smooth(clamp((fiber - 0.76) * inversePore)) * (1 - ray);
+          color = 0.3 + 0.19 * grain + 0.035 * fiber - 0.12 * pore + 0.42 * ray;
+          // Medullary rays are polished wood pigment, not raised scales.
+          height = 0.5 + 0.015 * grain + 0.003 * fiber - 0.006 * pore;
+          roughness = p.roughness + 0.035 * grain + 0.02 * fiber - 0.11 * ray;
+          occlusion = 0.99 - 0.02 * pore;
+        };
+      }
       case 'oxfordweave': {
         const p = proceduralMaterialPresets.oxfordweave,
           grainField = cachedNoise(128, 128, seed ^ 0x18a11),
@@ -30721,6 +30771,7 @@ export function createSurfaceSampler(
     kind === 'palmiers' ||
     kind === 'barbedwire' ||
     kind === 'oxfordweave' ||
+    kind === 'lacewood' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -7472,6 +7472,27 @@ export const proceduralMaterialPresets = Object.freeze({
     crown: 0.06,
     fibers: 128,
   }),
+  lacewood: Object.freeze({
+    dark: [83, 43, 23] as const,
+    light: [228, 180, 118] as const,
+    roughness: 0.62,
+    relief: 0.001,
+    columns: 8,
+    rows: 12,
+    jitterX: 0.1,
+    jitterY: 0.2,
+    rayLength: 0.12,
+    rayLengthVariation: 0.24,
+    rayWidth: 0.035,
+    rayWidthVariation: 0.07,
+    raySlope: 0.25,
+    rayBend: 0.25,
+    rayCoreQ: 0.65,
+    grainColumns: 48,
+    grainRows: 4,
+    fiberColumns: 192,
+    fiberRows: 8,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8148,4 +8169,5 @@ export const proceduralTileMeters = Object.freeze({
   palmiers: 0.18,
   barbedwire: 0.4,
   oxfordweave: 0.08,
+  lacewood: 0.35,
 });

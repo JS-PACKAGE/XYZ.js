@@ -8126,3 +8126,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Shipped dist公開API實際Native Worker／cache smoke：512／seed7／height／tint[0.8,1,0.9]／repeats3，五maps的SHA256於direct、Worker與cache-hit皆相同。Cache一筆5242880 bytes／一hit一miss，Worker completed1／failed0，獨立textures且destroy其中一preset不影響另一；pool.destroy及cache.clear完成，browser errors空。
 - Fresh Node產生當次dist的oxfordweave512五maps；既有671種各64²／seed7四maps與HEAD之SHA256全部相同。九份相關Markdown相對連結無缺失；未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7189項測試（701.53s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步更新；逐功能commit、不push。
+
+## 2026-10-26 程序材質：近乎平整的蕾絲木射線（lacewood）
+
+- 目錄672→673種，暖色直木紋上的淺色長木射線斑。初次512細節圖呈現過於規則的橢圓排列；改為8×12 seeded cells，放大位置及長寬變化並加入斜度／parabolic微彎，再次觀察細節圖。六值pose cache／compact warped ellipses確保support不跨cell；48×4 grain／192×8 fiber為world-periodic，逐點無配置／hash／trig／sqrt或鄰格掃描。射線降低roughness而不形成凸鱗，細孔height／AO差極淺。全opaque M0／mortar0，0.35 m tile／0.001 m relief，不新增geometry、displacement、anisotropy或木材模擬。
+- Refinement後targeted六項通過（4.32s）與typecheck通過：三seed各96射線的257-point曲線core traces相較離軸木底color高 >0.18／roughness低 >0.055，height差 <0.000025 m、全表面0.00049–0.00052 m／AO≥0.97／M0／mortar0。Actual512每射線三點R>185／木底R<165、差 >25codes，ray roughness低 >13codes／AO≥247／M0；2048-point六通道signed periods與129² fields、ray core/support及grain/fiber grids C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際673-preset gallery各選出lacewood並擷取mesh／四maps，page與about:blank cleanup errors皆空、tabs已關閉。公開API512／height確認factor0、height存在及destroyed=true，另擷取修正後細節圖；不擴大Safari、實機、Canvas2D 3D、parity或效能認證。
+- Shipped dist的Worker驗證先於Vite遇Unknown-kind；單執行緒Python靜態server另遇module fan-out連線reset，均未改產品或降低驗證。改用既有strict-CSP `deployment-server.mjs dist /dist/ 5189`後，512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同。Cache5242880 bytes／一hit一miss，Worker completed1／failed0，textures各自擁有、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist的lacewood512五maps；既有672種各64²／seed7四maps與HEAD之SHA256全部不變，九份相關Markdown相對連結無缺失。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7196項測試（723.62s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步；逐功能commit、不push。

@@ -893,6 +893,8 @@
 
 `oxfordweave` 使用每方向八組雙紗、藍經／淺緯交替的籃式交織。Squared compact yarn profiles與rounded crowns分開，front/back權重不疊加交點高度；pair-owner切換處位於兩紗空隙，group-owner切換前lift window及交叉紗support皆歸零，維持長紗跨組連續。128² cached grain及週期多項式細纖維不在逐點配置、hash、trig或sqrt；空support跳finish。布底保留深藍opaque pigment而非neutral grout，metallic／mortar全0；0.08 m tile、0.001 m relief。沿用既有maps、options與ownership，不新增geometry、透明孔洞、displacement或布料模擬。
 
+`lacewood` 使用8×12格、每格六值的seeded射線姿態cache，預算由compact warped ellipse保證不跨cell邊界。Parabolic剪切生成不同斜度／微彎射線，ray core／support皆smooth；world-periodic48×4 grain及192×8 fiber跨pose-owner連續。淺色射線降低roughness但不墊高表面，細孔僅有微小height／AO差；全opaque M0／mortar0，0.35 m tile／0.001 m relief。逐點無配置／hash／trig／sqrt或鄰格掃描，沿既有maps與ownership，不新增geometry、displacement、anisotropy或木材模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

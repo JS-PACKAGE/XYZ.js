@@ -713,7 +713,152 @@ const kinds: ProceduralMaterialKind[] = [
   'palmiers',
   'barbedwire',
   'oxfordweave',
+  'lacewood',
 ];
+
+describe('Lacewood with pale medullary ray flecks across continuous wood grain', () => {
+  const p = proceduralMaterialPresets.lacewood;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (col: number, row: number, seed: number) => ({
+    x: col + 0.5 + p.jitterX * (2 * hash(col, row, seed ^ 0x18b15) - 1),
+    y: row + 0.5 + p.jitterY * (2 * hash(col, row, seed ^ 0x18b17) - 1),
+    length: p.rayLength + p.rayLengthVariation * hash(col, row, seed ^ 0x18b19),
+    width: p.rayWidth + p.rayWidthVariation * hash(col, row, seed ^ 0x18b1b),
+    slope: p.raySlope * (2 * hash(col, row, seed ^ 0x18b1d) - 1),
+    bend: p.rayBend * (2 * hash(col, row, seed ^ 0x18b1f) - 1),
+  });
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps each long oblique ray pale and smoother but nearly flush, rather than round knot eyes or raised scales, for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lacewood', seed),
+        ray = empty(),
+        wood = empty();
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const a = pose(col, row, seed);
+          for (let j = 0; j <= 256; j++) {
+            const dx = a.length * (-0.75 + (1.5 * j) / 256);
+            sample(
+              (a.x + dx) / p.columns,
+              (a.y + a.slope * dx + a.bend * dx * dx) / p.rows,
+              ray,
+            );
+            sample((a.x + dx) / p.columns, (a.y + 0.25) / p.rows, wood);
+            expect(ray.color - wood.color).toBeGreaterThan(0.18);
+            expect(wood.roughness - ray.roughness).toBeGreaterThan(0.055);
+            expect(Math.abs(ray.height - wood.height)).toBeLessThan(0.000025);
+            for (const out of [ray, wood]) {
+              expect(out.height).toBeGreaterThan(0.00049);
+              expect(out.height).toBeLessThan(0.00052);
+              expect(out.occlusion).toBeGreaterThanOrEqual(0.97);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+          }
+        }
+    },
+  );
+  it('writes elongated pale polished rays and darker grain into the actual 512px maps without metallic spots or occlusion holes', () => {
+    const maps = generateProceduralMaps('lacewood', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (x: number, y: number) =>
+      (Math.floor((y / p.rows) * 512) * 512 +
+        Math.floor((x / p.columns) * 512)) *
+      4;
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++) {
+        const a = pose(col, row, 7);
+        for (const t of [-0.6, 0, 0.6]) {
+          const dx = t * a.length,
+            ray = pixel(a.x + dx, a.y + a.slope * dx + a.bend * dx * dx),
+            wood = pixel(a.x + dx, a.y + 0.25);
+          expect(maps.baseColor[ray]!).toBeGreaterThan(185);
+          expect(maps.baseColor[wood]!).toBeLessThan(165);
+          expect(maps.baseColor[ray]! - maps.baseColor[wood]!).toBeGreaterThan(
+            25,
+          );
+          expect(
+            maps.metallicRoughness[wood + 1]! -
+              maps.metallicRoughness[ray + 1]!,
+          ).toBeGreaterThan(13);
+          for (const i of [ray, wood]) {
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+            expect(maps.occlusion[i]!).toBeGreaterThanOrEqual(247);
+          }
+        }
+      }
+  });
+  it('repeats all pigment relief roughness and occlusion fields over signed UV periods', () => {
+    const sample = createSurfaceSampler('lacewood', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps ray core/support shoulders cell ownership and world grain/fiber grids C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lacewood', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const a = pose(col, row, seed);
+          for (const q of [1, p.rayCoreQ])
+            for (let j = 0; j <= 128; j++) {
+              const theta = (2 * Math.PI * j) / 128,
+                dx = a.length * Math.sqrt(q) * Math.cos(theta);
+              check(
+                (a.x + dx) / p.columns,
+                (a.y +
+                  a.slope * dx +
+                  a.bend * dx * dx +
+                  a.width * Math.sqrt(q) * Math.sin(theta)) /
+                  p.rows,
+              );
+            }
+        }
+      for (let j = 0; j <= 192; j++) {
+        check(j / p.fiberColumns, 0.41421356237);
+        check(0.61803398875, j / p.fiberRows);
+      }
+    }
+  });
+});
 
 describe('Oxford weave with paired blue warp and pale weft yarns', () => {
   const p = proceduralMaterialPresets.oxfordweave;

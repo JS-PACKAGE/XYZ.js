@@ -1016,6 +1016,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `oxfordweave`（牛津紡）：每方向八組雙紗，藍經／淺緯以二上二下籃式交織。Squared compact profiles與rounded crowns使用前後權重，不疊加交點高度；pair-owner在兩紗空隙切換，group-owner切換前lift window與交叉紗support皆歸零，長紗維持C1連續。128² cached grain與週期多項式纖維不在逐點配置、hash、trig或sqrt。深色布底保留opaque pigment，所有pixels的metallic／mortar為0；0.08 m tile／0.001 m relief。既有maps、height、tint、Worker／cache、repeats與ownership不變，不新增紗線geometry、透孔、displacement或布料模擬。
 
+種類另支援 `lacewood`（蕾絲木紋）：直向暖木紋上的淺色長木射線斑，尺寸、位置、斜度與微彎由seed決定。8×12格各快取六值，compact parabolic-warped ellipse的support在cell-owner切換前歸零；world-periodic48×4 grain及192×8 fiber跨格連續。射線為淺色低roughness的近乎平整pigment，不是節眼或墊高鱗片；僅細微木紋／導管孔改height及AO。全opaque M0／mortar0，0.35 m tile／0.001 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描。既有maps、height、tint、repeats、Worker／cache與ownership不變，不新增geometry、displacement、anisotropic shader或木材模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。
