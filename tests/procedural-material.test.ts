@@ -711,7 +711,282 @@ const kinds: ProceduralMaterialKind[] = [
   'fishhooks',
   'violinfholes',
   'palmiers',
+  'barbedwire',
 ];
+
+describe('Seamless silver barbed wire with two genuinely alternating over-under rounded strands raised collars and four connected tapered barbs per knot', () => {
+  const p = proceduralMaterialPresets.barbedwire;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (seed: number, row: number, s: number, y: number) => {
+    const phase = hash(0, row, seed ^ 0x18913),
+      u = (s + phase) / p.knots;
+    return [
+      ((u % 1) + 1) % 1,
+      (row + 0.5 + p.jitter * (2 * hash(0, row, seed ^ 0x18915) - 1) + y) /
+        p.rows,
+    ] as const;
+  };
+  const wave = (phase: number) => {
+    const q = (((phase % 1) + 1) % 1) * 2,
+      h = q < 1 ? q : q - 1;
+    return (16 / 5) * (q < 1 ? 1 : -1) * h * (1 + h * h * (h - 2));
+  };
+
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps both wires continuous across all knot periods swaps their real height order and attaches four conducting points beneath higher collars while gaps stay open for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('barbedwire', seed),
+        out = empty();
+      for (let row = 0; row < p.rows; row++) {
+        const at = (s: number, y: number) => {
+            sample(...world(seed, row, s, y), out);
+            return { ...out };
+          },
+          full = (s: number, y: number, min: number, max: number) => {
+            const a = at(s, y);
+            expect(a.metallic).toBe(1);
+            expect(a.mortar).toBe(0);
+            expect(a.occlusion).toBeCloseTo(0.99, 12);
+            expect(a.height).toBeGreaterThanOrEqual(min);
+            expect(a.height).toBeLessThanOrEqual(max);
+          },
+          low = (s: number, y: number) => {
+            const a = at(s, y);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(1);
+            expect(a.height).toBeCloseTo(0.0001, 12);
+            expect(a.occlusion).toBeCloseTo(0.3, 12);
+          };
+        for (let j = 0; j <= 4096; j++) {
+          const s = (p.knots * j) / 4096,
+            center = p.amplitude * wave(s * p.twists);
+          for (const side of [-1, 1])
+            full(s, side * center, 0.0018799, 0.0031321);
+        }
+        for (let node = 0; node < p.knots; node++) {
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128;
+            full(
+              node + p.collarX * Math.sqrt(0.5) * Math.cos(theta),
+              p.collarY * Math.sqrt(0.5) * Math.sin(theta),
+              0.0031199,
+              0.0031321,
+            );
+          }
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1])
+              for (let j = 0; j <= 256; j++) {
+                const along = 0.007 + (0.069 * j) / 256;
+                full(
+                  node + sx * p.barbAxisX * along,
+                  sy * p.barbAxisY * along,
+                  0.0027999,
+                  0.0031321,
+                );
+              }
+          for (const [s, front] of [
+            [1 / 16, 1],
+            [3 / 16, -1],
+          ]) {
+            const center = p.amplitude * wave(s! * p.twists),
+              a = at(node + s!, center),
+              b = at(node + s!, -center);
+            expect((a.height - b.height) * front!).toBeGreaterThan(0.0003839);
+            for (const v of [a, b]) {
+              expect(v.metallic).toBe(1);
+              expect(v.mortar).toBe(0);
+            }
+          }
+          for (const s of [0.25, 0.5]) full(node + s, 0, 0.0024399, 0.0024521);
+          for (const side of [-1, 1]) {
+            const crown = at(node + 0.125, side * p.amplitude),
+              flank = at(
+                node + 0.125,
+                side * (p.amplitude + p.wireRadius * 0.6),
+              );
+            expect(crown.height - flank.height).toBeGreaterThan(0.0000352);
+            expect(flank.mortar).toBe(0);
+            expect(flank.metallic).toBe(1);
+          }
+          low(node + 0.125, 0);
+          low(node + 0.075, 0);
+          low(node, 0.09);
+        }
+      }
+    },
+  );
+  it('writes actual512 alternating high-low silver strands four pointed barbs higher collars and uncovered nondoubled crossings over truly open low gaps', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const maps = generateProceduralMaps('barbedwire', 512, seed, {
+        heightMap: true,
+      });
+      for (let row = 0; row < p.rows; row++)
+        for (let node = 0; node < p.knots; node++) {
+          const pixel = (s: number, y: number) => {
+            const [u, v] = world(seed, row, s, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          };
+          for (const [s, front] of [
+            [1 / 16, 1],
+            [3 / 16, -1],
+          ]) {
+            const center = p.amplitude * wave(s! * p.twists),
+              a = pixel(node + s!, center),
+              b = pixel(node + s!, -center);
+            expect(
+              (maps.height![a]! - maps.height![b]!) * front!,
+            ).toBeGreaterThan(25);
+            for (const i of [a, b]) {
+              expect(maps.baseColor[i]!).toBeGreaterThan(225);
+              expect(maps.metallicRoughness[i + 2]).toBe(255);
+              expect(maps.occlusion[i]!).toBeGreaterThan(250);
+            }
+          }
+          const collar = pixel(node, 0);
+          expect(maps.baseColor[collar]!).toBeGreaterThan(200);
+          expect(maps.metallicRoughness[collar + 2]).toBe(255);
+          expect(maps.metallicRoughness[collar + 1]!).toBeGreaterThan(85);
+          expect(maps.height![collar]!).toBeGreaterThan(245);
+          for (const sx of [-1, 1])
+            for (const sy of [-1, 1]) {
+              const barb = pixel(
+                node + sx * p.barbAxisX * 0.045,
+                sy * p.barbAxisY * 0.045,
+              );
+              for (let c = 0; c < 3; c++)
+                expect(maps.baseColor[barb + c]!).toBeGreaterThan(225);
+              expect(maps.metallicRoughness[barb + 2]).toBe(255);
+              expect(maps.metallicRoughness[barb + 1]!).toBeLessThan(80);
+              expect(maps.height![barb]!).toBeGreaterThan(220);
+              expect(maps.occlusion[barb]!).toBeGreaterThan(250);
+              expect(
+                maps.height![collar]! - maps.height![barb]!,
+              ).toBeGreaterThan(24);
+              expect(
+                maps.metallicRoughness[collar + 1]! -
+                  maps.metallicRoughness[barb + 1]!,
+              ).toBeGreaterThan(7);
+            }
+          for (const s of [0.25, 0.5]) {
+            const cross = pixel(node + s, 0);
+            expect(maps.metallicRoughness[cross + 2]).toBe(255);
+            expect(maps.height![cross]!).toBeGreaterThan(190);
+            expect(maps.height![cross]!).toBeLessThan(205);
+          }
+          for (const [s, y] of [
+            [node + 0.125, 0],
+            [node + 0.075, 0],
+            [node, 0.09],
+          ]) {
+            const i = pixel(s!, y!);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+            expect(maps.occlusion[i]!).toBeLessThan(80);
+            expect(maps.height![i]).toBe(0);
+          }
+        }
+    }
+  });
+  it('repeats seamless twisted strand collar pointed barb and gap PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('barbedwire', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps C2-wave tangent-corrected wire shoulders crowns quarter-depth order switches collar core returns reflected barb owners signed tips knot ties row seeds grain and UV wraps C1', () => {
+    const h = 2e-9,
+      keys: (keyof SurfaceSample)[] = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'mortar',
+        'metallic',
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('barbedwire', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let node = 0; node < p.knots; node++) {
+          const local = (s: number, y: number) =>
+            check(...world(seed, row, s, y));
+          for (let j = 0; j <= 128; j++) {
+            const t = j / 128,
+              theta = 2 * Math.PI * t,
+              phase = (((t * p.twists) % 1) + 1) % 1,
+              q = phase * 2,
+              half = q < 1 ? q : q - 1,
+              sign = q < 1 ? 1 : -1,
+              center = p.amplitude * wave(t * p.twists),
+              slope =
+                (32 / 5) *
+                p.amplitude *
+                p.twists *
+                sign *
+                (1 + half * half * (4 * half - 6)),
+              stretch = Math.sqrt(1 + slope * slope);
+            for (const side of [-1, 1])
+              for (const r of [p.wireRadius, p.wireCore])
+                for (const edge of [-1, 1])
+                  local(node + t, side * center + edge * r * stretch);
+            for (let quarter = 0; quarter < 4 * p.twists; quarter++)
+              local(node + quarter / (4 * p.twists), -0.1 + 0.2 * t);
+            for (const q of [1, p.collarCoreQ])
+              local(
+                node + p.collarX * Math.sqrt(q) * Math.cos(theta),
+                p.collarY * Math.sqrt(q) * Math.sin(theta),
+              );
+            local(node, -0.09 + 0.18 * t);
+            local(node - 0.075 + 0.15 * t, 0);
+            const along = (p.barbLength + 0.01) * t,
+              width = p.barbHalfWidth * (1 - along / p.barbLength);
+            for (const edge of [-1, 1])
+              for (const level of [0, p.planeShoulder]) {
+                const across = edge * (width - level),
+                  x = p.barbAxisX * along - p.barbAxisY * across,
+                  y = p.barbAxisY * along + p.barbAxisX * across;
+                for (const sx of [-1, 1])
+                  for (const sy of [-1, 1]) local(node + sx * x, sy * y);
+              }
+          }
+        }
+    }
+  });
+});
 
 describe('Golden heart-shaped palmiers with two genuine mirrored recessed caramel spirals a central fold a notched double crown and a tapered lower point', () => {
   const p = proceduralMaterialPresets.palmiers;
@@ -47883,6 +48158,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'memorycardbacks' &&
           kind !== 'rectangularsocketfaces' &&
           kind !== 'fishhooks' &&
+          kind !== 'barbedwire' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -57313,6 +57589,7 @@ describe('procedural preset acquisition and ownership', () => {
     'memorycardbacks',
     'rectangularsocketfaces',
     'fishhooks',
+    'barbedwire',
     'standingseam',
     'damascus',
     'castiron',
@@ -57403,6 +57680,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'memorycardbacks' ||
           kind === 'rectangularsocketfaces' ||
           kind === 'fishhooks' ||
+          kind === 'barbedwire' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

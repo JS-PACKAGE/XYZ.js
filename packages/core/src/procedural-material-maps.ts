@@ -1441,6 +1441,146 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'barbedwire': {
+        const p = proceduralMaterialPresets.barbedwire,
+          rows = new Float64Array(p.rows * 3),
+          grainField = cachedNoise(128, 128, seed ^ 0x18911),
+          centerScale = (16 / 5) * p.amplitude,
+          slopeScale = (32 / 5) * p.amplitude * p.twists,
+          inverseWire = 1 / (p.wireRadius * p.wireRadius),
+          inverseShoulder = 1 / (1 - p.wireCore * p.wireCore * inverseWire),
+          wireReach =
+            p.amplitude + p.wireRadius * Math.sqrt(1 + slopeScale * slopeScale),
+          inverseCollarX = 1 / (p.collarX * p.collarX),
+          inverseCollarY = 1 / (p.collarY * p.collarY),
+          inverseCollar = 1 / (1 - p.collarCoreQ),
+          inverseBarb = 1 / p.barbLength,
+          inversePlane = 1 / p.planeShoulder,
+          barbReachX = Math.max(
+            p.barbAxisX * p.barbLength,
+            p.barbAxisY * p.barbHalfWidth,
+          ),
+          barbReachY = Math.max(
+            p.barbAxisY * p.barbLength,
+            p.barbAxisX * p.barbHalfWidth,
+          ),
+          reachY = Math.max(wireReach, p.collarY, barbReachY);
+        for (let row = 0; row < p.rows; row++) {
+          const i = row * 3;
+          rows[i] = hash(0, row, seed ^ 0x18913);
+          rows[i + 1] = p.jitter * (2 * hash(0, row, seed ^ 0x18915) - 1);
+          rows[i + 2] = hash(0, row, seed ^ 0x18917);
+        }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          const fy = v * p.rows,
+            row = Math.floor(fy),
+            i = row * 3,
+            y = fy - row - 0.5 - rows[i + 1]!;
+          if (Math.abs(y) >= reachY) return;
+          const offset = u * p.knots - rows[i]!,
+            x = offset - Math.round(offset),
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            collar =
+              ax < p.collarX && ay < p.collarY
+                ? smooth(
+                    clamp(
+                      (1 - x * x * inverseCollarX - y * y * inverseCollarY) *
+                        inverseCollar,
+                    ),
+                  )
+                : 0;
+          if (collar === 1) {
+            const grain = grainField(u, v);
+            color = 0.82 + 0.025 * grain;
+            height = p.collarHeight + 0.003 * grain;
+            roughness = p.collarRoughness + 0.025 * grain;
+            occlusion = 0.99;
+            metallic = 1;
+            mortar = 0;
+            return;
+          }
+          let barb = 0,
+            a = 0,
+            b = 0,
+            domeA = 0,
+            domeB = 0,
+            depth = 0;
+          if (ax < barbReachX && ay < barbReachY) {
+            // Reflected owners meet only beneath the full collar returned above.
+            const along = ax * p.barbAxisX + ay * p.barbAxisY,
+              across = -ax * p.barbAxisY + ay * p.barbAxisX,
+              width = p.barbHalfWidth * (1 - along * inverseBarb);
+            barb =
+              smooth(clamp((width + across) * inversePlane)) *
+              smooth(clamp((width - across) * inversePlane));
+          }
+          if (ay < wireReach) {
+            const phase = fract(offset * p.twists),
+              q = phase * 2,
+              half = q < 1 ? q : q - 1,
+              sign = q < 1 ? 1 : -1,
+              center =
+                centerScale * sign * half * (1 + half * half * (half - 2)),
+              slope = slopeScale * sign * (1 + half * half * (4 * half - 6)),
+              inverseWidth = inverseWire / (1 + slope * slope),
+              da = y - center,
+              db = y + center,
+              qa = da * da * inverseWidth,
+              qb = db * db * inverseWidth;
+            a = smooth(clamp((1 - qa) * inverseShoulder));
+            b = smooth(clamp((1 - qb) * inverseShoulder));
+            if (a !== 0 || b !== 0) {
+              // Quarter-phase depth twists; doubled-depth would produce a plait.
+              const zq = fract(phase + 0.25) * 2,
+                zh = zq < 1 ? zq : zq - 1;
+              depth =
+                (16 / 5) * (zq < 1 ? 1 : -1) * zh * (1 + zh * zh * (zh - 2));
+              if (a !== 0) domeA = smooth(clamp(1 - qa));
+              if (b !== 0) domeB = smooth(clamp(1 - qb));
+            }
+          }
+          const outsideWire = (1 - a) * (1 - b);
+          mortar = outsideWire * (1 - barb) * (1 - collar);
+          metallic = 1 - mortar;
+          if (mortar === 1) return;
+          // Depth order changes only where the two wire supports are disjoint.
+          const weightA = depth >= 0 ? a : a * (1 - b),
+            weightB = depth >= 0 ? b * (1 - a) : b,
+            grain = grainField(u, v),
+            tone = rows[i + 2]!,
+            wireColor = 0.89 + 0.025 * tone + 0.025 * grain,
+            wireHeight = p.wireHeight + 0.003 * grain,
+            wireRoughness = p.roughness + 0.025 * grain;
+          color =
+            outsideWire * color +
+            weightA * (wireColor + 0.04 * domeA) +
+            weightB * (wireColor + 0.04 * domeB);
+          height =
+            outsideWire * height +
+            weightA * (wireHeight + p.wireDepth * depth + p.wireCrown * domeA) +
+            weightB * (wireHeight - p.wireDepth * depth + p.wireCrown * domeB);
+          roughness =
+            outsideWire * roughness +
+            weightA * (wireRoughness - 0.04 * domeA) +
+            weightB * (wireRoughness - 0.04 * domeB);
+          occlusion = outsideWire * occlusion + (weightA + weightB) * 0.99;
+          color += barb * (0.93 + 0.025 * grain - color);
+          height += barb * (p.barbHeight + 0.003 * grain - height);
+          roughness += barb * (p.barbRoughness + 0.025 * grain - roughness);
+          occlusion += barb * (0.99 - occlusion);
+          color += collar * (0.82 + 0.025 * grain - color);
+          height += collar * (p.collarHeight + 0.003 * grain - height);
+          roughness += collar * (p.collarRoughness + 0.025 * grain - roughness);
+          occlusion += collar * (0.99 - occlusion);
+        };
+      }
       case 'palmiers': {
         const p = proceduralMaterialPresets.palmiers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -30509,6 +30649,7 @@ export function createSurfaceSampler(
     kind === 'fishhooks' ||
     kind === 'violinfholes' ||
     kind === 'palmiers' ||
+    kind === 'barbedwire' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
