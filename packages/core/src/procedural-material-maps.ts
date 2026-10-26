@@ -1441,6 +1441,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gabbro': {
+        const p = proceduralMaterialPresets.gabbro,
+          sites = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a01b),
+          inverseSupport = 1 / p.supportSquared,
+          inverseTwin = 1 / p.twinShoulderSquared;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1a017);
+            sites[i] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a011);
+            sites[i + 1] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a013);
+            sites[i + 2] = hash(col, row, seed ^ 0x1a015);
+            sites[i + 3] = Math.cos(angle);
+            sites[i + 4] = Math.sin(angle);
+            sites[i + 5] = hash(col, row, seed ^ 0x1a019);
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let pigment = 0,
+            weight = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                i =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  6,
+                dx = x - cx - sites[i],
+                dy = y - cy - sites[i + 1];
+              // Radius 1.2 vanishes before omitted sites can enter at distance 1.3.
+              // The own site is within squared distance .98, so weight stays positive.
+              let cap = clamp(1 - (dx * dx + dy * dy) * inverseSupport);
+              if (cap === 0) continue;
+              cap *= cap;
+              cap *= cap;
+              cap *= cap;
+              cap *= cap;
+              const tone = sites[i + 2];
+              let mineral = 0.06 + 0.08 * tone;
+              if (tone > p.paleThreshold) {
+                const phase =
+                    (dx * sites[i + 3] + dy * sites[i + 4]) * p.twinFrequency +
+                    sites[i + 5],
+                  distance = phase - Math.floor(phase + 0.5),
+                  twin = smooth(
+                    clamp(
+                      (p.twinRadiusSquared - distance * distance) * inverseTwin,
+                    ),
+                  );
+                mineral = 0.58 + 0.23 * tone - 0.12 * twin;
+              }
+              pigment += cap * mineral;
+              weight += cap;
+            }
+          const mineral = pigment / weight,
+            grain = grainField(u, v);
+          color = mineral;
+          // Mineral boundaries and optical twins share a polished cut plane.
+          height = 0.35 + 0.002 * grain;
+          roughness = p.roughness + 0.08 * (1 - mineral) + 0.015 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'juniperberries': {
         const p = proceduralMaterialPresets.juniperberries,
           berries = new Float64Array(p.cells * p.cells * 5),
@@ -32092,6 +32163,7 @@ export function createSurfaceSampler(
     kind === 'chiastolite' ||
     kind === 'dimity' ||
     kind === 'juniperberries' ||
+    kind === 'gabbro' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -708,7 +708,8 @@ export type ProceduralMaterialKind =
   | 'doubleedgerazorblades'
   | 'chiastolite'
   | 'dimity'
-  | 'juniperberries';
+  | 'juniperberries'
+  | 'gabbro';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1651,6 +1652,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chiastolite',
   'dimity',
   'juniperberries',
+  'gabbro',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

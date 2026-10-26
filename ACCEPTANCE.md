@@ -8344,3 +8344,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1、單Worker completed1 failed0、獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之juniperberries512五maps；既有692種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7340項測試（980.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：深色粗晶與淡斜長石雙晶輝長岩（gabbro）
+
+- 目錄693→694種，12×12粗晶site、深色輝石質晶粒與帶細平行雙晶pigment的淡斜長石；晶界／雙晶共磨面，非凹縫碎石。全opaque M0／mortar0、0.18 m tile／0.00012 m relief、物理微高差≤0.24 μm／AO1。
+- 首輪定向發現新測試錯把optional height byte當物理尺度；查明既有height輸出採min/max正規化，刪除錯誤byte範圍斷言，不改實作／編碼、不重新pin。物理平面界限由scalar取樣驗證。
+- 六項定向3.39s通過：三seed144晶粒明暗與淡晶雙晶色差、共同物理平面及PBR界限、actual512明暗晶粒／opaque M0／無AO晶溝、signed torus、三seed compact supports／3×3 owners／normalized界面／雙晶core與肩／phase resets／UV C1。
+- Source API actual512 seed7五maps生成，baseColor截圖見深色粗晶與淡晶細平行帶、normal近共同平面、factor0／destroy成功、errors空。不新增晶體geometry、displacement、透光或地質模擬。
+- Managed Chromium150 headless正式PBR3D gallery以960×1200 viewport整頁capture分別強制WebGPU／WebGL2：實際694種／選中gabbro、sphere與maps可見，goto about:blank cleanup errors均空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1、單Worker completed1 failed0、獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之gabbro512五maps；既有693種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7347項測試（1009.95s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

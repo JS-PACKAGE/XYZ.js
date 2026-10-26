@@ -734,7 +734,155 @@ const kinds: ProceduralMaterialKind[] = [
   'chiastolite',
   'dimity',
   'juniperberries',
+  'gabbro',
 ];
+
+describe('Polished dark gabbro with coarse pale twinned plagioclase grains', () => {
+  const p = proceduralMaterialPresets.gabbro;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a017),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.3 + 0.4 * hash(col, row, seed ^ 0x1a011),
+      cy = 0.3 + 0.4 * hash(col, row, seed ^ 0x1a013);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps coarse dark grains and optically twinned pale grains flush without recessed mineral borders for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('gabbro', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed),
+            tone = hash(col, row, seed ^ 0x1a015),
+            phase = hash(col, row, seed ^ 0x1a019),
+            center = -phase / p.twinFrequency;
+          sample(...uv(0, 0), a);
+          if (tone <= p.paleThreshold) expect(a.color).toBeLessThan(0.17);
+          else {
+            expect(a.color).toBeGreaterThan(0.59);
+            sample(...uv(center, 0), a);
+            sample(...uv(center + 0.5 / p.twinFrequency, 0), b);
+            expect(b.color - a.color).toBeGreaterThan(0.1);
+            expect(Math.abs(b.height - a.height)).toBeLessThanOrEqual(
+              0.00000024,
+            );
+            expect(a.occlusion).toBe(1);
+            expect(b.occlusion).toBe(1);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, a);
+          expect(a.color).toBeGreaterThanOrEqual(0.059999);
+          expect(a.color).toBeLessThanOrEqual(0.810001);
+          expect(a.height).toBeGreaterThanOrEqual(0.0000419999);
+          expect(a.height).toBeLessThanOrEqual(0.0000422401);
+          expect(a.roughness).toBeGreaterThan(0.305);
+          expect(a.roughness).toBeLessThan(0.381);
+          expect(a.occlusion).toBe(1);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 coarse light and dark mineral regions with opaque nonmetal pixels and no AO trenches', () => {
+    const maps = generateProceduralMaps('gabbro', 512, 7, { heightMap: true });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7),
+          point = uv(0, 0),
+          i =
+            (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) * 4,
+          tone = hash(col, row, 7 ^ 0x1a015);
+        if (tone > p.paleThreshold)
+          expect(maps.baseColor[i]).toBeGreaterThan(125);
+        else expect(maps.baseColor[i]).toBeLessThan(47);
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.occlusion[i]).toBe(255);
+    }
+  });
+  it('repeats grain boundaries twinning polish and every PBR channel across signed UV periods', () => {
+    const sample = createSurfaceSampler('gabbro', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps compact mineral supports neighborhood owners normalized boundaries twin cores shoulders resets and signed UV C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gabbro', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed),
+            phase = hash(col, row, seed ^ 0x1a019);
+          for (let j = 0; j <= 128; j++) {
+            const angle = (j * Math.PI) / 64;
+            check(...uv(1.2 * Math.cos(angle), 1.2 * Math.sin(angle)));
+            check(col / p.cells, j / 128);
+            check(j / 128, row / p.cells);
+            for (const boundary of [-0.5, -0.2, -0.1, 0, 0.1, 0.2, 0.5])
+              for (const period of [-1, 0, 1])
+                check(
+                  ...uv(
+                    (period + boundary - phase) / p.twinFrequency,
+                    (j / 128 - 0.5) * 0.9,
+                  ),
+                );
+          }
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Blue bloomed juniper berries with three recessed scale seams on rounded domes', () => {
   const p = proceduralMaterialPresets.juniperberries;
