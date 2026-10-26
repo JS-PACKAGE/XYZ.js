@@ -8445,3 +8445,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之howlite512五maps；既有703種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7419項測試（983.74s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：成對粗緯橫肋織物（ottoman）
+
+- 目錄704→705種：紫色成對粗緯橫肋、細經束縛與低肋間隙。共用poplin／gabardine compact yarn路徑，48經／24緯；連續兩pick共draft、下一對反轉，相鄰經交替。對內／對間距0.8／1.2，較高weft base／crown與0.18 lift維持交叉上紗高於下紗。全opaque M0／mortar0、0.024 m tile／0.0004 m relief；不新增geometry、透明紗隙、各向異性或布料模擬。
+- 專項6項全部通過（1.74s）：三seed成對同高／下一對反向物理交叉、低肋縫與512² opaque dielectric maps、4096 signed UV週期、三seed pick owner／crest／draft邊界C1。初測任意色差門檻0.15不成立，移除該incidental顏色斷言，改以成對高度差<2 μm與反向交叉高度差>80 μm驗證織紋結構；未降低色差門檻重pin。
+- managed Chromium150 headless正式PBR gallery已實際擷取；強制WebGPU／WebGL2均顯示705種並選取ottoman，640×900停動畫畫面呈現紫色橫肋及微細normal；頁面與cleanup errors皆空。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之ottoman512五maps；既有704種（含共用poplin／gabardine）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過。第一輪完整suite為178檔通過／1檔失敗、7425項通過／1項既有rectangularsocketfaces密集C1測試達30000ms timeout（1052.87s），無assertion失敗；未改該測試／timeout／sampler。瀏覽器驗證結束後重跑原完整suite，179檔／7426項全部通過（1009.59s）；負載是否為逾時原因未確認。依功能獨立commit、不push。

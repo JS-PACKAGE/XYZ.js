@@ -745,7 +745,104 @@ const kinds: ProceduralMaterialKind[] = [
   'brakediscs',
   'mulberrypaper',
   'howlite',
+  'ottoman',
 ];
+
+describe('Ottoman cloth with paired thick weft ribs', () => {
+  const p = proceduralMaterialPresets.ottoman;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const center = (row: number): number =>
+    (row + 0.5 + ((row & 1) === 0 ? p.pairOffset : -p.pairOffset)) /
+    p.weftThreads;
+  it.each([0, 1, 0xffffffff])(
+    'binds both coarse picks together and reverses on the next rib for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ottoman', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.weftThreads; row += 2)
+        for (let col = 0; col < p.warpThreads; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            over = ((col + row / 2) & 1) === 0;
+          sample(u, center(row), a);
+          sample(u, center(row + 1), b);
+          sample(u, center((row + 2) % p.weftThreads), c);
+          expect(Math.abs(a.height - b.height)).toBeLessThan(0.000002);
+          expect(
+            over ? c.height - a.height : a.height - c.height,
+          ).toBeGreaterThan(0.00008);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+    },
+  );
+  it('separates paired transverse crests from recessed opaque inter-rib gaps', () => {
+    const sample = createSurfaceSampler('ottoman', 7),
+      a = empty(),
+      b = empty();
+    for (let row = 0; row < p.weftThreads; row++) {
+      sample(1 / p.warpThreads, center(row), a);
+      sample(1 / p.warpThreads, (row + 1) / p.weftThreads, b);
+      expect(a.height - b.height).toBeGreaterThan(0.0002);
+      expect(a.occlusion - b.occlusion).toBeGreaterThan(0.4);
+    }
+    const maps = generateProceduralMaps('ottoman', 512, 7, { heightMap: true });
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+    }
+  });
+  it('repeats paired ribs on signed tile translations in all surface channels', () => {
+    const sample = createSurfaceSampler('ottoman', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps paired pick owners crests and binding draft transitions C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ottoman', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row <= p.weftThreads; row++)
+        for (let col = 0; col <= p.warpThreads; col++)
+          for (const dy of [-p.weftRadius, 0, p.weftRadius]) {
+            check(col / p.warpThreads, center(row) + dy / p.weftThreads);
+            check((col + 0.5) / p.warpThreads, row / p.weftThreads);
+          }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished howlite with continuous fine gray matrix veins', () => {
   const empty = (): SurfaceSample => ({

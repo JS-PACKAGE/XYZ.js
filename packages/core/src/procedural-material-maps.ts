@@ -2579,15 +2579,22 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ottoman':
       case 'gabardine':
       case 'poplin': {
         const gabardine = kind === 'gabardine',
-          p = gabardine
-            ? proceduralMaterialPresets.gabardine
-            : proceduralMaterialPresets.poplin,
+          ottoman = kind === 'ottoman',
+          p = ottoman
+            ? proceduralMaterialPresets.ottoman
+            : gabardine
+              ? proceduralMaterialPresets.gabardine
+              : proceduralMaterialPresets.poplin,
           warpBase = gabardine ? 0.34 : 0.3,
-          weftBase = gabardine ? 0.34 : 0.44,
-          weftCrown = gabardine ? 0.04 : 0.07,
+          weftBase = ottoman ? 0.52 : gabardine ? 0.34 : 0.44,
+          weftCrown = ottoman ? 0.1 : gabardine ? 0.04 : 0.07,
+          pairOffset = ottoman
+            ? proceduralMaterialPresets.ottoman.pairOffset
+            : 0,
           grainField = cachedNoise(128, 128, seed ^ 0x19711),
           inverseWarp = 1 / (p.warpRadius * p.warpRadius),
           inverseWeft = 1 / (p.weftRadius * p.weftRadius),
@@ -2600,14 +2607,14 @@ export function createSurfaceSampler(
             col = Math.floor(x),
             row = Math.floor(y),
             fx = fract(x) - 0.5,
-            fy = fract(y) - 0.5,
+            fy = fract(y) - 0.5 + ((row & 1) === 0 ? -pairOffset : pairOffset),
             qx = fx * fx * inverseWarp,
             qy = fy * fy * inverseWeft,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
             weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
             warpOver = gabardine
               ? (col - row + p.warpThreads) % 3 < 2
-              : ((col + row) & 1) === 0,
+              : ((col + (ottoman ? Math.floor(row / 2) : row)) & 1) === 0,
             warpWeight = warpOver ? warp : warp * (1 - weft),
             weftWeight = warpOver ? weft * (1 - warp) : weft,
             coverage = warpWeight + weftWeight;
@@ -2616,7 +2623,7 @@ export function createSurfaceSampler(
           roughness = 0.96;
           occlusion = 0.45;
           if (coverage === 0) return;
-          // Gabardine advances two-over-one on unequal pitches; poplin is plain.
+          // Ottoman binds paired wefts; gabardine is twill, poplin is plain.
           // Lift fades before row/column ownership changes, even along unbroken yarns.
           const sign = warpOver ? 1 : -1,
             liftX = smooth(
@@ -32768,6 +32775,7 @@ export function createSurfaceSampler(
     kind === 'brakediscs' ||
     kind === 'mulberrypaper' ||
     kind === 'howlite' ||
+    kind === 'ottoman' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
