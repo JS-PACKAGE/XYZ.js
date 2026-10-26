@@ -1441,6 +1441,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'brakediscs': {
+        const p = proceduralMaterialPresets.brakediscs,
+          poses = new Float64Array(p.cells * p.cells * 2),
+          holeCount = p.bolts + 2 * p.drillsPerRing,
+          holes = new Float64Array(holeCount * 3),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a711),
+          outerSquared = p.radius * p.radius,
+          inverseOuter = 1 / (outerSquared - p.coreRadius * p.coreRadius),
+          boreSquared = p.bore * p.bore,
+          inverseBore = 1 / (p.boreShoulder * p.boreShoulder - boreSquared),
+          hubSquared = p.hubRadius * p.hubRadius,
+          inverseHub = 1 / (hubSquared - p.hubCore * p.hubCore),
+          boltSquared = p.boltRadius * p.boltRadius,
+          inverseBolt = 1 / (p.boltShoulder * p.boltShoulder - boltSquared),
+          drillSquared = p.drillRadius * p.drillRadius,
+          inverseDrill = 1 / (p.drillShoulder * p.drillShoulder - drillSquared);
+        for (let j = 0; j < holeCount; j++) {
+          const bolt = j < p.bolts,
+            index = bolt ? j : (j - p.bolts) % p.drillsPerRing,
+            outer = j >= p.bolts + p.drillsPerRing,
+            angle =
+              (TAU * (index + (outer ? 0.5 : 0))) /
+              (bolt ? p.bolts : p.drillsPerRing),
+            ring = bolt
+              ? p.boltRing
+              : outer
+                ? p.outerDrillRing
+                : p.innerDrillRing;
+          holes[j * 3] = ring * Math.cos(angle);
+          holes[j * 3 + 1] = ring * Math.sin(angle);
+          holes[j * 3 + 2] = bolt ? 1 : 0;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2,
+              angle = TAU * hash(col, row, seed ^ 0x1a713);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 2,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            r2 = x * x + y * y;
+          let face =
+            smooth(clamp((outerSquared - r2) * inverseOuter)) *
+            smooth(clamp((r2 - boreSquared) * inverseBore));
+          color = 0.04;
+          height = 0.04;
+          roughness = 0.94;
+          occlusion = 0.4;
+          if (face === 0) return;
+          for (let j = 0; j < holeCount; j++) {
+            const hx = x - holes[j * 3],
+              hy = y - holes[j * 3 + 1],
+              bolt = holes[j * 3 + 2] === 1,
+              hole = smooth(
+                clamp(
+                  ((bolt ? boltSquared : drillSquared) - hx * hx - hy * hy) *
+                    (bolt ? inverseBolt : inverseDrill) +
+                    1,
+                ),
+              );
+            face *= 1 - hole;
+          }
+          metallic = face;
+          if (face === 0) return;
+          const hub = smooth(clamp((hubSquared - r2) * inverseHub)),
+            phase = r2 * p.wearFrequency,
+            d = phase - Math.floor(phase + 0.5),
+            wear = smooth(clamp(1 - 16 * d * d)) * (1 - hub),
+            grain = grainField(u, v);
+          color +=
+            face * (0.7 + 0.03 * grain - 0.13 * hub - 0.025 * wear - color);
+          height += face * (0.48 + 0.1 * hub + 0.002 * grain - 0.001 * wear);
+          roughness +=
+            face *
+            (p.roughness + 0.06 * hub + 0.04 * wear + 0.02 * grain - roughness);
+          occlusion += 0.58 * face;
+          return;
+        };
+      }
       case 'kitkattiles': {
         const p = proceduralMaterialPresets.kitkattiles,
           tones = new Float64Array(p.columns * p.rows),
@@ -32545,6 +32631,7 @@ export function createSurfaceSampler(
     kind === 'oilspotglaze' ||
     kind === 'persimmonslice' ||
     kind === 'kitkattiles' ||
+    kind === 'brakediscs' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

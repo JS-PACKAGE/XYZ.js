@@ -742,7 +742,166 @@ const kinds: ProceduralMaterialKind[] = [
   'oilspotglaze',
   'persimmonslice',
   'kitkattiles',
+  'brakediscs',
 ];
+
+describe('Drilled brake discs with five mounts and staggered twin ventilation rings', () => {
+  const p = proceduralMaterialPresets.brakediscs;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a713),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle);
+    return (x: number, y: number): [number, number] => [
+      (col + 0.5 + x * cos - y * sin) / p.cells,
+      (row + 0.5 + x * sin + y * cos) / p.cells,
+    ];
+  };
+  const holes: [number, number, number, number][] = [];
+  for (const [count, ring, offset, radius, shoulder] of [
+    [p.bolts, p.boltRing, 0, p.boltRadius, p.boltShoulder],
+    [p.drillsPerRing, p.innerDrillRing, 0, p.drillRadius, p.drillShoulder],
+    [p.drillsPerRing, p.outerDrillRing, 0.5, p.drillRadius, p.drillShoulder],
+  ])
+    for (let j = 0; j < count; j++) {
+      const angle = (2 * Math.PI * (j + offset)) / count;
+      holes.push([
+        ring * Math.cos(angle),
+        ring * Math.sin(angle),
+        radius,
+        shoulder,
+      ]);
+    }
+  it.each([0, 1, 0xffffffff])(
+    'keeps every bore mount and drill dark nonmetal while the raised hub and friction track remain steel for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('brakediscs', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (const [x, y] of [[0, 0], [0.42, 0], ...holes]) {
+            sample(...uv(x, y), a);
+            expect(a.metallic).toBe(0);
+            expect(a.occlusion).toBe(0.4);
+            expect(a.height).toBeCloseTo(0.00016, 12);
+          }
+          sample(...uv(0.11, 0.045), a);
+          sample(...uv(0.29, 0), b);
+          expect(a.metallic).toBe(1);
+          expect(b.metallic).toBe(1);
+          expect(a.height - b.height).toBeGreaterThan(0.00038);
+          expect(a.roughness).toBeGreaterThan(b.roughness);
+          const crest = Math.sqrt(46 / p.wearFrequency),
+            flat = Math.sqrt(46.5 / p.wearFrequency);
+          sample(...uv(crest, 0), a);
+          sample(...uv(flat, 0), b);
+          expect(a.roughness - b.roughness).toBeGreaterThan(0.025);
+          expect(Math.abs(a.height - b.height)).toBeLessThan(0.000012);
+        }
+    },
+  );
+  it('writes all drilled and mounting hole centers as opaque nonmetal backing at actual512', () => {
+    const maps = generateProceduralMaps('brakediscs', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7);
+        for (const [x, y] of [[0, 0], ...holes]) {
+          const point = uv(x, y),
+            i =
+              (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) *
+              4;
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.occlusion[i]).toBe(102);
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4)
+      expect(maps.baseColor[i + 3]).toBe(255);
+  });
+  it('repeats discs holes wear and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('brakediscs', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps bores hub and hole shoulders circular wear resets owners and tile seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('brakediscs', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (let j = 0; j < 16; j++) {
+            const angle = (j * Math.PI) / 8,
+              cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            for (const r of [
+              p.radius,
+              p.coreRadius,
+              p.bore,
+              p.boreShoulder,
+              p.hubRadius,
+              p.hubCore,
+            ])
+              check(...uv(r * cos, r * sin));
+            for (const [x, y, radius, shoulder] of holes)
+              for (const r of [radius, shoulder])
+                check(...uv(x + r * cos, y + r * sin));
+            for (const phase of [46.25, 46.5, 46.75, 47])
+              check(
+                ...uv(
+                  Math.sqrt(phase / p.wearFrequency) * cos,
+                  Math.sqrt(phase / p.wearFrequency) * sin,
+                ),
+              );
+            check(col / p.cells, j / 16);
+            check(j / 16, row / p.cells);
+          }
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Concave jade finger tiles with equal-width grout', () => {
   const p = proceduralMaterialPresets.kitkattiles;
@@ -53494,6 +53653,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rackgears' &&
           kind !== 'doubleedgerazorblades' &&
           kind !== 'turnbuckles' &&
+          kind !== 'brakediscs' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -62930,6 +63090,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rackgears',
     'doubleedgerazorblades',
     'turnbuckles',
+    'brakediscs',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -63026,6 +63187,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rackgears' ||
           kind === 'doubleedgerazorblades' ||
           kind === 'turnbuckles' ||
+          kind === 'brakediscs' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||

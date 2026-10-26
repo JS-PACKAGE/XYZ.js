@@ -13941,6 +13941,37 @@ var proceduralMaterialPresets = Object.freeze({
 		troughLift: .16,
 		endFade: .2,
 		endShoulder: .12
+	}),
+	brakediscs: Object.freeze({
+		dark: [
+			22,
+			25,
+			28
+		],
+		light: [
+			223,
+			226,
+			230
+		],
+		roughness: .34,
+		relief: .004,
+		cells: 3,
+		radius: .4,
+		coreRadius: .385,
+		bore: .085,
+		boreShoulder: .1,
+		hubRadius: .17,
+		hubCore: .155,
+		boltRing: .13,
+		boltRadius: .016,
+		boltShoulder: .023,
+		innerDrillRing: .25,
+		outerDrillRing: .335,
+		drillRadius: .015,
+		drillShoulder: .022,
+		bolts: 5,
+		drillsPerRing: 12,
+		wearFrequency: 550
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14644,7 +14675,8 @@ var proceduralTileMeters = Object.freeze({
 	gabardine: .018,
 	oilspotglaze: .16,
 	persimmonslice: .24,
-	kitkattiles: .6
+	kitkattiles: .6,
+	brakediscs: .72
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

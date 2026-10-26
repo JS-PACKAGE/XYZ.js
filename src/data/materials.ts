@@ -7980,6 +7980,29 @@ export const proceduralMaterialPresets = Object.freeze({
     endFade: 0.2,
     endShoulder: 0.12,
   }),
+  brakediscs: Object.freeze({
+    dark: [22, 25, 28] as const,
+    light: [223, 226, 230] as const,
+    roughness: 0.34,
+    relief: 0.004,
+    cells: 3,
+    radius: 0.4,
+    coreRadius: 0.385,
+    bore: 0.085,
+    boreShoulder: 0.1,
+    hubRadius: 0.17,
+    hubCore: 0.155,
+    boltRing: 0.13,
+    boltRadius: 0.016,
+    boltShoulder: 0.023,
+    innerDrillRing: 0.25,
+    outerDrillRing: 0.335,
+    drillRadius: 0.015,
+    drillShoulder: 0.022,
+    bolts: 5,
+    drillsPerRing: 12,
+    wearFrequency: 550,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8685,4 +8708,5 @@ export const proceduralTileMeters = Object.freeze({
   oilspotglaze: 0.16,
   persimmonslice: 0.24,
   kitkattiles: 0.6,
+  brakediscs: 0.72,
 });

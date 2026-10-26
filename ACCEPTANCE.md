@@ -8418,3 +8418,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之kitkattiles512五maps；既有700種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7397項測試（951.44s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：雙圈鑽孔煞車碟（brakediscs）
+
+- 目錄701→702種：九枚seeded旋轉銀色碟、中央低孔、五安裝孔、兩圈各12個錯半步通風孔、較高中轂與4 μm低同心磨耗紋。孔／外部opaque M0暗底，鋼面mask乘factor1；mortar0、0.72 m tile／0.004 m relief。不新增geometry、透明穿孔、displacement或煞車物理。
+- 專項6項全部通過（1.74s）：三seed逐碟29孔及中央孔M0／低底、鋼面與高中轂、磨耗粗糙度差及微高度上限、512²全部孔中心M0／AO低底／opaque、4096 signed UV週期及bore／hub／hole肩部／wear reset／owner／tile seams C1。
+- managed Chromium150 headless source sampler 512² baseColor／normal與正式PBR gallery皆已實際擷取；強制WebGPU／WebGL2均顯示702種並選取brakediscs。640×900停動畫下WebGL2首次capture仍遇工具Target closed，釋放失敗tab並獨立新開後截圖成功；成功頁面與cleanup errors皆空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之brakediscs512五maps；既有701種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7405項測試（929.14s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
