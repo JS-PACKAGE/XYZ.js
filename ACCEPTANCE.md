@@ -8214,3 +8214,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之gyroidinfill512五maps；既有680種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7253項測試（754.01s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：六瓣掐絲琺瑯（cloisonne）
+
+- 目錄681→682種，九朵seeded旋轉六瓣花與中心閉環；較高黃銅絲M1包圍較低青藍琺瑯M0。Opaque／mortar0、factor1、0.18 m tile／0.001 m relief；三對稱橢圓與中心圓、九值pose快取、128²全域grain，owner切換在空wire／pigment support。
+- 六項定向回歸與typecheck通過：三seed逐九花／七閉框完整解析輪廓高度／金屬分類與範圍、actual512各閉框金屬色高／低非金屬框內與全opaque、signed periodicity、三seed support／core／axis／cell-owner／noise-grid的C1。
+- Actual512回歸先找到小中心環下採樣後metallic只到96，確認初稿細絲解析度不足；將wire support／core由0.14／0.04擴為0.23／0.09而不降測試門檻，六項回歸通過。相鄰瓣owner最低q≈1.26453仍大於外support1.23，中心與瓣內support不相交，保留閉環與C1。
+- 調整後Source API actual512 seed7 height五maps實際生成，baseColor／normal／metallicRoughness截圖可見完整閉框、較低框內與抬高金屬絲，factor1與destroy成功、errors空。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示682種、選中cloisonne，sphere與maps截圖、頁面與cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證；不新增geometry、透明玻璃、transmission、thin-film shader或燒製模擬。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之cloisonne512五maps；既有681種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 第一輪完整suite有178檔／7260項通過，但borrowed-map測試漏列新kind的factor1，造成單項期望0而實際1；補齊既有consumer契約清單，不改正確的factor1實作，其餘build／typecheck／lint／format／API與distribution gate當輪皆已通過。
+- 修正後七項定向（含borrowed-map consumer）通過，完整179檔／7261項測試通過（924.39s）。本功能build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與distribution（367 exports）皆實際通過；依功能獨立commit、不push。
+- 補齊清單後，當次定向重跑 **7項通過**（六項cloisonne field／maps回歸與公開API借用／釋放契約，6.14s）。完整suite先前單項失敗如上保留，不將定向通過記成完整suite重跑通過；當次build、typecheck、lint、format:check、API compatibility與distribution皆成功。
+- 當次再次實跑WebGPU與WebGL2的682種正式gallery並選中cloisonne、擷取mesh畫面，頁面errors空；Worker／cache／direct的512²五maps SHA256一致，cache一筆5242880 bytes／hit1 miss1、獨立textures與destroy／pool.destroy／cache.clear成功。既有681種64² seed7四maps與HEAD逐位元組一致，九份Markdown相對連結無缺失。未擴大跨瀏覽器或效能認證；本次部分gallery tab於工具呼叫間被關閉，不能追加宣稱其cleanup驗證。
+- 最終補記：上方「不將定向通過記成完整suite重跑通過」與部分tab限制保留為較早／其他驗證批次紀錄；本次實際命令已另完成七項定向（8.42s）及完整179檔／7261項測試（924.39s），不是以定向結果推估。前述頁面／cleanup errors空僅適用於本次同一工具呼叫內完成goto about:blank並讀取errors的兩個gallery批次，不擴張至上方受限制批次。

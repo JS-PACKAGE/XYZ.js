@@ -903,6 +903,8 @@
 
 同輪追加 `gyroidinfill`（gyroid截面填充紋），目錄680→681種：seeded雙軸平移的橘色連續圓頂曲帶與低opaque底面。採精確`z=π/4` implicit field等值帶，保留兩支解析輪廓與saddle接點，非網格生成器；M0／mortar0、0.16 m tile／0.0015 m relief。前680種maps及options／Worker／cache／ownership不變，不新增3D lattice geometry、mesh輸出、displacement、透孔或列印模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `cloisonne`（六瓣掐絲琺瑯），目錄681→682種：九朵seeded旋轉花、各六閉合黃銅瓣框與中心環，高金屬絲包圍較低青藍非金屬琺瑯。opaque／mortar0、factor1、0.18 m tile／0.001 m relief；前681種maps與既有options／Worker／cache／ownership不變，不新增geometry、透明玻璃、transmission、薄膜shader或燒製模擬。驗證後獨立commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

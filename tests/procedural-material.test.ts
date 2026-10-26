@@ -722,7 +722,214 @@ const kinds: ProceduralMaterialKind[] = [
   'flystitch',
   'abaloneshells',
   'gyroidinfill',
+  'cloisonne',
 ];
+
+describe('Cloisonne enamel flowers with closed raised brass petal and center outlines', () => {
+  const p = proceduralMaterialPresets.cloisonne;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const uv = (
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+    seed: number,
+  ): [number, number] => [
+    (col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19417) - 1) + x) /
+      p.cells,
+    (row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19419) - 1) + y) /
+      p.cells,
+  ];
+  const outline = (
+    col: number,
+    row: number,
+    petal: number,
+    t: number,
+    seed: number,
+    scale = 1,
+  ): [number, number] => {
+    if (petal === 6)
+      return uv(
+        col,
+        row,
+        p.centerRadius * scale * Math.cos(t),
+        p.centerRadius * scale * Math.sin(t),
+        seed,
+      );
+    const angle =
+        2 * Math.PI * hash(col, row, seed ^ 0x19415) + (petal * Math.PI) / 3,
+      x = p.petalCenter + p.radiusX * scale * Math.cos(t),
+      y = p.radiusY * scale * Math.sin(t);
+    return uv(
+      col,
+      row,
+      x * Math.cos(angle) - y * Math.sin(angle),
+      x * Math.sin(angle) + y * Math.cos(angle),
+      seed,
+    );
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps all six petal loops and center rings closed raised brass above nonmetal enamel for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cloisonne', seed),
+        wire = empty(),
+        fill = empty(),
+        backing = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...uv(col, row, 0.45, 0.45, seed), backing);
+          expect(backing.metallic).toBe(0);
+          for (let petal = 0; petal < 7; petal++) {
+            sample(...outline(col, row, petal, 0, seed, 0), fill);
+            expect(fill.metallic).toBe(0);
+            expect(fill.color - backing.color).toBeGreaterThan(0.2);
+            for (let j = 0; j <= 256; j++) {
+              sample(
+                ...outline(col, row, petal, (j * 2 * Math.PI) / 256, seed),
+                wire,
+              );
+              expect(wire.metallic).toBe(1);
+              expect(wire.height - fill.height).toBeGreaterThan(0.00048);
+              expect(wire.color).toBeLessThan(0.041);
+              expect(wire.roughness - fill.roughness).toBeGreaterThan(0.1);
+              expect(wire.occlusion).toBeCloseTo(0.99, 12);
+              expect(wire.mortar).toBe(0);
+            }
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, wire);
+          expect(wire.color).toBeGreaterThanOrEqual(0);
+          expect(wire.color).toBeLessThanOrEqual(1);
+          expect(wire.height).toBeGreaterThanOrEqual(0.00025);
+          expect(wire.height).toBeLessThan(0.000803);
+          expect(wire.metallic).toBeGreaterThanOrEqual(0);
+          expect(wire.metallic).toBeLessThanOrEqual(1);
+          expect(wire.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 gold metallic closed outlines around cyan nonmetal enamel without transparent pixels', () => {
+    const maps = generateProceduralMaps('cloisonne', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (uv: [number, number]) =>
+      (Math.floor(uv[1] * 512) * 512 + Math.floor(uv[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (let petal = 0; petal < 7; petal++) {
+          const fill = pixel(outline(col, row, petal, 0, 7, 0));
+          expect(maps.metallicRoughness[fill + 2]).toBe(0);
+          expect(
+            maps.baseColor[fill + 2]! - maps.baseColor[fill]!,
+          ).toBeGreaterThan(100);
+          for (let j = 0; j < 32; j++) {
+            const [u, v] = outline(col, row, petal, (j * 2 * Math.PI) / 32, 7);
+            let best = pixel([u, v]);
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                const i = pixel([u + dx / 512, v + dy / 512]);
+                if (
+                  maps.metallicRoughness[i + 2]! >
+                  maps.metallicRoughness[best + 2]!
+                )
+                  best = i;
+              }
+            expect(maps.metallicRoughness[best + 2]).toBeGreaterThan(120);
+            expect(maps.height![best]! - maps.height![fill]!).toBeGreaterThan(
+              110,
+            );
+            expect(
+              maps.baseColor[best]! - maps.baseColor[best + 2]!,
+            ).toBeGreaterThan(15);
+          }
+        }
+    for (let i = 3; i < maps.baseColor.length; i += 4)
+      expect(maps.baseColor[i]).toBe(255);
+  });
+  it('repeats enamel pigment brass classification and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('cloisonne', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps every closed wire support core axis owner cell owner and noise grid C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cloisonne', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.12,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19415);
+          for (let axis = 0; axis < 12; axis++)
+            for (let j = 0; j <= 64; j++) {
+              const r = (0.45 * j) / 64,
+                t = angle + (axis * Math.PI) / 6;
+              check(...uv(col, row, r * Math.cos(t), r * Math.sin(t), seed));
+            }
+          for (let j = 0; j <= 128; j++) {
+            check(col / p.cells, (row + j / 128) / p.cells);
+            check((col + j / 128) / p.cells, row / p.cells);
+          }
+          for (let petal = 0; petal < 7; petal++)
+            for (const q of [
+              1 - p.wireWidth,
+              1 - p.wireCore,
+              1,
+              1 + p.wireCore,
+              1 + p.wireWidth,
+            ])
+              for (let j = 0; j <= 64; j++)
+                check(
+                  ...outline(
+                    col,
+                    row,
+                    petal,
+                    (j * 2 * Math.PI) / 64,
+                    seed,
+                    Math.sqrt(q),
+                  ),
+                );
+        }
+    }
+  });
+});
 
 describe('Gyroid infill with rounded exact slice contour bands over opaque backing', () => {
   const p = proceduralMaterialPresets.gyroidinfill;
@@ -49942,6 +50149,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'weavingshuttles' &&
           kind !== 'woodenclothespins' &&
           kind !== 'kintsugiceramic' &&
+          kind !== 'cloisonne' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -59374,6 +59582,7 @@ describe('procedural preset acquisition and ownership', () => {
     'weavingshuttles',
     'woodenclothespins',
     'kintsugiceramic',
+    'cloisonne',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -59466,6 +59675,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'weavingshuttles' ||
           kind === 'woodenclothespins' ||
           kind === 'kintsugiceramic' ||
+          kind === 'cloisonne' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||

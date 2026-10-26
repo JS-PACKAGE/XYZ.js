@@ -696,7 +696,8 @@ export type ProceduralMaterialKind =
   | 'durianpeel'
   | 'flystitch'
   | 'abaloneshells'
-  | 'gyroidinfill';
+  | 'gyroidinfill'
+  | 'cloisonne';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1627,6 +1628,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flystitch',
   'abaloneshells',
   'gyroidinfill',
+  'cloisonne',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1851,6 +1853,7 @@ export class ProceduralMaterial {
         this.kind === 'weavingshuttles' ||
         this.kind === 'woodenclothespins' ||
         this.kind === 'kintsugiceramic' ||
+        this.kind === 'cloisonne' ||
         this.kind === 'insulatedringlugs' ||
         this.kind === 'pencilsharpeners' ||
         this.kind === 'scissors' ||

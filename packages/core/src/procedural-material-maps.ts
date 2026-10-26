@@ -1441,6 +1441,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cloisonne': {
+        const p = proceduralMaterialPresets.cloisonne,
+          poses = new Float64Array(p.cells * p.cells * 9),
+          grainField = cachedNoise(128, 128, seed ^ 0x19411),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseCenter = 1 / (p.centerRadius * p.centerRadius),
+          inverseInterior = 1 / (2 * p.wireWidth),
+          widthSquared = p.wireWidth * p.wireWidth,
+          inverseWidthSquared = 1 / widthSquared,
+          inverseShoulder = 1 / (widthSquared - p.wireCore * p.wireCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 9,
+              angle = TAU * hash(col, row, seed ^ 0x19415);
+            for (let axis = 0; axis < 3; axis++) {
+              const a = angle + (axis * Math.PI) / 3;
+              poses[i + axis * 2] = Math.cos(a);
+              poses[i + axis * 2 + 1] = Math.sin(a);
+            }
+            poses[i + 6] = p.jitter * (2 * hash(col, row, seed ^ 0x19417) - 1);
+            poses[i + 7] = p.jitter * (2 * hash(col, row, seed ^ 0x19419) - 1);
+            poses[i + 8] = hash(col, row, seed ^ 0x1941b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 9,
+            x = fract(uc) - 0.5 - poses[i + 6],
+            y = fract(vc) - 0.5 - poses[i + 7],
+            grain = grainField(u, v);
+          let q = (x * x + y * y) * inverseCenter;
+          // Opposite petals share an axis; all owner changes lie outside wire support.
+          for (let axis = 0; axis < 3; axis++) {
+            const c = poses[i + axis * 2],
+              s = poses[i + axis * 2 + 1],
+              a = Math.abs(x * c + y * s) - p.petalCenter,
+              b = y * c - x * s;
+            q = Math.min(q, a * a * inverseX + b * b * inverseY);
+          }
+          const inside = smooth(clamp((1 + p.wireWidth - q) * inverseInterior)),
+            d = q - 1,
+            wire = smooth(clamp((widthSquared - d * d) * inverseShoulder));
+          color = 0.68 + (0.23 + 0.04 * poses[i + 8]) * inside + 0.025 * grain;
+          height = 0.25 + 0.055 * inside + 0.003 * grain;
+          roughness = p.roughness + 0.03 * grain;
+          occlusion = 0.96;
+          if (wire === 0) return;
+          const crown = 1 - d * d * inverseWidthSquared;
+          color += wire * (0.025 + 0.015 * grain - color);
+          height += wire * (0.72 + 0.08 * crown + 0.002 * grain - height);
+          roughness += wire * (0.3 + 0.03 * grain - roughness);
+          metallic = wire;
+          occlusion += 0.03 * wire - 0.15 * wire * (1 - wire);
+          return;
+        };
+      }
       case 'gyroidinfill': {
         const p = proceduralMaterialPresets.gyroidinfill,
           offsetX = hash(0, 0, seed ^ 0x19315),
@@ -31348,6 +31405,7 @@ export function createSurfaceSampler(
     kind === 'flystitch' ||
     kind === 'abaloneshells' ||
     kind === 'gyroidinfill' ||
+    kind === 'cloisonne' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||
