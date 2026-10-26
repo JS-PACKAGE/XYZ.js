@@ -1441,6 +1441,66 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rambutanskin': {
+        const p = proceduralMaterialPresets.rambutanskin,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x19511),
+          inverseLength = 1 / (2 * p.halfLength),
+          inverseRoot = 1 / (p.rootRadius * p.rootRadius),
+          inverseStart = 1 / p.rootShoulder,
+          inverseTip = 1 / p.tipShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x19515);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x19517) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x19519) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1951b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            grain = grainField(u, v);
+          color = 0.14 + 0.04 * grain;
+          height = 0.14 + 0.004 * grain;
+          roughness = p.roughness + 0.05 * grain;
+          occlusion = 0.96;
+          if (
+            x <= p.rootX - p.rootRadius ||
+            x >= p.halfLength ||
+            y <= -p.rootRadius ||
+            y >= p.bend + p.baseWidth
+          )
+            return;
+          const rx = x - p.rootX,
+            root = smooth(clamp(1 - (rx * rx + y * y) * inverseRoot)),
+            t = (x + p.halfLength) * inverseLength,
+            tone = poses[i + 4];
+          let hair = 0;
+          if (t > 0 && t < 1) {
+            const center = p.bend * (0.65 + 0.35 * tone) * t * t,
+              width = p.baseWidth + (p.tipWidth - p.baseWidth) * t,
+              side = (y - center) / width;
+            hair =
+              smooth(clamp(1 - side * side)) *
+              smooth(clamp(t * inverseStart)) *
+              smooth(clamp((1 - t) * inverseTip));
+          }
+          // The tapered curved hair grows from a collar over unbroken opaque rind.
+          color += 0.14 * root + hair * (0.5 + 0.1 * t + 0.04 * tone);
+          height += 0.12 * root + hair * (0.43 + 0.18 * t);
+          roughness -= 0.05 * root + 0.2 * hair;
+          occlusion -= 0.2 * root * (1 - root) + 0.26 * hair * (1 - hair);
+          return;
+        };
+      }
       case 'cloisonne': {
         const p = proceduralMaterialPresets.cloisonne,
           poses = new Float64Array(p.cells * p.cells * 9),
@@ -31406,6 +31466,7 @@ export function createSurfaceSampler(
     kind === 'abaloneshells' ||
     kind === 'gyroidinfill' ||
     kind === 'cloisonne' ||
+    kind === 'rambutanskin' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

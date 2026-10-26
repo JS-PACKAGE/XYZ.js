@@ -723,7 +723,221 @@ const kinds: ProceduralMaterialKind[] = [
   'abaloneshells',
   'gyroidinfill',
   'cloisonne',
+  'rambutanskin',
 ];
+
+describe('Rambutan skin with rooted curved tapering fruit hairs over unbroken rind', () => {
+  const p = proceduralMaterialPresets.rambutanskin;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const uv = (
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+    seed: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19515);
+    return [
+      (col +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x19517) - 1) +
+        x * Math.cos(angle) -
+        y * Math.sin(angle)) /
+        p.cells,
+      (row +
+        0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x19519) - 1) +
+        x * Math.sin(angle) +
+        y * Math.cos(angle)) /
+        p.cells,
+    ];
+  };
+  const center = (col: number, row: number, t: number, seed: number): number =>
+    p.bend * (0.65 + 0.35 * hash(col, row, seed ^ 0x1951b)) * t * t;
+  it.each([0, 1, 0xffffffff])(
+    'connects each curved tapered hair to a raised root collar and retains lower opaque rind for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rambutanskin', seed),
+        hair = empty(),
+        rind = empty(),
+        root = empty(),
+        early = empty(),
+        late = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...uv(col, row, 0, -0.22, seed), rind);
+          sample(...uv(col, row, p.rootX - 0.065, 0, seed), root);
+          expect(root.height - rind.height).toBeGreaterThan(0.00013);
+          for (let j = 0; j <= 24; j++) {
+            const t = 0.12 + (0.76 * j) / 24;
+            sample(
+              ...uv(
+                col,
+                row,
+                p.halfLength * (2 * t - 1),
+                center(col, row, t, seed),
+                seed,
+              ),
+              hair,
+            );
+            expect(hair.height - rind.height).toBeGreaterThan(0.00155);
+            expect(hair.color - rind.color).toBeGreaterThan(0.49);
+            expect(rind.roughness - hair.roughness).toBeGreaterThan(0.14);
+            expect(hair.metallic).toBe(0);
+            expect(hair.mortar).toBe(0);
+          }
+          sample(
+            ...uv(
+              col,
+              row,
+              -0.6 * p.halfLength,
+              center(col, row, 0.2, seed) + 0.75 * p.baseWidth,
+              seed,
+            ),
+            early,
+          );
+          sample(
+            ...uv(
+              col,
+              row,
+              0.6 * p.halfLength,
+              center(col, row, 0.8, seed) + 0.75 * p.baseWidth,
+              seed,
+            ),
+            late,
+          );
+          expect(early.height - late.height).toBeGreaterThan(0.00015);
+          const t = 0.8,
+            x = p.halfLength * (2 * t - 1);
+          sample(...uv(col, row, x, 0, seed), late);
+          sample(...uv(col, row, x, center(col, row, t, seed), seed), hair);
+          expect(hair.height - late.height).toBeGreaterThan(0.0019);
+        }
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) {
+          sample(x / 192, y / 192, hair);
+          expect(hair.color).toBeGreaterThanOrEqual(0);
+          expect(hair.color).toBeLessThanOrEqual(1);
+          expect(hair.height).toBeGreaterThanOrEqual(0.00049);
+          expect(hair.height).toBeLessThan(0.00306);
+          expect(hair.metallic).toBe(0);
+          expect(hair.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 raised golden curved hairs and lower red nonmetal opaque rind', () => {
+    const maps = generateProceduralMaps('rambutanskin', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (uv: [number, number]) =>
+      (Math.floor(uv[1] * 512) * 512 + Math.floor(uv[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const rind = pixel(uv(col, row, 0, -0.22, 7));
+        for (const t of [0.2, 0.5, 0.8]) {
+          const i = pixel(
+            uv(col, row, p.halfLength * (2 * t - 1), center(col, row, t, 7), 7),
+          );
+          expect(maps.height![i]! - maps.height![rind]!).toBeGreaterThan(80);
+          expect(
+            maps.baseColor[i + 1]! - maps.baseColor[rind + 1]!,
+          ).toBeGreaterThan(50);
+          expect(
+            maps.metallicRoughness[rind + 1]! - maps.metallicRoughness[i + 1]!,
+          ).toBeGreaterThan(15);
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.baseColor[i]! - maps.baseColor[i + 2]!).toBeGreaterThan(70);
+    }
+  });
+  it('repeats curved hair pigment relief roughness and ownership-independent fields across signed UV periods', () => {
+    const sample = createSurfaceSampler('rambutanskin', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps tapered sides root collars endpoint caps cell owners and noise grids C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rambutanskin', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.15,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              x = p.halfLength * (2 * t - 1),
+              y = center(col, row, t, seed),
+              width = p.baseWidth + (p.tipWidth - p.baseWidth) * t,
+              angle = (j * 2 * Math.PI) / 64;
+            check(...uv(col, row, x, y - width, seed));
+            check(...uv(col, row, x, y + width, seed));
+            check(
+              ...uv(
+                col,
+                row,
+                p.rootX + p.rootRadius * Math.cos(angle),
+                p.rootRadius * Math.sin(angle),
+                seed,
+              ),
+            );
+            check(col / p.cells, (row + t) / p.cells);
+            check((col + t) / p.cells, row / p.cells);
+          }
+          for (const t of [0, p.rootShoulder, 1 - p.tipShoulder, 1])
+            for (let j = -8; j <= 8; j++) {
+              const width = p.baseWidth + (p.tipWidth - p.baseWidth) * t;
+              check(
+                ...uv(
+                  col,
+                  row,
+                  p.halfLength * (2 * t - 1),
+                  center(col, row, t, seed) + (width * j) / 8,
+                  seed,
+                ),
+              );
+            }
+        }
+    }
+  });
+});
 
 describe('Cloisonne enamel flowers with closed raised brass petal and center outlines', () => {
   const p = proceduralMaterialPresets.cloisonne;

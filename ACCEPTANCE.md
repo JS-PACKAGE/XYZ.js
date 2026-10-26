@@ -8229,3 +8229,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 補齊清單後，當次定向重跑 **7項通過**（六項cloisonne field／maps回歸與公開API借用／釋放契約，6.14s）。完整suite先前單項失敗如上保留，不將定向通過記成完整suite重跑通過；當次build、typecheck、lint、format:check、API compatibility與distribution皆成功。
 - 當次再次實跑WebGPU與WebGL2的682種正式gallery並選中cloisonne、擷取mesh畫面，頁面errors空；Worker／cache／direct的512²五maps SHA256一致，cache一筆5242880 bytes／hit1 miss1、獨立textures與destroy／pool.destroy／cache.clear成功。既有681種64² seed7四maps與HEAD逐位元組一致，九份Markdown相對連結無缺失。未擴大跨瀏覽器或效能認證；本次部分gallery tab於工具呼叫間被關閉，不能追加宣稱其cleanup驗證。
 - 最終補記：上方「不將定向通過記成完整suite重跑通過」與部分tab限制保留為較早／其他驗證批次紀錄；本次實際命令已另完成七項定向（8.42s）及完整179檔／7261項測試（924.39s），不是以定向結果推估。前述頁面／cleanup errors空僅適用於本次同一工具呼叫內完成goto about:blank並讀取errors的兩個gallery批次，不擴張至上方受限制批次。
+
+## 2026-10-26 程序材質：彎曲漸尖紅毛丹果皮（rambutanskin）
+
+- 目錄682→683種，144根seeded旋轉quadratic彎毛、漸尖寬度、較高根瘤與連續較低紅皮；非脫落三叉散絲或六面尖刺。五值pose快取、128²全域grain，support在cell內；全opaque M0／mortar0、0.12 m tile／0.0035 m relief，options／Worker／cache／ownership不變。
+- 六項定向回歸與typecheck實際通過：三seed全部144根的完整抬高中心線／根瘤／變窄側緣／彎離直軸與field範圍、actual512高金黃毛／低紅皮及全opaque非金屬、signed torus等值、三seed side／根瘤／端cap／cell-owner／noise-grid C1。
+- 初稿source API512實際截圖顯示毛較短近直；改為更長quadratic彎曲與較大jitter，保留compact support與既有契約，非只換色。無hair geometry、displacement、透明縫、SSS或生長／果實模擬。
+- 調整後Source API actual512 seed7 height五maps實際生成，baseColor／normal截圖顯示較長彎曲漸尖毛與根瘤，低紅皮連續；factor0／destroy成功，errors空。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示683種、選中rambutanskin，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之rambutanskin512五maps；既有682種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7268項測試（931.94s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
