@@ -755,6 +755,7 @@ try {
     'papyrus',
     'larimar',
     'paperbark',
+    'horseshoes',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

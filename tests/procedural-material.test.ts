@@ -717,7 +717,242 @@ const kinds: ProceduralMaterialKind[] = [
   'papyrus',
   'larimar',
   'paperbark',
+  'horseshoes',
 ];
+
+describe('Iron horseshoes with six nail holes open heels and a recessed fuller', () => {
+  const p = proceduralMaterialPresets.horseshoes;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  type ShoePose = { x: number; y: number; cos: number; sin: number };
+  const pose = (col: number, row: number, seed: number): ShoePose => {
+    const angle =
+      ((row + col) & 1) * Math.PI +
+      p.turn * (2 * hash(col, row, seed ^ 0x18f15) - 1);
+    return {
+      x: col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18f17) - 1),
+      y: row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x18f19) - 1),
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+    };
+  };
+  const uv = (a: ShoePose, x: number, y: number): [number, number] => [
+    (a.x + x * a.cos - y * a.sin) / p.cells,
+    (a.y + x * a.sin + y * a.cos) / p.cells,
+  ];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps the toe joined to both branches while six holes and the open heel expose lower nonmetal backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('horseshoes', seed),
+        out = empty(),
+        groove = empty(),
+        rim = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          for (let j = 0; j <= 256; j++) {
+            const theta = (j * Math.PI) / 256;
+            sample(
+              ...uv(
+                a,
+                p.radiusX * Math.cos(theta),
+                p.toeY - p.radiusY * Math.sin(theta),
+              ),
+              out,
+            );
+            expect(out.metallic).toBeCloseTo(1, 12);
+            expect(out.height).toBeGreaterThanOrEqual(0.00559);
+            expect(out.height).toBeLessThanOrEqual(0.00565);
+            sample(
+              ...uv(a, 0, p.toeY + (j / 256) * (p.heelEnd + 0.08 - p.toeY)),
+              out,
+            );
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBe(0.0004);
+            expect(out.occlusion).toBe(0.42);
+          }
+          for (const sign of [-1, 1])
+            for (let nail = 0; nail < p.nails; nail++) {
+              sample(
+                ...uv(a, sign * p.radiusX, p.nailFirstY + nail * p.nailPitch),
+                out,
+              );
+              expect(out.metallic).toBe(0);
+              expect(out.height).toBe(0.0004);
+              expect(out.color).toBe(0.035);
+              if (nail + 1 < p.nails) {
+                sample(
+                  ...uv(
+                    a,
+                    sign * p.radiusX,
+                    p.nailFirstY + (nail + 0.5) * p.nailPitch,
+                  ),
+                  out,
+                );
+                expect(out.metallic).toBeCloseTo(1, 12);
+                expect(out.height).toBeGreaterThan(0.00559);
+              }
+            }
+          sample(...uv(a, 0, p.toeY - p.radiusY), groove);
+          sample(
+            ...uv(a, 0, p.toeY - p.radiusY * Math.sqrt(p.innerCoreQ)),
+            rim,
+          );
+          expect(rim.metallic).toBeCloseTo(1, 12);
+          expect(rim.height - groove.height).toBeGreaterThan(0.00145);
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          expect(out.color).toBeGreaterThanOrEqual(0);
+          expect(out.color).toBeLessThanOrEqual(1);
+          expect(out.height).toBeGreaterThanOrEqual(0.0004);
+          expect(out.height).toBeLessThanOrEqual(0.00724);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.42);
+          expect(out.roughness).toBeLessThanOrEqual(0.96);
+          expect(out.metallic).toBeGreaterThanOrEqual(0);
+          expect(out.metallic).toBeLessThanOrEqual(1);
+          expect(out.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes six actual512 nonmetal holes and a lower open heel while keeping the connected iron toe and fuller raised above backing', () => {
+    const maps = generateProceduralMaps('horseshoes', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (a: ShoePose, x: number, y: number) => {
+      const [u, v] = uv(a, x, y);
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const a = pose(col, row, 7),
+          gap = pixel(a, 0, 0),
+          toe = pixel(a, 0, p.toeY - p.radiusY),
+          rim = pixel(a, 0, p.toeY - p.radiusY * Math.sqrt(p.innerCoreQ));
+        expect(maps.metallicRoughness[gap + 2]).toBe(0);
+        expect(maps.height![gap]).toBe(0);
+        expect(maps.metallicRoughness[toe + 2]).toBe(255);
+        expect(maps.height![toe]! - maps.height![gap]!).toBeGreaterThan(180);
+        expect(maps.height![rim]! - maps.height![toe]!).toBeGreaterThan(40);
+        for (const sign of [-1, 1])
+          for (let nail = 0; nail < p.nails; nail++) {
+            const hole = pixel(
+              a,
+              sign * p.radiusX,
+              p.nailFirstY + nail * p.nailPitch,
+            );
+            expect(maps.metallicRoughness[hole + 2]).toBe(0);
+            expect(maps.height![hole]).toBe(0);
+            expect(
+              maps.baseColor[toe]! - maps.baseColor[hole]!,
+            ).toBeGreaterThan(60);
+            expect(
+              maps.occlusion[toe]! - maps.occlusion[hole]!,
+            ).toBeGreaterThan(120);
+          }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4)
+      expect(maps.baseColor[i + 3]).toBe(255);
+  });
+  it('repeats rotated horseshoes holes and metal-to-backing transitions across signed periods', () => {
+    const sample = createSurfaceSampler('horseshoes', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('joins the toe to straight branches and blends nail supports fuller rims heel caps and owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('horseshoes', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          for (let j = 0; j <= 128; j++) {
+            const theta = (j * Math.PI) / 128,
+              x = j / 128 - 0.5;
+            for (const q of [
+              p.innerQ,
+              p.innerCoreQ,
+              p.outerCoreQ,
+              p.outerQ,
+              1 - p.grooveWidth,
+              1 + p.grooveWidth,
+            ]) {
+              const r = Math.sqrt(q);
+              check(
+                ...uv(
+                  a,
+                  p.radiusX * r * Math.cos(theta),
+                  p.toeY - p.radiusY * r * Math.sin(theta),
+                ),
+              );
+            }
+            for (const y of [
+              p.toeY,
+              p.heelEnd,
+              p.heelEnd - p.heelShoulder,
+              p.nailFirstY + 0.5 * p.nailPitch,
+              p.nailFirstY + 1.5 * p.nailPitch,
+            ])
+              check(...uv(a, x, y));
+            for (const sign of [-1, 1])
+              for (let nail = 0; nail < p.nails; nail++)
+                for (const q of [1, p.nailCoreQ]) {
+                  const r = Math.sqrt(q),
+                    theta = (j * Math.PI) / 64;
+                  check(
+                    ...uv(
+                      a,
+                      sign * p.radiusX + r * p.nailRadiusX * Math.cos(theta),
+                      p.nailFirstY +
+                        nail * p.nailPitch +
+                        r * p.nailRadiusY * Math.sin(theta),
+                    ),
+                  );
+                }
+            check(col / p.cells, j / 128);
+            check(j / 128, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Paperbark with raised rolled lower lips over fibrous underbark', () => {
   const p = proceduralMaterialPresets.paperbark;
@@ -48936,6 +49171,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rectangularsocketfaces' &&
           kind !== 'fishhooks' &&
           kind !== 'barbedwire' &&
+          kind !== 'horseshoes' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -58367,6 +58603,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rectangularsocketfaces',
     'fishhooks',
     'barbedwire',
+    'horseshoes',
     'standingseam',
     'damascus',
     'castiron',
@@ -58458,6 +58695,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rectangularsocketfaces' ||
           kind === 'fishhooks' ||
           kind === 'barbedwire' ||
+          kind === 'horseshoes' ||
           kind === 'standingseam' ||
           kind === 'damascus' ||
           kind === 'castiron' ||

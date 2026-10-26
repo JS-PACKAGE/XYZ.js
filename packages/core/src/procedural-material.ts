@@ -691,7 +691,8 @@ export type ProceduralMaterialKind =
   | 'lacewood'
   | 'papyrus'
   | 'larimar'
-  | 'paperbark';
+  | 'paperbark'
+  | 'horseshoes';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1617,6 +1618,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'papyrus',
   'larimar',
   'paperbark',
+  'horseshoes',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1851,6 +1853,7 @@ export class ProceduralMaterial {
         this.kind === 'rectangularsocketfaces' ||
         this.kind === 'fishhooks' ||
         this.kind === 'barbedwire' ||
+        this.kind === 'horseshoes' ||
         this.kind === 'ballbearingfaces' ||
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||

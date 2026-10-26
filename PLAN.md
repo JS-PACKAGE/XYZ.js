@@ -893,6 +893,8 @@
 
 同輪追加 `paperbark`（紙皮樹皮），目錄675→676種：seeded錯位的淡色薄片、波狀撕邊、真正抬高的單側下捲唇與下方暗縫，露出仍opaque的纖維底皮。區別於白樺黑色皮孔、懸鈴木平坦斑片與厚樹皮縱裂；0.4 m tile／0.002 m relief、M0／mortar0，既有675種maps與公開options／Worker／cache／ownership不變。不新增geometry、displacement或剝落模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `horseshoes`（金屬馬蹄鐵），目錄676→677種：九枚交替朝向、seeded微轉的連續U形鐵件，各有六個低釘孔、開口跟部及低於兩側邊緣的連續fuller槽。Toe arch與直分支C1連接，孔／中央開口為低opaque M0底面、鐵件M1、mortar0；0.6 m tile／0.01 m relief，公開factor1。前676種maps與options／Worker／cache／ownership不變，不新增geometry、透明孔洞、碰撞或馬匹物理；依功能驗證commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

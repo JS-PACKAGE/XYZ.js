@@ -8163,3 +8163,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之paperbark512五maps；既有675種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7217項測試（717.33s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：六釘孔低槽金屬馬蹄鐵（horseshoes）
+
+- 目錄676→677種，九枚交替朝向並seeded微轉的連續U形鐵件，各六釘孔、開口跟部與低fuller槽。五值pose cache／min-squared toe field接直枝C1，compact squared shoulders／heel caps控制輪廓；一次nearest nail-row lookup，0.038 support小於0.07半pitch，使owner與abs-center cusp位於空孔support。鐵件M1、低孔／開口M0，全部opaque／mortar0；128² grain僅finish可見鐵件。0.6 m tile／0.01 m relief、公開factor1，逐點無配置／hash／trig／sqrt或鄰格／孔列掃描，不新增geometry、透明孔洞、碰撞或馬匹模擬。
+- Targeted六項通過（4.18s）及typecheck通過：三seed全部九枚257-point toe traces連續M1／height0.00559–0.00565 m；六孔與257-point中央至開口路徑皆M0／height0.0004 m，開口AO0.42。孔間橋M1、toe rim比fuller高>0.00145 m。129² fields color0–1／height0.0004–0.00724 m／roughness0.42–0.96／metallic0–1／mortar0。
+- Actual512每枚六孔M0／height code0，連續toe M255且比開口高>180 height codes、rim比fuller高>40 codes；toe比孔R高>60／AO高>120 codes，全圖alpha255。2048-point六通道signed periods、129² fields及toe-branch join／ring core-support／fuller／heel caps／釘孔core-support／nail-owner／cell-owner C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際677-preset gallery各選出horseshoes並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖見九枚U形輪廓與六釘孔，factor1、height存在及destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之horseshoes512五maps；既有676種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7225項測試（721.03s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

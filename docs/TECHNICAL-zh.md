@@ -1024,6 +1024,8 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 種類另支援 `paperbark`（紙皮樹皮）：3×8淡色薄片、seeded錯位列、扭曲撕邊、真正抬高的下捲唇與纖維底皮。每片六值pose加八個row phases快取，24² field正反座標扭曲兩軸；`0.45 + 0.018 + 0.02 < 0.5`及`0.33 + 0.04 + 0.3×0.45² + 0.04 < 0.5`保證coverage在column／row owner變更前歸零。Compact squared shoulders及多項式lip／shadow維持C1；僅下緣捲起，下方有暗縫，不做對稱tile rim。6×192橫纖維／12×8 cloud全域連續，128² grain只取樣可見薄片，pigment正向係數上界1而非靠clamp藏溢出。全opaque M0／mortar0、0.4 m tile／0.002 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描；既有maps、height、tint、repeats、Worker／cache及ownership不變，不新增geometry、displacement或剝皮模擬。
 
+種類另支援 `horseshoes`（金屬馬蹄鐵）：九枚交替朝向、微轉鐵件，各六釘孔、開口跟部與連續低fuller槽。每枚五值快取cos／sin／雙offset／tone；`x²/rx² + min(0, y−toeY)²/ry²`讓半橢圓toe接直枝C1，compact squared shoulders／heel cap包住U形面，同q槽降低height而非交點疊高。每側三孔只做一次nearest-row索引，0.038 support小於0.07半pitch，孔owner與abs-center cusp均在空support。0.16 rad微轉及0.012 jitter後不越cell，保持owner空底連續。鐵件M1／低釘孔及開口M0，全opaque／mortar0；128² grain只取樣可見鐵件，逐點無配置／hash／trig／sqrt或鄰格／孔列掃描。公開factor1、0.6 m tile／0.01 m relief，既有maps、height、tint、repeats、Worker／cache及ownership不變，不新增geometry、透明孔洞、碰撞或馬匹模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

@@ -1441,6 +1441,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'horseshoes': {
+        const p = proceduralMaterialPresets.horseshoes,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x18f11),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseInner = 1 / (p.innerCoreQ - p.innerQ),
+          inverseOuter = 1 / (p.outerQ - p.outerCoreQ),
+          inverseHeel = 1 / p.heelShoulder,
+          inverseGroove = 1 / p.grooveWidth,
+          inversePitch = 1 / p.nailPitch,
+          inverseNailX = 1 / (p.nailRadiusX * p.nailRadiusX),
+          inverseNailY = 1 / (p.nailRadiusY * p.nailRadiusY),
+          inverseNail = 1 / (1 - p.nailCoreQ);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle =
+                ((row + col) & 1) * Math.PI +
+                p.turn * (2 * hash(col, row, seed ^ 0x18f15) - 1);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x18f17) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x18f19) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x18f1b);
+          }
+        return () => {
+          color = 0.035;
+          height = 0.04;
+          roughness = 0.96;
+          occlusion = 0.42;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 5,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            toe = Math.min(0, y - p.toeY),
+            q = x * x * inverseX + toe * toe * inverseY,
+            ring =
+              smooth(clamp((q - p.innerQ) * inverseInner)) *
+              smooth(clamp((p.outerQ - q) * inverseOuter)) *
+              smooth(clamp((p.heelEnd - y) * inverseHeel));
+          if (ring === 0) return;
+          // Squaring the clamped toe offset joins the arch to straight branches C1.
+          // Nearest nail ownership changes only in empty space between hole supports.
+          const nail = Math.max(
+              0,
+              Math.min(
+                p.nails - 1,
+                Math.round((y - p.nailFirstY) * inversePitch),
+              ),
+            ),
+            nx = Math.abs(x) - p.radiusX,
+            ny = y - p.nailFirstY - nail * p.nailPitch,
+            holeQ = nx * nx * inverseNailX + ny * ny * inverseNailY,
+            hole = smooth(clamp((1 - holeQ) * inverseNail)),
+            body = ring * (1 - hole);
+          metallic = body;
+          if (body === 0) return;
+          const g = (q - 1) * inverseGroove,
+            groove = smooth(clamp(1 - g * g)),
+            grain = grainField(u, v);
+          color +=
+            body *
+            (0.65 +
+              0.16 * poses[i + 4] +
+              0.025 * grain -
+              0.06 * groove -
+              color);
+          height += body * (0.72 - 0.16 * groove + 0.004 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.025 * grain + 0.04 * groove - roughness);
+          occlusion += body * (0.98 - 0.035 * groove - occlusion);
+          return;
+        };
+      }
       case 'paperbark': {
         const p = proceduralMaterialPresets.paperbark,
           pieces = new Float64Array(p.columns * p.rows * 6),
@@ -31004,6 +31085,7 @@ export function createSurfaceSampler(
     kind === 'papyrus' ||
     kind === 'larimar' ||
     kind === 'paperbark' ||
+    kind === 'horseshoes' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

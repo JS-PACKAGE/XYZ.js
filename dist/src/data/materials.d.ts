@@ -7398,6 +7398,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         shadowCenter: 0.9;
         shadowRadius: 0.16;
     }>;
+    horseshoes: Readonly<{
+        dark: readonly [32, 33, 35];
+        light: readonly [196, 199, 205];
+        roughness: 0.42;
+        relief: 0.01;
+        cells: 3;
+        jitter: 0.012;
+        turn: 0.16;
+        radiusX: 0.27;
+        radiusY: 0.23;
+        toeY: -0.14;
+        innerQ: 0.58;
+        innerCoreQ: 0.85;
+        outerCoreQ: 1.15;
+        outerQ: 1.45;
+        heelEnd: 0.35;
+        heelShoulder: 0.08;
+        grooveWidth: 0.16;
+        nails: 3;
+        nailFirstY: -0.1;
+        nailPitch: 0.14;
+        nailRadiusX: 0.026;
+        nailRadiusY: 0.038;
+        nailCoreQ: 0.28;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8077,4 +8102,5 @@ export declare const proceduralTileMeters: Readonly<{
     papyrus: 0.3;
     larimar: 0.25;
     paperbark: 0.4;
+    horseshoes: 0.6;
 }>;
