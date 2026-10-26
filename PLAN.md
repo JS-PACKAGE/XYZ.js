@@ -901,6 +901,8 @@
 
 同輪追加 `abaloneshells`（鮑魚殼內面），目錄679→680種：九枚seeded旋轉的彎耳形凹面、較高殼緣、靜態淺色生長帶與單側五個低呼吸孔。相對另一側完整殼面與孔間橋保留連通，非凸殼dome或中央長裂縫；opaque M0／mortar0、0.45 m tile／0.006 m relief。前679種maps及options／Worker／cache／ownership不變，不新增geometry、透明孔洞、虹彩／thin-film shader或貝類模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `gyroidinfill`（gyroid截面填充紋），目錄680→681種：seeded雙軸平移的橘色連續圓頂曲帶與低opaque底面。採精確`z=π/4` implicit field等值帶，保留兩支解析輪廓與saddle接點，非網格生成器；M0／mortar0、0.16 m tile／0.0015 m relief。前680種maps及options／Worker／cache／ownership不變，不新增3D lattice geometry、mesh輸出、displacement、透孔或列印模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -7623,6 +7623,15 @@ export const proceduralMaterialPresets = Object.freeze({
     rimQ: 0.84,
     rimWidth: 0.085,
   }),
+  gyroidinfill: Object.freeze({
+    dark: [34, 29, 26] as const,
+    light: [235, 143, 42] as const,
+    roughness: 0.53,
+    relief: 0.0015,
+    cells: 4,
+    halfWidth: 0.26,
+    core: 0.045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8307,4 +8316,5 @@ export const proceduralTileMeters = Object.freeze({
   durianpeel: 0.24,
   flystitch: 0.12,
   abaloneshells: 0.45,
+  gyroidinfill: 0.16,
 });

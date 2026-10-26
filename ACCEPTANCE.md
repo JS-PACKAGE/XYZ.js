@@ -8203,3 +8203,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之abaloneshells512五maps；既有679種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7246項測試（731.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：連續圓頂gyroid截面填充曲帶（gyroidinfill）
+
+- 精確`z=π/4` gyroid field，seeded雙軸平移；橘色圓頂曲帶、抬高saddle接點與低opaque底面。全M0／mortar0，0.16 m tile／0.0015 m relief；只擴充既有maps，不改options／Worker／cache／ownership。
+- 六項定向回歸通過：三seed各沿兩支獨立解析輪廓與16個週期cell檢查凸帶／低底／範圍、actual512色高AO與全opaque非金屬、signed torus等值、三seed所有support／core／saddle／128² noise-grid／UV wrap的C1。
+- 開發中測試先指出height的浮點乘積不等於十進位literal，改用12位精度的物理高度比較；未修改材質來迎合測試。六項回歸與typecheck實際通過。
+- Source API actual512 seed7 height五maps已在Chromium實際生成、截圖baseColor／normal，見連續彎帶與低底；destroy成功、console errors空。不是固定world-space線寬distance field、3D lattice／mesh生成器、displacement、透明孔洞或列印模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示681種、選中gyroidinfill，sphere與maps截圖、頁面與cleanup errors空；非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之gyroidinfill512五maps；既有680種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7253項測試（754.01s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

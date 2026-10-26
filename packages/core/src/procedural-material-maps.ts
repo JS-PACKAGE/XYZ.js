@@ -1441,6 +1441,40 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gyroidinfill': {
+        const p = proceduralMaterialPresets.gyroidinfill,
+          offsetX = hash(0, 0, seed ^ 0x19315),
+          offsetY = hash(0, 0, seed ^ 0x19317),
+          grainField = cachedNoise(128, 128, seed ^ 0x19311),
+          widthSquared = p.halfWidth * p.halfWidth,
+          inverseShoulder = 1 / (widthSquared - p.core * p.core),
+          inverseWidth = 1 / widthSquared;
+        return () => {
+          const x = TAU * (p.cells * u + offsetX),
+            y = TAU * (p.cells * v + offsetY),
+            // Exact z = pi/4 gyroid slice; no nearest-cell seams or curve tracing.
+            field =
+              Math.sin(x) * Math.cos(y) +
+              Math.SQRT1_2 * (Math.sin(y) + Math.cos(x)),
+            squared = field * field;
+          color = 0.045;
+          height = 0.06;
+          roughness = 0.94;
+          occlusion = 0.65;
+          if (squared >= widthSquared) return;
+          const body = smooth(
+              clamp((widthSquared - squared) * inverseShoulder),
+            ),
+            crown = 1 - squared * inverseWidth,
+            grain = grainField(u, v);
+          color += body * (0.65 + 0.17 * crown + 0.035 * grain - color);
+          height += body * (0.43 + 0.3 * crown + 0.006 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.03 * grain - 0.04 * crown - roughness);
+          occlusion += body * (0.95 + 0.04 * crown - occlusion);
+          return;
+        };
+      }
       case 'abaloneshells': {
         const p = proceduralMaterialPresets.abaloneshells,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -31313,6 +31347,7 @@ export function createSurfaceSampler(
     kind === 'durianpeel' ||
     kind === 'flystitch' ||
     kind === 'abaloneshells' ||
+    kind === 'gyroidinfill' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

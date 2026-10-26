@@ -721,7 +721,176 @@ const kinds: ProceduralMaterialKind[] = [
   'durianpeel',
   'flystitch',
   'abaloneshells',
+  'gyroidinfill',
 ];
+
+describe('Gyroid infill with rounded exact slice contour bands over opaque backing', () => {
+  const p = proceduralMaterialPresets.gyroidinfill;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (
+    x: number,
+    y: number,
+    col: number,
+    row: number,
+    seed: number,
+  ): [number, number] => [
+    (col + x / (2 * Math.PI) - hash(0, 0, seed ^ 0x19315)) / p.cells,
+    (row + y / (2 * Math.PI) - hash(0, 0, seed ^ 0x19317)) / p.cells,
+  ];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps both analytic contour branches and saddle joins high while off-contour regions stay lower for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('gyroidinfill', seed),
+        out = empty(),
+        gap = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...uv(Math.PI / 2, 0, col, row, seed), gap);
+          expect(gap.height).toBeCloseTo(0.00009, 12);
+          expect(gap.color).toBe(0.045);
+          expect(gap.occlusion).toBe(0.65);
+          for (let j = 0; j <= 256; j++) {
+            const x = (j * 2 * Math.PI) / 256,
+              a = Math.sin(x),
+              amplitude = Math.hypot(a, Math.SQRT1_2),
+              delta = Math.atan2(a, Math.SQRT1_2),
+              angle = Math.asin(
+                Math.max(
+                  -1,
+                  Math.min(1, (-Math.SQRT1_2 * Math.cos(x)) / amplitude),
+                ),
+              );
+            for (const y of [angle - delta, Math.PI - angle - delta]) {
+              sample(...uv(x, y, col, row, seed), out);
+              expect(out.height - gap.height).toBeGreaterThan(0.001);
+              expect(out.height).toBeLessThan(0.0011041);
+              expect(out.color).toBeGreaterThanOrEqual(0.82);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          expect(out.color).toBeGreaterThanOrEqual(0);
+          expect(out.color).toBeLessThanOrEqual(1);
+          expect(out.height).toBeGreaterThan(0.0000899);
+          expect(out.height).toBeLessThan(0.0011041);
+          expect(out.roughness).toBeGreaterThan(0.489999);
+          expect(out.roughness).toBeLessThanOrEqual(0.94);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 orange contour crowns and saddle joins high over dark unbroken nonmetal backing', () => {
+    const maps = generateProceduralMaps('gyroidinfill', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (x: number, y: number, col: number, row: number) => {
+      let [u, v] = uv(x, y, col, row, 7);
+      u = ((u % 1) + 1) % 1;
+      v = ((v % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const gap = pixel(Math.PI / 2, 0, col, row);
+        expect(maps.height![gap]).toBe(0);
+        expect(maps.baseColor[gap]).toBeLessThan(50);
+        for (let j = 0; j <= 32; j++) {
+          const x = (j * 2 * Math.PI) / 32,
+            a = Math.sin(x),
+            amplitude = Math.hypot(a, Math.SQRT1_2),
+            delta = Math.atan2(a, Math.SQRT1_2),
+            angle = Math.asin(
+              Math.max(
+                -1,
+                Math.min(1, (-Math.SQRT1_2 * Math.cos(x)) / amplitude),
+              ),
+            );
+          for (const y of [angle - delta, Math.PI - angle - delta]) {
+            const crown = pixel(x, y, col, row);
+            expect(maps.height![crown]).toBeGreaterThan(235);
+            expect(maps.baseColor[crown]).toBeGreaterThan(190);
+            expect(
+              maps.occlusion[crown]! - maps.occlusion[gap]!,
+            ).toBeGreaterThan(80);
+          }
+        }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.baseColor[i]! - maps.baseColor[i + 1]!).toBeGreaterThan(5);
+    }
+  });
+  it('repeats seeded gyroid contour and PBR channels across positive and negative torus periods', () => {
+    const sample = createSurfaceSampler('gyroidinfill', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps analytic band supports cores saddle joins noise grids and UV wraps C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('gyroidinfill', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 256; j++) {
+            const x = (j * 2 * Math.PI) / 256,
+              a = Math.sin(x),
+              amplitude = Math.hypot(a, Math.SQRT1_2),
+              delta = Math.atan2(a, Math.SQRT1_2);
+            for (const f of [-p.halfWidth, -p.core, 0, p.core, p.halfWidth]) {
+              const s = (f - Math.SQRT1_2 * Math.cos(x)) / amplitude;
+              if (Math.abs(s) > 1) continue;
+              const angle = Math.asin(s);
+              for (const y of [angle - delta, Math.PI - angle - delta])
+                check(...uv(x, y, col, row, seed));
+            }
+          }
+    }
+  });
+});
 
 describe('Abalone shells with concave interiors and one row of five respiratory holes', () => {
   const p = proceduralMaterialPresets.abaloneshells;

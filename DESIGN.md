@@ -909,6 +909,8 @@
 
 `abaloneshells` 每枚快取cos／sin／雙jitter／tone／growth phase六值，Cartesian skew與parabolic bend扭曲橢圓；`0.37 + 0.07×0.37 + 0.14×0.37² + 0.012 < 0.5`保證旋轉後support仍在cell。單側五孔只做一次nearest-row索引，0.02 support小於0.05半pitch，孔owner切換在空support；另一側與孔間橋不挖空。Height隨q向邊緣升高，compact rim再抬高、中心更低；九道quartic growth pulses為靜態nacre-inspired pigment／微紋，非虹彩shader。128² grain僅finish可見殼，full孔及空shell跳過finish；全opaque M0／mortar0、0.45 m tile／0.006 m relief。逐點無配置／hash／trig／sqrt或鄰格／孔列掃描，maps與ownership沿用，不新增geometry、透明孔洞、thin-film或貝類模擬。
 
+`gyroidinfill` 只快取兩個seeded phase offsets與128² grain；精確`F=sinX cosY + (sinY+cosX)/√2`為gyroid的`z=π/4`截面，四次trig取樣保留解析曲率，不使用逐點hash／配置／sqrt、nearest-owner或curve tracing。F²讓中心crown無abs cusp，0.26 support／0.045 core的squared smooth shoulders接底C1；full core與saddle接點不切斷。曲帶height採rounded crown，空support直接回傳0.00009 m低opaque底面並跳grain；M0／mortar0、AO0.65–0.99。0.16 m tile／0.0015 m relief及既有maps／ownership沿用，不新增3D lattice、mesh輸出、geometry、displacement、透孔或列印模擬；不是固定world-space線寬的distance field。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
