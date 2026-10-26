@@ -1441,6 +1441,55 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wenge': {
+        const p = proceduralMaterialPresets.wenge,
+          pores = new Float64Array(p.columns * p.rows * 4),
+          warpField = cachedNoise(3, 4, seed ^ 0x1ae11),
+          fiberField = cachedNoise(64, 4, seed ^ 0x1ae13),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ae15),
+          bandSquared = p.bandRadius * p.bandRadius,
+          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 4,
+              width =
+                p.widthMinimum +
+                p.widthVariation * hash(col, row, seed ^ 0x1ae17),
+              length =
+                p.lengthMinimum +
+                p.lengthVariation * hash(col, row, seed ^ 0x1ae19);
+            pores[i] = 0.25 + 0.5 * hash(col, row, seed ^ 0x1ae1b);
+            pores[i + 1] = 0.4 + 0.2 * hash(col, row, seed ^ 0x1ae1d);
+            pores[i + 2] = 1 / (width * width);
+            pores[i + 3] = 1 / (length * length);
+          }
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.columns + col) * 4,
+            dx = x - col - pores[i],
+            dy = y - row - pores[i + 1],
+            q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3],
+            pore = smooth(clamp((1 - q) / p.poreShoulder)),
+            phase = u * p.bands + p.bandWarp * warpField(u, v),
+            distance = phase - Math.floor(phase + 0.5),
+            band = smooth(
+              clamp((bandSquared - distance * distance) * inverseBand),
+            ),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          // Long open vessels are actual shallow depressions; pale parenchyma
+          // bands are pigment, not proud corduroy-like strips.
+          color = 0.25 + 0.3 * band + 0.04 * fiber + 0.012 * grain;
+          color += pore * (0.035 - color);
+          height = 0.5 + 0.003 * grain - p.poreDepth * pore;
+          roughness += 0.025 * grain + 0.08 * pore;
+          occlusion = 1 - 0.25 * pore;
+          return;
+        };
+      }
       case 'fluorite': {
         const p = proceduralMaterialPresets.fluorite,
           crystals = new Float64Array(p.cells * p.cells * 6),
@@ -32997,6 +33046,7 @@ export function createSurfaceSampler(
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
+    kind === 'wenge' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

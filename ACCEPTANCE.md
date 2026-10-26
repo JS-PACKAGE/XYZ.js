@@ -8481,3 +8481,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之fluorite512五maps；既有707種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7448項測試（940.11s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：細長開放導管孔Wenge木（wenge）
+
+- 目錄708→709種：深褐直紋、淡色縱向薄壁組織帶與192個細長開放導管孔；孔實際低32 μm、較高roughness／較低AO，色帶不堆高，微粒高差≤1.2 μm。24×8孔各四值與三noise快取、owner內compact C1 support；無逐點配置／hash／trig／sqrt。全opaque M0／mortar0、0.12 m tile／0.0004 m relief；不新增geometry、透明孔、displacement、各向異性或生長模擬。
+- 專項6項全部通過（1.44s）：三seed導管中心／長軸與兩側木面30–34 μm實際深度差、color／roughness／AO對比，512²細長黑孔與較高R／較低AO opaque dielectric像素，4096 signed UV週期，以及三seed孔底／shoulder／尖端／owner／band wrap C1。
+- managed Chromium150 headless正式PBR gallery已實際擷取；WebGPU／WebGL2均顯示709種並選取wenge。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後成功；成功頁面與cleanup errors空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之wenge512五maps；既有708種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7455項測試（914.18s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

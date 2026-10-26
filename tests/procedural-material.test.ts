@@ -749,7 +749,145 @@ const kinds: ProceduralMaterialKind[] = [
   'shackles',
   'watercaltrops',
   'fluorite',
+  'wenge',
 ];
+
+describe('Wenge wood with long open vessel pores', () => {
+  const p = proceduralMaterialPresets.wenge;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pore = (seed: number, col: number, row: number) => {
+    const width =
+        p.widthMinimum + p.widthVariation * hash(col, row, seed ^ 0x1ae17),
+      length =
+        p.lengthMinimum + p.lengthVariation * hash(col, row, seed ^ 0x1ae19),
+      cx = 0.25 + 0.5 * hash(col, row, seed ^ 0x1ae1b),
+      cy = 0.4 + 0.2 * hash(col, row, seed ^ 0x1ae1d);
+    return {
+      width,
+      length,
+      uv: (x: number, y: number): [number, number] => [
+        (col + cx + x) / p.columns,
+        (row + cy + y) / p.rows,
+      ],
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'cuts long shallow vessel depressions below unraised wood pigment bands for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('wenge', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = pore(seed, col, row);
+          sample(...f.uv(0, 0), a);
+          sample(...f.uv(-2 * f.width, 0), b);
+          sample(...f.uv(2 * f.width, 0), c);
+          const depth = (b.height + c.height) / 2 - a.height;
+          expect(depth).toBeGreaterThan(0.00003);
+          expect(depth).toBeLessThan(0.000034);
+          expect(a.color).toBeLessThan(Math.min(b.color, c.color));
+          expect(a.roughness).toBeGreaterThan(
+            Math.max(b.roughness, c.roughness),
+          );
+          expect(a.occlusion).toBeLessThan(Math.min(b.occlusion, c.occlusion));
+          for (const t of [-0.8, 0.8]) {
+            sample(...f.uv(0, t * f.length), b);
+            expect(b.height).toBeLessThan(0.00017);
+            expect(b.metallic).toBe(0);
+            expect(b.mortar).toBe(0);
+          }
+        }
+    },
+  );
+  it('writes dark recessed elongated vessels with stronger AO and roughness at actual512', () => {
+    const maps = generateProceduralMaps('wenge', 512, 7, { heightMap: true });
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++) {
+        const f = pore(7, col, row),
+          [u, v] = f.uv(0, 0),
+          [su, sv] = f.uv(2 * f.width, 0),
+          i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4,
+          si = (Math.floor(sv * 512) * 512 + Math.floor(su * 512)) * 4;
+        expect(maps.baseColor[i]).toBeLessThan(maps.baseColor[si]);
+        expect(maps.occlusion[i]).toBeLessThan(maps.occlusion[si]);
+        expect(maps.metallicRoughness[i + 1]).toBeGreaterThan(
+          maps.metallicRoughness[si + 1],
+        );
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+      }
+  });
+  it('repeats open pores wood bands and all PBR channels on signed tile translations', () => {
+    const sample = createSurfaceSampler('wenge', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps vessel floors shoulders tips cell owners and band wraps C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('wenge', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = pore(seed, col, row);
+          for (let j = 0; j < 32; j++)
+            for (const r of [Math.sqrt(1 - p.poreShoulder), 1]) {
+              const theta = (2 * Math.PI * j) / 32;
+              check(
+                ...f.uv(
+                  r * f.width * Math.cos(theta),
+                  r * f.length * Math.sin(theta),
+                ),
+              );
+            }
+        }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j <= 24; j++) {
+          check(k / 128, j / 24);
+          check(j / 24, k / 128);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished fluorite with nested square cubic growth zones', () => {
   const p = proceduralMaterialPresets.fluorite;
