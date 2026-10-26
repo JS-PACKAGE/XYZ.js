@@ -1441,6 +1441,86 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'doubleedgerazorblades': {
+        const p = proceduralMaterialPresets.doubleedgerazorblades,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x19c11),
+          inverseBevel = 1 / p.bevel,
+          holeQ = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeQ - p.holeCore * p.holeCore),
+          slotQ = p.slotRadius * p.slotRadius,
+          inverseSlot = 1 / (slotQ - p.slotCore * p.slotCore),
+          inverseHone = 1 / (p.honeEnd - p.honeStart);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x19c15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19c17) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19c19) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x19c1b);
+          }
+        return () => {
+          color = 0.05;
+          height = 0.025;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          const uc = (u * p.cells) % p.cells,
+            vc = (v * p.cells) % p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfLength || ay >= p.halfWidth) return;
+          const corner =
+            smooth(clamp((ax - p.cornerX) * inverseBevel)) *
+            smooth(clamp((ay - p.cornerY) * inverseBevel));
+          let face =
+            smooth(clamp((p.halfLength - ax) * inverseBevel)) *
+            smooth(clamp((p.halfWidth - ay) * inverseBevel)) *
+            (1 - corner);
+          if (face === 0) return;
+          const hx =
+              x -
+              Math.max(
+                -p.holePitch,
+                Math.min(
+                  p.holePitch,
+                  Math.round(x / p.holePitch) * p.holePitch,
+                ),
+              ),
+            sx = x - Math.max(-p.slotHalf, Math.min(p.slotHalf, x)),
+            hole = smooth(clamp((holeQ - hx * hx - y * y) * inverseHole)),
+            slot = smooth(clamp((slotQ - sx * sx - y * y) * inverseSlot));
+          // Three circular lobes and their capsule connector share one lower opening.
+          face *= (1 - hole) * (1 - slot);
+          if (face === 0) return;
+          const hone = smooth(clamp((ay - p.honeStart) * inverseHone)),
+            grain = grainField(u, v),
+            tone = poses[i + 4],
+            bodyColor = 0.72 + 0.08 * tone + 0.02 * grain,
+            metalColor =
+              bodyColor +
+              hone * (0.9 + 0.04 * tone + 0.015 * grain - bodyColor),
+            metalHeight = 0.56 - 0.24 * hone + 0.003 * grain,
+            bodyRoughness = p.roughness + 0.04 * grain,
+            metalRoughness =
+              bodyRoughness + hone * (0.16 + 0.02 * grain - bodyRoughness);
+          color += face * (metalColor - color);
+          height += face * (metalHeight - height);
+          roughness += face * (metalRoughness - roughness);
+          occlusion += face * (0.98 + 0.01 * hone - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'cocobolo': {
         const p = proceduralMaterialPresets.cocobolo,
           warpField = cachedNoise(p.warpColumns, p.warpRows, seed ^ 0x19b11),
@@ -31795,6 +31875,7 @@ export function createSurfaceSampler(
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
     kind === 'cocobolo' ||
+    kind === 'doubleedgerazorblades' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

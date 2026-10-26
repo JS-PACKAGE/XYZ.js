@@ -730,7 +730,219 @@ const kinds: ProceduralMaterialKind[] = [
   'ogeetiles',
   'bittermelonskin',
   'cocobolo',
+  'doubleedgerazorblades',
 ];
+
+describe('Double edge steel razor blades with connected three-lobe slots and two lower polished long facets', () => {
+  const p = proceduralMaterialPresets.doubleedgerazorblades;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19c15),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19c17) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19c19) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'connects three low circular lobes through a full slot while retaining solid rails end tabs and two truly lower polished edges for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('doubleedgerazorblades', seed),
+        body = empty(),
+        edge = empty(),
+        low = empty(),
+        rail = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          sample(...uv(0, 0.08), body);
+          expect(body.metallic).toBe(1);
+          for (const sign of [-1, 1]) {
+            sample(...uv(0, sign * 0.17), edge);
+            sample(...uv(sign * 0.34, 0.17), low);
+            expect(edge.metallic).toBe(1);
+            expect(low.metallic).toBe(0);
+            expect(body.height - edge.height).toBeGreaterThan(0.000071);
+            expect(edge.height - low.height).toBeGreaterThan(0.000088);
+            expect(body.roughness - edge.roughness).toBeGreaterThan(0.13);
+            for (const other of [-1, 1]) {
+              sample(...uv(sign * 0.34, other * 0.17), low);
+              expect(low.metallic).toBe(0);
+              expect(low.height).toBeCloseTo(0.0000075, 12);
+            }
+            sample(...uv(sign * 0.34, 0), rail);
+            expect(rail.metallic).toBe(1);
+            for (let j = 0; j <= 128; j++) {
+              sample(...uv(-0.28 + (0.56 * j) / 128, sign * 0.08), rail);
+              expect(rail.metallic).toBe(1);
+              expect(rail.height).toBeGreaterThan(0.000167);
+            }
+          }
+          for (let j = 0; j <= 128; j++) {
+            sample(...uv(-p.slotHalf + (2 * p.slotHalf * j) / 128, 0), low);
+            expect(low.metallic).toBe(0);
+            expect(low.height).toBeCloseTo(0.0000075, 12);
+          }
+          for (const x of [-p.holePitch, 0, p.holePitch])
+            for (let j = 0; j <= 64; j++) {
+              const angle = (j * Math.PI) / 32;
+              sample(
+                ...uv(x + 0.03 * Math.cos(angle), 0.03 * Math.sin(angle)),
+                low,
+              );
+              expect(low.metallic).toBe(0);
+              expect(low.height).toBeCloseTo(0.0000075, 12);
+            }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, body);
+          expect(body.height).toBeGreaterThanOrEqual(0.000007499999);
+          expect(body.height).toBeLessThanOrEqual(0.00016891);
+          expect(body.metallic).toBeGreaterThanOrEqual(0);
+          expect(body.metallic).toBeLessThanOrEqual(1);
+          expect(body.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 opaque silver metallic rails and facets above nonmetal three-lobe slots and four corner cutouts', () => {
+    const maps = generateProceduralMaps('doubleedgerazorblades', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (point: [number, number]) =>
+      (Math.floor(point[1] * 512) * 512 + Math.floor(point[0] * 512)) * 4;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const uv = coordinates(col, row, 7),
+          body = pixel(uv(0, 0.08));
+        for (const sign of [-1, 1]) {
+          const edge = pixel(uv(0, sign * 0.17)),
+            low = pixel(uv(sign * p.holePitch, 0));
+          expect(maps.metallicRoughness[body + 2]).toBe(255);
+          expect(maps.metallicRoughness[edge + 2]).toBe(255);
+          expect(maps.metallicRoughness[low + 2]).toBe(0);
+          expect(maps.height![body]! - maps.height![edge]!).toBeGreaterThan(
+            100,
+          );
+          expect(maps.height![edge]! - maps.height![low]!).toBeGreaterThan(125);
+          expect(
+            maps.metallicRoughness[body + 1]! -
+              maps.metallicRoughness[edge + 1]!,
+          ).toBeGreaterThan(35);
+          expect(
+            maps.baseColor[edge + 2]! - maps.baseColor[body + 2]!,
+          ).toBeGreaterThan(20);
+          for (const other of [-1, 1]) {
+            const corner = pixel(uv(sign * 0.34, other * 0.17));
+            expect(maps.metallicRoughness[corner + 2]).toBe(0);
+            expect(maps.height![corner]).toBe(0);
+          }
+        }
+        for (const x of [-p.holePitch, -0.08, 0, 0.08, p.holePitch]) {
+          const i = pixel(uv(x, 0));
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.height![i]).toBe(0);
+        }
+      }
+    for (let i = 3; i < maps.baseColor.length; i += 4)
+      expect(maps.baseColor[i]).toBe(255);
+  });
+  it('repeats closed blade rails cutouts both honed facets and metal classification across signed UV periods', () => {
+    const sample = createSurfaceSampler('doubleedgerazorblades', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps hole and capsule shoulders clamp joins blade and corner boundaries both hone ends owners noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('doubleedgerazorblades', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          for (let j = 0; j <= 256; j++) {
+            const angle = (j * Math.PI) / 128,
+              t = j / 256;
+            for (const x of [-p.holePitch, 0, p.holePitch])
+              for (const r of [p.holeCore, p.holeRadius])
+                check(...uv(x + r * Math.cos(angle), r * Math.sin(angle)));
+            for (const sign of [-1, 1]) {
+              for (const r of [p.slotCore, p.slotRadius]) {
+                check(
+                  ...uv(
+                    sign * p.slotHalf + r * Math.cos(angle),
+                    r * Math.sin(angle),
+                  ),
+                );
+                check(...uv(-p.slotHalf + 2 * p.slotHalf * t, sign * r));
+              }
+              for (const y of [
+                p.halfWidth,
+                p.halfWidth - p.bevel,
+                p.cornerY,
+                p.cornerY + p.bevel,
+                p.honeStart,
+                p.honeEnd,
+              ])
+                check(...uv(-p.halfLength + 2 * p.halfLength * t, sign * y));
+              for (const x of [
+                p.halfLength,
+                p.halfLength - p.bevel,
+                p.cornerX,
+                p.cornerX + p.bevel,
+                p.slotHalf,
+                p.holePitch / 2,
+              ])
+                check(...uv(sign * x, -p.halfWidth + 2 * p.halfWidth * t));
+            }
+          }
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished cocobolo heartwood with flowing dark streaks and fine interleaved fibers', () => {
   const p = proceduralMaterialPresets.cocobolo;
@@ -51534,6 +51746,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'kintsugiceramic' &&
           kind !== 'cloisonne' &&
           kind !== 'rackgears' &&
+          kind !== 'doubleedgerazorblades' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -60968,6 +61181,7 @@ describe('procedural preset acquisition and ownership', () => {
     'kintsugiceramic',
     'cloisonne',
     'rackgears',
+    'doubleedgerazorblades',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -61062,6 +61276,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'kintsugiceramic' ||
           kind === 'cloisonne' ||
           kind === 'rackgears' ||
+          kind === 'doubleedgerazorblades' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||

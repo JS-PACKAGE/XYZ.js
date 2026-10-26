@@ -8302,3 +8302,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之cocobolo512五maps；既有688種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7311項測試（855.98s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：雙刃三圓連槽刀片（doubleedgerazorblades）
+
+- 目錄689→690種，九枚seeded旋轉銀片、四角低缺口、三圓瓣連成完整中央低槽、雙長研磨面真低／更亮更平滑。Support<0.433<0.5，鋼M1／低底槽M0，全opaque／mortar0、factor1、0.18 m tile／0.0003 m relief。
+- 六項定向2.53s通過：三seed全九片完整rails／端tabs／三圓連槽／四缺口／雙低平滑面、actual512雙研磨面height與roughness及亮度差／低槽M0／全opaque、signed torus及三seed hole／capsule／clamp／plate／corner／hone／owner／noise-grid／UV C1。
+- 初次五項通過、一項誤設兩個不同UV的grain相同，要求scalar亮度差>0.13；刪除這個incidental約束，未修改實作或重設門檻，actual512可見亮度差>20的驗證保留且通過。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖見連三圓槽與雙長研磨面，factor1／destroy成功、errors空。不是geometry、透明孔、切割、碰撞或機械模擬。
+- Managed Chromium150 headless正式PBR3D gallery強制WebGPU：690種與選中doubleedgerazorblades、sphere／maps截圖及goto about:blank cleanup均成功，errors空。WebGL2兩次selector截圖遇tool `Target closed`、console僅Vite連線且無page error；改960×960 viewport／整頁可見區capture後成功，觀察到同材質sphere／maps與690種，cleanup errors空，未修改引擎規避。此處不推斷關閉原因；非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之doubleedgerazorblades512五maps；既有689種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7319項測試（862.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

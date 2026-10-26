@@ -919,6 +919,8 @@
 
 同輪追加 `cocobolo`（橙紅深紋心材），目錄688→689種：橙紅底色內寬深流紋、細暗紋與縱向纖維，四份cached periodic noise共用平緩warp。深紋只是pigment，不做凸肋或凹裂，磨面微高差≤0.32 μm／AO1；全opaque M0／mortar0、0.24 m tile／0.00016 m relief。前688種maps及options／Worker／cache／ownership不變，不新增geometry、displacement、SSS、anisotropy shader或木材生長模擬。驗證後獨立commit、不push。
 
+同輪追加 `doubleedgerazorblades`（雙刃三圓連槽刀片），目錄689→690種：九枚seeded旋轉銀色雙刃刀片、四角低缺口、三圓瓣連成完整中央低槽、兩側更低更亮更平滑的長研磨面。鋼面M1／低底槽M0，全opaque／mortar0、factor1、0.18 m tile／0.0003 m relief；前689種maps及options／Worker／cache／ownership不變。不新增geometry、透明孔、切割、碰撞或機械模擬，驗證後獨立commit、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。
