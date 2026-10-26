@@ -1441,6 +1441,86 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mulberrypaper': {
+        const p = proceduralMaterialPresets.mulberrypaper,
+          stride = p.fibersPerCell * 8,
+          fibers = new Float64Array(p.cells * p.cells * stride),
+          cloudField = cachedNoise(8, 8, seed ^ 0x1a811),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a813);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let j = 0; j < p.fibersPerCell; j++) {
+              const i = (row * p.cells + col) * stride + j * 8,
+                key = seed ^ Math.imul(j + 1, 0x1a815),
+                angle = TAU * hash(col, row, key),
+                length =
+                  p.lengthMinimum +
+                  p.lengthVariation * hash(col, row, key ^ 0x31),
+                width =
+                  p.widthMinimum +
+                  p.widthVariation * hash(col, row, key ^ 0x53);
+              fibers[i] =
+                p.centerMinimum +
+                p.centerVariation * hash(col, row, key ^ 0x75);
+              fibers[i + 1] =
+                p.centerMinimum +
+                p.centerVariation * hash(col, row, key ^ 0x97);
+              fibers[i + 2] = Math.cos(angle);
+              fibers[i + 3] = Math.sin(angle);
+              fibers[i + 4] = 1 / length;
+              fibers[i + 5] = 1 / (width * width);
+              fibers[i + 6] = p.bend * (2 * hash(col, row, key ^ 0xb9) - 1);
+              fibers[i + 7] = hash(col, row, key ^ 0xdb);
+            }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            cloud = cloudField(u, v),
+            grain = grainField(u, v);
+          let lightComplement = 1,
+            darkComplement = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                offset =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  stride;
+              for (let j = 0; j < p.fibersPerCell; j++) {
+                const i = offset + j * 8,
+                  dx = x - cx - fibers[i],
+                  dy = y - cy - fibers[i + 1],
+                  along =
+                    (dx * fibers[i + 2] + dy * fibers[i + 3]) * fibers[i + 4];
+                if (Math.abs(along) >= 1) continue;
+                const envelope = 1 - along * along,
+                  across =
+                    dy * fibers[i + 2] -
+                    dx * fibers[i + 3] -
+                    fibers[i + 6] * envelope,
+                  cap = clamp(1 - across * across * fibers[i + 5]),
+                  fiber = envelope * envelope * cap * cap;
+                if (fibers[i + 7] < 0.2) darkComplement *= 1 - fiber;
+                else lightComplement *= 1 - fiber;
+              }
+            }
+          // Maximum support < .942, while omitted cells start at distance 1.15.
+          const lightFiber = 1 - lightComplement,
+            darkFiber = 1 - darkComplement,
+            coverage = 1 - lightComplement * darkComplement;
+          color = 0.74 + 0.09 * cloud + 0.015 * grain;
+          color += lightFiber * (0.97 - color);
+          color += darkFiber * (0.38 - color);
+          height =
+            0.35 + 0.025 * cloud + 0.008 * grain + p.fiberLift * coverage;
+          roughness += 0.02 * grain - 0.025 * coverage;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'brakediscs': {
         const p = proceduralMaterialPresets.brakediscs,
           poses = new Float64Array(p.cells * p.cells * 2),
@@ -32632,6 +32712,7 @@ export function createSurfaceSampler(
     kind === 'persimmonslice' ||
     kind === 'kitkattiles' ||
     kind === 'brakediscs' ||
+    kind === 'mulberrypaper' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

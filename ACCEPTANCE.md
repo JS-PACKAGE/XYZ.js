@@ -8427,3 +8427,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之brakediscs512五maps；既有701種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7405項測試（929.14s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：長彎韌皮纖維手工桑皮紙（mulberrypaper）
+
+- 目錄702→703種：暖米色雲狀紙漿、192條任意旋轉長彎韌皮纖維與少量棕色內含物，明／暗complement union使交叉纖維不無界堆高。纖維lift≤7 μm、總微高差≤13.6 μm／AO1；全opaque M0／mortar0、0.16 m tile／0.0002 m relief。不新增geometry、透明紙、SSS或造紙模擬。
+- 專項6項全部通過（2.46s）：三seed明／暗纖維與紙漿對比及物理高度上限、512²淡纖維／棕內含物／opaque M0／AO1、4096 signed UV週期，以及長纖維漸尖端／曲側support／neighborhood owner／noise lattice／tile seams C1。
+- managed Chromium150 headless source sampler 512² baseColor／normal與正式PBR gallery皆已實際擷取；強制WebGPU／WebGL2均顯示703種並選取mulberrypaper。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後截圖成功；成功頁面與cleanup errors皆空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之mulberrypaper512五maps；既有702種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7412項測試（950.39s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

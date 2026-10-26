@@ -743,7 +743,153 @@ const kinds: ProceduralMaterialKind[] = [
   'persimmonslice',
   'kitkattiles',
   'brakediscs',
+  'mulberrypaper',
 ];
+
+describe('Handmade mulberry paper with curved long bast fibers', () => {
+  const p = proceduralMaterialPresets.mulberrypaper;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const fiber = (col: number, row: number, j: number, seed: number) => {
+    const key = seed ^ Math.imul(j + 1, 0x1a815),
+      angle = 2 * Math.PI * hash(col, row, key),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      length = p.lengthMinimum + p.lengthVariation * hash(col, row, key ^ 0x31),
+      width = p.widthMinimum + p.widthVariation * hash(col, row, key ^ 0x53),
+      cx = p.centerMinimum + p.centerVariation * hash(col, row, key ^ 0x75),
+      cy = p.centerMinimum + p.centerVariation * hash(col, row, key ^ 0x97),
+      bend = p.bend * (2 * hash(col, row, key ^ 0xb9) - 1);
+    return {
+      length,
+      width,
+      bend,
+      dark: hash(col, row, key ^ 0xdb) < 0.2,
+      uv: (along: number, across: number): [number, number] => [
+        (col + cx + along * cos - across * sin) / p.cells,
+        (row + cy + along * sin + across * cos) / p.cells,
+      ],
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'embeds pale long fibers and occasional tan inclusions in opaque pulp without deep grooves for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('mulberrypaper', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let pale = 0,
+        tan = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j < p.fibersPerCell; j++) {
+            const f = fiber(col, row, j, seed);
+            sample(...f.uv(0, f.bend), a);
+            sample(...f.uv(0, f.bend - 2 * f.width), b);
+            sample(...f.uv(0, f.bend + 2 * f.width), c);
+            if (
+              !f.dark &&
+              a.color > 0.94 &&
+              a.color - Math.max(b.color, c.color) > 0.06
+            )
+              pale++;
+            if (
+              f.dark &&
+              a.color < 0.4 &&
+              Math.min(b.color, c.color) - a.color > 0.2
+            )
+              tan++;
+            expect(a.height).toBeGreaterThanOrEqual(0.00007);
+            expect(a.height).toBeLessThanOrEqual(0.0000836);
+            expect(a.occlusion).toBe(1);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(0);
+          }
+      expect(pale).toBeGreaterThan(60);
+      expect(tan).toBeGreaterThan(10);
+    },
+  );
+  it('writes pale fibers and tan inclusions on cream opaque nonmetal pulp at actual512', () => {
+    const maps = generateProceduralMaps('mulberrypaper', 512, 7, {
+      heightMap: true,
+    });
+    let light = 0,
+      dark = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.occlusion[i]).toBe(255);
+      if (maps.baseColor[i] > 242) light++;
+      if (maps.baseColor[i] < 210) dark++;
+    }
+    expect(light).toBeGreaterThan(1000);
+    expect(dark).toBeGreaterThan(300);
+  });
+  it('repeats long fibers across their cell and signed tile boundaries in every PBR channel', () => {
+    const sample = createSurfaceSampler('mulberrypaper', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps tapered tips curved side supports neighborhood owners and noise lattice seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('mulberrypaper', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j < p.fibersPerCell; j++) {
+            const f = fiber(col, row, j, seed);
+            for (const t of [-1, -0.5, 0, 0.5, 1]) {
+              const center = f.bend * (1 - t * t);
+              for (const across of [center - f.width, center, center + f.width])
+                check(...f.uv(t * f.length, across));
+            }
+          }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j < 16; j++) {
+          check(k / 128, j / 16);
+          check(j / 16, k / 128);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Drilled brake discs with five mounts and staggered twin ventilation rings', () => {
   const p = proceduralMaterialPresets.brakediscs;
