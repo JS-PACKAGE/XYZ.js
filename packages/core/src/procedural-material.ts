@@ -713,7 +713,8 @@ export type ProceduralMaterialKind =
   | 'turnbuckles'
   | 'rhodochrosite'
   | 'bayleaf'
-  | 'gabardine';
+  | 'gabardine'
+  | 'oilspotglaze';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1661,6 +1662,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rhodochrosite',
   'bayleaf',
   'gabardine',
+  'oilspotglaze',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -8391,3 +8391,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之gabardine512五maps；既有697種（含共用sampler的poplin）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7376項測試（930.27s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：黑釉褐色晶斑油滴釉（oilspotglaze）
+
+- 目錄698→699種：64枚seeded橢圓鐵氧化物晶斑、褐色內部、亮環緣與細晶pigment，共同黑褐亮釉面微高差≤0.24 μm／AO1。亮褐色保持介電材質，不是金屬環。全opaque M0／mortar0、0.16 m tile／0.00012 m relief；不新增geometry、displacement、透光或窯燒模擬。
+- 專項6項全部通過（2.40s）：三seed逐斑八方向褐心／亮環／黑底及物理磨面高度範圍、512²三色覆蓋與opaque M0／AO1、4096 signed UV週期及ellipse origin／support／rim肩部／noise lattice／owner／tile seams C1。
+- managed Chromium150 headless source sampler 512² baseColor／normal及正式PBR gallery實際擷取；強制WebGPU／WebGL2均顯示699種並選取oilspotglaze。連續backend第二張WebGL2 capture遇工具Target closed，釋放managed browser後單獨開啟800×1000 viewport截圖成功；成功頁面與cleanup errors皆空，未改引擎。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之oilspotglaze512五maps；既有698種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7383項測試（958.46s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

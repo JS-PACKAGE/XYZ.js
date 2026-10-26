@@ -1441,6 +1441,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'oilspotglaze': {
+        const p = proceduralMaterialPresets.oilspotglaze,
+          poses = new Float64Array(p.cells * p.cells * 7),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a411),
+          crystalField = cachedNoise(64, 64, seed ^ 0x1a413),
+          inverseOuter = 1 / p.outerShoulder,
+          inverseRim = 1 / p.rimShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x1a415),
+              radius =
+                p.radiusMinimum +
+                p.radiusVariation * hash(col, row, seed ^ 0x1a417),
+              aspect =
+                p.aspectMinimum +
+                p.aspectVariation * hash(col, row, seed ^ 0x1a419);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a41b) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a41d) - 1);
+            poses[i + 4] = 1 / (radius * radius);
+            poses[i + 5] = 1 / (radius * radius * aspect * aspect);
+            poses[i + 6] = hash(col, row, seed ^ 0x1a41f);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 7,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x * poses[i + 4] + y * y * poses[i + 5],
+            spot = smooth(clamp((1 - q) * inverseOuter)),
+            rim = spot * smooth(clamp((q - p.rimStart) * inverseRim)),
+            grain = grainField(u, v);
+          color = 0.035 + 0.02 * grain;
+          height = 0.42 + 0.002 * grain;
+          roughness += 0.025 * grain;
+          occlusion = 1;
+          if (spot === 0) return;
+          const crystal = crystalField(u, v);
+          // Brown iron-oxide markings lie under one dielectric glaze, not metal rings.
+          color +=
+            spot * (0.21 + 0.13 * poses[i + 6] + 0.07 * crystal) + 0.34 * rim;
+          roughness += 0.05 * spot - 0.025 * rim;
+          return;
+        };
+      }
       case 'bayleaf': {
         const p = proceduralMaterialPresets.bayleaf,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -32368,6 +32420,7 @@ export function createSurfaceSampler(
     kind === 'rackgears' ||
     kind === 'poplin' ||
     kind === 'gabardine' ||
+    kind === 'oilspotglaze' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

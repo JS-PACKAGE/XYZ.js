@@ -739,7 +739,158 @@ const kinds: ProceduralMaterialKind[] = [
   'rhodochrosite',
   'bayleaf',
   'gabardine',
+  'oilspotglaze',
 ];
+
+describe('Glossy black ceramic oil spots with brown iron oxide rims', () => {
+  const p = proceduralMaterialPresets.oilspotglaze;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (col: number, row: number, seed: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a415),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      radius =
+        p.radiusMinimum + p.radiusVariation * hash(col, row, seed ^ 0x1a417),
+      aspect =
+        p.aspectMinimum + p.aspectVariation * hash(col, row, seed ^ 0x1a419),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a41b) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1a41d) - 1);
+    return (x: number, y: number): [number, number] => [
+      (col + cx + radius * x * cos - radius * aspect * y * sin) / p.cells,
+      (row + cy + radius * x * sin + radius * aspect * y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps brown centers brighter annular rims and black surroundings under one nonmetal glaze for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('oilspotglaze', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          sample(...uv(0, 0), a);
+          for (let j = 0; j < 8; j++) {
+            const angle = (j * Math.PI) / 4;
+            sample(
+              ...uv(
+                Math.sqrt(0.75) * Math.cos(angle),
+                Math.sqrt(0.75) * Math.sin(angle),
+              ),
+              b,
+            );
+            sample(...uv(1.1 * Math.cos(angle), 1.1 * Math.sin(angle)), c);
+            expect(b.color - a.color).toBeGreaterThan(0.24);
+            expect(a.color - c.color).toBeGreaterThan(0.2);
+            for (const point of [a, b, c]) {
+              expect(point.height).toBeGreaterThanOrEqual(0.0000504);
+              expect(point.height).toBeLessThanOrEqual(0.00005064);
+              expect(point.occlusion).toBe(1);
+              expect(point.metallic).toBe(0);
+              expect(point.mortar).toBe(0);
+            }
+          }
+        }
+    },
+  );
+  it('writes dark brown centers and bright oxide rims without AO trenches or metallic paint at actual512', () => {
+    const maps = generateProceduralMaps('oilspotglaze', 512, 7, {
+      heightMap: true,
+    });
+    let dark = 0,
+      brown = 0,
+      rim = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.occlusion[i]).toBe(255);
+      if (maps.baseColor[i] < 40) dark++;
+      else if (maps.baseColor[i] < 120) brown++;
+      else rim++;
+    }
+    expect(dark).toBeGreaterThan(150000);
+    expect(brown).toBeGreaterThan(15000);
+    expect(rim).toBeGreaterThan(5000);
+  });
+  it('repeats oxide spots and all PBR channels over signed UV periods', () => {
+    const sample = createSurfaceSampler('oilspotglaze', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps ellipse origins supports rim shoulders noise lattices owners and tile seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('oilspotglaze', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const uv = coordinates(col, row, seed);
+          check(...uv(0, 0));
+          for (let j = 0; j < 32; j++) {
+            const angle = (j * Math.PI) / 16;
+            for (const q of [
+              p.rimStart,
+              p.rimStart + p.rimShoulder,
+              1 - p.outerShoulder,
+              1,
+            ])
+              check(
+                ...uv(
+                  Math.sqrt(q) * Math.cos(angle),
+                  Math.sqrt(q) * Math.sin(angle),
+                ),
+              );
+            check(col / p.cells, j / 32);
+            check(j / 32, row / p.cells);
+          }
+        }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j < 16; j++) {
+          check(k / 128, j / 16);
+          check(j / 16, k / 128);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Dense warp-faced two-over-one gabardine twill', () => {
   const p = proceduralMaterialPresets.gabardine;
