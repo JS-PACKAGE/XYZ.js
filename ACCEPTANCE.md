@@ -8436,3 +8436,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之mulberrypaper512五maps；既有702種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7412項測試（950.39s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：象牙白灰網脈白松石（howlite）
+
+- 目錄703→704種：白色礦塊與細灰色不規則網狀基質脈，雙週期warp／12×12 seeded sites／3×3 compact八次權重normalized overlap避免nearest-site切換。共磨平面微高差≤0.2 μm、AO1；灰脈不挖溝、全opaque M0／mortar0、0.24 m tile／0.0001 m relief。不新增geometry、透明裂縫、displacement或礦物模擬。
+- 專項6項全部通過（3.13s）：三seed白礦塊與灰脈面積／共磨物理高度範圍、512² ivory／gray opaque dielectric maps、4096 signed UV週期，以及三seed隨機密集取樣的雙軸C1有限差分。support1.2小於省略site最近1.3、全域site覆蓋避免除零；無逐點配置／hash／trig／sqrt。
+- managed Chromium150 headless正式PBR gallery已實際擷取；強制WebGPU／WebGL2均顯示704種並選取howlite。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後截圖成功；成功頁面與cleanup errors皆空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之howlite512五maps；既有703種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7419項測試（983.74s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

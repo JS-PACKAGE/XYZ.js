@@ -744,7 +744,93 @@ const kinds: ProceduralMaterialKind[] = [
   'kitkattiles',
   'brakediscs',
   'mulberrypaper',
+  'howlite',
 ];
+
+describe('Polished howlite with continuous fine gray matrix veins', () => {
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps the gray matrix flush with the ivory mineral for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('howlite', seed),
+        a = empty();
+      let ivory = 0,
+        gray = 0;
+      for (let j = 0; j < 16384; j++) {
+        sample((j * 0.61803398875) % 1, (j * 0.41421356237) % 1, a);
+        if (a.color > 0.85) ivory++;
+        if (a.color < 0.4) gray++;
+        expect(a.height).toBeGreaterThanOrEqual(0.00005);
+        expect(a.height).toBeLessThanOrEqual(0.0000502);
+        expect(a.occlusion).toBe(1);
+        expect(a.metallic).toBe(0);
+        expect(a.mortar).toBe(0);
+      }
+      expect(ivory).toBeGreaterThan(10000);
+      expect(gray).toBeGreaterThan(300);
+      expect(gray).toBeLessThan(4000);
+    },
+  );
+  it('renders ivory blocks separated by opaque gray dielectric veins at actual512', () => {
+    const maps = generateProceduralMaps('howlite', 512, 7, { heightMap: true });
+    let ivory = 0,
+      gray = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.occlusion[i]).toBe(255);
+      if (maps.baseColor[i] > 230) ivory++;
+      if (maps.baseColor[i] < 150) gray++;
+    }
+    expect(ivory).toBeGreaterThan(150000);
+    expect(gray).toBeGreaterThan(5000);
+  });
+  it('repeats warped matrix junctions on signed UV tiles in all surface channels', () => {
+    const sample = createSurfaceSampler('howlite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps vein junctions compact supports and warped owner boundaries C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('howlite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      for (let j = 0; j < 16384; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Handmade mulberry paper with curved long bast fibers', () => {
   const p = proceduralMaterialPresets.mulberrypaper;

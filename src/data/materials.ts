@@ -8019,6 +8019,19 @@ export const proceduralMaterialPresets = Object.freeze({
     bend: 0.04,
     fiberLift: 0.035,
   }),
+  howlite: Object.freeze({
+    dark: [72, 73, 72] as const,
+    light: [249, 247, 239] as const,
+    roughness: 0.23,
+    relief: 0.0001,
+    cells: 12,
+    siteMinimum: 0.3,
+    siteVariation: 0.4,
+    support: 1.2,
+    warp: 0.07,
+    veinThreshold: 0.44,
+    veinFeather: 0.06,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8726,4 +8739,5 @@ export const proceduralTileMeters = Object.freeze({
   kitkattiles: 0.6,
   brakediscs: 0.72,
   mulberrypaper: 0.16,
+  howlite: 0.24,
 });

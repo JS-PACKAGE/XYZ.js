@@ -1441,6 +1441,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'howlite': {
+        const p = proceduralMaterialPresets.howlite,
+          sites = new Float64Array(p.cells * p.cells * 2),
+          warpX = cachedNoise(4, 4, seed ^ 0x1a911),
+          warpY = cachedNoise(4, 4, seed ^ 0x1a913),
+          cloudField = cachedNoise(8, 8, seed ^ 0x1a915),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a917),
+          inverseSupport = 1 / (p.support * p.support);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2;
+            sites[i] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a919);
+            sites[i + 1] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a91b);
+          }
+        return () => {
+          const x = fract(u + p.warp * (warpX(u, v) - 0.5)) * p.cells,
+            y = fract(v + p.warp * (warpY(u, v) - 0.5)) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let total = 0,
+            squared = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                i =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  2,
+                dx = x - cx - sites[i],
+                dy = y - cy - sites[i + 1],
+                cap = clamp(1 - (dx * dx + dy * dy) * inverseSupport),
+                cap2 = cap * cap,
+                cap4 = cap2 * cap2,
+                weight = cap4 * cap4;
+              total += weight;
+              squared += weight * weight;
+            }
+          // Compact supports vanish before omitted cells (1.3 away). The
+          // normalized overlap avoids nearest-site derivative jumps at junctions.
+          const diversity = 1 - squared / (total * total),
+            vein = smooth(clamp((diversity - p.veinThreshold) / p.veinFeather)),
+            cloud = cloudField(u, v),
+            grain = grainField(u, v);
+          color = 0.88 + 0.08 * cloud + 0.012 * grain;
+          color += vein * (0.25 + 0.08 * cloud - color);
+          height = 0.5 + 0.002 * grain;
+          roughness += 0.015 * grain + 0.04 * vein;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'mulberrypaper': {
         const p = proceduralMaterialPresets.mulberrypaper,
           stride = p.fibersPerCell * 8,
@@ -32713,6 +32767,7 @@ export function createSurfaceSampler(
     kind === 'kitkattiles' ||
     kind === 'brakediscs' ||
     kind === 'mulberrypaper' ||
+    kind === 'howlite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
