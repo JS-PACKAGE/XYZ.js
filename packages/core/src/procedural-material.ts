@@ -702,7 +702,8 @@ export type ProceduralMaterialKind =
   | 'rackgears'
   | 'poplin'
   | 'ooliticlimestone'
-  | 'ogeetiles';
+  | 'ogeetiles'
+  | 'bittermelonskin';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1639,6 +1640,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'poplin',
   'ooliticlimestone',
   'ogeetiles',
+  'bittermelonskin',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

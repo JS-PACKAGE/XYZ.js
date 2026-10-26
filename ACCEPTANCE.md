@@ -8282,3 +8282,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之ogeetiles512五maps；既有686種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7297項測試（959.18s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：縱肋圓疣苦瓜表皮（bittermelonskin）
+
+- 目錄687→688種，十二條平緩warp的完整綠縱肋、96枚seeded大小／偏移圓疣及相連低溝。Squared compact smooth pulses保留疣／肋／溝三級真height，support≤0.445<0.5；全opaque M0／mortar0、0.18 m tile／0.0045 m relief。
+- 六項定向3.70s通過：三seed逐96疣高於不間斷rib／rib高於valley及全PBR界限，actual512三級高度／綠顏料／opaque M0、signed torus等值及三seed完整疣support／crown／rib-axis／channel／warped owner／noise-grid／UV C1。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖見圓鈍疣與完整縱肋深溝，factor0／destroy成功、errors空。不是榴槤尖刺、哈密瓜網紋、果實geometry、displacement、透明孔、SSS或生長模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示688種、選中bittermelonskin，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之bittermelonskin512五maps；既有687種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7304項測試（936.70s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

@@ -1441,6 +1441,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bittermelonskin': {
+        const p = proceduralMaterialPresets.bittermelonskin,
+          papillae = new Float64Array(p.columns * p.rows * 5),
+          ribTones = new Float64Array(p.columns),
+          warpField = cachedNoise(p.columns, p.rows, seed ^ 0x19a11),
+          grainField = cachedNoise(128, 128, seed ^ 0x19a13),
+          inverseRidgeQ = 1 / (p.ridgeRadius * p.ridgeRadius);
+        for (let col = 0; col < p.columns; col++)
+          ribTones[col] = hash(col, 0, seed ^ 0x19a15);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const offset = (row * p.columns + col) * 5,
+              rx =
+                p.radiusX + p.radiusXVariation * hash(col, row, seed ^ 0x19a17),
+              ry =
+                p.radiusY + p.radiusYVariation * hash(col, row, seed ^ 0x19a19);
+            papillae[offset] =
+              p.jitterX * (2 * hash(col, row, seed ^ 0x19a1b) - 1);
+            papillae[offset + 1] =
+              p.jitterY * (2 * hash(col, row, seed ^ 0x19a1d) - 1);
+            papillae[offset + 2] = 1 / (rx * rx);
+            papillae[offset + 3] = 1 / (ry * ry);
+            papillae[offset + 4] = hash(col, row, seed ^ 0x19a1f);
+          }
+        return () => {
+          const x =
+              (u * p.columns + 0.5 + p.warp * (warpField(u, v) - 0.5)) %
+              p.columns,
+            y = (v * p.rows + 0.5) % p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            dx = x - col - 0.5,
+            dy = y - row - 0.5,
+            ridge = 1 - smooth(clamp(dx * dx * inverseRidgeQ)),
+            offset = (row * p.columns + col) * 5,
+            wx = dx - papillae[offset],
+            wy = dy - papillae[offset + 1],
+            q = wx * wx * papillae[offset + 2] + wy * wy * papillae[offset + 3],
+            bump = q >= 1 ? 0 : smooth(1 - q),
+            grain = grainField(u, v);
+          // Rounded papillae fit inside nearest owners; the underlying rib never breaks between them.
+          color =
+            0.18 +
+            0.32 * ridge +
+            0.18 * bump +
+            0.14 * ridge * ribTones[col] +
+            0.08 * bump * papillae[offset + 4] +
+            0.02 * grain;
+          height = 0.12 + 0.32 * ridge + 0.24 * bump + 0.006 * grain;
+          roughness =
+            p.roughness + 0.1 * (1 - ridge) - 0.04 * bump + 0.02 * grain;
+          occlusion = 0.65 + 0.25 * ridge + 0.09 * bump;
+          return;
+        };
+      }
       case 'ogeetiles': {
         const p = proceduralMaterialPresets.ogeetiles,
           tones = new Float64Array(p.columns * p.rows),
@@ -31714,6 +31769,7 @@ export function createSurfaceSampler(
     kind === 'poplin' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
+    kind === 'bittermelonskin' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

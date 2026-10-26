@@ -915,6 +915,8 @@
 
 同輪追加 `ogeetiles`（對稱S曲燈籠磚），目錄686→687種：6×6交錯青綠釉面磚，以互補cubic半寬形成上下尖端、寬中段與兩側閉合S曲邊；連續灰縫真低、釉面真高，不是波浪矩形磚。全opaque M0、0.72 m tile／0.004 m relief；前686種maps及options／Worker／cache／ownership不變，不新增geometry、displacement、透明縫、施工或釉面光學模擬。驗證後獨立commit、不push。
 
+同輪追加 `bittermelonskin`（縱肋圓疣苦瓜表皮），目錄687→688種：十二條平緩warp的完整縱肋、96枚seeded大小／偏移圓鈍疣粒及相連低綠溝；疣高於肋、肋高於溝，非榴槤尖刺或哈密瓜網紋。全opaque M0／mortar0、0.18 m tile／0.0045 m relief；前687種maps與options／Worker／cache／ownership不變，不新增果實geometry、displacement、透明孔、SSS或生長模擬。驗證後獨立commit、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

@@ -923,6 +923,8 @@
 
 `ogeetiles` 以偶數六rows／六columns維持staggered torus，半寬`w(t)=0.5(1-smooth(t))`與鄰row的`w(1-t)`恰加0.5，兩個固定row候選填滿平面。平方margin `w²-dx²`避免窄尖端bevel遇axis的abs cusp；q0.0049起、0.004 smooth bevel過渡至高釉面。Nearest-column與row候選owner切換全在低灰縫support，36個seeded tones及128² grain僅finish可見face，空face提前回傳。這是field-based縫，不宣稱固定Euclidean縫寬；上下尖端自然融入灰縫。逐點無配置／hash／trig／sqrt或鄰格掃描。全opaque M0、0.72 m tile／0.004 m relief，maps與ownership沿用；無geometry、displacement、透明縫、施工或釉面光學模擬。
 
+`bittermelonskin` 快取96疣的雙offset／inverse radius²／tone五值與十二rib tones；12×8 periodic noise平緩warp，128² grain共用finish。Nearest-owner cell以正值`(coordinate+0.5)%period`歸一化；rib radius0.44、疣X radius≤0.34+jitter0.04=0.38、Y≤0.41+0.035=0.445，均小於0.5，在owner切換前C1歸零。Squared compact smooth pulse形成圓鈍疣，不用sqrt或尖冠；連續rib不隨row分段。Raw height為`0.12+0.32ridge+0.24bump+0.006grain`，保留疣／肋／溝三級真height。逐點無配置／hash／trig／sqrt或鄰格掃描；全opaque M0／mortar0、0.18 m tile／0.0045 m relief，maps與ownership沿用，無果實geometry、displacement、透明孔、SSS或生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

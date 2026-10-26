@@ -728,7 +728,202 @@ const kinds: ProceduralMaterialKind[] = [
   'poplin',
   'ooliticlimestone',
   'ogeetiles',
+  'bittermelonskin',
 ];
+
+describe('Bitter melon green skin with continuous axial ribs and rounded irregular papillae', () => {
+  const p = proceduralMaterialPresets.bittermelonskin;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const coordinates = (seed: number) => {
+    const values = new Float64Array(p.columns * p.rows);
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++)
+        values[row * p.columns + col] = hash(col, row, seed ^ 0x19a11);
+    const warp = (u: number, v: number) => {
+      const x = (((u % 1) + 1) % 1) * p.columns,
+        y = (((v % 1) + 1) % 1) * p.rows,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        tx = x - ix,
+        ty = y - iy,
+        sx = tx * tx * (3 - 2 * tx),
+        sy = ty * ty * (3 - 2 * ty),
+        a = values[iy * p.columns + ix],
+        b = values[iy * p.columns + ((ix + 1) % p.columns)],
+        c = values[((iy + 1) % p.rows) * p.columns + ix],
+        d = values[((iy + 1) % p.rows) * p.columns + ((ix + 1) % p.columns)];
+      return (
+        p.warp * ((a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy - 0.5)
+      );
+    };
+    return (x: number, y: number): [number, number] => {
+      const v = y / p.rows;
+      let low = (x - p.warp) / p.columns,
+        high = (x + p.warp) / p.columns;
+      for (let j = 0; j < 40; j++) {
+        const mid = (low + high) / 2;
+        if (mid * p.columns + warp(mid, v) < x) low = mid;
+        else high = mid;
+      }
+      return [(low + high) / 2, v];
+    };
+  };
+  const papilla = (col: number, row: number, seed: number) => ({
+    x: col + p.jitterX * (2 * hash(col, row, seed ^ 0x19a1b) - 1),
+    y: row + p.jitterY * (2 * hash(col, row, seed ^ 0x19a1d) - 1),
+    rx: p.radiusX + p.radiusXVariation * hash(col, row, seed ^ 0x19a17),
+    ry: p.radiusY + p.radiusYVariation * hash(col, row, seed ^ 0x19a19),
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps every rounded papilla above its uninterrupted rib and every rib above connected green valleys for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bittermelonskin', seed),
+        uv = coordinates(seed),
+        top = empty(),
+        rib = empty(),
+        valley = empty();
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const wart = papilla(col, row, seed);
+          sample(...uv(wart.x, wart.y), top);
+          sample(...uv(col, row + 0.5), rib);
+          sample(...uv(col + 0.5, row + 0.5), valley);
+          expect(top.height).toBeGreaterThan(0.00305);
+          expect(top.height - rib.height).toBeGreaterThan(0.00104);
+          expect(rib.height - valley.height).toBeGreaterThan(0.0014);
+          expect(top.occlusion).toBeGreaterThan(0.989);
+          expect(top.roughness).toBeLessThan(0.541);
+          expect(rib.roughness).toBeGreaterThanOrEqual(0.56);
+          expect(valley.roughness).toBeGreaterThanOrEqual(0.66);
+          for (let j = 0; j <= 64; j++) {
+            sample(...uv(col, row + j / 64), rib);
+            expect(rib.height).toBeGreaterThanOrEqual(0.001979);
+            expect(rib.occlusion).toBeGreaterThanOrEqual(0.8999);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, top);
+          expect(top.height).toBeGreaterThanOrEqual(0.00054);
+          expect(top.height).toBeLessThanOrEqual(0.003087);
+          expect(top.color).toBeGreaterThanOrEqual(0.18);
+          expect(top.color).toBeLessThanOrEqual(0.921);
+          expect(top.roughness).toBeGreaterThanOrEqual(0.52);
+          expect(top.roughness).toBeLessThanOrEqual(0.681);
+          expect(top.occlusion).toBeGreaterThanOrEqual(0.65);
+          expect(top.occlusion).toBeLessThanOrEqual(0.991);
+          expect(top.mortar).toBe(0);
+          expect(top.metallic).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 green opaque papilla crowns above connected ribs and low channels without metallic or grayscale mortar', () => {
+    const maps = generateProceduralMaps('bittermelonskin', 512, 7, {
+        heightMap: true,
+      }),
+      uv = coordinates(7);
+    const pixel = (point: [number, number]) => {
+      const u = ((point[0] % 1) + 1) % 1,
+        v = ((point[1] % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++) {
+        const wart = papilla(col, row, 7),
+          top = pixel(uv(wart.x, wart.y)),
+          rib = pixel(uv(col, row + 0.5)),
+          valley = pixel(uv(col + 0.5, row + 0.5));
+        expect(maps.height![top]! - maps.height![rib]!).toBeGreaterThan(95);
+        expect(maps.height![rib]! - maps.height![valley]!).toBeGreaterThan(135);
+        expect(maps.baseColor[top + 1]! - maps.baseColor[top]!).toBeGreaterThan(
+          30,
+        );
+        expect(
+          maps.baseColor[valley + 1]! - maps.baseColor[valley]!,
+        ).toBeGreaterThan(30);
+        expect(maps.occlusion[top]! - maps.occlusion[valley]!).toBeGreaterThan(
+          80,
+        );
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats warped ribs rounded wart ownership and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('bittermelonskin', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps rounded wart boundaries and crowns uninterrupted rib axes channels warped owners noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bittermelonskin', seed),
+        uv = coordinates(seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const wart = papilla(col, row, seed);
+          check(...uv(wart.x, wart.y));
+          for (let j = 0; j <= 128; j++) {
+            const angle = (j * Math.PI) / 64;
+            check(
+              ...uv(
+                wart.x + wart.rx * Math.cos(angle),
+                wart.y + wart.ry * Math.sin(angle),
+              ),
+            );
+          }
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64;
+            for (const x of [-0.5, -p.ridgeRadius, 0, p.ridgeRadius, 0.5])
+              check(...uv(col + x, row + t));
+            check(...uv(col + t - 0.5, row + 0.5));
+          }
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Interlocking ogee lantern tiles with mirrored cubic sides and continuous recessed grout', () => {
   const p = proceduralMaterialPresets.ogeetiles;
