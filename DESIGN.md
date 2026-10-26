@@ -903,6 +903,8 @@
 
 `horseshoes` 每枚快取cos／sin／雙jitter／tone五值。以`x²/rx² + min(0, y−toeY)²/ry²`讓半橢圓toe與兩直枝C1相接，兩側compact squared shoulders及heel cap包住連續U形面；中間fuller為同一q的低槽，不疊高度。每側三釘孔以nearest row索引一次選取，0.038 support小於0.07半pitch，owner切換在空support；abs-center cusp同樣被空support遮蔽。微轉0.16 rad與0.012 jitter後整件仍位於cell內，owner空底連續。鐵件M1／低孔與開口M0、全opaque／mortar0，128² grain僅finish可見鐵件；逐點無配置／hash／trig／sqrt或鄰格／孔列掃描。0.6 m tile／0.01 m relief及公開factor1，maps與ownership沿用，不新增geometry、透明孔洞或馬匹模擬。
 
+`durianpeel` 每刺七值cache（cos／sin、雙jitter、兩個affine profile係數與tone），八列half-cell stagger，radius0.31–0.4／jitter0.018。三對absolute planes以兩次有界polynomial rounded max交集成六面坡；`0.4×2/√3 + 0.018 < 0.5`保證support不跨owner。Quadratic foot／tip shoulders接linear中坡C1，0.055 tip plateau大於三倍0.018 rounding，使所有absolute-plane cusps位於飽和尖頂內；保留六面而不使用逐點sqrt。128² grain與6×6 cloud為global skin，profile歸零後仍是opaque底皮，不是孔；AO0.76–0.99、M0／mortar0。0.24 m tile／0.012 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描；maps與ownership沿用，不新增geometry、displacement或果實模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

@@ -692,7 +692,8 @@ export type ProceduralMaterialKind =
   | 'papyrus'
   | 'larimar'
   | 'paperbark'
-  | 'horseshoes';
+  | 'horseshoes'
+  | 'durianpeel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1619,6 +1620,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'larimar',
   'paperbark',
   'horseshoes',
+  'durianpeel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

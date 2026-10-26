@@ -1441,6 +1441,75 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'durianpeel': {
+        const p = proceduralMaterialPresets.durianpeel,
+          poses = new Float64Array(p.cells * p.cells * 7),
+          grainField = cachedNoise(128, 128, seed ^ 0x19011),
+          cloudField = cachedNoise(6, 6, seed ^ 0x19013),
+          rootThreeHalf = Math.sqrt(3) * 0.5,
+          inverseRounding = 1 / p.rounding,
+          inverseShoulder = 0.5 / p.shoulder,
+          inversePeak = 1 / (1 - p.shoulder);
+        const roundedMax = (a: number, b: number): number => {
+          const d = a - b;
+          if (d >= p.rounding) return a;
+          if (d <= -p.rounding) return b;
+          return 0.5 * (a + b) + 0.25 * (p.rounding + d * d * inverseRounding);
+        };
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x19015),
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x1901b),
+              inverseSpan = 1 / (radius - p.tipRadius);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x19017) - 1);
+            poses[i + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x19019) - 1);
+            poses[i + 4] = inverseSpan;
+            poses[i + 5] = radius * inverseSpan;
+            poses[i + 6] = hash(col, row, seed ^ 0x1901d);
+          }
+        return () => {
+          const vc = v * p.cells,
+            row = Math.floor(vc),
+            uc = u * p.cells + (row & 1) * 0.5,
+            col = Math.floor(uc) % p.cells,
+            i = (row * p.cells + col) * 7,
+            dx = fract(uc) - 0.5 - poses[i + 2],
+            dy = fract(vc) - 0.5 - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            edge = roundedMax(
+              roundedMax(Math.abs(x), Math.abs(0.5 * x + rootThreeHalf * y)),
+              Math.abs(-0.5 * x + rootThreeHalf * y),
+            ),
+            t = clamp(poses[i + 5] - edge * poses[i + 4]),
+            grain = grainField(u, v),
+            cloud = cloudField(u, v);
+          color = 0.2 + 0.07 * grain + 0.06 * cloud;
+          height = 0.12 + 0.014 * grain;
+          roughness += 0.04 * grain;
+          occlusion = 0.76;
+          if (t === 0) return;
+          // Linear six-plane slopes retain facets; quadratic foot/tip shoulders
+          // meet the rind C1. The saturated tip hides every absolute-plane cusp.
+          const ramp =
+              t < p.shoulder
+                ? t * t * inverseShoulder
+                : t > 1 - p.shoulder
+                  ? 1 - p.shoulder - (1 - t) * (1 - t) * inverseShoulder
+                  : t - 0.5 * p.shoulder,
+            spine = t === 1 ? 1 : ramp * inversePeak,
+            tone = poses[i + 6];
+          color += spine * (0.3 + 0.2 * tone);
+          height += spine * (0.62 + 0.12 * tone);
+          roughness -= 0.06 * spine;
+          occlusion += 0.23 * spine;
+          return;
+        };
+      }
       case 'horseshoes': {
         const p = proceduralMaterialPresets.horseshoes,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31086,6 +31155,7 @@ export function createSurfaceSampler(
     kind === 'larimar' ||
     kind === 'paperbark' ||
     kind === 'horseshoes' ||
+    kind === 'durianpeel' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

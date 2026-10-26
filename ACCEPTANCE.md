@@ -8173,3 +8173,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之horseshoes512五maps；既有676種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7225項測試（721.03s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：六面漸尖刺坡榴槤果皮（durianpeel）
+
+- 目錄677→678種，64枚seeded旋轉／半徑變化的錯列六面尖刺坡與連續olive rind。七值pose cache／兩次有界polynomial rounded max合成六面linear slopes，quadratic foot／tip shoulders C1；0.055飽和尖頂遮所有abs-plane cusps，0.4×2/√3+0.018<0.5保證owner切換前support歸零。128² grain／6×6 cloud為global skin，M0／mortar0、全opaque；0.24 m tile／0.012 m relief，逐點無配置／hash／trig／sqrt或鄰格掃描，不新增geometry、輪廓displacement、孔洞或果實模擬。
+- Targeted六項通過（4.26s）及typecheck通過：三seed全部64尖頂比底皮高>7 mm、color高>0.16，尖頂AO0.99／底皮AO0.76。六面同半徑normal-direction heights跨度<0.00017 m；相鄰vertex方向在相同半徑比face方向高>0.00045 m，確保六面而非圓形bumps。129² fields color0–1、height約0.00144–0.010488 m／roughness約0.73–0.83／M0／mortar0。
+- Actual512各尖頂比底皮高>190 height codes、tip R>120／rind R<105／AO差>55 codes，全圖G−B>60／M0／alpha255。2048-point六通道signed periods、129² fields、六面ridge rays／polynomial max transitions／quadratic feet與tips／staggered owner之C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際678-preset gallery各選出durianpeel並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖的normal見六面坡與柔化脊線，factor0、height存在及destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之durianpeel512五maps；既有677種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7232項測試（731.83s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

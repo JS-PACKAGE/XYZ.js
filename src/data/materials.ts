@@ -7574,6 +7574,19 @@ export const proceduralMaterialPresets = Object.freeze({
     nailRadiusY: 0.038,
     nailCoreQ: 0.28,
   }),
+  durianpeel: Object.freeze({
+    dark: [42, 66, 14] as const,
+    light: [210, 194, 82] as const,
+    roughness: 0.79,
+    relief: 0.012,
+    cells: 8,
+    jitter: 0.018,
+    radius: 0.31,
+    radiusVariation: 0.09,
+    rounding: 0.018,
+    tipRadius: 0.055,
+    shoulder: 0.12,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8255,4 +8268,5 @@ export const proceduralTileMeters = Object.freeze({
   larimar: 0.25,
   paperbark: 0.4,
   horseshoes: 0.6,
+  durianpeel: 0.24,
 });

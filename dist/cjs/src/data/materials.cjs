@@ -13343,6 +13343,27 @@ var proceduralMaterialPresets = Object.freeze({
 		nailRadiusX: .026,
 		nailRadiusY: .038,
 		nailCoreQ: .28
+	}),
+	durianpeel: Object.freeze({
+		dark: [
+			42,
+			66,
+			14
+		],
+		light: [
+			210,
+			194,
+			82
+		],
+		roughness: .79,
+		relief: .012,
+		cells: 8,
+		jitter: .018,
+		radius: .31,
+		radiusVariation: .09,
+		rounding: .018,
+		tipRadius: .055,
+		shoulder: .12
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14022,7 +14043,8 @@ var proceduralTileMeters = Object.freeze({
 	papyrus: .3,
 	larimar: .25,
 	paperbark: .4,
-	horseshoes: .6
+	horseshoes: .6,
+	durianpeel: .24
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

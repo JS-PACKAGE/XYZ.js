@@ -718,7 +718,201 @@ const kinds: ProceduralMaterialKind[] = [
   'larimar',
   'paperbark',
   'horseshoes',
+  'durianpeel',
 ];
+
+describe('Durian peel with six-facet tapered spines over unbroken rind', () => {
+  const p = proceduralMaterialPresets.durianpeel;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  type SpinePose = {
+    x: number;
+    y: number;
+    cos: number;
+    sin: number;
+    radius: number;
+  };
+  const pose = (col: number, row: number, seed: number): SpinePose => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x19015);
+    return {
+      x:
+        col +
+        0.5 -
+        (row & 1) * 0.5 +
+        p.jitter * (2 * hash(col, row, seed ^ 0x19017) - 1),
+      y: row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19019) - 1),
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+      radius: p.radius + p.radiusVariation * hash(col, row, seed ^ 0x1901b),
+    };
+  };
+  const uv = (a: SpinePose, x: number, y: number): [number, number] => [
+    (a.x + x * a.cos - y * a.sin) / p.cells,
+    (a.y + x * a.sin + y * a.cos) / p.cells,
+  ];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'raises all seeded tips above opaque rind and retains six planar slope directions rather than circular bumps for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('durianpeel', seed),
+        tip = empty(),
+        rind = empty(),
+        face = empty(),
+        vertex = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          sample(...uv(a, 0, 0), tip);
+          sample((col - (row & 1) * 0.5) / p.cells, a.y / p.cells, rind);
+          expect(tip.height - rind.height).toBeGreaterThan(0.007);
+          expect(tip.color - rind.color).toBeGreaterThan(0.16);
+          expect(tip.occlusion).toBeCloseTo(0.99, 12);
+          expect(rind.occlusion).toBe(0.76);
+          expect(rind.height).toBeLessThan(0.00161);
+          let minFace = Infinity,
+            maxFace = -Infinity;
+          for (let side = 0; side < 6; side++) {
+            const theta = (side * Math.PI) / 3,
+              r = 0.6 * a.radius;
+            sample(...uv(a, r * Math.cos(theta), r * Math.sin(theta)), face);
+            sample(
+              ...uv(
+                a,
+                r * Math.cos(theta + Math.PI / 6),
+                r * Math.sin(theta + Math.PI / 6),
+              ),
+              vertex,
+            );
+            expect(vertex.height - face.height).toBeGreaterThan(0.00045);
+            minFace = Math.min(minFace, face.height);
+            maxFace = Math.max(maxFace, face.height);
+          }
+          expect(maxFace - minFace).toBeLessThan(0.00017);
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, tip);
+          expect(tip.color).toBeGreaterThanOrEqual(0);
+          expect(tip.color).toBeLessThanOrEqual(1);
+          expect(tip.height).toBeGreaterThan(0.0014399);
+          expect(tip.height).toBeLessThan(0.0104881);
+          expect(tip.roughness).toBeGreaterThan(0.729999);
+          expect(tip.roughness).toBeLessThan(0.830001);
+          expect(tip.metallic).toBe(0);
+          expect(tip.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes resolved actual512 olive tips higher and lighter than the unbroken nonmetal rind', () => {
+    const maps = generateProceduralMaps('durianpeel', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (u: number, v: number) => {
+      u = ((u % 1) + 1) % 1;
+      v = ((v % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const a = pose(col, row, 7),
+          tip = pixel(...uv(a, 0, 0)),
+          rind = pixel((col - (row & 1) * 0.5) / p.cells, a.y / p.cells);
+        expect(maps.height![tip]! - maps.height![rind]!).toBeGreaterThan(190);
+        expect(maps.baseColor[tip]).toBeGreaterThan(120);
+        expect(maps.baseColor[rind]).toBeLessThan(105);
+        expect(maps.occlusion[tip]! - maps.occlusion[rind]!).toBeGreaterThan(
+          55,
+        );
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.baseColor[i + 1]! - maps.baseColor[i + 2]!).toBeGreaterThan(
+        60,
+      );
+    }
+  });
+  it('repeats rotated faceted spines and staggered rind across signed torus periods', () => {
+    const sample = createSurfaceSampler('durianpeel', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('blends facet ridges polynomial max transitions quadratic feet saturated tips and staggered owners C1', () => {
+    const h = 2e-9,
+      rootThreeHalf = Math.sqrt(3) / 2;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('durianpeel', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          for (let side = 0; side < 6; side++) {
+            const theta = (side * Math.PI) / 3,
+              cos = Math.cos(theta),
+              sin = Math.sin(theta);
+            for (let j = 0; j <= 16; j++) {
+              const r = (0.48 * j) / 16;
+              check(
+                ...uv(
+                  a,
+                  r * Math.cos(theta + Math.PI / 6),
+                  r * Math.sin(theta + Math.PI / 6),
+                ),
+              );
+            }
+            for (const t of [0, p.shoulder, 1 - p.shoulder, 1]) {
+              const r = a.radius - t * (a.radius - p.tipRadius);
+              check(...uv(a, r * cos, r * sin));
+            }
+            for (let j = 0; j <= 8; j++)
+              for (const sign of [-1, 1]) {
+                const x = 0.1 + j * 0.025,
+                  y = (0.5 * x - sign * p.rounding) / rootThreeHalf;
+                check(...uv(a, x * cos - y * sin, x * sin + y * cos));
+              }
+          }
+          for (let j = 0; j <= 32; j++) {
+            check((col - (row & 1) * 0.5) / p.cells, (row + j / 32) / p.cells);
+            check((col + j / 32) / p.cells, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Iron horseshoes with six nail holes open heels and a recessed fuller', () => {
   const p = proceduralMaterialPresets.horseshoes;
