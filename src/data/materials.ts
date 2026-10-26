@@ -7705,6 +7705,20 @@ export const proceduralMaterialPresets = Object.freeze({
     warpFibers: 192,
     weftFibers: 96,
   }),
+  ooliticlimestone: Object.freeze({
+    dark: [115, 95, 69] as const,
+    light: [229, 219, 194] as const,
+    roughness: 0.46,
+    relief: 0.00012,
+    cells: 12,
+    jitter: 0.03,
+    radius: 0.32,
+    radiusVariation: 0.1,
+    warp: 0.22,
+    shoulder: 0.15,
+    nucleusOuterQ: 0.07,
+    nucleusCoreQ: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8394,4 +8408,5 @@ export const proceduralTileMeters = Object.freeze({
   rambutanskin: 0.12,
   rackgears: 0.6,
   poplin: 0.016,
+  ooliticlimestone: 0.024,
 });

@@ -911,6 +911,8 @@
 
 同輪追加 `poplin`（細經粗緯府綢），目錄684→685種：48細經／24粗緯、單紗一上一下交錯，玫瑰色棉紗呈較寬橫向緯肋與較細密經紗，非牛津紡成對2×2。高低lift是真height差，不只換色；全opaque M0／mortar0、0.016 m tile／0.0003 m relief。前684種maps及options／Worker／cache／ownership不變，不新增紗線geometry、透明織孔、cloth physics或anisotropy shader。驗證後獨立commit、不push。
 
+同輪追加 `ooliticlimestone`（磨面鮞粒石灰岩），目錄685→686種：淡暖石灰基質內144枚seeded大小／偏移鮞粒、3或4道同心皮殼與較暗核；雙軸periodic warp打散直列。皮殼／核僅pigment，不做凸珠或凹洞；全opaque M0／mortar0、AO1、0.024 m tile／0.00012 m relief，整面微高差上限0.24 μm。前685種maps與options／Worker／cache／ownership不變，不新增geometry、displacement、透光或地質生長模擬。驗證後獨立commit、不push。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

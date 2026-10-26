@@ -1441,6 +1441,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'ooliticlimestone': {
+        const p = proceduralMaterialPresets.ooliticlimestone,
+          grains = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x19811),
+          matrixField = cachedNoise(16, 16, seed ^ 0x19813),
+          phaseX = TAU * hash(0, 0, seed ^ 0x19815),
+          phaseY = TAU * hash(0, 0, seed ^ 0x19817),
+          inverseShoulder = 1 / p.shoulder,
+          inverseNucleus = 1 / (p.nucleusOuterQ - p.nucleusCoreQ);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x19819);
+            grains[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1981b) - 1);
+            grains[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1981d) - 1);
+            grains[i + 2] = 1 / (radius * radius);
+            grains[i + 3] = hash(col, row, seed ^ 0x1981f);
+            grains[i + 4] = hash(col, row, seed ^ 0x19821) < 0.5 ? 3 : 4;
+          }
+        return () => {
+          // Normalize in cell units: fract(-epsilon) can round to 1 and index past the table.
+          const uc =
+              (u * p.cells + p.warp * Math.sin(TAU * v + phaseX) + p.cells) %
+              p.cells,
+            vc =
+              (v * p.cells + p.warp * Math.sin(TAU * u + phaseY) + p.cells) %
+              p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            x = fract(uc) - grains[i],
+            y = fract(vc) - grains[i + 1],
+            q = (x * x + y * y) * grains[i + 2],
+            body = smooth(clamp((1 - q) * inverseShoulder)),
+            grain = grainField(u, v);
+          // Cut mineral cortex/nuclei are pigment, not raised beads or drilled pits.
+          height = 0.35 + 0.002 * grain;
+          roughness = p.roughness + 0.018 * grain;
+          occlusion = 1;
+          color = 0.76 + 0.06 * matrixField(u, v) + 0.02 * grain;
+          if (body === 0) return;
+          const phase = fract(grains[i + 4] * q),
+            cortex = 16 * phase * phase * (1 - phase) * (1 - phase),
+            nucleus = smooth(clamp((p.nucleusOuterQ - q) * inverseNucleus)),
+            tone = grains[i + 3],
+            shell = 0.5 + 0.18 * cortex + 0.08 * tone + 0.02 * grain,
+            core = 0.12 + 0.05 * tone + 0.02 * grain;
+          color += body * (shell + nucleus * (core - shell) - color);
+          roughness += 0.025 * body * cortex;
+          return;
+        };
+      }
       case 'poplin': {
         const p = proceduralMaterialPresets.poplin,
           grainField = cachedNoise(128, 128, seed ^ 0x19711),
@@ -31614,6 +31667,7 @@ export function createSurfaceSampler(
     kind === 'rambutanskin' ||
     kind === 'rackgears' ||
     kind === 'poplin' ||
+    kind === 'ooliticlimestone' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

@@ -726,7 +726,194 @@ const kinds: ProceduralMaterialKind[] = [
   'rambutanskin',
   'rackgears',
   'poplin',
+  'ooliticlimestone',
 ];
+
+describe('Honed oolitic limestone cortex grains with darker nuclei on one nearly flat cut face', () => {
+  const p = proceduralMaterialPresets.ooliticlimestone;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const unwarp = (x: number, y: number, seed: number): [number, number] => {
+    const phaseX = 2 * Math.PI * hash(0, 0, seed ^ 0x19815),
+      phaseY = 2 * Math.PI * hash(0, 0, seed ^ 0x19817);
+    let u = x / p.cells,
+      v = y / p.cells;
+    for (let j = 0; j < 24; j++) {
+      const nextU = (x - p.warp * Math.sin(2 * Math.PI * v + phaseX)) / p.cells;
+      v = (y - p.warp * Math.sin(2 * Math.PI * u + phaseY)) / p.cells;
+      u = nextU;
+    }
+    return [u, v];
+  };
+  const uv = (
+    col: number,
+    row: number,
+    q: number,
+    angle: number,
+    seed: number,
+  ): [number, number] => {
+    const radius =
+        (p.radius + p.radiusVariation * hash(col, row, seed ^ 0x19819)) *
+        Math.sqrt(q),
+      x = col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1981b) - 1),
+      y = row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1981d) - 1);
+    return unwarp(
+      x + radius * Math.cos(angle),
+      y + radius * Math.sin(angle),
+      seed,
+    );
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains dark nuclei and complete alternating cortex pigment without bead or pit relief for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ooliticlimestone', seed),
+        core = empty(),
+        matrix = empty(),
+        bright = empty(),
+        dark = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...uv(col, row, 0, 0, seed), core);
+          sample(...unwarp(col + 0.01, row + 0.01, seed), matrix);
+          expect(matrix.color - core.color).toBeGreaterThan(0.55);
+          expect(Math.abs(matrix.height - core.height)).toBeLessThan(
+            0.000000241,
+          );
+          const bands = hash(col, row, seed ^ 0x19821) < 0.5 ? 3 : 4;
+          for (let ring = 0; ring + 1 < bands; ring++)
+            for (let j = 0; j <= 32; j++) {
+              const angle = (j * 2 * Math.PI) / 32;
+              sample(
+                ...uv(col, row, (ring + 0.5) / bands, angle, seed),
+                bright,
+              );
+              sample(...uv(col, row, (ring + 1) / bands, angle, seed), dark);
+              expect(bright.color - dark.color).toBeGreaterThan(0.14);
+              expect(dark.color - core.color).toBeGreaterThan(0.29);
+              expect(Math.abs(bright.height - dark.height)).toBeLessThan(
+                0.000000241,
+              );
+              expect(bright.occlusion).toBe(1);
+              expect(dark.occlusion).toBe(1);
+              expect(bright.metallic).toBe(0);
+              expect(bright.mortar).toBe(0);
+            }
+        }
+      for (let y = 0; y <= 192; y++)
+        for (let x = 0; x <= 192; x++) {
+          sample(x / 192, y / 192, core);
+          expect(core.color).toBeGreaterThanOrEqual(0);
+          expect(core.color).toBeLessThanOrEqual(1);
+          expect(core.height).toBeGreaterThan(0.00004199);
+          expect(core.height).toBeLessThan(0.000042241);
+          expect(core.roughness).toBeGreaterThanOrEqual(0.46);
+          expect(core.roughness).toBeLessThanOrEqual(0.503);
+          expect(core.occlusion).toBe(1);
+          expect(core.metallic).toBe(0);
+          expect(core.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 darker grain nuclei in pale nonmetal opaque limestone matrix without false occlusion pits', () => {
+    const maps = generateProceduralMaps('ooliticlimestone', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (uv: [number, number]) => {
+      const u = ((uv[0] % 1) + 1) % 1,
+        v = ((uv[1] % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const core = pixel(uv(col, row, 0, 0, 7)),
+          matrix = pixel(unwarp(col + 0.01, row + 0.01, 7));
+        expect(maps.baseColor[matrix]! - maps.baseColor[core]!).toBeGreaterThan(
+          55,
+        );
+        expect(
+          maps.baseColor[matrix + 2]! - maps.baseColor[core + 2]!,
+        ).toBeGreaterThan(60);
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.occlusion[i]).toBe(255);
+    }
+  });
+  it('repeats warped cortex nuclei and all PBR fields across signed UV torus periods', () => {
+    const sample = createSurfaceSampler('ooliticlimestone', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps cortex phase resets nuclei support edges warped cell owners noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ooliticlimestone', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels) {
+            const jump = Math.abs((c[key] - 2 * b[key] + a[key]) / h);
+            if (!Number.isFinite(jump))
+              throw new Error(
+                `Nonfinite ${key} at seed=${seed}, u=${u}, v=${v}, axis=${axis}: ${a[key]}, ${b[key]}, ${c[key]}`,
+              );
+            maximumDerivativeJump = Math.max(maximumDerivativeJump, jump);
+          }
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const bands = hash(col, row, seed ^ 0x19821) < 0.5 ? 3 : 4;
+          for (let j = 0; j <= 64; j++) {
+            const angle = (j * 2 * Math.PI) / 64;
+            for (const q of [
+              0,
+              p.nucleusCoreQ,
+              p.nucleusOuterQ,
+              1 - p.shoulder,
+              1,
+            ])
+              check(...uv(col, row, q, angle, seed));
+            for (let band = 1; band < bands; band++)
+              check(...uv(col, row, band / bands, angle, seed));
+            check(...unwarp(col, row + j / 64, seed));
+            check(...unwarp(col + j / 64, row, seed));
+          }
+        }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Poplin with finer denser warp and coarser one-over-one weft ribs', () => {
   const p = proceduralMaterialPresets.poplin;

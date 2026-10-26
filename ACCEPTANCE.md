@@ -8261,3 +8261,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之poplin512五maps；既有684種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7283項測試（902.56s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：磨面同心皮殼鮞粒石灰岩（ooliticlimestone）
+
+- 目錄685→686種，144枚seeded大小／偏移鮞粒、3／4同心皮殼與暗核、淡暖基質，雙periodic sine warp；compact support≤0.45<0.5。皮殼／核僅pigment，共同磨面全微高差≤0.24 μm／AO1，全opaque M0／mortar0、0.024 m tile／0.00012 m relief。
+- 六項定向與typecheck實際通過：三seed逐144粒／每皮殼完整色環／暗核／基質與共同微高差界限、actual512暗核對淡基質／全opaque非金屬AO255、signed torus等值、三seed cortex resets／nucleus／support／warped owner／noise-grid／UV C1。
+- C1先捕捉seed0精確warped owner邊界的NaN：`fract(-1.7347e-18)`捨入1，vCell=12導致index超界。改在cell units做正模歸一化，保留同一完整採樣及finite診斷，六項回歸5.48s通過；未clamp或跳過該點。
+- Source API actual512 seed7 height五maps實際生成、baseColor／normal截圖見同心皮殼與近乎平坦磨面；factor0／destroy成功，errors空。不是凸珠／凹洞、geometry、displacement、透光或地質生長模擬。
+- Managed Chromium150 headless正式PBR3D gallery分別強制WebGPU／WebGL2：實際顯示686種、選中ooliticlimestone，sphere與maps截圖、同次goto about:blank後cleanup errors空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之ooliticlimestone512五maps；既有685種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7290項測試（968.14s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

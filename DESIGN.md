@@ -919,6 +919,8 @@
 
 `poplin` 沿用既有Oxford單層ownership／compact lift方式但改為單紗1×1與不等密度：48細經／24粗緯，radius／core分別0.22／0.16及0.4／0.32，皆在owner前C1歸零。各crossing parity決定單一上層；lift在經0.30／緯0.46半寬與0.06肩內消退，跨row／col時連續紗不跳height。細經base0.30／crown0.04、粗緯base0.44／crown0.07，交錯±0.12 lift呈橫肋，不是色彩checker。192經纖／96緯纖為quartic-like smooth compact脈，128² seeded grain只finish可見紗；空coverage提前回傳。逐點無配置／hash／trig／sqrt或鄰紗掃描，偶數48／24令signed UV torus與parity一致。全opaque M0／mortar0、0.016 m tile／0.0003 m relief，maps與ownership沿用；無紗線geometry、透明織孔、cloth physics或anisotropy shader。
 
+`ooliticlimestone` 每鮞粒快取雙center、inverse radius²、tone與3／4 cortex count五值；radius0.32–0.42、jitter0.03令support≤0.45<0.5。雙periodic sine warp保留C1，cell-units正模運算防止`fract(-epsilon)`浮點捨入1而越table。Squared q以0.15 shoulder接基質，quartic phase pulse呈同心皮殼、q0.04–0.07 smooth暗核；無sqrt／atan2或鄰粒掃描。128² grain只影響共同磨面微高差／finish，16² noise調基質，height始終`0.35+0.002grain`、AO1，不把核／皮殼做成珠或洞；全高差≤0.24 μm。逐點兩次trig，無配置／hash／sqrt／nearest曲線迭代。全opaque M0／mortar0、0.024 m tile／0.00012 m relief，maps與ownership沿用，無geometry、displacement、透光或地質生長模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。
