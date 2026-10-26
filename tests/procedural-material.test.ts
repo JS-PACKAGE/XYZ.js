@@ -719,7 +719,197 @@ const kinds: ProceduralMaterialKind[] = [
   'paperbark',
   'horseshoes',
   'durianpeel',
+  'flystitch',
 ];
+
+describe('Flystitch with connected Y shaped thread over finely woven cloth', () => {
+  const p = proceduralMaterialPresets.flystitch;
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  type StitchPose = { x: number; y: number; cos: number; sin: number };
+  const pose = (col: number, row: number, seed: number): StitchPose => {
+    const angle =
+      ((row + col) & 1) * Math.PI +
+      p.turn * (2 * hash(col, row, seed ^ 0x19115) - 1);
+    return {
+      x: col + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19117) - 1),
+      y: row + 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x19119) - 1),
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+    };
+  };
+  const ends = [
+    [-p.armX, p.armY],
+    [p.armX, p.armY],
+    [0, p.stemEnd],
+  ] as const;
+  const uv = (a: StitchPose, x: number, y: number): [number, number] => [
+    (a.x + x * a.cos - y * a.sin) / p.cells,
+    (a.y + x * a.sin + y * a.cos) / p.cells,
+  ];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps both arms and the anchoring stem connected above opaque cloth without doubled junction height for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('flystitch', seed),
+        junction = empty(),
+        out = empty(),
+        gap = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          sample(...uv(a, 0, 0), junction);
+          sample(...uv(a, 0, -0.18), gap);
+          expect(gap.occlusion).toBe(0.94);
+          expect(gap.height).toBeLessThan(0.000154);
+          expect(junction.color - gap.color).toBeGreaterThan(0.62);
+          for (const [ex, ey] of ends)
+            for (let j = 0; j <= 128; j++) {
+              sample(...uv(a, (ex * j) / 128, (ey * j) / 128), out);
+              expect(out.height - gap.height).toBeGreaterThan(0.00072);
+              expect(out.height).toBeLessThan(0.000886);
+              expect(Math.abs(out.height - junction.height)).toBeLessThan(
+                0.00001,
+              );
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+              expect(out.metallic).toBe(0);
+              expect(out.mortar).toBe(0);
+            }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          expect(out.color).toBeGreaterThanOrEqual(0);
+          expect(out.color).toBeLessThanOrEqual(1);
+          expect(out.height).toBeGreaterThan(0.0001319);
+          expect(out.height).toBeLessThan(0.0008857);
+          expect(out.roughness).toBeGreaterThanOrEqual(0.78);
+          expect(out.roughness).toBeLessThanOrEqual(0.945);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 pale raised arms stems and junctions over dark opaque cloth', () => {
+    const maps = generateProceduralMaps('flystitch', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (a: StitchPose, x: number, y: number) => {
+      const [u, v] = uv(a, x, y);
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const a = pose(col, row, 7),
+          gap = pixel(a, 0, -0.18);
+        expect(maps.baseColor[gap]).toBeLessThan(40);
+        for (const [ex, ey] of ends)
+          for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            const thread = pixel(a, ex * t, ey * t);
+            expect(maps.height![thread]! - maps.height![gap]!).toBeGreaterThan(
+              230,
+            );
+            expect(maps.baseColor[thread]).toBeGreaterThan(170);
+            expect(
+              maps.baseColor[thread]! - maps.baseColor[gap]!,
+            ).toBeGreaterThan(130);
+            expect(
+              maps.occlusion[thread]! - maps.occlusion[gap]!,
+            ).toBeGreaterThan(10);
+          }
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats Y stitches fine cloth and PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('flystitch', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('blends round yarn supports projection joins saturated thread branches cloth wraps and cell owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('flystitch', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let k = 0; k <= p.threads; k++)
+        for (let j = 0; j <= 16; j++) {
+          check(k / p.threads, j / 16);
+          check(j / 16, k / p.threads);
+        }
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const a = pose(col, row, seed);
+          for (const [ex, ey] of ends) {
+            const length = Math.hypot(ex, ey),
+              nx = -ey / length,
+              ny = ex / length;
+            for (let j = 0; j <= 32; j++)
+              for (const sign of [-1, 1])
+                check(
+                  ...uv(
+                    a,
+                    (ex * j) / 32 + sign * nx * p.radius,
+                    (ey * j) / 32 + sign * ny * p.radius,
+                  ),
+                );
+            for (const t of [0, 1])
+              for (let j = 0; j <= 64; j++) {
+                const theta = (j * Math.PI) / 32,
+                  offset = (j / 32 - 1) * p.radius;
+                check(
+                  ...uv(
+                    a,
+                    t * ex + p.radius * Math.cos(theta),
+                    t * ey + p.radius * Math.sin(theta),
+                  ),
+                );
+                check(...uv(a, t * ex + nx * offset, t * ey + ny * offset));
+              }
+          }
+          for (let j = 0; j <= 128; j++) {
+            check(col / p.cells, j / 128);
+            check(j / 128, row / p.cells);
+          }
+        }
+    }
+  });
+});
 
 describe('Durian peel with six-facet tapered spines over unbroken rind', () => {
   const p = proceduralMaterialPresets.durianpeel;

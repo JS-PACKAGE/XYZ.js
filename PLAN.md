@@ -897,6 +897,8 @@
 
 同輪追加 `durianpeel`（榴槤果皮），目錄677→678種：64枚錯列、seeded旋轉與半徑變化的六面漸尖刺坡，圓化脊線、柔化尖端與連續olive rind。沿六平面的linear slopes而非圓形bumps或四面泡棉，尖頂比底皮高>7 mm；opaque M0／mortar0、0.24 m tile／0.012 m relief。前677種maps及options／Worker／cache／ownership不變，不新增刺狀geometry、displacement、透明孔洞或果實模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
 
+同輪追加 `flystitch`（飛針繡），目錄678→679種：36組交替朝向的淺色Y形V雙臂及短固定莖，抬高於深色細織底布，交會處不疊高度。三個rounded yarn profiles以product union連續相接，192條quartic細織紋不逐點trig；全opaque M0／mortar0、0.12 m tile／0.0012 m relief。前678種maps與options／Worker／cache／ownership不變，不新增線geometry、透孔、針線或布料模擬；驗證後依功能commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

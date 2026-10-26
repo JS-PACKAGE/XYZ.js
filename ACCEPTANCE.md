@@ -8183,3 +8183,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
 - Fresh Node產生當次dist之durianpeel512五maps；既有677種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7232項測試（731.83s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：淺線深布Y形飛針繡（flystitch）
+
+- 目錄678→679種，36組交替朝向微轉的淺色Y形V雙臂及短固定莖，抬高於深色細織布。五值pose cache／兩arm projections與一closed-form stem組成rounded capsules，product-complement union保持接點相連但不疊三線height；compact supports在cell-owner前歸零，tight rectangle略過空glyph projections。共享128² grain／192條雙向quartic pulses，full yarn略過隱藏底布、body0略過線finish。全opaque M0／mortar0、0.12 m tile／0.0012 m relief，逐點無配置／hash／trig／sqrt，不新增geometry、透孔、針線或布料模擬。
+- Targeted六項通過（5.88s）及typecheck通過：三seed全部36組三腿各129-point traces比V中間底布高>0.00072 m，height<0.000886 m且相對junction差<0.00001 m，AO0.99，不疊高或斷線；底布height<0.000154 m／AO0.94，junction color高>0.62。129² fields color0–1、height約0.000132–0.0008856 m／roughness0.78–0.945／M0／mortar0。
+- Actual512每腿端點與0／0.25／0.5／0.75／1 traces的thread R>170、底布R<40／差>130 codes，thread比底布高>230 height codes／AO高>10 codes；全圖M0／alpha255。2048-point六通道signed periods、129² fields、yarn supports／caps／projection joins／full-thread branches／192-thread cloth wraps／cell-owner C1 guards通過。
+- Managed Chromium強制WebGPU／WebGL2實際679-preset gallery各選出flystitch並擷取mesh／四maps，page及about:blank cleanup errors空、tabs已關閉。公開API512／height細節圖見交替Y針腳與三腿junction，factor0、height存在及destroyed=true。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- 既有strict-CSP靜態部署server下，shipped dist公開API512／seed7／height／tint[0.8,1,0.9]／repeats3的direct、Native Worker及cache-hit五maps SHA256全部相同；cache一筆5242880 bytes／一hit一miss、Worker completed1／failed0。各textures獨立擁有，destroy其中一preset不影響另一、pool.destroy／cache.clear成功，browser errors空。
+- Fresh Node產生當次dist之flystitch512五maps；既有678種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；未升版、不push。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7239項測試（725.41s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

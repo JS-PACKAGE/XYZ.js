@@ -7587,6 +7587,20 @@ export const proceduralMaterialPresets = Object.freeze({
     tipRadius: 0.055,
     shoulder: 0.12,
   }),
+  flystitch: Object.freeze({
+    dark: [15, 29, 47] as const,
+    light: [237, 229, 206] as const,
+    roughness: 0.78,
+    relief: 0.0012,
+    cells: 6,
+    jitter: 0.015,
+    turn: 0.1,
+    armX: 0.27,
+    armY: -0.28,
+    stemEnd: 0.3,
+    radius: 0.036,
+    threads: 192,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8269,4 +8283,5 @@ export const proceduralTileMeters = Object.freeze({
   paperbark: 0.4,
   horseshoes: 0.6,
   durianpeel: 0.24,
+  flystitch: 0.12,
 });
