@@ -1441,6 +1441,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dimity': {
+        const p = proceduralMaterialPresets.dimity,
+          grainField = cachedNoise(128, 128, seed ^ 0x19e11),
+          inverseWarp = 1 / (p.warpRadius * p.warpRadius),
+          inverseCord = 1 / (p.cordRadius * p.cordRadius),
+          inverseWeft = 1 / (p.weftRadius * p.weftRadius),
+          inverseWarpShoulder = 1 / (1 - p.warpCore * p.warpCore * inverseWarp),
+          inverseCordShoulder = 1 / (1 - p.cordCore * p.cordCore * inverseCord),
+          inverseWeftShoulder = 1 / (1 - p.weftCore * p.weftCore * inverseWeft),
+          inverseLift = 1 / p.liftShoulder,
+          inverseCordLift = 1 / p.cordLiftShoulder;
+        return () => {
+          const x = u * p.warpThreads,
+            y = v * p.weftThreads,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = fract(x) - 0.5,
+            fy = fract(y) - 0.5,
+            cord = col % p.groupEnds < p.cordEnds,
+            qx = fx * fx * (cord ? inverseCord : inverseWarp),
+            qy = fy * fy * inverseWeft,
+            warp = smooth(
+              clamp(
+                (1 - qx) * (cord ? inverseCordShoulder : inverseWarpShoulder),
+              ),
+            ),
+            weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
+            warpOver = ((col + row) & 1) === 0,
+            warpWeight = warpOver ? warp : warp * (1 - weft),
+            weftWeight = warpOver ? weft * (1 - warp) : weft,
+            coverage = warpWeight + weftWeight;
+          color = 0.06;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.45;
+          if (coverage === 0) return;
+          const sign = warpOver ? 1 : -1,
+            liftX = smooth(
+              clamp((p.warpLiftHalf - Math.abs(fx)) * inverseLift),
+            ),
+            liftY = smooth(
+              clamp((p.weftLiftHalf - Math.abs(fy)) * inverseLift),
+            ),
+            cordLift = cord
+              ? smooth(clamp((p.cordLiftHalf - Math.abs(fx)) * inverseCordLift))
+              : 0,
+            crownX = smooth(clamp(1 - qx)),
+            crownY = smooth(clamp(1 - qy)),
+            fiberX = fract(u * p.warpFibers) - 0.5,
+            fiberY = fract(v * p.weftFibers) - 0.5,
+            warpFiber = smooth(clamp(1 - 4 * fiberX * fiberX)),
+            weftFiber = smooth(clamp(1 - 4 * fiberY * fiberY)),
+            outside = (1 - warp) * (1 - weft),
+            grain = grainField(u, v);
+          // Two adjacent raised warp ends recur among six fine ends; weft stays continuous over both cords.
+          color =
+            outside * color +
+            warpWeight * (0.8 + 0.02 * grain + 0.025 * warpFiber) +
+            weftWeight * (0.76 + 0.02 * grain + 0.025 * weftFiber);
+          height =
+            outside * height +
+            warpWeight *
+              (0.29 +
+                (cord ? p.cordHeight : 0) +
+                sign * p.lift * liftY +
+                0.05 * crownX +
+                0.003 * grain +
+                0.003 * warpFiber) +
+            weftWeight *
+              (0.29 +
+                p.cordHeight * cordLift -
+                sign * p.lift * liftX +
+                0.05 * crownY +
+                0.003 * grain +
+                0.003 * weftFiber);
+          roughness =
+            outside * roughness +
+            warpWeight * (p.roughness + 0.03 * grain - 0.02 * warpFiber) +
+            weftWeight * (p.roughness + 0.03 * grain - 0.02 * weftFiber);
+          occlusion += 0.54 * coverage;
+          return;
+        };
+      }
       case 'chiastolite': {
         const p = proceduralMaterialPresets.chiastolite,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -31933,6 +32016,7 @@ export function createSurfaceSampler(
     kind === 'cocobolo' ||
     kind === 'doubleedgerazorblades' ||
     kind === 'chiastolite' ||
+    kind === 'dimity' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

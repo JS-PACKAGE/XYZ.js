@@ -732,7 +732,175 @@ const kinds: ProceduralMaterialKind[] = [
   'cocobolo',
   'doubleedgerazorblades',
   'chiastolite',
+  'dimity',
 ];
+
+describe('Ivory dimity cotton with two raised warp cords in every eight-end plain weave repeat', () => {
+  const p = proceduralMaterialPresets.dimity;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const uv = (col: number, row: number, x = 0, y = 0): [number, number] => [
+    (col + 0.5 + x) / p.warpThreads,
+    (row + 0.5 + y) / p.weftThreads,
+  ];
+  it.each([0, 1, 0xffffffff])(
+    'raises both paired cords above six fine ends while the true upper yarn direction alternates at every crossing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dimity', seed),
+        center = empty(),
+        across = empty(),
+        along = empty(),
+        plain = empty(),
+        between = empty();
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          const cord = col % p.groupEnds < p.cordEnds,
+            warpOver = ((col + row) & 1) === 0;
+          sample(...uv(col, row), center);
+          sample(
+            ...uv(
+              col,
+              row,
+              warpOver ? (cord ? 0.24 : 0.14) : 0,
+              warpOver ? 0 : 0.18,
+            ),
+            across,
+          );
+          sample(
+            ...uv(col, row, warpOver ? 0 : 0.14, warpOver ? 0.14 : 0),
+            along,
+          );
+          expect(center.height - across.height).toBeGreaterThan(0.000003);
+          expect(Math.abs(center.height - along.height)).toBeLessThan(
+            0.000000900001,
+          );
+          expect(center.occlusion).toBeCloseTo(0.99, 12);
+          sample(...uv(col, row, 0, 0.5), between);
+          expect(center.height - between.height).toBeGreaterThan(0.000028);
+          if (cord) {
+            sample(...uv(col + p.cordEnds, row), plain);
+            expect(center.height - plain.height).toBeGreaterThan(0.000047);
+          }
+        }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, center);
+          expect(center.height).toBeGreaterThanOrEqual(0.000007499999);
+          expect(center.height).toBeLessThanOrEqual(0.000181800001);
+          expect(center.color).toBeGreaterThanOrEqual(0.059999);
+          expect(center.color).toBeLessThanOrEqual(0.845001);
+          expect(center.roughness).toBeGreaterThanOrEqual(0.819999);
+          expect(center.roughness).toBeLessThanOrEqual(0.960001);
+          expect(center.mortar).toBe(0);
+          expect(center.metallic).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 six paired high cord stripes above fine ivory weave and lower opaque nonmetal interstices', () => {
+    const maps = generateProceduralMaps('dimity', 512, 7, { heightMap: true });
+    const pixel = (point: [number, number]) => {
+      const u = ((point[0] % 1) + 1) % 1,
+        v = ((point[1] % 1) + 1) % 1;
+      return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+    };
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let group = 0; group < p.warpThreads / p.groupEnds; group++)
+        for (let end = 0; end < p.cordEnds; end++) {
+          const col = group * p.groupEnds + end,
+            cord = pixel(uv(col, row)),
+            plain = pixel(uv(col + p.cordEnds, row)),
+            gap = pixel(uv(col, row, 0.5, 0.5));
+          expect(maps.height![cord]! - maps.height![plain]!).toBeGreaterThan(
+            65,
+          );
+          expect(maps.height![gap]).toBe(0);
+          expect(maps.occlusion[cord]! - maps.occlusion[gap]!).toBeGreaterThan(
+            130,
+          );
+          expect(
+            maps.baseColor[cord]! - maps.baseColor[cord + 2]!,
+          ).toBeGreaterThan(12);
+        }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+      expect(maps.baseColor[i + 3]).toBe(255);
+    }
+  });
+  it('repeats paired cord groups single crossing parity yarn finish and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('dimity', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('keeps paired cord and plain yarn cores supports carrier lifts crossing owners fiber resets noise grids and UV wraps C1', () => {
+    const h = 2e-9,
+      channels = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dimity', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let maximumDerivativeJump = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of channels)
+            maximumDerivativeJump = Math.max(
+              maximumDerivativeJump,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const grid of [128, p.warpFibers])
+        for (let y = 0; y <= grid; y++)
+          for (let x = 0; x <= grid; x++) check(x / grid, y / grid);
+      for (let col = 0; col < p.warpThreads; col++)
+        for (const row of [0, 1, p.weftThreads - 1])
+          for (let j = 0; j <= 16; j++) {
+            const t = -0.5 + j / 16;
+            for (const sign of [-1, 1]) {
+              for (const x of [
+                0,
+                p.warpCore,
+                p.warpRadius,
+                p.cordCore,
+                p.cordRadius,
+                p.warpLiftHalf - p.liftShoulder,
+                p.warpLiftHalf,
+                p.cordLiftHalf,
+                0.5,
+              ])
+                check(...uv(col, row, sign * x, t));
+              for (const y of [
+                0,
+                p.weftCore,
+                p.weftRadius,
+                p.weftLiftHalf - p.liftShoulder,
+                p.weftLiftHalf,
+                0.5,
+              ])
+                check(...uv(col, row, t, sign * y));
+            }
+          }
+      expect(maximumDerivativeJump).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Polished chiastolite with four flaring graphitic cross arms inside brown crystal sections', () => {
   const p = proceduralMaterialPresets.chiastolite;

@@ -7797,6 +7797,31 @@ export const proceduralMaterialPresets = Object.freeze({
     crossWidth: 0.018,
     crossFlare: 0.04,
   }),
+  dimity: Object.freeze({
+    dark: [70, 70, 65] as const,
+    light: [247, 245, 230] as const,
+    roughness: 0.84,
+    relief: 0.0003,
+    warpThreads: 48,
+    weftThreads: 48,
+    groupEnds: 8,
+    cordEnds: 2,
+    warpRadius: 0.22,
+    warpCore: 0.16,
+    cordRadius: 0.36,
+    cordCore: 0.3,
+    weftRadius: 0.28,
+    weftCore: 0.22,
+    warpLiftHalf: 0.44,
+    weftLiftHalf: 0.36,
+    liftShoulder: 0.06,
+    lift: 0.1,
+    cordLiftHalf: 0.46,
+    cordLiftShoulder: 0.1,
+    cordHeight: 0.16,
+    warpFibers: 192,
+    weftFibers: 192,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8492,4 +8517,5 @@ export const proceduralTileMeters = Object.freeze({
   cocobolo: 0.24,
   doubleedgerazorblades: 0.18,
   chiastolite: 0.12,
+  dimity: 0.02,
 });

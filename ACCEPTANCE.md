@@ -8324,3 +8324,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
 - Fresh Node產生當次dist之chiastolite512五maps；既有690種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：前輪已成功的build，以及修正tuple呼叫後的typecheck、lint、format:check、179個測試檔／7326項測試（928.69s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-26 程序材質：成對高經肋細平紋棉布（dimity）
+
+- 目錄691→692種，48×48單紗一上一下，每八經紗兩粗高cord與六細紗，共六對縱肋；連續weft有C1 carrier lift跨cord。是真height經肋，非印直條或雙向成對Oxford。全opaque M0／mortar0、0.02 m tile／0.0003 m relief。
+- 六項定向2.84s通過：三seed全2304 crossings上下紗方向／沿紗不斷階／高cord與六細紗差及PBR界限、actual512六對高經肋與低opaque織隙、signed torus及三seed cord／plain cores／supports／carrier lift／crossing owners／fiber resets／noise-grid／UV C1。
+- Source API actual512 seed7五maps生成、baseColor／normal截圖見六對縱肋及細平紋，factor0／destroy成功、errors空。不是紗線geometry、透明織孔、cloth physics或anisotropy shader。
+- Managed Chromium150 headless正式PBR3D gallery以960×1200 viewport整頁capture分別強制WebGPU／WebGL2：實際692種／選中dimity、sphere與maps可見，goto about:blank cleanup errors均空。非Canvas2D 3D、Safari、實機效能或backend parity認證。
+- Strict static shipped dist入口actual512 seed7／height／tint `[0.8,1,0.9]`／repeats3：direct、NativeWorker與cache hit五maps SHA256相同；cache單entry 5242880 bytes／hit1 miss1，單Worker completed1 failed0，獨立textures與destroy／pool destroy／cache clear成功，errors空。
+- Fresh Node產生當次dist之dimity512五maps；既有691種各64²／seed7四maps相對HEAD之SHA256全部不變。九份相關Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN與中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7333項測試（932.29s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
