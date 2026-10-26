@@ -8117,3 +8117,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 本輪重新以 fresh Node 產生 barbedwire512／seed7／height，並比較 HEAD 的既有670種各64²／seed7四張圖 SHA256，全部不變；九份相關 Markdown 的相對連結無缺失。
 - 本輪實際強制 WebGPU／WebGL2 開啟671-preset gallery、選出barbedwire並擷取畫面與maps，各page及about:blank cleanup errors皆空；獨立呼叫公開API512確認factor1、metal min0／max255、3756 partial pixels、height存在、destroy後destroyed=true，並觀察四連續雙股線與四尖倒刺。Tabs均關閉；不擴大瀏覽器或效能認證。
 - 本輪完整 gate：build、typecheck、lint、format:check、179個測試檔／7181項測試（713.76s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）與distribution（367 exports）全部通過；未升版、不push。
+
+## 2026-10-26 程序材質：雙紗牛津紡（oxfordweave）
+
+- 目錄671→672種，每方向八組雙紗、藍經／淺緯二上二下籃式交織，圓潤紗冠與露出的低紗具真正height差。Compact squared profiles／front-back weights不疊交點高度；pair-owner位於空隙，group-owner切換前lift window與交叉紗support歸零。128² cached grain及多項式週期細纖維不逐點配置／hash／trig／sqrt，空support跳finish。全opaque dielectric、metallic／mortar 0，暗底保留pigment。0.08 m tile／0.001 m relief，四圖／height／options／Worker／cache／ownership不變，不新增紗線geometry、透孔、displacement或布料模擬。
+- Targeted七項通過（2.98s）及typecheck通過：三seed所有64組交點顏色隨成對方向交替，top比露出under高 >0.00023 m，兩方向長紗跨所有group不斷；8193-point exposed橫截恰16紗而非8實心條帶。Actual512交點比under高 >90 height codes、藍紗R<85／淺紗R>215、AO>250／roughness>210／M0；2048-point六通道signed-period重複，129² fields與所有紗core／support／owner／fiber／UV boundaries通過C1 differential guard。
+- Managed Chromium實際強制WebGPU／WebGL2的672-preset gallery各選出牛津紡、擷取mesh與四maps畫面，page及about:blank cleanup errors皆空，tabs均關閉。公開API512／height／repeats2確認factor0、metal min=max=0、height存在，冪等destroy成功，另擷取512細節見成對藍經／淺緯交錯。未認證Safari、實機、Canvas2D 3D、backend parity或效能。
+- Shipped dist公開API實際Native Worker／cache smoke：512／seed7／height／tint[0.8,1,0.9]／repeats3，五maps的SHA256於direct、Worker與cache-hit皆相同。Cache一筆5242880 bytes／一hit一miss，Worker completed1／failed0，獨立textures且destroy其中一preset不影響另一；pool.destroy及cache.clear完成，browser errors空。
+- Fresh Node產生當次dist的oxfordweave512五maps；既有671種各64²／seed7四maps與HEAD之SHA256全部相同。九份相關Markdown相對連結無缺失；未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7189項測試（701.53s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。README中／英／日、PLAN、DESIGN與中英技術／使用文件同步更新；逐功能commit、不push。

@@ -1441,6 +1441,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'oxfordweave': {
+        const p = proceduralMaterialPresets.oxfordweave,
+          grainField = cachedNoise(128, 128, seed ^ 0x18a11),
+          inverseRadius = 1 / (p.yarnRadius * p.yarnRadius),
+          inverseShoulder = 1 / (1 - p.yarnCore * p.yarnCore * inverseRadius),
+          inverseCrossing = 1 / p.crossingShoulder;
+        return () => {
+          const x = u * p.groups,
+            y = v * p.groups,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            fx = x - col - 0.5,
+            fy = y - row - 0.5,
+            dx = Math.abs(fx) - p.pairOffset,
+            dy = Math.abs(fy) - p.pairOffset,
+            qx = dx * dx * inverseRadius,
+            qy = dy * dy * inverseRadius,
+            warp = smooth(clamp((1 - qx) * inverseShoulder)),
+            weft = smooth(clamp((1 - qy) * inverseShoulder)),
+            warpOver = ((col + row) & 1) === 0,
+            warpWeight = warpOver ? warp : warp * (1 - weft),
+            weftWeight = warpOver ? weft * (1 - warp) : weft,
+            coverage = warpWeight + weftWeight;
+          color = 0.04;
+          height = 0.02;
+          roughness = 0.96;
+          occlusion = 0.4;
+          if (coverage === 0) return;
+          // Both yarn supports end before pair/group owners change. Lift also
+          // reaches zero there, so a continuous yarn never jumps at a new row.
+          const sign = warpOver ? 1 : -1,
+            liftX = smooth(
+              clamp((p.crossingHalf - Math.abs(fx)) * inverseCrossing),
+            ),
+            liftY = smooth(
+              clamp((p.crossingHalf - Math.abs(fy)) * inverseCrossing),
+            ),
+            crownX = smooth(clamp(1 - qx)),
+            crownY = smooth(clamp(1 - qy)),
+            fiberX = fract(u * p.fibers) - 0.5,
+            fiberY = fract(v * p.fibers) - 0.5,
+            warpFiber = smooth(clamp(1 - 4 * fiberX * fiberX)),
+            weftFiber = smooth(clamp(1 - 4 * fiberY * fiberY)),
+            grain = grainField(u, v),
+            outside = (1 - warp) * (1 - weft);
+          color =
+            outside * color +
+            warpWeight * (0.2 + 0.025 * warpFiber + 0.02 * grain) +
+            weftWeight * (0.9 + 0.025 * weftFiber + 0.02 * grain);
+          height =
+            outside * height +
+            warpWeight *
+              (p.yarnHeight +
+                sign * p.lift * liftY +
+                p.crown * crownX +
+                0.004 * warpFiber +
+                0.002 * grain) +
+            weftWeight *
+              (p.yarnHeight -
+                sign * p.lift * liftX +
+                p.crown * crownY +
+                0.004 * weftFiber +
+                0.002 * grain);
+          roughness =
+            outside * roughness +
+            warpWeight * (p.roughness + 0.02 * grain - 0.02 * warpFiber) +
+            weftWeight * (p.roughness + 0.02 * grain - 0.02 * weftFiber);
+          occlusion += 0.59 * coverage;
+        };
+      }
       case 'barbedwire': {
         const p = proceduralMaterialPresets.barbedwire,
           rows = new Float64Array(p.rows * 3),
@@ -30650,6 +30720,7 @@ export function createSurfaceSampler(
     kind === 'violinfholes' ||
     kind === 'palmiers' ||
     kind === 'barbedwire' ||
+    kind === 'oxfordweave' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||
     kind === 'diamondcheckertiles' ||

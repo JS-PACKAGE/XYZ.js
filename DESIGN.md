@@ -891,6 +891,8 @@
 
 `barbedwire` 為四無縫雙圓銀線row，真交替over-under高度、高collars及十六knots各四連尖倒刺。沿用既有C2 quartic-wave／tangent-corrected widths，但quarter-phase depth為雙線twist非doubled-depth figure-eight plait；front/back alpha composition只在wire supports分離處切depth order，無crease或交點雙高。每row只快取phase／jitter／tone三值、128² grain只finish occupied metal；nearest-knot ties在compact knot空support，wire獨立periodic phase。Full高collar先return，遮reflected barb quadrant cusp；雙signed tip halfplanes無abs-width tip crease或zero-width division。Derived bounds跳empty rows/profiles、empty body跳grain；初始化一次sqrt界定tangent width，逐點無sqrt／trig／配置／hash／segment或鄰格掃描。Full metal M1／exact mortar0，interwire／interbarb gaps低opaque M0 backing。0.4 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增fence geometry、mechanics或負載／強度／電氣／安全認證。
 
+`oxfordweave` 使用每方向八組雙紗、藍經／淺緯交替的籃式交織。Squared compact yarn profiles與rounded crowns分開，front/back權重不疊加交點高度；pair-owner切換處位於兩紗空隙，group-owner切換前lift window及交叉紗support皆歸零，維持長紗跨組連續。128² cached grain及週期多項式細纖維不在逐點配置、hash、trig或sqrt；空support跳finish。布底保留深藍opaque pigment而非neutral grout，metallic／mortar全0；0.08 m tile、0.001 m relief。沿用既有maps、options與ownership，不新增geometry、透明孔洞、displacement或布料模擬。
+
 `tint` 在 `generateProceduralMaps` 內只乘上 dark→light 插值後的 sRGB 顏料色，之後才與固定灰縫色混合，因此灰縫保持中性；結果由 `Uint8ClampedArray` 夾限。`create()` 先驗證陣列長度 3、每項有限且在 0–4，再傳入同步生成；未給 `tint` 時走原本的運算路徑，不多一次乘法，輸出逐位元組不變。
 
 Worker 生成沿用 geometry worker 的模式：`procedural.maps` job 由主執行緒驗證完整選項後送出純量 request（requestBytes 0），worker 端 `trustedProceduralMapsJob` 呼叫同一個 `generateProceduralMaps` 並 transfer 四個 buffer；主端 decode 檢查四個 `Uint8ClampedArray` 長度一致且為合法邊長，再比對請求的 size。worker module 在 dist 以 `new URL('./workers/procedural-material.worker.js', import.meta.url)` 靜態建構，bundler 可分析。貼圖建立仍在主執行緒，destroy 與 ownership 不變。

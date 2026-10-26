@@ -883,6 +883,8 @@
 
 同輪追加 `barbedwire`（雙線真交替高低四尖倒刺鐵絲），目錄670→671種：四seamless rows／每兩線真交替over-under heights／高collars／十六knots各四連尖barbs。Reuse C2 quartic與tangent widths，quarter-depth非figure-eight；正確前後alpha composition不疊交點height，full collar遮quad-owner cusp，full metal M1／mortar0而gaps低M0。0.4 m tile／0.004 m relief，四圖／height／Worker／cache／tint／ownership不變，不新增fence geometry、mechanics或負載／強度／電氣／安全認證；連續paths／512高度序／C1／雙backend見 ACCEPTANCE。
 
+同輪追加 `oxfordweave`（牛津紡），目錄671→672種：成對藍色經紗／淺色緯紗以二上二下的籃式結構交錯，圓潤紗冠與低露出紗線具實際height差，區別於單紗linen與實心basketweave條帶。0.08 m tile／0.001 m relief，opaque dielectric、metallic 0，沿用四圖／height／Worker／cache／tint／ownership。前671種輸出保持不變，不新增紗線geometry、透孔或布料模擬；依功能驗證後commit、不push，證據見 ACCEPTANCE。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

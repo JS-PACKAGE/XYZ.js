@@ -712,7 +712,164 @@ const kinds: ProceduralMaterialKind[] = [
   'violinfholes',
   'palmiers',
   'barbedwire',
+  'oxfordweave',
 ];
+
+describe('Oxford weave with paired blue warp and pale weft yarns', () => {
+  const p = proceduralMaterialPresets.oxfordweave;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const centers = [0.5 - p.pairOffset, 0.5 + p.pairOffset];
+
+  it.each([0, 1, 0xffffffff])(
+    'alternates whole yarn pairs over the other direction without cutting either continuous strand for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('oxfordweave', seed);
+      const at = (x: number, y: number) => {
+        const out = empty();
+        sample(x / p.groups, y / p.groups, out);
+        return out;
+      };
+      for (let row = 0; row < p.groups; row++)
+        for (let col = 0; col < p.groups; col++) {
+          const warpOver = ((col + row) & 1) === 0;
+          for (const x of centers)
+            for (const y of centers) {
+              const top = at(col + x, row + y);
+              const under = warpOver
+                ? at(col + 0.5, row + y)
+                : at(col + x, row + 0.5);
+              expect(top.color).toBeGreaterThan(warpOver ? 0.19 : 0.89);
+              expect(top.color).toBeLessThan(warpOver ? 0.25 : 0.95);
+              expect(top.height - under.height).toBeGreaterThan(0.00023);
+              expect(top.occlusion).toBeCloseTo(0.99, 12);
+              expect(under.occlusion).toBeCloseTo(0.99, 12);
+              expect(top.metallic).toBe(0);
+              expect(top.mortar).toBe(0);
+              expect(
+                warpOver ? under.color - top.color : top.color - under.color,
+              ).toBeGreaterThan(0.65);
+            }
+          const gap = at(col + 0.5, row + 0.5);
+          expect(gap.height).toBeCloseTo(0.00002, 12);
+          expect(gap.occlusion).toBeCloseTo(0.4, 12);
+          expect(gap.metallic).toBe(0);
+          // The dark fabric backing is opaque pigment, not neutral tile grout.
+          expect(gap.mortar).toBe(0);
+        }
+      for (let group = 0; group < p.groups; group++)
+        for (const center of centers)
+          for (let j = 0; j <= 512; j++)
+            for (const [x, y] of [
+              [group + center, (p.groups * j) / 512],
+              [(p.groups * j) / 512, group + center],
+            ]) {
+              const out = at(x!, y!);
+              expect(out.height).toBeGreaterThan(0.00033);
+              expect(out.occlusion).toBeCloseTo(0.99, 12);
+            }
+    },
+  );
+  it('keeps sixteen separate warp yarns across an exposed cross-section rather than eight solid straps', () => {
+    const sample = createSurfaceSampler('oxfordweave', 7),
+      out = empty();
+    let runs = 0,
+      wasYarn = false;
+    for (let j = 0; j <= 8192; j++) {
+      sample(j / 8192, 0, out);
+      const yarn = out.occlusion > 0.98;
+      if (yarn && !wasYarn) runs++;
+      wasYarn = yarn;
+    }
+    expect(runs).toBe(16);
+  });
+  it('preserves colored pair crossings and real raised/lowered yarns in the generated 512px maps', () => {
+    const maps = generateProceduralMaps('oxfordweave', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (x: number, y: number) =>
+      (Math.floor((y / p.groups) * 512) * 512 +
+        Math.floor((x / p.groups) * 512)) *
+      4;
+    for (let row = 0; row < p.groups; row++)
+      for (let col = 0; col < p.groups; col++)
+        for (const x of centers)
+          for (const y of centers) {
+            const warpOver = ((col + row) & 1) === 0;
+            const top = pixel(col + x, row + y);
+            const under = warpOver
+              ? pixel(col + 0.5, row + y)
+              : pixel(col + x, row + 0.5);
+            expect(maps.height![top]! - maps.height![under]!).toBeGreaterThan(
+              90,
+            );
+            expect(maps.occlusion[top]!).toBeGreaterThan(250);
+            expect(maps.metallicRoughness[top + 2]).toBe(0);
+            expect(maps.metallicRoughness[top + 1]!).toBeGreaterThan(210);
+            expect(
+              warpOver ? maps.baseColor[top]! : maps.baseColor[under]!,
+            ).toBeLessThan(85);
+            expect(
+              warpOver ? maps.baseColor[under]! : maps.baseColor[top]!,
+            ).toBeGreaterThan(215);
+          }
+  });
+  it('repeats every PBR field across positive and negative UV periods', () => {
+    const sample = createSurfaceSampler('oxfordweave', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 2048; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 9);
+    }
+  });
+  it('has no normal creases at pair owners, over-under changes, yarn edges, fiber wraps or UV seams', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('oxfordweave', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let group = 0; group < p.groups; group++)
+        for (const center of centers)
+          for (const offset of [
+            -p.yarnRadius,
+            -p.yarnCore,
+            0,
+            p.yarnCore,
+            p.yarnRadius,
+          ])
+            for (let j = 0; j <= 128; j++) {
+              const fixed = (group + center + offset) / p.groups;
+              check(fixed, j / 128);
+              check(j / 128, fixed);
+            }
+    }
+  });
+});
 
 describe('Seamless silver barbed wire with two genuinely alternating over-under rounded strands raised collars and four connected tapered barbs per knot', () => {
   const p = proceduralMaterialPresets.barbedwire;

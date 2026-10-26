@@ -7305,6 +7305,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         planeShoulder: 0.003;
         jitter: 0.015;
     }>;
+    oxfordweave: Readonly<{
+        dark: readonly [25, 58, 102];
+        light: readonly [239, 244, 248];
+        roughness: 0.87;
+        relief: 0.001;
+        groups: 8;
+        pairOffset: 0.18;
+        yarnRadius: 0.13;
+        yarnCore: 0.095;
+        crossingHalf: 0.46;
+        crossingShoulder: 0.08;
+        yarnHeight: 0.4;
+        lift: 0.12;
+        crown: 0.06;
+        fibers: 128;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -7979,4 +7995,5 @@ export declare const proceduralTileMeters: Readonly<{
     violinfholes: 0.45;
     palmiers: 0.18;
     barbedwire: 0.4;
+    oxfordweave: 0.08;
 }>;

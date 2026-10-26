@@ -1111,6 +1111,8 @@ PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occ
 
 另支援 `barbedwire`（雙線真交替高低四尖倒刺鐵絲），seamless rounded silver wires／真交替over-under高度／高collars／每knot四連尖barbs；交點僅top wire高度不雙加，collar高於barb、barb高於uncovered cross，full metal M1／mortar0而interwire／interbarb gaps低opaque M0。使用 `await ProceduralMaterial.create('barbedwire', { size: 512, seed: 7, heightMap: true })`，於 `/examples/pbr3d/?renderer=webgpu`／`?renderer=webgl2` 查看。0.4 m tile／0.004 m relief，Worker／cache／tint／height／ownership不變，不新增fence geometry、mechanics或負載／強度／電氣／安全認證。
 
+另支援 `oxfordweave`（牛津紡）：成對藍色經紗／淺色緯紗交替隆起，紗隙露出較低的另一方向紗線。使用 `await ProceduralMaterial.create('oxfordweave', { size: 512, seed: 7, heightMap: true })`，於 `/examples/pbr3d/?renderer=webgpu`／`?renderer=webgl2` 選取查看。Opaque dielectric、metallic 0，0.08 m tile／0.001 m relief；tint、repeats、Worker／cache與呼叫者destroy契約不變。僅為表面shading，不新增紗線geometry、透明孔洞或布料模擬。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。
