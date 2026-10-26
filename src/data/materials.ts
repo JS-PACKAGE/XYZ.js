@@ -8099,6 +8099,18 @@ export const proceduralMaterialPresets = Object.freeze({
     scarY: 0.12,
     scarRadius: 0.025,
   }),
+  fluorite: Object.freeze({
+    dark: [54, 27, 82] as const,
+    light: [235, 221, 245] as const,
+    roughness: 0.2,
+    relief: 0.0001,
+    cells: 3,
+    jitter: 0.008,
+    halfExtent: 0.3,
+    extentVariation: 0.035,
+    shoulder: 0.2,
+    zones: 4,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8810,4 +8822,5 @@ export const proceduralTileMeters = Object.freeze({
   ottoman: 0.024,
   shackles: 0.6,
   watercaltrops: 0.24,
+  fluorite: 0.06,
 });

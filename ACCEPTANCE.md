@@ -8472,3 +8472,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之watercaltrops512五maps；既有706種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7441項測試（955.61s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：紫色方形生長色帶螢石（fluorite）
+
+- 目錄707→708種：九枚seeded旋轉紫色晶面與淡色基質，八次多項式近方形等高線／四週期C1色帶，不使用max-axis尖角。晶面與基質共磨平面微粒高差≤0.2 μm、AO1；全opaque M0／mortar0、0.06 m tile／0.0001 m relief。無逐點配置／hash／trig／sqrt；不新增geometry、透明／折射、螢光、displacement或晶體生長模擬。
+- 專項6項全部通過（1.08s）：三seed方形面／角的淡紫／深紫色帶對比與共磨高度範圍、512²明暗色帶opaque dielectric像素、4096 signed UV週期、三seed方角／phase wraps／晶邊shoulder／tile邊界雙軸C1。
+- managed Chromium150 headless正式PBR gallery已實際擷取；強制WebGPU／WebGL2均顯示708種並選取fluorite。640×900停動畫下WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後截圖成功；成功頁面與cleanup errors空。未改引擎；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之fluorite512五maps；既有707種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7448項測試（940.11s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

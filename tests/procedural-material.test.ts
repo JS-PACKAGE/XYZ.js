@@ -748,7 +748,139 @@ const kinds: ProceduralMaterialKind[] = [
   'ottoman',
   'shackles',
   'watercaltrops',
+  'fluorite',
 ];
+
+describe('Polished fluorite with nested square cubic growth zones', () => {
+  const p = proceduralMaterialPresets.fluorite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1ad15),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ad17) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ad19) - 1),
+      extent =
+        p.halfExtent + p.extentVariation * hash(col, row, seed ^ 0x1ad1b);
+    return [
+      (col + cx + extent * (x * cos - y * sin)) / p.cells,
+      (row + cy + extent * (x * sin + y * cos)) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps light and purple zones flush across square faces and corners for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('fluorite', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const diagonal of [false, true]) {
+            const bright = (0.125 / (diagonal ? 2 : 1)) ** 0.125,
+              dark = (0.25 / (diagonal ? 2 : 1)) ** 0.125;
+            sample(...world(seed, col, row, bright, diagonal ? bright : 0), a);
+            sample(...world(seed, col, row, dark, diagonal ? dark : 0), b);
+            expect(a.color - b.color).toBeGreaterThan(0.4);
+            for (const s of [a, b]) {
+              expect(s.height).toBeGreaterThanOrEqual(0.000035);
+              expect(s.height).toBeLessThanOrEqual(0.0000352);
+              expect(s.occlusion).toBe(1);
+              expect(s.metallic).toBe(0);
+              expect(s.mortar).toBe(0);
+            }
+          }
+    },
+  );
+  it('writes nested pale and dark purple zones as opaque dielectric pigment at actual512', () => {
+    const maps = generateProceduralMaps('fluorite', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const [u, v] = world(7, col, row, 0.125 ** 0.125, 0),
+          [du, dv] = world(7, col, row, 0.25 ** 0.125, 0),
+          i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4,
+          di = (Math.floor(dv * 512) * 512 + Math.floor(du * 512)) * 4;
+        expect(maps.baseColor[i]).toBeGreaterThan(maps.baseColor[di]);
+        for (const j of [i, di]) {
+          expect(maps.baseColor[j + 3]).toBe(255);
+          expect(maps.metallicRoughness[j + 2]).toBe(0);
+          expect(maps.occlusion[j]).toBe(255);
+        }
+      }
+  });
+  it('repeats cubic zones and all PBR channels on signed UV translations', () => {
+    const sample = createSurfaceSampler('fluorite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps square corners growth-zone wraps crystal shoulders and tile owners C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('fluorite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j < 64; j++) {
+            const theta = (2 * Math.PI * j) / 64,
+              cos = Math.cos(theta),
+              sin = Math.sin(theta);
+            for (const q of [0, 0.125, 0.25, 0.5, 0.75, 0.8, 1]) {
+              const r = (q / (cos ** 8 + sin ** 8)) ** 0.125;
+              check(...world(seed, col, row, r * cos, r * sin));
+            }
+          }
+      for (let k = 0; k <= 128; k++)
+        for (const edge of [0, 1]) {
+          check(edge, k / 128);
+          check(k / 128, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Water caltrop shells with two curved tapered horns', () => {
   const p = proceduralMaterialPresets.watercaltrops;

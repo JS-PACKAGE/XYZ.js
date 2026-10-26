@@ -14108,6 +14108,26 @@ var proceduralMaterialPresets = Object.freeze({
 		creaseFrequency: 18,
 		scarY: .12,
 		scarRadius: .025
+	}),
+	fluorite: Object.freeze({
+		dark: [
+			54,
+			27,
+			82
+		],
+		light: [
+			235,
+			221,
+			245
+		],
+		roughness: .2,
+		relief: 1e-4,
+		cells: 3,
+		jitter: .008,
+		halfExtent: .3,
+		extentVariation: .035,
+		shoulder: .2,
+		zones: 4
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -14817,7 +14837,8 @@ var proceduralTileMeters = Object.freeze({
 	howlite: .24,
 	ottoman: .024,
 	shackles: .6,
-	watercaltrops: .24
+	watercaltrops: .24,
+	fluorite: .06
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

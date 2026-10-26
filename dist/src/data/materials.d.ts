@@ -7948,6 +7948,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         scarY: 0.12;
         scarRadius: 0.025;
     }>;
+    fluorite: Readonly<{
+        dark: readonly [54, 27, 82];
+        light: readonly [235, 221, 245];
+        roughness: 0.2;
+        relief: 0.0001;
+        cells: 3;
+        jitter: 0.008;
+        halfExtent: 0.3;
+        extentVariation: 0.035;
+        shoulder: 0.2;
+        zones: 4;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8658,4 +8670,5 @@ export declare const proceduralTileMeters: Readonly<{
     ottoman: 0.024;
     shackles: 0.6;
     watercaltrops: 0.24;
+    fluorite: 0.06;
 }>;

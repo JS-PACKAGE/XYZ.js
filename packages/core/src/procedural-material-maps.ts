@@ -1441,6 +1441,62 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'fluorite': {
+        const p = proceduralMaterialPresets.fluorite,
+          crystals = new Float64Array(p.cells * p.cells * 6),
+          cloudField = cachedNoise(8, 8, seed ^ 0x1ad11),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ad13);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1ad15);
+            crystals[i] = Math.cos(angle);
+            crystals[i + 1] = Math.sin(angle);
+            crystals[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ad17) - 1);
+            crystals[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ad19) - 1);
+            crystals[i + 4] =
+              1 /
+              (p.halfExtent +
+                p.extentVariation * hash(col, row, seed ^ 0x1ad1b));
+            crystals[i + 5] = hash(col, row, seed ^ 0x1ad1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - crystals[i + 2],
+            dy = fract(vc) - crystals[i + 3],
+            x = (dx * crystals[i] + dy * crystals[i + 1]) * crystals[i + 4],
+            y = (dy * crystals[i] - dx * crystals[i + 1]) * crystals[i + 4],
+            x2 = x * x,
+            y2 = y * y,
+            x4 = x2 * x2,
+            y4 = y2 * y2,
+            q = x4 * x4 + y4 * y4,
+            crystal = smooth(clamp((1 - q) / p.shoulder)),
+            grain = grainField(u, v);
+          color = 0.87 + 0.08 * cloudField(u, v) + 0.012 * grain;
+          height = 0.35 + 0.002 * grain;
+          roughness += 0.015 * grain;
+          occlusion = 1;
+          if (crystal === 0) return;
+          // Eighth-power square contours give cubic growth zoning without
+          // max-axis cusps. Zoning remains pigment on one polished plane.
+          const phase = fract(q * p.zones),
+            zone = 16 * phase * phase * (1 - phase) * (1 - phase);
+          color +=
+            crystal *
+            (0.22 +
+              0.48 * zone +
+              0.03 * crystals[i + 5] +
+              0.012 * grain -
+              color);
+          roughness += 0.025 * crystal * (1 - zone);
+          return;
+        };
+      }
       case 'watercaltrops': {
         const p = proceduralMaterialPresets.watercaltrops,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -32940,6 +32996,7 @@ export function createSurfaceSampler(
     kind === 'ottoman' ||
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
+    kind === 'fluorite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
