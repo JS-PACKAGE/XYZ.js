@@ -1441,6 +1441,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kitkattiles': {
+        const p = proceduralMaterialPresets.kitkattiles,
+          tones = new Float64Array(p.columns * p.rows),
+          grainField = cachedNoise(128, 128, seed ^ 0x1a611),
+          aspect = p.columns / p.rows,
+          inverseShoulder = 1 / p.shoulder,
+          inverseTroughSquared = 1 / (p.troughRadius * p.troughRadius),
+          inverseEndShoulder = 1 / p.endShoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            tones[row * p.columns + col] = hash(col, row, seed ^ 0x1a613);
+        return () => {
+          const uc = u * p.columns,
+            vc = v * p.rows,
+            x = fract(uc),
+            y = fract(vc) * aspect,
+            face =
+              smooth(clamp((x - p.grout) * inverseShoulder)) *
+              smooth(clamp((1 - x - p.grout) * inverseShoulder)) *
+              smooth(clamp((y - p.grout) * inverseShoulder)) *
+              smooth(clamp((aspect - y - p.grout) * inverseShoulder)),
+            centered = x - 0.5,
+            trough =
+              smooth(clamp(1 - centered * centered * inverseTroughSquared)) *
+              smooth(clamp((y - p.endFade) * inverseEndShoulder)) *
+              smooth(clamp((aspect - y - p.endFade) * inverseEndShoulder));
+          color = 0.24;
+          height = 0.04;
+          roughness = 0.93;
+          occlusion = 0.56;
+          mortar = 1 - face;
+          if (face === 0) return;
+          const tone = tones[Math.floor(vc) * p.columns + Math.floor(uc)],
+            grain = grainField(u, v);
+          color +=
+            face * (0.55 + 0.2 * tone + 0.012 * grain - 0.12 * trough - color);
+          height += face * (0.58 - p.troughLift * trough + 0.002 * grain);
+          roughness +=
+            face * (p.roughness + 0.02 * grain - 0.035 * trough - roughness);
+          occlusion += face * (0.43 - 0.035 * trough);
+          return;
+        };
+      }
       case 'persimmonslice': {
         const p = proceduralMaterialPresets.persimmonslice,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -32501,6 +32544,7 @@ export function createSurfaceSampler(
     kind === 'gabardine' ||
     kind === 'oilspotglaze' ||
     kind === 'persimmonslice' ||
+    kind === 'kitkattiles' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

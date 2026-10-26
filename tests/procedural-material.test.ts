@@ -741,7 +741,138 @@ const kinds: ProceduralMaterialKind[] = [
   'gabardine',
   'oilspotglaze',
   'persimmonslice',
+  'kitkattiles',
 ];
+
+describe('Concave jade finger tiles with equal-width grout', () => {
+  const p = proceduralMaterialPresets.kitkattiles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps longitudinal centers below both shoulders and grout below the entire tile for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('kitkattiles', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const uv = (x: number, y: number): [number, number] => [
+            (col + x) / p.columns,
+            (row + y / 6) / p.rows,
+          ];
+          sample(...uv(0.5, 3), a);
+          for (const x of [0.12, 0.88]) {
+            sample(...uv(x, 3), b);
+            expect(b.height - a.height).toBeGreaterThan(0.00047);
+            expect(a.height).toBeGreaterThan(0.0013);
+            expect(a.mortar).toBe(0);
+            expect(a.metallic).toBe(0);
+          }
+          sample(...uv(0.5, 0.12), b);
+          expect(b.height - a.height).toBeGreaterThan(0.00047);
+          sample(...uv(0, 3), b);
+          sample(...uv(0.5, 0), c);
+          expect(b.height).toBeCloseTo(0.00012, 12);
+          expect(c.height).toBeCloseTo(b.height, 12);
+          expect(b.mortar).toBe(1);
+          expect(c.mortar).toBe(1);
+          sample(...uv(0.06, 3), b);
+          sample(...uv(0.5, 0.06), c);
+          expect(b.mortar).toBeCloseTo(c.mortar, 12);
+        }
+    },
+  );
+  it('writes continuous neutral grout and opaque nonmetal jade faces at actual512', () => {
+    const maps = generateProceduralMaps('kitkattiles', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++) {
+        const center =
+          (Math.floor(((row + 0.5) / p.rows) * 512) * 512 +
+            Math.floor(((col + 0.5) / p.columns) * 512)) *
+          4;
+        expect(maps.baseColor[center + 1]).toBeGreaterThan(
+          maps.baseColor[center] + 40,
+        );
+      }
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      expect(maps.baseColor[i + 3]).toBe(255);
+      expect(maps.metallicRoughness[i + 2]).toBe(0);
+    }
+  });
+  it('repeats troughs owners grout and every PBR channel across signed UV periods', () => {
+    const sample = createSurfaceSampler('kitkattiles', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps grout shoulders trough ends centers owners and signed seams C1', () => {
+    const h = 2e-9,
+      keys = Object.keys(empty()) as (keyof SurfaceSample)[];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kitkattiles', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (const x of [
+            0,
+            p.grout,
+            p.grout + p.shoulder,
+            0.5 - p.troughRadius,
+            0.5,
+            0.5 + p.troughRadius,
+            1 - p.grout - p.shoulder,
+            1 - p.grout,
+            1,
+          ])
+            for (const y of [
+              0,
+              p.grout,
+              p.grout + p.shoulder,
+              p.endFade,
+              p.endFade + p.endShoulder,
+              3,
+              6 - p.endFade - p.endShoulder,
+              6 - p.endFade,
+              6 - p.grout - p.shoulder,
+              6 - p.grout,
+              6,
+            ])
+              check((col + x) / p.columns, (row + y / 6) / p.rows);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Orange persimmon slices with eight flush radial dark seeds', () => {
   const p = proceduralMaterialPresets.persimmonslice;

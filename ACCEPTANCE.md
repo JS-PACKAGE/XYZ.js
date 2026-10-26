@@ -8409,3 +8409,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之persimmonslice512五maps；既有699種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7390項測試（933.82s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：直疊玉綠細長凹面釉磚（kitkattiles）
+
+- 目錄700→701種：24欄×4列直疊玉綠finger tiles、6:1 pitch、長向凹槽中心比肩部低0.48 mm，兩端平滑收槽，等UV寬灰縫連續。全opaque M0、mortar=1-face、0.6 m tile／0.003 m relief；不新增geometry、displacement、透明或鋪磚模擬。
+- 專項6項全部通過（2.00s）：三seed逐磚雙肩／端部高於凹槽、灰縫低於全磚且橫直肩部同寬、512²玉綠opaque M0、4096 signed UV週期及grout shoulder／trough support／end fade／origin／owner／tile seam C1。
+- managed Chromium150 headless source sampler 512² baseColor／normal與正式PBR gallery皆已實際擷取；WebGPU顯示701種並選取kitkattiles。WebGL2首次capture Target closed，後續browser open亦曾timeout；調整為640×900、使用正確animate控制關閉動畫並另開named tab後，WebGL2截圖成功且頁面／cleanup errors皆空。未改引擎或宣稱工具失敗為成功；不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之kitkattiles512五maps；既有700種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7397項測試（951.44s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

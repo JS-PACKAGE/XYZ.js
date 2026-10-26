@@ -715,7 +715,8 @@ export type ProceduralMaterialKind =
   | 'bayleaf'
   | 'gabardine'
   | 'oilspotglaze'
-  | 'persimmonslice';
+  | 'persimmonslice'
+  | 'kitkattiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1665,6 +1666,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gabardine',
   'oilspotglaze',
   'persimmonslice',
+  'kitkattiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

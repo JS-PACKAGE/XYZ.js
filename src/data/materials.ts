@@ -7966,6 +7966,20 @@ export const proceduralMaterialPresets = Object.freeze({
     seedWidth: 0.026,
     seedShoulder: 0.2,
   }),
+  kitkattiles: Object.freeze({
+    dark: [12, 49, 44] as const,
+    light: [119, 190, 157] as const,
+    roughness: 0.21,
+    relief: 0.003,
+    columns: 24,
+    rows: 4,
+    grout: 0.045,
+    shoulder: 0.055,
+    troughRadius: 0.36,
+    troughLift: 0.16,
+    endFade: 0.2,
+    endShoulder: 0.12,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8670,4 +8684,5 @@ export const proceduralTileMeters = Object.freeze({
   gabardine: 0.018,
   oilspotglaze: 0.16,
   persimmonslice: 0.24,
+  kitkattiles: 0.6,
 });
