@@ -8508,3 +8508,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之cavalrytwill512五maps；既有710種（含共用poplin／gabardine／ottoman）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7469項測試（902.13s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：開口環鉤與漸尖螺紋桿（screwhooks）
+
+- 目錄711→712種：九枚任意旋轉銀色開口環鉤與相連漸尖螺紋桿。開口、環心與背景為opaque非金屬凹面，鋼面metallic factor1；normalized overlap避免相交增高，約160μm螺紋槽降低亮度／AO並提高roughness。compact C1 masks與正tip-distance寬度因式分解避免端點浮點消去除零；無逐點配置／hash／trig／sqrt。0.36 m tile／0.004 m relief，不新增geometry、透明孔、螺紋接合或物理模擬。
+- 專項6項全部通過（1.24s）：三seed環鉤至桿的連續鋼面、環心與開口非金屬、實際螺紋深度及color／roughness／AO方向；512² opaque孔／開口及鋼桿像素、4096 signed UV週期、三seed環帶／接根／螺紋／漸尖端點與UV seam雙軸C1，包含距末端Number.EPSILON取樣。
+- managed Chromium150 headless正式PBR gallery實際擷取，WebGPU／WebGL2皆顯示712種並選取screwhooks。WebGL2首次capture遇工具Target closed，釋放失敗tab並獨立新開後成功；成功頁面及cleanup errors空。未改引擎，不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之screwhooks512五maps；既有711種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7477項測試（924.44s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。原完整suite背景程序因執行環境重置失去結果，未將其記為通過；重置後重新執行上述完整suite成功。依功能獨立commit、不push。

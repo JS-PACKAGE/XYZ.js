@@ -726,7 +726,8 @@ export type ProceduralMaterialKind =
   | 'fluorite'
   | 'wenge'
   | 'parchment'
-  | 'cavalrytwill';
+  | 'cavalrytwill'
+  | 'screwhooks';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1687,6 +1688,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wenge',
   'parchment',
   'cavalrytwill',
+  'screwhooks',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1917,6 +1919,7 @@ export class ProceduralMaterial {
         this.kind === 'doubleedgerazorblades' ||
         this.kind === 'brakediscs' ||
         this.kind === 'shackles' ||
+        this.kind === 'screwhooks' ||
         this.kind === 'insulatedringlugs' ||
         this.kind === 'pencilsharpeners' ||
         this.kind === 'scissors' ||

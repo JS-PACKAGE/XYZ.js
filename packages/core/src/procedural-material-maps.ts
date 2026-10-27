@@ -1441,6 +1441,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'screwhooks': {
+        const p = proceduralMaterialPresets.screwhooks,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b111),
+          outerSquared = p.ringOuter * p.ringOuter,
+          innerSquared = p.ringInner * p.ringInner,
+          inverseOuter = 1 / (outerSquared - p.ringOuterCore * p.ringOuterCore),
+          inverseInner = 1 / (p.ringInnerCore * p.ringInnerCore - innerSquared),
+          middleSquared = (outerSquared + innerSquared) * 0.5,
+          inverseDome = 2 / (outerSquared - innerSquared),
+          inverseTaper = 1 / (p.shankBottom - p.taperStart),
+          inverseEnd = 1 / p.endShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1b113);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b115) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b117) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 4,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ry = y - p.ringY,
+            q = x * x + ry * ry,
+            opening =
+              smooth(clamp((x - p.openingX) / p.openingWidth)) *
+              smooth(clamp((p.openingY - y) / p.openingHeight)),
+            ring =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              (1 - opening),
+            domeDistance = (q - middleSquared) * inverseDome,
+            dome = smooth(clamp(1 - domeDistance * domeDistance));
+          let shank = 0,
+            thread = 0;
+          if (y > p.shankTop && y < p.shankBottom) {
+            const t = clamp((y - p.taperStart) * inverseTaper),
+              width =
+                p.shankRadius *
+                (y <= p.taperStart
+                  ? 1
+                  : (p.shankBottom - y) * inverseTaper * (1 + t)),
+              side = x / width;
+            shank =
+              smooth(clamp((1 - side * side) / 0.3)) *
+              smooth(clamp((y - p.shankTop) * inverseEnd)) *
+              smooth(clamp((p.shankBottom - y) * inverseEnd));
+            if (shank > 0) {
+              const phase = y * p.threadFrequency + x * p.threadSlope,
+                distance = phase - Math.floor(phase + 0.5);
+              thread = smooth(clamp((0.0144 - distance * distance) / 0.0119));
+            }
+          }
+          color = 0.06;
+          height = 0.035;
+          roughness = 0.94;
+          occlusion = 0.4;
+          const total = ring + shank;
+          if (total === 0) return;
+          // Open ring and tapered threaded rod remain one component. Tip fade
+          // vanishes quadratically while the terminal width vanishes linearly.
+          const face = ring + shank - ring * shank,
+            relief =
+              (ring * (0.5 + 0.05 * dome) +
+                shank * (0.48 - p.threadDepth * thread)) /
+              total,
+            grain = grainField(u, v);
+          color += face * (0.72 + 0.04 * grain - color) - shank * 0.1 * thread;
+          height += face * (relief + 0.002 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.03 * grain - roughness) +
+            shank * 0.05 * thread;
+          occlusion += face * (0.97 - occlusion) - shank * 0.05 * thread;
+          metallic = face;
+          return;
+        };
+      }
       case 'parchment': {
         const p = proceduralMaterialPresets.parchment,
           follicles = new Float64Array(p.cells * p.cells * 6),
@@ -33105,6 +33191,7 @@ export function createSurfaceSampler(
     kind === 'wenge' ||
     kind === 'parchment' ||
     kind === 'cavalrytwill' ||
+    kind === 'screwhooks' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

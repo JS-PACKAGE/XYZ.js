@@ -8161,6 +8161,31 @@ export const proceduralMaterialPresets = Object.freeze({
     weftFibers: 144,
     draft: Object.freeze([true, true, false, true, false, false] as const),
   }),
+  screwhooks: Object.freeze({
+    dark: [47, 50, 54] as const,
+    light: [217, 224, 230] as const,
+    roughness: 0.31,
+    relief: 0.004,
+    cells: 3,
+    jitter: 0.008,
+    ringY: -0.12,
+    ringOuter: 0.19,
+    ringOuterCore: 0.18,
+    ringInner: 0.14,
+    ringInnerCore: 0.15,
+    openingX: 0.03,
+    openingWidth: 0.07,
+    openingY: -0.06,
+    openingHeight: 0.06,
+    shankTop: 0.04,
+    shankBottom: 0.36,
+    shankRadius: 0.026,
+    taperStart: 0.27,
+    endShoulder: 0.025,
+    threadFrequency: 48,
+    threadSlope: 4,
+    threadDepth: 0.04,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8876,4 +8901,5 @@ export const proceduralTileMeters = Object.freeze({
   wenge: 0.12,
   parchment: 0.04,
   cavalrytwill: 0.024,
+  screwhooks: 0.36,
 });

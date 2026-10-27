@@ -752,7 +752,197 @@ const kinds: ProceduralMaterialKind[] = [
   'wenge',
   'parchment',
   'cavalrytwill',
+  'screwhooks',
 ];
+
+describe('Open ring screw hooks with tapered threaded shanks', () => {
+  const p = proceduralMaterialPresets.screwhooks;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b113),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b115) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b117) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'connects an open metal hook to a physically recessed threaded shank for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('screwhooks', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              theta = Math.PI / 2 + Math.PI * t;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.165 * Math.cos(theta),
+                p.ringY + 0.165 * Math.sin(theta),
+              ),
+              a,
+            );
+            expect(a.metallic).toBeGreaterThan(0.99);
+            sample(...world(seed, col, row, 0, 0.045 + 0.275 * t), a);
+            expect(a.metallic).toBeGreaterThan(0.99);
+          }
+          sample(...world(seed, col, row, 0, p.ringY), a);
+          sample(
+            ...world(
+              seed,
+              col,
+              row,
+              0.165 / Math.SQRT2,
+              p.ringY - 0.165 / Math.SQRT2,
+            ),
+            b,
+          );
+          expect(a.metallic).toBe(0);
+          expect(b.metallic).toBe(0);
+          expect(a.height).toBeLessThan(0.0002);
+          expect(b.height).toBeLessThan(0.0002);
+          for (let j = 6; j <= 10; j++) {
+            sample(...world(seed, col, row, 0, j / p.threadFrequency), a);
+            sample(
+              ...world(seed, col, row, 0, (j + 0.5) / p.threadFrequency),
+              b,
+            );
+            expect(b.height - a.height).toBeGreaterThan(0.00014);
+            expect(b.color - a.color).toBeGreaterThan(0.05);
+            expect(a.roughness - b.roughness).toBeGreaterThan(0.015);
+            expect(b.occlusion - a.occlusion).toBeGreaterThan(0.04);
+          }
+        }
+    },
+  );
+  it('writes the ring cavity and open mouth as opaque nonmetal around a steel threaded rod at actual512', () => {
+    const maps = generateProceduralMaps('screwhooks', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (const [x, y, metal] of [
+          [0, p.ringY, 0],
+          [0.165 / Math.SQRT2, p.ringY - 0.165 / Math.SQRT2, 0],
+          [0, 0.15, 255],
+        ]) {
+          const [u, v] = world(7, col, row, x, y),
+            i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(metal);
+        }
+  });
+  it('repeats the open hook taper threads and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('screwhooks', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps open ends ring-shank roots thread wraps and vanishing tapered tips finite and C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('screwhooks', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              theta = 2 * Math.PI * t;
+            for (const r of [
+              p.ringInner,
+              p.ringInnerCore,
+              p.ringOuterCore,
+              p.ringOuter,
+            ])
+              check(
+                ...world(
+                  seed,
+                  col,
+                  row,
+                  r * Math.cos(theta),
+                  p.ringY + r * Math.sin(theta),
+                ),
+              );
+            check(
+              ...world(
+                seed,
+                col,
+                row,
+                p.openingX + p.openingWidth * t,
+                p.openingY,
+              ),
+            );
+            check(
+              ...world(
+                seed,
+                col,
+                row,
+                0,
+                p.shankTop + (p.shankBottom - p.shankTop) * t,
+              ),
+            );
+          }
+          for (const offset of [0, Number.EPSILON, 1e-10, 1e-6])
+            check(...world(seed, col, row, 0, p.shankBottom - offset));
+        }
+      for (let k = 0; k <= 128; k++)
+        for (const edge of [0, 1]) {
+          check(edge, k / 128);
+          check(k / 128, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Cavalry twill with paired steep diagonal wales', () => {
   const p = proceduralMaterialPresets.cavalrytwill;
@@ -54807,6 +54997,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'turnbuckles' &&
           kind !== 'brakediscs' &&
           kind !== 'shackles' &&
+          kind !== 'screwhooks' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -64245,6 +64436,7 @@ describe('procedural preset acquisition and ownership', () => {
     'turnbuckles',
     'brakediscs',
     'shackles',
+    'screwhooks',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -64343,6 +64535,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'turnbuckles' ||
           kind === 'brakediscs' ||
           kind === 'shackles' ||
+          kind === 'screwhooks' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||
