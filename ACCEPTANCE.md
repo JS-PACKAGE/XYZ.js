@@ -8571,3 +8571,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之utilityblades512五maps；既有716種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7513項測試（1024.69s；裁縫尺斷言維護後重新執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。原失敗與維護證據見上節，沒有放寬取樣／門檻／timeout；依功能獨立commit、不push。
+
+## 2026-10-27 驗證維護：記憶卡密集C1斷言聚合
+
+- chrysocolla整合的首輪完整suite為178檔通過／1檔失敗、7519項通過／1項失敗（1059.98s）：既有memorycardbacks密集C1測試超過30000ms，沒有數值斷言失敗；該輪未記為通過。
+- 原內迴圈執行11006280次Vitest matcher。只改為每seed聚合六通道雙軸最大絕對導數誤差後斷言一次，保留三seed、917190個取樣座標檢查、5503140次sampler calls、全部形狀／接點／owner／UV／grain取樣、strict小於0.08及30000ms timeout；NaN／Infinity仍失敗。未變更runtime、材質或貼圖。
+- 修改後同一既有測試1項通過（vitest2.20s）。Fresh Node以完整原座標迴圈實跑當次dist sampler：917190 checks／5503140 calls／11006280 scalar comparisons，三seed最大值0.019450718813374124／0.020146773138662866／0.019620693958444235皆小於0.08，耗時583.78ms；不是GPU／呈現fps或跨環境效能保證。
+- 修改後當次整合workingtree（含待獨立提交chrysocolla增量）的typecheck、lint、format:check及完整179檔／7520項全部通過（1036.32s）。測試維護與材質功能分開commit，不push。
