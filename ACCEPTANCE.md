@@ -8750,3 +8750,16 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀DRIV-LOK開槽鋼管製法與截面圖參考，不引用取用失敗的SPIROL頁面作已讀證據，未打包參考圖片、未宣稱ASME尺寸或強度認證。
 - build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 完整suite179個測試檔／7611項全部通過（1012.00s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：流紋細基質與淡斑晶流紋岩（rhyolite）
+
+- 目錄731→732種：粉褐細基質上14道彎曲週期明暗流紋與稀疏淡色斑晶，直接fallthrough重用porphyry正式sampler和平切晶體契約。256個潛在site各六值，共1536個Float64／12288 bytes與96² grain；crystalChance0.25是seeded程序分派，不是地質含量。最大晶體support sqrt(0.14²+0.06²)約0.1524小於site至owner邊界最短0.35，沒有晶體的site不留ghost mask。
+- 僅rhyolite配置3² flow lattice、0.6 phase warp與compact平方距離C1肩部；radius平方與inverse shoulder每sampler只計算一次。流紋與斑晶只改色／roughness，維持拋光平切height，無逐點配置／hash／trig／sqrt。既有porphyry不配置flow lattice，原算式與輸出保留。
+- 0.12 m參考tile／0.0005 UV relief，micrograin高度跨度0.0000075 UV（按參考尺度換算0.9μm，非geometry／位移／實機量測）。全opaque M0／mortar0，維持options、Worker、cache及ownership，不新增熔岩動力學、礦物成分或光學認證。
+- 六項rhyolite、四項既有porphyry及兩kind共用catalog共12項通過（vitest2.18s）。三seed細基質明暗與流紋方向性、稀疏淡晶確實較亮較平滑但不浮起、absent site不殘留，actual512色差／淡晶覆蓋及低normal tilt、4096 signed UV，全部晶體bevel／axis／corner、真正warp後band shoulders的32步二分root、cache／owner／UV雙軸C1，1e-10 UV步長／strict0.03。repo前六項隔離draft最初錯要求晶體與鄰點roughness固定差大於0.18，忽略兩點grain不同；改驗真正消費者可見的晶體較平滑關係後全部通過，未改runtime或既有porphyry測試，無probe檔留在repo。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取rhyolite、顯示732種並擷取，頁面及cleanup errors空；actual512 albedo可見彎曲細色帶與散落淡斑晶，normal近乎平整，沒有把色帶或晶體做成凸肋。不以截圖聲稱定量微振幅或renderer效能。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生rhyolite512²五maps各1048576 bytes；全部731種既有材質各64²／seed7四maps相對HEAD SHA256不變。實跑dist ESM／CJS之rhyolite512²及porphyry64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀Geology.com之粉灰細基質、斑晶與流動構造外觀參考，未打包參考圖片，不把選定程序色帶外推為所有天然流紋岩。
+- build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 完整suite179個測試檔／7618項全部通過（950.41s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。

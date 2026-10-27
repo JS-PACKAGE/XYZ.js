@@ -746,7 +746,8 @@ export type ProceduralMaterialKind =
   | 'nephrite'
   | 'diorite'
   | 'carawayseeds'
-  | 'springpinends';
+  | 'springpinends'
+  | 'rhyolite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1727,6 +1728,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'diorite',
   'carawayseeds',
   'springpinends',
+  'rhyolite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

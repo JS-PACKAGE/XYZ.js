@@ -24137,8 +24137,18 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rhyolite':
       case 'porphyry': {
-        const p = proceduralMaterialPresets.porphyry;
+        const p = proceduralMaterialPresets[kind],
+          flowPreset = proceduralMaterialPresets.rhyolite,
+          flowField =
+            kind === 'rhyolite' ? cachedNoise(3, 3, seed ^ 0x1bf11) : undefined,
+          flowSquared = flowField
+            ? flowPreset.bandRadius * flowPreset.bandRadius
+            : 0,
+          inverseFlow = flowField
+            ? 1 / (flowSquared - flowPreset.bandCore * flowPreset.bandCore)
+            : 0;
         const grainField = cachedNoise(96, 96, seed ^ 0x6c21);
         const crystals = new Float64Array(p.cells * p.cells * 6);
         for (let row = 0; row < p.cells; row++)
@@ -24169,7 +24179,16 @@ export function createSurfaceSampler(
             smooth(clamp((crystals[i + 4]! - Math.abs(along)) / p.edge)) *
             smooth(clamp((crystals[i + 5]! - Math.abs(across)) / p.edge));
           const grain = grainField(u, v);
-          color = 0.24 + 0.12 * grain + crystal * (0.55 - 0.06 * grain);
+          if (flowField) {
+            const phase =
+                v * flowPreset.bands + flowPreset.bandWarp * flowField(u, v),
+              distance = phase - Math.floor(phase + 0.5),
+              band = smooth(
+                clamp((flowSquared - distance * distance) * inverseFlow),
+              );
+            color = 0.16 + 0.24 * band + 0.08 * grain;
+            color += crystal * (0.8 - color);
+          } else color = 0.24 + 0.12 * grain + crystal * (0.55 - 0.06 * grain);
           // Polishing leaves feldspar inclusions flush, not raised stone fragments.
           height = 0.4 + 0.015 * grain;
           roughness += 0.08 * grain - 0.22 * crystal;
@@ -34121,6 +34140,7 @@ export function createSurfaceSampler(
     kind === 'diorite' ||
     kind === 'carawayseeds' ||
     kind === 'springpinends' ||
+    kind === 'rhyolite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

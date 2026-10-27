@@ -773,7 +773,242 @@ const kinds: ProceduralMaterialKind[] = [
   'diorite',
   'carawayseeds',
   'springpinends',
+  'rhyolite',
 ];
+
+describe('Fine pink brown rhyolite flow bands with sparse flush pale phenocrysts', () => {
+  const p = proceduralMaterialPresets.rhyolite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const crystal = (seed: number, col: number, row: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x3b59);
+    return {
+      cx: 0.35 + 0.3 * hash(col, row, seed ^ 0x5e13),
+      cy: 0.35 + 0.3 * hash(col, row, seed ^ 0x7a31),
+      c: Math.cos(a),
+      s: Math.sin(a),
+      length:
+        hash(col, row, seed ^ 0x2d47) < p.crystalChance
+          ? p.halfLengthMin + p.halfLengthRange * hash(col, row, seed ^ 0x4f19)
+          : 0,
+      width: p.halfWidthMin + p.halfWidthRange * hash(col, row, seed ^ 0x1c63),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps broad fine matrix flow color and sparse brighter smoother crystals on one flat cut plane for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('rhyolite', seed),
+        a = empty(),
+        b = empty();
+      let crystals = 0,
+        min = Infinity,
+        max = -Infinity,
+        along = 0,
+        across = 0,
+        minH = Infinity,
+        maxH = -Infinity;
+      for (let j = 0; j < 4096; j++) {
+        const v = j / 4096;
+        sample(0, v, a);
+        min = Math.min(min, a.color);
+        max = Math.max(max, a.color);
+        minH = Math.min(minH, a.height);
+        maxH = Math.max(maxH, a.height);
+        const color = a.color;
+        sample(0, v + 0.0001, b);
+        across += Math.abs(b.color - color);
+        sample(0.0001, v, b);
+        along += Math.abs(b.color - color);
+      }
+      expect(max - min).toBeGreaterThan(0.2);
+      expect(across).toBeGreaterThan(3 * along);
+      expect((maxH - minH) * 0.12).toBeLessThan(0.000001);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = crystal(seed, col, row),
+            u = (col + f.cx) / p.cells,
+            v = (row + f.cy) / p.cells;
+          sample(u, v, a);
+          if (f.length === 0) {
+            expect(a.color).toBeLessThan(0.5);
+            continue;
+          }
+          crystals++;
+          sample(
+            (col + f.cx + (f.length + 0.025) * f.c) / p.cells,
+            (row + f.cy + (f.length + 0.025) * f.s) / p.cells,
+            b,
+          );
+          expect(a.color - b.color).toBeGreaterThan(0.3);
+          expect(a.roughness).toBeLessThan(b.roughness);
+          expect(Math.abs(a.height - b.height) * 0.12).toBeLessThan(0.000001);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+          expect(a.occlusion).toBeGreaterThan(0.97);
+        }
+      expect(crystals).toBeGreaterThan(20);
+      expect(crystals).toBeLessThan(100);
+    },
+  );
+  it('writes actual512 fine pink brown flow matrix with sparse paler opaque nonmetal crystals and flat polish', () => {
+    const maps = generateProceduralMaps('rhyolite', 512, 7, {
+      heightMap: true,
+    });
+    let bright = 0,
+      invalid = 0,
+      min = 255,
+      max = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          r <= g ||
+          g <= b ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 249,
+      );
+      if (r > 190) bright++;
+      min = Math.min(min, r);
+      max = Math.max(max, r);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+    }
+    expect(bright / (512 * 512)).toBeGreaterThan(0.002);
+    expect(bright / (512 * 512)).toBeLessThan(0.06);
+    expect(max - min).toBeGreaterThan(80);
+    expect(maxTilt).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats flow color fine matrix and flush crystal PBR across signed UV periods', () => {
+    const sample = createSurfaceSampler('rhyolite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps actual warped flow shoulders crystal edges corners cache grids and UV owners C1', () => {
+    const h = 1e-10;
+    const warp = (u: number, v: number, seed: number): number => {
+      const x = (u - Math.floor(u)) * 3,
+        y = (v - Math.floor(v)) * 3,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        tx = x - ix,
+        ty = y - iy,
+        sx = tx * tx * (3 - 2 * tx),
+        sy = ty * ty * (3 - 2 * ty),
+        a = hash(ix, iy, seed),
+        b = hash((ix + 1) % 3, iy, seed),
+        c = hash(ix, (iy + 1) % 3, seed),
+        d = hash((ix + 1) % 3, (iy + 1) % 3, seed);
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('rhyolite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = crystal(seed, col, row);
+          if (f.length === 0) continue;
+          const local = (x: number, y: number) =>
+            check(
+              (col + f.cx + f.c * x - f.s * y) / p.cells,
+              (row + f.cy + f.s * x + f.c * y) / p.cells,
+            );
+          for (let j = 0; j <= 32; j++)
+            for (const sign of [-1, 1]) {
+              const t = -1 + (2 * j) / 32;
+              for (const inset of [0, p.edge]) {
+                local(sign * (f.length - inset), t * f.width);
+                local(t * f.length, sign * (f.width - inset));
+              }
+              local(0, t * f.width);
+              local(t * f.length, 0);
+            }
+        }
+      for (let band = 0; band < p.bands; band++)
+        for (let j = 0; j <= 64; j++)
+          for (const level of [
+            -0.5,
+            -p.bandRadius,
+            -p.bandCore,
+            p.bandCore,
+            p.bandRadius,
+            0.5,
+          ]) {
+            const u = j / 64,
+              target = band + level;
+            let lo = target / p.bands - 0.1,
+              hi = target / p.bands + 0.1;
+            for (let step = 0; step < 32; step++) {
+              const v = (lo + hi) * 0.5;
+              if (
+                v * p.bands + p.bandWarp * warp(u, v, seed ^ 0x1bf11) <
+                target
+              )
+                lo = v;
+              else hi = v;
+            }
+            check(u, (lo + hi) * 0.5);
+          }
+      for (const grid of [3, p.cells, 96])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Slotted hollow spring pin end faces with one open gap and flat metal wall', () => {
   const p = proceduralMaterialPresets.springpinends;

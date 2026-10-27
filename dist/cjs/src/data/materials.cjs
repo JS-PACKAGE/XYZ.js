@@ -14760,6 +14760,31 @@ var proceduralMaterialPresets = Object.freeze({
 		slotFull: .18,
 		faceHeight: .65,
 		grainHeight: .002
+	}),
+	rhyolite: Object.freeze({
+		dark: [
+			83,
+			44,
+			35
+		],
+		light: [
+			234,
+			218,
+			190
+		],
+		roughness: .46,
+		relief: 5e-4,
+		cells: 16,
+		crystalChance: .25,
+		halfLengthMin: .08,
+		halfLengthRange: .06,
+		halfWidthMin: .035,
+		halfWidthRange: .025,
+		edge: .012,
+		bands: 14,
+		bandWarp: .6,
+		bandRadius: .42,
+		bandCore: .24
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -15493,7 +15518,8 @@ var proceduralTileMeters = Object.freeze({
 	nephrite: .16,
 	diorite: .16,
 	carawayseeds: .04,
-	springpinends: .064
+	springpinends: .064,
+	rhyolite: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

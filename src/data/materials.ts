@@ -8536,6 +8536,23 @@ export const proceduralMaterialPresets = Object.freeze({
     faceHeight: 0.65,
     grainHeight: 0.002,
   }),
+  rhyolite: Object.freeze({
+    dark: [83, 44, 35] as const,
+    light: [234, 218, 190] as const,
+    roughness: 0.46,
+    relief: 0.0005,
+    cells: 16,
+    crystalChance: 0.25,
+    halfLengthMin: 0.08,
+    halfLengthRange: 0.06,
+    halfWidthMin: 0.035,
+    halfWidthRange: 0.025,
+    edge: 0.012,
+    bands: 14,
+    bandWarp: 0.6,
+    bandRadius: 0.42,
+    bandCore: 0.24,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9271,4 +9288,5 @@ export const proceduralTileMeters = Object.freeze({
   diorite: 0.16,
   carawayseeds: 0.04,
   springpinends: 0.064,
+  rhyolite: 0.12,
 });

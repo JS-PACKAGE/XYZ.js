@@ -8383,6 +8383,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         faceHeight: 0.65;
         grainHeight: 0.002;
     }>;
+    rhyolite: Readonly<{
+        dark: readonly [83, 44, 35];
+        light: readonly [234, 218, 190];
+        roughness: 0.46;
+        relief: 0.0005;
+        cells: 16;
+        crystalChance: 0.25;
+        halfLengthMin: 0.08;
+        halfLengthRange: 0.06;
+        halfWidthMin: 0.035;
+        halfWidthRange: 0.025;
+        edge: 0.012;
+        bands: 14;
+        bandWarp: 0.6;
+        bandRadius: 0.42;
+        bandCore: 0.24;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9117,4 +9134,5 @@ export declare const proceduralTileMeters: Readonly<{
     diorite: 0.16;
     carawayseeds: 0.04;
     springpinends: 0.064;
+    rhyolite: 0.12;
 }>;
