@@ -788,7 +788,268 @@ const kinds: ProceduralMaterialKind[] = [
   'twopinscrewheads',
   'amazonite',
   'adzukibeans',
+  'anigre',
 ];
+
+describe('Figured light Anigre with flat transverse curl and fine recessed longitudinal vessels', () => {
+  const p = proceduralMaterialPresets.anigre;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (columns: number, rows: number, seed: number) => {
+    const values = new Float64Array(columns * rows);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < columns; x++)
+        values[y * columns + x] = hash(x, y, seed);
+    return (u: number, v: number) => {
+      const fu = u - Math.floor(u),
+        fv = v - Math.floor(v),
+        x = fu * columns,
+        y = fv * rows,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        dx = x - ix,
+        dy = y - iy,
+        sx = dx * dx * (3 - 2 * dx),
+        sy = dy * dy * (3 - 2 * dy),
+        nextX = (ix + 1) % columns,
+        nextY = (iy + 1) % rows,
+        a = values[iy * columns + ix],
+        b = values[iy * columns + nextX],
+        c = values[nextY * columns + ix],
+        d = values[nextY * columns + nextX];
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+  };
+
+  const site = (seed: number, col: number, row: number) => ({
+    enabled: hash(col, row, seed ^ 0x1d019) < p.poreChance,
+    x: 0.25 + 0.5 * hash(col, row, seed ^ 0x1d01f),
+    y: 0.35 + 0.3 * hash(col, row, seed ^ 0x1d021),
+    width: p.widthMinimum + p.widthVariation * hash(col, row, seed ^ 0x1d01b),
+    length:
+      p.lengthMinimum + p.lengthVariation * hash(col, row, seed ^ 0x1d01d),
+  });
+  const root = (f: (t: number) => number) => {
+    let lo = 0,
+      hi = 1;
+    if (f(lo) > 0 || f(hi) < 0) return undefined;
+    for (let j = 0; j < 48; j++) {
+      const t = (lo + hi) * 0.5;
+      if (f(t) < 0) lo = t;
+      else hi = t;
+    }
+    return (lo + hi) * 0.5;
+  };
+  const directions = new Float64Array(513 * 2),
+    scales = [
+      1,
+      Math.sqrt(1 - p.poreShoulder * 0.5),
+      Math.sqrt(1 - p.poreShoulder),
+    ],
+    extrema = [0, 0.5];
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps light curled pigment on an unembossed face and sparse long nonmetallic open vessels for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('anigre', seed),
+        a = empty(),
+        b = empty(),
+        warp = field(3, 5, seed ^ 0x1d011);
+      let occupied = 0,
+        vacant = 0,
+        curls = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = site(seed, col, row),
+            u = (col + f.x) / p.columns,
+            v = (row + f.y) / p.rows;
+          sample(u, v, a);
+          if (!f.enabled) {
+            vacant++;
+            expect(a.occlusion).toBe(1);
+            expect(a.height).toBeGreaterThan(0.499 * p.relief);
+            expect(a.color).toBeGreaterThan(0.48);
+            continue;
+          }
+          occupied++;
+          sample(u + (2 * f.width) / p.columns, v, b);
+          expect(b.height - a.height).toBeGreaterThan(0.05 * p.relief);
+          expect(b.color - a.color).toBeGreaterThan(0.3);
+          expect(a.occlusion).toBeGreaterThan(0.8);
+          expect(a.occlusion).toBeLessThan(0.85);
+          expect(a.roughness - b.roughness).toBeGreaterThan(0.03);
+          expect(a.roughness - b.roughness).toBeLessThan(0.09);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+          let across = 0,
+            along = 0,
+            runs = 0,
+            prior = false;
+          for (let j = 0; j <= 1024; j++) {
+            const t = -0.3 + (0.6 * j) / 1024;
+            sample(u + t / p.columns, v, a);
+            across += Number(a.occlusion < 0.9);
+            sample(u, v + t / p.rows, b);
+            const open = b.occlusion < 0.9;
+            along += Number(open);
+            if (open && !prior) runs++;
+            prior = open;
+          }
+          expect(runs).toBe(1);
+          expect(((along / across) * p.columns) / p.rows).toBeGreaterThan(8);
+          expect(((along / across) * p.columns) / p.rows).toBeLessThan(30);
+        }
+      expect(occupied).toBeGreaterThan(100);
+      expect(vacant).toBeGreaterThan(250);
+      for (let j = 0; j <= 64; j++) {
+        const u = j / 64,
+          phase = (v: number) =>
+            p.curlBands * v + p.curlSkew * u + p.curlWarp * (warp(u, v) - 0.5);
+        for (let k = -1; k <= p.curlBands + p.curlSkew + 1; k++) {
+          const lo = root((v) => phase(v) - k),
+            hi = root((v) => phase(v) - k - 0.5);
+          if (lo === undefined || hi === undefined) continue;
+          sample(u, lo, a);
+          sample(u, hi, b);
+          if (a.occlusion !== 1 || b.occlusion !== 1) continue;
+          curls++;
+          expect(a.color - b.color).toBeGreaterThan(0.1);
+          expect(Math.abs(a.height - b.height)).toBeLessThan(0.0021 * p.relief);
+          expect(Math.abs(a.roughness - b.roughness)).toBeLessThan(0.026);
+          expect(a.metallic).toBe(0);
+          expect(b.mortar).toBe(0);
+        }
+      }
+      expect(curls).toBeGreaterThan(200);
+    },
+  );
+  it('writes actual512 light golden-pink wood with transverse tonal figure sparse dark vessels opaque metal-zero channels and shallow vessel normals', () => {
+    const maps = generateProceduralMaps('anigre', 512, 7, { heightMap: true });
+    let wood = 0,
+      bright = 0,
+      dark = 0,
+      pores = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        rough = maps.metallicRoughness[i + 1],
+        ao = maps.occlusion[i];
+      wood += Number(r > 165 && r > g && g > b && ao > 245);
+      bright += Number(r > 200 && ao > 245);
+      dark += Number(r < 190 && r > 165 && ao > 245);
+      pores += Number(r < 155 && rough > 120 && ao < 230);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(wood / (512 * 512)).toBeGreaterThan(0.97);
+    expect(bright / (512 * 512)).toBeGreaterThan(0.08);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.08);
+    expect(pores).toBeGreaterThan(200);
+    expect(pores / (512 * 512)).toBeLessThan(0.02);
+    expect(tilt).toBeGreaterThan(0.005);
+    expect(invalid).toBe(0);
+  });
+  it('repeats flat figure fiber grain open vessels and all dielectric channels across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('anigre', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true vessel ellipse shoulders transverse curl extrema phase wraps cache grids pore owners and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('anigre', seed),
+        warp = field(3, 5, seed ^ 0x1d011);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = site(seed, col, row);
+          if (!f.enabled) continue;
+          for (let j = 0; j <= 512; j++)
+            for (const scale of scales)
+              check(
+                (col + f.x + f.width * scale * directions[j * 2]) / p.columns,
+                (row + f.y + f.length * scale * directions[j * 2 + 1]) / p.rows,
+              );
+        }
+      for (let j = 0; j <= 128; j++) {
+        const u = j / 128,
+          phase = (v: number) =>
+            p.curlBands * v + p.curlSkew * u + p.curlWarp * (warp(u, v) - 0.5);
+        for (let k = -1; k <= p.curlBands + p.curlSkew + 1; k++)
+          for (const offset of extrema) {
+            const v = root((v) => phase(v) - k - offset);
+            if (v !== undefined) check(u, v);
+          }
+      }
+      for (const grid of [3, 4, 5, 16, 32, 96, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Opaque red adzuki seeds with a long central pale non-depressed hilum', () => {
   const p = proceduralMaterialPresets.adzukibeans;

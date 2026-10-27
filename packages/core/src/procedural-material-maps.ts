@@ -3608,6 +3608,65 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'anigre': {
+        const p = proceduralMaterialPresets.anigre,
+          pores = new Float64Array(p.columns * p.rows * 4),
+          warpField = cachedNoise(3, 5, seed ^ 0x1d011),
+          fiberField = cachedNoise(96, 4, seed ^ 0x1d013),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d015),
+          cloudField = cachedNoise(5, 5, seed ^ 0x1d017),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            if (hash(col, row, seed ^ 0x1d019) >= p.poreChance) continue;
+            const i = (row * p.columns + col) * 4,
+              width =
+                p.widthMinimum +
+                p.widthVariation * hash(col, row, seed ^ 0x1d01b),
+              length =
+                p.lengthMinimum +
+                p.lengthVariation * hash(col, row, seed ^ 0x1d01d);
+            pores[i] = 0.25 + 0.5 * hash(col, row, seed ^ 0x1d01f);
+            pores[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x1d021);
+            pores[i + 2] = 1 / (width * width);
+            pores[i + 3] = 1 / (length * length);
+          }
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.columns + col) * 4;
+          let pore = 0;
+          if (pores[i + 3] > 0) {
+            const dx = x - col - pores[i],
+              dy = y - row - pores[i + 1],
+              q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3];
+            pore = smooth(clamp((1 - q) * inversePore));
+          }
+          const phase =
+              v * p.curlBands +
+              u * p.curlSkew +
+              p.curlWarp * (warpField(u, v) - 0.5),
+            curl = smooth(1 - Math.abs(2 * fract(phase) - 1)),
+            grain = grainField(u, v);
+          // Transverse curl is figured pigment on one flat face, not rippled
+          // geometry or a directional optical shader; only open vessels recess.
+          color =
+            p.faceColor -
+            p.curlContrast * curl +
+            p.fiberContrast * (fiberField(u, v) - 0.5) +
+            0.04 * (cloudField(u, v) - 0.5) +
+            0.02 * grain;
+          color += pore * (0.08 - color);
+          height = 0.5 + p.grainHeight * grain - p.poreDepth * pore;
+          roughness += 0.025 * grain + 0.06 * pore;
+          occlusion = 1 - 0.18 * pore;
+          metallic = 0;
+          mortar = 0;
+          return;
+        };
+      }
       case 'adzukibeans': {
         const p = proceduralMaterialPresets.adzukibeans,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -35147,6 +35206,7 @@ export function createSurfaceSampler(
     kind === 'twopinscrewheads' ||
     kind === 'amazonite' ||
     kind === 'adzukibeans' ||
+    kind === 'anigre' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||
