@@ -2846,6 +2846,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hexsocketheads': {
+        const p = proceduralMaterialPresets.hexsocketheads,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1bb11),
+          capSquared = p.capRadius * p.capRadius,
+          inverseCap = 1 / (capSquared - p.fullRadius * p.fullRadius),
+          inverseSocket = 1 / p.socketBevel,
+          halfRoot3 = Math.sqrt(3) * 0.5;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1bb13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb17) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1bb19);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            q = dx * dx + dy * dy,
+            face = smooth(clamp((capSquared - q) * inverseCap));
+          color = 0.03;
+          height = 0.03;
+          roughness = 0.95;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          const x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            hx = 0.5 * x,
+            hy = halfRoot3 * y,
+            socket =
+              smooth(clamp((p.socketApothem - Math.abs(x)) * inverseSocket)) *
+              smooth(
+                clamp((p.socketApothem - Math.abs(hx + hy)) * inverseSocket),
+              ) *
+              smooth(
+                clamp((p.socketApothem - Math.abs(hy - hx)) * inverseSocket),
+              ),
+            grain = grainField(u, v),
+            top = p.headHeight + p.headGrainHeight * grain,
+            floor = p.socketFloor + p.floorGrainHeight * grain;
+          // Paired half-planes are flat at their absolute-distance axes;
+          // their product bevels hex corners without a max-distance crease.
+          color +=
+            face *
+            (0.82 +
+              0.06 * poses[i + 4] +
+              0.025 * grain -
+              p.socketShade * socket -
+              color);
+          // The blind steel floor owns the recess, rather than punching a hole
+          // through the backing or subtracting depth from a domed cap.
+          height += face * (top + socket * (floor - top) - height);
+          roughness +=
+            face * (p.roughness + 0.05 * socket + 0.03 * grain - roughness);
+          occlusion += face * (0.98 - 0.44 * socket - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'seraphinite': {
         const p = proceduralMaterialPresets.seraphinite,
           fans = new Float64Array(p.cells * p.cells * 9),
@@ -33883,6 +33953,7 @@ export function createSurfaceSampler(
     kind === 'anorthosite' ||
     kind === 'cubebberries' ||
     kind === 'seraphinite' ||
+    kind === 'hexsocketheads' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

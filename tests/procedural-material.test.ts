@@ -765,7 +765,226 @@ const kinds: ProceduralMaterialKind[] = [
   'anorthosite',
   'cubebberries',
   'seraphinite',
+  'hexsocketheads',
 ];
+
+describe('Blind hex socket steel heads with smooth six-flat bevels', () => {
+  const p = proceduralMaterialPresets.hexsocketheads;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1bb13),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb15) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb17) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps six flat socket sides extending into six corners above a blind flat steel floor for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('hexsocketheads', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            floor = at(0, 0),
+            rim = at(0.27, 0),
+            backing = at(0.445, 0);
+          expect(
+            (rim.height - floor.height) * proceduralTileMeters.hexsocketheads,
+          ).toBeGreaterThan(0.002);
+          expect(
+            (floor.height - backing.height) *
+              proceduralTileMeters.hexsocketheads,
+          ).toBeGreaterThan(0.0012);
+          expect(rim.height * proceduralTileMeters.hexsocketheads).toBeLessThan(
+            0.0037,
+          );
+          expect(floor.color).toBeLessThan(rim.color);
+          expect(floor.roughness).toBeGreaterThan(rim.roughness);
+          expect(floor.occlusion).toBeLessThan(rim.occlusion);
+          expect(floor.occlusion).toBeGreaterThan(backing.occlusion);
+          expect(floor.metallic).toBe(1);
+          expect(rim.metallic).toBe(1);
+          expect(backing.metallic).toBe(0);
+          expect(floor.mortar).toBe(0);
+          expect(rim.mortar).toBe(0);
+          expect(backing.mortar).toBe(1);
+          let lowFloor = floor.height,
+            highFloor = floor.height;
+          for (let j = 0; j < 24; j++) {
+            const theta = (2 * Math.PI * j) / 24,
+              core = at(0.12 * Math.cos(theta), 0.12 * Math.sin(theta));
+            lowFloor = Math.min(lowFloor, core.height);
+            highFloor = Math.max(highFloor, core.height);
+          }
+          expect(
+            (highFloor - lowFloor) * proceduralTileMeters.hexsocketheads,
+          ).toBeLessThan(0.0000111);
+          for (let side = 0; side < 6; side++) {
+            const theta = (2 * Math.PI * side) / 6,
+              radius = 1.06 * p.socketApothem,
+              facet = at(radius * Math.cos(theta), radius * Math.sin(theta)),
+              corner = at(
+                radius * Math.cos(theta + Math.PI / 6),
+                radius * Math.sin(theta + Math.PI / 6),
+              );
+            expect(
+              (facet.height - corner.height) *
+                proceduralTileMeters.hexsocketheads,
+            ).toBeGreaterThan(0.0015);
+            expect(
+              (corner.height - floor.height) *
+                proceduralTileMeters.hexsocketheads,
+            ).toBeGreaterThan(0.0003);
+            expect(corner.metallic).toBe(1);
+          }
+        }
+    },
+  );
+  it('writes opaque metal rims and blind metal floors above dielectric backing at actual512', () => {
+    const maps = generateProceduralMaps('hexsocketheads', 512, 7, {
+      heightMap: true,
+    });
+    let transparent = 0;
+    for (let i = 3; i < maps.baseColor.length; i += 4)
+      transparent += Number(maps.baseColor[i] !== 255);
+    expect(transparent).toBe(0);
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const pixel = (x: number, y: number) => {
+            const [u, v] = world(7, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          },
+          floor = pixel(0, 0),
+          rim = pixel(0.27, 0),
+          backing = pixel(0.445, 0);
+        expect(maps.metallicRoughness[floor + 2]).toBe(255);
+        expect(maps.metallicRoughness[rim + 2]).toBe(255);
+        expect(maps.metallicRoughness[backing + 2]).toBe(0);
+        expect(maps.height![rim] - maps.height![floor]).toBeGreaterThan(140);
+        expect(maps.height![floor] - maps.height![backing]).toBeGreaterThan(80);
+        expect(maps.metallicRoughness[floor + 1]).toBeGreaterThan(
+          maps.metallicRoughness[rim + 1] + 3,
+        );
+        expect(maps.occlusion[floor]).toBeLessThan(maps.occlusion[rim]);
+        expect(maps.occlusion[floor]).toBeGreaterThan(maps.occlusion[backing]);
+      }
+  });
+  it('repeats six-flat blind sockets and regional metal coverage across signed UV periods', () => {
+    const sample = createSurfaceSampler('hexsocketheads', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps cap shoulders six-plane bevel intersections absolute-distance axes owner and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hexsocketheads', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128;
+            for (const radius of [p.fullRadius, p.capRadius])
+              local(radius * Math.cos(theta), radius * Math.sin(theta));
+          }
+          for (let side = 0; side < 6; side++) {
+            const theta = (2 * Math.PI * side) / 6,
+              nx = Math.cos(theta),
+              ny = Math.sin(theta);
+            for (const r of [p.socketApothem, p.socketApothem - p.socketBevel])
+              for (let j = 0; j <= 128; j++) {
+                const s = -0.22 + (0.44 * j) / 128;
+                local(r * nx - s * ny, r * ny + s * nx);
+              }
+            for (const level of [
+              p.socketApothem,
+              p.socketApothem - p.socketBevel * 0.5,
+              p.socketApothem - p.socketBevel,
+            ]) {
+              const r = level / Math.cos(Math.PI / 6);
+              local(
+                r * Math.cos(theta + Math.PI / 6),
+                r * Math.sin(theta + Math.PI / 6),
+              );
+            }
+            if (side < 3)
+              for (let j = 0; j <= 128; j++) {
+                const s = -0.3 + (0.6 * j) / 128;
+                local(-s * ny, s * nx);
+              }
+          }
+        }
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Seraphinite pale feather fans below one polished green face', () => {
   const p = proceduralMaterialPresets.seraphinite;
@@ -57075,6 +57294,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'shackles' &&
           kind !== 'screwhooks' &&
           kind !== 'utilityblades' &&
+          kind !== 'hexsocketheads' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&

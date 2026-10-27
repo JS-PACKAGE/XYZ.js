@@ -738,7 +738,8 @@ export type ProceduralMaterialKind =
   | 'huckaback'
   | 'anorthosite'
   | 'cubebberries'
-  | 'seraphinite';
+  | 'seraphinite'
+  | 'hexsocketheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1711,6 +1712,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'anorthosite',
   'cubebberries',
   'seraphinite',
+  'hexsocketheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1943,6 +1945,7 @@ export class ProceduralMaterial {
         this.kind === 'shackles' ||
         this.kind === 'screwhooks' ||
         this.kind === 'utilityblades' ||
+        this.kind === 'hexsocketheads' ||
         this.kind === 'insulatedringlugs' ||
         this.kind === 'pencilsharpeners' ||
         this.kind === 'scissors' ||

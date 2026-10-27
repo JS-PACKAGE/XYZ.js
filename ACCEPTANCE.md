@@ -8641,3 +8641,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之seraphinite512五maps；全部722種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之seraphinite512²及cubebberries64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附外觀參考連結，未打包標本照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7555項測試（945.41s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：六角盲凹穴鋼質螺栓頭（hexsocketheads）
+
+- 目錄723→724種：25個種子旋轉的圓形鋼頭與六個平面／六個伸出角的平底盲凹穴，重用既有圓頭支撐及六角半平面模式。三對half-plane C1 profiles相乘，不用max距離造成角部摺痕；每頭五值姿態快取共125個Float64／1000 bytes，128² grain及初始化時計算的固定六角常數，無逐點配置／hash／trig／sqrt。圓頭support0.38加jitter0.025為0.405，小於owner半寬0.5；凹穴角半徑約0.207846小於完整頂面半徑0.33。
+- 0.18 m參考tile／0.03 UV relief，名義凹深0.0126 UV、平底micrograin高度跨度最多0.00006 UV（按參考尺度換算2.268mm與10.8μm，非位移或實機量測）。M1盲底仍高於M0中性底板，非穿洞；全opaque、mortar=1−圓頭coverage。沿用options／Worker／cache／ownership，不新增geometry、螺桿／螺紋、物理穿孔或負載認證。
+- 六項專項全部通過（vitest1.73s）：三seed全部鋼頭的頂面高於盲底reference高差大於2mm、盲底高於底板大於1.2mm、盲底reference高度跨度小於11.1μm；六個facet／corner對比及平底M1／底板M0、凹底roughness較高／AO較低；512²全opaque與高度／金屬／AO區域，4096 signed UV週期及cap／six-plane bevel intersections／abs axes／owner／UV雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU與重建的WebGL2 tab皆實際擷取，顯示724種並選取hexsocketheads，頁面及cleanup errors空；另擷取actual512 albedo與normal，觀察旋轉六角凹穴、頂面與平底。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- 首個managed WebGL2 tab於open階段出現detached Frame，未記為通過；僅關閉失效session後以fresh tab完成上述驗證，未修改renderer或放寬檢查，工具錯誤原因未證實。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。另直接實跑dist `ProceduralMaterial.create('hexsocketheads').createMaterial()`，預設metallic factor為1，bundle destroy成功。
+- Fresh Node產生當次dist之hexsocketheads512五maps；全部723種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之hexsocketheads512²、hexnuts及starsocketbolts各64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 首輪完整suite為178檔通過／1檔失敗、7561項通過／1項失敗（1014.83s）：共用catalog測試缺少hexsocketheads的混合金屬分類，將正確M1鋼頭誤要求為M0。僅依既有混合金屬材質慣例補上分類，保留六項專項與所有既有檢查；未改runtime輸出、renderer或放寬門檻。修正後實際結果另列。
+- 修正分類後，六項材質專項及該kind的共用catalog測試共7項全部通過（vitest2.17s）；typecheck、lint及format:check再次通過。完整suite的修正後重跑結果另列。
+- 修正分類後完整suite為179個測試檔／7562項測試全部通過（1014.24s）；連同已完成的build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）完成gate。依功能獨立commit、不push。
