@@ -8537,3 +8537,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之phyllite512五maps；既有713種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7491項測試（1089.93s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：不規則粗節緯紗平紋山東綢（shantung）
+
+- 目錄714→715種：暖象牙色64經／32緯1/1平紋與96段不規則緯向粗節。沿用poplin／gabardine／ottoman／cavalrytwill的compact yarn／lift路徑；每緯三段各快取中心、平方逆半長及強度。粗節C1漸厚變寬，緯radius0.22最多至0.37、core0.15至0.28，低於owner0.5；經覆緯時遮住粗節，lift在owner前漸消。無逐點配置／hash／trig／sqrt，0.024 m參考tile／0.018 UV relief、全opaque M0／mortar0，不新增geometry、透明紗隙、各向異性或織物模擬。
+- 6項專項全部通過（1.13s）：三seed96段粗節中心與加寬區均實際增高（依參考尺度差>18／35μm）、加寬區AO與交替經覆／緯覆的色／高度；512² opaque dielectric height map之粗節高於相鄰細紗，4096 signed UV週期與三seed粗節端點／變幅shoulders／owner／UV seams雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示715種並選取shantung，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布，觀察平紋交錯與局部粗緯。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之shantung512五maps；既有714種（含共用四種織物）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7498項測試（1029.58s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

@@ -729,7 +729,8 @@ export type ProceduralMaterialKind =
   | 'cavalrytwill'
   | 'screwhooks'
   | 'nigellaseeds'
-  | 'phyllite';
+  | 'phyllite'
+  | 'shantung';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1693,6 +1694,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'screwhooks',
   'nigellaseeds',
   'phyllite',
+  'shantung',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

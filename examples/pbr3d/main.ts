@@ -793,6 +793,7 @@ try {
     'screwhooks',
     'nigellaseeds',
     'phyllite',
+    'shantung',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

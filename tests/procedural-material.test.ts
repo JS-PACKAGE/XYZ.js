@@ -756,7 +756,157 @@ const kinds: ProceduralMaterialKind[] = [
   'screwhooks',
   'nigellaseeds',
   'phyllite',
+  'shantung',
 ];
+
+describe('Shantung plain weave with irregular thick weft slubs', () => {
+  const p = proceduralMaterialPresets.shantung;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const center = (j: number, row: number, seed: number) =>
+    (j + 0.5) / p.slubs + p.slubJitter * (2 * hash(j, row, seed ^ 0x1b411) - 1);
+  const gap = (j: number, row: number, seed: number) =>
+    (center(j, row, seed) +
+      center((j + 1) % p.slubs, row, seed) +
+      (j === p.slubs - 1 ? 1 : 0)) *
+    0.5;
+  const warpGap = (u: number) => Math.round(u * p.warpThreads) / p.warpThreads;
+  it.each([0, 1, 0xffffffff])(
+    'raises and widens localized weft slubs while preserving alternate plain crossings for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('shantung', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.weftThreads; row++) {
+        for (let j = 0; j < p.slubs; j++) {
+          const u = warpGap(center(j, row, seed)),
+            g = warpGap(gap(j, row, seed)),
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v, a);
+          sample(g, v, b);
+          expect(
+            (a.height - b.height) * proceduralTileMeters.shantung,
+          ).toBeGreaterThan(0.000018);
+          sample(u, (row + 0.745) / p.weftThreads, a);
+          sample(g, (row + 0.745) / p.weftThreads, b);
+          expect(
+            (a.height - b.height) * proceduralTileMeters.shantung,
+          ).toBeGreaterThan(0.000035);
+          expect(a.occlusion).toBeGreaterThan(0.55);
+          expect(b.occlusion).toBeCloseTo(0.45, 12);
+        }
+        for (let col = 0; col < p.warpThreads; col += 2) {
+          const v = (row + 0.5) / p.weftThreads;
+          sample((col + 0.5) / p.warpThreads, v, a);
+          sample((col + 1.5) / p.warpThreads, v, b);
+          const warp = (row & 1) === 0 ? a : b,
+            weft = (row & 1) === 0 ? b : a;
+          expect(warp.color - weft.color).toBeGreaterThan(0.14);
+          expect(
+            (weft.height - warp.height) * proceduralTileMeters.shantung,
+          ).toBeGreaterThan(0.000065);
+        }
+      }
+    },
+  );
+  it('writes localized raised ivory slubs into actual512 opaque dielectric height maps', () => {
+    const maps = generateProceduralMaps('shantung', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let j = 0; j < p.slubs; j++) {
+        const v = (row + 0.5) / p.weftThreads,
+          indices = [warpGap(center(j, row, 7)), warpGap(gap(j, row, 7))].map(
+            (u) =>
+              (Math.floor(v * 512) * 512 +
+                Math.floor((u - Math.floor(u)) * 512)) *
+              4,
+          );
+        for (const i of indices) {
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+        }
+        expect(maps.height![indices[0]]).toBeGreaterThan(
+          maps.height![indices[1]],
+        );
+      }
+  });
+  it('repeats localized slubs interlacing and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('shantung', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 3, v - 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps variable slub shoulders wrapped ends interlacing ownership and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('shantung', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.weftThreads; row++) {
+        for (let j = 0; j < p.slubs; j++) {
+          const u = center(j, row, seed),
+            half =
+              p.slubHalfMinimum +
+              p.slubHalfVariation * hash(j, row, seed ^ 0x1b413),
+            strength = 0.35 + 0.65 * hash(j, row, seed ^ 0x1b415);
+          for (const dx of [-half, 0, half])
+            check(u + dx, (row + 0.5) / p.weftThreads);
+          for (const radius of [
+            p.weftRadius + p.slubRadius * strength,
+            p.weftCore + p.slubCore * strength,
+          ])
+            for (const sign of [-1, 1])
+              check(u, (row + 0.5 + sign * radius) / p.weftThreads);
+        }
+        for (let col = 0; col < p.warpThreads; col++)
+          for (const f of [0, 0.2, 0.5, 0.8, 1]) {
+            check((col + f) / p.warpThreads, row / p.weftThreads);
+            check(col / p.warpThreads, (row + f) / p.weftThreads);
+          }
+      }
+      for (let j = 0; j <= 256; j++)
+        for (const edge of [0, 1]) {
+          check(edge, j / 256);
+          check(j / 256, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Fine folded gray green phyllite', () => {
   const p = proceduralMaterialPresets.phyllite;

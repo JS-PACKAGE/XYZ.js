@@ -8063,6 +8063,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         micaThreshold: 0.64;
         micaShoulder: 0.18;
     }>;
+    shantung: Readonly<{
+        dark: readonly [110, 88, 55];
+        light: readonly [233, 216, 170];
+        roughness: 0.62;
+        relief: 0.018;
+        warpThreads: 64;
+        weftThreads: 32;
+        warpRadius: 0.3;
+        warpCore: 0.22;
+        weftRadius: 0.22;
+        weftCore: 0.15;
+        warpLiftHalf: 0.37;
+        weftLiftHalf: 0.43;
+        liftShoulder: 0.06;
+        lift: 0.18;
+        warpFibers: 256;
+        weftFibers: 128;
+        slubs: 3;
+        slubJitter: 0.06;
+        slubHalfMinimum: 0.045;
+        slubHalfVariation: 0.045;
+        slubRadius: 0.15;
+        slubCore: 0.13;
+        slubHeight: 0.14;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8780,4 +8805,5 @@ export declare const proceduralTileMeters: Readonly<{
     screwhooks: 0.36;
     nigellaseeds: 0.024;
     phyllite: 0.18;
+    shantung: 0.024;
 }>;

@@ -3078,6 +3078,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'shantung':
       case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
@@ -3086,13 +3087,17 @@ export function createSurfaceSampler(
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
-          p = cavalry
-            ? proceduralMaterialPresets.cavalrytwill
-            : ottoman
-              ? proceduralMaterialPresets.ottoman
-              : gabardine
-                ? proceduralMaterialPresets.gabardine
-                : proceduralMaterialPresets.poplin,
+          shantung = kind === 'shantung',
+          slubPreset = proceduralMaterialPresets.shantung,
+          p = shantung
+            ? slubPreset
+            : cavalry
+              ? proceduralMaterialPresets.cavalrytwill
+              : ottoman
+                ? proceduralMaterialPresets.ottoman
+                : gabardine
+                  ? proceduralMaterialPresets.gabardine
+                  : proceduralMaterialPresets.poplin,
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
           warpBase = twill ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : twill ? 0.34 : 0.44,
@@ -3105,18 +3110,54 @@ export function createSurfaceSampler(
           inverseWeft = 1 / (p.weftRadius * p.weftRadius),
           inverseWarpShoulder = 1 / (1 - p.warpCore * p.warpCore * inverseWarp),
           inverseWeftShoulder = 1 / (1 - p.weftCore * p.weftCore * inverseWeft),
-          inverseLift = 1 / p.liftShoulder;
+          inverseLift = 1 / p.liftShoulder,
+          slubRows = shantung
+            ? new Float64Array(p.weftThreads * slubPreset.slubs * 3)
+            : undefined;
+        if (slubRows)
+          for (let row = 0; row < p.weftThreads; row++)
+            for (let j = 0; j < slubPreset.slubs; j++) {
+              const i = (row * slubPreset.slubs + j) * 3,
+                half =
+                  slubPreset.slubHalfMinimum +
+                  slubPreset.slubHalfVariation * hash(j, row, seed ^ 0x1b413);
+              slubRows[i] =
+                (j + 0.5) / slubPreset.slubs +
+                slubPreset.slubJitter * (2 * hash(j, row, seed ^ 0x1b411) - 1);
+              slubRows[i + 1] = 1 / (half * half);
+              slubRows[i + 2] = 0.35 + 0.65 * hash(j, row, seed ^ 0x1b415);
+            }
         return () => {
           const x = u * p.warpThreads,
             y = v * p.weftThreads,
             col = Math.floor(x),
             row = Math.floor(y),
             fx = fract(x) - 0.5,
-            fy = fract(y) - 0.5 + ((row & 1) === 0 ? -pairOffset : pairOffset),
-            qx = fx * fx * inverseWarp,
-            qy = fy * fy * inverseWeft,
+            fy = fract(y) - 0.5 + ((row & 1) === 0 ? -pairOffset : pairOffset);
+          let slub = 0,
+            weftInverse = inverseWeft,
+            weftShoulder = inverseWeftShoulder;
+          if (slubRows) {
+            let outsideSlubs = 1;
+            for (let j = 0; j < slubPreset.slubs; j++) {
+              const i = (row * slubPreset.slubs + j) * 3,
+                du = u - slubRows[i],
+                distance = du - Math.floor(du + 0.5);
+              outsideSlubs *=
+                1 -
+                slubRows[i + 2] *
+                  smooth(clamp(1 - distance * distance * slubRows[i + 1]));
+            }
+            slub = 1 - outsideSlubs;
+            const radius = p.weftRadius + slubPreset.slubRadius * slub,
+              core = p.weftCore + slubPreset.slubCore * slub;
+            weftInverse = 1 / (radius * radius);
+            weftShoulder = 1 / (1 - core * core * weftInverse);
+          }
+          const qx = fx * fx * inverseWarp,
+            qy = fy * fy * weftInverse,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
-            weft = smooth(clamp((1 - qy) * inverseWeftShoulder)),
+            weft = smooth(clamp((1 - qy) * weftShoulder)),
             warpOver = cavalry
               ? cavalryDraft[(col - row + p.warpThreads) % cavalryDraft.length]
               : gabardine
@@ -3150,7 +3191,8 @@ export function createSurfaceSampler(
           color =
             outside * color +
             warpWeight * (0.82 + 0.025 * grain + 0.025 * warpFiber) +
-            weftWeight * (0.63 + 0.025 * grain + 0.025 * weftFiber);
+            weftWeight *
+              (0.63 + 0.025 * grain + 0.025 * weftFiber - 0.06 * slub);
           height =
             outside * height +
             warpWeight *
@@ -3164,7 +3206,8 @@ export function createSurfaceSampler(
                 sign * p.lift * liftX +
                 weftCrown * crownY +
                 0.003 * grain +
-                0.003 * weftFiber);
+                0.003 * weftFiber +
+                slubPreset.slubHeight * slub);
           roughness =
             outside * roughness +
             warpWeight * (p.roughness + 0.03 * grain - 0.02 * warpFiber) +
@@ -33292,6 +33335,7 @@ export function createSurfaceSampler(
     kind === 'screwhooks' ||
     kind === 'nigellaseeds' ||
     kind === 'phyllite' ||
+    kind === 'shantung' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
