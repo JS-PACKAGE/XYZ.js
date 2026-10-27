@@ -8555,3 +8555,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之hempcrete512五maps；既有715種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7505項測試（1060.82s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 驗證維護：裁縫尺密集C1斷言聚合
+
+- utilityblades整合的首輪完整suite為178檔通過／1檔失敗、7512項通過／1項失敗（1012.36s）：既有tailorstapes密集C1測試超過30000ms，沒有數值斷言失敗；該輪未記為通過。
+- 該測試三seed共有1,008,627次雙軸check、6,051,762次sampler取樣與12,103,524個scalar比較。將hot loop中的框架matcher改為累積最大絕對誤差，每seed最後斷言；取樣點／六channel／雙軸／seed／嚴格<0.03門檻及30000ms timeout完全不變，NaN／Infinity仍失敗。不改runtime或貼圖輸出，也不刪除邊界取樣。
+- 修改後原專項1項通過（2.26s）。Fresh Node實際執行同一workload與當次dist sampler，確認6,051,762次取樣／1,008,627次check，三seed最大誤差為0.0023736568266485847／0.0023725466036239595／0.002370326157574709，均<0.03，數值workload耗時727.58ms。這是測試框架開銷整理，不是renderer效能或全環境穩定率認證。
+- 修改後當次整合workingtree（含待獨立提交utilityblades增量）的typecheck、lint、format:check及完整179檔／7513項全部通過（1024.69s）。測試維護與材質功能分開commit，不push。
