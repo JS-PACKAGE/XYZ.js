@@ -24408,14 +24408,16 @@ describe('Raised rough opaque frost crystals with six connected spokes and24 six
         },
         b = { ...a },
         c = { ...a };
+      let worst = 0;
       const check = (u: number, v: number) => {
         for (let axis = 0; axis < 2; axis++) {
           sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
           sample(u, v, b);
           sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
           for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.03,
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
             );
         }
       };
@@ -24489,6 +24491,7 @@ describe('Raised rough opaque frost crystals with six connected spokes and24 six
             }
           }
         }
+      expect(worst).toBeLessThan(0.03);
     }
   });
 });

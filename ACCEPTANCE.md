@@ -8847,3 +8847,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，九份Markdown共383個相對連結無缺失。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過；738為材質數，不是API export數。完整suite實際結果另列，不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
 - Scoped review後，僅將新測試的4097個相同角度方向及固定fractions／signs／projection／grid陣列外提，保留含閉合端點的原採樣位置及strict門檻；正式14項最終定向再通過（vitest2.74s），test typecheck／lint／format通過。Runtime source及已證明的maps未再改動，沒有把測試CPU時間差宣稱為引擎效能改善。
 - 最終完整suite **179檔／7660項全部通過（985.84s）**；本功能獨立提交，保留首次定向與review後最終定向結果，不把隔離負向變體或gallery截圖代替完整回歸。
+
+## 2026-10-28 驗證維護：dendriticfrost C1斷言聚合
+
+- 新材質整合工作樹的首次完整suite有既有dendriticfrost C1單項30,000 ms逾時（178檔／7666項通過，1檔／1項失敗，1024.43s）；保留失敗紀錄，不將後續定向成功記成完整suite成功。
+- 該測試每seed執行3,177,804次expect，三seed合計9,533,412次。只改為逐點計算worst、每seed最後assert一次，共三次；仍保留全部六channels、雙軸、三seed、h1e-10及strict0.03，沒有調高timeout、跳過幾何或減少原採樣。
+- 以實際built dendriticfrost sampler分別執行原callback及聚合callback，逐次記錄IEEE754 UV串流：每seed皆1,588,902次sampler呼叫、三seed合計4,766,706次；每seed的有序UV SHA256及worst C1完全相同，最大worst為0.0013733458814613186。此throwaway smoke證明改的是斷言開銷，不是採樣集合、順序或consumer數值，未留下永久copy／echo測試。
+- 正式六項定向通過（vitest4.63s）：既有三seed枝晶幾何、actual512、完整C1及catalog。test typecheck／lint／format通過，保留原30秒timeout；不宣稱重新驗證GPU／瀏覽器或引擎fps，也不需要為純test變更重建未改動的runtime。
+- 本維護只獨立提交測試的聚合hunks及此紀錄；新材質、其文件／dist與既有外部驗收note不納入。新材質完整suite重跑結果由該功能另列。
