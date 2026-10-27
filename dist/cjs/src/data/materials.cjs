@@ -15098,6 +15098,32 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	cupwashers: Object.freeze({
+		dark: [
+			34,
+			42,
+			50
+		],
+		light: [
+			230,
+			235,
+			240
+		],
+		roughness: .28,
+		relief: .03,
+		cells: 5,
+		jitter: .035,
+		outerRadius: .35,
+		fullOuter: .33,
+		boreRadius: .115,
+		fullBore: .135,
+		coneStart: .14,
+		coneEnd: .295,
+		coneShoulder: .12,
+		bodyBase: .24,
+		coneRise: .38,
+		grainHeight: .0025
+	}),
 	anigre: Object.freeze({
 		dark: [
 			123,
@@ -16027,7 +16053,8 @@ var proceduralTileMeters = Object.freeze({
 	twopinscrewheads: .06,
 	amazonite: .06,
 	adzukibeans: .05,
-	anigre: .16
+	anigre: .16,
+	cupwashers: .1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

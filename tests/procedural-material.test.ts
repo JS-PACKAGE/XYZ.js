@@ -789,7 +789,217 @@ const kinds: ProceduralMaterialKind[] = [
   'amazonite',
   'adzukibeans',
   'anigre',
+  'cupwashers',
 ];
+
+describe('Isolated countersunk finishing cup washers with open bores straight sloping walls and raised complete rims', () => {
+  const p = proceduralMaterialPresets.cupwashers;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => ({
+    x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d111) - 1),
+    y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d113) - 1),
+  });
+  const directions = new Float64Array(1025 * 2);
+  for (let j = 0; j <= 1024; j++) {
+    const angle = (2 * Math.PI * j) / 1024;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  const span = p.coneEnd - p.coneStart,
+    radii = [
+      p.boreRadius,
+      Math.sqrt((p.boreRadius * p.boreRadius + p.fullBore * p.fullBore) * 0.5),
+      p.fullBore,
+      p.coneStart,
+      p.coneStart + p.coneShoulder * span,
+      (p.coneStart + p.coneEnd) * 0.5,
+      p.coneEnd - p.coneShoulder * span,
+      p.coneEnd,
+      p.fullOuter,
+      Math.sqrt(
+        (p.fullOuter * p.fullOuter + p.outerRadius * p.outerRadius) * 0.5,
+      ),
+      p.outerRadius,
+    ];
+  it.each([0, 1, 0xffffffff])(
+    'keeps a lower metallic inner land straight conical wall high rim and one nonmetallic open bore per washer for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cupwashers', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample((col + f.x + x) / p.cells, (row + f.y + y) / p.cells, out);
+          local(0.137, 0, a);
+          local(0.31, 0, b);
+          local(0, 0, c);
+          expect(b.height - a.height).toBeGreaterThan(0.37 * p.relief);
+          expect(a.height - c.height).toBeGreaterThan(0.21 * p.relief);
+          expect(b.color - a.color).toBeGreaterThan(0.23);
+          expect(b.occlusion - a.occlusion).toBeGreaterThan(0.16);
+          expect(a.metallic).toBe(1);
+          expect(b.metallic).toBe(1);
+          expect(a.mortar).toBe(0);
+          expect(b.mortar).toBe(0);
+          expect(c.metallic).toBe(0);
+          expect(c.mortar).toBe(1);
+          expect(c.height).toBeLessThan(0.04 * p.relief);
+          expect(c.occlusion).toBeLessThan(0.4);
+          local(0.19, 0, a);
+          local(0.2175, 0, b);
+          local(0.245, 0, c);
+          const first = b.height - a.height,
+            second = c.height - b.height;
+          expect(first).toBeGreaterThan(0.07 * p.relief);
+          expect(second).toBeGreaterThan(0.07 * p.relief);
+          expect(Math.abs(second - first)).toBeLessThan(0.0051 * p.relief);
+          let invalid = 0,
+            runs = 0,
+            prior = false;
+          for (let j = 0; j <= 1024; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            local(0.105 * x, 0.105 * y, a);
+            local(0.31 * x, 0.31 * y, b);
+            invalid += Number(
+              a.metallic !== 0 ||
+                a.mortar !== 1 ||
+                a.height >= 0.04 * p.relief ||
+                a.occlusion >= 0.4 ||
+                b.metallic !== 1 ||
+                b.mortar !== 0 ||
+                b.height <= 0.61 * p.relief ||
+                b.roughness >= 0.31,
+            );
+            local(-0.45 + (0.9 * j) / 1024, 0, c);
+            const metal = c.metallic > 0.99;
+            if (metal && !prior) runs++;
+            prior = metal;
+          }
+          expect(invalid).toBe(0);
+          expect(runs).toBe(2);
+          local(0.43, 0, a);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(1);
+          expect(a.height).toBeLessThan(0.04 * p.relief);
+        }
+    },
+  );
+  it('writes actual512 opaque silver cup rims sloping inner metal and a dielectric bore/backing with smooth partial coverage', () => {
+    const maps = generateProceduralMaps('cupwashers', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      back = 0,
+      bright = 0,
+      partial = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2],
+        r = maps.baseColor[i],
+        rough = maps.metallicRoughness[i + 1],
+        ao = maps.occlusion[i];
+      metal += Number(m > 250 && rough < 85 && ao > 200);
+      back += Number(m === 0 && ao < 85);
+      bright += Number(m > 250 && r > 180 && ao > 220);
+      partial += Number(m > 0 && m < 255);
+      invalid += Number(maps.baseColor[i + 3] !== 255);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.26);
+    expect(metal / (512 * 512)).toBeLessThan(0.34);
+    expect(back / (512 * 512)).toBeGreaterThan(0.6);
+    expect(bright / (512 * 512)).toBeGreaterThan(0.07);
+    expect(bright / (512 * 512)).toBeLessThan(0.23);
+    expect(partial).toBeGreaterThan(2000);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats cup slopes rims bores metal coverage and backing across signed UV periods for three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cupwashers', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true inner outer cone endpoint and linear-wall shoulder circles cache owners and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cupwashers', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row);
+          for (let j = 0; j <= 1024; j++)
+            for (const r of radii)
+              check(
+                (col + f.x + r * directions[j * 2]) / p.cells,
+                (row + f.y + r * directions[j * 2 + 1]) / p.cells,
+              );
+        }
+      for (const grid of [5, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Figured light Anigre with flat transverse curl and fine recessed longitudinal vessels', () => {
   const p = proceduralMaterialPresets.anigre;
@@ -63408,6 +63618,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'hexsocketheads' &&
           kind !== 'squaresocketheads' &&
           kind !== 'twopinscrewheads' &&
+          kind !== 'cupwashers' &&
           kind !== 'pentalobescrewheads' &&
           kind !== 'tripointscrewheads' &&
           kind !== 'springpinends' &&

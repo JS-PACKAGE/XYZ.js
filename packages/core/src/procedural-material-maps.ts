@@ -3608,6 +3608,67 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cupwashers': {
+        const p = proceduralMaterialPresets.cupwashers,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d117),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.fullOuter * p.fullOuter),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (p.fullBore * p.fullBore - boreSquared),
+          inverseCone = 1 / (p.coneEnd - p.coneStart),
+          e = p.coneShoulder,
+          inverseConeShoulder = 1 / (2 * e),
+          inverseConeRange = 1 / (1 - e);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d111) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d113) - 1);
+            poses[i + 2] = hash(col, row, seed ^ 0x1d115);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 3,
+            x = fract(uc) - poses[i],
+            y = fract(vc) - poses[i + 1],
+            q = x * x + y * y,
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - boreSquared) * inverseBore));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          // One radial root is needed for a straight conical wall, rather than
+          // a paraboloid in squared radius; empty bore/backing never reaches it.
+          const t = clamp((Math.sqrt(q) - p.coneStart) * inverseCone),
+            cone =
+              (t < e
+                ? t * t * inverseConeShoulder
+                : t > 1 - e
+                  ? 1 - e - (1 - t) * (1 - t) * inverseConeShoulder
+                  : t - e * 0.5) * inverseConeRange,
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.57 + 0.26 * cone + 0.05 * poses[i + 2] + 0.015 * grain - color);
+          height +=
+            face *
+            (p.bodyBase + p.coneRise * cone + p.grainHeight * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.82 + 0.17 * cone - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'anigre': {
         const p = proceduralMaterialPresets.anigre,
           pores = new Float64Array(p.columns * p.rows * 4),
@@ -35207,6 +35268,7 @@ export function createSurfaceSampler(
     kind === 'amazonite' ||
     kind === 'adzukibeans' ||
     kind === 'anigre' ||
+    kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||

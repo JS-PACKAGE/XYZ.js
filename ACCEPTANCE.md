@@ -9013,3 +9013,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，單次完整source／gallery／fixture diff與三語精確新增短語已review，relative-link delta為0；兩個新外部links為中英各自實讀的Wood Database profile。build與typecheck通過；最終品質gate與完整suite另列，維持1.22.1、不push，不外推Safari、實機、Canvas2D 3D、backend parity、木種真實光學或fps認證。
 - lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過（整組48.39s）；747是材質數，不是API export數。無新增依賴、版本調整或遺留probe，完整suite另列。
 - 最終完整suite **179檔／7723項全部通過（791.68s）**，完整format:check亦通過。本功能依正式sampler／maps、雙backend gallery、NativeWorker／cache、factor0 facade與既有746種byte相容證據獨立提交，不以定向測試或截圖代替完整回歸，不升版、不push。
+
+## 2026-10-28 程序材質：中央開孔線性錐壁與高外圈杯形金屬墊圈（cupwashers）
+
+- 目錄747→748種：25個seeded微偏移完整銀色環，中央開孔露出低opaque非金屬背底，低內緣沿直線錐壁升至高外圈；不是整片countersunkmetal、平墊圈、開縫彈簧圈、盲穴螺絲頭或90度基本杯。已實讀製造商Willie Washer的countersunk finishing說明並實看其開孔杯圈照片，僅取該款外觀，不宣稱所有cup washer都同形、不打包照片。另讀供應商Fastenere頁作交叉資料，但不採其把金屬墊圈說成電氣絕緣的行銷宣稱。
+- 沿用既有annular squared-radius smooth肩與countersunkmetal的C1端肩接線性radial cone慣例；三欄pose共75值與128² grain共16,459個Float64／131,672 bytes一次快取，不為圓形零件做無意義rotation。內外肩與錐壁reciprocals預算，face0的孔及背底提早退出；每個有金屬覆蓋的point只計一次必要sqrt，以維持真線性半徑錐壁而非r²拋物碗，無逐點配置／hash／trig／鄰格搜尋，略過共用detail。
+- 0.10 m tile、最大支撐加jitter0.385小於0.5，完整落在同一owner。可見內緣／斜壁／高外圈M1、孔與外隙M0、邊緣平滑partial coverage，mortar1−face；同步加入既有factor1 facade及generic dielectric-catalog排除清單，不靠錯誤factor0假裝金屬輸出。Opaque maps／選用height及既有tint／Worker／cache／repeats／ownership不變；UV relief不是m單位geometry displacement，不新增真透明孔、背面／螺絲／裝配、規格角度、載荷／扭矩／防拉穿或電氣安全認證。
+- 六項隔離行為首次全部通過；九個有效負向變體全部被抓到：dielectric杯圈、metallic背底、填死中央孔、平墊圈、反向凸壁、r²拋物碗、破開環；硬outer肩與硬bore肩各在前五項通過後由真circle C1抓到。未放寬consumer門檻、縮減採樣或增加timeout，沒有永久probe檔；fixtures的seeded位置只定位真形態，不把sampler副本輸出當期望值。
+- 正式選定regex的16項定向全部通過（vitest2.35s），包含新六項及命中的既有washer／countersunk／grommet或catalog cases；不將selected舊case冒稱每個舊材質完整重驗。三seed各25杯檢查低內緣／高rim高度與顏色／AO差、孔的M0低背底、1025點全周金屬rim與完整開孔、穿心剖面恰兩metal runs；三個等距半徑點驗證線性錐壁的等高度增量，r²碗負例不能蒙混。
+- actual512驗證opaque銀色高rim、metal／backing coverage、partial edges及曲面normal；三seed各4096 signed UV六channels。C1涵蓋11組真正內外support／mid／core、cone端點／線性接肩／中段圓周，各1025方向及全部25杯，另加5／128 owner-cache邊界及128² grid，雙軸h1e-10／strict0.03逐seed聚合worst，不減點或加原timeout。
+- Managed Chromium headless正式748種gallery強制WebGPU／WebGL2各選出cupwashers、關動畫、擷取25球mesh與四maps，page及about:blank cleanup errors皆空。完整strict dist公開API另擷取512²且CSS512×512的albedo／normal，見完整銀圈、同背底中央孔與高外圈／低內壁的radial normal，不將opaque孔稱為透明幾何。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，direct／worker／cache-hit五maps逐byte相同；cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0。獨立textures、isolated destroy、全部bundles／pool destroy／cache clear、default與createMaterial() factor1通過；page及cleanup errors空，全部managed tabs已關閉。
+- Fresh Node全部747種既有材質64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS之cupwashers32²／512²及countersunkmetal／squarewashers／splitlockwashers／internaltoothwashers／rubbergrommets／twopinscrewheads各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步；review時將英文README的raised conical rims釐清為conical walls and raised rims，不動正式surface。單次完整source／gallery／fixture／factor1與generic-catalog diff、三語新增短語已review，relative-link delta0，新外部reference為中英各自實讀的Willie Washer頁。
+- build與typecheck通過，lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過（最後整組45.91s）；748是材質數，不是API export數。完整suite另列，無新增依賴、永久probe、版本調整或push，不外推Safari、實機、Canvas2D 3D、backend parity或fps認證。
+
+- 最終格式檢查與完整 suite 通過：179 個測試檔／7730 項測試全部通過（846.93s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 861.17s。依功能獨立提交，不 push。

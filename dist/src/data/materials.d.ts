@@ -8640,6 +8640,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    cupwashers: Readonly<{
+        dark: readonly [34, 42, 50];
+        light: readonly [230, 235, 240];
+        roughness: 0.28;
+        relief: 0.03;
+        cells: 5;
+        jitter: 0.035;
+        outerRadius: 0.35;
+        fullOuter: 0.33;
+        boreRadius: 0.115;
+        fullBore: 0.135;
+        coneStart: 0.14;
+        coneEnd: 0.295;
+        coneShoulder: 0.12;
+        bodyBase: 0.24;
+        coneRise: 0.38;
+        grainHeight: 0.0025;
+    }>;
     anigre: Readonly<{
         dark: readonly [123, 76, 46];
         light: readonly [238, 211, 165];
@@ -9523,4 +9541,5 @@ export declare const proceduralTileMeters: Readonly<{
     amazonite: 0.06;
     adzukibeans: 0.05;
     anigre: 0.16;
+    cupwashers: 0.1;
 }>;

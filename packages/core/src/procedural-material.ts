@@ -762,7 +762,8 @@ export type ProceduralMaterialKind =
   | 'twopinscrewheads'
   | 'amazonite'
   | 'adzukibeans'
-  | 'anigre';
+  | 'anigre'
+  | 'cupwashers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1759,6 +1760,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'amazonite',
   'adzukibeans',
   'anigre',
+  'cupwashers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1994,6 +1996,7 @@ export class ProceduralMaterial {
         this.kind === 'hexsocketheads' ||
         this.kind === 'squaresocketheads' ||
         this.kind === 'twopinscrewheads' ||
+        this.kind === 'cupwashers' ||
         this.kind === 'pentalobescrewheads' ||
         this.kind === 'tripointscrewheads' ||
         this.kind === 'springpinends' ||
