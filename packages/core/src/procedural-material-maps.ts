@@ -1441,6 +1441,69 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hempcrete': {
+        const p = proceduralMaterialPresets.hempcrete,
+          shivs = new Float64Array(p.cells * p.cells * 7),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b51d),
+          poreField = cachedNoise(96, 96, seed ^ 0x1b51f),
+          inverseFace = 1 / (1 - p.faceCoreQ),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x1b511);
+            shivs[i] = Math.cos(angle);
+            shivs[i + 1] = Math.sin(angle);
+            shivs[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b513) - 1);
+            shivs[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b515) - 1);
+            shivs[i + 4] =
+              1 /
+              (p.halfLengthMinimum +
+                p.halfLengthVariation * hash(col, row, seed ^ 0x1b517));
+            shivs[i + 5] =
+              1 /
+              (p.halfWidthMinimum +
+                p.halfWidthVariation * hash(col, row, seed ^ 0x1b519));
+            shivs[i + 6] = hash(col, row, seed ^ 0x1b51b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 7,
+            dx = fract(uc) - shivs[i + 2],
+            dy = fract(vc) - shivs[i + 3],
+            along = dx * shivs[i] + dy * shivs[i + 1],
+            across = dy * shivs[i] - dx * shivs[i + 1],
+            x = along * shivs[i + 4],
+            y = across * shivs[i + 5],
+            x2 = x * x,
+            x4 = x2 * x2,
+            y2 = y * y,
+            chip = smooth(clamp((1 - x4 * x4 - y2 * y2) * inverseFace)),
+            grain = grainField(u, v),
+            pores = smooth(
+              clamp((p.poreThreshold - poreField(u, v)) * inversePore),
+            );
+          color = 0.78 + 0.04 * grain - 0.55 * pores;
+          height = 0.5 + 0.004 * grain - p.poreDepth * pores;
+          roughness = p.roughness + 0.03 * pores;
+          occlusion = 0.94 - 0.42 * pores;
+          if (chip === 0) return;
+          const fiberPhase = fract(across * p.fiberFrequency) - 0.5,
+            fiber = smooth(clamp(1 - 4 * fiberPhase * fiberPhase));
+          // The cut shiv is embedded in one binder surface. Binder pores
+          // cannot drill through its compact coat or accumulate chip height.
+          color +=
+            chip *
+            (0.28 + 0.18 * shivs[i + 6] + 0.02 * grain + 0.02 * fiber - color);
+          height += chip * (0.5 + 0.006 * fiber + 0.003 * grain - height);
+          roughness += chip * (0.82 + 0.03 * grain + 0.02 * fiber - roughness);
+          occlusion += chip * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'phyllite': {
         const p = proceduralMaterialPresets.phyllite,
           warpField = cachedNoise(4, 4, seed ^ 0x1b311),
@@ -33336,6 +33399,7 @@ export function createSurfaceSampler(
     kind === 'nigellaseeds' ||
     kind === 'phyllite' ||
     kind === 'shantung' ||
+    kind === 'hempcrete' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

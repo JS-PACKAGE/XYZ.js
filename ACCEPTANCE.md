@@ -8546,3 +8546,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之shantung512五maps；既有714種（含共用四種織物）各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7498項測試（1029.58s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：多孔礦物膠結麻屑（hempcrete）
+
+- 目錄715→716種：淺色多孔膠結底與144枚嵌入棕色纖維麻屑，非OSB覆片。每屑七值快取，x⁸+y⁴ compact圓角長片、128²grain／96²pore fields，最大support約0.391加jitter0.03小於owner0.5；無逐點配置／hash／trig／sqrt。麻屑近乎平切、不堆高且底材孔洞不鑽穿屑面；底孔深度最多0.0036 UV。全opaque M0／mortar0，不新增geometry、透明孔、物理或材料強度／隔熱認證。
+- 0.24 m參考tile／0.015 UV relief，底孔只按參考尺度換算最多0.864 mm，非位移或實機量測。6項專項全部通過（1.08s）：三seed144枚屑心皆維持高AO、低roughness與平切高度範圍；非孔膠結底與屑之色／roughness／高度關係、深孔對膠結底參考高差>0.7 mm；512² opaque dielectric屑心不被底孔影響，4096 signed UV週期、三seed長片端／core／纖維／孔／owner及UV seams雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示716種並選取hempcrete，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布觀察嵌入長片及底材孔。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之hempcrete512五maps；既有715種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7505項測試（1060.82s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

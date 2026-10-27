@@ -757,7 +757,167 @@ const kinds: ProceduralMaterialKind[] = [
   'nigellaseeds',
   'phyllite',
   'shantung',
+  'hempcrete',
 ];
+
+describe('Porous mineral hempcrete with embedded fibrous shivs', () => {
+  const p = proceduralMaterialPresets.hempcrete;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b511),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b513) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b515) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'embeds darker smoother shivs without binder pores drilling their flat coats for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('hempcrete', seed),
+        a = empty(),
+        b = empty();
+      let low = Infinity,
+        high = -Infinity,
+        comparedBinder = false,
+        solid = -Infinity,
+        pore = Infinity;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, 0), a);
+          expect(a.occlusion).toBeGreaterThan(0.97);
+          expect(a.roughness).toBeLessThan(0.9);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          sample(...world(seed, col, row, 0.43, 0), b);
+          if (b.occlusion > 0.9) {
+            expect(b.color - a.color).toBeGreaterThan(0.15);
+            expect(b.roughness).toBeGreaterThan(a.roughness);
+            expect(
+              Math.abs(a.height - b.height) * proceduralTileMeters.hempcrete,
+            ).toBeLessThan(0.0001);
+            comparedBinder = true;
+          }
+        }
+      for (let j = 0; j < 4096; j++) {
+        sample((j % 64) / 64, Math.floor(j / 64) / 64, a);
+        if (a.occlusion > 0.93 && a.roughness > 0.94)
+          solid = Math.max(solid, a.height);
+        if (a.occlusion < 0.55) pore = Math.min(pore, a.height);
+      }
+      expect(comparedBinder).toBe(true);
+      expect((high - low) * proceduralTileMeters.hempcrete).toBeLessThan(
+        0.000035,
+      );
+      expect((solid - pore) * proceduralTileMeters.hempcrete).toBeGreaterThan(
+        0.0007,
+      );
+    },
+  );
+  it('writes embedded opaque dielectric shiv coats without binder pore occlusion at actual512', () => {
+    const maps = generateProceduralMaps('hempcrete', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const [u, v] = world(7, col, row, 0, 0),
+          i = (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+        expect(maps.metallicRoughness[i + 1]).toBeLessThan(230);
+        expect(maps.occlusion[i]).toBeGreaterThan(245);
+      }
+  });
+  it('repeats shiv fibers binder pores and all PBR channels on signed UV periods', () => {
+    const sample = createSurfaceSampler('hempcrete', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 3, v + 2, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps rounded shiv tips faces pores owner boundaries and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hempcrete', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const length =
+              p.halfLengthMinimum +
+              p.halfLengthVariation * hash(col, row, seed ^ 0x1b517),
+            width =
+              p.halfWidthMinimum +
+              p.halfWidthVariation * hash(col, row, seed ^ 0x1b519);
+          for (const q of [p.faceCoreQ, 1])
+            for (const sign of [-1, 1]) {
+              check(
+                ...world(seed, col, row, sign * length * Math.pow(q, 1 / 8), 0),
+              );
+              check(
+                ...world(seed, col, row, 0, sign * width * Math.pow(q, 1 / 4)),
+              );
+            }
+          for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            check(col / p.cells, (row + t) / p.cells);
+            check((col + t) / p.cells, row / p.cells);
+          }
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      for (let j = 0; j <= 256; j++)
+        for (const edge of [0, 1]) {
+          check(edge, j / 256);
+          check(j / 256, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Shantung plain weave with irregular thick weft slubs', () => {
   const p = proceduralMaterialPresets.shantung;
