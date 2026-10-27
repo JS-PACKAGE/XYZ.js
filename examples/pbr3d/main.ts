@@ -808,6 +808,7 @@ try {
     'chambray',
     'nephrite',
     'diorite',
+    'carawayseeds',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -8725,3 +8725,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生diorite512²五maps，各1048576 bytes；全部728種既有材質各64²／seed7四maps相對HEAD SHA256全部不變。實跑dist ESM／CJS之diorite512²及gabbro／anorthosite各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附Geology.com外觀參考，未打包參考照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 第一輪7596項通過／1項既有socket C1 timeout（1050.55s）已由上方獨立測試維護記錄保留；維持全部取樣、原門檻與timeout聚合matcher後，完整suite179檔／7597項全部通過（1007.99s）。加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：五淺肋月牙葛縷子果（carawayseeds）
+
+- 目錄729→730種：64枚深褐細長月牙果與五條較淺的收攏縱肋，bend0.16大於halfWidth0.065，有限polynomial taper令尖端閉合，不除以漸零寬度。直接fallthrough重用fennelseeds正式sampler，只按kind取preset；每果五值快取共320個Float64／2560 bytes與96² grain，無逐點配置／hash／trig／sqrt，既有茴香果算式不變。
+- 保守旋轉support sqrt((0.16+0.065)²+0.38²)+0.025約0.466616小於owner半寬0.5；0.04 m參考tile／0.02 UV relief，名義長度0.0038 m、名義肋高0.0011 UV（按參考尺度換算44μm，非geometry／位移／實機量測）。全opaque M0／mortar0，保留options、Worker、cache與ownership；果實俗稱種籽，不新增植物生長或透明間隙。
+- 六項carawayseeds、四項既有fennelseeds及兩kind共用catalog合計12項通過（vitest3.79s）。三seed所有果中段1025點各數到五肋、每肋真實高於兩側、三切片證明強彎曲及中段較寬／尖端閉合；actual512棕色全opaque非金屬、較高果區及較低背景覆蓋與色差、4096 signed UV，全部tip／converging ribs／body shoulder／owner／UV雙軸C1。新細果以1e-10 UV步長處理有限高曲率、strict0.02，既有茴香測試不變；repo前六項隔離Node data URL draft亦通過，無probe檔留在repo。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取carawayseeds、顯示730種並擷取，頁面及cleanup errors空；另actual512 albedo可見月牙果與縱細紋，normal可見收攏細肋及尖端，不用截圖聲稱定量微高度或效能。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生carawayseeds512²五maps各1048576 bytes；全部729種既有材質各64²／seed7四maps相對HEAD SHA256不變。實跑dist ESM／CJS之carawayseeds512²及fennelseeds64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附Caraway形態參考，未打包參考圖片。靜態gate及完整suite實際結果另列；未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。
+- 完整suite179個測試檔／7604項全部通過（1006.33s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。

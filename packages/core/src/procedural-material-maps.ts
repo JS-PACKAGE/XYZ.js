@@ -12990,8 +12990,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'carawayseeds':
       case 'fennelseeds': {
-        const p = proceduralMaterialPresets.fennelseeds,
+        const p = proceduralMaterialPresets[kind],
           poses = new Float64Array(p.cells * p.cells * 5),
           inverseLength = 1 / (p.halfLength * p.halfLength),
           inverseWidth = 1 / p.halfWidth,
@@ -34067,6 +34068,7 @@ export function createSurfaceSampler(
     kind === 'chambray' ||
     kind === 'nephrite' ||
     kind === 'diorite' ||
+    kind === 'carawayseeds' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
