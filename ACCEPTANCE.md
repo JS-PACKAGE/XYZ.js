@@ -8832,3 +8832,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node之全部736種既有材質各64²／seed7四maps相對HEAD SHA256不變；pinolith512五maps各1048576 bytes。dist ESM／CJS之新kind32²及512²、chrysanthemumstone／porphyry／rhyolite／cottonflannel各64²／seed7五maps逐byte相同，不宣稱跨realm constructor相同。
 - README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，九份Markdown相對連結無缺失。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過，完整suite實際結果另列；不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
 - 最終完整suite **179檔／7653項全部通過（987.94s）**；本功能獨立提交，不把隔離draft、未cull對照或定向測試冒充完整回歸。
+
+## 2026-10-28 程序材質：中心三臂Y形盲凹穴螺絲頭（tripointscrewheads）
+
+- 目錄737→738種：36個各自seeded旋轉／微偏移的圓鋼head，每個三條相隔120°、中心連通的直線圓端盲槽。已讀iFixit說明及中心Y示意圖、Tiger Fasteners比較，與偏置Tri-Wing明確區分；不是中心柱防拆孔，不宣稱Y00等刀頭精密配合、通用尺寸標準或扭矩性能，也未打包圖片。
+- 直接fallthrough共用正式pentalobe的head／backing核心，而非另複製整個鋼製head sampler。三條squared-segment距離、C1肩及有界product union保留平坦連通穴底；180個Float64 pose／1,440 bytes、六個Float64單位軸／48 bytes只初始化一次，128² grain快取、needsDetail bypass，surface sampler無逐點配置／hash／trig／sqrt。
+- 端點長0.255加圓端半徑0.045為支撐界0.3，小於完整head半徑0.35；head半徑加jitter最大0.395小於owner半寬0.5。head及盲穴底皆M1、低backing M0，mortar為1−face、全opaque。strict dist public facade以32²／seed123／height實跑，預設material與createMaterial()的metallic factor皆為1並destroy，沒有讓M0 facade抹掉鋼製穴底。
+- 六項隔離行為通過；有效負向變體的中心柱、偏置不連通翼及非金屬穴底皆被幾何／floor assert抓到，nearest-arm max union則前五項通過但被真重疊區C1抓到。最初中心柱mutant插在不會執行的外環條件，移至真正core分支才作有效證據。初版preview誤把raw map當有.data的image，已改成直接typed bytes及ArrayBuffer.isView guard；早先undefined比較不作相同輸出的證據。
+- 正式14項定向通過（vitest1.77s），含新六項與catalog、既有pentalobe六項與catalog。三seed各檢查恰三槽、直槽定寬、中心至三圓端連通平底且M1、槽外完整head及M0 backing；actual512金屬暗穴／roughness／AO／normal／opacity及三seed各4096 signed UV六channels。直邊core／support、圓端、兩projection接合面、三臂真重疊bisector、head bevel、noise／owner／UV雙軸C1，h1e-10／strict0.03；輪廓點表只建一次。
+- 0.048 m參考tile／0.03 UV relief，穴深0.012 UV按參考尺度換算0.576 mm，grain理論高度跨度0.00006 UV換算2.88μm；不是幾何位移、螺紋、driver幾何或實測尺寸。options／Worker／cache／ownership契約不變。
+- Managed Chromium150 headless實際擷取正式actual512 albedo／normal，可見三條中心連通Y槽、完整穴底及圓head邊緣；build完成後正式738種gallery強制WebGPU及WebGL2皆選中tripointscrewheads並擷取mesh／PBR預覽，page及about:blank cleanup errors空，tabs已關。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures／destroy／pool destroy／cache clear成功、page errors空，managed tabs為空才執行完整回歸。
+- Fresh Node之全部737種既有材質各64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS之新kind及共用kernel的pentalobe各32²／512²、hexsocketheads／springpinends／pinolith／cottonflannel各64²／seed7五maps逐byte相同，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，九份Markdown共383個相對連結無缺失。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過；738為材質數，不是API export數。完整suite實際結果另列，不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
+- Scoped review後，僅將新測試的4097個相同角度方向及固定fractions／signs／projection／grid陣列外提，保留含閉合端點的原採樣位置及strict門檻；正式14項最終定向再通過（vitest2.74s），test typecheck／lint／format通過。Runtime source及已證明的maps未再改動，沒有把測試CPU時間差宣稱為引擎效能改善。
+- 最終完整suite **179檔／7660項全部通過（985.84s）**；本功能獨立提交，保留首次定向與review後最終定向結果，不把隔離負向變體或gallery截圖代替完整回歸。

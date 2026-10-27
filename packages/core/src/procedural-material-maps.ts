@@ -2952,24 +2952,44 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tripointscrewheads':
       case 'pentalobescrewheads': {
-        const p = proceduralMaterialPresets.pentalobescrewheads,
+        const tripoint = kind === 'tripointscrewheads',
+          p = proceduralMaterialPresets[kind],
+          lobePreset = proceduralMaterialPresets.pentalobescrewheads,
+          slotPreset = proceduralMaterialPresets.tripointscrewheads,
+          featureCount = tripoint ? slotPreset.armCount : lobePreset.lobeCount,
+          featureOffset = tripoint ? 1 : lobePreset.lobeOffset,
           poses = new Float64Array(p.cells * p.cells * 5),
-          lobes = new Float64Array(p.lobeCount * 2),
+          features = new Float64Array(featureCount * 2),
           grainField = cachedNoise(128, 128, seed ^ 0x1c111),
           capSquared = p.capRadius * p.capRadius,
           inverseCap = 1 / (capSquared - p.capCore * p.capCore),
-          coreSquared = p.coreRadius * p.coreRadius,
-          fullSquared = p.coreFull * p.coreFull,
-          inverseCore = 1 / (coreSquared - fullSquared),
-          lobeSquared = p.lobeRadius * p.lobeRadius,
-          inverseLobe = 1 / (lobeSquared - p.lobeCore * p.lobeCore),
-          socketSquared = (p.lobeOffset + p.lobeRadius) ** 2,
+          coreSquared = tripoint
+            ? slotPreset.slotCore * slotPreset.slotCore
+            : lobePreset.coreRadius * lobePreset.coreRadius,
+          fullSquared = tripoint
+            ? coreSquared
+            : lobePreset.coreFull * lobePreset.coreFull,
+          inverseCore = tripoint ? 0 : 1 / (coreSquared - fullSquared),
+          lobeSquared = tripoint
+            ? 0
+            : lobePreset.lobeRadius * lobePreset.lobeRadius,
+          inverseLobe = tripoint
+            ? 0
+            : 1 / (lobeSquared - lobePreset.lobeCore * lobePreset.lobeCore),
+          channelSquared = tripoint
+            ? slotPreset.slotRadius * slotPreset.slotRadius
+            : 0,
+          inverseChannel = tripoint ? 1 / (channelSquared - coreSquared) : 0,
+          socketSquared = tripoint
+            ? (slotPreset.armLength + slotPreset.slotRadius) ** 2
+            : (lobePreset.lobeOffset + lobePreset.lobeRadius) ** 2,
           roughnessDifference = p.socketRoughness - p.roughness;
-        for (let j = 0; j < p.lobeCount; j++) {
-          const angle = (TAU * j) / p.lobeCount;
-          lobes[j * 2] = p.lobeOffset * Math.cos(angle);
-          lobes[j * 2 + 1] = p.lobeOffset * Math.sin(angle);
+        for (let j = 0; j < featureCount; j++) {
+          const angle = (TAU * j) / featureCount;
+          features[j * 2] = featureOffset * Math.cos(angle);
+          features[j * 2 + 1] = featureOffset * Math.sin(angle);
         }
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
@@ -3003,16 +3023,40 @@ export function createSurfaceSampler(
           else if (r2 < socketSquared) {
             const x = dx * poses[i] + dy * poses[i + 1],
               y = dy * poses[i] - dx * poses[i + 1];
-            let outside = 1 - smooth(clamp((coreSquared - r2) * inverseCore));
-            for (let j = 0; j < lobes.length; j += 2) {
-              const lx = x - lobes[j],
-                ly = y - lobes[j + 1];
-              outside *=
-                1 -
-                smooth(clamp((lobeSquared - lx * lx - ly * ly) * inverseLobe));
+            if (tripoint) {
+              let outside = 1;
+              for (let j = 0; j < features.length; j += 2) {
+                const along = x * features[j] + y * features[j + 1],
+                  across = y * features[j] - x * features[j + 1],
+                  end =
+                    along < 0
+                      ? along
+                      : Math.max(0, along - slotPreset.armLength);
+                outside *=
+                  1 -
+                  smooth(
+                    clamp(
+                      (channelSquared - across * across - end * end) *
+                        inverseChannel,
+                    ),
+                  );
+              }
+              // The three centered channels share a blind floor, not offset tri-wing slots or a pin.
+              socket = 1 - outside;
+            } else {
+              let outside = 1 - smooth(clamp((coreSquared - r2) * inverseCore));
+              for (let j = 0; j < features.length; j += 2) {
+                const lx = x - features[j],
+                  ly = y - features[j + 1];
+                outside *=
+                  1 -
+                  smooth(
+                    clamp((lobeSquared - lx * lx - ly * ly) * inverseLobe),
+                  );
+              }
+              // Product union blends all five round lobes without nearest-arc creases or polar seams.
+              socket = 1 - outside;
             }
-            // Product union blends all five round lobes without nearest-arc creases or polar seams.
-            socket = 1 - outside;
           }
           const grain = grainField(u, v);
           color +=
@@ -34499,6 +34543,7 @@ export function createSurfaceSampler(
     kind === 'rhyolite' ||
     kind === 'tonkabeans' ||
     kind === 'pentalobescrewheads' ||
+    kind === 'tripointscrewheads' ||
     kind === 'padauk' ||
     kind === 'cottonflannel' ||
     kind === 'pinolith' ||

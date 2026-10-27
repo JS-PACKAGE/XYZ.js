@@ -779,7 +779,271 @@ const kinds: ProceduralMaterialKind[] = [
   'padauk',
   'cottonflannel',
   'pinolith',
+  'tripointscrewheads',
 ];
+
+describe('Centered three arm tri point blind steel screw heads without offset wings or center pins', () => {
+  const p = proceduralMaterialPresets.tripointscrewheads;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1c113);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      cx: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c115) - 1),
+      cy: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c117) - 1),
+    };
+  };
+  const axes = new Float64Array(6),
+    directions = new Float64Array(4097 * 2),
+    fractions = [0.35, 0.65, 0.9],
+    signs = [-1, 1],
+    projections = [0, p.armLength],
+    grids = [p.cells, 128];
+  for (let j = 0; j <= 4096; j++) {
+    const angle = (2 * Math.PI * j) / 4096;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  for (let j = 0; j < 3; j++) {
+    axes[j * 2] = Math.cos((2 * Math.PI * j) / 3);
+    axes[j * 2 + 1] = Math.sin((2 * Math.PI * j) / 3);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'retains exactly three centered straight channels and a connected flat nonperforated steel floor for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tripointscrewheads', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.cx + f.c * x - f.s * y) / p.cells,
+                (row + f.cy + f.s * x + f.c * y) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          local(0.09, 0.156, b);
+          const floor = a.height,
+            cutoff = (floor + b.height) * 0.5;
+          expect(floor).toBeLessThan(b.height - 0.3 * p.relief);
+          expect(a.color).toBeLessThan(b.color);
+          expect(a.roughness).toBeGreaterThan(b.roughness);
+          expect(a.occlusion).toBeLessThan(b.occlusion);
+          expect(a.metallic).toBe(1);
+          expect(a.mortar).toBe(0);
+          let min = floor,
+            max = floor,
+            invalidFloor = 0;
+          for (let arm = 0; arm < 3; arm++) {
+            const c = axes[arm * 2],
+              s = axes[arm * 2 + 1];
+            for (let j = 0; j <= 128; j++) {
+              const along = ((p.armLength + 0.5 * p.slotCore) * j) / 128;
+              local(along * c, along * s, a);
+              min = Math.min(min, a.height);
+              max = Math.max(max, a.height);
+              invalidFloor += Number(a.metallic !== 1 || a.mortar !== 0);
+            }
+            for (const fraction of fractions) {
+              const along = p.armLength * fraction;
+              for (const sign of signs) {
+                const inside = sign * p.slotCore * 0.8,
+                  outside = sign * p.slotRadius * 1.2;
+                local(along * c - inside * s, along * s + inside * c, a);
+                local(along * c - outside * s, along * s + outside * c, b);
+                expect(a.height).toBeLessThan(cutoff);
+                expect(b.height).toBeGreaterThan(cutoff);
+                expect(a.metallic).toBe(1);
+                expect(b.metallic).toBe(1);
+              }
+            }
+            const beyond = p.armLength + p.slotRadius + 0.006;
+            local(beyond * c, beyond * s, a);
+            expect(a.height).toBeGreaterThan(cutoff);
+            expect(a.metallic).toBe(1);
+          }
+          expect(max - min).toBeLessThan(0.003 * p.relief);
+          expect(invalidFloor).toBe(0);
+          const radius = 0.18;
+          local(radius, 0, a);
+          let previous = a.height < cutoff,
+            runs = 0;
+          for (let j = 1; j <= 4096; j++) {
+            local(
+              radius * directions[j * 2],
+              radius * directions[j * 2 + 1],
+              a,
+            );
+            const current = a.height < cutoff;
+            if (current && !previous) runs++;
+            previous = current;
+          }
+          expect(runs).toBe(3);
+          local(0.43, 0, a);
+          expect(a.height).toBeCloseTo(0.035 * p.relief, 10);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(1);
+        }
+    },
+  );
+  it('writes actual512 opaque metallic Y floors and head plates over nonmetal backing with resolved bevel normals', () => {
+    const maps = generateProceduralMaps('tripointscrewheads', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      backing = 0,
+      floors = 0,
+      invalid = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2];
+      metal += Number(m === 255);
+      backing += Number(m === 0);
+      if (m === 255 && maps.baseColor[i] < 110) {
+        floors++;
+        invalid += Number(
+          maps.metallicRoughness[i + 1] < 150 || maps.occlusion[i] > 200,
+        );
+      }
+      invalid += Number(maps.baseColor[i + 3] !== 255);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.3);
+    expect(metal / (512 * 512)).toBeLessThan(0.5);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.45);
+    expect(floors / (512 * 512)).toBeGreaterThan(0.035);
+    expect(floors / (512 * 512)).toBeLessThan(0.09);
+    expect(maxTilt).toBeGreaterThan(0.05);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all six Y channel floor plate and backing fields across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tripointscrewheads', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps straight flank shoulders round tips projection joins arm overlaps head bevels owners cache and UV C1', () => {
+    const points: number[] = [],
+      radii = [p.slotCore, p.slotRadius];
+    const circles = [
+      { x: 0, y: 0, r: p.capCore },
+      { x: 0, y: 0, r: p.capRadius },
+      { x: 0, y: 0, r: p.slotCore },
+      { x: 0, y: 0, r: p.slotRadius },
+      { x: 0, y: 0, r: p.armLength + p.slotRadius },
+    ];
+    for (let arm = 0; arm < 3; arm++) {
+      const c = axes[arm * 2],
+        s = axes[arm * 2 + 1];
+      for (const r of radii) {
+        circles.push({ x: p.armLength * c, y: p.armLength * s, r });
+        for (const sign of signs)
+          for (let j = 0; j <= 64; j++) {
+            const along = (p.armLength * j) / 64,
+              across = r * sign;
+            points.push(along * c - across * s, along * s + across * c);
+          }
+      }
+      for (const along of projections)
+        for (let j = 0; j <= 128; j++) {
+          const across = 3 * p.slotRadius * ((2 * j) / 128 - 1);
+          points.push(along * c - across * s, along * s + across * c);
+        }
+      const between = (2 * Math.PI * arm) / 3 + Math.PI / 3,
+        bc = Math.cos(between),
+        bs = Math.sin(between);
+      for (let j = 0; j <= 128; j++) {
+        const r = (p.capCore * j) / 128;
+        points.push(r * bc, r * bs);
+      }
+    }
+    for (const circle of circles)
+      for (let j = 0; j <= 128; j++) {
+        const angle = (2 * Math.PI * j) / 128;
+        points.push(
+          circle.x + circle.r * Math.cos(angle),
+          circle.y + circle.r * Math.sin(angle),
+        );
+      }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tripointscrewheads', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        h = 1e-10;
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row);
+          for (let j = 0; j < points.length; j += 2) {
+            const x = points[j],
+              y = points[j + 1];
+            check(
+              (col + f.cx + f.c * x - f.s * y) / p.cells,
+              (row + f.cy + f.s * x + f.c * y) / p.cells,
+            );
+          }
+        }
+      for (const grid of grids)
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Pinolith pointed pale magnesite lenses with opaque overlap on polished dark matrix', () => {
   const p = proceduralMaterialPresets.pinolith;
@@ -60317,6 +60581,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'utilityblades' &&
           kind !== 'hexsocketheads' &&
           kind !== 'pentalobescrewheads' &&
+          kind !== 'tripointscrewheads' &&
           kind !== 'springpinends' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
