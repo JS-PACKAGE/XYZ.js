@@ -3352,6 +3352,111 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pietersite': {
+        const p = proceduralMaterialPresets.pietersite,
+          poses = new Float64Array(p.cells * p.cells * 23),
+          cloudField = cachedNoise(5, 7, seed ^ 0x1c711),
+          grainField = cachedNoise(128, 128, seed ^ 0x1c713),
+          inverseEdge = 1 / p.edgeShoulder,
+          bandSquared = p.bandRadius * p.bandRadius,
+          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore),
+          fiberSquared = p.fiberRadius * p.fiberRadius,
+          inverseFiber = 1 / (fiberSquared - p.fiberCore * p.fiberCore),
+          angularBound =
+            (p.planeMinimum + p.planeVariation) /
+            Math.cos((TAU / 5 + p.angleJitter) * 0.5);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 23,
+              rotation = TAU * hash(col, row, seed ^ 0x1c715),
+              radius =
+                p.radiusMinimum +
+                p.radiusVariation * hash(col, row, seed ^ 0x1c717),
+              fiberAngle = TAU * hash(col, row, seed ^ 0x1c71f),
+              support = radius * angularBound;
+            poses[i] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1c719);
+            poses[i + 1] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1c71b);
+            poses[i + 2] =
+              hash(col, row, seed ^ 0x1c71d) < p.blueChance ? 1 : 0;
+            poses[i + 3] = Math.cos(fiberAngle);
+            poses[i + 4] = Math.sin(fiberAngle);
+            poses[i + 5] = hash(col, row, seed ^ 0x1c721);
+            poses[i + 6] =
+              p.bandMinimum + p.bandVariation * hash(col, row, seed ^ 0x1c723);
+            poses[i + 22] = support * support;
+            for (let edge = 0; edge < 5; edge++) {
+              const angle =
+                  rotation +
+                  (TAU * edge) / 5 +
+                  p.angleJitter *
+                    (hash(col, row, seed ^ (0x1c731 + edge)) - 0.5),
+                plane = i + 7 + edge * 3;
+              poses[plane] = Math.cos(angle);
+              poses[plane + 1] = Math.sin(angle);
+              poses[plane + 2] =
+                radius *
+                (p.planeMinimum +
+                  p.planeVariation * hash(col, row, seed ^ (0x1c741 + edge)));
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cloud = cloudField(u, v),
+            grain = grainField(u, v);
+          color = p.cementBase + p.cementCloud * cloud;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                wx = ((cx % p.cells) + p.cells) % p.cells,
+                wy = ((cy % p.cells) + p.cells) % p.cells,
+                i = (wy * p.cells + wx) * 23,
+                dx = uc - cx - poses[i],
+                dy = vc - cy - poses[i + 1];
+              if (dx * dx + dy * dy >= poses[i + 22]) continue;
+              let face = 1;
+              for (let edge = 0; edge < 5 && face > 0; edge++) {
+                const plane = i + 7 + edge * 3;
+                face *= smooth(
+                  clamp(
+                    (poses[plane + 2] -
+                      dx * poses[plane] -
+                      dy * poses[plane + 1]) *
+                      inverseEdge,
+                  ),
+                );
+              }
+              if (face === 0) continue;
+              const x = dx * poses[i + 3] + dy * poses[i + 4],
+                y = dy * poses[i + 3] - dx * poses[i + 4],
+                phase =
+                  (y + p.bend * x * x + p.warp * (cloud - 0.5)) * poses[i + 6],
+                a = fract(phase + poses[i + 5] + 0.5) - 0.5,
+                b = fract(phase * p.fibers + poses[i + 5] + 0.5) - 0.5,
+                band = smooth(clamp((bandSquared - a * a) * inverseBand)),
+                fiber = smooth(clamp((fiberSquared - b * b) * inverseFiber)),
+                pigment =
+                  (poses[i + 2]
+                    ? p.blueBase + p.blueBand * band + p.blueFiber * fiber
+                    : p.goldBase + p.goldBand * band + p.goldFiber * fiber) +
+                  p.pigmentGrain * grain;
+              // Compact half-plane products preserve angular fragments and C1
+              // corners; differently oriented fiber pigment does not carve them.
+              color += face * (pigment - color);
+            }
+          height = p.height + p.grainHeight * grain;
+          roughness = p.roughness + p.grainRoughness * (grain - 0.5);
+          occlusion = 1;
+          metallic = 0;
+          mortar = 0;
+          return;
+        };
+      }
       case 'squaresocketheads':
       case 'hexsocketheads': {
         const square = kind === 'squaresocketheads',
@@ -34747,6 +34852,7 @@ export function createSurfaceSampler(
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
     kind === 'squaresocketheads' ||
+    kind === 'pietersite' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||

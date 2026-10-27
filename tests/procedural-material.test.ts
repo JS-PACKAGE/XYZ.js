@@ -782,7 +782,429 @@ const kinds: ProceduralMaterialKind[] = [
   'tripointscrewheads',
   'septarian',
   'squaresocketheads',
+  'pietersite',
 ];
+
+describe('Polished blue grey and golden pietersite with angular locally directed fiber bundles', () => {
+  const p = proceduralMaterialPresets.pietersite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const insets = [0, 0.25, 0.5, 0.75, 1].map((t) => t * p.edgeShoulder);
+  const grids = [p.cells, 5, 7, 128];
+  const fractions = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  interface Fragment {
+    col: number;
+    row: number;
+    x: number;
+    y: number;
+    c: number;
+    s: number;
+    blue: boolean;
+    planes: Float64Array;
+  }
+  const fragments = (seed: number): Fragment[] => {
+    const out: Fragment[] = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const rotation = 2 * Math.PI * hash(col, row, seed ^ 0x1c715),
+          radius =
+            p.radiusMinimum +
+            p.radiusVariation * hash(col, row, seed ^ 0x1c717),
+          angle = 2 * Math.PI * hash(col, row, seed ^ 0x1c71f),
+          planes = new Float64Array(15);
+        for (let edge = 0; edge < 5; edge++) {
+          const a =
+              rotation +
+              (2 * Math.PI * edge) / 5 +
+              p.angleJitter * (hash(col, row, seed ^ (0x1c731 + edge)) - 0.5),
+            i = edge * 3;
+          planes[i] = Math.cos(a);
+          planes[i + 1] = Math.sin(a);
+          planes[i + 2] =
+            radius *
+            (p.planeMinimum +
+              p.planeVariation * hash(col, row, seed ^ (0x1c741 + edge)));
+        }
+        out.push({
+          col,
+          row,
+          x: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1c719),
+          y: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1c71b),
+          c: Math.cos(angle),
+          s: Math.sin(angle),
+          blue: hash(col, row, seed ^ 0x1c71d) < p.blueChance,
+          planes,
+        });
+      }
+    return out;
+  };
+  const insideCore = (f: Fragment, x: number, y: number, margin: number) => {
+    const dx = x - f.col - f.x,
+      dy = y - f.row - f.y;
+    for (let i = 0; i < 15; i += 3)
+      if (
+        f.planes[i + 2] - dx * f.planes[i] - dy * f.planes[i + 1] <
+        p.edgeShoulder + margin
+      )
+        return false;
+    return true;
+  };
+  const clearOthers = (
+    all: Fragment[],
+    f: Fragment,
+    x: number,
+    y: number,
+    r: number,
+  ) => {
+    const col = Math.floor(x),
+      row = Math.floor(y);
+    for (let oy = -1; oy <= 1; oy++)
+      for (let ox = -1; ox <= 1; ox++) {
+        const cx = col + ox,
+          cy = row + oy;
+        if (cx === f.col && cy === f.row) continue;
+        const other =
+            all[
+              (((cy % p.cells) + p.cells) % p.cells) * p.cells +
+                (((cx % p.cells) + p.cells) % p.cells)
+            ],
+          dx = x - cx - other.x,
+          dy = y - cy - other.y;
+        let separated = false;
+        for (let i = 0; i < 15; i += 3)
+          if (
+            other.planes[i + 2] -
+              dx * other.planes[i] -
+              dy * other.planes[i + 1] <
+            -r
+          ) {
+            separated = true;
+            break;
+          }
+        if (!separated) return false;
+      }
+    return true;
+  };
+  const cloudAt = (seed: number, u: number, v: number) => {
+    const fract = (x: number) => x - Math.floor(x),
+      smooth = (x: number) => x * x * (3 - 2 * x),
+      x = fract(u) * 5,
+      y = fract(v) * 7,
+      ix = Math.floor(x),
+      iy = Math.floor(y),
+      sx = smooth(x - ix),
+      sy = smooth(y - iy),
+      a = hash(ix, iy, seed ^ 0x1c711),
+      b = hash((ix + 1) % 5, iy, seed ^ 0x1c711),
+      c = hash(ix, (iy + 1) % 7, seed ^ 0x1c711),
+      d = hash((ix + 1) % 5, (iy + 1) % 7, seed ^ 0x1c711);
+    return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+  };
+  // A line clipped by independent one-dimensional intervals locates true facets
+  // and equal-inset corner joins; it does not evaluate the sampler's masks.
+  const segment = (
+    f: Fragment,
+    edge: number,
+    inset: number,
+    otherInset: number,
+    out: Float64Array,
+  ) => {
+    const i = edge * 3,
+      nx = f.planes[i],
+      ny = f.planes[i + 1],
+      d = f.planes[i + 2] - inset,
+      x = nx * d,
+      y = ny * d,
+      tx = -ny,
+      ty = nx;
+    let lo = -Infinity,
+      hi = Infinity;
+    for (let j = 0; j < 15; j += 3) {
+      if (j === i) continue;
+      const slope = tx * f.planes[j] + ty * f.planes[j + 1],
+        room =
+          f.planes[j + 2] - otherInset - x * f.planes[j] - y * f.planes[j + 1];
+      if (Math.abs(slope) < 1e-12) {
+        if (room < 0) return false;
+      } else if (slope > 0) hi = Math.min(hi, room / slope);
+      else lo = Math.max(lo, room / slope);
+    }
+    if (!(lo <= hi && Number.isFinite(lo) && Number.isFinite(hi))) return false;
+    out[0] = f.col + f.x + x + tx * lo;
+    out[1] = f.row + f.y + y + ty * lo;
+    out[2] = f.col + f.x + x + tx * hi;
+    out[3] = f.row + f.y + y + ty * hi;
+    return true;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains flat dielectric blue and golden angular fragments with local directional fibers for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pietersite', seed),
+        all = fragments(seed),
+        a = empty(),
+        b = empty(),
+        line = new Float64Array(4);
+      let blue = 0,
+        gold = 0,
+        blueAcross = 0,
+        blueAlong = 0,
+        goldAcross = 0,
+        goldAlong = 0,
+        minimum = Infinity,
+        maximum = -Infinity,
+        roughMin = Infinity,
+        roughMax = -Infinity,
+        invalid = 0,
+        edges = 0;
+      for (const f of all) {
+        let found = false,
+          px = 0,
+          py = 0;
+        search: for (let y = -6; y <= 6; y++)
+          for (let x = -6; x <= 6; x++) {
+            const u = f.col + f.x + 0.035 * x,
+              v = f.row + f.y + 0.035 * y;
+            if (insideCore(f, u, v, 0.08) && clearOthers(all, f, u, v, 0.08)) {
+              px = u;
+              py = v;
+              found = true;
+              break search;
+            }
+          }
+        if (found) {
+          let across = 0,
+            along = 0,
+            low = Infinity,
+            high = -Infinity;
+          for (let axis = 0; axis < 2; axis++) {
+            let previous = 0;
+            for (let j = 0; j <= 64; j++) {
+              const t = 0.14 * (j / 64 - 0.5),
+                dx = axis ? -f.s : f.c,
+                dy = axis ? f.c : f.s;
+              sample((px + t * dx) / p.cells, (py + t * dy) / p.cells, a);
+              low = Math.min(low, a.color);
+              high = Math.max(high, a.color);
+              minimum = Math.min(minimum, a.height);
+              maximum = Math.max(maximum, a.height);
+              roughMin = Math.min(roughMin, a.roughness);
+              roughMax = Math.max(roughMax, a.roughness);
+              invalid += Number(
+                a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+              );
+              if (j) {
+                if (axis) across += Math.abs(a.color - previous);
+                else along += Math.abs(a.color - previous);
+              }
+              previous = a.color;
+            }
+          }
+          if (f.blue) {
+            blue++;
+            blueAcross += across;
+            blueAlong += along;
+            expect(high).toBeLessThan(0.2);
+          } else {
+            gold++;
+            goldAcross += across;
+            goldAlong += along;
+            expect(low).toBeGreaterThan(0.35);
+            expect(high).toBeGreaterThan(0.6);
+          }
+        }
+        if (f.blue) continue;
+        for (let edge = 0; edge < 5; edge++) {
+          if (!segment(f, edge, 0, p.edgeShoulder + 0.02, line)) continue;
+          const nx = f.planes[edge * 3],
+            ny = f.planes[edge * 3 + 1];
+          for (const t of [0.2, 0.4, 0.6, 0.8]) {
+            const x = line[0] + t * (line[2] - line[0]),
+              y = line[1] + t * (line[3] - line[1]),
+              d = p.edgeShoulder + 0.005,
+              ix = x - d * nx,
+              iy = y - d * ny;
+            if (!insideCore(f, ix, iy, 0) || !clearOthers(all, f, x, y, 0.07))
+              continue;
+            sample(ix / p.cells, iy / p.cells, a);
+            sample((x + 0.015 * nx) / p.cells, (y + 0.015 * ny) / p.cells, b);
+            expect(a.color - b.color).toBeGreaterThan(0.25);
+            expect(Math.abs(a.height - b.height)).toBeLessThan(0.000004);
+            edges++;
+          }
+        }
+      }
+      if (blue < 3 || gold < 3 || edges < 5)
+        throw Error(
+          'Fixture must expose multiple independent blue and gold cores and straight gold facets',
+        );
+      expect(blueAcross / blue).toBeGreaterThan(0.015);
+      expect(goldAcross / gold).toBeGreaterThan(0.08);
+      expect(blueAcross).toBeGreaterThan(1.8 * blueAlong);
+      expect(goldAcross).toBeGreaterThan(1.8 * goldAlong);
+      expect(maximum - minimum).toBeLessThan(0.000004);
+      expect(roughMin).toBeGreaterThan(0.15);
+      expect(roughMax).toBeLessThan(0.35);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes opaque polished blue and golden pigment over a common almost flat dielectric plane at actual512', () => {
+    const maps = generateProceduralMaps('pietersite', 512, 7, {
+      heightMap: true,
+    });
+    let blue = 0,
+      gold = 0,
+      invalid = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      blue += Number(b > r + 10 && b > g + 5);
+      gold += Number(r > g + 25 && g > b + 35);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      maxTilt = Math.max(
+        maxTilt,
+        Math.abs(maps.normal[i] - 128),
+        Math.abs(maps.normal[i + 1] - 128),
+      );
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(0.2);
+    expect(gold / (512 * 512)).toBeGreaterThan(0.03);
+    expect(maxTilt).toBeLessThan(3);
+    expect(invalid).toBe(0);
+  });
+  it('repeats complete locally directed mineral phases over signed UV periods at all three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pietersite', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps actual facet supports shoulders equal-inset corners local fiber branches cache owners and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      line = new Float64Array(4),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pietersite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const f of fragments(seed))
+        for (let edge = 0; edge < 5; edge++)
+          for (const inset of insets) {
+            if (!segment(f, edge, inset, inset, line)) continue;
+            for (const t of fractions)
+              check(
+                (line[0] + t * (line[2] - line[0])) / p.cells,
+                (line[1] + t * (line[3] - line[1])) / p.cells,
+              );
+          }
+      for (const f of fragments(seed)) {
+        const frequency =
+            p.bandMinimum +
+            p.bandVariation * hash(f.col, f.row, seed ^ 0x1c723),
+          offset = hash(f.col, f.row, seed ^ 0x1c721),
+          phase = (x: number, y: number) => {
+            const u = (f.col + f.x + f.c * x - f.s * y) / p.cells,
+              v = (f.row + f.y + f.s * x + f.c * y) / p.cells;
+            return (
+              (y + p.bend * x * x + p.warp * (cloudAt(seed, u, v) - 0.5)) *
+              frequency
+            );
+          };
+        for (const x of [-0.1, 0, 0.1])
+          for (const multiplier of [1, p.fibers]) {
+            const loY = -0.14,
+              hiY = 0.14,
+              low = phase(x, loY) * multiplier + offset,
+              high = phase(x, hiY) * multiplier + offset,
+              radius = multiplier === 1 ? p.bandRadius : p.fiberRadius,
+              core = multiplier === 1 ? p.bandCore : p.fiberCore;
+            for (let k = Math.floor(low) - 1; k <= Math.ceil(high) + 1; k++)
+              for (const boundary of [
+                -0.5,
+                -radius,
+                -core,
+                0,
+                core,
+                radius,
+                0.5,
+              ]) {
+                const target = k + boundary;
+                if (target < low || target > high) continue;
+                let a = loY,
+                  b = hiY;
+                for (let iteration = 0; iteration < 48; iteration++) {
+                  const middle = (a + b) * 0.5;
+                  if (phase(x, middle) * multiplier + offset < target)
+                    a = middle;
+                  else b = middle;
+                }
+                const y = (a + b) * 0.5;
+                check(
+                  (f.col + f.x + f.c * x - f.s * y) / p.cells,
+                  (f.row + f.y + f.s * x + f.c * y) / p.cells,
+                );
+              }
+          }
+      }
+      for (const grid of grids)
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Square blind drive steel heads with four flat sides and unbroken metal floors', () => {
   const p = proceduralMaterialPresets.squaresocketheads;
