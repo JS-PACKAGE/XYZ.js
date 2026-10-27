@@ -775,7 +775,228 @@ const kinds: ProceduralMaterialKind[] = [
   'springpinends',
   'rhyolite',
   'tonkabeans',
+  'pentalobescrewheads',
 ];
+
+describe('Five rounded lobe blind pentalobe screw heads with flat steel floors', () => {
+  const p = proceduralMaterialPresets.pentalobescrewheads;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x1c113);
+    return {
+      c: Math.cos(a),
+      s: Math.sin(a),
+      cx: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c115) - 1),
+      cy: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c117) - 1),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains exactly five round recess lobes a connected flat steel floor and no center post for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('pentalobescrewheads', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.cx + f.c * x - f.s * y) / p.cells,
+                (row + f.cy + f.s * x + f.c * y) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          local(0.27, 0, b);
+          const cutoff = (a.height + b.height) * 0.5;
+          expect(a.height).toBeLessThan(b.height - 0.3 * p.relief);
+          expect(a.color).toBeLessThan(b.color);
+          expect(a.roughness).toBeGreaterThan(b.roughness);
+          expect(a.occlusion).toBeLessThan(b.occlusion);
+          expect(a.metallic).toBe(1);
+          expect(b.metallic).toBe(1);
+          expect(a.mortar).toBe(0);
+          let min = a.height,
+            max = a.height;
+          for (let j = 0; j < 64; j++) {
+            const angle = (2 * Math.PI * j) / 64;
+            local(0.07 * Math.cos(angle), 0.07 * Math.sin(angle), a);
+            min = Math.min(min, a.height);
+            max = Math.max(max, a.height);
+            expect(a.metallic).toBe(1);
+          }
+          expect(max - min).toBeLessThan(0.003 * p.relief);
+          const r = 0.175;
+          local(r, 0, a);
+          let previous = a.height < cutoff,
+            runs = 0;
+          for (let j = 1; j <= 4096; j++) {
+            const angle = (2 * Math.PI * j) / 4096;
+            local(r * Math.cos(angle), r * Math.sin(angle), a);
+            const current = a.height < cutoff;
+            if (current && !previous) runs++;
+            previous = current;
+          }
+          expect(runs).toBe(5);
+          for (let j = 0; j < 5; j++) {
+            const angle = (2 * Math.PI * j) / 5,
+              between = angle + Math.PI / 5;
+            local(r * Math.cos(angle), r * Math.sin(angle), a);
+            local(r * Math.cos(between), r * Math.sin(between), b);
+            expect(a.height).toBeLessThan(cutoff);
+            expect(b.height).toBeGreaterThan(cutoff);
+            expect(a.color).toBeLessThan(b.color);
+          }
+          local(0.43, 0, a);
+          expect(a.height).toBeCloseTo(0.035 * p.relief, 10);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(1);
+        }
+    },
+  );
+  it('writes actual512 opaque five lobed steel heads above low backing with darker blind sockets', () => {
+    const maps = generateProceduralMaps('pentalobescrewheads', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      backing = 0,
+      min = 255,
+      max = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      if (maps.metallicRoughness[i + 2] === 255) metal++;
+      if (maps.metallicRoughness[i + 2] === 0) backing++;
+      min = Math.min(min, maps.baseColor[i]);
+      max = Math.max(max, maps.baseColor[i]);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      invalid += Number(maps.baseColor[i + 3] !== 255);
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.3);
+    expect(metal / (512 * 512)).toBeLessThan(0.5);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.45);
+    expect(min).toBeLessThan(110);
+    expect(max).toBeGreaterThan(190);
+    expect(max - min).toBeGreaterThan(100);
+    expect(maxTilt).toBeGreaterThan(0.05);
+    expect(invalid).toBe(0);
+  });
+  it('repeats five lobe socket floor head metal and backing across signed UV periods', () => {
+    const sample = createSurfaceSampler('pentalobescrewheads', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps head bevel round lobe core shoulders actual arc intersections cache owners and UV C1', () => {
+    const circles: { x: number; y: number; r: number }[] = [
+      { x: 0, y: 0, r: p.capRadius },
+      { x: 0, y: 0, r: p.capCore },
+      { x: 0, y: 0, r: p.coreRadius },
+      { x: 0, y: 0, r: p.coreFull },
+    ];
+    for (let j = 0; j < 5; j++) {
+      const angle = (2 * Math.PI * j) / 5,
+        x = p.lobeOffset * Math.cos(angle),
+        y = p.lobeOffset * Math.sin(angle);
+      for (const r of [p.lobeRadius, p.lobeCore]) circles.push({ x, y, r });
+    }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pentalobescrewheads', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        h = 1e-10;
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.cx + f.c * x - f.s * y) / p.cells,
+                (row + f.cy + f.s * x + f.c * y) / p.cells,
+              );
+          local(0, 0);
+          for (const circle of circles)
+            for (let j = 0; j <= 256; j++) {
+              const angle = (2 * Math.PI * j) / 256;
+              local(
+                circle.x + circle.r * Math.cos(angle),
+                circle.y + circle.r * Math.sin(angle),
+              );
+            }
+          for (let i = 0; i < circles.length; i++)
+            for (let j = i + 1; j < circles.length; j++) {
+              const a = circles[i],
+                b = circles[j],
+                dx = b.x - a.x,
+                dy = b.y - a.y,
+                d = Math.hypot(dx, dy);
+              if (d === 0 || d > a.r + b.r || d < Math.abs(a.r - b.r)) continue;
+              const along = (a.r * a.r - b.r * b.r + d * d) / (2 * d),
+                across = Math.sqrt(Math.max(0, a.r * a.r - along * along)),
+                x = a.x + (along * dx) / d,
+                y = a.y + (along * dy) / d;
+              for (const sign of [-1, 1])
+                local(
+                  x - (sign * across * dy) / d,
+                  y + (sign * across * dx) / d,
+                );
+            }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Dark wrinkled tonka beans with curved elongated closed bodies and drying folds', () => {
   const p = proceduralMaterialPresets.tonkabeans;
@@ -59281,6 +59502,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'screwhooks' &&
           kind !== 'utilityblades' &&
           kind !== 'hexsocketheads' &&
+          kind !== 'pentalobescrewheads' &&
           kind !== 'springpinends' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&

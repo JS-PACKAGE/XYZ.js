@@ -2928,6 +2928,86 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pentalobescrewheads': {
+        const p = proceduralMaterialPresets.pentalobescrewheads,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          lobes = new Float64Array(p.lobeCount * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x1c111),
+          capSquared = p.capRadius * p.capRadius,
+          inverseCap = 1 / (capSquared - p.capCore * p.capCore),
+          coreSquared = p.coreRadius * p.coreRadius,
+          fullSquared = p.coreFull * p.coreFull,
+          inverseCore = 1 / (coreSquared - fullSquared),
+          lobeSquared = p.lobeRadius * p.lobeRadius,
+          inverseLobe = 1 / (lobeSquared - p.lobeCore * p.lobeCore),
+          socketSquared = (p.lobeOffset + p.lobeRadius) ** 2,
+          roughnessDifference = p.socketRoughness - p.roughness;
+        for (let j = 0; j < p.lobeCount; j++) {
+          const angle = (TAU * j) / p.lobeCount;
+          lobes[j * 2] = p.lobeOffset * Math.cos(angle);
+          lobes[j * 2 + 1] = p.lobeOffset * Math.sin(angle);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1c113);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c115) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c117) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1c119);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            r2 = dx * dx + dy * dy,
+            face = smooth(clamp((capSquared - r2) * inverseCap));
+          color = 0.03;
+          height = 0.035;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          let socket = 0;
+          if (r2 <= fullSquared) socket = 1;
+          else if (r2 < socketSquared) {
+            const x = dx * poses[i] + dy * poses[i + 1],
+              y = dy * poses[i] - dx * poses[i + 1];
+            let outside = 1 - smooth(clamp((coreSquared - r2) * inverseCore));
+            for (let j = 0; j < lobes.length; j += 2) {
+              const lx = x - lobes[j],
+                ly = y - lobes[j + 1];
+              outside *=
+                1 -
+                smooth(clamp((lobeSquared - lx * lx - ly * ly) * inverseLobe));
+            }
+            // Product union blends all five round lobes without nearest-arc creases or polar seams.
+            socket = 1 - outside;
+          }
+          const grain = grainField(u, v);
+          color +=
+            face * (0.78 + 0.05 * poses[i + 4] + 0.025 * grain - 0.57 * socket);
+          height +=
+            face *
+            (p.faceHeight + p.grainHeight * grain - p.socketDepth * socket);
+          roughness +=
+            face *
+            (p.roughness +
+              roughnessDifference * socket +
+              0.025 * grain -
+              roughness);
+          occlusion += face * (0.68 - 0.35 * socket);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'datepits': {
         const p = proceduralMaterialPresets.datepits,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -34223,6 +34303,7 @@ export function createSurfaceSampler(
     kind === 'springpinends' ||
     kind === 'rhyolite' ||
     kind === 'tonkabeans' ||
+    kind === 'pentalobescrewheads' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

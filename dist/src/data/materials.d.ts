@@ -8421,6 +8421,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         wrinkleShoulder: 0.35;
         wrinkleWarp: 0.035;
     }>;
+    pentalobescrewheads: Readonly<{
+        dark: readonly [24, 30, 36];
+        light: readonly [231, 235, 238];
+        roughness: 0.3;
+        relief: 0.03;
+        cells: 6;
+        jitter: 0.025;
+        capRadius: 0.37;
+        capCore: 0.35;
+        coreRadius: 0.125;
+        coreFull: 0.11;
+        lobeCount: 5;
+        lobeOffset: 0.09;
+        lobeRadius: 0.1;
+        lobeCore: 0.086;
+        faceHeight: 0.64;
+        socketDepth: 0.4;
+        socketRoughness: 0.82;
+        grainHeight: 0.002;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9157,4 +9177,5 @@ export declare const proceduralTileMeters: Readonly<{
     springpinends: 0.064;
     rhyolite: 0.12;
     tonkabeans: 0.2;
+    pentalobescrewheads: 0.048;
 }>;

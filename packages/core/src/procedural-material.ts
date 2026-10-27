@@ -748,7 +748,8 @@ export type ProceduralMaterialKind =
   | 'carawayseeds'
   | 'springpinends'
   | 'rhyolite'
-  | 'tonkabeans';
+  | 'tonkabeans'
+  | 'pentalobescrewheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1731,6 +1732,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'springpinends',
   'rhyolite',
   'tonkabeans',
+  'pentalobescrewheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1964,6 +1966,7 @@ export class ProceduralMaterial {
         this.kind === 'screwhooks' ||
         this.kind === 'utilityblades' ||
         this.kind === 'hexsocketheads' ||
+        this.kind === 'pentalobescrewheads' ||
         this.kind === 'springpinends' ||
         this.kind === 'insulatedringlugs' ||
         this.kind === 'pencilsharpeners' ||

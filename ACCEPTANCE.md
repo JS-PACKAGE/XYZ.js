@@ -8776,3 +8776,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。附已讀Dipteryx odorata黑皺種籽描述及Alyssa Ashley文章與實際種籽照片作外形參考；Wikimedia照片HTTP429未作已讀圖片證據，未打包圖片，也不採用文章的食用、醫療或成分宣稱。
 - build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 完整suite179個測試檔／7625項全部通過（982.71s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：五圓瓣盲凹穴螺絲頭（pentalobescrewheads）
+
+- 目錄733→734種：36個隨機旋轉平切鋼頭與五圓瓣盲凹穴，中央平底鋼面連通五瓣且無防拆柱，不是既有六瓣starsocketbolts。沿用isolated owner-cell快取姿態與compact平方C1 profile，中央core及五個圓瓣以乘積union平滑混合，不採nearest弧線或極角分段。姿態180個Float64／1440 bytes，加十個Float64瓣心offset／80 bytes與128² grain；head support0.37+jitter0.025=0.395小於owner半寬0.5，凹穴support0.19在head core0.35內。
+- 所有pose／lobe sin／cos僅在sampler建立時計算；平方半徑、inverse shoulder與roughness差預先計算，只在凹穴肩部環帶才旋轉local軸，平底core與外圍鋼面略過不需要的rotation。無逐點配置／hash／trig／sqrt；移動計算後五份actual512 SHA256與已觀察gallery用map逐一相同，不把減少運算外推成renderer幀率提升。
+- 0.048 m參考tile／0.03 UV relief，名義頭徑5.92mm、凹穴深0.012 UV（按參考尺度換算0.576mm），平面micrograin跨度參考2.88μm；非geometry／位移／實機量測，也不認證P2／P5／P6尺寸、工具適配或鎖付力學。鋼頭及盲穴底M1、低背景M0、mortar1-face，facade metallic factor1；opaque不是透明穿孔，維持options、Worker、cache及ownership。
+- 六項專項、既有starsocketbolts及新kind共用catalog合計8項通過（vitest2.15s）。三seed所有頭各4096角向點恰有五凹瓣、瓣尖低且兩瓣間仍為高鋼面、中央floor無柱且平切、core與head皆M1且背景M0；actual512 M1／M0覆蓋與明暗差／opaque／normal relief，4096 signed UV，全部head／core／五瓣內外shoulder及真正circle pair交點、grain／owner／UV雙軸C1，1e-10 UV步長／strict0.03。repo前六項隔離Node data URL draft亦通過，無probe檔留在repo。
+- 第一次build成功但typecheck在新測試circle array推斷為四個literal半徑union後拒絕push瓣半徑（TS2322）；將該測試幾何array明確標為number欄位型別，未改runtime、門檻或取樣。之後typecheck及全部靜態gate成功；最後移除新sampler不必要逐點rotation／常數差值後再次build與全部gate，結果如下，未將失敗輪記作成功。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取pentalobescrewheads、顯示734種並擷取，頁面及cleanup errors空；actual512 albedo可見五圓瓣深凹穴，normal可見平底及圓弧肩部。strict dist公開facade以size32／seed123／height實跑createMaterial metallicFactor1、destroy及cleanup成功，errors空；不以截圖聲稱定量微高度或renderer效能。
+- 最終strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生pentalobescrewheads512²五maps各1048576 bytes；全部733種既有材質各64²／seed7四maps相對HEAD SHA256不變。實跑dist ESM／CJS之pentalobescrewheads32²及512²、starsocketbolts／hexsocketheads各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀iFixit五圓瓣與六瓣／有柱安全Torx比較圖參考，未打包圖片，也不宣稱精密專有孔型或品牌產品適配。
+- 最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 完整suite179個測試檔／7632項全部通過（1046.27s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
