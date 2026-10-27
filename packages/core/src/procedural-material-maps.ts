@@ -3352,14 +3352,16 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'squaresocketheads':
       case 'hexsocketheads': {
-        const p = proceduralMaterialPresets.hexsocketheads,
+        const square = kind === 'squaresocketheads',
+          p = proceduralMaterialPresets[kind],
           poses = new Float64Array(p.cells * p.cells * 5),
           grainField = cachedNoise(128, 128, seed ^ 0x1bb11),
           capSquared = p.capRadius * p.capRadius,
           inverseCap = 1 / (capSquared - p.fullRadius * p.fullRadius),
           inverseSocket = 1 / p.socketBevel,
-          halfRoot3 = Math.sqrt(3) * 0.5;
+          halfRoot3 = square ? 0 : Math.sqrt(3) * 0.5;
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
             const i = (row * p.cells + col) * 5,
@@ -3388,22 +3390,29 @@ export function createSurfaceSampler(
           mortar = 1;
           if (face === 0) return;
           const x = dx * poses[i] + dy * poses[i + 1],
-            y = dy * poses[i] - dx * poses[i + 1],
-            hx = 0.5 * x,
-            hy = halfRoot3 * y,
-            socket =
-              smooth(clamp((p.socketApothem - Math.abs(x)) * inverseSocket)) *
-              smooth(
-                clamp((p.socketApothem - Math.abs(hx + hy)) * inverseSocket),
-              ) *
-              smooth(
-                clamp((p.socketApothem - Math.abs(hy - hx)) * inverseSocket),
-              ),
-            grain = grainField(u, v),
+            y = dy * poses[i] - dx * poses[i + 1];
+          let socket = smooth(
+            clamp((p.socketApothem - Math.abs(x)) * inverseSocket),
+          );
+          if (square) {
+            socket *= smooth(
+              clamp((p.socketApothem - Math.abs(y)) * inverseSocket),
+            );
+          } else {
+            const hx = 0.5 * x,
+              hy = halfRoot3 * y;
+            socket *= smooth(
+              clamp((p.socketApothem - Math.abs(hx + hy)) * inverseSocket),
+            );
+            socket *= smooth(
+              clamp((p.socketApothem - Math.abs(hy - hx)) * inverseSocket),
+            );
+          }
+          const grain = grainField(u, v),
             top = p.headHeight + p.headGrainHeight * grain,
             floor = p.socketFloor + p.floorGrainHeight * grain;
           // Paired half-planes are flat at their absolute-distance axes;
-          // their product bevels hex corners without a max-distance crease.
+          // products bevel four- or six-flat corners without a max-distance crease.
           color +=
             face *
             (0.82 +
@@ -34737,6 +34746,7 @@ export function createSurfaceSampler(
     kind === 'cubebberries' ||
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
+    kind === 'squaresocketheads' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||

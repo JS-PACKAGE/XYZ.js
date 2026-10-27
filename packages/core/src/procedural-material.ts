@@ -754,7 +754,8 @@ export type ProceduralMaterialKind =
   | 'cottonflannel'
   | 'pinolith'
   | 'tripointscrewheads'
-  | 'septarian';
+  | 'septarian'
+  | 'squaresocketheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1743,6 +1744,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pinolith',
   'tripointscrewheads',
   'septarian',
+  'squaresocketheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1976,6 +1978,7 @@ export class ProceduralMaterial {
         this.kind === 'screwhooks' ||
         this.kind === 'utilityblades' ||
         this.kind === 'hexsocketheads' ||
+        this.kind === 'squaresocketheads' ||
         this.kind === 'pentalobescrewheads' ||
         this.kind === 'tripointscrewheads' ||
         this.kind === 'springpinends' ||
