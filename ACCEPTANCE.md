@@ -8517,3 +8517,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之screwhooks512五maps；既有711種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7477項測試（924.44s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。原完整suite背景程序因執行環境重置失去結果，未將其記為通過；重置後重新執行上述完整suite成功。依功能獨立commit、不push。
+- 單位勘誤：上述「0.004 m relief／約160μm螺紋槽」為當時的錯誤標註；實作高度及normal導數使用UV座標，正確為0.004 UV relief／約0.00016 UV螺紋深度。0.36 m只是參考tile尺度，不會把sampler高度自動轉為公尺；非實際位移或實機深度量測。僅修正文件，輸出不變。
