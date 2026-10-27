@@ -3387,6 +3387,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'huckaback':
       case 'shantung':
       case 'cavalrytwill':
       case 'ottoman':
@@ -3397,20 +3398,15 @@ export function createSurfaceSampler(
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
+          huck = kind === 'huckaback',
           slubPreset = proceduralMaterialPresets.shantung,
-          p = shantung
-            ? slubPreset
-            : cavalry
-              ? proceduralMaterialPresets.cavalrytwill
-              : ottoman
-                ? proceduralMaterialPresets.ottoman
-                : gabardine
-                  ? proceduralMaterialPresets.gabardine
-                  : proceduralMaterialPresets.poplin,
+          huckPreset = proceduralMaterialPresets.huckaback,
+          huckRepeat = huckPreset.draft.length,
+          p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          warpBase = twill ? 0.34 : 0.3,
-          weftBase = ottoman ? 0.52 : twill ? 0.34 : 0.44,
-          weftCrown = ottoman ? 0.1 : twill ? 0.04 : 0.07,
+          warpBase = twill || huck ? 0.34 : 0.3,
+          weftBase = ottoman ? 0.52 : twill || huck ? 0.34 : 0.44,
+          weftCrown = ottoman ? 0.1 : twill || huck ? 0.04 : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,
@@ -3420,9 +3416,57 @@ export function createSurfaceSampler(
           inverseWarpShoulder = 1 / (1 - p.warpCore * p.warpCore * inverseWarp),
           inverseWeftShoulder = 1 / (1 - p.weftCore * p.weftCore * inverseWeft),
           inverseLift = 1 / p.liftShoulder,
+          huckProfiles = huck
+            ? new Float64Array(huckRepeat * huckRepeat * 6)
+            : undefined,
           slubRows = shantung
             ? new Float64Array(p.weftThreads * slubPreset.slubs * 3)
             : undefined;
+        // Whole equal-draft runs keep long floats raised through intermediate
+        // thread owners instead of turning each five-pick float into five beads.
+        if (huckProfiles)
+          for (let row = 0; row < huckRepeat; row++)
+            for (let col = 0; col < huckRepeat; col++) {
+              const flag = (huckPreset.draft[row] >>> col) & 1,
+                i = (row * huckRepeat + col) * 6;
+              for (let axis = 0; axis < 2; axis++) {
+                let before = 0,
+                  after = 0;
+                while (
+                  before < huckRepeat - 1 &&
+                  ((huckPreset.draft[
+                    axis === 0
+                      ? (row - before - 1 + huckRepeat) % huckRepeat
+                      : row
+                  ] >>>
+                    (axis === 0
+                      ? col
+                      : (col - before - 1 + huckRepeat) % huckRepeat)) &
+                    1) ===
+                    flag
+                )
+                  before++;
+                while (
+                  after < huckRepeat - 1 - before &&
+                  ((huckPreset.draft[
+                    axis === 0 ? (row + after + 1) % huckRepeat : row
+                  ] >>>
+                    (axis === 0 ? col : (col + after + 1) % huckRepeat)) &
+                    1) ===
+                    flag
+                )
+                  after++;
+                const j = i + axis * 3,
+                  half =
+                    (before + after) * 0.5 +
+                    (axis === 0 ? p.weftLiftHalf : p.warpLiftHalf),
+                  core = Math.max(0, half - p.liftShoulder),
+                  squared = half * half;
+                huckProfiles[j] = (after - before) * 0.5;
+                huckProfiles[j + 1] = squared;
+                huckProfiles[j + 2] = 1 / (squared - core * core);
+              }
+            }
         if (slubRows)
           for (let row = 0; row < p.weftThreads; row++)
             for (let j = 0; j < slubPreset.slubs; j++) {
@@ -3467,11 +3511,17 @@ export function createSurfaceSampler(
             qy = fy * fy * weftInverse,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
             weft = smooth(clamp((1 - qy) * weftShoulder)),
-            warpOver = cavalry
-              ? cavalryDraft[(col - row + p.warpThreads) % cavalryDraft.length]
-              : gabardine
-                ? (col - row + p.warpThreads) % 3 < 2
-                : ((col + (ottoman ? Math.floor(row / 2) : row)) & 1) === 0,
+            warpOver = huck
+              ? ((huckPreset.draft[row % huckRepeat] >>> (col % huckRepeat)) &
+                  1) !==
+                0
+              : cavalry
+                ? cavalryDraft[
+                    (col - row + p.warpThreads) % cavalryDraft.length
+                  ]
+                : gabardine
+                  ? (col - row + p.warpThreads) % 3 < 2
+                  : ((col + (ottoman ? Math.floor(row / 2) : row)) & 1) === 0,
             warpWeight = warpOver ? warp : warp * (1 - weft),
             weftWeight = warpOver ? weft * (1 - warp) : weft,
             coverage = warpWeight + weftWeight;
@@ -3481,14 +3531,29 @@ export function createSurfaceSampler(
           occlusion = 0.45;
           if (coverage === 0) return;
           // Cavalry's six-step draft pairs steep wales; Ottoman pairs wefts.
-          // Lift fades before row/column ownership changes, even along unbroken yarns.
+          // Huck floats span whole draft runs; other lifts fade per crossing.
           const sign = warpOver ? 1 : -1,
-            liftX = smooth(
-              clamp((p.warpLiftHalf - Math.abs(fx)) * inverseLift),
-            ),
-            liftY = smooth(
-              clamp((p.weftLiftHalf - Math.abs(fy)) * inverseLift),
-            ),
+            profileIndex = huckProfiles
+              ? ((row % huckRepeat) * huckRepeat + (col % huckRepeat)) * 6
+              : 0,
+            liftX = huckProfiles
+              ? smooth(
+                  clamp(
+                    (huckProfiles[profileIndex + 4] -
+                      (fx - huckProfiles[profileIndex + 3]) ** 2) *
+                      huckProfiles[profileIndex + 5],
+                  ),
+                )
+              : smooth(clamp((p.warpLiftHalf - Math.abs(fx)) * inverseLift)),
+            liftY = huckProfiles
+              ? smooth(
+                  clamp(
+                    (huckProfiles[profileIndex + 1] -
+                      (fy - huckProfiles[profileIndex]) ** 2) *
+                      huckProfiles[profileIndex + 2],
+                  ),
+                )
+              : smooth(clamp((p.weftLiftHalf - Math.abs(fy)) * inverseLift)),
             crownX = smooth(clamp(1 - qx)),
             crownY = smooth(clamp(1 - qy)),
             fiberX = fract(u * p.warpFibers) - 0.5,
@@ -33649,6 +33714,7 @@ export function createSurfaceSampler(
     kind === 'utilityblades' ||
     kind === 'chrysocolla' ||
     kind === 'sichuanpepperhusks' ||
+    kind === 'huckaback' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

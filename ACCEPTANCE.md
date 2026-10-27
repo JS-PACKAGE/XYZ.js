@@ -8597,3 +8597,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 最終完整dist之strict static NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生最終dist之sichuanpepperhusks512五maps；既有718種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - 最終完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7527項測試（974.07s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。僅最終輪廓版本記為完整驗收；依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：五挑浮經平紋毛巾布（huckaback）
+
+- 目錄719→720種：40×40經緯、10×10 draft與32組斜向交替的成對五挑浮經（共64條長浮經），重用正式cloth sampler，非waffle凹格或逐挑珠狀凸點。僅新kind建立600個Float64值／4800 bytes的完整同draft-run offset／平方half／inverse shoulder快取；長浮線跨內部owner連續，在run ends以C1退回平紋，既有kind不配置此快取。128² grain／160×160纖維週期，無逐點配置／hash／trig／sqrt。
+- 0.032 m參考tile／0.022 UV relief，單側lift0.00308 UV（按參考尺度換算98.56μm，非位移或實機量測）；全opaque M0／mortar0，不新增紗線geometry、pile loops、透光、吸水或各向異性光學模擬。6項專項全部通過（vitest1.30s）：三seed成對五挑端點平紋綁定／中間緯紗分隔／浮線端點參考高差大於30μm、四個內部owner crossing低於峰值不超過5μm、overpass／underpass參考高差大於180μm；512² opaque分離浮經對、4096 signed UV週期及run shoulders／thread／owner／UV雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU與重新建立的WebGL2 tab皆實際擷取，顯示720種並選取huckaback，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布觀察連續五挑浮經對與平紋綁定。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- 首個managed WebGL2 tab在open階段拋出detached Frame，未記為通過；關閉失效session後以新tab完成上列實測，未修改renderer或放寬檢查，該工具錯誤原因未證實。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之huckaback512五maps；包含共用cloth sampler既有五種在內的全部719種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附織紋結構來源。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- Fresh Node另實跑當次ESM及CJS sampler：huckaback以512²／seed7、poplin／gabardine／ottoman／cavalrytwill／shantung各64²／seed7，五maps逐byte全部相同；此為套件形式的CPU map輸出檢查，不代表renderer backend parity或跨realm constructor相同。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7534項測試（989.40s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

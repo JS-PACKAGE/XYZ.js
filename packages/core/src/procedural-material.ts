@@ -734,7 +734,8 @@ export type ProceduralMaterialKind =
   | 'hempcrete'
   | 'utilityblades'
   | 'chrysocolla'
-  | 'sichuanpepperhusks';
+  | 'sichuanpepperhusks'
+  | 'huckaback';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1703,6 +1704,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'utilityblades',
   'chrysocolla',
   'sichuanpepperhusks',
+  'huckaback',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

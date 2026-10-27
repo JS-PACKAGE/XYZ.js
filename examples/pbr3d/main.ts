@@ -798,6 +798,7 @@ try {
     'utilityblades',
     'chrysocolla',
     'sichuanpepperhusks',
+    'huckaback',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

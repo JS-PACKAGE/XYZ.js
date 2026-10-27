@@ -761,7 +761,182 @@ const kinds: ProceduralMaterialKind[] = [
   'utilityblades',
   'chrysocolla',
   'sichuanpepperhusks',
+  'huckaback',
 ];
+
+describe('Huckaback paired five-pick warp floats with plain binding', () => {
+  const p = proceduralMaterialPresets.huckaback;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const point = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    x: number,
+    y: number,
+  ): SurfaceSample => {
+    const out = empty();
+    sample(x / p.warpThreads, y / p.weftThreads, out);
+    return out;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps paired five-pick floats continuously raised through intermediate crossings with plain binding rather than five separate beads for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('huckaback', seed);
+      for (let by = 0; by < p.weftThreads; by += 10)
+        for (let bx = 0; bx < p.warpThreads; bx += 10)
+          for (const offset of [0, 5]) {
+            const x = bx + offset,
+              y = by + offset,
+              separator = point(sample, x + 2.5, y + 2.5),
+              underpass = point(sample, x + 2, y + 1.5);
+            expect(separator.color).toBeLessThan(0.7);
+            for (const col of [x + 1.5, x + 3.5]) {
+              const center = point(sample, col, y + 2.5),
+                first = point(sample, col, y + 0.5),
+                last = point(sample, col, y + 4.5),
+                before = point(sample, col, y - 0.5),
+                after = point(sample, col, y + 5.5),
+                overpass = point(sample, col, y + 1.5);
+              expect(center.color).toBeGreaterThan(0.8);
+              expect(before.color).toBeLessThan(0.7);
+              expect(after.color).toBeLessThan(0.7);
+              expect(
+                (center.height - first.height) * proceduralTileMeters.huckaback,
+              ).toBeGreaterThan(0.00003);
+              expect(
+                (center.height - last.height) * proceduralTileMeters.huckaback,
+              ).toBeGreaterThan(0.00003);
+              expect(
+                (overpass.height - underpass.height) *
+                  proceduralTileMeters.huckaback,
+              ).toBeGreaterThan(0.00018);
+              expect(center.metallic).toBe(0);
+              expect(center.mortar).toBe(0);
+              for (let step = 1; step < 5; step++) {
+                const crossing = point(sample, col, y + step);
+                expect(
+                  crossing.height * proceduralTileMeters.huckaback,
+                ).toBeGreaterThan(
+                  center.height * proceduralTileMeters.huckaback - 0.000005,
+                );
+                expect(crossing.color).toBeGreaterThan(0.8);
+                expect(crossing.occlusion).toBeGreaterThan(0.98);
+              }
+            }
+          }
+    },
+  );
+  it('writes distinct opaque cotton float pairs and lower underpasses rather than a continuous bar at actual512', () => {
+    const maps = generateProceduralMaps('huckaback', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (x: number, y: number) =>
+      (Math.floor((y / p.weftThreads) * 512) * 512 +
+        Math.floor((x / p.warpThreads) * 512)) *
+      4;
+    for (let by = 0; by < p.weftThreads; by += 10)
+      for (let bx = 0; bx < p.warpThreads; bx += 10)
+        for (const offset of [0, 5]) {
+          const x = bx + offset,
+            y = by + offset,
+            a = pixel(x + 1.5, y + 2.5),
+            b = pixel(x + 3.5, y + 2.5),
+            separator = pixel(x + 2.5, y + 2.5),
+            first = pixel(x + 1.5, y + 0.5),
+            underpass = pixel(x + 2, y + 1.5);
+          for (const i of [a, b, separator, underpass]) {
+            expect(maps.baseColor[i + 3]).toBe(255);
+            expect(maps.metallicRoughness[i + 2]).toBe(0);
+          }
+          expect(maps.baseColor[a]).toBeGreaterThan(
+            maps.baseColor[separator] + 10,
+          );
+          expect(maps.baseColor[b]).toBeGreaterThan(
+            maps.baseColor[separator] + 10,
+          );
+          expect(maps.height![a]).toBeGreaterThan(maps.height![first]);
+          expect(maps.height![a]).toBeGreaterThan(maps.height![underpass]);
+        }
+  });
+  it('repeats entire float runs binding and cotton detail across signed UV periods', () => {
+    const sample = createSurfaceSampler('huckaback', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps float shoulders intermediate owners thread edges binding transitions and UV wraps C1', () => {
+    const h = 2e-9,
+      half = 2 + p.weftLiftHalf,
+      core = half - p.liftShoulder;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('huckaback', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let by = 0; by < p.weftThreads; by += 10)
+        for (let bx = 0; bx < p.warpThreads; bx += 10)
+          for (const offset of [0, 5]) {
+            const x = bx + offset,
+              y = by + offset;
+            for (const col of [x + 1.5, x + 3.5]) {
+              for (const d of [-half, -core, core, half])
+                check(col / p.warpThreads, (y + 2.5 + d) / p.weftThreads);
+              for (let step = 0; step <= 5; step++)
+                check(col / p.warpThreads, (y + step) / p.weftThreads);
+              for (const d of [
+                -p.warpRadius,
+                -p.warpCore,
+                p.warpCore,
+                p.warpRadius,
+              ])
+                check((col + d) / p.warpThreads, (y + 2.5) / p.weftThreads);
+            }
+          }
+      for (let thread = 0; thread <= p.warpThreads; thread++)
+        for (let j = 0; j <= 128; j++) {
+          check(thread / p.warpThreads, j / 128);
+          check(j / 128, thread / p.weftThreads);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Split red Sichuan pepper husks with empty cavities and attachment scars', () => {
   const p = proceduralMaterialPresets.sichuanpepperhusks;
