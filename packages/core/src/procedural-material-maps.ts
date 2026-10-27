@@ -3352,6 +3352,95 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'castorbeans': {
+        const p = proceduralMaterialPresets.castorbeans,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          spotField = cachedNoise(p.spotColumns, p.spotRows, seed ^ 0x1c911),
+          warpField = cachedNoise(5, 7, seed ^ 0x1c913),
+          grainField = cachedNoise(128, 128, seed ^ 0x1c915),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseBody = 1 / p.bodyShoulder,
+          inverseCaruncleX = 1 / (p.caruncleHalfX * p.caruncleHalfX),
+          inverseCaruncleY = 1 / (p.caruncleHalfY * p.caruncleHalfY),
+          inverseCaruncle = 1 / p.caruncleShoulder,
+          inverseSpot = 1 / p.spotShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1c917);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c919) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c91b) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1c91d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            bodyCap = clamp(1 - x * x * inverseWidth - y * y * inverseLength),
+            body = smooth(clamp(bodyCap * inverseBody)),
+            cy = y - p.caruncleY,
+            caruncleCap = clamp(
+              1 - x * x * inverseCaruncleX - cy * cy * inverseCaruncleY,
+            ),
+            caruncle = smooth(clamp(caruncleCap * inverseCaruncle));
+          color = 0.025;
+          height = 0.03;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 0;
+          if (body === 0 && caruncle === 0) return;
+          const grain = grainField(u, v);
+          if (body > 0) {
+            const phase = poses[i + 4],
+              localU = x + 0.5 + phase,
+              localV = y + 0.5 + phase,
+              warp = warpField(localU, localV),
+              blotch = smooth(
+                clamp(
+                  (spotField(localU + p.spotWarp * (warp - 0.5), localV) -
+                    p.spotThreshold) *
+                    inverseSpot,
+                ),
+              ),
+              dome = smooth(bodyCap);
+            // Testa mottling is glossy pigment, not recessed drying wrinkles.
+            color +=
+              body *
+              (p.shellColor - p.spotDarkening * blotch + 0.025 * grain - color);
+            height +=
+              body *
+              (p.bodyBase +
+                p.domeHeight * dome +
+                p.grainHeight * grain -
+                height);
+            roughness += body * (p.roughness + 0.012 * grain - roughness);
+            occlusion += body * (0.98 - occlusion);
+          }
+          // One matte cream caruncle overlaps the apical coat; it is neither
+          // a second detached seed nor a hole carved through the testa.
+          color += caruncle * (p.caruncleColor + 0.015 * grain - color);
+          height +=
+            caruncle *
+            (p.caruncleBase +
+              p.caruncleDome * smooth(caruncleCap) +
+              p.grainHeight * grain -
+              height);
+          roughness +=
+            caruncle * (p.caruncleRoughness + 0.015 * grain - roughness);
+          occlusion += caruncle * (0.96 - occlusion);
+          return;
+        };
+      }
       case 'pietersite': {
         const p = proceduralMaterialPresets.pietersite,
           poses = new Float64Array(p.cells * p.cells * 23),
@@ -34853,6 +34942,7 @@ export function createSurfaceSampler(
     kind === 'hexsocketheads' ||
     kind === 'squaresocketheads' ||
     kind === 'pietersite' ||
+    kind === 'castorbeans' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||

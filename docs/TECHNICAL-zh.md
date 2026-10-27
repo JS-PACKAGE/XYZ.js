@@ -1188,6 +1188,10 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 礦物參考：已實讀[Hu與Heaney — A Microstructural Study of Pietersite from Namibia and China（GIA，2010）](https://www.gia.edu/dam/migrated-assets/docs/doc1/A-Microstructural-Study-of-Pietersite-from-Namibia-and-China.pdf)七頁文字，並將原PDF第七頁Figure 8標本照片實際rasterize檢視。採局部不同方向纖維束及藍灰／金褐角礫外觀，不將所有產地視為相同地質成因，不宣稱此固定PBR貼圖重現研究中的動態chatoyancy，也未打包參考圖片。
 
+`castorbeans` 為16個各自seeded旋轉／微偏移的亮面斑駁橢圓種皮，每顆只在同一端接上一個較淡、較粗糙的種阜（caruncle）；不是乾皺tonka、縱槽date pit、雙種阜或透明種子。80個Float64 pose／640 B及16×9 spots、5×7 warp、128² grain共16,563值皆初始化快取。沿用既有oval seed squared-cap／C1肩及順序compositing，種阜與種皮重疊連通；保守旋轉支撐界0.29+0.09加jitter0.025為0.405，小於owner半寬0.5。深色testa斑紋只改顏料、不雕凹高度；種皮凸面與種阜各自smooth dome，M0／mortar0／全opaque。surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留。0.064 m參考tile／0.03 UV relief下主體長軸換算9.6 mm、種阜寬2.88 mm；grain理論高度跨度0.000045 UV換算2.88μm，只是參考尺度，不是植物測量或geometry displacement。沿用options／tint／Worker／cache／ownership，不新增生長、果莢、藥用或食用功能。
+
+形態參考：[Flora of China — Ricinus communis](http://www.efloras.org/florataxon.aspx?flora_id=2&taxon_id=200012604)記載灰／銀／米色深斑種皮及2–3 mm種阜；另實讀[Flora of Pakistan（M. Rafiq）圖版](http://www.efloras.org/object_page.aspx?object_id=96669&flora_id=5)的seed D輪廓與頂端種阜。只近似外觀，不將不同來源尺寸當所有個體的保證；真實蓖麻種子有毒，此遊戲貼圖不提供食用、醫療或處理建議，也未打包參考圖片。
+
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。
 
 果皮表面包含鳳梨皮（pineapple，金黃／橄欖色菱形多邊形果目，沿斜向交錯排列，帶狹窄棕綠色凹縫及圓潤冠部內的小凹陷中央果眼）、草莓皮（strawberry，紅色表皮、不規則交錯的細長凹陷種子窩，內有小型赭黃色種子）及荔枝皮（lychee，粉紅／紅色密集不規則多邊形凸疣、柔化尖冠與狹窄暗色凹裂縫），分別區別於松果搭接鱗片、橘皮圓形油腺及鳳梨規整大果目。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用既有 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps。起伏僅為 shading／normal map 效果，不新增 geometry、displacement、透明度、次表面散射（SSS）、transmission 或 BRDF；既有 options、physical repeat、呼叫者 ownership 與借用 maps 的生命週期不變。

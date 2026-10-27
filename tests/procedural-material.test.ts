@@ -783,7 +783,361 @@ const kinds: ProceduralMaterialKind[] = [
   'septarian',
   'squaresocketheads',
   'pietersite',
+  'castorbeans',
 ];
+
+describe('Glossy mottled castor seeds with one connected pale matte apical caruncle', () => {
+  const p = proceduralMaterialPresets.castorbeans;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const profiles = [0, p.bodyShoulder * 0.5, p.bodyShoulder];
+  const caruncleProfiles = [0, p.caruncleShoulder * 0.5, p.caruncleShoulder];
+  const directions = new Float64Array(513 * 2);
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (columns: number, rows: number, seed: number) => {
+    const values = new Float64Array(columns * rows);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < columns; x++)
+        values[y * columns + x] = hash(x, y, seed);
+    return (u: number, v: number) => {
+      const fu = u - Math.floor(u),
+        fv = v - Math.floor(v),
+        x = fu * columns,
+        y = fv * rows,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        dx = x - ix,
+        dy = y - iy,
+        sx = dx * dx * (3 - 2 * dx),
+        sy = dy * dy * (3 - 2 * dy),
+        nextX = (ix + 1) % columns,
+        nextY = (iy + 1) % rows,
+        a = values[iy * columns + ix],
+        b = values[iy * columns + nextX],
+        c = values[nextY * columns + ix],
+        d = values[nextY * columns + nextX];
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1c917);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c919) - 1),
+      y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c91b) - 1),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps convex glossy mottled testa and exactly one connected paler rougher caruncle for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('castorbeans', seed),
+        a = empty(),
+        b = empty();
+      let dark = 0,
+        pale = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          const centerHeight = a.height;
+          local(p.halfWidth * 0.8, 0, b);
+          expect(centerHeight - b.height).toBeGreaterThan(0.15 * p.relief);
+          local(0, p.caruncleY, a);
+          local(0, -p.caruncleY, b);
+          expect(a.color - b.color).toBeGreaterThan(0.15);
+          expect(a.roughness - b.roughness).toBeGreaterThan(0.3);
+          expect(a.height).toBeGreaterThan(0.4 * p.relief);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+          let caruncleRuns = 0,
+            bodyRuns = 0,
+            previousCaruncle = false,
+            previousBody = false;
+          for (let j = 0; j <= 1024; j++) {
+            const y = -0.42 + (0.84 * j) / 1024;
+            local(0, y, a);
+            const caruncle =
+                a.color > 0.85 && a.roughness > 0.5 && a.roughness < 0.75,
+              solid = a.height > 0.15 * p.relief;
+            if (caruncle && !previousCaruncle) caruncleRuns++;
+            if (solid && !previousBody) bodyRuns++;
+            previousCaruncle = caruncle;
+            previousBody = solid;
+          }
+          expect(caruncleRuns).toBe(1);
+          expect(bodyRuns).toBe(1);
+          for (let y = -6; y <= 6; y++)
+            for (let x = -6; x <= 6; x++) {
+              const px = 0.018 * x,
+                py = 0.024 * y;
+              if (
+                (px * px) / (p.halfWidth * p.halfWidth) +
+                  (py * py) / (p.halfLength * p.halfLength) >
+                0.6
+              )
+                continue;
+              local(px, py, a);
+              dark += Number(a.color < 0.25);
+              pale += Number(a.color > 0.65);
+              expect(a.roughness).toBeGreaterThan(0.2);
+              expect(a.roughness).toBeLessThan(0.3);
+              expect(a.occlusion).toBeGreaterThan(0.95);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+              const cap =
+                  1 -
+                  (px * px) / (p.halfWidth * p.halfWidth) -
+                  (py * py) / (p.halfLength * p.halfLength),
+                ideal =
+                  (p.bodyBase + p.domeHeight * cap * cap * (3 - 2 * cap)) *
+                  p.relief;
+              expect(a.height).toBeGreaterThan(ideal - 1e-12);
+              expect(a.height).toBeLessThan(
+                ideal + p.grainHeight * p.relief + 1e-12,
+              );
+            }
+          for (const y of [-0.42, 0.42]) {
+            local(0, y, a);
+            expect(a.height).toBeLessThan(0.05 * p.relief);
+            expect(a.occlusion).toBeLessThan(0.4);
+          }
+        }
+      expect(dark).toBeGreaterThan(80);
+      expect(pale).toBeGreaterThan(80);
+    },
+  );
+  it('writes actual512 opaque dielectric seeds with glossy mottling matte pale caruncles and a resolved convex normal field', () => {
+    const maps = generateProceduralMaps('castorbeans', 512, 7, {
+      heightMap: true,
+    });
+    let seed = 0,
+      cream = 0,
+      back = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const rough = maps.metallicRoughness[i + 1],
+        ao = maps.occlusion[i],
+        red = maps.baseColor[i];
+      seed += Number(rough < 85 && ao > 230);
+      cream += Number(red > 210 && rough > 145 && rough < 190 && ao > 230);
+      back += Number(ao < 85);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(seed / (512 * 512)).toBeGreaterThan(0.12);
+    expect(seed / (512 * 512)).toBeLessThan(0.22);
+    expect(cream / (512 * 512)).toBeGreaterThan(0.008);
+    expect(cream / (512 * 512)).toBeLessThan(0.03);
+    expect(back / (512 * 512)).toBeGreaterThan(0.7);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all testa caruncle and background channels over signed UV periods for three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('castorbeans', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true body and caruncle ellipse shoulders intersections local mottling branches pose owners and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('castorbeans', seed),
+        spots = field(p.spotColumns, p.spotRows, seed ^ 0x1c911),
+        warp = field(5, 7, seed ^ 0x1c913);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+              );
+          for (let j = 0; j <= 512; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            for (const cap of profiles) {
+              const scale = Math.sqrt(1 - cap);
+              local(p.halfWidth * scale * x, p.halfLength * scale * y);
+            }
+            for (const cap of caruncleProfiles) {
+              const scale = Math.sqrt(1 - cap);
+              local(
+                p.caruncleHalfX * scale * x,
+                p.caruncleY + p.caruncleHalfY * scale * y,
+              );
+            }
+          }
+          for (const bodyCap of profiles)
+            for (const carCap of caruncleProfiles) {
+              const ratio =
+                  (p.halfWidth * p.halfWidth) /
+                  (p.caruncleHalfX * p.caruncleHalfX),
+                aa =
+                  1 / (p.caruncleHalfY * p.caruncleHalfY) -
+                  ratio / (p.halfLength * p.halfLength),
+                bb = (-2 * p.caruncleY) / (p.caruncleHalfY * p.caruncleHalfY),
+                cc =
+                  ratio * (1 - bodyCap) +
+                  (p.caruncleY * p.caruncleY) /
+                    (p.caruncleHalfY * p.caruncleHalfY) -
+                  (1 - carCap),
+                discriminant = bb * bb - 4 * aa * cc;
+              if (discriminant < 0) continue;
+              for (const sign of [-1, 1]) {
+                const y = (-bb + sign * Math.sqrt(discriminant)) / (2 * aa),
+                  xx =
+                    p.halfWidth *
+                    p.halfWidth *
+                    (1 - bodyCap - (y * y) / (p.halfLength * p.halfLength));
+                if (xx >= 0) {
+                  const x = Math.sqrt(xx);
+                  local(x, y);
+                  local(-x, y);
+                }
+              }
+            }
+          const phase = hash(col, row, seed ^ 0x1c91d);
+          const warped = (x: number, y: number) =>
+              x +
+              0.5 +
+              phase +
+              p.spotWarp * (warp(x + 0.5 + phase, y + 0.5 + phase) - 0.5),
+            pigment = (x: number, y: number) =>
+              spots(warped(x, y), y + 0.5 + phase);
+          // The x warp is strictly increasing: 1 - .12 * 1.5 * 5 = .1.
+          for (const y of [-0.2, -0.1, 0, 0.1, 0.2]) {
+            const lo = -0.22,
+              hi = 0.22,
+              minimum = warped(lo, y),
+              maximum = warped(hi, y);
+            for (
+              let k = Math.ceil(minimum * p.spotColumns);
+              k <= Math.floor(maximum * p.spotColumns);
+              k++
+            ) {
+              const target = k / p.spotColumns;
+              let a = lo,
+                b = hi;
+              for (let iteration = 0; iteration < 48; iteration++) {
+                const middle = (a + b) * 0.5;
+                if (warped(middle, y) < target) a = middle;
+                else b = middle;
+              }
+              local((a + b) * 0.5, y);
+            }
+            for (const target of [
+              p.spotThreshold,
+              p.spotThreshold + p.spotShoulder,
+            ]) {
+              let left = lo,
+                leftValue = pigment(left, y) - target;
+              for (let j = 1; j <= 128; j++) {
+                const right = lo + ((hi - lo) * j) / 128,
+                  rightValue = pigment(right, y) - target;
+                if (leftValue * rightValue <= 0) {
+                  let a = left,
+                    b = right,
+                    fa = leftValue;
+                  for (let iteration = 0; iteration < 48; iteration++) {
+                    const middle = (a + b) * 0.5,
+                      fm = pigment(middle, y) - target;
+                    if (fa * fm <= 0) b = middle;
+                    else {
+                      a = middle;
+                      fa = fm;
+                    }
+                  }
+                  local((a + b) * 0.5, y);
+                }
+                left = right;
+                leftValue = rightValue;
+              }
+            }
+          }
+
+          for (const grid of [5, 7, p.spotRows])
+            for (let k = -grid; k <= 2 * grid; k++)
+              for (let j = 0; j <= 32; j++) {
+                const t = -0.4 + (0.8 * j) / 32,
+                  q = k / grid - 0.5 - phase;
+                local(q, t);
+                local(t, q);
+              }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Polished blue grey and golden pietersite with angular locally directed fiber bundles', () => {
   const p = proceduralMaterialPresets.pietersite;

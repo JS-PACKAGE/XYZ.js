@@ -820,6 +820,7 @@ try {
     'septarian',
     'squaresocketheads',
     'pietersite',
+    'castorbeans',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

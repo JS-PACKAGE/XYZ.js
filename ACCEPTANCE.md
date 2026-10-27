@@ -8923,3 +8923,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以實際built sampler執行原／新callbacks，每seed1,035,558次呼叫、三seed合計3,106,674次；逐seed有序IEEE754 UV SHA256及worst完全相同，最大worst為0.010664802374549254。未留下throwaway probe或新增永久copy／echo測試，無runtime／preset／dist維護變更。
 - 正式13項定向通過（vitest3.98s）：driedchillies與diamondpanelparquet的既有幾何／actual512／完整C1及catalog；test typecheck／lint／format通過，保留原timeout，不宣稱引擎fps、GPU或瀏覽器重新驗證。
 - 本維護只提交driedchillies聚合hunks及本紀錄；castorbeans及其docs／dist、既有外部驗收note皆不納入，完整suite重跑結果另由該材質記錄。
+
+## 2026-10-28 程序材質：亮面斑駁橢圓種皮與單一淡色種阜（castorbeans）
+
+- 目錄741→742種：16個各自seeded旋轉／微偏移的凸面斑駁種皮，每顆同一端只有一個連通、較淡且較粗糙的caruncle。實讀Flora of China種皮色斑與2–3 mm種阜描述，以及Flora of Pakistan／M. Rafiq圖版的seed D；未打包參考圖片，不提供種子處理、藥用或食用功能，也不將遊戲外觀當所有個體尺寸的保證。
+- 80個Float64 pose／640 bytes，16×9 spots、5×7 warp與128² grain共16,563值皆初始化快取。沿用oval seed squared-cap／C1 shoulders與順序compositing，旋轉支撐保守界0.29+0.09加jitter0.025為0.405，小於owner半寬0.5；種阜與種皮重疊連通。surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留。
+- 深色斑紋只改種皮顏料，不把斑點刻進normal／height；種皮與種阜各自凸面、全部opaque M0／mortar0，種皮低roughness、種阜較霧。0.064 m參考tile／0.03 UV relief下主體長軸換算9.6 mm、種阜寬2.88 mm；grain理論高度跨度0.000045 UV換算2.88μm，是參考尺度而非植物量測或geometry displacement。沿用options／tint／Worker／cache／ownership。
+- 隔離六項行為通過，七個有效負向變體（缺種阜、M1、霧面種皮、無斑紋、斑紋凹刻、硬ellipse支撐、亮面種阜）皆被行為assert抓到；沒有留下probe檔或新增依賴。正式10項定向通過（vitest2.44s），包含新六項及castorbeans／pietersite／tonkabeans／datepits catalog案例，不將舊材質的catalog檢查誤稱幾何重驗。
+- 三seed驗證凸面種皮、16個不同pose及沿每顆長軸1025點恰一個連通淡霧種阜、兩色斑紋與獨立於色斑的dome-height界。actual512檢查種皮／種阜／background coverage、opaque／M0及凸面normal；三seed各4096 signed UV六channels。雙軸C1涵蓋真body／caruncle橢圓support／core／mid肩與解析交點，48步二分定位實際warped spot owner及pigment threshold，含pose／noise owners與UV wraps、128² grid，h1e-10／strict0.03，逐seed聚合worst、不提高原timeout。
+- Managed Chromium headless實際擷取正式actual512 albedo／normal，可見16顆斑駁橢圓種皮與單端淡色種阜。正式742種PBR gallery分別以強制WebGPU及WebGL2選中castorbeans並擷取mesh／四張PBR預覽；完成page與about:blank cleanup errors空，未以獨立圖示冒充正式gallery。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑；direct／worker／cache-hit五maps逐byte相同，cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0。每份textures獨立，銷毀worker bundle不銷毀cache-hit bundle；default material與createMaterial()的metallic皆0，全部bundle／pool destroy及cache clear成功、page與cleanup errors空。managed tabs為空才執行完整回歸。
+- Fresh Node全部741種既有材質各64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS之castorbeans32²／512²，及tonkabeans／datepits／cubebberries／pietersite／squaresocketheads／septarian各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT與中英技術／使用文件同步；word-diff確認relative links未變，新增四個外部reference links為兩語各自實讀的eFloras來源。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過（整組73.60s），742為材質數。完整suite結果另列；不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
+- 首輪完整suite **178檔／7687項通過，1檔／1項失敗（981.43s）**：既有`diamondpanelparquet`完整miter／clipping／nearest-board／joint／UV C1單項超過原30,000 ms timeout；不是castorbeans斷言失敗。該測試三seed原有5,768,964次matcher，另以獨立驗證維護提交聚合斷言，完整保留2,884,482次sampler呼叫、取樣順序及strict門檻，不調高timeout或縮減取樣。保留本次失敗，不把定向與runtime成功冒充完整suite通過。
+- 第二輪完整suite **178檔／7687項通過，1檔／1項失敗（1006.78s）**：已修正的diamondpanelparquet通過，但既有`driedchillies`真曲線／taper／stem／calyx／layering／owner／UV C1單項另超過原30,000 ms。保留本次失敗；該測試三seed原有6,213,348次matcher，另以獨立維護提交聚合，完整保留3,106,674次sampler呼叫與每seed有序UV／worst值，不減少採樣、不提高timeout，也不將這次記成完整通過。
+- 第三輪最終完整suite **179檔／7688項全部通過（971.72s）**，完整format:check亦通過。既有parquet與chilli斷言開銷分別以`f2fce070`、`faf42813`獨立修正；保留前兩輪失敗、原timeout及完整幾何取樣。本功能依正式sampler／maps、雙backend gallery、NativeWorker／cache、既有741種byte相容與distribution證據獨立提交，不升版、不push。

@@ -8640,6 +8640,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    castorbeans: Readonly<{
+        dark: readonly [35, 17, 9];
+        light: readonly [240, 221, 190];
+        roughness: 0.25;
+        relief: 0.03;
+        cells: 4;
+        jitter: 0.025;
+        halfLength: 0.3;
+        halfWidth: 0.19;
+        bodyShoulder: 0.08;
+        caruncleY: -0.29;
+        caruncleHalfX: 0.09;
+        caruncleHalfY: 0.07;
+        caruncleShoulder: 0.15;
+        spotColumns: 16;
+        spotRows: 9;
+        spotWarp: 0.12;
+        spotThreshold: 0.46;
+        spotShoulder: 0.16;
+        shellColor: 0.72;
+        spotDarkening: 0.62;
+        caruncleColor: 0.94;
+        bodyBase: 0.34;
+        domeHeight: 0.3;
+        caruncleBase: 0.43;
+        caruncleDome: 0.08;
+        caruncleRoughness: 0.64;
+        grainHeight: 0.0015;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9384,4 +9413,5 @@ export declare const proceduralTileMeters: Readonly<{
     septarian: 0.12;
     squaresocketheads: 0.06;
     pietersite: 0.06;
+    castorbeans: 0.064;
 }>;
