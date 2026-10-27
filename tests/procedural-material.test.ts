@@ -785,7 +785,237 @@ const kinds: ProceduralMaterialKind[] = [
   'pietersite',
   'castorbeans',
   'zebrawood',
+  'twopinscrewheads',
 ];
+
+describe('Two opposed circular blind pin-drive recesses with closed flat steel floors and a solid center bridge', () => {
+  const p = proceduralMaterialPresets.twopinscrewheads;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1bb13);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb15) - 1),
+      y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bb17) - 1),
+    };
+  };
+  const directions = new Float64Array(1025 * 2);
+  for (let j = 0; j <= 1024; j++) {
+    const angle = (2 * Math.PI * j) / 1024;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  const holeRadii = [
+    p.holeCore,
+    Math.sqrt((p.holeRadius * p.holeRadius + p.holeCore * p.holeCore) * 0.5),
+    p.holeRadius,
+  ];
+  const headRadii = [
+    p.fullRadius,
+    Math.sqrt((p.fullRadius * p.fullRadius + p.capRadius * p.capRadius) * 0.5),
+    p.capRadius,
+  ];
+  it.each([0, 1, 0xffffffff])(
+    'keeps exactly two opposite round blind holes with flat metallic floors and a full-height center bridge for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('twopinscrewheads', seed),
+        out = empty(),
+        top = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            at = (x: number, y: number, target: SurfaceSample) =>
+              sample(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+                target,
+              );
+          at(0, 0, top);
+          expect(top.metallic).toBe(1);
+          expect(top.mortar).toBe(0);
+          expect(top.height).toBeGreaterThan(0.71 * p.relief);
+          expect(top.occlusion).toBeGreaterThan(0.95);
+          for (const sign of [-1, 1]) {
+            let low = Infinity,
+              high = -Infinity;
+            for (let y = -6; y <= 6; y++)
+              for (let x = -6; x <= 6; x++) {
+                const px = x * 0.004,
+                  py = y * 0.004;
+                if (px * px + py * py > 0.8 * p.holeCore * p.holeCore) continue;
+                at(sign * p.holeOffset + px, py, out);
+                low = Math.min(low, out.height);
+                high = Math.max(high, out.height);
+                expect(out.metallic).toBe(1);
+                expect(out.mortar).toBe(0);
+                expect(top.height - out.height).toBeGreaterThan(
+                  0.42 * p.relief,
+                );
+                expect(out.color).toBeLessThan(top.color - 0.35);
+                expect(out.roughness).toBeGreaterThan(top.roughness + 0.02);
+                expect(out.occlusion).toBeLessThan(0.6);
+                expect(out.height).toBeGreaterThan(0.28 * p.relief);
+              }
+            expect(high - low).toBeLessThan(0.0021 * p.relief);
+            for (let j = 0; j <= 1024; j++) {
+              const x = directions[j * 2],
+                y = directions[j * 2 + 1];
+              at(
+                sign * p.holeOffset + 0.99 * p.holeCore * x,
+                0.99 * p.holeCore * y,
+                out,
+              );
+              expect(top.height - out.height).toBeGreaterThan(0.42 * p.relief);
+              at(
+                sign * p.holeOffset + 1.01 * p.holeRadius * x,
+                1.01 * p.holeRadius * y,
+                out,
+              );
+              expect(Math.abs(top.height - out.height)).toBeLessThan(
+                0.0041 * p.relief,
+              );
+            }
+          }
+          let runs = 0,
+            previous = false;
+          for (let j = 0; j <= 2048; j++) {
+            const x = -0.3 + (0.6 * j) / 2048;
+            at(x, 0, out);
+            const hole = out.height < 0.5 * p.relief;
+            if (hole && !previous) runs++;
+            previous = hole;
+          }
+          expect(runs).toBe(2);
+          for (const x of [-0.06, 0, 0.06]) {
+            at(x, 0, out);
+            expect(out.height).toBeGreaterThan(0.71 * p.relief);
+            expect(out.metallic).toBe(1);
+          }
+          at(0, 0.43, out);
+          expect(out.metallic).toBe(0);
+          expect(out.mortar).toBe(1);
+        }
+    },
+  );
+  it('resolves actual512 two dark blind recesses per opaque metallic head and a dielectric backing with beveled normals', () => {
+    const maps = generateProceduralMaps('twopinscrewheads', 512, 7, {
+      heightMap: true,
+    });
+    let head = 0,
+      floor = 0,
+      back = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2],
+        ao = maps.occlusion[i];
+      invalid += Number(maps.baseColor[i + 3] !== 255);
+      head += Number(m === 255);
+      floor += Number(m === 255 && ao < 160);
+      back += Number(m === 0);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(head / (512 * 512)).toBeGreaterThan(0.3);
+    expect(head / (512 * 512)).toBeLessThan(0.45);
+    expect(floor / (512 * 512)).toBeGreaterThan(0.008);
+    expect(floor / (512 * 512)).toBeLessThan(0.03);
+    expect(back / (512 * 512)).toBeGreaterThan(0.58);
+    expect(back / (512 * 512)).toBeLessThan(0.7);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all head bridge hole-floor bevel and backing channels over signed UV periods for three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('twopinscrewheads', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps the true two-circle cores mid shoulders supports center bridge head cap grain owners and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('twopinscrewheads', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            at = (x: number, y: number) =>
+              check(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+              );
+          for (let j = 0; j <= 1024; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            for (const radius of holeRadii)
+              for (const sign of [-1, 1])
+                at(sign * p.holeOffset + radius * x, radius * y);
+            for (const radius of headRadii) at(radius * x, radius * y);
+            const t = -0.3 + (0.6 * j) / 1024;
+            at(t, 0);
+            at(0, t);
+          }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Zebrawood pale golden face with unequal dark longitudinal streaks and sparse open vessels', () => {
   const p = proceduralMaterialPresets.zebrawood;
@@ -62365,6 +62595,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'utilityblades' &&
           kind !== 'hexsocketheads' &&
           kind !== 'squaresocketheads' &&
+          kind !== 'twopinscrewheads' &&
           kind !== 'pentalobescrewheads' &&
           kind !== 'tripointscrewheads' &&
           kind !== 'springpinends' &&

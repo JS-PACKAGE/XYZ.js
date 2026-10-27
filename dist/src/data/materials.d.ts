@@ -8640,6 +8640,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    twopinscrewheads: Readonly<{
+        dark: readonly [35, 40, 46];
+        light: readonly [224, 231, 236];
+        roughness: 0.32;
+        relief: 0.03;
+        cells: 5;
+        jitter: 0.035;
+        capRadius: 0.36;
+        fullRadius: 0.32;
+        holeOffset: 0.155;
+        holeRadius: 0.067;
+        holeCore: 0.045;
+        headHeight: 0.72;
+        socketFloor: 0.29;
+        headGrainHeight: 0.004;
+        floorGrainHeight: 0.002;
+        socketShade: 0.42;
+    }>;
     zebrawood: Readonly<{
         dark: readonly [39, 22, 10];
         light: readonly [235, 207, 152];
@@ -9439,4 +9457,5 @@ export declare const proceduralTileMeters: Readonly<{
     pietersite: 0.06;
     castorbeans: 0.064;
     zebrawood: 0.16;
+    twopinscrewheads: 0.06;
 }>;

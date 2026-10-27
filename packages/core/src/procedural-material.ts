@@ -758,7 +758,8 @@ export type ProceduralMaterialKind =
   | 'squaresocketheads'
   | 'pietersite'
   | 'castorbeans'
-  | 'zebrawood';
+  | 'zebrawood'
+  | 'twopinscrewheads';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1751,6 +1752,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pietersite',
   'castorbeans',
   'zebrawood',
+  'twopinscrewheads',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1985,6 +1987,7 @@ export class ProceduralMaterial {
         this.kind === 'utilityblades' ||
         this.kind === 'hexsocketheads' ||
         this.kind === 'squaresocketheads' ||
+        this.kind === 'twopinscrewheads' ||
         this.kind === 'pentalobescrewheads' ||
         this.kind === 'tripointscrewheads' ||
         this.kind === 'springpinends' ||

@@ -8952,3 +8952,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node全部742種既有材質各64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS的zebrawood32²／512²與wenge／sapele／padauk／cocobolo／lacewood／castorbeans各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
 - README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，word-diff確認relative links未變，四個新增外部reference links為兩語各自實讀的原稿鏡像與照片頁。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過（整組103.34s）。743是材質數，不是API export數；完整suite另列，不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
 - 最終完整suite **179檔／7695項全部通過（992.14s）**，完整format:check亦通過。本功能依正式sampler／maps、雙backend gallery、NativeWorker／cache、既有742種byte相容與distribution證據獨立提交；先前castorbeans兩輪失敗與兩個test維護提交保留於原紀錄，不混入本材質，不升版、不push。
+
+## 2026-10-28 程序材質：雙圓孔盲凹穴與完整中央鋼橋圓頭（twopinscrewheads）
+
+- 目錄743→744種：25個各自seeded旋轉／微偏移圓鋼head，各有兩個相對、分離的圓形盲穴與平坦鋼底；不是連通slot、三孔、中心柱或打穿backing。已實讀Tamperproof產品頁與首頁的drilled two-hole說明，另實看其兩圓孔head示意圖；Accu頁403未當成功來源，不用Snake Eyes®作材質名稱，不認證品牌、通用鑽孔製程、規格尺寸、防拆、扭矩或driver保持力，未打包參考圖。
+- 直接fallthrough共用正式hex／square的head／backing／blind-floor核心，兩個disjoint squared-circle C1肩相加有界，舊四／六平邊乘法次序不變。125個Float64 pose／1,000 bytes及128² grain一次初始化，surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留，public facade的default及createMaterial() metallic factor同步為1。
+- 孔最外支撐0.222小於完整head半徑0.32，孔心距0.31大於兩倍孔半徑0.134，中央鋼橋寬0.176；head半徑加jitter為0.395小於owner半寬0.5。head／floor M1、低backing M0，mortar為1−face、全opaque。0.06 m參考tile／0.03 UV relief下名義穴深0.0129 UV換算0.774 mm，floor grain理論跨度0.00006 UV換算3.6μm；不是實測尺寸、geometry displacement、螺紋或刀頭精密配合，options／tint／Worker／cache／ownership不變。
+- 六項隔離行為通過；七個有效負向變體：少一孔、連通slot、第三中心孔、floor降至backing、M0 floor及domed floor皆被幾何／floor assert抓到；硬circle肩前五項通過而被真core／support C1抓到，沒有只用圖樣副本做永久echo測試，也無probe檔留下。
+- 正式整合首次漏將新M1 kind加入既有catalog的dielectric排除名單；兩個已啟動target jobs各自實際為8通過／1失敗（4.08s）及20通過／1失敗（5.14s），皆為同一255≠0 catalog斷言，不是sampler金屬輸出錯誤。依既有metal材質慣例補齊該排除後21項通過（vitest6.18s），包含新kind、square、hex各六項與catalog；保留失敗歷程，不改低M0來隱藏錯誤。後續lint指出socket初值0必被兩branch覆寫，改為有明確number型別的未初始化local並重建，沒有改變輸出或停用規則。
+- 三seed驗證每顆兩個13²近乎平坦M1 floor及完整中央bridge、1025方向的內core／外support圓輪廓、2049長軸點恰兩個凹穴；actual512檢查head／floor／backing coverage、opaque與bevel normals。三seed各4096 signed UV六channels；雙軸C1含兩孔真core／mid肩／support、head真cap／mid肩／full圈、中央兩軸、noise／owner／UV及128² grid，h1e-10／strict0.03。方向與輪廓表共用、逐seed聚合worst，不提高timeout。
+- Managed Chromium headless擷取正式actual512 albedo／normal；正式744種gallery強制WebGPU成功，首次WebGL2 managed open在handle前detached-frame，已回報，只釋放失敗target換新name完成相同WebGL2，未改引擎或把首次記成功。兩個完成page均擷取mesh／PBR maps，page與about:blank cleanup errors空。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，direct／worker／cache-hit五maps逐byte相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及isolated destroy、全部bundle／pool destroy／cache clear成功。default與createMaterial() metallic factor皆1，page與cleanup errors空，managed tabs為空才執行完整suite。
+- Fresh Node全部743種既有材質64²／seed7四maps相對HEAD SHA256不變，shared hex／square另於32²及512²五maps逐byte不變。dist ESM／CJS之新kind、hex、square各32²／512²，加tripointscrewheads／zebrawood各64²五maps逐byte相同，共八組；新kind512五maps各1048576 bytes，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步；word-diff確認relative links未變，新增四個外部reference links為兩語各自實讀的Tamperproof來源。744是材質數，不是API exports；完整static gates及suite結果另列，不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或fps改善。
+- socket initializer清理後正式21項最終定向再通過（vitest6.05s），六項sampler行為與兩個共用舊kind的完整幾何檢查均保留；不把targeted、隔離負向變體或畫面代替完整suite。
+- 最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過（整組95.82s）；先前lint失敗保留為實際歷程，沒有抹掉或宣稱首次全過。完整suite結果另列。
+- 最終完整suite **179檔／7702項全部通過（975.24s）**，完整format:check亦通過。本功能依正式sampler／maps、雙backend gallery、NativeWorker／cache、factor1 facade與既有743種及共用head core之byte相容證據獨立提交；保留初次catalog與lint失敗，不將targeted或截圖替代完整回歸，不升版、不push。

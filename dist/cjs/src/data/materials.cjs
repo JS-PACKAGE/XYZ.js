@@ -15098,6 +15098,32 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	twopinscrewheads: Object.freeze({
+		dark: [
+			35,
+			40,
+			46
+		],
+		light: [
+			224,
+			231,
+			236
+		],
+		roughness: .32,
+		relief: .03,
+		cells: 5,
+		jitter: .035,
+		capRadius: .36,
+		fullRadius: .32,
+		holeOffset: .155,
+		holeRadius: .067,
+		holeCore: .045,
+		headHeight: .72,
+		socketFloor: .29,
+		headGrainHeight: .004,
+		floorGrainHeight: .002,
+		socketShade: .42
+	}),
 	zebrawood: Object.freeze({
 		dark: [
 			39,
@@ -15911,7 +15937,8 @@ var proceduralTileMeters = Object.freeze({
 	squaresocketheads: .06,
 	pietersite: .06,
 	castorbeans: .064,
-	zebrawood: .16
+	zebrawood: .16,
+	twopinscrewheads: .06
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

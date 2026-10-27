@@ -3608,16 +3608,33 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'twopinscrewheads':
       case 'squaresocketheads':
       case 'hexsocketheads': {
-        const square = kind === 'squaresocketheads',
+        const twopin = kind === 'twopinscrewheads',
+          square = kind === 'squaresocketheads',
           p = proceduralMaterialPresets[kind],
+          polygon =
+            proceduralMaterialPresets[
+              square ? 'squaresocketheads' : 'hexsocketheads'
+            ],
           poses = new Float64Array(p.cells * p.cells * 5),
           grainField = cachedNoise(128, 128, seed ^ 0x1bb11),
           capSquared = p.capRadius * p.capRadius,
           inverseCap = 1 / (capSquared - p.fullRadius * p.fullRadius),
-          inverseSocket = 1 / p.socketBevel,
-          halfRoot3 = square ? 0 : Math.sqrt(3) * 0.5;
+          inverseSocket = twopin ? 0 : 1 / polygon.socketBevel,
+          holeOffset = twopin
+            ? proceduralMaterialPresets.twopinscrewheads.holeOffset
+            : 0,
+          holeSquared = twopin
+            ? proceduralMaterialPresets.twopinscrewheads.holeRadius ** 2
+            : 0,
+          inverseHole = twopin
+            ? 1 /
+              (holeSquared -
+                proceduralMaterialPresets.twopinscrewheads.holeCore ** 2)
+            : 0,
+          halfRoot3 = square || twopin ? 0 : Math.sqrt(3) * 0.5;
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
             const i = (row * p.cells + col) * 5,
@@ -3647,28 +3664,43 @@ export function createSurfaceSampler(
           if (face === 0) return;
           const x = dx * poses[i] + dy * poses[i + 1],
             y = dy * poses[i] - dx * poses[i + 1];
-          let socket = smooth(
-            clamp((p.socketApothem - Math.abs(x)) * inverseSocket),
-          );
-          if (square) {
-            socket *= smooth(
-              clamp((p.socketApothem - Math.abs(y)) * inverseSocket),
-            );
+          let socket: number;
+          if (twopin) {
+            const left = x + holeOffset,
+              right = x - holeOffset,
+              y2 = y * y;
+            // Disjoint blind circles leave a full-height steel bridge between them.
+            socket =
+              smooth(clamp((holeSquared - left * left - y2) * inverseHole)) +
+              smooth(clamp((holeSquared - right * right - y2) * inverseHole));
           } else {
-            const hx = 0.5 * x,
-              hy = halfRoot3 * y;
-            socket *= smooth(
-              clamp((p.socketApothem - Math.abs(hx + hy)) * inverseSocket),
+            socket = smooth(
+              clamp((polygon.socketApothem - Math.abs(x)) * inverseSocket),
             );
-            socket *= smooth(
-              clamp((p.socketApothem - Math.abs(hy - hx)) * inverseSocket),
-            );
+            if (square) {
+              socket *= smooth(
+                clamp((polygon.socketApothem - Math.abs(y)) * inverseSocket),
+              );
+            } else {
+              const hx = 0.5 * x,
+                hy = halfRoot3 * y;
+              socket *= smooth(
+                clamp(
+                  (polygon.socketApothem - Math.abs(hx + hy)) * inverseSocket,
+                ),
+              );
+              socket *= smooth(
+                clamp(
+                  (polygon.socketApothem - Math.abs(hy - hx)) * inverseSocket,
+                ),
+              );
+            }
           }
           const grain = grainField(u, v),
             top = p.headHeight + p.headGrainHeight * grain,
             floor = p.socketFloor + p.floorGrainHeight * grain;
-          // Paired half-planes are flat at their absolute-distance axes;
-          // products bevel four- or six-flat corners without a max-distance crease.
+          // Circle shoulders and paired half-plane products retain C1 bevels.
+          // The existing four-/six-flat path keeps its original product order.
           color +=
             face *
             (0.82 +
@@ -35003,6 +35035,7 @@ export function createSurfaceSampler(
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
     kind === 'squaresocketheads' ||
+    kind === 'twopinscrewheads' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||

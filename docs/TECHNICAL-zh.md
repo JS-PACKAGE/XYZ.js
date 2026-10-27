@@ -1192,6 +1192,10 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 `zebrawood` 是淺金黃褐木面、深褐變寬微彎縱紋與分布於深淺部位的稀疏開放導管，不是斑馬毛皮、端面年輪、雕凹條紋或只替wenge換色。沿用既有hardwood的seeded橢圓導管／C1肩與cache-noise，額外讓深色縱紋寬度連續變化；暗紋只改顏料，真正淺凹只有導管，全部opaque M0／mortar0。導管pose 512個Float64／4,096 bytes與3×5 warp、18×4 width、64×4 fiber、128² grain共16,727值皆初始化快取；無逐點配置／hash／trig／sqrt，needsDetail bypass保留。0.16 m參考tile／0.002 UV relief下導管名義深度0.0002 UV換算32μm，grain理論高度跨度0.000006 UV換算0.96μm，只是參考尺度、不是真實解剖測量或geometry displacement。沿用既有options／tint／Worker／cache／ownership，不新增生長、樹種辨識、anisotropy或動態chatoyancy。
 
+`twopinscrewheads` 為25個各自seeded旋轉／微偏移的圓鋼head，每顆有兩個相對、彼此分離的圓形盲凹穴，保留平坦金屬底與完整中央鋼橋；不是連通槽、三孔、中心柱或打穿backing。直接fallthrough共用既有hex／square的head／backing／blind-floor核心，以兩個不重疊squared-circle C1肩相加；原四／六平邊乘法次序不變。125個Float64 pose／1,000 bytes及128² grain皆只初始化一次，surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留。單孔最外支撐0.222小於完整head半徑0.32；孔心距0.31大於兩倍孔半徑0.134，中央鋼橋寬0.176；head外半徑加jitter為0.395小於owner半寬0.5。head及盲穴底M1、低backing M0，mortar為1−face、全opaque，public facade的metallic factor為1。0.06 m參考tile／0.03 UV relief下名義穴深0.0129 UV換算0.774 mm，floor grain理論跨度0.00006 UV換算3.6μm；只是參考尺度，不是實測機械尺寸、真正geometry displacement、螺紋或driver配合認證。沿用既有options／tint／Worker／cache／ownership。
+
+外觀參考：實讀[Tamperproof的兩孔Spanner產品說明](https://www.tamperproof.com/products-scs/snake_eyes_spanner)及[製造商首頁的drilled two-hole說明](https://www.tamperproof.com/)，另實看其兩圓孔head示意圖。此preset僅近似表面外觀，不使用Snake Eyes®作材質名稱，也不認證品牌、通用鑽孔製程、規格尺寸、防拆能力、扭矩或刀頭保持力；未打包參考圖。
+
 外觀參考：實讀[Chudnoff／USDA Forest Products Laboratory《Tropical Timbers of the World》1980 limited-distribution原稿](https://www.tropicaltimber.info/wp-content/uploads/2015/06/USDA.TropicalTimbersoftheWorld-Chudnoff.Total1980version.pdf)第458頁的淺黃褐底、較深窄縱紋與中粗紋理描述；另實看[The Wood Database](https://www.wood-database.com/zebrawood/)的徑切樣本照片。本材質只近似木材外觀，不認證樹種、年輪季節、實測導管尺寸或採購／保育狀態，未打包參考照片。
 
 形態參考：[Flora of China — Ricinus communis](http://www.efloras.org/florataxon.aspx?flora_id=2&taxon_id=200012604)記載灰／銀／米色深斑種皮及2–3 mm種阜；另實讀[Flora of Pakistan（M. Rafiq）圖版](http://www.efloras.org/object_page.aspx?object_id=96669&flora_id=5)的seed D輪廓與頂端種阜。只近似外觀，不將不同來源尺寸當所有個體的保證；真實蓖麻種子有毒，此遊戲貼圖不提供食用、醫療或處理建議，也未打包參考圖片。
