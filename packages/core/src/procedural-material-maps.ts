@@ -3608,6 +3608,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'adzukibeans': {
+        const p = proceduralMaterialPresets.adzukibeans,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          coatField = cachedNoise(5, 7, seed ^ 0x1cf11),
+          grainField = cachedNoise(128, 128, seed ^ 0x1cf13),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseBody = 1 / p.bodyShoulder,
+          hilumSquared = p.hilumRadius * p.hilumRadius,
+          inverseHilum = 1 / (hilumSquared - p.hilumCore * p.hilumCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1cf15);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf17) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf19) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1cf1b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            cap = clamp(1 - x * x * inverseWidth - y * y * inverseLength),
+            body = smooth(clamp(cap * inverseBody));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 0;
+          if (body === 0) return;
+          const hy = Math.max(0, Math.abs(y) - p.hilumStraight),
+            hilum = smooth(
+              clamp((hilumSquared - x * x - hy * hy) * inverseHilum),
+            ),
+            grain = grainField(u, v),
+            coat =
+              p.shellColor +
+              p.shellVariation * poses[i + 4] +
+              p.coatContrast * coatField(u, v) +
+              0.02 * grain;
+          // The long central hilum is a pale scar on one convex testa,
+          // not a depressed split or an apical castor-seed caruncle.
+          color +=
+            body *
+            (coat + hilum * (p.hilumColor + 0.02 * grain - coat) - color);
+          height +=
+            body *
+            (p.bodyBase +
+              p.domeHeight * smooth(cap) +
+              p.grainHeight * grain -
+              height);
+          roughness += body * (p.roughness + 0.03 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'amazonite': {
         const p = proceduralMaterialPresets.amazonite,
           cloudField = cachedNoise(5, 5, seed ^ 0x1ce11),
@@ -35081,6 +35146,7 @@ export function createSurfaceSampler(
     kind === 'squaresocketheads' ||
     kind === 'twopinscrewheads' ||
     kind === 'amazonite' ||
+    kind === 'adzukibeans' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||

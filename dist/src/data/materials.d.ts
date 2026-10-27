@@ -8640,6 +8640,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    adzukibeans: Readonly<{
+        dark: readonly [96, 8, 18];
+        light: readonly [242, 228, 201];
+        roughness: 0.64;
+        relief: 0.025;
+        cells: 5;
+        jitter: 0.035;
+        halfLength: 0.28;
+        halfWidth: 0.22;
+        bodyShoulder: 0.12;
+        hilumStraight: 0.12;
+        hilumRadius: 0.027;
+        hilumCore: 0.018;
+        shellColor: 0.2;
+        shellVariation: 0.08;
+        coatContrast: 0.055;
+        hilumColor: 0.94;
+        bodyBase: 0.32;
+        domeHeight: 0.3;
+        grainHeight: 0.0015;
+    }>;
     amazonite: Readonly<{
         dark: readonly [12, 102, 88];
         light: readonly [236, 238, 216];
@@ -9478,4 +9499,5 @@ export declare const proceduralTileMeters: Readonly<{
     zebrawood: 0.16;
     twopinscrewheads: 0.06;
     amazonite: 0.06;
+    adzukibeans: 0.05;
 }>;

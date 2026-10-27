@@ -787,7 +787,243 @@ const kinds: ProceduralMaterialKind[] = [
   'zebrawood',
   'twopinscrewheads',
   'amazonite',
+  'adzukibeans',
 ];
+
+describe('Opaque red adzuki seeds with a long central pale non-depressed hilum', () => {
+  const p = proceduralMaterialPresets.adzukibeans;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1cf15);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf17) - 1),
+      y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf19) - 1),
+    };
+  };
+  const directions = new Float64Array(513 * 2);
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps one long central cream scar on a solid convex red testa without an apical cap or an engraved hilum for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('adzukibeans', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          local(0.08, 0, b);
+          expect(a.color - b.color).toBeGreaterThan(0.5);
+          expect(a.height - b.height).toBeGreaterThan(0.005 * p.relief);
+          expect(a.height).toBeGreaterThan(0.61 * p.relief);
+          expect(a.height).toBeLessThan(0.622 * p.relief);
+          let long = 0,
+            wide = 0,
+            scarRuns = 0,
+            bodyRuns = 0,
+            previousScar = false,
+            previousBody = false;
+          for (let j = 0; j <= 1024; j++) {
+            const t = -0.4 + (0.8 * j) / 1024;
+            local(0, t, a);
+            const scar = a.color > 0.85,
+              solid = a.height > 0.15 * p.relief;
+            if (scar && !previousScar) scarRuns++;
+            if (solid && !previousBody) bodyRuns++;
+            previousScar = scar;
+            previousBody = solid;
+            long += Number(scar);
+            local(t, 0, b);
+            wide += Number(b.color > 0.85);
+          }
+          expect(scarRuns).toBe(1);
+          expect(bodyRuns).toBe(1);
+          expect(long / wide).toBeGreaterThan(4);
+          expect(long / wide).toBeLessThan(10.5);
+          for (const y of [-0.23, 0.23]) {
+            local(0, y, a);
+            expect(a.color).toBeLessThan(0.4);
+            expect(a.height).toBeGreaterThan(0.3 * p.relief);
+            expect(a.occlusion).toBeGreaterThan(0.97);
+          }
+          for (let y = -5; y <= 5; y++)
+            for (let x = -5; x <= 5; x++) {
+              local(x * 0.024, y * 0.032, a);
+              expect(a.roughness).toBeGreaterThan(0.63);
+              expect(a.roughness).toBeLessThan(0.68);
+              expect(a.occlusion).toBeGreaterThan(0.97);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+            }
+          for (const y of [-0.38, 0.38]) {
+            local(0, y, a);
+            expect(a.height).toBeLessThan(0.04 * p.relief);
+            expect(a.occlusion).toBeLessThan(0.4);
+          }
+        }
+    },
+  );
+  it('writes actual512 opaque burgundy seeds and thin pale hila with dielectric channels and resolved convex normals', () => {
+    const maps = generateProceduralMaps('adzukibeans', 512, 7, {
+      heightMap: true,
+    });
+    let red = 0,
+      pale = 0,
+      back = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        rough = maps.metallicRoughness[i + 1],
+        ao = maps.occlusion[i];
+      red += Number(
+        r > 90 &&
+          r < 190 &&
+          r > 1.5 * g &&
+          r > 1.4 * b &&
+          rough > 160 &&
+          rough < 175 &&
+          ao > 245,
+      );
+      pale += Number(
+        r > 220 && g > 190 && rough > 160 && rough < 175 && ao > 245,
+      );
+      back += Number(ao < 85);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(0.12);
+    expect(red / (512 * 512)).toBeLessThan(0.22);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.006);
+    expect(pale / (512 * 512)).toBeLessThan(0.025);
+    expect(back / (512 * 512)).toBeGreaterThan(0.75);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the red coat pale scar convex height and background over signed UV periods for three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('adzukibeans', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps body shoulders capsule end joins scar shoulders cache cells pose owners and periodic wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const bodyScales = [
+        1,
+        Math.sqrt(1 - p.bodyShoulder * 0.5),
+        Math.sqrt(1 - p.bodyShoulder),
+      ],
+      signs = [-1, 1];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('adzukibeans', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const radii = [
+        p.hilumCore,
+        Math.sqrt(
+          (p.hilumRadius * p.hilumRadius + p.hilumCore * p.hilumCore) * 0.5,
+        ),
+        p.hilumRadius,
+      ];
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.x + f.c * x - f.s * y) / p.cells,
+                (row + f.y + f.s * x + f.c * y) / p.cells,
+              );
+          for (let j = 0; j <= 512; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            for (const scale of bodyScales)
+              local(p.halfWidth * scale * x, p.halfLength * scale * y);
+            for (const r of radii)
+              local(r * x, Math.sign(y || 1) * p.hilumStraight + r * y);
+            const t = j / 512;
+            for (const sign of signs) {
+              for (const r of radii)
+                local(sign * r, (2 * t - 1) * p.hilumStraight);
+              local((2 * t - 1) * 0.05, sign * p.hilumStraight);
+            }
+          }
+          local(0, 0);
+        }
+      for (const grid of [5, 7, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Polished aqua amazonite with broken intersecting pale feldspar streaks on one unstepped face', () => {
   const p = proceduralMaterialPresets.amazonite;

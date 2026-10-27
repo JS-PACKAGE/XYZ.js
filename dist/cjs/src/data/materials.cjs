@@ -15098,6 +15098,35 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	adzukibeans: Object.freeze({
+		dark: [
+			96,
+			8,
+			18
+		],
+		light: [
+			242,
+			228,
+			201
+		],
+		roughness: .64,
+		relief: .025,
+		cells: 5,
+		jitter: .035,
+		halfLength: .28,
+		halfWidth: .22,
+		bodyShoulder: .12,
+		hilumStraight: .12,
+		hilumRadius: .027,
+		hilumCore: .018,
+		shellColor: .2,
+		shellVariation: .08,
+		coatContrast: .055,
+		hilumColor: .94,
+		bodyBase: .32,
+		domeHeight: .3,
+		grainHeight: .0015
+	}),
 	amazonite: Object.freeze({
 		dark: [
 			12,
@@ -15966,7 +15995,8 @@ var proceduralTileMeters = Object.freeze({
 	castorbeans: .064,
 	zebrawood: .16,
 	twopinscrewheads: .06,
-	amazonite: .06
+	amazonite: .06,
+	adzukibeans: .05
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
