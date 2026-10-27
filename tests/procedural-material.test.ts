@@ -791,8 +791,249 @@ const kinds: ProceduralMaterialKind[] = [
   'anigre',
   'larvikite',
   'squareholewashers',
+  'snakewood',
   'cupwashers',
 ];
+
+describe('Reddish-brown straight-grained Snakewood with irregular dark flat pigment patches not scales or pits', () => {
+  const p = proceduralMaterialPresets.snakewood;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const patch = (seed: number, col: number, row: number, slot: number) => {
+    const owner = col * p.patchSlots + slot;
+    return {
+      active: hash(owner, row, seed ^ 0x1d417) < p.patchChance,
+      x: 0.5 + p.jitterX * (2 * hash(owner, row, seed ^ 0x1d41d) - 1),
+      y: 0.5 + p.jitterY * (2 * hash(owner, row, seed ^ 0x1d41f) - 1),
+      w: p.widthMinimum + p.widthVariation * hash(owner, row, seed ^ 0x1d419),
+      l: p.lengthMinimum + p.lengthVariation * hash(owner, row, seed ^ 0x1d41b),
+      s: p.slope * (2 * hash(owner, row, seed ^ 0x1d421) - 1),
+      b: p.bend * (2 * hash(owner, row, seed ^ 0x1d423) - 1),
+    };
+  };
+  const directions = new Float64Array(513 * 2);
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps dark bent variable-size patches among warm clear straight grain without patch embossing or cavity AO for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('snakewood', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let dark = 0,
+        clear = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity,
+        across = 0,
+        along = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (let slot = 0; slot < p.patchSlots; slot++) {
+            const f = patch(seed, col, row, slot),
+              local = (x: number, y: number, out: SurfaceSample) =>
+                sample(
+                  (col + f.x + x) / p.columns,
+                  (row + f.y + y) / p.rows,
+                  out,
+                );
+            if (!f.active) continue;
+            local(0, 0, a);
+            local(0.45, 0, b);
+            expect(a.color).toBeLessThan(0.3);
+            expect(Math.abs(b.height - a.height)).toBeLessThan(
+              0.0091 * p.relief,
+            );
+            expect(Math.abs(b.roughness - a.roughness)).toBeLessThan(0.021);
+            expect(a.occlusion).toBe(1);
+            const y = 0.45 * f.l,
+              x = f.s * y + f.b * y * y;
+            local(x, y, a);
+            expect(a.color).toBeLessThan(0.3);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          const u = x / 128,
+            v = y / 128;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(b.height - a.height);
+          along += Math.abs(c.height - a.height);
+          dark += Number(a.color < 0.3);
+          clear += Number(a.color > 0.6);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          invalid += Number(
+            a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+          );
+        }
+      expect(dark / 16641).toBeGreaterThan(0.03);
+      expect(dark / 16641).toBeLessThan(0.3);
+      expect(clear / 16641).toBeGreaterThan(0.6);
+      expect(high - low).toBeLessThan(0.0091 * p.relief);
+      expect(across).toBeGreaterThan(3 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 opaque warm reddish-brown wood with contrasting dark figure a metal-zero AO-one polish and no fake holes', () => {
+    const maps = generateProceduralMaps('snakewood', 512, 7, {
+      heightMap: true,
+    });
+    let dark = 0,
+      clear = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      dark += Number(r < 68);
+      clear += Number(r > 108);
+      invalid += Number(
+        r - g < 20 ||
+          g - b < 8 ||
+          maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.03);
+    expect(dark / (512 * 512)).toBeLessThan(0.3);
+    expect(clear / (512 * 512)).toBeGreaterThan(0.6);
+    expect(invalid).toBe(0);
+  });
+  it('repeats dark figure fine straight grain and all polished dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('snakewood', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true bent patch support core and shoulder contours equal-shoulder overlap intersections sparse owners and all fiber caches C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      radii = [1, Math.sqrt(p.coreQ), Math.sqrt((1 + p.coreQ) * 0.5)];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('snakewood', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (let slot = 0; slot < p.patchSlots; slot++) {
+            const f = patch(seed, col, row, slot);
+            if (!f.active) continue;
+            for (const r of radii)
+              for (let j = 0; j <= 512; j++) {
+                const y = f.l * r * directions[j * 2 + 1],
+                  x = f.w * r * directions[j * 2] + f.s * y + f.b * y * y;
+                check((col + f.x + x) / p.columns, (row + f.y + y) / p.rows);
+              }
+          }
+      const figures = [];
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++)
+          for (let slot = 0; slot < p.patchSlots; slot++) {
+            const f = patch(seed, col, row, slot);
+            if (f.active)
+              figures.push({
+                ...f,
+                u: (col + f.x) / p.columns,
+                v: (row + f.y) / p.rows,
+              });
+          }
+      let intersections = 0;
+      for (let i = 0; i < figures.length; i++)
+        for (let j = i + 1; j < figures.length; j++) {
+          const a = figures[i],
+            b = figures[j];
+          let du = b.u - a.u,
+            dv = b.v - a.v;
+          du -= Math.floor(du + 0.5);
+          dv -= Math.floor(dv + 0.5);
+          if (Math.abs(du) * p.columns > 1.8 || Math.abs(dv) * p.rows > 0.8)
+            continue;
+          const field = (t: number, f: typeof a, offset: number) => {
+            const y = (t - offset) * dv * p.rows,
+              x = (t - offset) * du * p.columns - f.s * y - f.b * y * y;
+            return (x * x) / (f.w * f.w) + (y * y) / (f.l * f.l);
+          };
+          let lo = 0,
+            hi = 1;
+          for (let k = 0; k < 60; k++) {
+            const t = (lo + hi) * 0.5;
+            if (field(t, a, 0) < field(t, b, 1)) lo = t;
+            else hi = t;
+          }
+          const t = (lo + hi) * 0.5,
+            q = field(t, a, 0);
+          if (q <= p.coreQ + 0.01 || q >= 0.99) continue;
+          intersections++;
+          check(a.u + t * du, a.v + t * dv);
+        }
+      expect(intersections).toBeGreaterThan(2);
+      for (const [nx, ny] of [
+        [p.columns, p.rows],
+        [96, 6],
+        [128, 8],
+        [128, 128],
+      ]) {
+        for (let k = 0; k <= nx; k++)
+          for (let j = 0; j <= 128; j++) check(k / nx, j / 128);
+        for (let k = 0; k <= ny; k++)
+          for (let j = 0; j <= 128; j++) check(j / 128, k / ny);
+      }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Round flat silver washers with rotated square through-openings and no metallic socket floors', () => {
   const p = proceduralMaterialPresets.squareholewashers;

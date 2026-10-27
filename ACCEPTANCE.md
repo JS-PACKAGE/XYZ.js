@@ -9058,3 +9058,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node既有749種64² seed7四maps相對HEAD SHA256全部不變；新kind512五maps各1048576 bytes。dist ESM／CJS對squareholewashers32²／512²與squarewashers／cupwashers／squaresocketheads／internaltoothwashers／splitlockwashers／twopinscrewheads各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
 - 單次完整source／gallery／fixture／factor1及generic-catalog diff已review；README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，精確insertions與relative-link delta0確認。Lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）與distribution（367 exports）全部通過（39.35s）；750為材質數，不是API export數。完整suite另列，無新增依賴、版本調整或push。
 - 最終格式檢查與完整 suite 通過：179 個測試檔／7744 項測試全部通過（857.25s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 869.50s。依功能獨立提交，不 push。
+
+## 2026-10-28 程序材質：紅褐直木紋深色不規則平面斑塊（snakewood）
+
+- 目錄750→751種：選定Brosimum guianense紅褐直木紋切面，深褐至近黑彎曲實心斑塊與平滑相連figure，細長縱向纖維跨過暗斑。已實讀The Wood Database的Snakewood頁並實看其solid single-piece第二張切面照片；只取有figure的外觀，不宣稱所有樹木／切面同樣斑駁，不把膠合樣片接縫、10×端木圖或蛇皮鱗片當此材質，不打包照片。
+- 初版六項隔離probe與九個negative checks雖通過，但actual512視覺呈規則圓點，不符合選定figure，未將該原型上線。依實看畫面調整為8×12 owner各兩個獨立稀疏slot、較大自由偏移、尺寸與二次彎曲變化、較深紅褐palette；固定3×3鄰域最多18候選，以補集乘積平滑union形成不規則相連斑塊。這是依視覺證據修正實作，不以測試通過冒稱原型已符合外觀。
+- 0.16 m tile，192 slots各六欄中心／尺寸倒平方／slope／bend共1152值，96×6 wood、128×8 fiber與128² grain共19,136個Float64／153,088 bytes一次快取。最壞x／y支撐0.896／0.4皆在被省略site最近距離1.2前歸零，不在owner處截斷；無逐點配置／hash／sqrt／trig。沿既有compact bent-ellipse、C1 smooth肩及smooth union慣例，不用max造重疊折痕，略過共用detail。
+- 暗斑僅改pigment，共用微grain拋光平面與roughness、AO1／M0／mortar0及factor0；opaque maps、optional height、tint／Worker／cache／repeats／ownership不變。不是凸起鱗片、鳥眼凹穴、白色髓射線、腐朽裂網或連續斑馬條紋。0.003 UV relief不是m單位geometry displacement，cached scalar方向纖維不等於新增shader anisotropy；不新增木材辨識、產地／合法貿易／密度／硬度／耐久檢定或老化模擬。
+- 最終六項隔離行為通過；十一個有效temporary負向變體由AssertionError抓到：metallic木面、凸鱗斑、凹鳥眼、斑塊AO洞、消失暗斑、淺色而非深色斑、橫向纖維、中性灰palette、取消彎曲，以及硬肩與max-union crease；後兩者各在前五項通過後由真邊界C1抓到（157.4228／241.3541 > 0.03）。沒有永久probe檔、減採樣或加timeout；fixture hash與局部field僅定位真幾何邊界／交點，不把sampler副本輸出當期望值。
+- 新fixture檢查三seed全部active motif中心與彎曲內核、深淺coverage、無斑塊emboss／pit／AO、縱向微grain方向及actual512紅褐／近黑palette／opaque／M0／AO1。每seed4096 signed UV六channels；C1含全部active slots的真正bent support／core／mid輪廓各513方向、週期最近鄰各對equal-shoulder交點（60輪bisection定位，每seed超過2個有效交點）、owner及96×6／128×8／128² cache邊界與128² grid，雙軸h1e-10／strict0.03逐seed聚合worst，不減點或增原timeout。
+- Build與typecheck通過；main material定向檔12項通過／3810 skipped（3822項，2.14s），整組含格式化／build／typecheck共58.39s。Regex涵蓋新Snakewood fixture與snakewood／lacewood／birdseyemaple／burlwood／anigre／zebrawood實際匹配案例，不把skipped項稱為重驗。
+- Managed Chromium headless正式751種gallery強制WebGPU／WebGL2各選snakewood、關動畫、擷取25球mesh及四maps；strict dist API另擷取actual512且CSS512×512的albedo／normal，見紅褐直紋、不規則深色相連斑塊，暗figure未被刻成normal凹洞。所有page與about:blank cleanup errors空，不外推Safari、實機、Canvas2D 3D、backend parity或fps。
+- Strict static完整dist NativeWorker／cache以512² seed7、height、tint[0.8,1,0.9]與repeats3實跑，direct／worker／cache-hit五maps逐byte相同；cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0。獨立textures、isolated destroy、全bundles／pool destroy、cache clear、default與createMaterial factor0通過，page／cleanup errors空，managed tabs皆已關閉。
+- Fresh Node既有750種64² seed7四maps相對HEAD SHA256全部不變；新kind512五maps各1048576 bytes。dist ESM／CJS對snakewood32²／512²與lacewood／birdseyemaple／burlwood／anigre／zebrawood／spaltedwood各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
+- 單次完整source／gallery／fixture diff及省略artifact已讀完review；README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，精確insertions與relative-link delta0確認。Lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）與distribution（367 exports）通過（39.11s）；751為材質數，不是API export數。完整suite另列，無新增依賴、版本調整或push。
+- 最終格式檢查與完整 suite 通過：179 個測試檔／7751 項測試全部通過（835.43s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 847.99s。依功能獨立提交，不 push。

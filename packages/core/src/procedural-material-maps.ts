@@ -3661,6 +3661,83 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'snakewood': {
+        const p = proceduralMaterialPresets.snakewood,
+          patches = new Float64Array(p.columns * p.rows * p.patchSlots * 6),
+          woodField = cachedNoise(96, 6, seed ^ 0x1d411),
+          fiberField = cachedNoise(128, 8, seed ^ 0x1d413),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d415),
+          inverseShoulder = 1 / (1 - p.coreQ);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let slot = 0; slot < p.patchSlots; slot++) {
+              const owner = col * p.patchSlots + slot;
+              if (hash(owner, row, seed ^ 0x1d417) >= p.patchChance) continue;
+              const i = (row * p.columns * p.patchSlots + owner) * 6,
+                width =
+                  p.widthMinimum +
+                  p.widthVariation * hash(owner, row, seed ^ 0x1d419),
+                length =
+                  p.lengthMinimum +
+                  p.lengthVariation * hash(owner, row, seed ^ 0x1d41b);
+              patches[i] =
+                0.5 + p.jitterX * (2 * hash(owner, row, seed ^ 0x1d41d) - 1);
+              patches[i + 1] =
+                0.5 + p.jitterY * (2 * hash(owner, row, seed ^ 0x1d41f) - 1);
+              patches[i + 2] = 1 / (width * width);
+              patches[i + 3] = 1 / (length * length);
+              patches[i + 4] =
+                p.slope * (2 * hash(owner, row, seed ^ 0x1d421) - 1);
+              patches[i + 5] =
+                p.bend * (2 * hash(owner, row, seed ^ 0x1d423) - 1);
+            }
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let remaining = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                owner =
+                  (((cy + p.rows) % p.rows) * p.columns +
+                    ((cx + p.columns) % p.columns)) *
+                  p.patchSlots;
+              for (let slot = 0; slot < p.patchSlots; slot++) {
+                const i = (owner + slot) * 6;
+                if (patches[i + 2] === 0) continue;
+                const dy = y - cy - patches[i + 1],
+                  dx =
+                    x -
+                    cx -
+                    patches[i] -
+                    patches[i + 4] * dy -
+                    patches[i + 5] * dy * dy,
+                  q = dx * dx * patches[i + 2] + dy * dy * patches[i + 3],
+                  spot = smooth(clamp((1 - q) * inverseShoulder));
+                remaining *= 1 - spot;
+              }
+            }
+          const patch = 1 - remaining;
+          const wood = woodField(u, v),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.faceColor +
+            p.woodContrast * wood +
+            p.fiberContrast * fiber +
+            0.01 * grain -
+            p.patchContrast * patch;
+          // Dark figure is wood pigment on the same polished plane, not raised
+          // snakeskin scales, birdseye pits or a network of decay cracks.
+          height = 0.45 + 0.006 * wood + 0.002 * fiber + 0.001 * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35324,6 +35401,7 @@ export function createSurfaceSampler(
     kind === 'anigre' ||
     kind === 'larvikite' ||
     kind === 'squareholewashers' ||
+    kind === 'snakewood' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

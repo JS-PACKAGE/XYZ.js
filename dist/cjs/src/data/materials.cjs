@@ -15142,6 +15142,37 @@ var proceduralMaterialPresets = Object.freeze({
 		bodyHeight: .6,
 		grainHeight: .003
 	}),
+	snakewood: Object.freeze({
+		dark: [
+			17,
+			6,
+			3
+		],
+		light: [
+			171,
+			82,
+			37
+		],
+		roughness: .34,
+		relief: .003,
+		columns: 8,
+		rows: 12,
+		patchSlots: 2,
+		patchChance: .65,
+		jitterX: .3,
+		jitterY: .3,
+		widthMinimum: .18,
+		widthVariation: .22,
+		lengthMinimum: .12,
+		lengthVariation: .28,
+		slope: .6,
+		bend: 1.6,
+		coreQ: .35,
+		faceColor: .65,
+		woodContrast: .06,
+		fiberContrast: .05,
+		patchContrast: .5
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16100,6 +16131,7 @@ var proceduralTileMeters = Object.freeze({
 	anigre: .16,
 	larvikite: .12,
 	squareholewashers: .1,
+	snakewood: .16,
 	cupwashers: .1
 });
 //#endregion

@@ -765,6 +765,7 @@ export type ProceduralMaterialKind =
   | 'anigre'
   | 'larvikite'
   | 'squareholewashers'
+  | 'snakewood'
   | 'cupwashers';
 
 export interface ProceduralMaterialOptions {
@@ -1764,6 +1765,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'anigre',
   'larvikite',
   'squareholewashers',
+  'snakewood',
   'cupwashers',
 ];
 const repeatSampler = Object.freeze({

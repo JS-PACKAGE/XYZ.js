@@ -8668,6 +8668,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         bodyHeight: 0.6;
         grainHeight: 0.003;
     }>;
+    snakewood: Readonly<{
+        dark: readonly [17, 6, 3];
+        light: readonly [171, 82, 37];
+        roughness: 0.34;
+        relief: 0.003;
+        columns: 8;
+        rows: 12;
+        patchSlots: 2;
+        patchChance: 0.65;
+        jitterX: 0.3;
+        jitterY: 0.3;
+        widthMinimum: 0.18;
+        widthVariation: 0.22;
+        lengthMinimum: 0.12;
+        lengthVariation: 0.28;
+        slope: 0.6;
+        bend: 1.6;
+        coreQ: 0.35;
+        faceColor: 0.65;
+        woodContrast: 0.06;
+        fiberContrast: 0.05;
+        patchContrast: 0.5;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9571,5 +9594,6 @@ export declare const proceduralTileMeters: Readonly<{
     anigre: 0.16;
     larvikite: 0.12;
     squareholewashers: 0.1;
+    snakewood: 0.16;
     cupwashers: 0.1;
 }>;
