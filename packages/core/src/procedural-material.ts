@@ -737,7 +737,8 @@ export type ProceduralMaterialKind =
   | 'sichuanpepperhusks'
   | 'huckaback'
   | 'anorthosite'
-  | 'cubebberries';
+  | 'cubebberries'
+  | 'seraphinite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1709,6 +1710,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'huckaback',
   'anorthosite',
   'cubebberries',
+  'seraphinite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

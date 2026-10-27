@@ -764,7 +764,260 @@ const kinds: ProceduralMaterialKind[] = [
   'huckaback',
   'anorthosite',
   'cubebberries',
+  'seraphinite',
 ];
+
+describe('Seraphinite pale feather fans below one polished green face', () => {
+  const p = proceduralMaterialPresets.seraphinite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1ba17);
+    return {
+      col,
+      row,
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+      cx: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1ba1d),
+      cy: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1ba1f),
+      width:
+        p.halfWidthMinimum +
+        p.halfWidthVariation * hash(col, row, seed ^ 0x1ba1b),
+      length:
+        p.halfLengthMinimum +
+        p.halfLengthVariation * hash(col, row, seed ^ 0x1ba19),
+      frequency:
+        p.frequencyMinimum +
+        p.frequencyVariation * hash(col, row, seed ^ 0x1ba21),
+      phase: hash(col, row, seed ^ 0x1ba23),
+    };
+  };
+  const world = (
+    f: ReturnType<typeof pose>,
+    x: number,
+    y: number,
+  ): [number, number] => [
+    (f.col + f.cx + x * f.cos - y * f.sin) / p.cells,
+    (f.row + f.cy + x * f.sin + y * f.cos) / p.cells,
+  ];
+  it.each([0, 1, 0xffffffff])(
+    'keeps fine bilateral curved feather bands in a dark green matrix on a flat dielectric cut for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('seraphinite', seed),
+        out = empty();
+      let pale = 0,
+        matrix = 0,
+        low = Infinity,
+        high = -Infinity,
+        minHeight = Infinity,
+        maxHeight = -Infinity,
+        invalidSurface = 0;
+      for (let j = 0; j < 192 * 192; j++) {
+        sample((j % 192) / 192, Math.floor(j / 192) / 192, out);
+        pale += Number(out.color > 0.55);
+        matrix += Number(out.color < 0.35);
+        low = Math.min(low, out.color);
+        high = Math.max(high, out.color);
+        minHeight = Math.min(minHeight, out.height);
+        maxHeight = Math.max(maxHeight, out.height);
+        invalidSurface += Number(
+          out.metallic !== 0 ||
+            out.mortar !== 0 ||
+            out.occlusion !== 1 ||
+            !(out.roughness >= 0 && out.roughness <= 1),
+        );
+      }
+      expect(pale / (192 * 192)).toBeGreaterThan(0.01);
+      expect(matrix / (192 * 192)).toBeGreaterThan(0.5);
+      expect(high - low).toBeGreaterThan(0.5);
+      expect(invalidSurface).toBe(0);
+      expect(
+        (maxHeight - minHeight) * proceduralTileMeters.seraphinite,
+      ).toBeLessThan(0.0000021);
+      for (const side of [-1, 1]) {
+        let alignedError = 0,
+          unshiftedError = 0;
+        const x1 = side * 0.1,
+          x2 = side * 0.13,
+          shift =
+            p.branchSlope * (Math.abs(x2) - Math.abs(x1)) +
+            p.branchBend * (x2 * x2 - x1 * x1);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const f = pose(seed, col, row);
+            for (let j = 0; j < 192; j++) {
+              const y = -0.3 + (0.6 * j) / 191;
+              sample(...world(f, x1, y), out);
+              const a = out.color;
+              sample(...world(f, x2, y), out);
+              const b = out.color;
+              sample(...world(f, x2, y + shift), out);
+              const c = out.color;
+              alignedError += (c - a) * (c - a);
+              unshiftedError += (b - a) * (b - a);
+            }
+          }
+        expect(alignedError).toBeLessThan(0.65 * unshiftedError);
+      }
+    },
+  );
+  it('writes opaque green matrix and pale fine mineral bands without metallic foil at actual512', () => {
+    const maps = generateProceduralMaps('seraphinite', 512, 7, {
+      heightMap: true,
+    });
+    let pale = 0,
+      green = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      pale += Number(r > 118 && g > 130);
+      green += Number(g - r >= 15 && g > b);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+    }
+    expect(pale / (512 * 512)).toBeGreaterThan(0.01);
+    expect(green / (512 * 512)).toBeGreaterThan(0.5);
+    expect(invalid).toBe(0);
+  });
+  it('repeats overlapping feather fans and every PBR channel across signed UV periods', () => {
+    const sample = createSurfaceSampler('seraphinite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps overlapping fan supports chevron axes actual warped vein shoulders cache grids owners and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('seraphinite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const warpAt = (u: number, v: number) => {
+        const x = (u - Math.floor(u)) * 12,
+          y = (v - Math.floor(v)) * 12,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          tx = x - ix,
+          ty = y - iy,
+          sx = tx * tx * (3 - 2 * tx),
+          sy = ty * ty * (3 - 2 * ty),
+          n00 = hash(ix, iy, seed ^ 0x1ba13),
+          n10 = hash((ix + 1) % 12, iy, seed ^ 0x1ba13),
+          n01 = hash(ix, (iy + 1) % 12, seed ^ 0x1ba13),
+          n11 = hash((ix + 1) % 12, (iy + 1) % 12, seed ^ 0x1ba13);
+        return (
+          p.warp *
+          ((n00 + (n10 - n00) * sx) * (1 - sy) +
+            (n01 + (n11 - n01) * sx) * sy -
+            0.5)
+        );
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row);
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128;
+            for (const radius of [1, Math.sqrt(p.coreQ)])
+              check(
+                ...world(
+                  f,
+                  f.width * radius * Math.cos(theta),
+                  f.length * radius * Math.sin(theta),
+                ),
+              );
+            for (const x of [-p.axisFade, 0, p.axisFade])
+              check(...world(f, x, -f.length + (2 * f.length * j) / 128));
+          }
+          for (const x of [-0.1, 0.1])
+            for (let n = -4; n <= 4; n++)
+              for (const level of [
+                -0.5,
+                -p.veinRadius,
+                -p.veinCore,
+                p.veinCore,
+                p.veinRadius,
+                0.5,
+              ]) {
+                const target = n + level,
+                  center =
+                    (target - f.phase) / f.frequency +
+                    p.branchSlope * Math.abs(x) +
+                    p.branchBend * x * x;
+                let lo = center - 0.012,
+                  hi = center + 0.012;
+                for (let step = 0; step < 32; step++) {
+                  const y = (lo + hi) * 0.5,
+                    phase =
+                      f.frequency *
+                        (y -
+                          p.branchSlope * Math.abs(x) -
+                          p.branchBend * x * x) +
+                      f.phase +
+                      warpAt(...world(f, x, y));
+                  if (phase < target) lo = y;
+                  else hi = y;
+                }
+                check(...world(f, x, (lo + hi) * 0.5));
+              }
+        }
+      for (const cells of [p.cells, 8, 12, 128])
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 128; j++) {
+            check(boundary / cells, j / 128);
+            check(j / 128, boundary / cells);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Cubeb tailed pepper berries with connected woody pedicels', () => {
   const p = proceduralMaterialPresets.cubebberries;

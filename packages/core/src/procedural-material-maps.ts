@@ -2846,6 +2846,84 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'seraphinite': {
+        const p = proceduralMaterialPresets.seraphinite,
+          fans = new Float64Array(p.cells * p.cells * 9),
+          matrixField = cachedNoise(8, 8, seed ^ 0x1ba11),
+          warpField = cachedNoise(12, 12, seed ^ 0x1ba13),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ba15),
+          inverseFan = 1 / (1 - p.coreQ),
+          veinSquared = p.veinRadius * p.veinRadius,
+          inverseVein = 1 / (veinSquared - p.veinCore * p.veinCore),
+          inverseAxis = 1 / p.axisFade;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 9,
+              angle = TAU * hash(col, row, seed ^ 0x1ba17),
+              length =
+                p.halfLengthMinimum +
+                p.halfLengthVariation * hash(col, row, seed ^ 0x1ba19),
+              width =
+                p.halfWidthMinimum +
+                p.halfWidthVariation * hash(col, row, seed ^ 0x1ba1b);
+            fans[i] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1ba1d);
+            fans[i + 1] =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1ba1f);
+            fans[i + 2] = Math.cos(angle);
+            fans[i + 3] = Math.sin(angle);
+            fans[i + 4] = 1 / (width * width);
+            fans[i + 5] = 1 / (length * length);
+            fans[i + 6] =
+              p.frequencyMinimum +
+              p.frequencyVariation * hash(col, row, seed ^ 0x1ba21);
+            fans[i + 7] = hash(col, row, seed ^ 0x1ba23);
+            fans[i + 8] = 0.75 + 0.25 * hash(col, row, seed ^ 0x1ba25);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            warp = p.warp * (warpField(u, v) - 0.5),
+            grain = grainField(u, v);
+          let complement = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                i =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  9,
+                dx = uc - cx - fans[i],
+                dy = vc - cy - fans[i + 1],
+                x = dx * fans[i + 2] + dy * fans[i + 3],
+                y = dy * fans[i + 2] - dx * fans[i + 3],
+                q = x * x * fans[i + 4] + y * y * fans[i + 5],
+                fan = smooth(clamp((1 - q) * inverseFan));
+              if (fan === 0) continue;
+              const a = Math.abs(x),
+                axis = smooth(clamp(a * inverseAxis)),
+                phase =
+                  fans[i + 6] * (y - p.branchSlope * a - p.branchBend * x * x) +
+                  fans[i + 7] +
+                  warp,
+                d = phase - Math.floor(phase + 0.5),
+                vein = smooth(clamp((veinSquared - d * d) * inverseVein));
+              // Axis fading removes the chevron cusp; overlapping fans cross owners
+              // without clipping because their maximum radius 1.1 is below 1.3.
+              complement *= 1 - 0.9 * fans[i + 8] * fan * axis * vein;
+            }
+          color = 0.08 + 0.14 * matrixField(u, v) + 0.02 * grain;
+          color += (1 - complement) * (0.98 - color);
+          // Pale mineral feathers lie beneath one polished face, not raised leaves.
+          height = 0.4 + 0.002 * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'cubebberries': {
         const p = proceduralMaterialPresets.cubebberries,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -33804,6 +33882,7 @@ export function createSurfaceSampler(
     kind === 'huckaback' ||
     kind === 'anorthosite' ||
     kind === 'cubebberries' ||
+    kind === 'seraphinite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

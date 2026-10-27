@@ -8231,6 +8231,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         stemBase: 0.2;
         stemDome: 0.06;
     }>;
+    seraphinite: Readonly<{
+        dark: readonly [6, 28, 18];
+        light: readonly [209, 216, 190];
+        roughness: 0.22;
+        relief: 0.006;
+        cells: 4;
+        siteMinimum: 0.3;
+        siteVariation: 0.4;
+        halfLengthMinimum: 0.75;
+        halfLengthVariation: 0.35;
+        halfWidthMinimum: 0.3;
+        halfWidthVariation: 0.25;
+        coreQ: 0.4;
+        frequencyMinimum: 16;
+        frequencyVariation: 6;
+        veinRadius: 0.16;
+        veinCore: 0.045;
+        branchSlope: 0.58;
+        branchBend: 0.9;
+        axisFade: 0.025;
+        warp: 0.3;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8956,4 +8978,5 @@ export declare const proceduralTileMeters: Readonly<{
     huckaback: 0.032;
     anorthosite: 0.2;
     cubebberries: 0.08;
+    seraphinite: 0.16;
 }>;

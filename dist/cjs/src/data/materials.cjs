@@ -14536,6 +14536,36 @@ var proceduralMaterialPresets = Object.freeze({
 		poreDepth: .03,
 		stemBase: .2,
 		stemDome: .06
+	}),
+	seraphinite: Object.freeze({
+		dark: [
+			6,
+			28,
+			18
+		],
+		light: [
+			209,
+			216,
+			190
+		],
+		roughness: .22,
+		relief: .006,
+		cells: 4,
+		siteMinimum: .3,
+		siteVariation: .4,
+		halfLengthMinimum: .75,
+		halfLengthVariation: .35,
+		halfWidthMinimum: .3,
+		halfWidthVariation: .25,
+		coreQ: .4,
+		frequencyMinimum: 16,
+		frequencyVariation: 6,
+		veinRadius: .16,
+		veinCore: .045,
+		branchSlope: .58,
+		branchBend: .9,
+		axisFade: .025,
+		warp: .3
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -15260,7 +15290,8 @@ var proceduralTileMeters = Object.freeze({
 	sichuanpepperhusks: .05,
 	huckaback: .032,
 	anorthosite: .2,
-	cubebberries: .08
+	cubebberries: .08,
+	seraphinite: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

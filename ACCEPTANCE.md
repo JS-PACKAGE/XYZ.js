@@ -8630,3 +8630,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之cubebberries512五maps；全部721種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之cubebberries512²、peppercorns及juniperberries各64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7548項測試（940.99s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：深綠銀白羽狀礦紋石（seraphinite）
+
+- 目錄722→723種：16組不同方向、長寬及頻率的銀白彎曲羽狀束，於深綠基質以3×3週期鄰域重疊合成，不在owner邊界裁成獨立葉片。重用既有羽脈axis fade及礦物鄰域模式；每組九值快取共144個Float64／1152 bytes，8² matrix／12² warp／128² grain fields；最大support1.1小於省略site最近距離1.3，無逐點配置／hash／trig／sqrt。
+- C1軸向淡出移除abs距離尖點，平方距離細脈在phase wrap前歸零。0.16 m參考tile／0.006 UV relief，micrograin高度跨度最多0.000012 UV（按參考尺度換算1.92μm，非位移或實機量測）；羽狀礦紋只改albedo，保持平拋光切面。全opaque M0／AO1／mortar0，沿用options／Worker／cache／ownership；不新增geometry、透光、chatoyancy／Schiller或各向異性光學模擬。
+- 六項專項全部通過（vitest1.88s）：三seed淺色礦紋覆蓋大於1%／暗基質大於50%／albedo差大於0.5，左右羽脈依曲線shear對齊的平方誤差皆小於未對齊的65%，切面reference高度跨度小於2.1μm；512² opaque綠基質與淺細脈、4096 signed UV週期及雙軸C1。C1包含ellipse supports／axis fade／owner與cached grids，並以32步bisection定位實際warp後的vein core／outer shoulders及phase wraps。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示723種並選取seraphinite，頁面及cleanup errors空；另擷取actual512 albedo觀察重疊彎曲羽狀束，以及actual512 normal確認近乎平整而非凸起葉片，微normal振幅未以肉眼量測。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之seraphinite512五maps；全部722種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之seraphinite512²及cubebberries64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附外觀參考連結，未打包標本照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7555項測試（945.41s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

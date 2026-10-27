@@ -801,6 +801,7 @@ try {
     'huckaback',
     'anorthosite',
     'cubebberries',
+    'seraphinite',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
