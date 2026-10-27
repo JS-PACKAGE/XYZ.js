@@ -8256,6 +8256,28 @@ export const proceduralMaterialPresets = Object.freeze({
     poreShoulder: 0.16,
     poreDepth: 0.24,
   }),
+  utilityblades: Object.freeze({
+    dark: [42, 47, 53] as const,
+    light: [224, 230, 235] as const,
+    roughness: 0.34,
+    relief: 0.004,
+    cells: 3,
+    jitter: 0.008,
+    top: -0.18,
+    bottom: 0.2,
+    topHalfWidth: 0.19,
+    bottomHalfWidth: 0.35,
+    bevel: 0.012,
+    notchPitch: 0.085,
+    notchHalfWidth: 0.03,
+    notchCore: 0.02,
+    notchBottom: -0.105,
+    notchShoulder: 0.012,
+    honeStart: 0.11,
+    honeEnd: 0.175,
+    honeDepth: 0.13,
+    honeRoughness: 0.13,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8976,4 +8998,5 @@ export const proceduralTileMeters = Object.freeze({
   phyllite: 0.18,
   shantung: 0.024,
   hempcrete: 0.24,
+  utilityblades: 0.24,
 });

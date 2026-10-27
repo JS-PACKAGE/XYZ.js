@@ -8562,3 +8562,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 該測試三seed共有1,008,627次雙軸check、6,051,762次sampler取樣與12,103,524個scalar比較。將hot loop中的框架matcher改為累積最大絕對誤差，每seed最後斷言；取樣點／六channel／雙軸／seed／嚴格<0.03門檻及30000ms timeout完全不變，NaN／Infinity仍失敗。不改runtime或貼圖輸出，也不刪除邊界取樣。
 - 修改後原專項1項通過（2.26s）。Fresh Node實際執行同一workload與當次dist sampler，確認6,051,762次取樣／1,008,627次check，三seed最大誤差為0.0023736568266485847／0.0023725466036239595／0.002370326157574709，均<0.03，數值workload耗時727.58ms。這是測試框架開銷整理，不是renderer效能或全環境穩定率認證。
 - 修改後當次整合workingtree（含待獨立提交utilityblades增量）的typecheck、lint、format:check及完整179檔／7513項全部通過（1024.69s）。測試維護與材質功能分開commit，不push。
+
+## 2026-10-27 程序材質：雙背槽梯形單刃刀片（utilityblades）
+
+- 目錄716→717種：九枚銀色梯形刀片，上背兩個開放安裝槽、僅較長下緣磨薄變亮且降低roughness，非雙刃刮鬍刀。四個C1線性半平面與雙compact槽mask，每片五值快取；support約0.404加jitter0.008小於owner0.5，無逐點配置／hash／trig／sqrt。鋼面metallic factor1，背槽與背景為opaque M0凹面、mortar0，不新增geometry、透明切口、切割或機械模擬。
+- 0.24 m參考tile／0.004 UV relief，磨刃高度差0.00052 UV（只按參考尺度換算124.8μm，非位移或實機量測）。6項專項全部通過（1.49s）：三seed背槽向外開放／梯形上下寬差／單側磨刃亮度、roughness、AO及參考高差120–130μm；512² opaque非金屬背槽／鋼面／較薄平滑下緣，4096 signed UV週期，三seed斜角／槽shoulders／磨刃／owner與UV seams雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示717種並選取utilityblades，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布觀察梯形雙背槽及單下刃。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之utilityblades512五maps；既有716種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7513項測試（1024.69s；裁縫尺斷言維護後重新執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。原失敗與維護證據見上節，沒有放寬取樣／門檻／timeout；依功能獨立commit、不push。

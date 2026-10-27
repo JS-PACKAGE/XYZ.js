@@ -1441,6 +1441,81 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'utilityblades': {
+        const p = proceduralMaterialPresets.utilityblades,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b611),
+          slope = (p.bottomHalfWidth - p.topHalfWidth) / (p.bottom - p.top),
+          inverseBevel = 1 / p.bevel,
+          notchSquared = p.notchHalfWidth * p.notchHalfWidth,
+          inverseNotch = 1 / (notchSquared - p.notchCore * p.notchCore),
+          inverseNotchEnd = 1 / p.notchShoulder,
+          inverseHone = 1 / (p.honeEnd - p.honeStart);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1b613);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b615) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b617) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1b619);
+          }
+        return () => {
+          color = 0.04;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.32;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1];
+          if (y <= p.top || y >= p.bottom) return;
+          const width = p.topHalfWidth + (y - p.top) * slope,
+            left = x + p.notchPitch,
+            right = x - p.notchPitch,
+            notchEnd = smooth(clamp((p.notchBottom - y) * inverseNotchEnd)),
+            face =
+              smooth(clamp((width + x) * inverseBevel)) *
+              smooth(clamp((width - x) * inverseBevel)) *
+              smooth(clamp((y - p.top) * inverseBevel)) *
+              smooth(clamp((p.bottom - y) * inverseBevel)) *
+              (1 -
+                notchEnd *
+                  smooth(clamp((notchSquared - left * left) * inverseNotch))) *
+              (1 -
+                notchEnd *
+                  smooth(clamp((notchSquared - right * right) * inverseNotch)));
+          if (face === 0) return;
+          const hone = smooth(clamp((y - p.honeStart) * inverseHone)),
+            grain = grainField(u, v),
+            tone = poses[i + 4],
+            bodyColor = 0.72 + 0.06 * tone + 0.02 * grain,
+            bodyRoughness = p.roughness + 0.04 * grain;
+          // Only the longer lower edge is honed; the two mounting notches
+          // open through the short back edge, not transparent punched holes.
+          color +=
+            face *
+            (bodyColor +
+              hone * (0.88 + 0.04 * tone + 0.015 * grain - bodyColor) -
+              color);
+          height += face * (0.52 - p.honeDepth * hone + 0.002 * grain - height);
+          roughness +=
+            face *
+            (bodyRoughness +
+              hone * (p.honeRoughness + 0.02 * grain - bodyRoughness) -
+              roughness);
+          occlusion += face * (0.98 + 0.01 * hone - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'hempcrete': {
         const p = proceduralMaterialPresets.hempcrete,
           shivs = new Float64Array(p.cells * p.cells * 7),
@@ -33400,6 +33475,7 @@ export function createSurfaceSampler(
     kind === 'phyllite' ||
     kind === 'shantung' ||
     kind === 'hempcrete' ||
+    kind === 'utilityblades' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

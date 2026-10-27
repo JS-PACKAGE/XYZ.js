@@ -758,7 +758,190 @@ const kinds: ProceduralMaterialKind[] = [
   'phyllite',
   'shantung',
   'hempcrete',
+  'utilityblades',
 ];
+
+describe('Trapezoid utility blades with twin open back notches', () => {
+  const p = proceduralMaterialPresets.utilityblades;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b613),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b615) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b617) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps two open nonmetal mounting notches and only the longer lower edge honed for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('utilityblades', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          for (const sign of [-1, 1]) {
+            sample(...world(seed, col, row, sign * p.notchPitch, -0.155), a);
+            sample(
+              ...world(seed, col, row, sign * p.notchPitch, p.top - 0.01),
+              b,
+            );
+            expect(a.metallic).toBe(0);
+            expect(b.metallic).toBe(0);
+            sample(...world(seed, col, row, sign * 0.3, -0.1), a);
+            sample(...world(seed, col, row, sign * 0.3, 0.15), b);
+            expect(a.metallic).toBe(0);
+            expect(b.metallic).toBe(1);
+          }
+          sample(...world(seed, col, row, 0, -0.15), a);
+          expect(a.metallic).toBe(1);
+          sample(...world(seed, col, row, 0, 0), a);
+          sample(...world(seed, col, row, 0, 0.18), b);
+          expect(a.metallic).toBe(1);
+          expect(b.metallic).toBe(1);
+          const referenceDepth =
+            (a.height - b.height) * proceduralTileMeters.utilityblades;
+          expect(referenceDepth).toBeGreaterThan(0.00012);
+          expect(referenceDepth).toBeLessThan(0.00013);
+          expect(b.color).toBeGreaterThan(a.color);
+          expect(a.roughness - b.roughness).toBeGreaterThan(0.15);
+          expect(b.occlusion).toBeGreaterThan(a.occlusion);
+          expect(a.mortar).toBe(0);
+          expect(b.mortar).toBe(0);
+        }
+    },
+  );
+  it('writes opaque nonmetal back notches around steel trapezoids with a smoother thinner lower edge at actual512', () => {
+    const maps = generateProceduralMaps('utilityblades', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const pixel = (x: number, y: number) => {
+            const [u, v] = world(7, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          },
+          face = pixel(0, 0),
+          edge = pixel(0, 0.18);
+        for (const [i, metal] of [
+          [pixel(-p.notchPitch, -0.155), 0],
+          [pixel(p.notchPitch, -0.155), 0],
+          [face, 255],
+          [edge, 255],
+        ]) {
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(metal);
+        }
+        expect(maps.height![edge]).toBeLessThan(maps.height![face]);
+        expect(maps.metallicRoughness[edge + 1]).toBeLessThan(
+          maps.metallicRoughness[face + 1],
+        );
+      }
+  });
+  it('repeats trapezoids open notches single edge bevel and all PBR channels on signed UV periods', () => {
+    const sample = createSurfaceSampler('utilityblades', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 2, v - 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps sloped corners open notch shoulders hone transitions owner boundaries and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('utilityblades', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64,
+              y = p.top + (p.bottom - p.top) * t,
+              width = p.topHalfWidth + (p.bottomHalfWidth - p.topHalfWidth) * t;
+            for (const sign of [-1, 1]) {
+              for (const inset of [0, p.bevel])
+                check(...world(seed, col, row, sign * (width - inset), y));
+              for (const r of [p.notchHalfWidth, p.notchCore])
+                for (const side of [-1, 1])
+                  check(
+                    ...world(seed, col, row, sign * p.notchPitch + side * r, y),
+                  );
+              for (const end of [
+                p.notchBottom,
+                p.notchBottom - p.notchShoulder,
+              ])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    sign * p.notchPitch + (2 * t - 1) * p.notchHalfWidth,
+                    end,
+                  ),
+                );
+            }
+            for (const edge of [
+              p.top,
+              p.top + p.bevel,
+              p.honeStart,
+              p.honeEnd,
+              p.bottom - p.bevel,
+              p.bottom,
+            ])
+              check(
+                ...world(seed, col, row, (2 * t - 1) * p.bottomHalfWidth, edge),
+              );
+          }
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Porous mineral hempcrete with embedded fibrous shivs', () => {
   const p = proceduralMaterialPresets.hempcrete;
@@ -55652,6 +55835,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'brakediscs' &&
           kind !== 'shackles' &&
           kind !== 'screwhooks' &&
+          kind !== 'utilityblades' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&
@@ -65091,6 +65275,7 @@ describe('procedural preset acquisition and ownership', () => {
     'brakediscs',
     'shackles',
     'screwhooks',
+    'utilityblades',
     'insulatedringlugs',
     'pencilsharpeners',
     'scissors',
@@ -65190,6 +65375,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'brakediscs' ||
           kind === 'shackles' ||
           kind === 'screwhooks' ||
+          kind === 'utilityblades' ||
           kind === 'insulatedringlugs' ||
           kind === 'pencilsharpeners' ||
           kind === 'scissors' ||
