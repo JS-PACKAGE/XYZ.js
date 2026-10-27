@@ -25786,6 +25786,7 @@ describe('Miter-framed diamond parquet with alternating diagonal board grain and
         },
         b = { ...a },
         c = { ...a };
+      let worst = 0;
       const check = (x: number, y: number) => {
         const u = 0.5 + x,
           v = 0.5 + y;
@@ -25794,8 +25795,9 @@ describe('Miter-framed diamond parquet with alternating diagonal board grain and
           sample(u, v, b);
           sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
           for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.03,
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
             );
         }
       };
@@ -25822,6 +25824,7 @@ describe('Miter-framed diamond parquet with alternating diagonal board grain and
               check(...xy(t, s));
             }
       }
+      expect(worst).toBeLessThan(0.03);
     }
   });
 });

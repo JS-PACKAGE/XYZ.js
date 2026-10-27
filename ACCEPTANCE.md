@@ -8907,3 +8907,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node全部740種既有材質各64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS之新kind32²／512²、breccia／tigereye／charoite／septarian／square／hex各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
 - README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步；word-diff確認relative links未變，新增兩個外部連結為實讀GIA PDF。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過（整組100.29s），741為材質數，不是API exports。完整suite結果另列；不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
 - 最終可取得完整輸出的回歸 **179檔／7681項全部通過（884.79s）**，完整format:check亦通過；先前程序中斷後無法取得的job結果不記為成功。本功能依正式sampler／maps、雙backend gallery、NativeWorker／cache、既有740種byte相容及distribution證據獨立提交，不把隔離變體或畫面代替完整suite，不升版、不push。
+
+## 2026-10-28 驗證維護：diamondpanelparquet C1斷言聚合
+
+- 新材質整合工作樹的首輪完整suite有既有diamondpanelparquet C1單項超過原30,000 ms（178檔／7687項通過，1檔／1項失敗，981.43s）；保留實際失敗，不重新跑舊Vitest測試只為確認，也不以定向通過冒充完整suite。
+- 原三seed合計5,768,964次matcher，只改為逐點聚合worst、每seed一次strict0.03斷言。六channels、雙軸、三seed、h1e-10及所有miter ownership、frame-field clipping、diagonal nearest-board ownership、joint shoulders、UV panel wraps的loop與順序均保留，不調高timeout或縮減幾何取樣。
+- 實際built sampler分別執行原／新callbacks，每seed961,494次呼叫、三seed共2,884,482次；每seed有序IEEE754 UV串流SHA256及worst完全相同，最大worst為0.0003885780586188048。這是throwaway smoke，不是新增永久copy／echo測試，未留probe檔，runtime／preset／dist沒有維護變更。
+- 正式7項定向通過（vitest2.66s）：三seed幾何、局部grain方向、actual512、完整C1及catalog；test typecheck／lint／format通過，原30秒timeout不變，不宣稱引擎fps、GPU或瀏覽器重新驗證。
+- 本維護只獨立提交此測試的聚合hunks與本紀錄；castorbeans功能及其docs／dist、既有外部驗收note皆不納入，完整suite重跑結果由該材質另列。
