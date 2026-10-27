@@ -767,7 +767,235 @@ const kinds: ProceduralMaterialKind[] = [
   'seraphinite',
   'hexsocketheads',
   'datepits',
+  'sapele',
 ];
+
+describe('Sapele broad reddish ribbons with fine recessed longitudinal vessels', () => {
+  const p = proceduralMaterialPresets.sapele;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pore = (seed: number, col: number, row: number) => ({
+    cx: 0.25 + 0.5 * hash(col, row, seed ^ 0x1ae1b),
+    cy: 0.4 + 0.2 * hash(col, row, seed ^ 0x1ae1d),
+    width: p.widthMinimum + p.widthVariation * hash(col, row, seed ^ 0x1ae17),
+    length:
+      p.lengthMinimum + p.lengthVariation * hash(col, row, seed ^ 0x1ae19),
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps broad light dark longitudinal ribbons flat except fine genuine vessel depressions for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sapele', seed),
+        out = empty();
+      let minimum = Infinity,
+        maximum = -Infinity,
+        minFaceHeight = Infinity,
+        maxFaceHeight = -Infinity,
+        along = 0,
+        across = 0,
+        invalid = 0;
+      const faceRow = 0.1 / p.rows;
+      for (let j = 0; j < 2048; j++) {
+        const u = j / 2048;
+        sample(u, faceRow, out);
+        minimum = Math.min(minimum, out.color);
+        maximum = Math.max(maximum, out.color);
+        minFaceHeight = Math.min(minFaceHeight, out.height);
+        maxFaceHeight = Math.max(maxFaceHeight, out.height);
+        const a = out.color;
+        sample(u, faceRow + 0.0001, out);
+        along += Math.abs(out.color - a);
+        sample(u + 0.0001, faceRow, out);
+        across += Math.abs(out.color - a);
+      }
+      expect(maximum - minimum).toBeGreaterThan(0.27);
+      expect(across).toBeGreaterThan(4 * along);
+      expect(
+        (maxFaceHeight - minFaceHeight) * proceduralTileMeters.sapele,
+      ).toBeLessThan(0.000002);
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = pore(seed, col, row),
+            at = (x: number, y: number) => {
+              sample(
+                (col + f.cx + x) / p.columns,
+                (row + f.cy + y) / p.rows,
+                out,
+              );
+              return { ...out };
+            },
+            floor = at(0, 0),
+            side = at(1.1 * f.width, 0),
+            alongPore = at(0, 0.8 * f.length);
+          expect(
+            (side.height - floor.height) * proceduralTileMeters.sapele,
+          ).toBeGreaterThan(0.000044);
+          expect(floor.color).toBeLessThan(side.color);
+          expect(floor.roughness).toBeGreaterThan(side.roughness);
+          expect(floor.occlusion).toBeLessThan(side.occlusion);
+          expect(alongPore.height).toBeLessThan(side.height);
+          invalid += Number(
+            floor.metallic !== 0 ||
+              floor.mortar !== 0 ||
+              side.metallic !== 0 ||
+              side.mortar !== 0,
+          );
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes opaque reddish brown broad ribbons and narrow darker lower vessels at actual512', () => {
+    const maps = generateProceduralMaps('sapele', 512, 7, { heightMap: true });
+    let invalid = 0,
+      vesselPixels = 0,
+      light = 0,
+      dark = 0,
+      maximumVesselHeight = -Infinity,
+      maximumVesselColor = -Infinity,
+      minimumFaceHeight = Infinity,
+      minimumFaceColor = Infinity;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.baseColor[i] <= maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] <= maps.baseColor[i + 2],
+      );
+      if (maps.occlusion[i] < 205) {
+        vesselPixels++;
+        maximumVesselHeight = Math.max(maximumVesselHeight, maps.height![i]);
+        maximumVesselColor = Math.max(maximumVesselColor, maps.baseColor[i]);
+      }
+      if (maps.occlusion[i] === 255) {
+        light += Number(maps.baseColor[i] > 140);
+        dark += Number(maps.baseColor[i] < 108);
+        minimumFaceHeight = Math.min(minimumFaceHeight, maps.height![i]);
+        minimumFaceColor = Math.min(minimumFaceColor, maps.baseColor[i]);
+      }
+    }
+    expect(invalid).toBe(0);
+    expect(vesselPixels / (512 * 512)).toBeGreaterThan(0.005);
+    expect(light / (512 * 512)).toBeGreaterThan(0.2);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.1);
+    expect(maximumVesselHeight).toBeLessThan(minimumFaceHeight);
+    expect(maximumVesselColor).toBeLessThan(minimumFaceColor);
+  });
+  it('repeats wood ribbons and recessed vessel channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('sapele', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps actual broad ribbon shoulders pore ellipses cache grids owners and UV seams C1', () => {
+    const h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sapele', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const warpAt = (u: number, v: number) => {
+        const x = (u - Math.floor(u)) * 3,
+          y = (v - Math.floor(v)) * 4,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          tx = x - ix,
+          ty = y - iy,
+          sx = tx * tx * (3 - 2 * tx),
+          sy = ty * ty * (3 - 2 * ty),
+          n00 = hash(ix, iy, seed ^ 0x1ae11),
+          n10 = hash((ix + 1) % 3, iy, seed ^ 0x1ae11),
+          n01 = hash(ix, (iy + 1) % 4, seed ^ 0x1ae11),
+          n11 = hash((ix + 1) % 3, (iy + 1) % 4, seed ^ 0x1ae11);
+        return (
+          (n00 + (n10 - n00) * sx) * (1 - sy) + (n01 + (n11 - n01) * sx) * sy
+        );
+      };
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          const f = pore(seed, col, row);
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128;
+            for (const r of [1, Math.sqrt(1 - p.poreShoulder)])
+              check(
+                (col + f.cx + f.width * r * Math.cos(theta)) / p.columns,
+                (row + f.cy + f.length * r * Math.sin(theta)) / p.rows,
+              );
+          }
+        }
+      for (let n = 0; n < p.bands; n++)
+        for (let j = 0; j <= 128; j++) {
+          const v = j / 128;
+          for (const level of [
+            -0.5,
+            -p.bandRadius,
+            -p.bandCore,
+            p.bandCore,
+            p.bandRadius,
+            0.5,
+          ]) {
+            const target = n + level;
+            let lo = target / p.bands - 0.02,
+              hi = target / p.bands + 0.02;
+            for (let step = 0; step < 32; step++) {
+              const u = (lo + hi) * 0.5;
+              if (u * p.bands + p.bandWarp * warpAt(u, v) < target) lo = u;
+              else hi = u;
+            }
+            check((lo + hi) * 0.5, v);
+          }
+        }
+      for (const cells of [p.columns, 3, 64, 128])
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 128; j++) check(boundary / cells, j / 128);
+      for (const cells of [p.rows, 4, 128])
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 128; j++) check(j / 128, boundary / cells);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Date pits with a finite recessed longitudinal furrow and closed tips', () => {
   const p = proceduralMaterialPresets.datepits;

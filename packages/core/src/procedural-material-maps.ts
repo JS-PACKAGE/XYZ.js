@@ -1982,8 +1982,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sapele':
       case 'wenge': {
-        const p = proceduralMaterialPresets.wenge,
+        const p = proceduralMaterialPresets[kind],
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(3, 4, seed ^ 0x1ae11),
           fiberField = cachedNoise(64, 4, seed ^ 0x1ae13),
@@ -34027,6 +34028,7 @@ export function createSurfaceSampler(
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
     kind === 'datepits' ||
+    kind === 'sapele' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

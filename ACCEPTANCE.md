@@ -8667,3 +8667,16 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之datepits512五maps；全部724種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之datepits512²、fennelseeds及coffeebeans各64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。完整gate實際結果另列；未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7569項測試（1022.62s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：Sapele紅褐帶狀木紋（sapele）
+
+- 目錄725→726種：紅褐色徑切寬明暗帶與320個細長淺導管孔，直接重用wenge正式sampler，不另建近似分支。每孔四值快取共1280個Float64／10240 bytes，3×4 warp／64×4 fiber／128² grain；七道寬色帶為C1平方距離profile。孔x支撐最多0.044加site最多0.75、y支撐最多0.26加site最多0.6皆小於owner1；無逐點配置／hash／trig／sqrt。
+- 0.3 m參考tile／0.002 UV relief，孔深0.00016 UV與平面micrograin高度跨度0.000006 UV（按參考尺度換算48μm及1.8μm，非位移或實機量測）。寬木紋只改albedo而非凸肋；細孔為真實淺凹且roughness較高／AO較低。全opaque M0／mortar0，沿用options／Worker／cache／ownership；固定色帶近似，不新增geometry、木材生長、各向異性／chatoyancy光學或動態反光認證。
+- 最終六項sapele專項及六項既有wenge專項，加兩kind共用catalog合計14項通過（vitest2.24s）。三seed寬色帶albedo差大於0.27、橫向色差總量大於縱向四倍／無孔切面reference高度跨度小於2μm；所有孔比側面低大於44μm且更暗／更粗糙／AO較低。512² opaque紅褐M0、孔區整體比無孔面更低更暗及色帶覆蓋，4096 signed UV週期，全部孔內外ellipse、cache／owner／UV及bisection定位實際warp色帶shoulders雙軸C1；細孔採1e-10 UV步長處理有限高曲率，既有wenge gate不變。
+- 初版專項13項通過／1項失敗（vitest2.40s）：測試將AO選定的部分孔肩height byte硬設小於50，實際為56。移除該incidental byte預設，改驗證同張圖所有選定孔區高度／顏色皆低於無孔面，並保留孔覆蓋下限及全部幾何／C1回歸；未改sampler、參數或重新pin byte值。
+- managed Chromium150 headless正式PBR gallery新建WebGPU／WebGL2 tab皆實際擷取，顯示726種並選取sapele，頁面及cleanup errors空；另擷取actual512 albedo觀察紅褐寬色帶與細長孔，以及actual512 normal確認近乎平整而非凸起木肋，微normal振幅未以肉眼量測。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- 首個WebGPU tab在等待期間Target closed、首個WebGL2 tab在open時detached Frame，均未記為通過；僅關閉各失效session並改用fresh tab完成上述驗證，未改renderer或放寬檢查，工具錯誤原因未證實。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之sapele512五maps；含共用sampler wenge在內的全部725種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之sapele512²及wenge64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附外觀參考來源，未打包參考照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push。
+- 完整suite179個測試檔／7576項全部通過（1014.48s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；未宣稱其他平台認證。
