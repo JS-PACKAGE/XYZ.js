@@ -8127,6 +8127,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         honeDepth: 0.13;
         honeRoughness: 0.13;
     }>;
+    chrysocolla: Readonly<{
+        dark: readonly [7, 36, 29];
+        light: readonly [55, 196, 205];
+        roughness: 0.67;
+        relief: 0.012;
+        cells: 6;
+        jitter: 0.025;
+        radiusMinimum: 0.17;
+        radiusVariation: 0.06;
+        coreQ: 0.72;
+        centers: readonly [0, -0.11, -0.12, 0.09, 0.12, 0.09];
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8847,4 +8859,5 @@ export declare const proceduralTileMeters: Readonly<{
     shantung: 0.024;
     hempcrete: 0.24;
     utilityblades: 0.24;
+    chrysocolla: 0.12;
 }>;

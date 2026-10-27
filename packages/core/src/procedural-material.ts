@@ -732,7 +732,8 @@ export type ProceduralMaterialKind =
   | 'phyllite'
   | 'shantung'
   | 'hempcrete'
-  | 'utilityblades';
+  | 'utilityblades'
+  | 'chrysocolla';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1699,6 +1700,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'shantung',
   'hempcrete',
   'utilityblades',
+  'chrysocolla',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -1441,6 +1441,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chrysocolla': {
+        const p = proceduralMaterialPresets.chrysocolla,
+          globules = p.centers.length / 2,
+          stride = 5 + globules,
+          poses = new Float64Array(p.cells * p.cells * stride),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b711),
+          pigmentField = cachedNoise(64, 64, seed ^ 0x1b713),
+          inverseShoulder = 1 / (1 - p.coreQ);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride,
+              angle = TAU * hash(col, row, seed ^ 0x1b715);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b717) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b719) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1b71b);
+            for (let j = 0; j < globules; j++) {
+              const radius =
+                p.radiusMinimum +
+                p.radiusVariation *
+                  hash(col * globules + j, row, seed ^ 0x1b71d);
+              poses[i + 5 + j] = 1 / (radius * radius);
+            }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1];
+          color = 0.04;
+          height = 0.06;
+          roughness = 0.96;
+          occlusion = 0.35;
+          let outside = 1,
+            total = 0,
+            domeSum = 0;
+          for (let j = 0; j < globules; j++) {
+            const gx = x - p.centers[j * 2],
+              gy = y - p.centers[j * 2 + 1],
+              q = (gx * gx + gy * gy) * poses[i + 5 + j];
+            if (q >= 1) continue;
+            const face = smooth(clamp((1 - q) * inverseShoulder)),
+              dome = smooth(clamp(1 - q));
+            outside *= 1 - face;
+            total += face;
+            domeSum += face * dome;
+          }
+          const face = 1 - outside;
+          if (face === 0) return;
+          // Joined dielectric globules retain saddles and one bounded layer;
+          // overlap coverage cannot add multiple nodule heights.
+          const dome = domeSum / total,
+            grain = grainField(u, v);
+          color +=
+            face *
+            (0.55 +
+              0.12 * poses[i + 4] +
+              0.12 * pigmentField(u, v) +
+              0.08 * dome -
+              color);
+          height += face * (0.35 + 0.25 * dome + 0.002 * grain - height);
+          roughness +=
+            face * (p.roughness + 0.06 * grain - 0.04 * dome - roughness);
+          occlusion += face * (0.91 + 0.08 * dome - occlusion);
+          return;
+        };
+      }
       case 'utilityblades': {
         const p = proceduralMaterialPresets.utilityblades,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -33476,6 +33549,7 @@ export function createSurfaceSampler(
     kind === 'shantung' ||
     kind === 'hempcrete' ||
     kind === 'utilityblades' ||
+    kind === 'chrysocolla' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

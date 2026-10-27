@@ -975,6 +975,8 @@
 
 同輪追加 `utilityblades`（雙背槽梯形單刃刀片）新增九枚銀色梯形刀片，上背兩個開放安裝槽、僅較長下緣磨薄變亮且降低roughness，非雙刃刮鬍刀。四個C1線性半平面與雙compact槽mask，每片五值快取；support約0.404加jitter0.008小於owner0.5，無逐點配置／hash／trig／sqrt。鋼面metallic factor1，背槽與背景為opaque M0凹面、mortar0。0.24 m參考tile／0.004 UV relief；磨刃高度差0.00052 UV（只按參考尺度換算124.8μm，非位移量測）。沿用options／Worker／cache／ownership，不新增geometry、透明切口、切割或機械模擬。
 
+同輪追加 `chrysocolla`（藍綠結核簇矽孔雀石）新增36簇、共108個相接圓結核，立於深綠礦物底，不是金屬葡萄狀銅或研磨色帶。每簇八值快取與128²grain／64²pigment fields；三個compact C1圓面以normalized dome平均保留鞍部，交疊不疊加高度。support最多0.38加jitter0.025小於owner0.5；無逐點配置／hash／trig／sqrt。0.12 m參考tile／0.012 UV relief，全opaque M0／mortar0；沿用options／Worker／cache／ownership，不新增geometry、displacement、透光、金屬光學或化學／地質模擬。
+
 追加 `ProceduralMaterialOptions.tint`（三個 0–4 的逐通道倍率），讓顏料色可配合專案色盤而不改原始碼；灰縫與 normal／metallic-roughness／occlusion maps 不變，省略時 459 種輸出逐位元組不變。不新增 kind、map 或依賴，逐功能驗證提交、不 push。
 
 追加 `ProceduralMaterialOptions.workerPool` 與 `createProceduralWorkerPool()`／`proceduralMapsJob`／`trustedProceduralMapsJob`／`proceduralWorkerURL()`：沿用既有 NativeWorkerPool 與 trusted worker 協定，把 maps 生成移出主執行緒，輸出逐位元組相同；未傳入時維持同步。pool 由呼叫者擁有，不新增依賴，逐功能驗證提交、不 push。

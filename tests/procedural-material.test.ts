@@ -759,7 +759,182 @@ const kinds: ProceduralMaterialKind[] = [
   'shantung',
   'hempcrete',
   'utilityblades',
+  'chrysocolla',
 ];
+
+describe('Turquoise chrysocolla joined dielectric nodule clusters', () => {
+  const p = proceduralMaterialPresets.chrysocolla;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b715),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b717) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b719) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'joins three rounded dielectric lobes through lower saddles without stacked overlap heights for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chrysocolla', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0.43, 0), c);
+          for (let j = 0; j < 3; j++) {
+            const next = (j + 1) % 3,
+              x = p.centers[j * 2],
+              y = p.centers[j * 2 + 1];
+            sample(...world(seed, col, row, x, y), a);
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                (x + p.centers[next * 2]) * 0.5,
+                (y + p.centers[next * 2 + 1]) * 0.5,
+              ),
+              b,
+            );
+            const referencePeak = a.height * proceduralTileMeters.chrysocolla;
+            expect(referencePeak).toBeGreaterThan(0.00086);
+            expect(referencePeak).toBeLessThan(0.00087);
+            expect(
+              (a.height - b.height) * proceduralTileMeters.chrysocolla,
+            ).toBeGreaterThan(0.00005);
+            expect(
+              (a.height - c.height) * proceduralTileMeters.chrysocolla,
+            ).toBeGreaterThan(0.00075);
+            expect(a.color).toBeGreaterThan(c.color);
+            expect(a.occlusion).toBeGreaterThan(b.occlusion);
+            expect(b.occlusion).toBeGreaterThan(0.9);
+            expect(a.roughness).toBeLessThan(c.roughness);
+            expect(a.metallic).toBe(0);
+            expect(b.metallic).toBe(0);
+            expect(a.mortar).toBe(0);
+          }
+        }
+      for (let j = 0; j < 4096; j++) {
+        sample((j * 0.61803398875) % 1, (j * 0.41421356237) % 1, a);
+        expect(a.height * proceduralTileMeters.chrysocolla).toBeLessThan(
+          0.00087,
+        );
+      }
+    },
+  );
+  it('writes joined opaque turquoise nonmetal nodules above a darker matrix at actual512', () => {
+    const maps = generateProceduralMaps('chrysocolla', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const pixel = (x: number, y: number) => {
+            const [u, v] = world(7, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          },
+          matrix = pixel(0.43, 0);
+        for (let j = 0; j < 3; j++) {
+          const i = pixel(p.centers[j * 2], p.centers[j * 2 + 1]);
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.baseColor[i + 1]).toBeGreaterThan(maps.baseColor[i]);
+          expect(maps.baseColor[i + 2]).toBeGreaterThan(maps.baseColor[i]);
+          expect(maps.baseColor[i + 1]).toBeGreaterThan(
+            maps.baseColor[matrix + 1],
+          );
+          expect(maps.occlusion[i]).toBeGreaterThan(maps.occlusion[matrix]);
+          expect(maps.height![i]).toBeGreaterThan(maps.height![matrix]);
+        }
+      }
+  });
+  it('repeats connected nodule saddles pigment and all PBR channels on signed UV periods', () => {
+    const sample = createSurfaceSampler('chrysocolla', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps nodule supports shoulders overlaps owner boundaries and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chrysocolla', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j < 3; j++) {
+            const radius =
+              p.radiusMinimum +
+              p.radiusVariation * hash(col * 3 + j, row, seed ^ 0x1b71d);
+            for (let k = 0; k <= 128; k++) {
+              const theta = (2 * Math.PI * k) / 128;
+              for (const r of [radius, radius * Math.sqrt(p.coreQ)])
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    p.centers[j * 2] + r * Math.cos(theta),
+                    p.centers[j * 2 + 1] + r * Math.sin(theta),
+                  ),
+                );
+            }
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Trapezoid utility blades with twin open back notches', () => {
   const p = proceduralMaterialPresets.utilityblades;
@@ -10566,14 +10741,16 @@ describe('Keyed memory-card backs with eight recessed gold contacts high black i
         a = empty(),
         b = empty(),
         c = empty();
+      let worst = 0;
       const check = (u: number, v: number) => {
         for (let axis = 0; axis < 2; axis++) {
           sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
           sample(u, v, b);
           sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
           for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.08,
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
             );
         }
       };
@@ -10881,16 +11058,14 @@ describe('Chip resistors with lower silver wrap terminals a higher black rectang
         a = empty(),
         b = empty(),
         c = empty();
-      let worst = 0;
       const check = (u: number, v: number) => {
         for (let axis = 0; axis < 2; axis++) {
           sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
           sample(u, v, b);
           sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
           for (const key of keys)
-            worst = Math.max(
-              worst,
-              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
+              0.08,
             );
         }
       };

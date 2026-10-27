@@ -8578,3 +8578,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 原內迴圈執行11006280次Vitest matcher。只改為每seed聚合六通道雙軸最大絕對導數誤差後斷言一次，保留三seed、917190個取樣座標檢查、5503140次sampler calls、全部形狀／接點／owner／UV／grain取樣、strict小於0.08及30000ms timeout；NaN／Infinity仍失敗。未變更runtime、材質或貼圖。
 - 修改後同一既有測試1項通過（vitest2.20s）。Fresh Node以完整原座標迴圈實跑當次dist sampler：917190 checks／5503140 calls／11006280 scalar comparisons，三seed最大值0.019450718813374124／0.020146773138662866／0.019620693958444235皆小於0.08，耗時583.78ms；不是GPU／呈現fps或跨環境效能保證。
 - 修改後當次整合workingtree（含待獨立提交chrysocolla增量）的typecheck、lint、format:check及完整179檔／7520項全部通過（1036.32s）。測試維護與材質功能分開commit，不push。
+
+## 2026-10-27 程序材質：藍綠結核簇矽孔雀石（chrysocolla）
+
+- 目錄717→718種：36簇、共108個藍綠圓結核立於深綠礦物底；不是金屬葡萄狀銅或研磨色帶。每簇八值快取與128² grain／64² pigment fields，三個compact C1圓面以normalized dome平均保留鞍部、不疊加交疊高度；support最多0.38加jitter0.025小於owner0.5，無逐點配置／hash／trig／sqrt。全opaque M0／mortar0，不新增geometry、displacement、透光、金屬光學或化學／地質模擬。
+- 0.12 m參考tile／0.012 UV relief。6項專項全部通過（vitest1.86s）：三seed結核中心高於相接鞍部及礦物底、AO／roughness／pigment對應，reference峰高0.864–0.867mm且隨機交疊高度不超過0.87mm（僅按參考尺度換算，非位移或實機量測）；512² opaque藍綠M0結核，4096 signed UV週期及三seed內外圓／owner／UV seams雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示718種並選取chrysocolla，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布觀察三結核及相接鞍部。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之chrysocolla512五maps；既有717種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 完整179個測試檔／7520項全部通過（1036.32s；記憶卡斷言維護後重新執行完整suite），typecheck、lint、format:check再次通過；先前build／API compatibility／distribution與實際browser／Worker smoke證據見上列。首輪逾時與維護另節保留，沒有放寬取樣／門檻／timeout；依功能獨立commit、不push。
