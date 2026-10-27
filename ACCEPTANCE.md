@@ -8863,3 +8863,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際built compactcassettefaces sampler的原／新callbacks皆每seed1,249,236次呼叫，三seed共3,747,708次；逐seed有序IEEE754 UV串流SHA256與worst C1完全一致，最大worst為0.0014910295220715852。throwaway smoke未留repo檔，未新增copy／echo永久測試，無runtime／preset／dist變更。
 - 正式12項定向通過（vitest6.64s）：錄音帶與枝晶的既有三seed幾何、actual512、完整C1及catalog；test typecheck／lint／format通過，保留原30秒timeout，不減少採樣、不放寬門檻，不宣稱引擎fps或GPU／瀏覽器重新驗證。
 - 本維護只獨立提交錄音帶測試聚合hunks及此紀錄；新材質及其docs／dist、既有外部驗收note皆不納入，完整suite重跑由該功能另列。
+
+## 2026-10-28 程序材質：灰褐宿岩褐邊方解石填裂切面（septarian）
+
+- 目錄738→739種：灰褐宿岩、不規則深褐襯邊及淡奶油方解石填裂的拋光內部切片近似，不是雕空裂溝或完整圓結核。已讀Mineralogical Society of America說明及Utah標本照片；該來源說明褐／黃兩代calcite，不將所有褐邊一概命名為aragonite，不採礦物療效／通用化學組成認證，也未打包參考圖片。
+- 36個site triples共108個Float64／864 bytes；初始化以7×7鄰域48條候選半平面、重用52頂點及incoming-edge label scratch裁出真正Voronoi facets，只保留active normalized planes。隔離量測三seed各216 facets／648個Float64，facet數不是新增all-seed固定契約；2×3² cloud、2×12²細fracture warp及128² grain共16,690個Float64皆快取。沿用既有breccia的half-plane乘積模式及private導航clipper的signed-crossing慣例，沒有導入navigation／Vector3依賴或公開新clip API。
+- 點階段取5×5 candidates及covering-radius cull，半徑1.3435028843小於省略owner最短2.05；省略鄰site最短3.1大於兩倍半徑。warp擾動Jacobian的保守∞範數界0.63小於1，determinant保守下界0.37；是由preset及noise導數界推得的非折疊界，不是實機效能或幾何量測。變寬填裂及褐色襯邊以C1 facet products合成，無nearest-plane切換、逐點配置／hash／trig／sqrt，needsDetail bypass避免額外fallback noise。
+- 隔離draft最初偏定寬規則石板縫，改更不規則site／變寬cloud、細fracture warp及宿岩mottle；保留同一平切面，不以normal把暗邊刻成洞。另實跑7×7點候選／9×9鄰planes、移除radius cull的較寬參考variant：三seed共49,152 signed UV點六channels完全相同，32²與512²／seed7五maps逐byte相同。沒有將instrumented數值表或副本對照新增為永久echo測試，也無probe檔留在repo。
+- 六項隔離行為通過；有效的雕空填裂、錯設M1、漏除owner、漏除facet鄰居四種負向變體由礦物phase／flatness assert抓到，nearest-plane min則前五項通過但被真corner／shoulder C1抓到。獨立fixture的centroid端點符號在正式整合前修正，沒有放寬顏色、coverage或C1門檻。
+- 正式21項定向通過（vitest5.34s），含新六項與catalog、pinolith及tripointscrewheads各六項與catalog。以獨立的一維bisector interval而非sampler的二維polygon clip定位真facets，檢查連通淡填裂、褐rim／宿岩及全相平切M0／mortar0／AO1；actual512三相coverage／opaque／polished normal，三seed各4096 signed UV六channels。128步上限fixed-point反解warp、48步二分定位真正變寬support／core及兩段mid-shoulder，含真corner bisectors、warped owner／noise／UV雙軸C1，h1e-10／strict0.03。
+- 0.12 m參考tile／0.001 UV relief，只有grain理論高度跨度0.000003 UV、按參考尺度換算0.36μm，不是幾何位移、真空洞、地質生成或實測礦物尺寸。全opaque M0／mortar0／AO1，所有礦物相顏料都沿用tint，options／Worker／cache／ownership不變。
+- Managed Chromium150 headless實際擷取正式actual512 albedo／normal：可見寬窄填裂、褐邊及mottled宿岩，normal視覺近乎平面；build完成後正式739種gallery強制WebGPU及WebGL2皆選中septarian並擷取mesh／PBR預覽，page及about:blank cleanup errors空，tabs已關。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures／destroy／pool destroy／cache clear成功、page errors空，managed tabs為空才執行完整回歸。
+- Fresh Node之全部738種既有材質各64²／seed7四maps相對HEAD SHA256不變；新kind512五maps各1048576 bytes。dist ESM／CJS之新kind32²／512²、breccia／mud／diorite／pinolith／tripointscrewheads各64²／seed7五maps逐byte相同，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，九份Markdown共383個相對連結無缺失。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）通過，739為材質數。完整suite實際結果另列；不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
+- 首次完整suite實際為 **178檔通過／1檔失敗，7666項通過／1項失敗（1024.43s）**：既有`dendriticfrost`真capsule／branch／hub C1單項超過未修改的30,000 ms timeout，不是septarian斷言失敗；保留此失敗，不把先前定向或runtime smoke冒充完整通過。該C1每seed原有3,177,804次expect，後續以獨立維護提交處理斷言開銷，不跳過取樣或放寬門檻。
+- 第二輪完整suite實際為 **178檔通過／1檔失敗，7666項通過／1項失敗（1002.99s）**：枝晶C1已通過，但既有`compactcassettefaces`全幾何C1單項另超過原30,000 ms timeout；不是septarian斷言失敗，保留此結果。錄音帶原三seed合計7,495,416次expect，以另一獨立維護提交聚合，完整保留3,747,708次sampler呼叫及逐seed有序UV／worst數值，不調高timeout或刪減geometry採樣。
+- 第三輪最終完整suite **179檔／7667項全部通過（952.92s）**。既有枝晶與錄音帶的斷言開銷分別以`82a7beb7`、`fab2818d`獨立修正；保留前兩輪失敗、原30秒timeout、全部取樣與strict門檻，不把維護變更混入本材質提交。本功能依實際完成的sampler／maps／browser／NativeWorker／cache／distribution與完整回歸獨立提交，不升版、不push。

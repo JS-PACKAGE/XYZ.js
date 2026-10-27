@@ -780,7 +780,440 @@ const kinds: ProceduralMaterialKind[] = [
   'cottonflannel',
   'pinolith',
   'tripointscrewheads',
+  'septarian',
 ];
+
+describe('Polished septarian interior with connected pale calcite filled cracks and dark brown linings', () => {
+  const p = proceduralMaterialPresets.septarian;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const fractions = [0.125, 0.5, 0.875],
+    grids = [p.cloudCells, p.fractureCells, p.grainCells];
+  const levels = [
+    0,
+    p.veinShoulder * 0.5,
+    p.veinShoulder,
+    p.rimWidth,
+    p.rimWidth + p.hostShoulder * 0.5,
+    p.rimWidth + p.hostShoulder,
+  ];
+  type Point = { u: number; v: number };
+  type Plane = { nx: number; ny: number; d: number; lo: number; hi: number };
+  type Cell = { x: number; y: number; planes: Plane[] };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const smooth = (x: number) => x * x * (3 - 2 * x);
+  const clamp = (x: number) => Math.max(0, Math.min(1, x));
+  const model = (seed: number) => {
+    const sites = new Float64Array(p.cells * p.cells * 2),
+      cells: Cell[] = [];
+    const field = (size: number, salt: number) => {
+      const values = new Float64Array(size * size);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++)
+          values[y * size + x] = hash(x, y, seed ^ salt);
+      return (u: number, v: number) => {
+        const x = (u - Math.floor(u)) * size,
+          y = (v - Math.floor(v)) * size,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          sx = smooth(x - ix),
+          sy = smooth(y - iy),
+          nextX = (ix + 1) % size,
+          nextY = ((iy + 1) % size) * size,
+          a = values[iy * size + ix],
+          b = values[iy * size + nextX],
+          c = values[nextY + ix],
+          d = values[nextY + nextX];
+        return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+      };
+    };
+    const cloudX = field(p.cloudCells, 0x1c311),
+      cloudY = field(p.cloudCells, 0x1c313),
+      fineX = field(p.fractureCells, 0x1c31d),
+      fineY = field(p.fractureCells, 0x1c31f);
+    const inverse = (x: number, y: number, out: Point) => {
+      const baseU = x / p.cells,
+        baseV = y / p.cells;
+      let u = baseU,
+        v = baseV;
+      for (let j = 0; j < 128; j++) {
+        const nextU =
+            baseU -
+            (p.warp * (cloudX(u, v) - 0.5) +
+              p.fractureWarp * (fineX(u, v) - 0.5)) /
+              p.cells,
+          nextV =
+            baseV -
+            (p.warp * (cloudY(u, v) - 0.5) +
+              p.fractureWarp * (fineY(u, v) - 0.5)) /
+              p.cells;
+        if (nextU === u && nextV === v) break;
+        u = nextU;
+        v = nextV;
+      }
+      out.u = u;
+      out.v = v;
+    };
+    const width = (point: Point) =>
+      p.veinCore +
+      p.veinVariation *
+        smooth(
+          clamp(
+            (cloudX(point.u, point.v) - p.veinCloudCore) / p.veinCloudShoulder,
+          ),
+        );
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const i = (row * p.cells + col) * 2;
+        sites[i] = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c317) - 1);
+        sites[i + 1] =
+          0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c319) - 1);
+      }
+    const reach = 2 * Math.sqrt(2) * (0.5 + p.jitter);
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const i = (row * p.cells + col) * 2,
+          candidates: Plane[] = [],
+          cell: Cell = { x: col + sites[i], y: row + sites[i + 1], planes: [] };
+        for (let oy = -3; oy <= 3; oy++)
+          for (let ox = -3; ox <= 3; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (col + ox + p.cells) % p.cells,
+              wy = (row + oy + p.cells) % p.cells,
+              other = (wy * p.cells + wx) * 2,
+              dx = ox + sites[other] - sites[i],
+              dy = oy + sites[other + 1] - sites[i + 1],
+              length = Math.hypot(dx, dy);
+            candidates.push({
+              nx: dx / length,
+              ny: dy / length,
+              d: length * 0.5,
+              lo: -reach,
+              hi: reach,
+            });
+          }
+        // Independent 1D bisector intervals locate true facets; the sampler clips 2D polygons.
+        for (const plane of candidates) {
+          const x = plane.nx * plane.d,
+            y = plane.ny * plane.d,
+            tx = -plane.ny,
+            ty = plane.nx;
+          let lo = -reach,
+            hi = reach;
+          for (const other of candidates) {
+            if (other === plane) continue;
+            const slope = other.nx * tx + other.ny * ty,
+              available = other.d - other.nx * x - other.ny * y;
+            if (slope > 0) hi = Math.min(hi, available / slope);
+            else if (slope < 0) lo = Math.max(lo, available / slope);
+            else if (available < 0) {
+              lo = 1;
+              hi = 0;
+              break;
+            }
+          }
+          if (hi - lo > 1e-9) {
+            plane.lo = lo;
+            plane.hi = hi;
+            cell.planes.push(plane);
+          }
+        }
+        cells.push(cell);
+      }
+    const contour = (
+      cell: Cell,
+      plane: Plane,
+      x: number,
+      y: number,
+      dx: number,
+      dy: number,
+      level: number,
+      out: Point,
+    ) => {
+      let lo = 0,
+        hi = p.veinCore + p.veinVariation + level + 0.02;
+      for (let j = 0; j < 48; j++) {
+        const t = (lo + hi) * 0.5,
+          px = x + dx * t,
+          py = y + dy * t;
+        inverse(cell.x + px, cell.y + py, out);
+        const inward = plane.d - plane.nx * px - plane.ny * py;
+        if (inward - width(out) < level) lo = t;
+        else hi = t;
+      }
+      const t = (lo + hi) * 0.5;
+      inverse(cell.x + x + dx * t, cell.y + y + dy * t, out);
+      return t;
+    };
+    return { cells, inverse, width, contour };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps true crack edges pale and filled, brown linings and mottled host coplanar for seed %s',
+    (seed) => {
+      const geometry = model(seed),
+        sample = createSurfaceSampler('septarian', seed),
+        out = empty(),
+        point: Point = { u: 0, v: 0 };
+      let minimum = Infinity,
+        maximum = -Infinity;
+      const collect = () => {
+        sample(point.u, point.v, out);
+        minimum = Math.min(minimum, out.height);
+        maximum = Math.max(maximum, out.height);
+        expect(out.metallic).toBe(0);
+        expect(out.mortar).toBe(0);
+        expect(out.occlusion).toBe(1);
+      };
+      let hostMargin = -Infinity,
+        hostU = 0,
+        hostV = 0,
+        rimU = 0,
+        rimV = 0,
+        foundRim = false;
+      for (const cell of geometry.cells) {
+        let centerX = 0,
+          centerY = 0;
+        for (const plane of cell.planes) {
+          const x = plane.nx * plane.d - plane.ny * plane.lo,
+            y = plane.ny * plane.d + plane.nx * plane.lo;
+          centerX += x;
+          centerY += y;
+          for (const fraction of fractions) {
+            const along = plane.lo + (plane.hi - plane.lo) * fraction;
+            geometry.inverse(
+              cell.x + plane.nx * plane.d - plane.ny * along,
+              cell.y + plane.ny * plane.d + plane.nx * along,
+              point,
+            );
+            collect();
+            expect(out.color).toBeGreaterThan(0.89);
+            expect(out.roughness).toBeLessThan(0.26);
+          }
+          if (!foundRim) {
+            const along = (plane.lo + plane.hi) * 0.5,
+              x = plane.nx * plane.d - plane.ny * along,
+              y = plane.ny * plane.d + plane.nx * along,
+              t = geometry.contour(
+                cell,
+                plane,
+                x,
+                y,
+                -plane.nx,
+                -plane.ny,
+                (p.veinShoulder + p.rimWidth) * 0.5,
+                point,
+              ),
+              px = x - plane.nx * t,
+              py = y - plane.ny * t,
+              width = geometry.width(point);
+            if (
+              cell.planes.every(
+                (other) =>
+                  other === plane ||
+                  other.d - other.nx * px - other.ny * py >
+                    width + p.veinShoulder + 0.001,
+              )
+            ) {
+              rimU = point.u;
+              rimV = point.v;
+              foundRim = true;
+            }
+          }
+        }
+        centerX /= cell.planes.length;
+        centerY /= cell.planes.length;
+        geometry.inverse(cell.x + centerX, cell.y + centerY, point);
+        let clearance = Infinity;
+        for (const plane of cell.planes)
+          clearance = Math.min(
+            clearance,
+            plane.d - plane.nx * centerX - plane.ny * centerY,
+          );
+        const margin =
+          clearance - geometry.width(point) - p.rimWidth - p.hostShoulder;
+        if (margin > hostMargin) {
+          hostMargin = margin;
+          hostU = point.u;
+          hostV = point.v;
+        }
+      }
+      if (!foundRim || hostMargin <= 0)
+        throw new Error(
+          'Independent geometry could not locate the required mineral phase fixtures',
+        );
+      point.u = rimU;
+      point.v = rimV;
+      collect();
+      expect(out.color).toBeGreaterThan(0.02);
+      expect(out.color).toBeLessThan(0.08);
+      expect(out.roughness).toBeGreaterThan(0.32);
+      point.u = hostU;
+      point.v = hostV;
+      collect();
+      expect(out.color).toBeGreaterThan(0.28);
+      expect(out.color).toBeLessThan(0.63);
+      expect(out.roughness).toBeGreaterThan(0.27);
+      expect(out.roughness).toBeLessThan(0.31);
+      for (let j = 0; j < 8192; j++) {
+        point.u = (j * 0.61803398875) % 1;
+        point.v = (j * 0.41421356237) % 1;
+        collect();
+      }
+      expect(maximum - minimum).toBeLessThan(0.0031 * p.relief);
+    },
+  );
+  it('writes actual512 opaque dielectric pale infill dark brown rims and mottled host with a flat polished normal', () => {
+    const maps = generateProceduralMaps('septarian', 512, 7, {
+      heightMap: true,
+    });
+    let pale = 0,
+      brown = 0,
+      host = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i];
+      pale += Number(r > 215);
+      brown += Number(r < 70);
+      host += Number(r > 90 && r < 185);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 250 ||
+          maps.metallicRoughness[i + 1] > 100,
+      );
+    }
+    expect(pale / (512 * 512)).toBeGreaterThan(0.08);
+    expect(pale / (512 * 512)).toBeLessThan(0.45);
+    expect(brown / (512 * 512)).toBeGreaterThan(0.02);
+    expect(brown / (512 * 512)).toBeLessThan(0.2);
+    expect(host / (512 * 512)).toBeGreaterThan(0.35);
+    expect(host / (512 * 512)).toBeLessThan(0.85);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all six filled mineral fields across signed UV periods at three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('septarian', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true warped variable-width shoulders corner bisectors owners noise and UV C1 without nearest-plane creases', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const geometry = model(seed),
+        sample = createSurfaceSampler('septarian', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        point: Point = { u: 0, v: 0 },
+        h = 1e-10;
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const cell of geometry.cells)
+        for (const plane of cell.planes) {
+          for (const fraction of fractions) {
+            const along = plane.lo + (plane.hi - plane.lo) * fraction,
+              x = plane.nx * plane.d - plane.ny * along,
+              y = plane.ny * plane.d + plane.nx * along;
+            geometry.inverse(cell.x + x, cell.y + y, point);
+            check(point.u, point.v);
+            for (const level of levels) {
+              geometry.contour(
+                cell,
+                plane,
+                x,
+                y,
+                -plane.nx,
+                -plane.ny,
+                level,
+                point,
+              );
+              check(point.u, point.v);
+            }
+          }
+          const x = plane.nx * plane.d - plane.ny * plane.lo,
+            y = plane.ny * plane.d + plane.nx * plane.lo;
+          let adjacent: Plane | undefined,
+            closest = Infinity;
+          for (const other of cell.planes) {
+            if (other === plane) continue;
+            const d = Math.abs(other.d - other.nx * x - other.ny * y);
+            if (d < closest) {
+              closest = d;
+              adjacent = other;
+            }
+          }
+          if (!adjacent)
+            throw new Error('Independent facet has no incident corner');
+          const denominator =
+              1 + plane.nx * adjacent.nx + plane.ny * adjacent.ny,
+            dx = -(plane.nx + adjacent.nx) / denominator,
+            dy = -(plane.ny + adjacent.ny) / denominator;
+          geometry.inverse(cell.x + x, cell.y + y, point);
+          check(point.u, point.v);
+          for (const level of levels) {
+            geometry.contour(cell, plane, x, y, dx, dy, level, point);
+            check(point.u, point.v);
+          }
+        }
+      for (let k = 0; k <= p.cells; k++)
+        for (let j = 0; j <= 128; j++) {
+          geometry.inverse(k, (p.cells * j) / 128, point);
+          check(point.u, point.v);
+          geometry.inverse((p.cells * j) / 128, k, point);
+          check(point.u, point.v);
+        }
+      for (const grid of grids)
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Centered three arm tri point blind steel screw heads without offset wings or center pins', () => {
   const p = proceduralMaterialPresets.tripointscrewheads;

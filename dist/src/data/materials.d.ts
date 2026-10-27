@@ -8549,6 +8549,43 @@ export declare const proceduralMaterialPresets: Readonly<{
         socketRoughness: 0.82;
         grainHeight: 0.002;
     }>;
+    septarian: Readonly<{
+        dark: readonly [35, 23, 12];
+        light: readonly [248, 240, 214];
+        roughness: 0.24;
+        relief: 0.001;
+        cells: 6;
+        jitter: 0.45;
+        neighborRadius: 3;
+        candidateRadius: 2;
+        warp: 0.1;
+        fractureWarp: 0.08;
+        fractureCells: 12;
+        cloudCells: 3;
+        grainCells: 128;
+        veinCore: 0.002;
+        veinVariation: 0.16;
+        veinCloudCore: 0.25;
+        veinCloudShoulder: 0.5;
+        veinShoulder: 0.015;
+        rimWidth: 0.042;
+        hostShoulder: 0.012;
+        calciteColor: 0.94;
+        calciteCloud: 0.035;
+        calciteGrain: 0.015;
+        rimColor: 0.045;
+        rimGrain: 0.025;
+        hostColor: 0.45;
+        hostVariation: 0.08;
+        hostCloud: 0.12;
+        hostFine: 0.08;
+        hostGrain: 0.025;
+        rimRoughness: 0.34;
+        hostRoughness: 0.29;
+        grainRoughness: 0.015;
+        height: 0.4;
+        grainHeight: 0.003;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9290,4 +9327,5 @@ export declare const proceduralTileMeters: Readonly<{
     cottonflannel: 0.024;
     pinolith: 0.1;
     tripointscrewheads: 0.048;
+    septarian: 0.12;
 }>;

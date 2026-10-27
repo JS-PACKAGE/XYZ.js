@@ -753,7 +753,8 @@ export type ProceduralMaterialKind =
   | 'padauk'
   | 'cottonflannel'
   | 'pinolith'
-  | 'tripointscrewheads';
+  | 'tripointscrewheads'
+  | 'septarian';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1741,6 +1742,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cottonflannel',
   'pinolith',
   'tripointscrewheads',
+  'septarian',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

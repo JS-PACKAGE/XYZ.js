@@ -2952,6 +2952,210 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'septarian': {
+        const p = proceduralMaterialPresets.septarian,
+          siteCount = p.cells * p.cells,
+          sites = new Float64Array(siteCount * 3),
+          planes = new Array<Float64Array>(siteCount),
+          neighborCount = (2 * p.neighborRadius + 1) ** 2 - 1,
+          candidates = new Float64Array(neighborCount * 3),
+          scratchA = new Float64Array((neighborCount + 4) * 2),
+          scratchB = new Float64Array((neighborCount + 4) * 2),
+          labelsA = new Int16Array(neighborCount + 4),
+          labelsB = new Int16Array(neighborCount + 4),
+          seen = new Uint8Array(neighborCount),
+          radiusSquared = 2 * (0.5 + p.jitter) ** 2,
+          radius = Math.sqrt(radiusSquared),
+          cloudX = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1c311),
+          cloudY = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1c313),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1c315),
+          fractureX = cachedNoise(
+            p.fractureCells,
+            p.fractureCells,
+            seed ^ 0x1c31d,
+          ),
+          fractureY = cachedNoise(
+            p.fractureCells,
+            p.fractureCells,
+            seed ^ 0x1c31f,
+          ),
+          inverseVein = 1 / p.veinShoulder,
+          inverseWidthCloud = 1 / p.veinCloudShoulder,
+          inverseHost = 1 / p.hostShoulder,
+          rimRoughness = p.rimRoughness - p.roughness,
+          hostRoughness = p.hostRoughness - p.rimRoughness;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3;
+            sites[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c317) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c319) - 1);
+            sites[i + 2] =
+              p.hostColor +
+              p.hostVariation * (hash(col, row, seed ^ 0x1c31b) - 0.5);
+          }
+        // Clip once with incoming-edge labels; point samples retain only surviving facet planes.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const id = row * p.cells + col,
+              site = id * 3;
+            let vertices = 4,
+              input = scratchA,
+              output = scratchB,
+              inputLabels = labelsA,
+              outputLabels = labelsB,
+              plane = 0;
+            input[0] = -radius;
+            input[1] = -radius;
+            input[2] = radius;
+            input[3] = -radius;
+            input[4] = radius;
+            input[5] = radius;
+            input[6] = -radius;
+            input[7] = radius;
+            inputLabels.fill(-1, 0, 4);
+            for (let oy = -p.neighborRadius; oy <= p.neighborRadius; oy++)
+              for (let ox = -p.neighborRadius; ox <= p.neighborRadius; ox++) {
+                if (ox === 0 && oy === 0) continue;
+                const wx = (col + ox + p.cells) % p.cells,
+                  wy = (row + oy + p.cells) % p.cells,
+                  other = (wy * p.cells + wx) * 3,
+                  nx = ox + sites[other] - sites[site],
+                  ny = oy + sites[other + 1] - sites[site + 1],
+                  bound = (nx * nx + ny * ny) * 0.5;
+                candidates[plane * 3] = nx;
+                candidates[plane * 3 + 1] = ny;
+                candidates[plane * 3 + 2] = bound;
+                let count = 0,
+                  px = input[(vertices - 1) * 2],
+                  py = input[(vertices - 1) * 2 + 1],
+                  previous = bound - nx * px - ny * py;
+                for (let j = 0; j < vertices; j++) {
+                  const x = input[j * 2],
+                    y = input[j * 2 + 1],
+                    current = bound - nx * x - ny * y;
+                  if (previous >= 0 !== current >= 0) {
+                    const t = previous / (previous - current);
+                    output[count * 2] =
+                      t === 0 ? px : t === 1 ? x : px + t * (x - px);
+                    output[count * 2 + 1] =
+                      t === 0 ? py : t === 1 ? y : py + t * (y - py);
+                    outputLabels[count++] =
+                      previous >= 0 ? inputLabels[j] : plane;
+                  }
+                  if (current >= 0) {
+                    output[count * 2] = x;
+                    output[count * 2 + 1] = y;
+                    outputLabels[count++] = inputLabels[j];
+                  }
+                  px = x;
+                  py = y;
+                  previous = current;
+                }
+                vertices = count;
+                const swap = input;
+                input = output;
+                output = swap;
+                const labelSwap = inputLabels;
+                inputLabels = outputLabels;
+                outputLabels = labelSwap;
+                plane++;
+              }
+            seen.fill(0);
+            let count = 0;
+            for (let j = 0; j < vertices; j++) {
+              const label = inputLabels[j],
+                previous = (j + vertices - 1) % vertices,
+                dx = input[j * 2] - input[previous * 2],
+                dy = input[j * 2 + 1] - input[previous * 2 + 1];
+              if (label >= 0 && seen[label] === 0 && dx * dx + dy * dy > 0) {
+                seen[label] = 1;
+                count++;
+              }
+            }
+            const edges = new Float64Array(count * 3);
+            let offset = 0;
+            for (let j = 0; j < neighborCount; j++) {
+              if (seen[j] === 0) continue;
+              const nx = candidates[j * 3],
+                ny = candidates[j * 3 + 1],
+                inverseLength = 1 / Math.sqrt(nx * nx + ny * ny);
+              edges[offset++] = nx * inverseLength;
+              edges[offset++] = ny * inverseLength;
+              edges[offset++] = candidates[j * 3 + 2] * inverseLength;
+            }
+            planes[id] = edges;
+          }
+        return () => {
+          const cx = cloudX(u, v),
+            cy = cloudY(u, v),
+            fx = fractureX(u, v),
+            fy = fractureY(u, v),
+            grain = grainField(u, v) - 0.5,
+            x = u * p.cells + p.warp * (cx - 0.5) + p.fractureWarp * (fx - 0.5),
+            y = v * p.cells + p.warp * (cy - 0.5) + p.fractureWarp * (fy - 0.5),
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            width =
+              p.veinCore +
+              p.veinVariation *
+                smooth(clamp((cx - p.veinCloudCore) * inverseWidthCloud)),
+            rimEnd = width + p.veinShoulder,
+            hostStart = width + p.rimWidth,
+            hostEnd = hostStart + p.hostShoulder,
+            calcite =
+              p.calciteColor +
+              p.calciteCloud * (cx - 0.5) +
+              p.calciteGrain * grain,
+            rim = p.rimColor + p.rimGrain * grain,
+            calciteToRim = rim - calcite,
+            hostMod =
+              p.hostCloud * (cy - 0.5) +
+              p.hostFine * (fx - 0.5) +
+              p.hostGrain * grain -
+              rim;
+          color = calcite;
+          height = p.height + p.grainHeight * (grain + 0.5);
+          roughness = p.roughness + p.grainRoughness * grain;
+          occlusion = 1;
+          metallic = 0;
+          mortar = 0;
+          // Inward-only support makes the covering-radius cull safe at owner changes.
+          for (let oy = -p.candidateRadius; oy <= p.candidateRadius; oy++)
+            for (let ox = -p.candidateRadius; ox <= p.candidateRadius; ox++) {
+              const col = ix + ox,
+                row = iy + oy,
+                wx = ((col % p.cells) + p.cells) % p.cells,
+                wy = ((row % p.cells) + p.cells) % p.cells,
+                id = wy * p.cells + wx,
+                site = id * 3,
+                dx = x - col - sites[site],
+                dy = y - row - sites[site + 1];
+              if (dx * dx + dy * dy > radiusSquared) continue;
+              const edges = planes[id];
+              // Facet products keep triple-junction shoulders C1 without a nearest-edge switch.
+              let lining = 1,
+                host = 1;
+              for (let j = 0; j < edges.length; j += 3) {
+                const d = edges[j + 2] - dx * edges[j] - dy * edges[j + 1];
+                if (d <= width) {
+                  lining = host = 0;
+                  break;
+                }
+                if (d < rimEnd) lining *= smooth((d - width) * inverseVein);
+                if (d <= hostStart) host = 0;
+                else if (host !== 0 && d < hostEnd)
+                  host *= smooth((d - hostStart) * inverseHost);
+              }
+              if (lining === 0) continue;
+              color +=
+                lining * calciteToRim + host * (sites[site + 2] + hostMod);
+              roughness += lining * rimRoughness + host * hostRoughness;
+            }
+          return;
+        };
+      }
       case 'tripointscrewheads':
       case 'pentalobescrewheads': {
         const tripoint = kind === 'tripointscrewheads',
@@ -34547,6 +34751,7 @@ export function createSurfaceSampler(
     kind === 'padauk' ||
     kind === 'cottonflannel' ||
     kind === 'pinolith' ||
+    kind === 'septarian' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

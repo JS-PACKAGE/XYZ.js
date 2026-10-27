@@ -14982,6 +14982,51 @@ var proceduralMaterialPresets = Object.freeze({
 		socketDepth: .4,
 		socketRoughness: .82,
 		grainHeight: .002
+	}),
+	septarian: Object.freeze({
+		dark: [
+			35,
+			23,
+			12
+		],
+		light: [
+			248,
+			240,
+			214
+		],
+		roughness: .24,
+		relief: .001,
+		cells: 6,
+		jitter: .45,
+		neighborRadius: 3,
+		candidateRadius: 2,
+		warp: .1,
+		fractureWarp: .08,
+		fractureCells: 12,
+		cloudCells: 3,
+		grainCells: 128,
+		veinCore: .002,
+		veinVariation: .16,
+		veinCloudCore: .25,
+		veinCloudShoulder: .5,
+		veinShoulder: .015,
+		rimWidth: .042,
+		hostShoulder: .012,
+		calciteColor: .94,
+		calciteCloud: .035,
+		calciteGrain: .015,
+		rimColor: .045,
+		rimGrain: .025,
+		hostColor: .45,
+		hostVariation: .08,
+		hostCloud: .12,
+		hostFine: .08,
+		hostGrain: .025,
+		rimRoughness: .34,
+		hostRoughness: .29,
+		grainRoughness: .015,
+		height: .4,
+		grainHeight: .003
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -15722,7 +15767,8 @@ var proceduralTileMeters = Object.freeze({
 	padauk: .16,
 	cottonflannel: .024,
 	pinolith: .1,
-	tripointscrewheads: .048
+	tripointscrewheads: .048,
+	septarian: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
