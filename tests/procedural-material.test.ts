@@ -24053,14 +24053,16 @@ describe('Curved tapering dried red chillies with actual shrivelled wrinkle reli
         },
         b = { ...a },
         c = { ...a };
+      let worst = 0;
       const check = (u: number, v: number) => {
         for (let axis = 0; axis < 2; axis++) {
           sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
           sample(u, v, b);
           sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
           for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.03,
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
             );
         }
       };
@@ -24124,6 +24126,7 @@ describe('Curved tapering dried red chillies with actual shrivelled wrinkle reli
             ])
               check(...world(seed, col, row, -0.15 + 0.4 * t, y));
           }
+      expect(worst).toBeLessThan(0.03);
     }
   });
 });

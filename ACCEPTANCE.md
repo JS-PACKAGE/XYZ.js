@@ -8915,3 +8915,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際built sampler分別執行原／新callbacks，每seed961,494次呼叫、三seed共2,884,482次；每seed有序IEEE754 UV串流SHA256及worst完全相同，最大worst為0.0003885780586188048。這是throwaway smoke，不是新增永久copy／echo測試，未留probe檔，runtime／preset／dist沒有維護變更。
 - 正式7項定向通過（vitest2.66s）：三seed幾何、局部grain方向、actual512、完整C1及catalog；test typecheck／lint／format通過，原30秒timeout不變，不宣稱引擎fps、GPU或瀏覽器重新驗證。
 - 本維護只獨立提交此測試的聚合hunks與本紀錄；castorbeans功能及其docs／dist、既有外部驗收note皆不納入，完整suite重跑結果由該材質另列。
+
+## 2026-10-28 驗證維護：driedchillies C1斷言聚合
+
+- 新材質第二輪完整suite已通過diamondpanelparquet，但既有driedchillies C1單項超過原30,000 ms（178檔／7687項通過，1檔／1項失敗，1006.78s）；保留實際失敗，不重跑舊Vitest測試只為確認，不以定向通過冒充完整suite。
+- 原三seed合計6,213,348次matcher改為逐點聚合worst、每seed一次strict0.03斷言；六channels、雙軸、三seed、h1e-10及全部curved taper sidewalls／full cores、root／tip shoulders、stem capsule shaft／end circles、calyx ellipse、layering joins、pose owners與UV wraps的loop及順序均保留，不調高timeout或刪減採樣。
+- 以實際built sampler執行原／新callbacks，每seed1,035,558次呼叫、三seed合計3,106,674次；逐seed有序IEEE754 UV SHA256及worst完全相同，最大worst為0.010664802374549254。未留下throwaway probe或新增永久copy／echo測試，無runtime／preset／dist維護變更。
+- 正式13項定向通過（vitest3.98s）：driedchillies與diamondpanelparquet的既有幾何／actual512／完整C1及catalog；test typecheck／lint／format通過，保留原timeout，不宣稱引擎fps、GPU或瀏覽器重新驗證。
+- 本維護只提交driedchillies聚合hunks及本紀錄；castorbeans及其docs／dist、既有外部驗收note皆不納入，完整suite重跑結果另由該材質記錄。
