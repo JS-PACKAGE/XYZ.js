@@ -8763,3 +8763,16 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀Geology.com之粉灰細基質、斑晶與流動構造外觀參考，未打包參考圖片，不把選定程序色帶外推為所有天然流紋岩。
 - build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 完整suite179個測試檔／7618項全部通過（950.41s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：縱皺深褐零陵香豆（tonkabeans）
+
+- 目錄732→733種：64個隨機旋轉、微彎且兩端閉合的深褐近黑橢長種籽；40×6 wrinkle lattice配3×6 warp形成多道彎曲凹皺，而非datepits單槽或cubebberries帶梗圓果。沿用既有isolated owner-cell快取姿態／平方elliptic body／C1 shoulder模式，每種籽五值共320個Float64／2560 bytes與128² grain；保守support sqrt(0.36²+(0.16+0.02)²)+0.015約0.4175小於owner半寬0.5，無逐點配置／hash／trig／sqrt。
+- 0.20 m參考tile／0.0275 UV relief，名義長18mm／寬8mm；wrinkleDepth0.12為0.0033 UV（按參考尺度換算0.66mm，非geometry／位移／實機量測），micrograin跨度參考27.5μm。皺褶同時較暗、較低、較粗糙且AO較深，並非色線假裝凹紋。全opaque M0／mortar0，維持options、Worker、cache及ownership，不新增乾燥動力學、內部果仁或化學／食用用途。
+- 六項專項及共用kind catalog合計7項通過（vitest2.12s）：三seed閉合長體、實際凹皺相對去dome高度、暗／roughness／AO同向關係及縱向各向性，actual512深褐色差／opaque M0／body覆蓋／normal relief，4096 signed UV，全部body support／shoulder與真正warp後wrinkle threshold的32步二分root、grain／owner／UV雙軸C1，1e-10 UV步長／strict0.08。
+- 初稿24×4專項7項雖通過（2.21s），actual512與參考種籽照片顯示皺褶太少且寬，將可調頻率收於preset並改40×6，未改seed形體或舊材質。新增真正多皺驗證：三seed各64個種籽中51／53／49個具有至少兩個分離深凹區，皆超過半數，可拒絕只換色的單槽替代。隔離draft曾混用normalized height與UV height，修正測試除relief後通過；密度探查另觀察三凹區並非每個seed的穩定特徵，最終驗實質多皺而不固定程序隨機數量，未放寬任何舊測試，無probe檔留在repo。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取tonkabeans、顯示733種並擷取，頁面及cleanup errors空；最終actual512 albedo與normal可見深色閉合長體、多道沿長軸彎曲凹皺及間隔背景，不以截圖聲稱定量微高度或renderer效能。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生tonkabeans512²五maps各1048576 bytes；全部732種既有材質各64²／seed7四maps相對HEAD SHA256不變。實跑dist ESM／CJS之tonkabeans32²及512²、datepits／cubebberries各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。附已讀Dipteryx odorata黑皺種籽描述及Alyssa Ashley文章與實際種籽照片作外形參考；Wikimedia照片HTTP429未作已讀圖片證據，未打包圖片，也不採用文章的食用、醫療或成分宣稱。
+- build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 完整suite179個測試檔／7625項全部通過（982.71s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。

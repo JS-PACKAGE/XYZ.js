@@ -8553,6 +8553,27 @@ export const proceduralMaterialPresets = Object.freeze({
     bandRadius: 0.42,
     bandCore: 0.24,
   }),
+  tonkabeans: Object.freeze({
+    dark: [7, 5, 4] as const,
+    light: [110, 78, 51] as const,
+    roughness: 0.73,
+    relief: 0.0275,
+    cells: 8,
+    halfLength: 0.36,
+    halfWidth: 0.16,
+    bend: 0.02,
+    jitter: 0.015,
+    shoulder: 0.18,
+    bodyBase: 0.28,
+    domeHeight: 0.4,
+    grainHeight: 0.005,
+    wrinkleDepth: 0.12,
+    wrinkleColumns: 40,
+    wrinkleRows: 6,
+    wrinkleThreshold: 0.6,
+    wrinkleShoulder: 0.35,
+    wrinkleWarp: 0.035,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9289,4 +9310,5 @@ export const proceduralTileMeters = Object.freeze({
   carawayseeds: 0.04,
   springpinends: 0.064,
   rhyolite: 0.12,
+  tonkabeans: 0.2,
 });

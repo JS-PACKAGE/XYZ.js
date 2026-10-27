@@ -774,7 +774,312 @@ const kinds: ProceduralMaterialKind[] = [
   'carawayseeds',
   'springpinends',
   'rhyolite',
+  'tonkabeans',
 ];
+
+describe('Dark wrinkled tonka beans with curved elongated closed bodies and drying folds', () => {
+  const p = proceduralMaterialPresets.tonkabeans;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const smooth = (v: number) => v * v * (3 - 2 * v);
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1c017);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      cx: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c019) - 1),
+      cy: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c01b) - 1),
+      phase: hash(col, row, seed ^ 0x1c01d),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'retains closed long beans and multiple darker deeper rougher longitudinal drying folds for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tonkabeans', seed),
+        a = empty(),
+        b = empty();
+      let acrossTotal = 0,
+        alongTotal = 0,
+        minResidual = Infinity,
+        maxResidual = -Infinity,
+        folded = 0,
+        multiFoldSeeds = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.cx + f.c * x - f.s * y) / p.cells,
+                (row + f.cy + f.s * x + f.c * y) / p.cells,
+                out,
+              );
+          for (const sign of [-1, 1]) {
+            local(0, sign * p.halfLength, a);
+            expect(a.height).toBeCloseTo(0.035 * p.relief, 10);
+            local(sign * (p.halfWidth + p.bend + 0.01), 0, a);
+            expect(a.height).toBeCloseTo(0.035 * p.relief, 10);
+          }
+          let lo = Infinity,
+            hi = -Infinity,
+            low = empty(),
+            high = empty();
+          for (let j = 0; j <= 64; j++) {
+            const x = -0.075 + (0.15 * j) / 64;
+            local(x + p.bend, 0, a);
+            const residual =
+              a.height / p.relief -
+              (p.bodyBase +
+                p.domeHeight *
+                  smooth(1 - (x * x) / (p.halfWidth * p.halfWidth)));
+            if (residual < lo) {
+              lo = residual;
+              low = { ...a };
+            }
+            if (residual > hi) {
+              hi = residual;
+              high = { ...a };
+            }
+            minResidual = Math.min(minResidual, residual);
+            maxResidual = Math.max(maxResidual, residual);
+          }
+          let folds = 0,
+            inside = false;
+          for (let j = 0; j <= 128; j++) {
+            const x = -0.12 + (0.24 * j) / 128;
+            local(x + p.bend, 0, a);
+            const residual =
+                a.height / p.relief -
+                (p.bodyBase +
+                  p.domeHeight *
+                    smooth(1 - (x * x) / (p.halfWidth * p.halfWidth))),
+              deep = residual < -0.075;
+            if (deep && !inside) folds++;
+            inside = deep;
+          }
+          if (folds >= 2) multiFoldSeeds++;
+          if (hi - lo > 0.08) {
+            folded++;
+            expect(low.color).toBeLessThan(high.color);
+            expect(low.roughness).toBeGreaterThan(high.roughness);
+            expect(low.occlusion).toBeLessThan(high.occlusion);
+          }
+          for (let yi = 0; yi <= 12; yi++)
+            for (let xi = 0; xi <= 12; xi++) {
+              const x = -0.07 + (0.14 * xi) / 12,
+                y = -0.16 + (0.32 * yi) / 12,
+                h = 0.0001;
+              const residual = (
+                across: number,
+                along: number,
+                out: SurfaceSample,
+              ) => {
+                const taper =
+                    1 - (along * along) / (p.halfLength * p.halfLength),
+                  cap = taper - (across * across) / (p.halfWidth * p.halfWidth);
+                local(across + p.bend * taper, along, out);
+                return (
+                  out.height / p.relief -
+                  (p.bodyBase + p.domeHeight * smooth(cap))
+                );
+              };
+              const center = residual(x, y, a);
+              acrossTotal += Math.abs(residual(x + h, y, b) - center);
+              alongTotal += Math.abs(residual(x, y + h, b) - center);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(0);
+            }
+        }
+      expect(folded).toBeGreaterThan(16);
+      expect(multiFoldSeeds).toBeGreaterThan((p.cells * p.cells) / 2);
+      expect(minResidual).toBeLessThan(-0.1);
+      expect(maxResidual).toBeGreaterThan(-0.015);
+      expect(acrossTotal).toBeGreaterThan(1.5 * alongTotal);
+    },
+  );
+  it('writes actual512 dark brown opaque nonmetal beans with visible folded relief instead of a single seam', () => {
+    const maps = generateProceduralMaps('tonkabeans', 512, 7, {
+      heightMap: true,
+    });
+    let invalid = 0,
+      min = 255,
+      max = 0,
+      body = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          r < g ||
+          g < b ||
+          maps.metallicRoughness[i + 2] !== 0,
+      );
+      min = Math.min(min, r);
+      max = Math.max(max, r);
+      if (maps.height![i] > 80) body++;
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+    }
+    expect(max).toBeGreaterThan(45);
+    expect(max).toBeLessThan(90);
+    expect(max - min).toBeGreaterThan(35);
+    expect(body / (512 * 512)).toBeGreaterThan(0.08);
+    expect(body / (512 * 512)).toBeLessThan(0.26);
+    expect(maxTilt).toBeGreaterThan(0.05);
+    expect(invalid).toBe(0);
+  });
+  it('repeats closed bodies and drying wrinkle PBR across signed UV periods', () => {
+    const sample = createSurfaceSampler('tonkabeans', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps closed body shoulders and actual warped wrinkle threshold roots C1 with periodic owners', () => {
+    const noise = (
+      u: number,
+      v: number,
+      nx: number,
+      ny: number,
+      seed: number,
+    ) => {
+      const x = (u - Math.floor(u)) * nx,
+        y = (v - Math.floor(v)) * ny,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        sx = smooth(x - ix),
+        sy = smooth(y - iy),
+        a = hash(ix, iy, seed),
+        b = hash((ix + 1) % nx, iy, seed),
+        c = hash(ix, (iy + 1) % ny, seed),
+        d = hash((ix + 1) % nx, (iy + 1) % ny, seed);
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tonkabeans', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        h = 1e-10;
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.cx + f.c * x - f.s * y) / p.cells,
+                (row + f.cy + f.s * x + f.c * y) / p.cells,
+              );
+          for (let j = 0; j <= 128; j++) {
+            const y = -p.halfLength + (2 * p.halfLength * j) / 128,
+              taper = Math.max(0, 1 - (y * y) / (p.halfLength * p.halfLength));
+            for (const level of [0, p.shoulder])
+              if (taper >= level)
+                for (const sign of [-1, 1])
+                  local(
+                    p.bend * taper +
+                      sign * p.halfWidth * Math.sqrt(taper - level),
+                    y,
+                  );
+          }
+          for (let j = 0; j <= 8; j++) {
+            const y = -0.2 + (0.4 * j) / 8,
+              taper = 1 - (y * y) / (p.halfLength * p.halfLength);
+            const field = (x: number) => {
+              const u = x + 0.5 + f.phase,
+                v = y + 0.5 + f.phase,
+                warp = noise(u, v, 3, 6, seed ^ 0x1c015);
+              return noise(
+                u + p.wrinkleWarp * (2 * warp - 1),
+                v,
+                p.wrinkleColumns,
+                p.wrinkleRows,
+                seed ^ 0x1c013,
+              );
+            };
+            for (const level of [
+              p.wrinkleThreshold - p.wrinkleShoulder,
+              p.wrinkleThreshold,
+            ]) {
+              let previous = -0.13,
+                value = field(previous) - level;
+              for (let step = 1; step <= 128; step++) {
+                const x = -0.13 + (0.26 * step) / 128,
+                  next = field(x) - level;
+                if (value * next < 0) {
+                  let lo = previous,
+                    hi = x,
+                    left = value;
+                  for (let k = 0; k < 32; k++) {
+                    const mid = (lo + hi) * 0.5,
+                      m = field(mid) - level;
+                    if (left * m <= 0) hi = mid;
+                    else {
+                      lo = mid;
+                      left = m;
+                    }
+                  }
+                  local((lo + hi) * 0.5 + p.bend * taper, y);
+                }
+                previous = x;
+                value = next;
+              }
+            }
+          }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.08);
+    }
+  });
+});
 
 describe('Fine pink brown rhyolite flow bands with sparse flush pale phenocrysts', () => {
   const p = proceduralMaterialPresets.rhyolite;

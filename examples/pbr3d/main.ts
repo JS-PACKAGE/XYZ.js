@@ -811,6 +811,7 @@ try {
     'carawayseeds',
     'springpinends',
     'rhyolite',
+    'tonkabeans',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

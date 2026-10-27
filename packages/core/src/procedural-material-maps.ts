@@ -2847,6 +2847,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tonkabeans': {
+        const p = proceduralMaterialPresets.tonkabeans,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1c011),
+          wrinkleField = cachedNoise(
+            p.wrinkleColumns,
+            p.wrinkleRows,
+            seed ^ 0x1c013,
+          ),
+          warpField = cachedNoise(3, 6, seed ^ 0x1c015),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inverseWrinkle = 1 / p.wrinkleShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1c017);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c019) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c01b) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1c01d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            taper = clamp(1 - y * y * inverseLength),
+            across = x - p.bend * taper,
+            cap = clamp(taper - across * across * inverseWidth),
+            body = smooth(clamp(cap * inverseShoulder));
+          color = 0.025;
+          height = 0.035;
+          roughness = 0.97;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const phase = poses[i + 4],
+            localU = across + 0.5 + phase,
+            localV = y + 0.5 + phase,
+            warp = warpField(localU, localV),
+            wrinkle = smooth(
+              clamp(
+                (p.wrinkleThreshold -
+                  wrinkleField(
+                    localU + p.wrinkleWarp * (2 * warp - 1),
+                    localV,
+                  )) *
+                  inverseWrinkle,
+              ),
+            ),
+            dome = smooth(cap),
+            grain = grainField(u, v);
+          // Longitudinal drying folds meander and reconnect; they are not the single date-pit seam.
+          color +=
+            body *
+            (0.32 +
+              0.12 * phase +
+              0.1 * dome +
+              0.025 * grain -
+              0.18 * wrinkle -
+              color);
+          height +=
+            body *
+            (p.bodyBase +
+              p.domeHeight * dome +
+              p.grainHeight * grain -
+              p.wrinkleDepth * wrinkle -
+              height);
+          roughness +=
+            body * (p.roughness + 0.14 * wrinkle + 0.025 * grain - roughness);
+          occlusion += body * (0.97 - 0.25 * wrinkle - occlusion);
+          return;
+        };
+      }
       case 'datepits': {
         const p = proceduralMaterialPresets.datepits,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -34141,6 +34222,7 @@ export function createSurfaceSampler(
     kind === 'carawayseeds' ||
     kind === 'springpinends' ||
     kind === 'rhyolite' ||
+    kind === 'tonkabeans' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
