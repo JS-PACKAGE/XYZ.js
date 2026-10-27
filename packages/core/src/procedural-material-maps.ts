@@ -3911,6 +3911,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cottonflannel':
       case 'chambray':
       case 'huckaback':
       case 'shantung':
@@ -3925,19 +3926,37 @@ export function createSurfaceSampler(
           shantung = kind === 'shantung',
           huck = kind === 'huckaback',
           chambray = kind === 'chambray',
-          warpTone = chambray ? 0.18 : 0.82,
-          weftTone = chambray ? 0.92 : 0.63,
+          flannel = kind === 'cottonflannel',
+          napPreset = proceduralMaterialPresets.cottonflannel,
+          bareWeave = 1 - napPreset.napCoverage,
+          warpTone = chambray ? 0.18 : flannel ? napPreset.yarnTone : 0.82,
+          weftTone = chambray ? 0.92 : flannel ? napPreset.yarnTone : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
           huckPreset = proceduralMaterialPresets.huckaback,
           huckRepeat = huckPreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          warpBase = twill || huck || chambray ? 0.34 : 0.3,
-          weftBase = ottoman ? 0.52 : twill || huck || chambray ? 0.34 : 0.44,
-          weftCrown = ottoman ? 0.1 : twill || huck || chambray ? 0.04 : 0.07,
+          equalYarns = twill || huck || chambray || flannel,
+          warpBase = equalYarns ? 0.34 : 0.3,
+          weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
+          weftCrown = ottoman ? 0.1 : equalYarns ? 0.04 : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,
+          brushField = flannel
+            ? cachedNoise(
+                napPreset.brushCells,
+                napPreset.brushCells,
+                seed ^ 0x1c817,
+              )
+            : undefined,
+          napField = flannel
+            ? cachedNoise(
+                napPreset.napColumns,
+                napPreset.napRows,
+                seed ^ 0x1c819,
+              )
+            : undefined,
           grainField = cachedNoise(128, 128, seed ^ 0x19711),
           inverseWarp = 1 / (p.warpRadius * p.warpRadius),
           inverseWeft = 1 / (p.weftRadius * p.weftRadius),
@@ -4057,7 +4076,7 @@ export function createSurfaceSampler(
           height = 0.025;
           roughness = 0.96;
           occlusion = 0.45;
-          if (coverage === 0) return;
+          if (coverage === 0 && !flannel) return;
           // Cavalry's six-step draft pairs steep wales; Ottoman pairs wefts.
           // Huck floats span whole draft runs; other lifts fade per crossing.
           const sign = warpOver ? 1 : -1,
@@ -4110,11 +4129,39 @@ export function createSurfaceSampler(
                 0.003 * grain +
                 0.003 * weftFiber +
                 slubPreset.slubHeight * slub);
-          roughness =
-            outside * roughness +
-            warpWeight * (p.roughness + 0.03 * grain - 0.02 * warpFiber) +
-            weftWeight * (p.roughness + 0.03 * grain - 0.02 * weftFiber);
-          occlusion += 0.54 * coverage;
+          if (brushField && napField) {
+            const brush = brushField(u, v),
+              drift = brush - 0.5,
+              nap = napField(
+                u + napPreset.napWarpU * drift,
+                v + napPreset.napWarpV * drift,
+              );
+            // Raised short nap bridges the ground gaps and mostly conceals the
+            // balanced weave; this is neither open mesh nor upright velvet pile.
+            color =
+              bareWeave * color +
+              napPreset.napCoverage *
+                (napPreset.napColor +
+                  napPreset.cloudColor * brush +
+                  napPreset.fiberColor * nap);
+            height =
+              napPreset.napBase +
+              napPreset.napHeight * nap +
+              napPreset.napCloudHeight * brush +
+              napPreset.buriedWeaveHeight * height;
+            roughness =
+              napPreset.roughness +
+              napPreset.napRoughnessVariation * (nap - 0.5) +
+              napPreset.grainRoughnessVariation * (grain - 0.5);
+            occlusion =
+              napPreset.occlusion + napPreset.occlusionWeave * coverage;
+          } else {
+            roughness =
+              outside * roughness +
+              warpWeight * (p.roughness + 0.03 * grain - 0.02 * warpFiber) +
+              weftWeight * (p.roughness + 0.03 * grain - 0.02 * weftFiber);
+            occlusion += 0.54 * coverage;
+          }
           return;
         };
       }
@@ -34329,6 +34376,7 @@ export function createSurfaceSampler(
     kind === 'tonkabeans' ||
     kind === 'pentalobescrewheads' ||
     kind === 'padauk' ||
+    kind === 'cottonflannel' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

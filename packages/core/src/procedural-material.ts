@@ -750,7 +750,8 @@ export type ProceduralMaterialKind =
   | 'rhyolite'
   | 'tonkabeans'
   | 'pentalobescrewheads'
-  | 'padauk';
+  | 'padauk'
+  | 'cottonflannel';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1735,6 +1736,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tonkabeans',
   'pentalobescrewheads',
   'padauk',
+  'cottonflannel',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

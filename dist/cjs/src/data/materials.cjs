@@ -14872,6 +14872,50 @@ var proceduralMaterialPresets = Object.freeze({
 		bandRadius: .16,
 		bandCore: .07,
 		bandContrast: .09
+	}),
+	cottonflannel: Object.freeze({
+		dark: [
+			115,
+			110,
+			104
+		],
+		light: [
+			238,
+			235,
+			229
+		],
+		roughness: .94,
+		relief: .01,
+		warpThreads: 32,
+		weftThreads: 32,
+		warpRadius: .45,
+		warpCore: .34,
+		weftRadius: .45,
+		weftCore: .34,
+		warpLiftHalf: .46,
+		weftLiftHalf: .46,
+		liftShoulder: .12,
+		lift: .14,
+		warpFibers: 128,
+		weftFibers: 128,
+		yarnTone: .72,
+		brushCells: 5,
+		napColumns: 96,
+		napRows: 32,
+		napWarpU: .012,
+		napWarpV: .003,
+		napCoverage: .94,
+		napBase: .4,
+		napHeight: .1,
+		napCloudHeight: .02,
+		buriedWeaveHeight: .04,
+		napColor: .64,
+		cloudColor: .1,
+		fiberColor: .1,
+		napRoughnessVariation: .025,
+		grainRoughnessVariation: .02,
+		occlusion: .95,
+		occlusionWeave: .03
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -15609,7 +15653,8 @@ var proceduralTileMeters = Object.freeze({
 	rhyolite: .12,
 	tonkabeans: .2,
 	pentalobescrewheads: .048,
-	padauk: .16
+	padauk: .16,
+	cottonflannel: .024
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

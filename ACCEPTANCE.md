@@ -8804,3 +8804,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步；技術文件附已讀The Wood Database African Padauk說明及面紋照片，未把endgrain辨識數據當面紋尺寸，未打包圖片。
 - 最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 最終完整suite **179檔／7639項全部通過（1046.24s）**；所有實際畫面分頁先關閉才執行完整回歸，未修改既有材質圖或放寬C1門檻。
+
+## 2026-10-27 程序材質：短拉絨遮織棉法蘭絨（cottonflannel）
+
+- 目錄735→736種：素色、平紋基底的棉法蘭絨近似，不將所有flannel定義成棉或平紋。直接fallthrough共用正式平衡32×32、一上一下雙紗support／lift核心，較密的等寬紗地，連續短nap遮住94%地色、保留4%地織紋高度；連原本孔位也覆蓋，不是裸網布、皮革毛孔或直立velvet pile。
+- 僅新kind配置5×5 brush與96×32 nap快取場，共3,097個Float64／24,776 bytes，重用128² grain。微warp保持週期且有短細絨方向；加入既有needsDetail bypass，不計算未使用的fallback逐點noise／hash。Review後使原裸布roughness／AO只在非nap分支執行，不讓新kind算完立刻覆蓋；C1 shoulder列表只建一次，不在密集內圈反覆配置。這是移除已知無用工作，不宣稱fps或CPU量測改善。
+- 0.024 m參考tile／0.01 UV relief，主nap場理論高度跨度0.001 UV（按參考尺度換算24μm），cloud跨度參考4.8μm；非實測纖維長度、幾何位移或顯微掃描。全opaque M0／mortar0，高roughness且孔位維持淺AO，既有options／Worker／cache／ownership不變，無髮絲幾何、視角依賴fuzz BRDF或布料模擬。
+- Repo前六項隔離draft通過；初次52項定向通過（vitest11.03s），涵蓋新六項及七種共用織物／公開catalog：三seed每個地孔的nap橋接及殘留織地AO、8192點高度／matte／方向取樣，actual512孔位有變化高度而非固定裸地，淺方向normal、opaque／M0；4096 signed UV／六channels，全部紗support／core／lift／owner／UV、真微warp後nap cache格界以32步二分root檢查雙軸C1，h1e-10／strict0.03。未放寬既有材質門檻，最終定向結果另列。
+- Fresh Node當次dist三seed高度跨向／順向變化比為2.2965863563、2.3549152283、2.2596669645，最小AO0.95；actual512主色R192–218、normal最小Z253、兩方向normal變化比2.2259313447、AO最小242／roughness最小234。這些是程序輸出而非實機紗線／物理性能量測；高度byte範圍不拿來當UV或米。
+- actual512 albedo／normal已在managed Chromium150 headless擷取，可見淡暖灰乳白、連續短方向細絨與被遮弱的底紋。第一次gallery在build期間waitForText出現Target closed，取回的page errors buffer為空，已回報工具問題並只釋放失敗owned target；不計作通過，也沒有證明關閉原因。build完成後fresh owned tabs之正式736種gallery，強制WebGPU／WebGL2皆選出cottonflannel並擷取mesh／PBR預覽，page及about:blank cleanup errors空，tabs已關。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures、destroy／pool destroy／cache clear成功。最終review微調後的dist證據另列。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步；九份Markdown相對連結無缺失。技術文件連結已讀Britannica、Encyclopedia of Clothing and Fashion之Napping說明及實際供應商swatches；只近似素色起毛面，不複製格紋、不打包圖片、不認證保暖或耐磨性能。不升版、不push，不外推Safari、實機、Canvas2D 3D或backend parity。
+- Review微調後最終52項定向通過（vitest7.57s），build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過。完整suite實際結果另列，不以定向推估。
+- 最終Fresh Node之全部735種既有材質各64²／seed7四maps相對HEAD SHA256不變；cottonflannel512五maps各1048576 bytes，SHA256也與review前已觀察五圖相同。最終dist ESM／CJS之新kind32²及512²、其餘七共用織物各64²／seed7五maps逐byte相同；最終strict NativeWorker／cache再實跑成功，獨立textures／destroy／pool destroy／cache clear及零page errors皆通過，browser managed tabs為空才跑完整回歸。
+- 最終完整suite **179檔／7646項全部通過（1043.90s）**；本功能獨立提交，保留歷史測試數與本輪失敗分頁紀錄，不把隔離draft或定向測試當完整回歸。

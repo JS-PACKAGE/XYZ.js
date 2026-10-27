@@ -777,7 +777,232 @@ const kinds: ProceduralMaterialKind[] = [
   'tonkabeans',
   'pentalobescrewheads',
   'padauk',
+  'cottonflannel',
 ];
+
+describe('Cotton flannel continuous short brushed nap over balanced plain weave', () => {
+  const p = proceduralMaterialPresets.cottonflannel;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'bridges every ground gap with matte short nap and a faint balanced woven ground for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cottonflannel', seed),
+        gap = empty(),
+        cross = empty(),
+        side = empty();
+      let minHeight = Infinity,
+        maxHeight = -Infinity,
+        across = 0,
+        along = 0,
+        invalid = 0;
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          sample(col / p.warpThreads, row / p.weftThreads, gap);
+          sample(
+            (col + 0.5) / p.warpThreads,
+            (row + 0.5) / p.weftThreads,
+            cross,
+          );
+          expect(gap.occlusion).toBeGreaterThan(0.9);
+          expect(cross.occlusion - gap.occlusion).toBeGreaterThan(0.02);
+          expect(Math.abs(gap.color - cross.color)).toBeLessThan(0.18);
+        }
+      for (let j = 0; j < 8192; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, cross);
+        minHeight = Math.min(minHeight, cross.height);
+        maxHeight = Math.max(maxHeight, cross.height);
+        invalid += Number(
+          cross.metallic !== 0 ||
+            cross.mortar !== 0 ||
+            cross.occlusion < 0.9 ||
+            cross.roughness < 0.9 ||
+            cross.roughness > 1 ||
+            cross.color < 0.6,
+        );
+        sample(u + 0.00001, v, side);
+        across += Math.abs(side.height - cross.height);
+        sample(u, v + 0.00001, side);
+        along += Math.abs(side.height - cross.height);
+      }
+      expect(invalid).toBe(0);
+      expect(minHeight).toBeGreaterThan(0.4 * p.relief);
+      expect(maxHeight).toBeLessThan(0.56 * p.relief);
+      expect(maxHeight - minHeight).toBeGreaterThan(0.06 * p.relief);
+      expect(across).toBeGreaterThan(1.8 * along);
+    },
+  );
+  it('writes actual512 continuous opaque warm matte nap in the former weave gaps with shallow directional bump normals', () => {
+    const maps = generateProceduralMaps('cottonflannel', 512, 7, {
+      heightMap: true,
+    });
+    let invalid = 0,
+      sumU = 0,
+      sumV = 0,
+      lowGapHeight = 255,
+      highGapHeight = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.metallicRoughness[i + 1] < 225 ||
+          maps.occlusion[i] < 230 ||
+          maps.normal[i + 2] < 240,
+      );
+      sumU += Math.abs(maps.normal[i] - 128);
+      sumV += Math.abs(maps.normal[i + 1] - 128);
+    }
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        const i =
+          4 *
+          (Math.floor((row / p.weftThreads) * 512) * 512 +
+            Math.floor((col / p.warpThreads) * 512));
+        lowGapHeight = Math.min(lowGapHeight, maps.height![i]);
+        highGapHeight = Math.max(highGapHeight, maps.height![i]);
+      }
+    expect(invalid).toBe(0);
+    expect(highGapHeight - lowGapHeight).toBeGreaterThan(128);
+    expect(sumU).toBeGreaterThan(1.4 * sumV);
+  });
+  it('keeps the complete buried weave and short nap periodic across signed multi tile UVs', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottonflannel', seed),
+        a = empty(),
+        b = empty();
+      for (let j = 0; j < 4096; j++) {
+        const u = ((j * 0.61803398875) % 1) - 3,
+          v = ((j * 0.41421356237) % 1) + 7;
+        sample(u, v, a);
+        sample(u + 7, v - 11, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps all buried yarn shoulders lifts owners real warped nap cache boundaries and UV wraps C1', () => {
+    const h = 1e-10;
+    const shoulders = [
+      -0.5,
+      0,
+      0.5,
+      -p.warpRadius,
+      p.warpRadius,
+      -p.warpCore,
+      p.warpCore,
+      -p.warpLiftHalf,
+      p.warpLiftHalf,
+      p.warpLiftHalf - p.liftShoulder,
+      p.liftShoulder - p.warpLiftHalf,
+    ];
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottonflannel', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const brushLattice = new Float64Array(p.brushCells * p.brushCells);
+      for (let y = 0; y < p.brushCells; y++)
+        for (let x = 0; x < p.brushCells; x++)
+          brushLattice[y * p.brushCells + x] = hash(x, y, seed ^ 0x1c817);
+      const brushAt = (u: number, v: number) => {
+        const x = (u - Math.floor(u)) * p.brushCells,
+          y = (v - Math.floor(v)) * p.brushCells,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          fx = x - ix,
+          fy = y - iy,
+          sx = fx * fx * (3 - 2 * fx),
+          sy = fy * fy * (3 - 2 * fy),
+          nextX = (ix + 1) % p.brushCells,
+          nextY = (iy + 1) % p.brushCells;
+        const a = brushLattice[iy * p.brushCells + ix],
+          b = brushLattice[iy * p.brushCells + nextX],
+          c = brushLattice[nextY * p.brushCells + ix],
+          d = brushLattice[nextY * p.brushCells + nextX];
+        return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+      };
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++)
+          for (let j = 0; j <= 16; j++)
+            for (const d of shoulders) {
+              check(
+                (col + 0.5 + d) / p.warpThreads,
+                (row + j / 16) / p.weftThreads,
+              );
+              check(
+                (col + j / 16) / p.warpThreads,
+                (row + 0.5 + d) / p.weftThreads,
+              );
+            }
+      for (const cells of [p.brushCells, p.warpThreads, 128])
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 128; j++) {
+            check(boundary / cells, j / 128);
+            check(j / 128, boundary / cells);
+          }
+      for (let axis = 0; axis < 2; axis++) {
+        const cells = axis === 0 ? p.napColumns : p.napRows,
+          amplitude = axis === 0 ? p.napWarpU : p.napWarpV;
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 64; j++) {
+            const target = boundary / cells,
+              fixed = j / 64;
+            let lo = target - 0.02,
+              hi = target + 0.02;
+            for (let step = 0; step < 32; step++) {
+              const t = (lo + hi) * 0.5,
+                brush = axis === 0 ? brushAt(t, fixed) : brushAt(fixed, t);
+              if (t + amplitude * (brush - 0.5) < target) lo = t;
+              else hi = t;
+            }
+            const t = (lo + hi) * 0.5;
+            if (axis === 0) check(t, fixed);
+            else check(fixed, t);
+          }
+      }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Padauk warm red orange straight grain with sparse coarse open vessels', () => {
   const p = proceduralMaterialPresets.padauk;

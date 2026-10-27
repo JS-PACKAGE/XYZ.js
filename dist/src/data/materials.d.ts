@@ -8463,6 +8463,42 @@ export declare const proceduralMaterialPresets: Readonly<{
         bandCore: 0.07;
         bandContrast: 0.09;
     }>;
+    cottonflannel: Readonly<{
+        dark: readonly [115, 110, 104];
+        light: readonly [238, 235, 229];
+        roughness: 0.94;
+        relief: 0.01;
+        warpThreads: 32;
+        weftThreads: 32;
+        warpRadius: 0.45;
+        warpCore: 0.34;
+        weftRadius: 0.45;
+        weftCore: 0.34;
+        warpLiftHalf: 0.46;
+        weftLiftHalf: 0.46;
+        liftShoulder: 0.12;
+        lift: 0.14;
+        warpFibers: 128;
+        weftFibers: 128;
+        yarnTone: 0.72;
+        brushCells: 5;
+        napColumns: 96;
+        napRows: 32;
+        napWarpU: 0.012;
+        napWarpV: 0.003;
+        napCoverage: 0.94;
+        napBase: 0.4;
+        napHeight: 0.1;
+        napCloudHeight: 0.02;
+        buriedWeaveHeight: 0.04;
+        napColor: 0.64;
+        cloudColor: 0.1;
+        fiberColor: 0.1;
+        napRoughnessVariation: 0.025;
+        grainRoughnessVariation: 0.02;
+        occlusion: 0.95;
+        occlusionWeave: 0.03;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9201,4 +9237,5 @@ export declare const proceduralTileMeters: Readonly<{
     tonkabeans: 0.2;
     pentalobescrewheads: 0.048;
     padauk: 0.16;
+    cottonflannel: 0.024;
 }>;
