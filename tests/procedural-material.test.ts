@@ -778,7 +778,346 @@ const kinds: ProceduralMaterialKind[] = [
   'pentalobescrewheads',
   'padauk',
   'cottonflannel',
+  'pinolith',
 ];
+
+describe('Pinolith pointed pale magnesite lenses with opaque overlap on polished dark matrix', () => {
+  const p = proceduralMaterialPresets.pinolith;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const signs = [-1, 1] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  type Crystal = {
+    id: number;
+    cx: number;
+    cy: number;
+    cosine: number;
+    sine: number;
+    length: number;
+    width: number;
+    offset: number;
+  };
+  type Point = { u: number; v: number };
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const model = (seed: number) => {
+    const lattice = new Float64Array(p.cloudCells * p.cloudCells),
+      crystals: Crystal[] = [];
+    for (let y = 0; y < p.cloudCells; y++)
+      for (let x = 0; x < p.cloudCells; x++)
+        lattice[y * p.cloudCells + x] = hash(x, y, seed ^ 0x1ca1b);
+    const cloudAt = (u: number, v: number) => {
+      const x = (u - Math.floor(u)) * p.cloudCells,
+        y = (v - Math.floor(v)) * p.cloudCells,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        fx = x - ix,
+        fy = y - iy,
+        sx = fx * fx * (3 - 2 * fx),
+        sy = fy * fy * (3 - 2 * fy),
+        nextX = (ix + 1) % p.cloudCells,
+        nextY = (iy + 1) % p.cloudCells;
+      const a = lattice[iy * p.cloudCells + ix],
+        b = lattice[iy * p.cloudCells + nextX],
+        c = lattice[nextY * p.cloudCells + ix],
+        d = lattice[nextY * p.cloudCells + nextX];
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (let j = 0; j < p.crystalsPerCell; j++) {
+          const key = col * p.crystalsPerCell + j,
+            angle = 2 * Math.PI * hash(key, row, seed ^ 0x1ca11);
+          crystals.push({
+            id: crystals.length,
+            cx: col + 0.5 + p.jitter * (2 * hash(key, row, seed ^ 0x1ca13) - 1),
+            cy: row + 0.5 + p.jitter * (2 * hash(key, row, seed ^ 0x1ca15) - 1),
+            cosine: Math.cos(angle),
+            sine: Math.sin(angle),
+            length:
+              p.halfLengthMinimum +
+              p.halfLengthRange * hash(key, row, seed ^ 0x1ca17),
+            width:
+              p.halfWidthMinimum +
+              p.halfWidthRange * hash(key, row, seed ^ 0x1ca19),
+            offset:
+              p.lensOffsetMinimum +
+              p.lensOffsetRange * hash(key, row, seed ^ 0x1ca1f),
+          });
+        }
+    const maxQ = (crystal: Crystal, point: Point, drift: number) => {
+      let dx = point.u * p.cells - crystal.cx,
+        dy = point.v * p.cells - crystal.cy;
+      dx -= p.cells * Math.round(dx / p.cells);
+      dy -= p.cells * Math.round(dy / p.cells);
+      const a = (dx * crystal.cosine + dy * crystal.sine) / crystal.length,
+        b = (dy * crystal.cosine - dx * crystal.sine) / crystal.width + drift;
+      return a * a + (Math.abs(b) + crystal.offset) ** 2;
+    };
+    const isolatedAt = (crystal: Crystal, point: Point) => {
+      const drift = p.edgeWarp * (cloudAt(point.u, point.v) - 0.5);
+      for (const other of crystals)
+        if (other.id !== crystal.id && maxQ(other, point, drift) < 1)
+          return false;
+      return true;
+    };
+    const topAt = (point: Point, before: number = crystals.length) => {
+      const drift = p.edgeWarp * (cloudAt(point.u, point.v) - 0.5);
+      for (let i = before - 1; i >= 0; i--)
+        if (maxQ(crystals[i], point, drift) < 1) return i;
+      return -1;
+    };
+    const world = (crystal: Crystal, a: number, b: number, point: Point) => {
+      let lo = b - p.edgeWarp * 0.5 - 1e-9,
+        hi = b + p.edgeWarp * 0.5 + 1e-9;
+      for (let step = 0; step < 32; step++) {
+        const t = (lo + hi) * 0.5,
+          x = a * crystal.length,
+          y = t * crystal.width,
+          u = (crystal.cx + x * crystal.cosine - y * crystal.sine) / p.cells,
+          v = (crystal.cy + x * crystal.sine + y * crystal.cosine) / p.cells;
+        if (t + p.edgeWarp * (cloudAt(u, v) - 0.5) < b) lo = t;
+        else hi = t;
+      }
+      const x = a * crystal.length,
+        y = (lo + hi) * 0.5 * crystal.width;
+      point.u = (crystal.cx + x * crystal.cosine - y * crystal.sine) / p.cells;
+      point.v = (crystal.cy + x * crystal.sine + y * crystal.cosine) / p.cells;
+    };
+    return { crystals, cloudAt, maxQ, isolatedAt, topAt, world };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps exposed kernels pointed opaque overlaps correctly occluded and every mineral cut flush for seed %s',
+    (seed) => {
+      const geometry = model(seed),
+        sample = createSurfaceSampler('pinolith', seed),
+        a = empty(),
+        b = empty(),
+        center: Point = { u: 0, v: 0 },
+        point: Point = { u: 0, v: 0 };
+      const fullCore = 1 - p.rimBand - p.shoulder;
+      let tipChecks = 0,
+        sideChecks = 0,
+        hiddenRimChecks = 0,
+        visibleRimChecks = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity;
+      for (const crystal of geometry.crystals) {
+        geometry.world(crystal, 0, 0, center);
+        if (geometry.isolatedAt(crystal, center)) {
+          sample(center.u, center.v, a);
+          const tip = Math.sqrt(
+              (1 - p.rimBand - crystal.offset * crystal.offset + fullCore) *
+                0.5,
+            ),
+            side =
+              (Math.sqrt(fullCore - 0.25) +
+                Math.sqrt(1 - p.rimBand - 0.25) -
+                crystal.offset) *
+              0.5;
+          for (let axis = 0; axis < 2; axis++) {
+            geometry.world(
+              crystal,
+              axis === 0 ? tip : 0.5,
+              axis === 0 ? 0 : side,
+              point,
+            );
+            if (!geometry.isolatedAt(crystal, point)) continue;
+            sample(point.u, point.v, b);
+            expect(a.color - b.color).toBeGreaterThan(0.18);
+            expect(b.roughness - a.roughness).toBeGreaterThan(0.04);
+            expect(Math.abs(a.height - b.height)).toBeLessThan(
+              0.003 * p.relief,
+            );
+            if (axis === 0) tipChecks++;
+            else sideChecks++;
+          }
+        }
+        for (const sign of signs) {
+          geometry.world(
+            crystal,
+            sign *
+              Math.sqrt(
+                1 -
+                  (p.rimBand + p.shoulder) * 0.5 -
+                  crystal.offset * crystal.offset,
+              ),
+            0,
+            point,
+          );
+          const top = geometry.topAt(point),
+            drift = p.edgeWarp * (geometry.cloudAt(point.u, point.v) - 0.5);
+          if (
+            top > crystal.id &&
+            geometry.maxQ(geometry.crystals[top], point, drift) <
+              fullCore - 1e-6
+          ) {
+            sample(point.u, point.v, a);
+            expect(a.color).toBeGreaterThan(
+              p.crystalColor - p.graphiteCloud - 1e-10,
+            );
+            expect(a.roughness).toBeLessThan(p.roughness + 0.016);
+            hiddenRimChecks++;
+          } else if (top === crystal.id) {
+            const below = geometry.topAt(point, crystal.id);
+            if (
+              below >= 0 &&
+              geometry.maxQ(geometry.crystals[below], point, drift) <
+                fullCore - 1e-6
+            ) {
+              sample(point.u, point.v, a);
+              expect(a.color).toBeLessThan(0.38);
+              expect(a.roughness).toBeGreaterThan(p.roughness + 0.03);
+              visibleRimChecks++;
+            }
+          }
+        }
+      }
+      expect(tipChecks).toBeGreaterThan(2);
+      expect(sideChecks).toBeGreaterThan(2);
+      expect(hiddenRimChecks).toBeGreaterThan(10);
+      expect(visibleRimChecks).toBeGreaterThan(10);
+      for (let j = 0; j < 8192; j++) {
+        sample((j * 0.61803398875) % 1, (j * 0.41421356237) % 1, a);
+        low = Math.min(low, a.height);
+        high = Math.max(high, a.height);
+        invalid += Number(
+          a.metallic !== 0 ||
+            a.mortar !== 0 ||
+            a.occlusion !== 1 ||
+            a.roughness < 0.23 ||
+            a.roughness > 0.32,
+        );
+      }
+      expect(invalid).toBe(0);
+      expect(high - low).toBeLessThan(0.003 * p.relief);
+    },
+  );
+  it('writes actual512 pale grey included kernels dark matrix and opaque nonmetal polished PBR without raised inclusions', () => {
+    const maps = generateProceduralMaps('pinolith', 512, 7, {
+      heightMap: true,
+    });
+    let invalid = 0,
+      dark = 0,
+      pale = 0,
+      grey = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 250 ||
+          maps.metallicRoughness[i + 1] < 58 ||
+          maps.metallicRoughness[i + 1] > 82,
+      );
+      if (maps.baseColor[i] < 80) dark++;
+      else if (maps.baseColor[i] > 170) pale++;
+      else grey++;
+    }
+    expect(invalid).toBe(0);
+    expect(dark / 262144).toBeGreaterThan(0.15);
+    expect(dark / 262144).toBeLessThan(0.5);
+    expect(pale / 262144).toBeGreaterThan(0.2);
+    expect(pale / 262144).toBeLessThan(0.6);
+    expect(grey / 262144).toBeGreaterThan(0.15);
+  });
+  it('repeats the same opaque layer ordering over signed multi tile UV coordinates', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('pinolith', seed),
+        a = empty(),
+        b = empty();
+      for (let j = 0; j < 4096; j++) {
+        const u = ((j * 0.61803398875) % 1) - 3,
+          v = ((j * 0.41421356237) % 1) + 7;
+        sample(u, v, a);
+        sample(u + 7, v - 11, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps every real warped lens support shoulder intersection owner cache boundary and UV wrap C1', () => {
+    const h = 1e-10,
+      levels = [1, 1 - p.shoulder, 1 - p.rimBand, 1 - p.rimBand - p.shoulder];
+    const radii = levels.map(Math.sqrt),
+      grids = [p.cells, p.cloudCells, p.grainCells],
+      circle = new Float64Array(66);
+    for (let j = 0; j <= 32; j++) {
+      const theta = (2 * Math.PI * j) / 32;
+      circle[j * 2] = Math.cos(theta);
+      circle[j * 2 + 1] = Math.sin(theta);
+    }
+    for (const seed of [0, 1, 0xffffffff]) {
+      const geometry = model(seed),
+        sample = createSurfaceSampler('pinolith', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        point: Point = { u: 0, v: 0 };
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const crystal of geometry.crystals) {
+        for (const radius of radii)
+          for (const sign of signs)
+            for (let j = 0; j <= 32; j++) {
+              const aa = radius * circle[j * 2],
+                bb = sign * crystal.offset + radius * circle[j * 2 + 1];
+              if (aa * aa + (bb + sign * crystal.offset) ** 2 > 1 + 1e-10)
+                continue;
+              geometry.world(crystal, aa, bb, point);
+              check(point.u, point.v);
+            }
+        for (const qa of levels)
+          for (const qb of levels) {
+            const bb = (qa - qb) / (4 * crystal.offset),
+              squared = qa - (bb + crystal.offset) ** 2;
+            if (squared < 0) continue;
+            for (const sign of signs) {
+              geometry.world(crystal, sign * Math.sqrt(squared), bb, point);
+              check(point.u, point.v);
+            }
+          }
+      }
+      for (const cells of grids)
+        for (let boundary = 0; boundary <= cells; boundary++)
+          for (let j = 0; j <= 128; j++) {
+            check(boundary / cells, j / 128);
+            check(j / 128, boundary / cells);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Cotton flannel continuous short brushed nap over balanced plain weave', () => {
   const p = proceduralMaterialPresets.cottonflannel;

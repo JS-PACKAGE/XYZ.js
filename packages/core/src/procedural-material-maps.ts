@@ -3911,6 +3911,130 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pinolith': {
+        const p = proceduralMaterialPresets.pinolith,
+          crystalCount = p.cells * p.cells * p.crystalsPerCell,
+          candidatesPerCell = 9 * p.crystalsPerCell,
+          crystals = new Float64Array(crystalCount * 9),
+          layers = new Uint16Array(p.cells * p.cells * candidatesPerCell),
+          inverseShoulder = 1 / p.shoulder,
+          inverseCloud = 1 / p.cloudShoulder,
+          coreLimit = 1 - p.rimBand,
+          cloudField = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1ca1b),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1ca1d);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            for (let j = 0; j < p.crystalsPerCell; j++) {
+              const key = col * p.crystalsPerCell + j,
+                i = ((row * p.cells + col) * p.crystalsPerCell + j) * 9,
+                angle = TAU * hash(key, row, seed ^ 0x1ca11),
+                length =
+                  p.halfLengthMinimum +
+                  p.halfLengthRange * hash(key, row, seed ^ 0x1ca17),
+                width =
+                  p.halfWidthMinimum +
+                  p.halfWidthRange * hash(key, row, seed ^ 0x1ca19),
+                offset =
+                  p.lensOffsetMinimum +
+                  p.lensOffsetRange * hash(key, row, seed ^ 0x1ca1f),
+                acrossBound = 1 - offset + p.edgeWarp * 0.5;
+              crystals[i] =
+                0.5 + p.jitter * (2 * hash(key, row, seed ^ 0x1ca13) - 1);
+              crystals[i + 1] =
+                0.5 + p.jitter * (2 * hash(key, row, seed ^ 0x1ca15) - 1);
+              crystals[i + 2] = Math.cos(angle);
+              crystals[i + 3] = Math.sin(angle);
+              crystals[i + 4] = 1 / (length * length);
+              crystals[i + 5] = 1 / width;
+              crystals[i + 6] =
+                length * length * (1 - offset * offset) +
+                width * width * acrossBound * acrossBound;
+              crystals[i + 7] = offset * offset;
+              crystals[i + 8] = 2 * offset;
+            }
+            const first = (row * p.cells + col) * candidatesPerCell;
+            let end = first;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const base =
+                  (((row + oy + p.cells) % p.cells) * p.cells +
+                    ((col + ox + p.cells) % p.cells)) *
+                  p.crystalsPerCell;
+                for (let j = 0; j < p.crystalsPerCell; j++) {
+                  // 500 canonical IDs plus four image-offset bits fit Uint16.
+                  // In-place insertion keeps one global opacity order at wraps.
+                  const entry = ((base + j) << 4) | ((oy + 1) << 2) | (ox + 1);
+                  let at = end++;
+                  while (at > first && layers[at - 1] > entry) {
+                    layers[at] = layers[at - 1];
+                    at--;
+                  }
+                  layers[at] = entry;
+                }
+              }
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            fx = fract(uc),
+            fy = fract(vc),
+            cloud = cloudField(u, v),
+            drift = p.edgeWarp * (cloud - 0.5),
+            first = (row * p.cells + col) * candidatesPerCell,
+            end = first + candidatesPerCell;
+          let white = 0;
+          for (let candidate = first; candidate < end; candidate++) {
+            const entry = layers[candidate],
+              i = (entry >>> 4) * 9,
+              dx = fx - ((entry & 3) - 1) - crystals[i],
+              dy = fy - (((entry >>> 2) & 3) - 1) - crystals[i + 1];
+            // Warped rotated lenses fit radius <0.903; omitted owners start
+            // at distance 1.1. Per-crystal bounds safely cull inactive work.
+            if (dx * dx + dy * dy >= crystals[i + 6]) continue;
+            const along = dx * crystals[i + 2] + dy * crystals[i + 3],
+              across =
+                (dy * crystals[i + 2] - dx * crystals[i + 3]) *
+                  crystals[i + 5] +
+                drift,
+              middle =
+                along * along * crystals[i + 4] +
+                across * across +
+                crystals[i + 7],
+              shift = crystals[i + 8] * across;
+            if (middle + Math.abs(shift) >= 1) continue;
+            const a = middle + shift,
+              b = middle - shift,
+              outer =
+                smooth(clamp((1 - a) * inverseShoulder)) *
+                smooth(clamp((1 - b) * inverseShoulder)),
+              core =
+                smooth(clamp((coreLimit - a) * inverseShoulder)) *
+                smooth(clamp((coreLimit - b) * inverseShoulder));
+            // An opaque upper crystal hides buried rims instead of tracing
+            // transparent leaf outlines through every intersecting white core.
+            white = white * (1 - outer) + core;
+          }
+          const grain = grainField(u, v),
+            graphite = smooth(clamp((cloud - p.cloudCore) * inverseCloud)),
+            matrix =
+              p.matrixColor + p.matrixCloud * cloud + p.matrixGrain * grain,
+            pale =
+              p.crystalColor -
+              p.graphiteCloud * graphite +
+              p.crystalGrain * grain;
+          color = matrix + white * (pale - matrix);
+          // Pale lenses and dark graphitic rims are flush, not carved rice.
+          height = p.height + p.grainHeight * grain;
+          roughness =
+            p.roughness +
+            p.matrixRoughness * (1 - white) +
+            p.grainRoughness * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'cottonflannel':
       case 'chambray':
       case 'huckaback':
@@ -34377,6 +34501,7 @@ export function createSurfaceSampler(
     kind === 'pentalobescrewheads' ||
     kind === 'padauk' ||
     kind === 'cottonflannel' ||
+    kind === 'pinolith' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

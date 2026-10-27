@@ -8818,3 +8818,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Review微調後最終52項定向通過（vitest7.57s），build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過。完整suite實際結果另列，不以定向推估。
 - 最終Fresh Node之全部735種既有材質各64²／seed7四maps相對HEAD SHA256不變；cottonflannel512五maps各1048576 bytes，SHA256也與review前已觀察五圖相同。最終dist ESM／CJS之新kind32²及512²、其餘七共用織物各64²／seed7五maps逐byte相同；最終strict NativeWorker／cache再實跑成功，獨立textures／destroy／pool destroy／cache clear及零page errors皆通過，browser managed tabs為空才跑完整回歸。
 - 最終完整suite **179檔／7646項全部通過（1043.90s）**；本功能獨立提交，保留歷史測試數與本輪失敗分頁紀錄，不把隔離draft或定向測試當完整回歸。
+
+## 2026-10-27 程序材質：深基質尖透鏡菱鎂晶石材（pinolith）
+
+- 目錄736→737種：拋光Pinolith近似，深石墨色基質、灰色包裹體及淡色尖透鏡菱鎂晶；不是一般橢圓米粒、浮雕或礦物生長模擬。依已讀Geology.com說明／cabochon照片及供應商標本照片取外觀，不採療效或排他產地敘述，也未打包圖片。
+- 500晶各九值共4,500個Float64／36,000 bytes，雙偏置ellipse C1交集、變動軸長與偏置、週期cloud微warp。每owner的45個wrapped 3×3候選按全域canonical晶序預先排入4,500個Uint16／9,000 bytes；opaque覆蓋讓上層晶核遮住埋藏黑邊，同時保留真正可見上層暗rim。32² cloud／128² grain皆快取，needsDetail bypass避免無用fallback noise；無逐點排序／配置／hash／trig／sqrt。
+- Repo前實際512 draft先見稀疏規則葉片及透明交疊線稿，後改變動晶形／密度及opaque順序；直接移除輪廓又會合成無晶界白塊，也未採用。最終保留表面可見暗rim、不透畫被蓋住輪廓，六項隔離行為通過；沒有為外觀問題放寬測試門檻。
+- 每晶保守半徑上界小於0.903，省略owner最短距離1.1。另實跑隔離的未cull 5×5對照variant：三seed共12,288 signed UV點六channels完全相同，新kind32²及512²／seed7五maps逐byte相同，證明該試作的3×3 neighborhood及早期cull沒有裁晶；未新增永久source-text／副本echo測試，也無probe檔留在repo。
+- 正式14項定向通過（vitest4.19s），含新六項與catalog、既有cottonflannel六項與catalog。三seed各檢查真正exposed尖端／窄側而非普通ellipse、上晶核遮住下rim及上rim遮住下白晶、全相平切／M0／AO1／roughness；actual512明暗灰相及opaque PBR，4096 signed UV。全部真warp後ellipse support／core shoulders及兩ellipse所有level交點，以32步二分反解座標，owner／noise／UV雙軸C1，h1e-10／strict0.03；圓周方向與半徑只建一次，不更改取樣點。
+- 0.1 m參考tile／0.001 UV relief，晶及暗邊共用平切面，只有grain理論高度跨度0.000003 UV（按參考尺度換算0.3μm），不是幾何位移、顯微掃描或實測晶體尺寸。全opaque M0／mortar0／AO1，options／Worker／cache／ownership不變，不新增折射、真實解理或岩石物理。
+- Managed Chromium150 headless實際擷取正式actual512 albedo／normal：可見交疊淡晶、灰色包裹體與暗基質，normal視覺近乎平面，未把顏料邊界當浮雕。build完成後正式737種gallery，強制WebGPU及WebGL2皆選中pinolith並擷取mesh／PBR預覽，page及about:blank cleanup errors空，各tab已關。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures／destroy／pool destroy／cache clear成功、page errors空，managed browser tabs為空才執行完整回歸。
+- Fresh Node之全部736種既有材質各64²／seed7四maps相對HEAD SHA256不變；pinolith512五maps各1048576 bytes。dist ESM／CJS之新kind32²及512²、chrysanthemumstone／porphyry／rhyolite／cottonflannel各64²／seed7五maps逐byte相同，不宣稱跨realm constructor相同。
+- README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，九份Markdown相對連結無缺失。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過，完整suite實際結果另列；不升版、不push，不外推Safari、實機、Canvas2D 3D、backend parity或效能改善。
+- 最終完整suite **179檔／7653項全部通過（987.94s）**；本功能獨立提交，不把隔離draft、未cull對照或定向測試冒充完整回歸。
