@@ -8587,3 +8587,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
 - Fresh Node產生當次dist之chrysocolla512五maps；既有717種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - 完整179個測試檔／7520項全部通過（1036.32s；記憶卡斷言維護後重新執行完整suite），typecheck、lint、format:check再次通過；先前build／API compatibility／distribution與實際browser／Worker smoke證據見上列。首輪逾時與維護另節保留，沒有放寬取樣／門檻／timeout；依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：裂口空腔花椒果皮（sichuanpepperhusks）
+
+- 目錄718→719種：49枚紅褐粗糙空果皮，以C1平方距離環壁、cached wrinkle連續變形內外輪廓及向外裂口保留凹腔，對側附著痕更低、更暗且更粗糙，非整粒胡椒或透明洞。六值姿態快取／128² grain／40² wrinkle fields；support最多0.384108加jitter0.03小於owner0.5，bounding reject避免在支撐外計算wrinkle，無逐點配置／hash／trig／sqrt。全opaque M0／mortar0，未新增geometry、植物生長或化學模擬。
+- 0.05 m參考tile／0.015 UV relief，pore depth0.000825 UV與scar depth0.0024 UV（按參考尺度換算41.25μm與120μm，非位移或實機量測）。最終6項專項全部通過（vitest1.63s）：三seed外開口連通空腔／雙側唇壁／較低附著痕、參考高差大於50μm與同macro半徑的凹孔高差大於5μm；512² opaque紅色M0邊緣與低空腔，4096 signed UV週期及雙軸C1。
+- actual512 normal初次檢視發現過度規則圓環；新增每枚果皮角向外半徑差大於0.0075 local units之回歸，原型以3.4924563241389706e-11失敗。加入cached C1輪廓變形後六項通過；邊界測試以129 rays／32步bisection定位實際內外邊界，並保留slot／scar／owner／UV取樣，未放寬門檻。
+- 最終輪廓修改後重新擷取managed Chromium150 headless正式PBR gallery WebGPU／WebGL2，皆顯示719種並選取sichuanpepperhusks，頁面及cleanup errors空；另重新擷取actual512 normal原尺寸畫布觀察不規則內外壁、裂口與附著痕。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- 最終完整dist之strict static NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生最終dist之sichuanpepperhusks512五maps；既有718種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 最終完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7527項測試（974.07s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。僅最終輪廓版本記為完整驗收；依功能獨立commit、不push。

@@ -1441,6 +1441,104 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sichuanpepperhusks': {
+        const p = proceduralMaterialPresets.sichuanpepperhusks,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b811),
+          wrinkleField = cachedNoise(40, 40, seed ^ 0x1b813),
+          outerSquared = p.outerRadius * p.outerRadius,
+          outerLimitSquared = outerSquared * (1 + p.rimWarp),
+          inverseOuter = 1 / (outerSquared - p.outerCore * p.outerCore),
+          innerSquared = p.innerRadius * p.innerRadius,
+          inverseInner = 1 / (innerSquared - p.innerCore * p.innerCore),
+          inverseDome = 1 / outerSquared,
+          gapSquared = p.gapHalfWidth * p.gapHalfWidth,
+          inverseGap = 1 / (gapSquared - p.gapCore * p.gapCore),
+          inverseGapEnd = 1 / (p.gapEnd - p.gapStart),
+          inverseScarX = 1 / (p.scarRadiusX * p.scarRadiusX),
+          inverseScarY = 1 / (p.scarRadiusY * p.scarRadiusY),
+          inverseScarEdge = 1 / (1 - p.scarCoreQ),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1b815);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b817) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b819) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1b81b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1b81d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y =
+              (dy * poses[i] - dx * poses[i + 1]) *
+              poses[i + 4] *
+              p.ellipticity,
+            q = x * x + y * y;
+          color = 0.025;
+          height = 0.06;
+          roughness = 0.97;
+          occlusion = 0.28;
+          if (q >= outerLimitSquared) return;
+          const wrinkle = 2 * wrinkleField(u, v) - 1,
+            warpedQ = q / (1 + p.rimWarp * wrinkle),
+            outer = smooth(clamp((outerSquared - warpedQ) * inverseOuter)),
+            inner = smooth(clamp((innerSquared - warpedQ) * inverseInner)),
+            gap =
+              smooth(clamp((x - p.gapStart) * inverseGapEnd)) *
+              smooth(clamp((gapSquared - y * y) * inverseGap)),
+            face = outer * (1 - inner) * (1 - gap);
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            ridge = wrinkle * wrinkle,
+            pore = smooth(clamp((p.poreThreshold - grain) * inversePore)),
+            sx = x - p.scarX,
+            scar = smooth(
+              clamp(
+                (1 - sx * sx * inverseScarX - y * y * inverseScarY) *
+                  inverseScarEdge,
+              ),
+            ),
+            dome = smooth(clamp(1 - q * inverseDome));
+          // The split opens into an opaque recessed cavity, not a transparent
+          // hole or a whole peppercorn; the opposite attachment scar stays lower.
+          color +=
+            face *
+            (0.48 +
+              0.18 * poses[i + 5] +
+              0.1 * ridge -
+              0.16 * pore -
+              0.2 * scar -
+              color);
+          height +=
+            face *
+            (p.huskHeight +
+              p.domeHeight * dome +
+              p.wrinkleHeight * ridge -
+              p.poreDepth * pore -
+              p.scarDepth * scar -
+              height);
+          roughness +=
+            face *
+            (p.roughness +
+              0.05 * pore +
+              0.08 * scar -
+              0.03 * ridge -
+              roughness);
+          occlusion += face * (0.95 - 0.1 * pore - 0.16 * scar - occlusion);
+          return;
+        };
+      }
       case 'chrysocolla': {
         const p = proceduralMaterialPresets.chrysocolla,
           globules = p.centers.length / 2,
@@ -33550,6 +33648,7 @@ export function createSurfaceSampler(
     kind === 'hempcrete' ||
     kind === 'utilityblades' ||
     kind === 'chrysocolla' ||
+    kind === 'sichuanpepperhusks' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

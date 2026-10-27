@@ -8139,6 +8139,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         coreQ: 0.72;
         centers: readonly [0, -0.11, -0.12, 0.09, 0.12, 0.09];
     }>;
+    sichuanpepperhusks: Readonly<{
+        dark: readonly [30, 6, 5];
+        light: readonly [184, 68, 43];
+        roughness: 0.83;
+        relief: 0.015;
+        cells: 7;
+        jitter: 0.03;
+        scale: 0.94;
+        scaleVariation: 0.1;
+        ellipticity: 1.12;
+        rimWarp: 0.18;
+        outerRadius: 0.34;
+        outerCore: 0.3;
+        innerRadius: 0.205;
+        innerCore: 0.165;
+        gapStart: 0.13;
+        gapEnd: 0.23;
+        gapHalfWidth: 0.075;
+        gapCore: 0.045;
+        scarX: -0.265;
+        scarRadiusX: 0.035;
+        scarRadiusY: 0.06;
+        scarCoreQ: 0.4;
+        poreThreshold: 0.45;
+        poreShoulder: 0.2;
+        huskHeight: 0.34;
+        domeHeight: 0.18;
+        wrinkleHeight: 0.035;
+        poreDepth: 0.055;
+        scarDepth: 0.16;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8860,4 +8891,5 @@ export declare const proceduralTileMeters: Readonly<{
     hempcrete: 0.24;
     utilityblades: 0.24;
     chrysocolla: 0.12;
+    sichuanpepperhusks: 0.05;
 }>;
