@@ -8706,3 +8706,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，附GIA礦物說明並區分該頁硬玉圖片，未打包參考照片。最終靜態及完整suite實際結果另列；未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 最終0.07 UV版本重新build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；較早0.025 UV版靜態gate不作最終輸出證據。
 - 最終完整suite179個測試檔／7590項全部通過（1112.19s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；不外推其他平台認證。
+
+## 2026-10-27 測試維護：rectangularsocketfaces C1逐點斷言聚合
+
+- diorite整合後第一輪完整suite178檔通過／1檔失敗，7596項通過／1項失敗（1050.55s）；唯一失敗為既有rectangularsocketfaces C1測試超過既定30000ms，不是新材質行為斷言失敗。保留失敗紀錄，不調高timeout或重跑以隱去失敗。
+- 根因為1035612個UV檢查點、2071224次雙軸檢查、6213672次sampler呼叫需12427344次expect matcher。僅把每seed六channel有限差分的最大值聚合後嚴格驗證小於0.08，matcher由12427344次減為3次；三seed、全部shape／contact／tie／pose／grain／UV取樣、步長2e-9及原timeout皆不變。Math.max傳播NaN／Infinity，使非有限輸出仍失敗；未修改runtime或任何材質。
+- 直接用當次dist真正sampler執行相同完整loops，核對點數／雙軸檢查／sampler呼叫數皆保留，worst分別0.017770118709847793／0.017149393016779868／0.01794070447758145，小於既有0.08，整段1686.636458ms；另確認NaN及Infinity不能通過聚合門檻。這是Node測試成本，不是renderer效能聲明。
+- 最終聚合C1與七項diorite定向回歸共8項通過（vitest3.47s），typecheck／lint／format:check通過。只為此維護獨立提交測試及本紀錄；完整suite會於其後的材質整合重新執行，未在此宣稱尚未完成的完整suite成功。

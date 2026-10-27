@@ -12285,14 +12285,16 @@ describe('Four-contact rectangular socket faces with a closed silver bezel an op
         a = empty(),
         b = empty(),
         c = empty();
+      let worst = 0;
       const check = (u: number, v: number) => {
         for (let axis = 0; axis < 2; axis++) {
           sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
           sample(u, v, b);
           sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
           for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.08,
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
             );
         }
       };
@@ -12378,6 +12380,7 @@ describe('Four-contact rectangular socket faces with a closed silver bezel an op
             }
           }
         }
+      expect(worst).toBeLessThan(0.08);
     }
   });
 });
