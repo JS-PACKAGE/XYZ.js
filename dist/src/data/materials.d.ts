@@ -8640,6 +8640,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    zebrawood: Readonly<{
+        dark: readonly [39, 22, 10];
+        light: readonly [235, 207, 152];
+        roughness: 0.6;
+        relief: 0.002;
+        columns: 16;
+        rows: 8;
+        widthMinimum: 0.035;
+        widthVariation: 0.025;
+        lengthMinimum: 0.13;
+        lengthVariation: 0.18;
+        poreChance: 0.68;
+        poreShoulder: 0.3;
+        poreDepth: 0.1;
+        bands: 18;
+        bandWarp: 0.65;
+        bandRadius: 0.19;
+        bandCore: 0.07;
+        bandWidthMinimum: 0.5;
+        bandWidthVariation: 0.9;
+        faceColor: 0.86;
+        bandContrast: 0.72;
+        grainHeight: 0.003;
+    }>;
     castorbeans: Readonly<{
         dark: readonly [35, 17, 9];
         light: readonly [240, 221, 190];
@@ -9414,4 +9438,5 @@ export declare const proceduralTileMeters: Readonly<{
     squaresocketheads: 0.06;
     pietersite: 0.06;
     castorbeans: 0.064;
+    zebrawood: 0.16;
 }>;

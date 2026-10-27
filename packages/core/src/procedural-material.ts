@@ -757,7 +757,8 @@ export type ProceduralMaterialKind =
   | 'septarian'
   | 'squaresocketheads'
   | 'pietersite'
-  | 'castorbeans';
+  | 'castorbeans'
+  | 'zebrawood';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1749,6 +1750,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'squaresocketheads',
   'pietersite',
   'castorbeans',
+  'zebrawood',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

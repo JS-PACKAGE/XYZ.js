@@ -3352,6 +3352,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'zebrawood': {
+        const p = proceduralMaterialPresets.zebrawood,
+          pores = new Float64Array(p.columns * p.rows * 4),
+          warpField = cachedNoise(3, 5, seed ^ 0x1ca1b),
+          widthField = cachedNoise(p.bands, 4, seed ^ 0x1ca1d),
+          fiberField = cachedNoise(64, 4, seed ^ 0x1ca1f),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ca21),
+          bandSquared = p.bandRadius * p.bandRadius,
+          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            if (hash(col, row, seed ^ 0x1ca11) >= p.poreChance) continue;
+            const i = (row * p.columns + col) * 4,
+              width =
+                p.widthMinimum +
+                p.widthVariation * hash(col, row, seed ^ 0x1ca13),
+              length =
+                p.lengthMinimum +
+                p.lengthVariation * hash(col, row, seed ^ 0x1ca15);
+            pores[i] = 0.25 + 0.5 * hash(col, row, seed ^ 0x1ca17);
+            pores[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x1ca19);
+            pores[i + 2] = 1 / (width * width);
+            pores[i + 3] = 1 / (length * length);
+          }
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.columns + col) * 4;
+          let pore = 0;
+          if (pores[i + 3] > 0) {
+            const dx = x - col - pores[i],
+              dy = y - row - pores[i + 1],
+              q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3];
+            pore = smooth(clamp((1 - q) * inversePore));
+          }
+          const phase = u * p.bands + p.bandWarp * warpField(u, v),
+            distance = phase - Math.floor(phase + 0.5),
+            width =
+              p.bandWidthMinimum + p.bandWidthVariation * widthField(u, v),
+            normalized = distance / width,
+            band = smooth(
+              clamp((bandSquared - normalized * normalized) * inverseBand),
+            ),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          // Unequal dark longitudinal streaks remain pigment. Only sparse
+          // open vessels recess the pale and dark parts of this single face.
+          color =
+            p.faceColor -
+            p.bandContrast * band +
+            0.1 * (fiber - 0.5) +
+            0.04 * grain;
+          color += pore * (0.035 - color);
+          height = 0.5 + p.grainHeight * grain - p.poreDepth * pore;
+          roughness += 0.025 * grain + 0.08 * pore;
+          occlusion = 1 - 0.25 * pore;
+          return;
+        };
+      }
       case 'castorbeans': {
         const p = proceduralMaterialPresets.castorbeans,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -34943,6 +35005,7 @@ export function createSurfaceSampler(
     kind === 'squaresocketheads' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
+    kind === 'zebrawood' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||

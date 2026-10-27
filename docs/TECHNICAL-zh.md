@@ -1190,6 +1190,10 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 `castorbeans` 為16個各自seeded旋轉／微偏移的亮面斑駁橢圓種皮，每顆只在同一端接上一個較淡、較粗糙的種阜（caruncle）；不是乾皺tonka、縱槽date pit、雙種阜或透明種子。80個Float64 pose／640 B及16×9 spots、5×7 warp、128² grain共16,563值皆初始化快取。沿用既有oval seed squared-cap／C1肩及順序compositing，種阜與種皮重疊連通；保守旋轉支撐界0.29+0.09加jitter0.025為0.405，小於owner半寬0.5。深色testa斑紋只改顏料、不雕凹高度；種皮凸面與種阜各自smooth dome，M0／mortar0／全opaque。surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留。0.064 m參考tile／0.03 UV relief下主體長軸換算9.6 mm、種阜寬2.88 mm；grain理論高度跨度0.000045 UV換算2.88μm，只是參考尺度，不是植物測量或geometry displacement。沿用options／tint／Worker／cache／ownership，不新增生長、果莢、藥用或食用功能。
 
+`zebrawood` 是淺金黃褐木面、深褐變寬微彎縱紋與分布於深淺部位的稀疏開放導管，不是斑馬毛皮、端面年輪、雕凹條紋或只替wenge換色。沿用既有hardwood的seeded橢圓導管／C1肩與cache-noise，額外讓深色縱紋寬度連續變化；暗紋只改顏料，真正淺凹只有導管，全部opaque M0／mortar0。導管pose 512個Float64／4,096 bytes與3×5 warp、18×4 width、64×4 fiber、128² grain共16,727值皆初始化快取；無逐點配置／hash／trig／sqrt，needsDetail bypass保留。0.16 m參考tile／0.002 UV relief下導管名義深度0.0002 UV換算32μm，grain理論高度跨度0.000006 UV換算0.96μm，只是參考尺度、不是真實解剖測量或geometry displacement。沿用既有options／tint／Worker／cache／ownership，不新增生長、樹種辨識、anisotropy或動態chatoyancy。
+
+外觀參考：實讀[Chudnoff／USDA Forest Products Laboratory《Tropical Timbers of the World》1980 limited-distribution原稿](https://www.tropicaltimber.info/wp-content/uploads/2015/06/USDA.TropicalTimbersoftheWorld-Chudnoff.Total1980version.pdf)第458頁的淺黃褐底、較深窄縱紋與中粗紋理描述；另實看[The Wood Database](https://www.wood-database.com/zebrawood/)的徑切樣本照片。本材質只近似木材外觀，不認證樹種、年輪季節、實測導管尺寸或採購／保育狀態，未打包參考照片。
+
 形態參考：[Flora of China — Ricinus communis](http://www.efloras.org/florataxon.aspx?flora_id=2&taxon_id=200012604)記載灰／銀／米色深斑種皮及2–3 mm種阜；另實讀[Flora of Pakistan（M. Rafiq）圖版](http://www.efloras.org/object_page.aspx?object_id=96669&flora_id=5)的seed D輪廓與頂端種阜。只近似外觀，不將不同來源尺寸當所有個體的保證；真實蓖麻種子有毒，此遊戲貼圖不提供食用、醫療或處理建議，也未打包參考圖片。
 
 榻榻米（`tatami`）呈現黃綠色藺草細長凸脊、凹陷草莖間隙、交替上下穿越草莖的橫向綁線與縱向纖維。四份貼圖皆為 seeded periodic；opaque dielectric、metallic 為 0，每張 UV tile 對應 0.16 m。僅為表面 shading／normal map，不新增草莖 geometry、透明孔洞或物理功能；沿用既有 options、repeats 與 ownership。

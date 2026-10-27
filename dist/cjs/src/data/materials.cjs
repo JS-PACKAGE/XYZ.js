@@ -15098,6 +15098,38 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	zebrawood: Object.freeze({
+		dark: [
+			39,
+			22,
+			10
+		],
+		light: [
+			235,
+			207,
+			152
+		],
+		roughness: .6,
+		relief: .002,
+		columns: 16,
+		rows: 8,
+		widthMinimum: .035,
+		widthVariation: .025,
+		lengthMinimum: .13,
+		lengthVariation: .18,
+		poreChance: .68,
+		poreShoulder: .3,
+		poreDepth: .1,
+		bands: 18,
+		bandWarp: .65,
+		bandRadius: .19,
+		bandCore: .07,
+		bandWidthMinimum: .5,
+		bandWidthVariation: .9,
+		faceColor: .86,
+		bandContrast: .72,
+		grainHeight: .003
+	}),
 	castorbeans: Object.freeze({
 		dark: [
 			35,
@@ -15878,7 +15910,8 @@ var proceduralTileMeters = Object.freeze({
 	septarian: .12,
 	squaresocketheads: .06,
 	pietersite: .06,
-	castorbeans: .064
+	castorbeans: .064,
+	zebrawood: .16
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
