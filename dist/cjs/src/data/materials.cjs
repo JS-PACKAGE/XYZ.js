@@ -15120,6 +15120,28 @@ var proceduralMaterialPresets = Object.freeze({
 		twinRadiusSquared: .04,
 		twinShoulderSquared: .03
 	}),
+	squareholewashers: Object.freeze({
+		dark: [
+			30,
+			38,
+			45
+		],
+		light: [
+			226,
+			233,
+			238
+		],
+		roughness: .31,
+		relief: .025,
+		cells: 5,
+		jitter: .03,
+		outerRadius: .36,
+		fullOuter: .34,
+		holeHalfWidth: .145,
+		holeBevel: .018,
+		bodyHeight: .6,
+		grainHeight: .003
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16077,6 +16099,7 @@ var proceduralTileMeters = Object.freeze({
 	adzukibeans: .05,
 	anigre: .16,
 	larvikite: .12,
+	squareholewashers: .1,
 	cupwashers: .1
 });
 //#endregion

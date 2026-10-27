@@ -3608,6 +3608,59 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'squareholewashers': {
+        const p = proceduralMaterialPresets.squareholewashers,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d31b),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.fullOuter * p.fullOuter),
+          inverseHole = 1 / p.holeBevel;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1d311);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d313) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d315) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1d317);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            q = dx * dx + dy * dy,
+            outer = smooth(clamp((outerSquared - q) * inverseOuter));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (outer === 0) return;
+          const x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            hole =
+              smooth(clamp((p.holeHalfWidth - Math.abs(x)) * inverseHole)) *
+              smooth(clamp((p.holeHalfWidth - Math.abs(y)) * inverseHole)),
+            face = outer * (1 - hole);
+          if (face === 0) return;
+          const grain = grainField(u, v);
+          // A square through-opening exposes the same backing as the outer gaps;
+          // unlike a screw socket, it has no recessed metallic floor.
+          color += face * (0.83 + 0.05 * poses[i + 4] + 0.02 * grain - color);
+          height += face * (p.bodyHeight + p.grainHeight * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.99 - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35270,6 +35323,7 @@ export function createSurfaceSampler(
     kind === 'adzukibeans' ||
     kind === 'anigre' ||
     kind === 'larvikite' ||
+    kind === 'squareholewashers' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

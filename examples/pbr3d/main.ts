@@ -827,6 +827,7 @@ try {
     'adzukibeans',
     'anigre',
     'larvikite',
+    'squareholewashers',
     'cupwashers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));

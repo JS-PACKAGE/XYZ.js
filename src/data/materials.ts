@@ -8807,6 +8807,20 @@ export const proceduralMaterialPresets = Object.freeze({
     twinRadiusSquared: 0.04,
     twinShoulderSquared: 0.03,
   }),
+  squareholewashers: Object.freeze({
+    dark: [30, 38, 45] as const,
+    light: [226, 233, 238] as const,
+    roughness: 0.31,
+    relief: 0.025,
+    cells: 5,
+    jitter: 0.03,
+    outerRadius: 0.36,
+    fullOuter: 0.34,
+    holeHalfWidth: 0.145,
+    holeBevel: 0.018,
+    bodyHeight: 0.6,
+    grainHeight: 0.003,
+  }),
   cupwashers: Object.freeze({
     dark: [34, 42, 50] as const,
     light: [230, 235, 240] as const,
@@ -9710,5 +9724,6 @@ export const proceduralTileMeters = Object.freeze({
   adzukibeans: 0.05,
   anigre: 0.16,
   larvikite: 0.12,
+  squareholewashers: 0.1,
   cupwashers: 0.1,
 });

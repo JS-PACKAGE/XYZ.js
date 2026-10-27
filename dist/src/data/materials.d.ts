@@ -8654,6 +8654,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         twinRadiusSquared: 0.04;
         twinShoulderSquared: 0.03;
     }>;
+    squareholewashers: Readonly<{
+        dark: readonly [30, 38, 45];
+        light: readonly [226, 233, 238];
+        roughness: 0.31;
+        relief: 0.025;
+        cells: 5;
+        jitter: 0.03;
+        outerRadius: 0.36;
+        fullOuter: 0.34;
+        holeHalfWidth: 0.145;
+        holeBevel: 0.018;
+        bodyHeight: 0.6;
+        grainHeight: 0.003;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9556,5 +9570,6 @@ export declare const proceduralTileMeters: Readonly<{
     adzukibeans: 0.05;
     anigre: 0.16;
     larvikite: 0.12;
+    squareholewashers: 0.1;
     cupwashers: 0.1;
 }>;

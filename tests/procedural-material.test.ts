@@ -790,8 +790,228 @@ const kinds: ProceduralMaterialKind[] = [
   'adzukibeans',
   'anigre',
   'larvikite',
+  'squareholewashers',
   'cupwashers',
 ];
+
+describe('Round flat silver washers with rotated square through-openings and no metallic socket floors', () => {
+  const p = proceduralMaterialPresets.squareholewashers;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1d311);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d313) - 1),
+      y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d315) - 1),
+    };
+  };
+  const directions = new Float64Array(1025 * 2);
+  for (let j = 0; j <= 1024; j++) {
+    const angle = (2 * Math.PI * j) / 1024;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'retains four straight open sides full square corners a flat uninterrupted metal land and a complete round exterior for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('squareholewashers', seed),
+        a = empty(),
+        b = empty(),
+        hole = p.holeHalfWidth - p.holeBevel,
+        corner = hole - 0.007;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.x + x * f.c - y * f.s) / p.cells,
+                (row + f.y + x * f.s + y * f.c) / p.cells,
+                out,
+              );
+          for (const x of [-corner, 0, corner])
+            for (const y of [-corner, 0, corner]) {
+              local(x, y, a);
+              expect(a.metallic).toBe(0);
+              expect(a.mortar).toBe(1);
+              expect(a.height).toBeCloseTo(0.025 * p.relief, 12);
+              expect(a.occlusion).toBeCloseTo(0.3, 12);
+            }
+          for (let side = 0; side < 4; side++)
+            for (let j = -4; j <= 4; j++) {
+              const across = j * 0.025,
+                inside = hole - 0.005,
+                outside = p.holeHalfWidth + 0.01,
+                sx = side & 1 ? -1 : 1,
+                swap = side >= 2;
+              local(
+                swap ? across : sx * inside,
+                swap ? sx * inside : across,
+                a,
+              );
+              local(
+                swap ? across : sx * outside,
+                swap ? sx * outside : across,
+                b,
+              );
+              expect(a.metallic).toBe(0);
+              expect(b.metallic).toBe(1);
+              expect(b.height - a.height).toBeGreaterThan(0.55 * p.relief);
+              expect(b.color - a.color).toBeGreaterThan(0.7);
+            }
+          local(0.18, 0, a);
+          local(0.31, 0, b);
+          expect(Math.abs(a.height - b.height)).toBeLessThan(0.0031 * p.relief);
+          expect(Math.abs(a.color - b.color)).toBeLessThan(0.021);
+          expect(a.metallic).toBe(1);
+          expect(b.occlusion).toBeCloseTo(0.99, 12);
+          for (let j = 0; j <= 1024; j++) {
+            local(0.3 * directions[j * 2], 0.3 * directions[j * 2 + 1], a);
+            expect(a.metallic).toBe(1);
+            local(0.38 * directions[j * 2], 0.38 * directions[j * 2 + 1], b);
+            expect(b.metallic).toBe(0);
+            expect(b.mortar).toBe(1);
+          }
+          local(0.28, 0.28, a);
+          expect(a.metallic).toBe(0);
+        }
+    },
+  );
+  it('writes actual512 opaque silver round lands square open backing smooth partial boundaries and nonflat edge normals', () => {
+    const maps = generateProceduralMaps('squareholewashers', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      back = 0,
+      partial = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2];
+      metal += Number(m === 255);
+      back += Number(m === 0);
+      partial += Number(m > 0 && m < 255);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          (m === 255 && maps.baseColor[i] < 180) ||
+          (m === 0 && maps.occlusion[i] > 90),
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.22);
+    expect(metal / (512 * 512)).toBeLessThan(0.4);
+    expect(back / (512 * 512)).toBeGreaterThan(0.5);
+    expect(partial).toBeGreaterThan(3000);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all square opening land and backing channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('squareholewashers', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true round exterior rotated square support core and corner intersections plus owner and grain cache boundaries C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      core = p.holeHalfWidth - p.holeBevel,
+      levels = [
+        -p.holeHalfWidth,
+        -(p.holeHalfWidth + core) * 0.5,
+        -core,
+        0,
+        core,
+        (p.holeHalfWidth + core) * 0.5,
+        p.holeHalfWidth,
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('squareholewashers', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.x + x * f.c - y * f.s) / p.cells,
+                (row + f.y + x * f.s + y * f.c) / p.cells,
+              );
+          for (const r of [
+            p.outerRadius,
+            p.fullOuter,
+            Math.sqrt(
+              (p.outerRadius * p.outerRadius + p.fullOuter * p.fullOuter) * 0.5,
+            ),
+          ])
+            for (let j = 0; j <= 1024; j++)
+              local(r * directions[j * 2], r * directions[j * 2 + 1]);
+          for (const x of levels) {
+            for (let j = -64; j <= 64; j++) {
+              const y = j * 0.003;
+              local(x, y);
+              local(y, x);
+            }
+            for (const y of levels) local(x, y);
+          }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Polished dark Larvikite with sparse static blue-grey feldspar flashes and grain-local parallel traces', () => {
   const p = proceduralMaterialPresets.larvikite;
@@ -63830,6 +64050,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'hexsocketheads' &&
           kind !== 'squaresocketheads' &&
           kind !== 'twopinscrewheads' &&
+          kind !== 'squareholewashers' &&
           kind !== 'cupwashers' &&
           kind !== 'pentalobescrewheads' &&
           kind !== 'tripointscrewheads' &&
