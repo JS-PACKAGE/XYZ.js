@@ -15098,6 +15098,28 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	larvikite: Object.freeze({
+		dark: [
+			11,
+			17,
+			24
+		],
+		light: [
+			174,
+			204,
+			225
+		],
+		roughness: .18,
+		relief: 12e-5,
+		cells: 10,
+		siteMinimum: .3,
+		siteVariation: .4,
+		supportSquared: 1.44,
+		paleThreshold: .8,
+		twinFrequency: 10,
+		twinRadiusSquared: .04,
+		twinShoulderSquared: .03
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16054,6 +16076,7 @@ var proceduralTileMeters = Object.freeze({
 	amazonite: .06,
 	adzukibeans: .05,
 	anigre: .16,
+	larvikite: .12,
 	cupwashers: .1
 });
 //#endregion

@@ -8640,6 +8640,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    larvikite: Readonly<{
+        dark: readonly [11, 17, 24];
+        light: readonly [174, 204, 225];
+        roughness: 0.18;
+        relief: 0.00012;
+        cells: 10;
+        siteMinimum: 0.3;
+        siteVariation: 0.4;
+        supportSquared: 1.44;
+        paleThreshold: 0.8;
+        twinFrequency: 10;
+        twinRadiusSquared: 0.04;
+        twinShoulderSquared: 0.03;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9541,5 +9555,6 @@ export declare const proceduralTileMeters: Readonly<{
     amazonite: 0.06;
     adzukibeans: 0.05;
     anigre: 0.16;
+    larvikite: 0.12;
     cupwashers: 0.1;
 }>;

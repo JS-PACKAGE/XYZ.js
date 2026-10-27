@@ -4112,6 +4112,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'larvikite':
       case 'diorite':
       case 'anorthosite':
       case 'gabbro': {
@@ -35268,6 +35269,7 @@ export function createSurfaceSampler(
     kind === 'amazonite' ||
     kind === 'adzukibeans' ||
     kind === 'anigre' ||
+    kind === 'larvikite' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

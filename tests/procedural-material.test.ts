@@ -789,8 +789,220 @@ const kinds: ProceduralMaterialKind[] = [
   'amazonite',
   'adzukibeans',
   'anigre',
+  'larvikite',
   'cupwashers',
 ];
+
+describe('Polished dark Larvikite with sparse static blue-grey feldspar flashes and grain-local parallel traces', () => {
+  const p = proceduralMaterialPresets.larvikite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const site = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a017);
+    return {
+      x: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a011),
+      y: p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a013),
+      tone: hash(col, row, seed ^ 0x1a015),
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      phase: hash(col, row, seed ^ 0x1a019),
+    };
+  };
+  const directions = new Float64Array(513 * 2),
+    radius = Math.sqrt(p.supportSquared),
+    outer = Math.sqrt(p.twinRadiusSquared),
+    core = Math.sqrt(p.twinRadiusSquared - p.twinShoulderSquared),
+    mid = Math.sqrt(p.twinRadiusSquared - p.twinShoulderSquared * 0.5),
+    levels = [-outer, -mid, -core, 0, core, mid, outer, 0.5];
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps dark grains dominant sparse brighter feldspar patches and rotated internal traces on one uncracked dielectric polish for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('larvikite', seed),
+        a = empty(),
+        b = empty();
+      let low = Infinity,
+        high = -Infinity,
+        dark = 0,
+        blue = 0,
+        invalid = 0,
+        flashed = 0,
+        unflashed = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, a);
+          dark += Number(a.color < 0.2);
+          blue += Number(a.color > 0.5);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          invalid += Number(
+            a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+          );
+        }
+      expect(dark / 16641).toBeGreaterThan(0.5);
+      expect(blue / 16641).toBeGreaterThan(0.03);
+      expect(blue / 16641).toBeLessThan(0.3);
+      expect(high - low).toBeLessThan(0.0021 * p.relief);
+      expect(invalid).toBe(0);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = site(seed, col, row),
+            local = (along: number, across: number, out: SurfaceSample) =>
+              sample(
+                (col + f.x + along * f.c - across * f.s) / p.cells,
+                (row + f.y + along * f.s + across * f.c) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          if (f.tone <= p.paleThreshold) {
+            unflashed++;
+            expect(a.color).toBeLessThan(0.2);
+            continue;
+          }
+          flashed++;
+          expect(a.color).toBeGreaterThan(0.58);
+          const k = Math.floor(f.phase + 0.5),
+            stripe = (k - f.phase) / p.twinFrequency,
+            gap = (k + 0.3 - f.phase) / p.twinFrequency;
+          local(stripe, 0, a);
+          local(gap, 0, b);
+          expect(b.color - a.color).toBeGreaterThan(0.05);
+          expect(Math.abs(b.height - a.height)).toBeLessThan(0.0021 * p.relief);
+          expect(Math.abs(b.roughness - a.roughness)).toBeLessThan(0.03);
+          expect(a.occlusion).toBe(1);
+          expect(b.metallic).toBe(0);
+        }
+      expect(flashed).toBeGreaterThan(10);
+      expect(flashed).toBeLessThan(40);
+      expect(unflashed).toBeGreaterThan(60);
+    },
+  );
+  it('writes actual512 dark blue-grey stone with sparse brighter blue feldspar opaque metal-zero AO-one maps and a nearly flat polished normal', () => {
+    const maps = generateProceduralMaps('larvikite', 512, 7, {
+      heightMap: true,
+    });
+    let dark = 0,
+      blue = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      dark += Number(r < 70 && b > g && g > r);
+      blue += Number(r > 90 && b > 130 && b - r > 25);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.5);
+    expect(blue / (512 * 512)).toBeGreaterThan(0.03);
+    expect(blue / (512 * 512)).toBeLessThan(0.3);
+    expect(tilt).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the coarse mosaic local parallel traces and polished dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('larvikite', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps normalized compact grain supports true local trace shoulders phase wraps cache grids and neighbor ownership C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      cycles = Math.ceil(radius * p.twinFrequency) + 1;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('larvikite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = site(seed, col, row),
+            local = (along: number, across: number) =>
+              check(
+                (col + f.x + along * f.c - across * f.s) / p.cells,
+                (row + f.y + along * f.s + across * f.c) / p.cells,
+              );
+          for (let j = 0; j <= 512; j++)
+            check(
+              (col + f.x + radius * directions[j * 2]) / p.cells,
+              (row + f.y + radius * directions[j * 2 + 1]) / p.cells,
+            );
+          if (f.tone <= p.paleThreshold) continue;
+          for (let j = -4; j <= 4; j++) {
+            const across = j * 0.2;
+            for (let k = -cycles; k <= cycles; k++)
+              for (const level of levels) {
+                const along = (k + level - f.phase) / p.twinFrequency;
+                if (along * along + across * across <= p.supportSquared + 1e-12)
+                  local(along, across);
+              }
+          }
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Isolated countersunk finishing cup washers with open bores straight sloping walls and raised complete rims', () => {
   const p = proceduralMaterialPresets.cupwashers;

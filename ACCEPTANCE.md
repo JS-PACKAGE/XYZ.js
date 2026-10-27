@@ -9029,3 +9029,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - build與typecheck通過，lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過（最後整組45.91s）；748是材質數，不是API export數。完整suite另列，無新增依賴、永久probe、版本調整或push，不外推Safari、實機、Canvas2D 3D、backend parity或fps認證。
 
 - 最終格式檢查與完整 suite 通過：179 個測試檔／7730 項測試全部通過（846.93s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 861.17s。依功能獨立提交，不 push。
+
+## 2026-10-28 程序材質：深灰拋光岩面零散靜態藍灰長石反光（larvikite）
+
+- 目錄748→749種：深灰粗晶基底上零散較亮藍灰長石與各晶粒內方向不同的平行色紋。已實讀IUGS的Oslo Rift Larvikite頁，作者Tom Heldal（NGU）與Kristin Rangnes（Gea Norvegica UNESCO Global Geopark），並實看其拋光近照；另讀Alex Strekeisen描述與看macro specimen。來源的cryptoperthitic intergrowth／波干涉藍光不是本preset實作的物理能力，不打包照片、不拿未看PPL／XPL薄片或單一Labradorite寶石替代已驗岩石。
+- 直接為既有diorite／anorthosite／gabbro coarse-feldspar family新增case label與專用data，不複製sampler或改動舊kind運算。0.12 m tile、100 sites各六欄位置／tone／cos／sin／phase加128² grain，共16,984個Float64／135,872 bytes；固定3×3compact高階權重正規化、既有C1 local trace肩、不逐點配置／hash／sqrt／trig。支撐半徑1.2在被省略site最近距離1.3前歸零；own site最遠平方0.98小於1.44，分母保持正值。
+- 全部晶粒維持同一微grain拋光平面、AO1／M0／mortar0及facade factor0，opaque maps、optional height、tint／worker／cache／repeats／ownership不變。只是固定外觀近似，不新增角度依賴Schiller、光學薄層、emission、透明晶簇、凸起晶粒、成分／產地鑑定或療效認證；0.00012 UV relief不是m單位geometry displacement。
+- 隔離初稿paleThreshold0.75在seed0／1通過，但seed0xffffffff較亮面積0.3504597079502434超過稀疏上限0.3。定向量測0.75／0.78／0.8四seed後，改preset為0.8，使實際三seed亮面積約0.1801／0.1604／0.2737，保留原dark-base／sparse-flash consumer門檻，不放寬fixture。修正後六項隔離行為全部通過。
+- 九個有效temporary負向變體皆由AssertionError抓到：metallic岩面、凸起光學晶粒、虛構AO裂隙、消失內紋、未正規化blend、全部blue、沒有blue、中性而非blue palette，以及硬trace肩；硬肩在前五項通過後由真local-boundary C1抓到（159.3563 > 0.03）。無永久probe檔，不把seeded定位hash當sampler輸出期望值。
+- 新fixture驗證三seed晶粒暗面主導、稀疏亮斑、100site中心與各自旋轉的stripe／gap色差、色紋不凸起；actual512驗證深藍灰palette／opaque／M0／AO1與近乎平面normal。三seed各4096 signed UV六channels；C1涵蓋所有100site真正半徑1.2支撐圓各513方向、亮site各local trace support／mid／core／phase wrap、10／128 owner-cache邊界及128² grid，雙軸h1e-10／strict0.03逐seed聚合worst，不減採樣、不加timeout。
+- 正式build與typecheck通過，main material定向檔28項通過／3780 skipped（3808項，5.63s），整組含格式化／build／typecheck共37.51s；涵蓋Larvikite及diorite／anorthosite／gabbro相關案例，不將skipped項稱為重驗。
+- Managed Chromium headless正式749種gallery強制WebGPU與WebGL2各選larvikite、關動畫、擷取25球mesh及四maps；完整strict dist API另擷取actual512且CSS512×512的albedo／normal，見暗底零散藍灰晶塊與內部平行紋、近平normal。所有page與about:blank cleanup errors空，不外推Safari、實機、Canvas2D 3D、backend parity或fps。
+- Strict static完整dist NativeWorker／cache以512² seed7、height、tint[0.8,1,0.9]及repeats3實跑，direct／worker／hit五maps逐byte相同；cache一筆5242880 bytes、hits1／misses1，worker completed1／failed0。獨立textures、isolated destroy、全bundles／pool destroy、cache clear、default及createMaterial factor0通過，page／cleanup errors空，managed tabs全部關閉。
+- Fresh Node既有748種64² seed7四maps相對HEAD SHA256全部不變；新kind512五maps各1048576 bytes。dist ESM／CJS對larvikite32²／512²與diorite／anorthosite／gabbro／pietersite／amazonite／pinolith各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
+- 單次完整source／gallery／fixture diff已review；README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，精確insertions與relative-link delta0確認。Lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）與distribution（367 exports）通過（54.87s）；749為材質數，不是API export數。完整suite另列，無新增依賴、版本調整或push。
+- 最終格式檢查與完整 suite 通過：179 個測試檔／7737 項測試全部通過（889.61s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 903.46s。依功能獨立提交，不 push。
