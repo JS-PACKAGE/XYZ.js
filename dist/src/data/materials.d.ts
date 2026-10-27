@@ -8441,6 +8441,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         socketRoughness: 0.82;
         grainHeight: 0.002;
     }>;
+    padauk: Readonly<{
+        dark: readonly [63, 14, 5];
+        light: readonly [249, 137, 55];
+        roughness: 0.56;
+        relief: 0.002;
+        columns: 16;
+        rows: 8;
+        widthMinimum: 0.035;
+        widthVariation: 0.02;
+        lengthMinimum: 0.12;
+        lengthVariation: 0.15;
+        poreChance: 0.65;
+        centerMinimum: 0.3;
+        centerRange: 0.4;
+        poreShoulder: 0.3;
+        poreDepth: 0.12;
+        bands: 18;
+        bandWarp: 0.025;
+        bandRadius: 0.16;
+        bandCore: 0.07;
+        bandContrast: 0.09;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9178,4 +9200,5 @@ export declare const proceduralTileMeters: Readonly<{
     rhyolite: 0.12;
     tonkabeans: 0.2;
     pentalobescrewheads: 0.048;
+    padauk: 0.16;
 }>;

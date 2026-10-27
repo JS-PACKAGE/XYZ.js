@@ -8790,3 +8790,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀iFixit五圓瓣與六瓣／有柱安全Torx比較圖參考，未打包圖片，也不宣稱精密專有孔型或品牌產品適配。
 - 最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - 完整suite179個測試檔／7632項全部通過（1046.27s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：橙紅直紋與粗開放導管木材（padauk）
+
+- 目錄734→735種：選取African padauk暖紅橙直紋面、較粗且稀疏縱向開放導管，18道低對比細顏料紋，不是sapele七道寬帶或深褐wenge。直接fallthrough共用正式sampler，128個potential owner site各四值共512個Float64／4096 bytes與3×4 warp／64×4 fiber／128² grain快取；新preset bandContrast0.09只在sampler建立時選用，既有兩木材0.3與原數值運算保留。
+- 初版128格全有孔，21項雖通過（vitest1.82s）但actual512像固定列打孔；依已讀面紋照片加入僅padauk的seeded poreChance0.65與縱向center0.3–0.7，未占用site的inverseLength為0，整個owner無孔，略過ellipse運算且不分配額外mask buffer。這不是把孔移到owner外或零長度除法的假遮罩。最大孔寬0.055小於x最短邊距0.25，最大孔長0.27小於y最短邊距0.3，沒有跨owner截斷或幽靈孔；無逐點配置／hash／trig／sqrt。
+- 0.16 m參考tile／0.002 UV relief，poreDepth0.12為0.00024 UV（按參考尺度換算38.4μm，非geometry／位移／實機量測），micrograin跨度參考0.96μm。顏料色紋不凸起，導管確實較低、較暗、較粗糙且AO較深。全opaque M0／mortar0，維持options、Worker、cache與ownership，不新增自然老化、UV螢光或木材力學，也不把程序孔數外推成真實植物學密度。
+- 最終六項padauk、六項sapele、六項wenge及三kind共用catalog共21項通過（vitest2.86s）：三seed所有實際孔中心／外側／長軸，未占用owner真實可能孔中心及九點真無孔與AO1，純matrix低對比直紋及平切高度、actual512真低／暗孔與顏料色差／opaque M0覆蓋，4096 signed UV；全部ellipse外緣／core、真warp後band shoulders的32步二分root、cache／owner／UV雙軸C1，1e-10 UV步長／strict0.03。repo前隔離draft在擴大scatter後原matrix probe落入真孔，改至有support邊距證明的owner邊界，沒有放寬色差或高度門檻；六項最終draft通過，無probe檔留在repo。
+- Fresh Node當次dist真sampler三seed各128個owner之recessed／clear數為95／33、92／36、71／57；每owner都能歸類且未占用不殘留凹孔。actual512 tangent normal R範圍120–135、maxTiltSquared0.006920415224913498，屬淺紋而非完全無relief；不是肉眼量測、效能或物理幾何證據。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取padauk、顯示735種並擷取，頁面及cleanup errors空；最終actual512 albedo可見非齊列深孔與暖橙直紋，normal整體視覺近乎平整，不以截圖聲稱定量微高度或renderer幀率。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生padauk512²五maps各1048576 bytes；全部734種既有材質各64²／seed7四maps相對HEAD SHA256不變，包含共用kernel的sapele／wenge。實跑dist ESM／CJS之padauk32²及512²、sapele／wenge各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步；技術文件附已讀The Wood Database African Padauk說明及面紋照片，未把endgrain辨識數據當面紋尺寸，未打包圖片。
+- 最終build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 最終完整suite **179檔／7639項全部通過（1046.24s）**；所有實際畫面分頁先關閉才執行完整回歸，未修改既有材質圖或放寬C1門檻。
