@@ -3695,6 +3695,36 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'nephrite': {
+        const p = proceduralMaterialPresets.nephrite,
+          warpX = cachedNoise(4, 4, seed ^ 0x1bd11),
+          warpY = cachedNoise(4, 4, seed ^ 0x1bd13),
+          cloudField = cachedNoise(6, 6, seed ^ 0x1bd15),
+          fiberX = cachedNoise(96, 8, seed ^ 0x1bd17),
+          fiberY = cachedNoise(8, 96, seed ^ 0x1bd19),
+          fiberDiagonal = cachedNoise(64, 8, seed ^ 0x1bd1b),
+          grainField = cachedNoise(128, 128, seed ^ 0x1bd1d);
+        return () => {
+          const x = u + p.fiberWarp * (warpX(u, v) - 0.5),
+            y = v + p.fiberWarp * (warpY(u, v) - 0.5),
+            a = smooth(clamp(2 * fiberX(x, y) - 1)),
+            b = smooth(clamp(2 * fiberY(x, y) - 1)),
+            c = smooth(clamp(2 * fiberDiagonal(x + y, y - x) - 1)),
+            fibers = 0.4 * a + 0.35 * b + 0.25 * c,
+            cloud = cloudField(u, v),
+            grain = grainField(u, v);
+          // Interlocking mineral color stays under a flat polish, not raised yarn.
+          color =
+            0.07 +
+            p.cloudContrast * cloud +
+            p.fiberContrast * fibers +
+            0.01 * grain;
+          height = 0.5 + p.grainHeight * grain;
+          roughness = p.roughness + 0.05 * cloud + 0.015 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'chambray':
       case 'huckaback':
       case 'shantung':
@@ -34034,6 +34064,7 @@ export function createSurfaceSampler(
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||
+    kind === 'nephrite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

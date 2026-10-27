@@ -769,7 +769,205 @@ const kinds: ProceduralMaterialKind[] = [
   'datepits',
   'sapele',
   'chambray',
+  'nephrite',
 ];
+
+describe('Opaque polished nephrite with mottled green interlocking fine mineral color', () => {
+  const p = proceduralMaterialPresets.nephrite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps fine green mineral variations in both axes below a flat polish rather than raised fibers for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('nephrite', seed),
+        a = empty(),
+        b = empty();
+      let min = Infinity,
+        max = -Infinity,
+        minH = Infinity,
+        maxH = -Infinity,
+        across = 0,
+        along = 0,
+        invalid = 0;
+      for (let row = 0; row < 128; row++)
+        for (let col = 0; col < 128; col++) {
+          const u = (col + 0.5) / 128,
+            v = (row + 0.5) / 128;
+          sample(u, v, a);
+          min = Math.min(min, a.color);
+          max = Math.max(max, a.color);
+          minH = Math.min(minH, a.height);
+          maxH = Math.max(maxH, a.height);
+          invalid += Number(
+            a.occlusion !== 1 ||
+              a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.28 ||
+              a.roughness > 0.345,
+          );
+          sample(u + 1 / 128, v, b);
+          across += Math.abs(a.color - b.color);
+          sample(u, v + 1 / 128, b);
+          along += Math.abs(a.color - b.color);
+        }
+      expect(max - min).toBeGreaterThan(0.3);
+      expect(across / (128 * 128)).toBeGreaterThan(0.015);
+      expect(along / (128 * 128)).toBeGreaterThan(0.015);
+      expect(Math.max(across, along)).toBeLessThan(2 * Math.min(across, along));
+      expect((maxH - minH) * 0.16).toBeLessThan(0.000001);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 opaque muted green varying polish without metal or dark crack occlusion', () => {
+    const maps = generateProceduralMaps('nephrite', 512, 7, {
+      heightMap: true,
+    });
+    let invalid = 0,
+      min = Infinity,
+      max = -Infinity,
+      maxNormalTiltSquared = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.baseColor[i + 1] <= maps.baseColor[i] ||
+          maps.baseColor[i + 1] <= maps.baseColor[i + 2] ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      min = Math.min(min, maps.baseColor[i + 1]);
+      max = Math.max(max, maps.baseColor[i + 1]);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      maxNormalTiltSquared = Math.max(maxNormalTiltSquared, nx * nx + ny * ny);
+    }
+    expect(max - min).toBeGreaterThan(65);
+    expect(maxNormalTiltSquared).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats warped interlocking color and every PBR channel across signed UV periods', () => {
+    const sample = createSurfaceSampler('nephrite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps cloud warp grain and actually warped fiber lattice boundaries C1', () => {
+    const h = 2e-10;
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const warp = (u: number, v: number, seed: number): number => {
+      const x = (u - Math.floor(u)) * 4,
+        y = (v - Math.floor(v)) * 4,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        tx = x - ix,
+        ty = y - iy,
+        sx = tx * tx * (3 - 2 * tx),
+        sy = ty * ty * (3 - 2 * ty),
+        a = hash(ix, iy, seed),
+        b = hash((ix + 1) % 4, iy, seed),
+        c = hash(ix, (iy + 1) % 4, seed),
+        d = hash((ix + 1) % 4, (iy + 1) % 4, seed);
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nephrite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const pos = (u: number, v: number) => [
+        u + p.fiberWarp * (warp(u, v, seed ^ 0x1bd11) - 0.5),
+        v + p.fiberWarp * (warp(u, v, seed ^ 0x1bd13) - 0.5),
+      ];
+      for (const cells of [4, 6, 128])
+        for (let n = 0; n <= cells; n++)
+          for (let j = 0; j <= 128; j++) {
+            check(n / cells, j / 128);
+            check(j / 128, n / cells);
+          }
+      for (let j = 0; j <= 32; j++)
+        for (const cells of [8, 96])
+          for (let k = 0; k <= cells; k++)
+            for (let axis = 0; axis < 2; axis++) {
+              const fixed = j / 32,
+                target = k / cells;
+              let lo = target - p.fiberWarp,
+                hi = target + p.fiberWarp;
+              for (let step = 0; step < 32; step++) {
+                const at = (lo + hi) * 0.5,
+                  value = axis === 0 ? pos(at, fixed)[0] : pos(fixed, at)[1];
+                if (value < target) lo = at;
+                else hi = at;
+              }
+              if (axis === 0) check((lo + hi) * 0.5, fixed);
+              else check(fixed, (lo + hi) * 0.5);
+            }
+      for (let j = 0; j <= 32; j++)
+        for (let k = -64; k <= 128; k++)
+          for (const sign of [-1, 1]) {
+            const v = j / 32,
+              target = k / 64,
+              center = sign === 1 ? target - v : v - target;
+            let lo = center - p.fiberWarp - 0.01,
+              hi = center + p.fiberWarp + 0.01;
+            for (let step = 0; step < 32; step++) {
+              const u = (lo + hi) * 0.5,
+                [x, y] = pos(u, v),
+                value = sign === 1 ? x + y : y - x;
+              if (
+                (sign === 1 && value < target) ||
+                (sign === -1 && value > target)
+              )
+                lo = u;
+              else hi = u;
+            }
+            check((lo + hi) * 0.5, v);
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Chambray dyed blue warp and white weft in balanced one over one plain weave', () => {
   const p = proceduralMaterialPresets.chambray;

@@ -8480,6 +8480,16 @@ export const proceduralMaterialPresets = Object.freeze({
     warpFibers: 128,
     weftFibers: 128,
   }),
+  nephrite: Object.freeze({
+    dark: [18, 47, 29] as const,
+    light: [176, 205, 163] as const,
+    roughness: 0.28,
+    relief: 0.003,
+    fiberWarp: 0.07,
+    cloudContrast: 0.55,
+    fiberContrast: 0.33,
+    grainHeight: 0.002,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9211,4 +9221,5 @@ export const proceduralTileMeters = Object.freeze({
   datepits: 0.08,
   sapele: 0.3,
   chambray: 0.016,
+  nephrite: 0.16,
 });

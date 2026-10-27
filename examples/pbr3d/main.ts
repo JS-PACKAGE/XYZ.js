@@ -806,6 +806,7 @@ try {
     'datepits',
     'sapele',
     'chambray',
+    'nephrite',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

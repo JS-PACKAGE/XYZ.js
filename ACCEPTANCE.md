@@ -8692,3 +8692,17 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node實跑全部726種既有材質各64²／seed7四maps，SHA256相對HEAD全部不變，包含所有共用布種。實際ESM／CJS之chambray512²及poplin／huckaback／shantung／gabardine／ottoman／cavalrytwill各64²／seed7五maps逐byte相同，不外推renderer backend parity。
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步；技術文件附Cotton Incorporated織法參考，未打包圖片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列，未升版、不push。
 - 完整suite179個測試檔／7583項全部通過（955.81s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；不外推其他平台認證。
+
+## 2026-10-27 程序材質：不透明拋光軟玉（nephrite）
+
+- 目錄727→728種：不透明淡深綠斑與細交錯礦色的拋光軟玉近似，不是jadeite硬玉、粗晶粒石或凸起布線。重用cachedNoise及C1 threshold模式：6² cloud、兩個4² warp、96×8／8×96軸向與64×8整數對角fiber lattice，128² grain；無逐點配置／hash／trig／sqrt，無新增runtime依賴或API options。
+- 0.07 UV週期warp曲化三向色紋，整數對角座標保持signed UV週期。0.16 m參考tile／0.003 UV relief，micrograin高度跨度0.000006 UV（按參考尺度換算0.96μm，非geometry／displacement／實機量測）。礦色不改height，AO1、全opaque M0／mortar0；不模擬半透明、次表面散射、玉石韌性或各向異性，沿用Worker／cache／ownership。
+- 最終六項nephrite專項及kind共用catalog合計7項通過（vitest1.92s）；三seed128²樣點保留兩向色彩細節且高度跨度按參考尺度換算小於1μm，actual512 muted green全opaque M0／AO255、綠色range大於65與切線normal平面傾角平方界限，4096 signed UV，以及cloud／warp／grain／實際warp後fiber grid／對角grid與UV雙軸C1。
+- 實際warp後grid以32步bisection定位；4² smooth value warp之單軸最大導數擾動0.42，對角至多0.84小於1，故軸向／對角均單調。單軸偏移至多0.035、對角至多0.07，root brackets由preset warp值決定，未以放大C1門檻代替定位。
+- repo前隔離Node data URL draft初次誤以normalized height byte span小於3判斷平面，得到255；確認正式height map按該tile極值正規化後，改驗證actual tangent normal傾角與sampler UV高度跨度，未改height生成／normal或pin byte值。修正後六個隔離draft案例及上述正式整合vitest皆通過，無probe檔留在repo。
+- actual512第一版albedo可見過直交叉色紋，實際視覺檢查後將warp由0.025改0.07 UV，重新擷取確認彎曲，更新全部root bracket及文件並重跑專項7項通過；normal近乎平整且未用肉眼聲稱定量微振幅。此為固定程序化礦色近似，不宣稱顯微結構重建或光學認證。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2各實際選取nephrite、顯示728種並擷取畫面，頁面及cleanup errors皆空；兩者均用最終0.07 UV warp。strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear皆成功。
+- Fresh Node之最終nephrite512²五maps產生成功；全部727種既有材質各64²／seed7四maps相對HEAD SHA256不變。最終dist ESM／CJS之nephrite512²及chambray64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，附GIA礦物說明並區分該頁硬玉圖片，未打包參考照片。最終靜態及完整suite實際結果另列；未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 最終0.07 UV版本重新build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；較早0.025 UV版靜態gate不作最終輸出證據。
+- 最終完整suite179個測試檔／7590項全部通過（1112.19s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；不外推其他平台認證。

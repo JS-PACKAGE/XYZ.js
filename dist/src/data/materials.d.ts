@@ -8327,6 +8327,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         warpFibers: 128;
         weftFibers: 128;
     }>;
+    nephrite: Readonly<{
+        dark: readonly [18, 47, 29];
+        light: readonly [176, 205, 163];
+        roughness: 0.28;
+        relief: 0.003;
+        fiberWarp: 0.07;
+        cloudContrast: 0.55;
+        fiberContrast: 0.33;
+        grainHeight: 0.002;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -9057,4 +9067,5 @@ export declare const proceduralTileMeters: Readonly<{
     datepits: 0.08;
     sapele: 0.3;
     chambray: 0.016;
+    nephrite: 0.16;
 }>;
