@@ -8608,3 +8608,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之huckaback512五maps；包含共用cloth sampler既有五種在內的全部719種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附織紋結構來源。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - Fresh Node另實跑當次ESM及CJS sampler：huckaback以512²／seed7、poplin／gabardine／ottoman／cavalrytwill／shantung各64²／seed7，五maps逐byte全部相同；此為套件形式的CPU map輸出檢查，不代表renderer backend parity或跨realm constructor相同。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7534項測試（989.40s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：淺色雙晶斜長岩（anorthosite）
+
+- 目錄720→721種：白灰斜長石晶粒為主、稀疏深色副晶粒與晶粒內平行雙晶albedo條紋的拋光切面；直接重用gabbro晶粒sampler，不另建近似分支。100個site各六值快取／128² grain，3×3鄰域的radius1.2 compact-support權重以16次方正規化；own-site平方距離最多0.98維持正權重，省略site最近1.3不截斷支撐。無逐點配置／hash／trig／sqrt。
+- 0.2 m參考tile／0.004 UV relief，micrograin高度跨度最多0.000008 UV（按參考尺度換算1.6μm，非位移或實機量測），雙晶與晶界共用平切面。全opaque M0／AO1／mortar0，不新增geometry、透光、Schiller／雙折射光學、地質或礦物比例認證；沿用options／Worker／cache／ownership。
+- 6項專項全部通過（vitest1.82s）：三seed淺晶粒取樣覆蓋大於80%且保留深色副晶粒對比，晶粒內雙晶albedo差大於0.05、切面reference高度跨度及雙晶兩點高差小於1.7μm；512²淺色opaque M0晶粒覆蓋大於80%，4096 signed UV週期及support／雙晶shoulders／owner／UV雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示721種並選取anorthosite，頁面及cleanup errors空；另分別擷取actual512 albedo觀察稀疏暗晶與各晶粒條紋方向，以及actual512 normal確認近乎平整而非凸起礦物拼片，微normal振幅未以肉眼量測。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之anorthosite512五maps；含共用sampler gabbro在內的全部720種各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之anorthosite512²及gabbro64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7541項測試（960.12s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

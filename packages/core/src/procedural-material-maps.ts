@@ -2846,8 +2846,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'anorthosite':
       case 'gabbro': {
-        const p = proceduralMaterialPresets.gabbro,
+        const p = proceduralMaterialPresets[kind],
           sites = new Float64Array(p.cells * p.cells * 6),
           grainField = cachedNoise(128, 128, seed ^ 0x1a01b),
           inverseSupport = 1 / p.supportSquared,
@@ -33715,6 +33716,7 @@ export function createSurfaceSampler(
     kind === 'chrysocolla' ||
     kind === 'sichuanpepperhusks' ||
     kind === 'huckaback' ||
+    kind === 'anorthosite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

@@ -8342,6 +8342,20 @@ export const proceduralMaterialPresets = Object.freeze({
       682, 351, 682, 351, 682, 341, 1002, 341, 1002, 341,
     ] as const),
   }),
+  anorthosite: Object.freeze({
+    dark: [24, 28, 31] as const,
+    light: [249, 248, 237] as const,
+    roughness: 0.26,
+    relief: 0.004,
+    cells: 10,
+    siteMinimum: 0.3,
+    siteVariation: 0.4,
+    supportSquared: 1.44,
+    paleThreshold: 0.05,
+    twinFrequency: 8,
+    twinRadiusSquared: 0.04,
+    twinShoulderSquared: 0.03,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9066,4 +9080,5 @@ export const proceduralTileMeters = Object.freeze({
   chrysocolla: 0.12,
   sichuanpepperhusks: 0.05,
   huckaback: 0.032,
+  anorthosite: 0.2,
 });
