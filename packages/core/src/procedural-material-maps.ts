@@ -2846,6 +2846,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'datepits': {
+        const p = proceduralMaterialPresets.datepits,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1bc11),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseShoulder = 1 / p.shoulder,
+          grooveSquared = p.grooveRadius * p.grooveRadius,
+          inverseGroove = 1 / (grooveSquared - p.grooveCore * p.grooveCore),
+          endSquared = p.grooveEnd * p.grooveEnd,
+          inverseEnd = 1 / (endSquared - p.grooveFullEnd * p.grooveFullEnd);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1bc13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bc15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bc17) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1bc19);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            taper = clamp(1 - y * y * inverseLength),
+            center = p.bend * taper,
+            across = x - center,
+            cap = clamp(taper - across * across * inverseWidth),
+            body = smooth(clamp(cap * inverseShoulder));
+          color = 0.025;
+          height = 0.035;
+          roughness = 0.97;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const grooveX =
+              across - p.grooveBend * y * (1 - y * y * inverseLength),
+            groove =
+              smooth(
+                clamp((grooveSquared - grooveX * grooveX) * inverseGroove),
+              ) * smooth(clamp((endSquared - y * y) * inverseEnd)),
+            dome = smooth(cap),
+            grain = grainField(u, v);
+          // The dark longitudinal furrow ends before the closed tips;
+          // its finite squared profile neither splits the pit nor divides by taper.
+          color +=
+            body *
+            (0.49 +
+              0.14 * poses[i + 4] +
+              0.1 * dome +
+              0.025 * grain -
+              0.32 * groove -
+              color);
+          height +=
+            body *
+            (p.bodyBase +
+              p.domeHeight * dome +
+              p.grainHeight * grain -
+              p.grooveDepth * groove -
+              height);
+          roughness +=
+            body * (p.roughness + 0.08 * groove + 0.025 * grain - roughness);
+          occlusion += body * (0.97 - 0.26 * groove - occlusion);
+          return;
+        };
+      }
       case 'hexsocketheads': {
         const p = proceduralMaterialPresets.hexsocketheads,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -33954,6 +34026,7 @@ export function createSurfaceSampler(
     kind === 'cubebberries' ||
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
+    kind === 'datepits' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

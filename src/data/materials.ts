@@ -8423,6 +8423,27 @@ export const proceduralMaterialPresets = Object.freeze({
     floorGrainHeight: 0.002,
     socketShade: 0.42,
   }),
+  datepits: Object.freeze({
+    dark: [38, 17, 6] as const,
+    light: [185, 132, 65] as const,
+    roughness: 0.68,
+    relief: 0.025,
+    cells: 5,
+    jitter: 0.025,
+    halfLength: 0.4,
+    halfWidth: 0.145,
+    shoulder: 0.18,
+    bend: 0.018,
+    grooveBend: 0.022,
+    grooveRadius: 0.032,
+    grooveCore: 0.012,
+    grooveEnd: 0.34,
+    grooveFullEnd: 0.28,
+    grooveDepth: 0.19,
+    bodyBase: 0.28,
+    domeHeight: 0.35,
+    grainHeight: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9151,4 +9172,5 @@ export const proceduralTileMeters = Object.freeze({
   cubebberries: 0.08,
   seraphinite: 0.16,
   hexsocketheads: 0.18,
+  datepits: 0.08,
 });

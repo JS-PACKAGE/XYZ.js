@@ -8655,3 +8655,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 首輪完整suite為178檔通過／1檔失敗、7561項通過／1項失敗（1014.83s）：共用catalog測試缺少hexsocketheads的混合金屬分類，將正確M1鋼頭誤要求為M0。僅依既有混合金屬材質慣例補上分類，保留六項專項與所有既有檢查；未改runtime輸出、renderer或放寬門檻。修正後實際結果另列。
 - 修正分類後，六項材質專項及該kind的共用catalog測試共7項全部通過（vitest2.17s）；typecheck、lint及format:check再次通過。完整suite的修正後重跑結果另列。
 - 修正分類後完整suite為179個測試檔／7562項測試全部通過（1014.24s）；連同已完成的build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）完成gate。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：縱槽橢長椰棗核（datepits）
+
+- 目錄724→725種：25枚黃褐橢長閉合果核、兩側隆面與有限長彎曲縱槽；重用種籽姿態快取及平方距離支撐，有限polynomial bow偏移橢圓，槽在兩尖端前C1淡出而非咖啡豆裂口或穿洞。每核五值共125個Float64／1000 bytes，128² grain；保守旋轉support約0.431937加單軸jitter0.025小於owner半寬0.5。無逐點配置／hash／trig／sqrt，不除以尖端漸零寬度。
+- 0.08 m參考tile／0.025 UV relief，名義凹槽深度0.00475 UV、micrograin高度跨度0.0003 UV（按參考尺度換算380μm及24μm，非位移或實機量測）。全opaque M0／mortar0，沿用options／Worker／cache／ownership，不新增geometry、植物生長、食品或化學模擬。
+- 六項專項及該kind的共用catalog測試共7項通過（vitest1.77s）：三seed全部果核的兩側隆面高於槽底reference高差大於150μm、色差大於0.2／凹槽roughness較高／AO較低，槽底高於背景大於600μm、槽端之外閉合核面高於背景大於500μm及兩端內外支撐；512² opaque M0凹槽／隆面／閉合端點，4096 signed UV週期及bowed ellipse／groove core／finite end／tip／owner／UV雙軸C1。
+- managed Chromium150 headless正式PBR gallery重新建立的WebGPU與WebGL2 tab皆實際擷取，顯示725種並選取datepits，頁面及cleanup errors空；另擷取actual512 albedo與normal觀察橢長果核、兩側隆面及封閉端點。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- 首個managed WebGPU tab開啟gallery後、等待完成前出現Runtime.callFunctionOn Target closed，未記為通過；僅關閉失效session後以fresh tab完成上述驗證，未改renderer或放寬檢查，工具錯誤原因未證實。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之datepits512五maps；全部724種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之datepits512²、fennelseeds及coffeebeans各64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。完整gate實際結果另列；未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7569項測試（1022.62s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

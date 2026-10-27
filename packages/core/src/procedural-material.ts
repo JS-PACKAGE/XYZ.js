@@ -739,7 +739,8 @@ export type ProceduralMaterialKind =
   | 'anorthosite'
   | 'cubebberries'
   | 'seraphinite'
-  | 'hexsocketheads';
+  | 'hexsocketheads'
+  | 'datepits';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1713,6 +1714,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cubebberries',
   'seraphinite',
   'hexsocketheads',
+  'datepits',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

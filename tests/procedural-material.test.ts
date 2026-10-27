@@ -766,7 +766,208 @@ const kinds: ProceduralMaterialKind[] = [
   'cubebberries',
   'seraphinite',
   'hexsocketheads',
+  'datepits',
 ];
+
+describe('Date pits with a finite recessed longitudinal furrow and closed tips', () => {
+  const p = proceduralMaterialPresets.datepits;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1bc13),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bc15) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1bc17) - 1);
+    return [
+      (col + cx + x * cos - y * sin) / p.cells,
+      (row + cy + x * sin + y * cos) / p.cells,
+    ];
+  };
+  const centerAt = (y: number) =>
+    p.bend * Math.max(0, 1 - (y * y) / (p.halfLength * p.halfLength));
+  const grooveAt = (y: number) =>
+    centerAt(y) +
+    p.grooveBend * y * (1 - (y * y) / (p.halfLength * p.halfLength));
+  it.each([0, 1, 0xffffffff])(
+    'keeps elongated closed tan pits with two raised cheeks above a darker rougher curved groove for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('datepits', seed),
+        out = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            bg = at(0.23, 0),
+            middle = at(grooveAt(0), 0);
+          for (const y of [-0.2, 0, 0.2]) {
+            const groove = at(grooveAt(y), y),
+              left = at(grooveAt(y) - 0.06, y),
+              right = at(grooveAt(y) + 0.06, y);
+            for (const cheek of [left, right]) {
+              expect(
+                (cheek.height - groove.height) * proceduralTileMeters.datepits,
+              ).toBeGreaterThan(0.00015);
+              expect(cheek.color - groove.color).toBeGreaterThan(0.2);
+              expect(groove.roughness).toBeGreaterThan(cheek.roughness);
+              expect(groove.occlusion).toBeLessThan(cheek.occlusion);
+            }
+            expect(
+              (groove.height - bg.height) * proceduralTileMeters.datepits,
+            ).toBeGreaterThan(0.0006);
+            expect(groove.metallic).toBe(0);
+            expect(groove.mortar).toBe(0);
+          }
+          for (const sign of [-1, 1]) {
+            const end = at(centerAt(sign * 0.36), sign * 0.36),
+              tip = at(centerAt(sign * 0.39), sign * 0.39),
+              outside = at(0, sign * 0.42);
+            expect(
+              (end.height - bg.height) * proceduralTileMeters.datepits,
+            ).toBeGreaterThan(0.0005);
+            expect(tip.height).toBeGreaterThan(bg.height);
+            expect(outside.height).toBe(bg.height);
+          }
+          expect(middle.height * proceduralTileMeters.datepits).toBeLessThan(
+            0.0013,
+          );
+          expect(at(0.21, 0).height).toBe(bg.height);
+        }
+    },
+  );
+  it('writes opaque brown cheeks lower finite furrows and closed elongated tips at actual512', () => {
+    const maps = generateProceduralMaps('datepits', 512, 7, {
+      heightMap: true,
+    });
+    let invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4)
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+    expect(invalid).toBe(0);
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const pixel = (x: number, y: number) => {
+            const [u, v] = world(7, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          },
+          groove = pixel(grooveAt(0), 0),
+          cheek = pixel(grooveAt(0) + 0.06, 0),
+          end = pixel(centerAt(0.36), 0.36),
+          bg = pixel(0.23, 0);
+        expect(maps.height![cheek]).toBeGreaterThan(maps.height![groove] + 35);
+        expect(maps.height![groove]).toBeGreaterThan(maps.height![bg] + 100);
+        expect(maps.height![end]).toBeGreaterThan(maps.height![bg] + 75);
+        expect(maps.baseColor[cheek]).toBeGreaterThan(
+          maps.baseColor[groove] + 25,
+        );
+        expect(maps.metallicRoughness[groove + 1]).toBeGreaterThan(
+          maps.metallicRoughness[cheek + 1] + 10,
+        );
+        expect(maps.occlusion[groove]).toBeLessThan(maps.occlusion[cheek]);
+      }
+  });
+  it('repeats bowed pit silhouettes and finite furrows across signed UV periods', () => {
+    const sample = createSurfaceSampler('datepits', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps bowed ellipse shoulders groove floors finite groove ends closed tips owners and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('datepits', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128,
+              y = -p.halfLength + (2 * p.halfLength * j) / 128;
+            for (const radius of [1, Math.sqrt(1 - p.shoulder)]) {
+              const ey = p.halfLength * radius * Math.sin(theta);
+              local(centerAt(ey) + p.halfWidth * radius * Math.cos(theta), ey);
+            }
+            for (const offset of [
+              -p.grooveRadius,
+              -p.grooveCore,
+              0,
+              p.grooveCore,
+              p.grooveRadius,
+            ])
+              local(grooveAt(y) + offset, y);
+            for (const end of [
+              -p.grooveEnd,
+              -p.grooveFullEnd,
+              p.grooveFullEnd,
+              p.grooveEnd,
+            ])
+              local(grooveAt(end) - 0.06 + (0.12 * j) / 128, end);
+          }
+        }
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Blind hex socket steel heads with smooth six-flat bevels', () => {
   const p = proceduralMaterialPresets.hexsocketheads;
