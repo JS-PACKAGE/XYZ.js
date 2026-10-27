@@ -8490,6 +8490,20 @@ export const proceduralMaterialPresets = Object.freeze({
     fiberContrast: 0.33,
     grainHeight: 0.002,
   }),
+  diorite: Object.freeze({
+    dark: [18, 21, 23] as const,
+    light: [245, 245, 236] as const,
+    roughness: 0.3,
+    relief: 0.004,
+    cells: 16,
+    siteMinimum: 0.3,
+    siteVariation: 0.4,
+    supportSquared: 1.44,
+    paleThreshold: 0.35,
+    twinFrequency: 10,
+    twinRadiusSquared: 0.04,
+    twinShoulderSquared: 0.03,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9222,4 +9236,5 @@ export const proceduralTileMeters = Object.freeze({
   sapele: 0.3,
   chambray: 0.016,
   nephrite: 0.16,
+  diorite: 0.16,
 });

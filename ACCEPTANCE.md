@@ -8713,3 +8713,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 根因為1035612個UV檢查點、2071224次雙軸檢查、6213672次sampler呼叫需12427344次expect matcher。僅把每seed六channel有限差分的最大值聚合後嚴格驗證小於0.08，matcher由12427344次減為3次；三seed、全部shape／contact／tie／pose／grain／UV取樣、步長2e-9及原timeout皆不變。Math.max傳播NaN／Infinity，使非有限輸出仍失敗；未修改runtime或任何材質。
 - 直接用當次dist真正sampler執行相同完整loops，核對點數／雙軸檢查／sampler呼叫數皆保留，worst分別0.017770118709847793／0.017149393016779868／0.01794070447758145，小於既有0.08，整段1686.636458ms；另確認NaN及Infinity不能通過聚合門檻。這是Node測試成本，不是renderer效能聲明。
 - 最終聚合C1與七項diorite定向回歸共8項通過（vitest3.47s），typecheck／lint／format:check通過。只為此維護獨立提交測試及本紀錄；完整suite會於其後的材質整合重新執行，未在此宣稱尚未完成的完整suite成功。
+
+## 2026-10-27 程序材質：鹽胡椒粗晶閃長岩（diorite）
+
+- 目錄728→729種：256個jittered礦晶site，明亮斜長石色與大量深色鐵鎂礦色呈鹽胡椒外觀，paleThreshold0.35為seeded色相分類而非地質含量；不是近全淺色anorthosite或深色主體gabbro。直接fallthrough重用兩者正式sampler，不修改既有分支計算；每site六值共1536個Float64／12288 bytes與128² grain。
+- 3×3鄰域compact cap¹⁶正規化，radius1.2在略過site最短距離1.3前消失，自己site距離平方至多0.98確保分母為正。十週期晶內雙晶只改albedo，不沿晶界切裂或浮起拋光面；無逐點配置／hash／trig／sqrt。
+- 0.16 m參考tile／0.004 UV relief，micrograin高度跨度0.000008 UV（按參考尺度換算1.28μm，非geometry／位移／實機量測）。全opaque M0／AO1／mortar0，維持options、Worker、cache與ownership，不新增礦物成分模擬、透明或各向異性。
+- 六項diorite、六項gabbro、六項anorthosite及三kind共用catalog共21項通過（vitest4.32s）。三seed4096樣點與actual512淡晶覆蓋介於0.45–0.8、黑白range、全平切高度／AO1、各淡晶真實雙晶亮暗點、4096 signed UV及全部cap／twin shoulders／owner／UV雙軸C1；沿用既有粗晶C1門檻，未改舊兩kind測試。repo前六項隔離Node data URL draft亦通過，無probe檔留在repo。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取diorite、顯示729種並擷取，頁面及cleanup errors空；actual512 albedo可見對比黑白粗晶與晶內平行細色紋，normal近乎平整且未以肉眼量測微振幅。初次WebGL2 tab在open時detached Frame，未記通過；僅關閉該session、先完成Worker再以fresh tab完成WebGL2，未改renderer或放寬檢查，工具錯誤原因未證實。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生diorite512²五maps，各1048576 bytes；全部728種既有材質各64²／seed7四maps相對HEAD SHA256全部不變。實跑dist ESM／CJS之diorite512²及gabbro／anorthosite各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附Geology.com外觀參考，未打包參考照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 第一輪7596項通過／1項既有socket C1 timeout（1050.55s）已由上方獨立測試維護記錄保留；維持全部取樣、原門檻與timeout聚合matcher後，完整suite179檔／7597項全部通過（1007.99s）。加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。

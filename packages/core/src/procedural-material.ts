@@ -743,7 +743,8 @@ export type ProceduralMaterialKind =
   | 'datepits'
   | 'sapele'
   | 'chambray'
-  | 'nephrite';
+  | 'nephrite'
+  | 'diorite';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1721,6 +1722,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sapele',
   'chambray',
   'nephrite',
+  'diorite',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -3153,6 +3153,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'diorite':
       case 'anorthosite':
       case 'gabbro': {
         const p = proceduralMaterialPresets[kind],
@@ -34065,6 +34066,7 @@ export function createSurfaceSampler(
     kind === 'sapele' ||
     kind === 'chambray' ||
     kind === 'nephrite' ||
+    kind === 'diorite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

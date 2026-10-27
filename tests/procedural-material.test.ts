@@ -770,7 +770,189 @@ const kinds: ProceduralMaterialKind[] = [
   'sapele',
   'chambray',
   'nephrite',
+  'diorite',
 ];
+
+describe('Salt and pepper diorite with contrasting pale feldspar and dark mafic grains', () => {
+  const p = proceduralMaterialPresets.diorite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps abundant pale feldspar and substantial dark mafic grains with flat grain-local twins for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('diorite', seed),
+        a = empty(),
+        b = empty();
+      let pale = 0,
+        minimumColor = Infinity,
+        maximumColor = -Infinity,
+        minimumHeight = Infinity,
+        maximumHeight = -Infinity;
+      for (let j = 0; j < 4096; j++) {
+        sample(((j % 64) + 0.5) / 64, (Math.floor(j / 64) + 0.5) / 64, a);
+        if (a.color > 0.45) pale++;
+        minimumColor = Math.min(minimumColor, a.color);
+        maximumColor = Math.max(maximumColor, a.color);
+        minimumHeight = Math.min(minimumHeight, a.height);
+        maximumHeight = Math.max(maximumHeight, a.height);
+        expect(a.metallic).toBe(0);
+        expect(a.mortar).toBe(0);
+        expect(a.occlusion).toBe(1);
+      }
+      expect(pale / 4096).toBeGreaterThan(0.45);
+      expect(pale / 4096).toBeLessThan(0.8);
+      expect(maximumColor - minimumColor).toBeGreaterThan(0.45);
+      expect(
+        (maximumHeight - minimumHeight) * proceduralTileMeters.diorite,
+      ).toBeLessThan(0.0000017);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          if (hash(col, row, seed ^ 0x1a015) <= p.paleThreshold) continue;
+          const x =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a011),
+            y =
+              p.siteMinimum + p.siteVariation * hash(col, row, seed ^ 0x1a013),
+            angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a017),
+            cos = Math.cos(angle),
+            sin = Math.sin(angle),
+            phase = hash(col, row, seed ^ 0x1a019),
+            dark = (Math.floor(phase + 0.5) - phase) / p.twinFrequency,
+            light = (Math.floor(phase) + 0.5 - phase) / p.twinFrequency;
+          sample(
+            (col + x + dark * cos) / p.cells,
+            (row + y + dark * sin) / p.cells,
+            a,
+          );
+          sample(
+            (col + x + light * cos) / p.cells,
+            (row + y + light * sin) / p.cells,
+            b,
+          );
+          expect(b.color - a.color).toBeGreaterThan(0.05);
+          expect(
+            Math.abs(a.height - b.height) * proceduralTileMeters.diorite,
+          ).toBeLessThan(0.0000017);
+          expect(a.metallic).toBe(0);
+          expect(b.occlusion).toBe(1);
+        }
+    },
+  );
+  it('writes actual512 mixed salt and pepper opaque nonmetal grains rather than pale anorthosite or dark gabbro', () => {
+    const maps = generateProceduralMaps('diorite', 512, 7, {
+      heightMap: true,
+    });
+    let pale = 0,
+      minimum = 255,
+      maximum = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      if (maps.baseColor[i] > 125) pale++;
+      minimum = Math.min(minimum, maps.baseColor[i]);
+      maximum = Math.max(maximum, maps.baseColor[i]);
+      if (i % 1024 === 0) {
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+        expect(maps.occlusion[i]).toBe(255);
+      }
+    }
+    expect(pale / (512 * 512)).toBeGreaterThan(0.45);
+    expect(pale / (512 * 512)).toBeLessThan(0.8);
+    expect(maximum - minimum).toBeGreaterThan(100);
+  });
+  it('repeats pale grains dark mafic grains cut-plane relief and twins across signed UV periods', () => {
+    const sample = createSurfaceSampler('diorite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps normalized grain supports twin shoulders neighborhood ownership and UV seams C1', () => {
+    const h = 2e-9,
+      radius = Math.sqrt(p.supportSquared),
+      twinOuter = Math.sqrt(p.twinRadiusSquared),
+      twinCore = Math.sqrt(p.twinRadiusSquared - p.twinShoulderSquared);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('diorite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const x =
+              col +
+              p.siteMinimum +
+              p.siteVariation * hash(col, row, seed ^ 0x1a011),
+            y =
+              row +
+              p.siteMinimum +
+              p.siteVariation * hash(col, row, seed ^ 0x1a013),
+            angle = 2 * Math.PI * hash(col, row, seed ^ 0x1a017),
+            cos = Math.cos(angle),
+            sin = Math.sin(angle),
+            phase = hash(col, row, seed ^ 0x1a019);
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128;
+            check(
+              (x + radius * Math.cos(theta)) / p.cells,
+              (y + radius * Math.sin(theta)) / p.cells,
+            );
+          }
+          for (let cycle = -3; cycle <= 3; cycle++)
+            for (const d of [-twinOuter, -twinCore, twinCore, twinOuter]) {
+              const along = (cycle + d - phase) / p.twinFrequency;
+              check((x + along * cos) / p.cells, (y + along * sin) / p.cells);
+            }
+        }
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Opaque polished nephrite with mottled green interlocking fine mineral color', () => {
   const p = proceduralMaterialPresets.nephrite;
