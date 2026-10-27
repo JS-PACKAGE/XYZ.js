@@ -8050,6 +8050,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         poreShoulder: 0.18;
         poreDepth: 0.025;
     }>;
+    phyllite: Readonly<{
+        dark: readonly [39, 49, 46];
+        light: readonly [151, 165, 156];
+        roughness: 0.48;
+        relief: 0.018;
+        bands: 48;
+        warp: 0.035;
+        ridgeRadius: 0.25;
+        ridgeCore: 0.15;
+        ridgeHeight: 0.065;
+        micaThreshold: 0.64;
+        micaShoulder: 0.18;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -8766,4 +8779,5 @@ export declare const proceduralTileMeters: Readonly<{
     cavalrytwill: 0.024;
     screwhooks: 0.36;
     nigellaseeds: 0.024;
+    phyllite: 0.18;
 }>;

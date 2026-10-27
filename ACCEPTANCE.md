@@ -8528,3 +8528,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生最終dist之nigellaseeds512五maps；既有712種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 最終專項6項全部通過（1.12s）：三seed三側稜角內外高度／AO／亮度與中心參考高度；120°等macro高度配對確認rougher pits變暗、AO降低並真正凹下（按參考tile尺度差>5μm），不只是顏色噪聲。512² opaque dielectric種籽／凹隙像素、4096 signed UV週期、三seed角點／shoulder／凹孔／owner及UV seams雙軸C1亦通過。
 - 最終完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7484項測試（1090.49s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：灰綠細皺片理千枚岩（phyllite）
+
+- 目錄713→714種：48道細密波狀片理及緞面雲母色斑，不是板岩階梯或片麻岩寬帶。4²warp與128²grain／mica fields快取，compact C1週期脊無逐點配置／hash／trig／sqrt；雲母只調色與降低roughness，不額外增高或metallic。全opaque M0／mortar0，不新增geometry、displacement、各向異性、干涉色或地質模擬。
+- 0.18 m參考tile／0.018 UV relief，片理脊高差0.00117 UV（只按參考尺度換算約210.6μm，非位移或實機量測）。6項專項全部通過（1.15s）：三seed四條完整截線皆48道脊、參考尺度高差190–225μm、AO高低關係與低roughness色斑；512²四截線48道opaque dielectric脊、4096 signed UV週期、三seed密集雙軸及cached joins／UV seams C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示714種並選取phyllite，頁面及cleanup errors空；另擷取actual512 normal原尺寸畫布，觀察細密彎曲片理。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之phyllite512五maps；既有713種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7491項測試（1089.93s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

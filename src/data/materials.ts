@@ -8201,6 +8201,19 @@ export const proceduralMaterialPresets = Object.freeze({
     poreShoulder: 0.18,
     poreDepth: 0.025,
   }),
+  phyllite: Object.freeze({
+    dark: [39, 49, 46] as const,
+    light: [151, 165, 156] as const,
+    roughness: 0.48,
+    relief: 0.018,
+    bands: 48,
+    warp: 0.035,
+    ridgeRadius: 0.25,
+    ridgeCore: 0.15,
+    ridgeHeight: 0.065,
+    micaThreshold: 0.64,
+    micaShoulder: 0.18,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -8918,4 +8931,5 @@ export const proceduralTileMeters = Object.freeze({
   cavalrytwill: 0.024,
   screwhooks: 0.36,
   nigellaseeds: 0.024,
+  phyllite: 0.18,
 });

@@ -1441,6 +1441,36 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'phyllite': {
+        const p = proceduralMaterialPresets.phyllite,
+          warpField = cachedNoise(4, 4, seed ^ 0x1b311),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b313),
+          micaField = cachedNoise(128, 128, seed ^ 0x1b315),
+          offset = hash(0, 0, seed ^ 0x1b317),
+          radiusSquared = p.ridgeRadius * p.ridgeRadius,
+          inverseShoulder = 1 / (radiusSquared - p.ridgeCore * p.ridgeCore),
+          inverseMica = 1 / p.micaShoulder;
+        return () => {
+          const phase =
+              p.bands * (v + p.warp * (warpField(u, v) - 0.5)) + offset,
+            distance = phase - Math.floor(phase + 0.5),
+            ridge = smooth(
+              clamp((radiusSquared - distance * distance) * inverseShoulder),
+            ),
+            grain = grainField(u, v),
+            mica = smooth(
+              clamp((micaField(u, v) - p.micaThreshold) * inverseMica),
+            );
+          color = 0.34 + 0.12 * grain + 0.1 * ridge + 0.12 * mica;
+          // Fine folded foliation has relief; mica changes pigment/roughness
+          // on that surface, not a pile of crystals or anisotropic optics.
+          height = 0.46 + p.ridgeHeight * ridge + 0.004 * grain;
+          roughness =
+            p.roughness + 0.04 * (1 - ridge) - 0.18 * mica + 0.03 * grain;
+          occlusion = 0.97 + 0.02 * ridge;
+          return;
+        };
+      }
       case 'nigellaseeds': {
         const p = proceduralMaterialPresets.nigellaseeds,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -33261,6 +33291,7 @@ export function createSurfaceSampler(
     kind === 'cavalrytwill' ||
     kind === 'screwhooks' ||
     kind === 'nigellaseeds' ||
+    kind === 'phyllite' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

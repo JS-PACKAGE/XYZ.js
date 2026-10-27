@@ -755,7 +755,126 @@ const kinds: ProceduralMaterialKind[] = [
   'cavalrytwill',
   'screwhooks',
   'nigellaseeds',
+  'phyllite',
 ];
+
+describe('Fine folded gray green phyllite', () => {
+  const p = proceduralMaterialPresets.phyllite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'retains 48 fine continuous folds and shallow relief rather than broad banded strata for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('phyllite', seed),
+        s = empty();
+      let lowRoughness = 1,
+        highRoughness = 0;
+      for (const u of [0, 0.123, 0.5, 0.789]) {
+        sample(u, 0, s);
+        let previous = s.height > 0.49 * p.relief,
+          crests = 0,
+          low = Infinity,
+          high = -Infinity,
+          lowAO = 1,
+          highAO = 0;
+        for (let j = 1; j <= 2048; j++) {
+          sample(u, j / 2048, s);
+          const raised = s.height > 0.49 * p.relief;
+          if (raised && !previous) crests++;
+          previous = raised;
+          if (s.height < low) {
+            low = s.height;
+            lowAO = s.occlusion;
+          }
+          if (s.height > high) {
+            high = s.height;
+            highAO = s.occlusion;
+          }
+          lowRoughness = Math.min(lowRoughness, s.roughness);
+          highRoughness = Math.max(highRoughness, s.roughness);
+          expect(s.metallic).toBe(0);
+          expect(s.mortar).toBe(0);
+        }
+        expect(crests).toBe(48);
+        const referenceRelief = (high - low) * proceduralTileMeters.phyllite;
+        expect(referenceRelief).toBeGreaterThan(0.00019);
+        expect(referenceRelief).toBeLessThan(0.000225);
+        expect(highAO).toBeGreaterThan(lowAO);
+      }
+      expect(lowRoughness).toBeLessThan(0.4);
+      expect(highRoughness).toBeGreaterThan(0.5);
+    },
+  );
+  it('writes 48 wavy foliation ridges as opaque dielectric at actual512', () => {
+    const maps = generateProceduralMaps('phyllite', 512, 7, {
+      heightMap: true,
+    });
+    for (const x of [32, 128, 256, 410]) {
+      let previous = maps.occlusion[(511 * 512 + x) * 4] > 250,
+        crests = 0;
+      for (let y = 0; y < 512; y++) {
+        const i = (y * 512 + x) * 4,
+          raised = maps.occlusion[i] > 250;
+        if (raised && !previous) crests++;
+        previous = raised;
+        expect(maps.baseColor[i + 3]).toBe(255);
+        expect(maps.metallicRoughness[i + 2]).toBe(0);
+      }
+      expect(crests).toBe(48);
+    }
+  });
+  it('repeats folded foliation and all pigment normal inputs roughness and AO on signed periods', () => {
+    const sample = createSurfaceSampler('phyllite', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps fine folds mica masks cached noise joins and UV seams C1 under dense two-axis sampling', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('phyllite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let j = 0; j < 4096; j++) {
+        check((j % 64) / 64, Math.floor(j / 64) / 64);
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      }
+      for (let j = 0; j <= 256; j++)
+        for (const edge of [0, 1]) {
+          check(edge, j / 256);
+          check(j / 256, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Angular pitted charcoal nigella seeds', () => {
   const p = proceduralMaterialPresets.nigellaseeds;
