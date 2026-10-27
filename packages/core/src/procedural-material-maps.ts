@@ -3695,6 +3695,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'chambray':
       case 'huckaback':
       case 'shantung':
       case 'cavalrytwill':
@@ -3707,14 +3708,17 @@ export function createSurfaceSampler(
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
           huck = kind === 'huckaback',
+          chambray = kind === 'chambray',
+          warpTone = chambray ? 0.18 : 0.82,
+          weftTone = chambray ? 0.92 : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
           huckPreset = proceduralMaterialPresets.huckaback,
           huckRepeat = huckPreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          warpBase = twill || huck ? 0.34 : 0.3,
-          weftBase = ottoman ? 0.52 : twill || huck ? 0.34 : 0.44,
-          weftCrown = ottoman ? 0.1 : twill || huck ? 0.04 : 0.07,
+          warpBase = twill || huck || chambray ? 0.34 : 0.3,
+          weftBase = ottoman ? 0.52 : twill || huck || chambray ? 0.34 : 0.44,
+          weftCrown = ottoman ? 0.1 : twill || huck || chambray ? 0.04 : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,
@@ -3872,9 +3876,9 @@ export function createSurfaceSampler(
             grain = grainField(u, v);
           color =
             outside * color +
-            warpWeight * (0.82 + 0.025 * grain + 0.025 * warpFiber) +
+            warpWeight * (warpTone + 0.025 * grain + 0.025 * warpFiber) +
             weftWeight *
-              (0.63 + 0.025 * grain + 0.025 * weftFiber - 0.06 * slub);
+              (weftTone + 0.025 * grain + 0.025 * weftFiber - 0.06 * slub);
           height =
             outside * height +
             warpWeight *
@@ -34029,6 +34033,7 @@ export function createSurfaceSampler(
     kind === 'hexsocketheads' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
+    kind === 'chambray' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

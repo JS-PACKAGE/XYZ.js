@@ -8680,3 +8680,15 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之sapele512五maps；含共用sampler wenge在內的全部725種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之sapele512²及wenge64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附外觀參考來源，未打包參考照片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push。
 - 完整suite179個測試檔／7576項全部通過（1014.48s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；未宣稱其他平台認證。
+
+## 2026-10-27 程序材質：Chambray藍經白緯平紋布（chambray）
+
+- 目錄726→727種：32×32等寬1/1平紋，每格交替露出染藍經紗與白緯紗，不是denim斜紋、huckaback長浮線或poplin粗緯肋。直接共用poplin正式sampler，兩向0.42支撐／0.3 core、0.34 base／0.04 crown及逐交點C1 lift一致；只在sampler建立時選擇chambray的warp色階0.18／weft色階0.92，既有布種算式及數值保留。128² grain與兩向128 fiber profile，不新增pose／draft快取或逐點配置。
+- 0.016 m參考tile／0.012 UV relief，crossing lift 0.00168 UV（按參考尺度換算26.88μm，非geometry、displacement或實機量測），全opaque M0／mortar0；保留options、Worker、cache與ownership，不新增布料物理、透光、各向異性或三backend相容認證。
+- 專項及共用布種定向回歸37項通過（vitest7.80s）；包含六項chambray行為／actual512／signed UV／C1、kind共用catalog及所選Poplin／Huckaback／Shantung／Gabardine／Ottoman／Cavalry測試。三seed逐一檢查1024交點的染藍經紗與白緯反轉、兩向等高、真crossing lift與較低間隙；actual512交替藍白pixel保有色差、等高與opaque非金屬，4096 signed UV及全部支撐／core／lift端／owner／cache／UV雙軸C1。
+- 寫入repo前以Node transpile data URL隔離執行六個draft案例，初次actual512 probe最末列v=1未wrap使索引越界，改為週期pixel座標後六項全通過；這是probe索引修正，未改正式sampler或放寬行為門檻，隔離probe未寫入repo。上述vitest為實際整合後結果。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取chambray、顯示727種並擷取畫面，頁面及cleanup errors空。另各自擷取actual512 albedo看見藍經白緯交替露出、normal看見兩向交點起落，不以截圖宣稱定量高度或實機效能。首個WebGPU tab等待時detached Frame，未記通過；只關閉該session並以fresh tab完成，未改renderer或放寬檢查，工具錯誤原因未證實。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立texture與destroy／pool destroy／cache clear成功。
+- Fresh Node實跑全部726種既有材質各64²／seed7四maps，SHA256相對HEAD全部不變，包含所有共用布種。實際ESM／CJS之chambray512²及poplin／huckaback／shantung／gabardine／ottoman／cavalrytwill各64²／seed7五maps逐byte相同，不外推renderer backend parity。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步；技術文件附Cotton Incorporated織法參考，未打包圖片。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列，未升版、不push。
+- 完整suite179個測試檔／7583項全部通過（955.81s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交；不外推其他平台認證。

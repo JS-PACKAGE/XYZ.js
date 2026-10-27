@@ -8462,6 +8462,24 @@ export const proceduralMaterialPresets = Object.freeze({
     bandRadius: 0.42,
     bandCore: 0.22,
   }),
+  chambray: Object.freeze({
+    dark: [19, 53, 88] as const,
+    light: [238, 242, 246] as const,
+    roughness: 0.84,
+    relief: 0.012,
+    warpThreads: 32,
+    weftThreads: 32,
+    warpRadius: 0.42,
+    warpCore: 0.3,
+    weftRadius: 0.42,
+    weftCore: 0.3,
+    warpLiftHalf: 0.46,
+    weftLiftHalf: 0.46,
+    liftShoulder: 0.12,
+    lift: 0.14,
+    warpFibers: 128,
+    weftFibers: 128,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -9192,4 +9210,5 @@ export const proceduralTileMeters = Object.freeze({
   hexsocketheads: 0.18,
   datepits: 0.08,
   sapele: 0.3,
+  chambray: 0.016,
 });

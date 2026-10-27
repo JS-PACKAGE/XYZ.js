@@ -768,7 +768,187 @@ const kinds: ProceduralMaterialKind[] = [
   'hexsocketheads',
   'datepits',
   'sapele',
+  'chambray',
 ];
+
+describe('Chambray dyed blue warp and white weft in balanced one over one plain weave', () => {
+  const p = proceduralMaterialPresets.chambray;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'alternates dyed warp and white weft at equally high crossings without diagonal floats for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('chambray', seed),
+        cross = empty(),
+        next = empty(),
+        warp = empty(),
+        weft = empty(),
+        gap = empty();
+      let invalid = 0;
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v, cross);
+          sample((col + 1.5) / p.warpThreads, v, next);
+          sample(u, (row + 1) / p.weftThreads, warp);
+          sample((col + 1) / p.warpThreads, v, weft);
+          sample((col + 1) / p.warpThreads, (row + 1) / p.weftThreads, gap);
+          const blue = ((col + row) & 1) === 0 ? cross : next,
+            white = ((col + row) & 1) === 0 ? next : cross;
+          expect(white.color - blue.color).toBeGreaterThan(0.68);
+          expect(weft.color - warp.color).toBeGreaterThan(0.68);
+          expect(Math.abs(cross.height - next.height)).toBeLessThan(
+            p.relief * 0.007,
+          );
+          expect(Math.abs(warp.height - weft.height)).toBeLessThan(
+            p.relief * 0.007,
+          );
+          expect(cross.height - warp.height).toBeGreaterThan(p.relief * 0.133);
+          expect(cross.height - weft.height).toBeGreaterThan(p.relief * 0.133);
+          expect(gap.height).toBeLessThan(warp.height);
+          expect(gap.height).toBeLessThan(weft.height);
+          expect(gap.occlusion).toBeLessThan(cross.occlusion);
+          invalid += Number(
+            cross.metallic !== 0 ||
+              cross.mortar !== 0 ||
+              gap.metallic !== 0 ||
+              gap.mortar !== 0,
+          );
+          for (const d of [-0.43, 0.43]) {
+            sample(
+              (col + 0.5 + d) / p.warpThreads,
+              (row + 1) / p.weftThreads,
+              warp,
+            );
+            sample(
+              (col + 1) / p.warpThreads,
+              (row + 0.5 + d) / p.weftThreads,
+              weft,
+            );
+            expect(warp.height).toBe(gap.height);
+            expect(weft.height).toBe(gap.height);
+          }
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 blue and white alternating crossing pixels with balanced height opaque gaps and nonmetal PBR', () => {
+    const maps = generateProceduralMaps('chambray', 512, 7, {
+      heightMap: true,
+    });
+    const pixel = (u: number, v: number) =>
+      4 * ((Math.floor(v * 512) % 512) * 512 + (Math.floor(u * 512) % 512));
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col += 2) {
+        const a = pixel(
+            (col + 0.5) / p.warpThreads,
+            (row + 0.5) / p.weftThreads,
+          ),
+          b = pixel((col + 1.5) / p.warpThreads, (row + 0.5) / p.weftThreads),
+          blue = (row & 1) === 0 ? a : b,
+          white = (row & 1) === 0 ? b : a,
+          gap = pixel((col + 1) / p.warpThreads, (row + 1) / p.weftThreads);
+        expect(maps.baseColor[white] - maps.baseColor[blue]).toBeGreaterThan(
+          120,
+        );
+        expect(maps.baseColor[blue + 2] - maps.baseColor[blue]).toBeGreaterThan(
+          35,
+        );
+        expect(Math.abs(maps.height![a] - maps.height![b])).toBeLessThan(5);
+        expect(maps.height![blue]).toBeGreaterThan(maps.height![gap]);
+        expect(maps.height![white]).toBeGreaterThan(maps.height![gap]);
+        expect(maps.occlusion[blue]).toBeGreaterThan(maps.occlusion[gap]);
+      }
+    let invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4)
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+    expect(invalid).toBe(0);
+  });
+  it('repeats the blue white exposure and crossing lift across signed UV periods', () => {
+    const sample = createSurfaceSampler('chambray', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps both equal yarn supports cores single crossing lift ends cache grids owners and UV wraps C1', () => {
+    const h = 2e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('chambray', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++)
+          for (let j = 0; j <= 16; j++) {
+            for (const d of [
+              -0.5,
+              0,
+              0.5,
+              -p.warpRadius,
+              p.warpRadius,
+              -p.warpCore,
+              p.warpCore,
+              -p.warpLiftHalf,
+              p.warpLiftHalf,
+              p.warpLiftHalf - p.liftShoulder,
+              p.liftShoulder - p.warpLiftHalf,
+            ]) {
+              check(
+                (col + 0.5 + d) / p.warpThreads,
+                (row + j / 16) / p.weftThreads,
+              );
+              check(
+                (col + j / 16) / p.warpThreads,
+                (row + 0.5 + d) / p.weftThreads,
+              );
+            }
+          }
+      for (let j = 0; j <= 128; j++)
+        for (let k = 0; k <= 128; k++) check(j / 128, k / 128);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Sapele broad reddish ribbons with fine recessed longitudinal vessels', () => {
   const p = proceduralMaterialPresets.sapele;
