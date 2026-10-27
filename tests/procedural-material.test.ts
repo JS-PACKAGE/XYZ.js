@@ -763,7 +763,230 @@ const kinds: ProceduralMaterialKind[] = [
   'sichuanpepperhusks',
   'huckaback',
   'anorthosite',
+  'cubebberries',
 ];
+
+describe('Cubeb tailed pepper berries with connected woody pedicels', () => {
+  const p = proceduralMaterialPresets.cubebberries;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'mortar',
+    'metallic',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b915),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1b91b),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b917) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b919) - 1);
+    return [
+      (col + cx + scale * (x * cos - y * sin)) / p.cells,
+      (row + cy + scale * (x * sin + y * cos)) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps one rough berry connected to a thin woody tail with bounded neck ownership and true wrinkle relief for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cubebberries', seed),
+        out = empty();
+      let greatestWrinkleRelief = 0,
+        maximumHeight = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) => {
+              sample(...world(seed, col, row, x, y), out);
+              return { ...out };
+            },
+            head = at(0, 0),
+            tail = at(0, 0.38),
+            side = at(0.06, 0.38),
+            background = at(0.39, 0),
+            tip = at(0, 0.477),
+            neck = at(0, 0.185);
+          expect(
+            (head.height - tail.height) * proceduralTileMeters.cubebberries,
+          ).toBeGreaterThan(0.0012);
+          expect(
+            (tail.height - background.height) *
+              proceduralTileMeters.cubebberries,
+          ).toBeGreaterThan(0.0007);
+          expect(
+            neck.height * proceduralTileMeters.cubebberries,
+          ).toBeGreaterThan(0.0016);
+          expect(neck.height * proceduralTileMeters.cubebberries).toBeLessThan(
+            0.00243,
+          );
+          expect(side.height).toBe(background.height);
+          expect(tip.height).toBe(background.height);
+          expect(head.roughness).toBeGreaterThan(tail.roughness);
+          expect(head.occlusion).toBeGreaterThan(background.occlusion);
+          expect(tail.occlusion).toBeGreaterThan(background.occlusion);
+          for (const value of [head, tail, neck]) {
+            expect(value.metallic).toBe(0);
+            expect(value.mortar).toBe(0);
+          }
+          for (let j = 0; j <= 24; j++) {
+            const bridge = at(
+              0,
+              p.stemTop + ((p.stemBottom - p.stemTop) * j) / 24,
+            );
+            expect(
+              (bridge.height - background.height) *
+                proceduralTileMeters.cubebberries,
+            ).toBeGreaterThan(0.00065);
+            expect(
+              bridge.height * proceduralTileMeters.cubebberries,
+            ).toBeLessThan(0.00243);
+          }
+          let crest: SurfaceSample | undefined,
+            valley: SurfaceSample | undefined;
+          for (let j = 0; j < 128; j++) {
+            const theta = (2 * Math.PI * j) / 128,
+              value = at(
+                0.6 * p.radiusX * Math.cos(theta),
+                0.6 * p.radiusY * Math.sin(theta),
+              );
+            if (!crest || value.color > crest.color) crest = value;
+            if (!valley || value.color < valley.color) valley = value;
+          }
+          if (crest && valley && crest.color - valley.color > 0.1) {
+            const relief =
+              (crest.height - valley.height) *
+              proceduralTileMeters.cubebberries;
+            expect(relief).toBeGreaterThan(0.0001);
+            expect(crest.roughness).toBeLessThan(valley.roughness);
+            greatestWrinkleRelief = Math.max(greatestWrinkleRelief, relief);
+          }
+        }
+      expect(greatestWrinkleRelief).toBeGreaterThan(0.0001);
+      for (let j = 0; j < 4096; j++) {
+        sample((j * 0.61803398875) % 1, (j * 0.41421356237) % 1, out);
+        maximumHeight = Math.max(maximumHeight, out.height);
+      }
+      expect(maximumHeight * proceduralTileMeters.cubebberries).toBeLessThan(
+        0.00243,
+      );
+    },
+  );
+  it('writes opaque nonmetal rough berry crowns and connected narrower lower woody tails at actual512', () => {
+    const maps = generateProceduralMaps('cubebberries', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const pixel = (x: number, y: number) => {
+            const [u, v] = world(7, col, row, x, y);
+            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+          },
+          head = pixel(0, 0),
+          tail = pixel(0, 0.38),
+          side = pixel(0.06, 0.38),
+          background = pixel(0.39, 0);
+        for (const i of [head, tail, side, background]) {
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+        }
+        expect(maps.baseColor[tail]).toBeGreaterThan(
+          maps.baseColor[background] + 20,
+        );
+        expect(maps.height![head]).toBeGreaterThan(maps.height![tail]);
+        expect(maps.height![tail]).toBeGreaterThan(maps.height![side]);
+        expect(maps.height![side]).toBe(maps.height![background]);
+        expect(maps.metallicRoughness[head + 1]).toBeGreaterThan(
+          maps.metallicRoughness[tail + 1],
+        );
+      }
+  });
+  it('repeats connected pedicels berry wrinkles and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('cubebberries', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps ellipse supports body shoulders pedicel caps neck overlap owners and UV seams C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cubebberries', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number) =>
+            check(...world(seed, col, row, x, y));
+          for (let j = 0; j <= 128; j++) {
+            const theta = (2 * Math.PI * j) / 128,
+              cos = Math.cos(theta),
+              sin = Math.sin(theta),
+              t = j / 128;
+            for (const r of [1, Math.sqrt(p.coreQ)])
+              local(p.radiusX * r * cos, p.radiusY * r * sin);
+            for (const r of [p.stemRadius, p.stemCore]) {
+              local(r * cos, p.stemTop + r * sin);
+              local(r * cos, p.stemBottom + r * sin);
+              for (const x of [-r, r])
+                local(x, p.stemTop + (p.stemBottom - p.stemTop) * t);
+            }
+            for (const y of [p.stemTop, p.stemBottom])
+              local(-0.06 + 0.12 * t, y);
+          }
+        }
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 128; j++) {
+          check(cell / p.cells, j / 128);
+          check(j / 128, cell / p.cells);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Pale plagioclase dominant anorthosite with flat cut twin lamellae', () => {
   const p = proceduralMaterialPresets.anorthosite;

@@ -8619,3 +8619,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之anorthosite512五maps；含共用sampler gabbro在內的全部720種各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之anorthosite512²及gabbro64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
 - 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7541項測試（960.12s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。
+
+## 2026-10-27 程序材質：Cubeb有梗皺紋胡椒果（cubebberries）
+
+- 目錄721→722種：64枚深褐橢圓果體，各自連接較窄、較低且較光滑的木質果梗；C1平方距離果體與圓端capsule果梗，以覆蓋順序讓完整果體擁有頸部高度，部分coverage平滑混合，不疊加兩層完整高度。每果六值姿態快取共384個Float64／3072 bytes，128² grain／64² wrinkle fields；每軸support上限0.468×0.98+0.025=0.48364小於owner半寬0.5，無逐點配置／hash／trig／sqrt。
+- 0.08 m參考tile／0.04 UV relief，皺紋高度0.0022 UV、凹孔深度0.0012 UV（按參考尺度換算176μm及96μm，非位移或實機量測）。全opaque M0／mortar0，不新增geometry、植物生長、透光或化學模擬，沿用options／Worker／cache／ownership。
+- 六項專項全部通過（vitest2.20s）：三seed全部果體的較低果梗／頸部單層高度／細梗支撐外背景／連接橋、同macro半徑上真實皺紋參考高差大於100μm且脊部較低roughness、參考高度上限小於2.43mm；512² opaque M0果體與較低較窄果梗、4096 signed UV週期，以及ellipse／capsule／clamp join／neck／owner／UV雙軸C1。
+- managed Chromium150 headless正式PBR gallery WebGPU／WebGL2皆實際擷取，顯示722種並選取cubebberries，頁面及cleanup errors空；另分別擷取actual512 albedo與normal原尺寸畫布，觀察深褐果體、皺紋與連接細梗。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生當次dist之cubebberries512五maps；全部721種既有材質各64²／seed7四maps相對HEAD之SHA256全部不變。另實跑ESM／CJS sampler之cubebberries512²、peppercorns及juniperberries各64²／seed7，五maps逐byte全部相同，不代表renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite另於下列記錄實際結果。未升版、不push。
+- 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7548項測試（940.99s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

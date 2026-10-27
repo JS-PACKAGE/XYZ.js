@@ -2846,6 +2846,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cubebberries': {
+        const p = proceduralMaterialPresets.cubebberries,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b911),
+          wrinkleField = cachedNoise(64, 64, seed ^ 0x1b913),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseBerry = 1 / (1 - p.coreQ),
+          stemSquared = p.stemRadius * p.stemRadius,
+          inverseStem = 1 / (stemSquared - p.stemCore * p.stemCore),
+          inverseStemDome = 1 / stemSquared,
+          wrinkleSquared = p.wrinkleRadius * p.wrinkleRadius,
+          inverseWrinkle = 1 / (wrinkleSquared - p.wrinkleCore * p.wrinkleCore),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1b915);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b917) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b919) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1b91b));
+            poses[i + 5] = hash(col, row, seed ^ 0x1b91d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * poses[i + 4],
+            y = (dy * poses[i] - dx * poses[i + 1]) * poses[i + 4],
+            q = x * x * inverseX + y * y * inverseY,
+            berry = smooth(clamp((1 - q) * inverseBerry)),
+            end = y - Math.max(p.stemTop, Math.min(p.stemBottom, y)),
+            stemQ = x * x + end * end,
+            stem = smooth(clamp((stemSquared - stemQ) * inverseStem));
+          color = 0.025;
+          height = 0.035;
+          roughness = 0.97;
+          occlusion = 0.3;
+          if (berry === 0 && stem === 0) return;
+          const grain = grainField(u, v);
+          if (stem !== 0) {
+            const crown = smooth(clamp(1 - stemQ * inverseStemDome));
+            color += stem * (0.43 + 0.1 * poses[i + 5] + 0.04 * grain - color);
+            height +=
+              stem * (p.stemBase + p.stemDome * crown + 0.003 * grain - height);
+            roughness += stem * (p.roughness - 0.1 + 0.03 * grain - roughness);
+            occlusion += stem * (0.95 - occlusion);
+          }
+          if (berry === 0) return;
+          const wrinkle = wrinkleField(u, v) - p.wrinkleCenter,
+            ridge = smooth(
+              clamp((wrinkleSquared - wrinkle * wrinkle) * inverseWrinkle),
+            ),
+            pore = smooth(clamp((p.poreThreshold - grain) * inversePore)),
+            dome = smooth(clamp(1 - q));
+          // The berry covers its connected woody pedicel; convex coverage
+          // preserves one bounded height layer rather than stacking at the neck.
+          color +=
+            berry *
+            (0.24 +
+              0.12 * dome +
+              0.06 * poses[i + 5] +
+              0.12 * ridge -
+              0.08 * pore -
+              color);
+          height +=
+            berry *
+            (p.berryBase +
+              p.berryDome * dome +
+              p.wrinkleHeight * ridge -
+              p.poreDepth * pore +
+              0.003 * grain -
+              height);
+          roughness +=
+            berry * (p.roughness + 0.05 * pore - 0.03 * ridge - roughness);
+          occlusion += berry * (0.9 + 0.08 * dome - 0.08 * pore - occlusion);
+          return;
+        };
+      }
       case 'anorthosite':
       case 'gabbro': {
         const p = proceduralMaterialPresets[kind],
@@ -33717,6 +33803,7 @@ export function createSurfaceSampler(
     kind === 'sichuanpepperhusks' ||
     kind === 'huckaback' ||
     kind === 'anorthosite' ||
+    kind === 'cubebberries' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||
