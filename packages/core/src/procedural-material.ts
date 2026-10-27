@@ -745,7 +745,8 @@ export type ProceduralMaterialKind =
   | 'chambray'
   | 'nephrite'
   | 'diorite'
-  | 'carawayseeds';
+  | 'carawayseeds'
+  | 'springpinends';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -1725,6 +1726,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'nephrite',
   'diorite',
   'carawayseeds',
+  'springpinends',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -1958,6 +1960,7 @@ export class ProceduralMaterial {
         this.kind === 'screwhooks' ||
         this.kind === 'utilityblades' ||
         this.kind === 'hexsocketheads' ||
+        this.kind === 'springpinends' ||
         this.kind === 'insulatedringlugs' ||
         this.kind === 'pencilsharpeners' ||
         this.kind === 'scissors' ||

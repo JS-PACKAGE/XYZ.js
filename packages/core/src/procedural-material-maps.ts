@@ -12990,6 +12990,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'springpinends': {
+        const p = proceduralMaterialPresets.springpinends,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1be11),
+          outerSquared = p.outerRadius * p.outerRadius,
+          innerSquared = p.innerRadius * p.innerRadius,
+          slotSquared = p.slotRadius * p.slotRadius,
+          inverseOuter = 1 / (outerSquared - p.outerCore * p.outerCore),
+          inverseInner = 1 / (p.innerCore * p.innerCore - innerSquared),
+          inverseSlot = 1 / (slotSquared - p.slotCore * p.slotCore),
+          inverseEnd = 1 / (p.slotFull - p.slotStart);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1be13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1be15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1be17) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1be19);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y,
+            slot =
+              smooth(clamp((slotSquared - x * x) * inverseSlot)) *
+              smooth(clamp((y - p.slotStart) * inverseEnd)),
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              (1 - slot),
+            grain = grainField(u, v);
+          // The slot reaches through the tube wall, not into a blind recess.
+          color = 0.03 + face * (0.79 + 0.05 * poses[i + 4] + 0.02 * grain);
+          height =
+            0.025 + face * (p.faceHeight + p.grainHeight * grain - 0.025);
+          roughness = 0.95 + face * (p.roughness + 0.025 * grain - 0.95);
+          occlusion = 0.3 + 0.69 * face;
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'carawayseeds':
       case 'fennelseeds': {
         const p = proceduralMaterialPresets[kind],
@@ -34069,6 +34120,7 @@ export function createSurfaceSampler(
     kind === 'nephrite' ||
     kind === 'diorite' ||
     kind === 'carawayseeds' ||
+    kind === 'springpinends' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

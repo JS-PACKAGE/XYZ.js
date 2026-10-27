@@ -772,7 +772,238 @@ const kinds: ProceduralMaterialKind[] = [
   'nephrite',
   'diorite',
   'carawayseeds',
+  'springpinends',
 ];
+
+describe('Slotted hollow spring pin end faces with one open gap and flat metal wall', () => {
+  const p = proceduralMaterialPresets.springpinends;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const uv = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const a = 2 * Math.PI * hash(col, row, seed ^ 0x1be13),
+      c = Math.cos(a),
+      s = Math.sin(a),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1be15) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1be17) - 1);
+    return [
+      (col + cx + c * x - s * y) / p.cells,
+      (row + cy + s * x + c * y) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps an open bore continuous slot and one connected constant thickness C shaped metal wall for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('springpinends', seed),
+        a = empty(),
+        b = empty();
+      const middle = (p.innerCore + p.outerCore) * 0.5;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample(...uv(seed, col, row, x, y), a);
+          at(0, 0);
+          const backing = { ...a };
+          for (let j = 0; j <= 128; j++) {
+            const y =
+              p.innerRadius +
+              ((p.outerRadius + 0.02 - p.innerRadius) * j) / 128;
+            at(0, y);
+            expect(a.height).toBe(backing.height);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(1);
+          }
+          let minH = Infinity,
+            maxH = -Infinity,
+            metalRuns = 0,
+            previous = false;
+          for (let j = 0; j < 2048; j++) {
+            const angle = (2 * Math.PI * j) / 2048;
+            at(middle * Math.cos(angle), middle * Math.sin(angle));
+            const full = a.metallic > 0.999999;
+            if (full && !previous) metalRuns++;
+            previous = full;
+            if (full) {
+              minH = Math.min(minH, a.height);
+              maxH = Math.max(maxH, a.height);
+              expect(a.height - backing.height).toBeGreaterThan(
+                p.relief * 0.62,
+              );
+              expect(a.occlusion).toBeGreaterThan(backing.occlusion);
+              expect(a.roughness).toBeLessThan(backing.roughness);
+            }
+          }
+          // Sampling starts on metal, so a single slot splits the linear traversal into two runs.
+          expect(metalRuns).toBe(2);
+          expect((maxH - minH) * 0.064).toBeLessThan(0.000004);
+          at(middle, 0);
+          Object.assign(b, a);
+          at(middle, 0.05);
+          expect(a.metallic).toBe(1);
+          expect(Math.abs(a.height - b.height) * 0.064).toBeLessThan(0.000004);
+          for (const [x, y] of [
+            [0, -p.outerRadius - 0.01],
+            [p.outerRadius + 0.01, 0],
+            [0, p.innerRadius - 0.01],
+          ]) {
+            at(x, y);
+            expect(a.metallic).toBe(0);
+            expect(a.height).toBe(backing.height);
+          }
+        }
+    },
+  );
+  it('writes actual512 opaque metallic C walls with a low nonmetal bore slot and backing', () => {
+    const maps = generateProceduralMaps('springpinends', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      backing = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      invalid += Number(maps.baseColor[i + 3] !== 255);
+      if (maps.metallicRoughness[i + 2] === 255) {
+        metal++;
+        expect(maps.height![i]).toBeGreaterThan(245);
+      }
+      if (maps.metallicRoughness[i + 2] === 0) {
+        backing++;
+        expect(maps.height![i]).toBe(0);
+      }
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.12);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.7);
+    expect(invalid).toBe(0);
+    const pixel = (u: number, v: number) =>
+      4 * (Math.floor(v * 512) * 512 + Math.floor(u * 512));
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        for (const [x, y] of [
+          [0, 0],
+          [0, 0.3],
+        ]) {
+          const i = pixel(...uv(7, col, row, x, y));
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+          expect(maps.height![i]).toBe(0);
+        }
+      }
+  });
+  it('repeats the slot bore ring and all PBR channels across signed UV periods', () => {
+    const sample = createSurfaceSampler('springpinends', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps slot sides ends ring intersections inner outer bevels owner grain and UV wrap C1', () => {
+    const h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('springpinends', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis === 0 ? h : 0,
+            dv = axis === 1 ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 128; j++) {
+            const angle = (2 * Math.PI * j) / 128;
+            for (const radius of [
+              p.innerRadius,
+              p.innerCore,
+              p.outerCore,
+              p.outerRadius,
+            ])
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                ),
+              );
+            const y =
+              p.innerRadius + ((p.outerRadius - p.innerRadius) * j) / 128;
+            for (const x of [
+              -p.slotRadius,
+              -p.slotCore,
+              p.slotCore,
+              p.slotRadius,
+            ]) {
+              check(...uv(seed, col, row, x, y));
+              for (const radius of [
+                p.innerRadius,
+                p.innerCore,
+                p.outerCore,
+                p.outerRadius,
+              ])
+                check(
+                  ...uv(seed, col, row, x, Math.sqrt(radius * radius - x * x)),
+                );
+            }
+            for (const y of [p.slotStart, p.slotFull])
+              check(
+                ...uv(
+                  seed,
+                  col,
+                  row,
+                  -p.outerRadius + (2 * p.outerRadius * j) / 128,
+                  y,
+                ),
+              );
+          }
+      for (let j = 0; j <= 128; j++)
+        for (let k = 0; k <= 128; k++) check(j / 128, k / 128);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Narrow crescent caraway fruits with five converging pale ridges', () => {
   const p = proceduralMaterialPresets.carawayseeds;
@@ -58510,6 +58741,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'screwhooks' &&
           kind !== 'utilityblades' &&
           kind !== 'hexsocketheads' &&
+          kind !== 'springpinends' &&
           kind !== 'insulatedringlugs' &&
           kind !== 'pencilsharpeners' &&
           kind !== 'scissors' &&

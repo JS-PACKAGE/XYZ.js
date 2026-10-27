@@ -8737,3 +8737,16 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步，技術文件附Caraway形態參考，未打包參考圖片。靜態gate及完整suite實際結果另列；未升版、不push，不外推Safari、實機或Canvas2D 3D。
 - build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。
 - 完整suite179個測試檔／7604項全部通過（1006.33s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
+
+## 2026-10-27 程序材質：開槽中空彈簧銷端面（springpinends）
+
+- 目錄730→731種：36枚隨機旋轉平切C形鋼管壁、低中央孔腔與單一窄槽連通外緣；不是有雙耳孔的circlips、盲凹穴或封閉washers。重用快取姿態與compact平方annulus／C1 slot profile，內外bevel與slot乘積混合，無角度接縫或nearest-edge crease。每端面五值共180個Float64／1440 bytes與128² grain，無逐點配置／hash／trig／sqrt；outerRadius0.36加jitter0.025小於owner半寬0.5。
+- 0.064 m參考tile／0.03 UV relief，平切鋼壁micrograin跨度0.00006 UV（按參考尺度換算3.84μm，非geometry／位移／實機量測）。鋼壁M1／低孔腔與背景M0，邊緣連續，mortar1-face；facade metallic factor1，不讓region metallic map被預設factor抑制。全opaque孔腔與槽，不新增透明通孔geometry、壓入變形或材料彈性，維持options、Worker、cache及ownership。
+- 六項springpinends專項及kind共用catalog合計7項通過（vitest4.13s）。三seed逐一驗證所有槽從孔腔貫通外緣、2048環向點僅一缺口及平切壁高度跨度／較低roughness；actual512 M1壁與M0低孔槽／背景、opaque及覆蓋下限，4096 signed UV，slot sides／ends與內外bevel交點、cache／owner／UV雙軸C1，1e-10 UV步長／strict0.03。
+- 初次整合六項專項通過、catalog失敗（vitest5.46s）：8×8配置在支援的32² map僅每cell四pixel，窄環位於半徑0.25–0.36，pixel中心落在約0.177或0.395而全miss，導致seed123／124都是背景。將preset改為6×6使最小map仍能取到鋼壁，未特殊判斷size、不放寬既有seeded檢查或改map生成；上述7項最終通過。repo前8×8六項隔離draft雖通過，不作最小map gate證據，無probe檔留在repo。
+- managed Chromium150 headless正式gallery WebGPU／WebGL2皆實際選取springpinends、顯示731種並擷取，頁面及cleanup errors空。另actual512 albedo可見36個C形鋼壁與單槽，normal顯示內外bevel及平切面；strict dist公開facade以size32／seed123／height實跑createMaterial metallicFactor1並destroy成功，errors空。不以截圖聲稱定量高度或renderer效能。
+- strict static完整dist NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3實跑，五maps SHA256與direct相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures與destroy／pool destroy／cache clear成功。
+- Fresh Node產生springpinends512²五maps各1048576 bytes；全部730種既有材質各64²／seed7四maps相對HEAD SHA256不變。實跑dist ESM／CJS之springpinends32²及512²、hexsocketheads／circlips各64²／seed7五maps逐byte相同，不外推renderer backend parity或跨realm constructor相同。
+- 九份Markdown相對連結無缺失，README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。技術文件附已讀DRIV-LOK開槽鋼管製法與截面圖參考，不引用取用失敗的SPIROL頁面作已讀證據，未打包參考圖片、未宣稱ASME尺寸或強度認證。
+- build、typecheck、lint、format:check、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）全部通過；完整suite實際結果另列。未升版、不push，不外推Safari、實機或Canvas2D 3D。
+- 完整suite179個測試檔／7611項全部通過（1012.00s），加上上述靜態、相容性及實際瀏覽器／Worker gate後依功能獨立提交，不外推其他平台認證。
