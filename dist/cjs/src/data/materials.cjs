@@ -15098,6 +15098,33 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .4,
 		grainHeight: .003
 	}),
+	amazonite: Object.freeze({
+		dark: [
+			12,
+			102,
+			88
+		],
+		light: [
+			236,
+			238,
+			216
+		],
+		roughness: .26,
+		relief: .001,
+		frequency: 32,
+		skew: 8,
+		warp: .7,
+		bandRadius: .11,
+		bandCore: .025,
+		widthMinimum: .45,
+		widthRange: .9,
+		gateThreshold: .4,
+		gateShoulder: .25,
+		baseColor: .18,
+		cloudContrast: .2,
+		paleColor: .95,
+		grainHeight: .002
+	}),
 	twopinscrewheads: Object.freeze({
 		dark: [
 			35,
@@ -15938,7 +15965,8 @@ var proceduralTileMeters = Object.freeze({
 	pietersite: .06,
 	castorbeans: .064,
 	zebrawood: .16,
-	twopinscrewheads: .06
+	twopinscrewheads: .06,
+	amazonite: .06
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

@@ -786,7 +786,322 @@ const kinds: ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'twopinscrewheads',
+  'amazonite',
 ];
+
+describe('Polished aqua amazonite with broken intersecting pale feldspar streaks on one unstepped face', () => {
+  const p = proceduralMaterialPresets.amazonite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (columns: number, rows: number, seed: number) => {
+    const values = new Float64Array(columns * rows);
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < columns; x++)
+        values[y * columns + x] = hash(x, y, seed);
+    return (u: number, v: number) => {
+      const fu = u - Math.floor(u),
+        fv = v - Math.floor(v),
+        x = fu * columns,
+        y = fv * rows,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        dx = x - ix,
+        dy = y - iy,
+        sx = dx * dx * (3 - 2 * dx),
+        sy = dy * dy * (3 - 2 * dy),
+        nextX = (ix + 1) % columns,
+        nextY = (iy + 1) % rows,
+        a = values[iy * columns + ix],
+        b = values[iy * columns + nextX],
+        c = values[nextY * columns + ix],
+        d = values[nextY * columns + nextX];
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+  };
+  const fields = (seed: number) => ({
+    warp: [field(7, 9, seed ^ 0x1ce13), field(9, 7, seed ^ 0x1ce15)],
+    width: [field(32, 16, seed ^ 0x1ce17), field(16, 32, seed ^ 0x1ce19)],
+    gate: [field(8, 32, seed ^ 0x1ce1b), field(32, 8, seed ^ 0x1ce1d)],
+  });
+  const root = (f: (t: number) => number) => {
+    let lo = 0,
+      hi = 1;
+    if (f(lo) > 0 || f(hi) < 0) return undefined;
+    for (let j = 0; j < 48; j++) {
+      const t = (lo + hi) * 0.5;
+      if (f(t) < 0) lo = t;
+      else hi = t;
+    }
+    return (lo + hi) * 0.5;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps pale broken streaks in both crossing directions with blue-green gaps and no height step or metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('amazonite', seed),
+        out = empty(),
+        side = empty(),
+        f = fields(seed);
+      let pale = 0,
+        blue = 0,
+        low = Infinity,
+        high = -Infinity,
+        roughLow = Infinity,
+        roughHigh = -Infinity,
+        invalid = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, out);
+          pale += Number(out.color > 0.85);
+          blue += Number(out.color < 0.45);
+          low = Math.min(low, out.height);
+          high = Math.max(high, out.height);
+          roughLow = Math.min(roughLow, out.roughness);
+          roughHigh = Math.max(roughHigh, out.roughness);
+          invalid += Number(
+            out.metallic !== 0 || out.mortar !== 0 || out.occlusion !== 1,
+          );
+        }
+      expect(pale).toBeGreaterThan(150);
+      expect(blue).toBeGreaterThan(10000);
+      expect(high - low).toBeLessThan(0.0021 * p.relief);
+      expect(roughHigh - roughLow).toBeLessThan(0.021);
+      expect(invalid).toBe(0);
+      for (let family = 0; family < 2; family++) {
+        let full = 0,
+          broken = 0;
+        for (let j = 0; j <= 64; j++)
+          for (let k = -p.skew - 1; k <= p.frequency + p.skew + 1; k++) {
+            const s = j / 64,
+              at = (t: number) => (family ? [s, t] : [t, s]),
+              phase = (t: number) => {
+                const [u, v] = at(t);
+                return family
+                  ? -p.skew * u +
+                      p.frequency * v +
+                      p.warp * (f.warp[1](u, v) - 0.5)
+                  : p.frequency * u +
+                      p.skew * v +
+                      p.warp * (f.warp[0](u, v) - 0.5);
+              },
+              t = root((t) => phase(t) - k);
+            if (t === undefined || t < 0.02 || t > 0.98) continue;
+            const [u, v] = at(t),
+              otherPhase = family
+                ? p.frequency * u +
+                  p.skew * v +
+                  p.warp * (f.warp[0](u, v) - 0.5)
+                : -p.skew * u +
+                  p.frequency * v +
+                  p.warp * (f.warp[1](u, v) - 0.5),
+              d = Math.abs(otherPhase - Math.floor(otherPhase + 0.5));
+            if (d < 0.2) continue;
+            sample(u, v, out);
+            const gate = f.gate[family](u, v);
+            if (gate > p.gateThreshold + p.gateShoulder + 0.03) {
+              const [a, b] = at(t + 0.015);
+              sample(a, b, side);
+              if (side.color < 0.5) {
+                expect(out.color - side.color).toBeGreaterThan(0.35);
+                expect(Math.abs(out.height - side.height)).toBeLessThan(
+                  0.0021 * p.relief,
+                );
+                full++;
+              }
+            }
+            if (gate < p.gateThreshold - 0.03) {
+              expect(out.color).toBeLessThan(0.45);
+              broken++;
+            }
+          }
+        expect(full).toBeGreaterThan(20);
+        expect(broken).toBeGreaterThan(20);
+      }
+    },
+  );
+  it('writes actual512 opaque aqua fields and pale streaks with no metallic channels AO pits or raised crossing normals', () => {
+    const maps = generateProceduralMaps('amazonite', 512, 7, {
+      heightMap: true,
+    });
+    let aqua = 0,
+      pale = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      aqua += Number(g - r > 35 && b - r > 25);
+      pale += Number(r > 205 && g > 215 && b > 190);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(aqua / (512 * 512)).toBeGreaterThan(0.65);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.01);
+    expect(pale / (512 * 512)).toBeLessThan(0.2);
+    expect(invalid).toBe(0);
+    expect(tilt).toBeLessThan(0.0001);
+  });
+  it('repeats both pale streak families clouds and flat mineral channels over signed UV periods for three seeds', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('amazonite', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps actual variable band support core mid shoulders centers phase wraps interrupted gate endpoints and cache owners C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      mid = Math.sqrt(
+        (p.bandRadius * p.bandRadius + p.bandCore * p.bandCore) * 0.5,
+      ),
+      levels = [
+        -p.bandRadius,
+        -mid,
+        -p.bandCore,
+        0,
+        p.bandCore,
+        mid,
+        p.bandRadius,
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('amazonite', seed),
+        f = fields(seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      // Signed stripe-shoulder equations are increasing in their primary axis: derivative >=19.898.
+      for (let family = 0; family < 2; family++)
+        for (let j = 0; j <= 64; j++) {
+          const s = j / 64,
+            at = (t: number) => (family ? [s, t] : [t, s]),
+            phase = (u: number, v: number) =>
+              family
+                ? -p.skew * u +
+                  p.frequency * v +
+                  p.warp * (f.warp[1](u, v) - 0.5)
+                : p.frequency * u +
+                  p.skew * v +
+                  p.warp * (f.warp[0](u, v) - 0.5);
+          for (let k = -p.skew - 1; k <= p.frequency + p.skew + 1; k++) {
+            for (const level of levels) {
+              const t = root((t) => {
+                const [u, v] = at(t);
+                return (
+                  phase(u, v) -
+                  k -
+                  level *
+                    (p.widthMinimum + p.widthRange * f.width[family](u, v))
+                );
+              });
+              if (t !== undefined) {
+                const [u, v] = at(t);
+                check(u, v);
+              }
+            }
+            const t = root((t) => {
+              const [u, v] = at(t);
+              return phase(u, v) - k - 0.5;
+            });
+            if (t !== undefined) {
+              const [u, v] = at(t);
+              check(u, v);
+            }
+          }
+          for (const target of [
+            p.gateThreshold,
+            p.gateThreshold + p.gateShoulder,
+          ])
+            for (let axis = 0; axis < 2; axis++) {
+              const gate = (t: number) =>
+                axis
+                  ? f.gate[family](s, t) - target
+                  : f.gate[family](t, s) - target;
+              let left = 0,
+                fl = gate(left);
+              for (let q = 1; q <= 128; q++) {
+                const right = q / 128,
+                  fr = gate(right);
+                if (fl * fr <= 0) {
+                  let lo = left,
+                    hi = right,
+                    fa = fl;
+                  for (let step = 0; step < 48; step++) {
+                    const t = (lo + hi) * 0.5,
+                      ft = gate(t);
+                    if (fa * ft <= 0) hi = t;
+                    else {
+                      lo = t;
+                      fa = ft;
+                    }
+                  }
+                  const t = (lo + hi) * 0.5;
+                  if (axis) check(s, t);
+                  else check(t, s);
+                }
+                left = right;
+                fl = fr;
+              }
+            }
+        }
+      for (const grid of [5, 7, 8, 9, 16, 32, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 64; j++) {
+            check(k / grid, j / 64);
+            check(j / 64, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Two opposed circular blind pin-drive recesses with closed flat steel floors and a solid center bridge', () => {
   const p = proceduralMaterialPresets.twopinscrewheads;

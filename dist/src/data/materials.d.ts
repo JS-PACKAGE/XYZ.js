@@ -8640,6 +8640,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.4;
         grainHeight: 0.003;
     }>;
+    amazonite: Readonly<{
+        dark: readonly [12, 102, 88];
+        light: readonly [236, 238, 216];
+        roughness: 0.26;
+        relief: 0.001;
+        frequency: 32;
+        skew: 8;
+        warp: 0.7;
+        bandRadius: 0.11;
+        bandCore: 0.025;
+        widthMinimum: 0.45;
+        widthRange: 0.9;
+        gateThreshold: 0.4;
+        gateShoulder: 0.25;
+        baseColor: 0.18;
+        cloudContrast: 0.2;
+        paleColor: 0.95;
+        grainHeight: 0.002;
+    }>;
     twopinscrewheads: Readonly<{
         dark: readonly [35, 40, 46];
         light: readonly [224, 231, 236];
@@ -9458,4 +9477,5 @@ export declare const proceduralTileMeters: Readonly<{
     castorbeans: 0.064;
     zebrawood: 0.16;
     twopinscrewheads: 0.06;
+    amazonite: 0.06;
 }>;

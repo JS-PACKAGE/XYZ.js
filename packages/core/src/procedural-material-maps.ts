@@ -3608,6 +3608,50 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'amazonite': {
+        const p = proceduralMaterialPresets.amazonite,
+          cloudField = cachedNoise(5, 5, seed ^ 0x1ce11),
+          warpA = cachedNoise(7, 9, seed ^ 0x1ce13),
+          warpB = cachedNoise(9, 7, seed ^ 0x1ce15),
+          widthA = cachedNoise(32, 16, seed ^ 0x1ce17),
+          widthB = cachedNoise(16, 32, seed ^ 0x1ce19),
+          gateA = cachedNoise(8, 32, seed ^ 0x1ce1b),
+          gateB = cachedNoise(32, 8, seed ^ 0x1ce1d),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ce1f),
+          radiusSquared = p.bandRadius * p.bandRadius,
+          inverseBand = 1 / (radiusSquared - p.bandCore * p.bandCore),
+          inverseGate = 1 / p.gateShoulder;
+        return () => {
+          const phaseA =
+              p.frequency * u + p.skew * v + p.warp * (warpA(u, v) - 0.5),
+            phaseB =
+              -p.skew * u + p.frequency * v + p.warp * (warpB(u, v) - 0.5),
+            distanceA =
+              (phaseA - Math.floor(phaseA + 0.5)) /
+              (p.widthMinimum + p.widthRange * widthA(u, v)),
+            distanceB =
+              (phaseB - Math.floor(phaseB + 0.5)) /
+              (p.widthMinimum + p.widthRange * widthB(u, v)),
+            a =
+              smooth(
+                clamp((radiusSquared - distanceA * distanceA) * inverseBand),
+              ) * smooth(clamp((gateA(u, v) - p.gateThreshold) * inverseGate)),
+            b =
+              smooth(
+                clamp((radiusSquared - distanceB * distanceB) * inverseBand),
+              ) * smooth(clamp((gateB(u, v) - p.gateThreshold) * inverseGate)),
+            pale = a + b - a * b,
+            grain = grainField(u, v),
+            base = p.baseColor + p.cloudContrast * cloudField(u, v);
+          // Broken intersecting pale feldspar streaks are pigment in one polish,
+          // not relief cracks, raised threads or a simulated cleavage surface.
+          color = base + pale * (p.paleColor - base) + 0.06 * grain;
+          height = 0.4 + p.grainHeight * grain;
+          roughness = p.roughness + 0.02 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'twopinscrewheads':
       case 'squaresocketheads':
       case 'hexsocketheads': {
@@ -35036,6 +35080,7 @@ export function createSurfaceSampler(
     kind === 'hexsocketheads' ||
     kind === 'squaresocketheads' ||
     kind === 'twopinscrewheads' ||
+    kind === 'amazonite' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||
