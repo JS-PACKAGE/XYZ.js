@@ -8855,3 +8855,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 以實際built dendriticfrost sampler分別執行原callback及聚合callback，逐次記錄IEEE754 UV串流：每seed皆1,588,902次sampler呼叫、三seed合計4,766,706次；每seed的有序UV SHA256及worst C1完全相同，最大worst為0.0013733458814613186。此throwaway smoke證明改的是斷言開銷，不是採樣集合、順序或consumer數值，未留下永久copy／echo測試。
 - 正式六項定向通過（vitest4.63s）：既有三seed枝晶幾何、actual512、完整C1及catalog。test typecheck／lint／format通過，保留原30秒timeout；不宣稱重新驗證GPU／瀏覽器或引擎fps，也不需要為純test變更重建未改動的runtime。
 - 本維護只獨立提交測試的聚合hunks及此紀錄；新材質、其文件／dist與既有外部驗收note不納入。新材質完整suite重跑結果由該功能另列。
+
+## 2026-10-28 驗證維護：compactcassettefaces C1斷言聚合
+
+- 新材質整合工作樹第二輪完整suite的dendriticfrost已通過，但既有compactcassettefaces C1單項另超過原30,000 ms（178檔／7666項通過，1檔／1項失敗，1002.99s）；保留此實際失敗，不重新執行舊版本只為確認，也不以定向通過冒充完整suite。
+- 原錄音帶C1每seed執行2,498,472次expect，三seed合計7,495,416次。只將同一數值的最大值聚合成每seed一次strict0.03斷言；全部六channels、雙軸、三seed及h1e-10保留，body／label rounded rectangles、雙window、環形reel、六spokes、projection joins、guideholes、headport／ribbon、pose owners與UV wraps的loops及取樣順序均未改動，timeout亦未調高。
+- 實際built compactcassettefaces sampler的原／新callbacks皆每seed1,249,236次呼叫，三seed共3,747,708次；逐seed有序IEEE754 UV串流SHA256與worst C1完全一致，最大worst為0.0014910295220715852。throwaway smoke未留repo檔，未新增copy／echo永久測試，無runtime／preset／dist變更。
+- 正式12項定向通過（vitest6.64s）：錄音帶與枝晶的既有三seed幾何、actual512、完整C1及catalog；test typecheck／lint／format通過，保留原30秒timeout，不減少採樣、不放寬門檻，不宣稱引擎fps或GPU／瀏覽器重新驗證。
+- 本維護只獨立提交錄音帶測試聚合hunks及此紀錄；新材質及其docs／dist、既有外部驗收note皆不納入，完整suite重跑由該功能另列。
