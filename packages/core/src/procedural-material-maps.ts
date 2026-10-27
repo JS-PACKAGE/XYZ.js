@@ -1441,6 +1441,74 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'nigellaseeds': {
+        const p = proceduralMaterialPresets.nigellaseeds,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          side = Math.sqrt(3) * 0.5,
+          axes = new Float64Array([0, 1, side, -0.5, -side, -0.5]),
+          inverseShoulder = 1 / p.shoulder,
+          inverseRadius = 1 / p.inradius,
+          inverseX = 1 / p.aspectX,
+          inverseY = 1 / p.aspectY,
+          inversePore = 1 / p.poreShoulder,
+          grainField = cachedNoise(128, 128, seed ^ 0x1b211),
+          poreField = cachedNoise(256, 256, seed ^ 0x1b213);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1b215);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b217) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b219) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1b21b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = (dx * poses[i] + dy * poses[i + 1]) * inverseX,
+            y = (dy * poses[i] - dx * poses[i + 1]) * inverseY;
+          let body = 1,
+            dome = 1;
+          for (let j = 0; j < axes.length; j += 2) {
+            const inset = p.inradius - x * axes[j] - y * axes[j + 1];
+            body *= smooth(clamp(inset * inverseShoulder));
+            dome *= smooth(clamp(inset * inverseRadius));
+          }
+          color = 0.02;
+          height = 0.025;
+          roughness = 0.97;
+          occlusion = 0.3;
+          if (body === 0) return;
+          const pores = smooth(
+              clamp((p.poreThreshold - poreField(u, v)) * inversePore),
+            ),
+            grain = grainField(u, v),
+            tone = poses[i + 4];
+          // Rounded halfplanes preserve the angular seed coat. Fine pits
+          // recess that single surface instead of adding separate grains.
+          color +=
+            body *
+            (0.27 +
+              0.12 * tone +
+              0.1 * dome +
+              0.02 * grain -
+              0.12 * pores -
+              color);
+          height +=
+            body *
+            (0.42 + 0.24 * dome - p.poreDepth * pores + 0.002 * grain - height);
+          roughness +=
+            body * (p.roughness + 0.06 * pores + 0.02 * grain - roughness);
+          occlusion += body * (0.9 + 0.09 * dome - 0.06 * pores - occlusion);
+          return;
+        };
+      }
       case 'screwhooks': {
         const p = proceduralMaterialPresets.screwhooks,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -33192,6 +33260,7 @@ export function createSurfaceSampler(
     kind === 'parchment' ||
     kind === 'cavalrytwill' ||
     kind === 'screwhooks' ||
+    kind === 'nigellaseeds' ||
     kind === 'ooliticlimestone' ||
     kind === 'ogeetiles' ||
     kind === 'bittermelonskin' ||

@@ -8518,3 +8518,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node產生當次dist之screwhooks512五maps；既有711種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
 - 完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7477項測試（924.44s）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。原完整suite背景程序因執行環境重置失去結果，未將其記為通過；重置後重新執行上述完整suite成功。依功能獨立commit、不push。
 - 單位勘誤：上述「0.004 m relief／約160μm螺紋槽」為當時的錯誤標註；實作高度及normal導數使用UV座標，正確為0.004 UV relief／約0.00016 UV螺紋深度。0.36 m只是參考tile尺度，不會把sampler高度自動轉為公尺；非實際位移或實機深度量測。僅修正文件，輸出不變。
+
+## 2026-10-27 程序材質：黑色稜角細凹黑種草籽（nigellaseeds）
+
+- 目錄712→713種：25枚任意旋轉炭黑種籽，細長三側稜角與細凹表皮，不是圓籽或高肋蕎麥殼。三C1半平面乘積、aspect0.9／1.15、support≤0.368加jitter0.015小於owner0.5；每籽五值快取，128²grain／256²pore fields，無逐點配置／hash／trig／sqrt。全opaque M0／mortar0，不新增geometry、透明孔或生物模擬。
+- 首次actual512 normal擷取發現將UV relief誤作公尺會令凹凸過平，確認sampler height乘relief、normal導數除以UV間距而無公尺轉換。僅將本新增材質校準為0.0375 UV relief（0.024 m參考tile），凹孔深0.0009375 UV；按參考尺度換算22.5μm，不是幾何位移或實機量測。既有材質輸出不變；螺絲鉤文件單位另以獨立commit勘誤。
+- managed Chromium150 headless正式PBR gallery最終版本WebGPU／WebGL2皆實際擷取，顯示713種並選取nigellaseeds；成功頁面及cleanup errors空。另擷取最終actual512 normal原尺寸畫布，觀察種籽稜角及細凹表皮。不外推Safari、實機、Canvas2D 3D、backend parity或效能。
+- strict static完整dist之NativeWorker／cache以512²、seed7、height、tint[0.8,1,0.9]／repeats3重跑最終版本，五maps各SHA256與direct完全相同；cache一筆5242880 bytes、hit1／miss1、worker completed1／failed0，獨立textures及destroy／pool destroy／cache clear皆成功。
+- Fresh Node產生最終dist之nigellaseeds512五maps；既有712種各64²／seed7四maps相對HEAD之SHA256全部不變。九份Markdown相對連結無缺失；README中／英／日、PLAN、DESIGN及中英技術／使用文件同步。未升版、不push。
+- 最終專項6項全部通過（1.12s）：三seed三側稜角內外高度／AO／亮度與中心參考高度；120°等macro高度配對確認rougher pits變暗、AO降低並真正凹下（按參考tile尺度差>5μm），不只是顏色噪聲。512² opaque dielectric種籽／凹隙像素、4096 signed UV週期、三seed角點／shoulder／凹孔／owner及UV seams雙軸C1亦通過。
+- 最終完整gate全部通過：build、typecheck、lint、format:check、179個測試檔／7484項測試（1090.49s；browser smoke後執行完整suite）、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）及distribution（367 exports）。依功能獨立commit、不push。

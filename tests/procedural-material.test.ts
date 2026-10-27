@@ -12,6 +12,7 @@ import { opticalMaterialMaps } from '../packages/core/src/optical-material-maps.
 import {
   proceduralMaterialPresets,
   proceduralMaterialLimits,
+  proceduralTileMeters,
 } from '../src/data/materials.js';
 import {
   ProceduralMaterial,
@@ -753,7 +754,228 @@ const kinds: ProceduralMaterialKind[] = [
   'parchment',
   'cavalrytwill',
   'screwhooks',
+  'nigellaseeds',
 ];
+
+describe('Angular pitted charcoal nigella seeds', () => {
+  const p = proceduralMaterialPresets.nigellaseeds;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const axes = [
+    [0, 1],
+    [Math.sqrt(3) * 0.5, -0.5],
+    [-Math.sqrt(3) * 0.5, -0.5],
+  ];
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const world = (
+    seed: number,
+    col: number,
+    row: number,
+    x: number,
+    y: number,
+  ): [number, number] => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1b215),
+      cos = Math.cos(angle),
+      sin = Math.sin(angle),
+      cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b217) - 1),
+      cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b219) - 1);
+    return [
+      (col + cx + p.aspectX * x * cos - p.aspectY * y * sin) / p.cells,
+      (row + cy + p.aspectX * x * sin + p.aspectY * y * cos) / p.cells,
+    ];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'preserves three angular coat sides around a raised rough dielectric seed for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('nigellaseeds', seed),
+        a = empty(),
+        b = empty();
+      let lowRoughness = 1,
+        highRoughness = 0,
+        comparedPores = false;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          sample(...world(seed, col, row, 0, 0), a);
+          expect(a.height * proceduralTileMeters.nigellaseeds).toBeGreaterThan(
+            0.00055,
+          );
+          expect(a.occlusion).toBeGreaterThan(0.92);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+          for (const [nx, ny] of axes) {
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                nx * (p.inradius - 0.04),
+                ny * (p.inradius - 0.04),
+              ),
+              a,
+            );
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                nx * (p.inradius + 0.01),
+                ny * (p.inradius + 0.01),
+              ),
+              b,
+            );
+            expect(
+              (a.height - b.height) * proceduralTileMeters.nigellaseeds,
+            ).toBeGreaterThan(0.0003);
+            expect(a.color).toBeGreaterThan(b.color);
+            expect(a.occlusion).toBeGreaterThan(b.occlusion);
+          }
+          for (let j = 0; j < 17; j++)
+            for (let k = 0; k < 17; k++) {
+              sample(
+                ...world(seed, col, row, (j - 8) * 0.005, (k - 8) * 0.005),
+                a,
+              );
+              lowRoughness = Math.min(lowRoughness, a.roughness);
+              highRoughness = Math.max(highRoughness, a.roughness);
+            }
+          // These 120-degree partners share the same macro coat height.
+          // Rougher pits must recess and darken that surface, not add bumps.
+          for (let j = 0; j < 64; j++) {
+            const theta = (2 * Math.PI * j) / 64;
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.07 * Math.cos(theta),
+                0.07 * Math.sin(theta),
+              ),
+              a,
+            );
+            sample(
+              ...world(
+                seed,
+                col,
+                row,
+                0.07 * Math.cos(theta + (2 * Math.PI) / 3),
+                0.07 * Math.sin(theta + (2 * Math.PI) / 3),
+              ),
+              b,
+            );
+            const difference = a.roughness - b.roughness;
+            if (Math.abs(difference) <= 0.04) continue;
+            const pit = difference > 0 ? a : b,
+              coat = difference > 0 ? b : a;
+            expect(
+              (coat.height - pit.height) * proceduralTileMeters.nigellaseeds,
+            ).toBeGreaterThan(0.000005);
+            expect(coat.color).toBeGreaterThan(pit.color);
+            expect(coat.occlusion).toBeGreaterThan(pit.occlusion);
+            comparedPores = true;
+          }
+        }
+      expect(lowRoughness).toBeLessThan(0.88);
+      expect(highRoughness).toBeGreaterThan(0.92);
+      expect(comparedPores).toBe(true);
+    },
+  );
+  it('writes dark raised opaque dielectric seed coats surrounded by recessed gaps at actual512', () => {
+    const maps = generateProceduralMaps('nigellaseeds', 512, 7, {
+      heightMap: true,
+    });
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const indices = [
+          [0, 0],
+          [0, 0.2],
+        ].map(([x, y]) => {
+          const [u, v] = world(7, col, row, x, y);
+          return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
+        });
+        const [face, gap] = indices;
+        for (const i of indices) {
+          expect(maps.baseColor[i + 3]).toBe(255);
+          expect(maps.metallicRoughness[i + 2]).toBe(0);
+        }
+        expect(maps.baseColor[face]).toBeGreaterThan(maps.baseColor[gap]);
+        expect(maps.occlusion[face]).toBeGreaterThan(maps.occlusion[gap]);
+        expect(maps.metallicRoughness[face + 1]).toBeLessThan(
+          maps.metallicRoughness[gap + 1],
+        );
+      }
+  });
+  it('repeats angular seed coats pits and all PBR channels on signed UV periods', () => {
+    const sample = createSurfaceSampler('nigellaseeds', 7),
+      a = empty(),
+      b = empty();
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u + 2, v - 3, b);
+      for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+        expect(b[key]).toBeCloseTo(a[key], 10);
+    }
+  });
+  it('keeps angular corners coat shoulders pores and periodic ownership C1', () => {
+    const h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nigellaseeds', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (const [du, dv] of [
+          [h, 0],
+          [0, h],
+        ]) {
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 64; j++) {
+            const t = j / 64;
+            for (const [nx, ny] of axes)
+              for (const r of [p.inradius, p.inradius - p.shoulder]) {
+                const along = (2 * t - 1) * Math.sqrt(3) * r;
+                check(
+                  ...world(
+                    seed,
+                    col,
+                    row,
+                    nx * r - ny * along,
+                    ny * r + nx * along,
+                  ),
+                );
+              }
+            check(...world(seed, col, row, 0.08 * (2 * t - 1), 0));
+          }
+      for (let k = 0; k <= 256; k++)
+        for (const edge of [0, 1]) {
+          check(edge, k / 256);
+          check(k / 256, edge);
+        }
+      expect(worst).toBeLessThan(0.15);
+    }
+  });
+});
 
 describe('Open ring screw hooks with tapered threaded shanks', () => {
   const p = proceduralMaterialPresets.screwhooks;
