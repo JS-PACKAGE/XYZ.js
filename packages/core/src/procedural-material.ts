@@ -768,6 +768,7 @@ export type ProceduralMaterialKind =
   | 'squareholewashers'
   | 'snakewood'
   | 'safflowerseeds'
+  | 'thulite'
   | 'unakite'
   | 'eudialyte'
   | 'iroko'
@@ -1775,6 +1776,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'squareholewashers',
   'snakewood',
   'safflowerseeds',
+  'thulite',
   'unakite',
   'eudialyte',
   'iroko',

@@ -831,6 +831,7 @@ try {
     'squareholewashers',
     'snakewood',
     'safflowerseeds',
+    'thulite',
     'unakite',
     'eudialyte',
     'iroko',

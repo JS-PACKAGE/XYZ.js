@@ -8717,6 +8717,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         domeHeight: 0.26;
         grainHeight: 0.002;
     }>;
+    thulite: Readonly<{
+        dark: readonly [173, 46, 89];
+        light: readonly [244, 235, 226];
+        roughness: 0.22;
+        relief: 0.00012;
+        coarseCells: 7;
+        mediumCells: 37;
+        fineCells: 191;
+        coarseWeight: 0.12;
+        mediumWeight: 0.18;
+        fineWeight: 0.7;
+        pinkBase: 0.1;
+        whiteContrast: 0.78;
+        fineContrast: 0.03;
+        height: 0.35;
+        grainHeight: 0.002;
+    }>;
     unakite: Readonly<{
         dark: readonly [39, 76, 30];
         light: readonly [244, 127, 132];
@@ -9745,6 +9762,7 @@ export declare const proceduralTileMeters: Readonly<{
     squareholewashers: 0.1;
     snakewood: 0.16;
     safflowerseeds: 0.06;
+    thulite: 0.12;
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;

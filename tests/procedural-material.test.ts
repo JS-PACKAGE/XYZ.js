@@ -794,6 +794,7 @@ const kinds: ProceduralMaterialKind[] = [
   'squareholewashers',
   'snakewood',
   'safflowerseeds',
+  'thulite',
   'unakite',
   'eudialyte',
   'iroko',
@@ -1759,6 +1760,208 @@ describe('Raspberry-red and black angular Eudialyte-bearing fragments on a level
       for (let y = 0; y <= 128; y++)
         for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
       expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
+
+describe('Fine pink and pale granular Thulite on one unstepped polished dielectric face', () => {
+  const p = proceduralMaterialPresets.thulite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps fine pink and pale domains on one closed micro-relief polish for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('thulite', seed),
+        a = empty(),
+        b = empty();
+      let pink = 0,
+        pale = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity,
+        roughLow = Infinity,
+        roughHigh = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          sample(x / 128, y / 128, a);
+          pink += Number(a.color < 0.45);
+          pale += Number(a.color > 0.7);
+          invalid += Number(
+            a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+          );
+          for (const key of keys) invalid += Number(!Number.isFinite(a[key]));
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+        }
+      expect(pink / 16641).toBeGreaterThan(0.35);
+      expect(pink / 16641).toBeLessThan(0.95);
+      expect(pale / 16641).toBeGreaterThan(0.02);
+      expect(pale / 16641).toBeLessThan(0.35);
+      expect(high - low).toBeGreaterThan(0.6 * p.grainHeight * p.relief);
+      expect(high - low).toBeLessThan(0.01 * p.relief);
+      expect(roughLow).toBeGreaterThan(0.18);
+      expect(roughHigh).toBeLessThan(0.4);
+      expect(invalid).toBe(0);
+      let shortVariation = 0,
+        longVariation = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        const color = a.color;
+        sample(u + 1 / 512, v, b);
+        shortVariation += Math.abs(b.color - color);
+        sample(u, v + 1 / 512, b);
+        shortVariation += Math.abs(b.color - color);
+        sample(u + 1 / 32, v, b);
+        longVariation += Math.abs(b.color - color);
+        sample(u, v + 1 / 32, b);
+        longVariation += Math.abs(b.color - color);
+      }
+      expect(shortVariation / longVariation).toBeGreaterThan(0.35);
+    },
+  );
+  it('keeps every multiscale lattice actual pigment contour and periodic seam C1 without hard white grains or relief cuts', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      probe = empty(),
+      h = 1e-10;
+    const levels = [0.2, 0.5, 0.8];
+    const gridCoordinates = [
+      ...new Set([
+        0,
+        1,
+        ...Array.from(
+          { length: p.coarseCells + 1 },
+          (_, i) => i / p.coarseCells,
+        ),
+        ...Array.from(
+          { length: p.mediumCells + 1 },
+          (_, i) => i / p.mediumCells,
+        ),
+        ...Array.from({ length: p.fineCells + 1 }, (_, i) => i / p.fineCells),
+        ...Array.from({ length: 129 }, (_, i) => i / 128),
+      ]),
+    ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('thulite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of gridCoordinates)
+        for (const v of gridCoordinates) check(u, v);
+      const grid = p.coarseCells * 4;
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            const u = x / grid,
+              v = y / grid,
+              du = axis ? 0 : 1 / grid,
+              dv = axis ? 1 / grid : 0;
+            sample(u, v, probe);
+            const start = probe.color;
+            sample(u + du, v + dv, probe);
+            const end = probe.color;
+            for (const level of levels) {
+              if ((start - level) * (end - level) >= 0) continue;
+              let lo = 0,
+                hi = 1;
+              for (let j = 0; j < 50; j++) {
+                const t = (lo + hi) * 0.5;
+                sample(u + t * du, v + t * dv, probe);
+                if ((start - level) * (probe.color - level) > 0) lo = t;
+                else hi = t;
+              }
+              const t = (lo + hi) * 0.5;
+              check(u + t * du, v + t * dv);
+            }
+          }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque rose and pale granules with metal-zero AO-one maps and a near-flat polish normal', () => {
+    const maps = generateProceduralMaps('thulite', 512, 7, { heightMap: true });
+    const opaqueMaps = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let pink = 0,
+      pale = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      pink += Number(r > g + 50 && r > b + 30);
+      pale += Number(r > 220 && g > 185 && b > 180);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of opaqueMaps) invalid += Number(map[i + 3] !== 255);
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(pink / (512 * 512)).toBeGreaterThan(0.45);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.02);
+    expect(pale / (512 * 512)).toBeLessThan(0.35);
+    expect(tilt).toBeLessThan(0.001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats fine pink pale pigment micrograin height and every dielectric channel over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('thulite', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
     }
   });
 });

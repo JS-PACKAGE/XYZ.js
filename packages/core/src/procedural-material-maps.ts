@@ -3819,8 +3819,16 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'thulite':
       case 'unakite': {
-        const p = proceduralMaterialPresets.unakite,
+        const thulite = kind === 'thulite',
+          p = proceduralMaterialPresets[kind],
+          baseTone = thulite
+            ? proceduralMaterialPresets.thulite.pinkBase
+            : proceduralMaterialPresets.unakite.greenBase,
+          inclusionContrast = thulite
+            ? proceduralMaterialPresets.thulite.whiteContrast
+            : proceduralMaterialPresets.unakite.pinkContrast,
           coarseField = cachedNoise(
             p.coarseCells,
             p.coarseCells,
@@ -3839,12 +3847,13 @@ export function createSurfaceSampler(
               p.mediumWeight * mediumField(u, v) +
               p.fineWeight * fine,
             tone = smooth(smooth(mixture)),
-            pink = smooth(tone * tone);
-          // Smooth polynomial contrast preserves a granular pink/green mosaic
+            inclusion = smooth(tone * tone);
+          // Smooth polynomial contrast keeps the inclusion mosaic unstepped
           // without threshold cuts, false crystal ribs or a nearest-grain grid.
-          color = p.greenBase + p.pinkContrast * pink + p.fineContrast * fine;
+          color =
+            baseTone + inclusionContrast * inclusion + p.fineContrast * fine;
           height = p.height + p.grainHeight * fine;
-          roughness = p.roughness + 0.08 * (1 - pink) + 0.015 * fine;
+          roughness = p.roughness + 0.08 * (1 - inclusion) + 0.015 * fine;
           occlusion = 1;
           return;
         };
@@ -35721,6 +35730,7 @@ export function createSurfaceSampler(
     kind === 'squareholewashers' ||
     kind === 'snakewood' ||
     kind === 'safflowerseeds' ||
+    kind === 'thulite' ||
     kind === 'unakite' ||
     kind === 'eudialyte' ||
     kind === 'iroko' ||
