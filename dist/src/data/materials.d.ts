@@ -2643,6 +2643,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         relief: 0.006;
         cells: 8;
     }>;
+    blackpalm: Readonly<{
+        dark: readonly [14, 11, 9];
+        light: readonly [182, 139, 100];
+        roughness: 0.44;
+        relief: 0.004;
+        columns: 80;
+        rows: 12;
+        patchSlots: 2;
+        patchChance: 0.96;
+        widthMinimum: 0.1;
+        widthVariation: 0.2;
+        lengthMinimum: 0.45;
+        lengthVariation: 0.75;
+        jitterX: 0.38;
+        jitterY: 0.18;
+        slope: 0.035;
+        bend: 0.025;
+        coreQ: 0.18;
+        faceColor: 0.68;
+        woodContrast: 0.1;
+        fiberContrast: 0.035;
+        patchContrast: 0.6;
+    }>;
     asanoha: Readonly<{
         dark: readonly [47, 13, 25];
         light: readonly [241, 226, 197];
@@ -9624,6 +9647,7 @@ export declare const proceduralTileMeters: Readonly<{
     saltpan: 3;
     dogbonepavers: 0.8;
     palmendgrain: 0.024;
+    blackpalm: 0.096;
     asanoha: 0.12;
     lotusseedpod: 0.3;
     crowncaps: 0.112;

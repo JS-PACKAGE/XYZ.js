@@ -442,6 +442,7 @@ const kinds: ProceduralMaterialKind[] = [
   'saltpan',
   'dogbonepavers',
   'palmendgrain',
+  'blackpalm',
   'asanoha',
   'lotusseedpod',
   'crowncaps',
@@ -4334,6 +4335,223 @@ describe('Ivory Safflower achenes with obovate tapered bodies pale front ribs an
       for (let y = 0; y <= 128; y++)
         for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
       expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
+
+describe('Fine straight-grained Black Palm with dense dark fibrovascular bundles in tan ground tissue on one satin dielectric face', () => {
+  const p = proceduralMaterialPresets.blackpalm;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps fine finite longitudinal bundles among tan tissue without endgrain dots cavities or carved fiber relief for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('blackpalm', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let dark = 0,
+        clear = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity,
+        across = 0,
+        along = 0,
+        acrossHeight = 0,
+        alongHeight = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          const u = x / 128,
+            v = y / 128;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          dark += Number(a.color < 0.28);
+          clear += Number(a.color > 0.58);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          across += Math.abs(b.color - a.color);
+          along += Math.abs(c.color - a.color);
+          acrossHeight += Math.abs(b.height - a.height);
+          alongHeight += Math.abs(c.height - a.height);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness < 0.2 ||
+              a.roughness > 0.6,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      let longColumns = 0,
+        fullColumns = 0;
+      for (let x = 0; x < 64; x++) {
+        let run = 0,
+          longest = 0;
+        // Two periods join a fiber crossing the UV seam without splitting it.
+        for (let y = 0; y < 1024; y++) {
+          sample((x + 0.5) / 64, (y % 512) / 512, a);
+          run = a.color < 0.28 ? run + 1 : 0;
+          longest = Math.max(longest, Math.min(512, run));
+        }
+        longColumns += Number(longest >= 64);
+        fullColumns += Number(longest === 512);
+      }
+      let crossings = 0;
+      for (let y = 0; y < 32; y++) {
+        sample(0, (y + 0.5) / 32, a);
+        let previous = a.color < 0.28;
+        for (let x = 1; x <= 512; x++) {
+          sample(x / 512, (y + 0.5) / 32, a);
+          const current = a.color < 0.28;
+          crossings += Number(current !== previous);
+          previous = current;
+        }
+      }
+      expect(crossings / 32).toBeGreaterThan(100);
+      expect(crossings / 32).toBeLessThan(256);
+      expect(dark / 16641).toBeGreaterThan(0.2);
+      expect(dark / 16641).toBeLessThan(0.6);
+      expect(clear / 16641).toBeGreaterThan(0.3);
+      expect(across).toBeGreaterThan(10 * along);
+      expect(longColumns / 64).toBeGreaterThan(0.3);
+      expect(fullColumns / 64).toBeLessThan(0.15);
+      expect(acrossHeight).toBeGreaterThan(3 * alongHeight);
+      expect(high - low).toBeLessThan(0.0091 * p.relief);
+      expect(high - low).toBeGreaterThan(0.002 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps ownership, all fine-wood caches and traced actual fiber contours C1 over both UV axes', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const us = new Set<number>(),
+      vs = new Set<number>(),
+      levels = [0.2, 0.4, 0.65];
+    for (const cells of [p.columns, 96, 128])
+      for (let j = 0; j <= cells; j++) us.add(j / cells);
+    for (const cells of [p.rows, 6, 8, 128])
+      for (let j = 0; j <= cells; j++) vs.add(j / cells);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blackpalm', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of us) for (const v of vs) check(u, v);
+      for (let row = 0; row <= 32; row++)
+        for (const level of levels) {
+          const v = row / 32;
+          sample(0, v, a);
+          let previous = a.color;
+          for (let j = 1; j <= 512; j++) {
+            sample(j / 512, v, a);
+            const current = a.color;
+            if (previous < level !== current < level) {
+              let left = (j - 1) / 512,
+                right = j / 512;
+              const below = previous < level;
+              for (let k = 0; k < 50; k++) {
+                const middle = (left + right) * 0.5;
+                sample(middle, v, b);
+                if (b.color < level === below) left = middle;
+                else right = middle;
+              }
+              check((left + right) * 0.5, v);
+            }
+            previous = current;
+          }
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 tan tissue and dark fine longitudinal bundles with five opaque maps and no metallic cavity or false carved normals', () => {
+    const maps = generateProceduralMaps('blackpalm', 512, 7, {
+      heightMap: true,
+    });
+    const all = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let dark = 0,
+      clear = 0,
+      invalid = 0,
+      tilt = 0;
+    for (const map of all)
+      for (let i = 3; i < map.length; i += 4) invalid += Number(map[i] !== 255);
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      dark += Number(r < 62);
+      clear += Number(r > 111);
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+      invalid += Number(
+        r - g < 5 ||
+          g - b < 4 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 250,
+      );
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.2);
+    expect(dark / (512 * 512)).toBeLessThan(0.6);
+    expect(clear / (512 * 512)).toBeGreaterThan(0.3);
+    expect(tilt).toBeLessThan(0.08);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all dark fibers and satin dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blackpalm', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          expect(Math.abs(a[key] - b[key])).toBeLessThan(5e-11);
+      }
     }
   });
 });

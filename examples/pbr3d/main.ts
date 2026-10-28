@@ -479,6 +479,7 @@ try {
     'saltpan',
     'dogbonepavers',
     'palmendgrain',
+    'blackpalm',
     'asanoha',
     'lotusseedpod',
     'crowncaps',

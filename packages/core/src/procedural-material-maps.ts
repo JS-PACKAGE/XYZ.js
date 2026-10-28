@@ -3661,6 +3661,7 @@ export function createSurfaceSampler(
         };
       }
       case 'tigerwood':
+      case 'blackpalm':
       case 'snakewood': {
         const p = proceduralMaterialPresets[kind],
           patches = new Float64Array(p.columns * p.rows * p.patchSlots * 6),
@@ -35934,6 +35935,7 @@ export function createSurfaceSampler(
     kind === 'larvikite' ||
     kind === 'squareholewashers' ||
     kind === 'tigerwood' ||
+    kind === 'blackpalm' ||
     kind === 'snakewood' ||
     kind === 'safflowerseeds' ||
     kind === 'thulite' ||

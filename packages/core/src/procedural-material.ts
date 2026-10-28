@@ -416,6 +416,7 @@ export type ProceduralMaterialKind =
   | 'saltpan'
   | 'dogbonepavers'
   | 'palmendgrain'
+  | 'blackpalm'
   | 'asanoha'
   | 'lotusseedpod'
   | 'crowncaps'
@@ -1434,6 +1435,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'saltpan',
   'dogbonepavers',
   'palmendgrain',
+  'blackpalm',
   'asanoha',
   'lotusseedpod',
   'crowncaps',

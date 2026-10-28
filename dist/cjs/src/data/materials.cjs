@@ -5913,6 +5913,37 @@ var proceduralMaterialPresets = Object.freeze({
 		relief: .006,
 		cells: 8
 	}),
+	blackpalm: Object.freeze({
+		dark: [
+			14,
+			11,
+			9
+		],
+		light: [
+			182,
+			139,
+			100
+		],
+		roughness: .44,
+		relief: .004,
+		columns: 80,
+		rows: 12,
+		patchSlots: 2,
+		patchChance: .96,
+		widthMinimum: .1,
+		widthVariation: .2,
+		lengthMinimum: .45,
+		lengthVariation: .75,
+		jitterX: .38,
+		jitterY: .18,
+		slope: .035,
+		bend: .025,
+		coreQ: .18,
+		faceColor: .68,
+		woodContrast: .1,
+		fiberContrast: .035,
+		patchContrast: .6
+	}),
 	asanoha: Object.freeze({
 		dark: [
 			47,
@@ -16315,6 +16346,7 @@ var proceduralTileMeters = Object.freeze({
 	saltpan: 3,
 	dogbonepavers: .8,
 	palmendgrain: .024,
+	blackpalm: .096,
 	asanoha: .12,
 	lotusseedpod: .3,
 	crowncaps: .112,
