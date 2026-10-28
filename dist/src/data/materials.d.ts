@@ -8820,6 +8820,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    nickelsilver: Readonly<{
+        dark: readonly [112, 110, 98];
+        light: readonly [224, 222, 204];
+        roughness: 0.36;
+        relief: 0.0012;
+        brushU: 4;
+        brushV: 192;
+        grainCells: 128;
+        baseTone: 0.62;
+        brushTone: 0.18;
+        grainTone: 0.06;
+        baseHeight: 0.5;
+        brushHeight: 0.12;
+        grainHeight: 0.04;
+        brushRoughness: 0.1;
+        grainRoughness: 0.02;
+    }>;
     lyocell: Readonly<{
         dark: readonly [119, 104, 80];
         light: readonly [229, 213, 179];
@@ -9810,6 +9827,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    nickelsilver: 0.025;
     lyocell: 0.012;
     ramie: 0.04;
     wavewashers: 0.1;

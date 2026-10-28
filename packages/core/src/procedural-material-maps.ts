@@ -1256,6 +1256,7 @@ export function createSurfaceSampler(
     metallic = 0;
   // Constant for the sampler: only the kind decides it.
   const metallicBase =
+    kind === 'nickelsilver' ||
     kind === 'metal' ||
     kind === 'diamondplate' ||
     kind === 'hammeredmetal' ||
@@ -28739,6 +28740,20 @@ export function createSurfaceSampler(
           occlusion = 0.8 + 0.2 * smooth(height);
           return;
         };
+      case 'nickelsilver': {
+        const p = proceduralMaterialPresets.nickelsilver,
+          brushField = cachedNoise(p.brushU, p.brushV, seed ^ 0x17211),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x17213);
+        return () => {
+          const brush = brushField(u, v),
+            grain = grainField(u, v);
+          color = p.baseTone + p.brushTone * brush + p.grainTone * grain;
+          height = p.baseHeight + p.brushHeight * brush + p.grainHeight * grain;
+          roughness +=
+            p.brushRoughness * (brush - 0.5) + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'metal':
         return () => {
           const brush = noise(u, v, 4, 64, seed ^ 313);
@@ -35744,6 +35759,7 @@ export function createSurfaceSampler(
     kind === 'unakite' ||
     kind === 'eudialyte' ||
     kind === 'iroko' ||
+    kind === 'nickelsilver' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||
     kind === 'wavewashers' ||

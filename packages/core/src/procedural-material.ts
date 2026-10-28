@@ -773,6 +773,7 @@ export type ProceduralMaterialKind =
   | 'unakite'
   | 'eudialyte'
   | 'iroko'
+  | 'nickelsilver'
   | 'lyocell'
   | 'ramie'
   | 'wavewashers'
@@ -1783,6 +1784,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'nickelsilver',
   'lyocell',
   'ramie',
   'wavewashers',
@@ -1976,6 +1978,7 @@ export class ProceduralMaterial {
                 : { height: { scale } }),
             },
       metallic:
+        this.kind === 'nickelsilver' ||
         this.kind === 'metal' ||
         this.kind === 'rust' ||
         this.kind === 'copperpatina' ||

@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'nickelsilver',
   'lyocell',
   'ramie',
   'wavewashers',
@@ -1263,6 +1264,169 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Fine warm nickel-silver satin with irregular directional brush grain on a shallow opaque conductor', () => {
+  const p = proceduralMaterialPresets.nickelsilver;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps long irregular grain rather than isotropic pits or crosswise grooves on a connected metal face for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('nickelsilver', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        d = empty(),
+        probes = [a, b, c, d],
+        h = 1 / 8192;
+      let along = 0,
+        across = 0,
+        low = Infinity,
+        high = -Infinity,
+        invalid = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u - h, v, a);
+        sample(u + h, v, b);
+        sample(u, v - h, c);
+        sample(u, v + h, d);
+        along += (b.height - a.height) ** 2;
+        across += (d.height - c.height) ** 2;
+        for (const q of probes) {
+          for (const key of keys) invalid += Number(!Number.isFinite(q[key]));
+          invalid += Number(
+            q.color < 0 ||
+              q.color > 1 ||
+              q.height < 0 ||
+              q.height > p.relief ||
+              q.roughness < 0 ||
+              q.roughness > 1 ||
+              q.occlusion !== 1 ||
+              q.metallic !== 1 ||
+              q.mortar !== 0,
+          );
+          low = Math.min(low, q.height);
+          high = Math.max(high, q.height);
+        }
+      }
+      expect(across).toBeGreaterThan(8 * along);
+      expect(high - low).toBeGreaterThan(0.03 * p.relief);
+      expect(high - low).toBeLessThan(0.3 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps both C1 directions at every brush and micrograin lattice seam and signed tile wrap without locking phase', () => {
+    const us = new Set<number>(),
+      vs = new Set<number>();
+    for (const cells of [p.brushU, p.grainCells])
+      for (let i = 0; i <= cells; i++) us.add(i / cells);
+    for (const cells of [p.brushV, p.grainCells])
+      for (let i = 0; i <= cells; i++) vs.add(i / cells);
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nickelsilver', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of us)
+        for (let j = 0; j < 17; j++) check(u, (j + 0.37) / 17);
+      for (const v of vs)
+        for (let j = 0; j < 17; j++) check((j + 0.31) / 17, v);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque warm silvery full-metal maps with shallow positive-Z normals and both transverse signs rather than quantized-flat or carved fake normals', () => {
+    const maps = generateProceduralMaps('nickelsilver', 512, 7, {
+      heightMap: true,
+    });
+    const all = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let warm = 0,
+      invalid = 0,
+      positive = 0,
+      negative = 0,
+      tilt = 0;
+    for (const map of all)
+      for (let i = 3; i < map.length; i += 4) invalid += Number(map[i] !== 255);
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        x = (2 * maps.normal[i]) / 255 - 1,
+        y = (2 * maps.normal[i + 1]) / 255 - 1;
+      warm += Number(r > 140 && r >= g && r - g < 8 && g - b > 5 && r - b < 36);
+      tilt = Math.max(tilt, x * x + y * y);
+      positive += Number(maps.normal[i + 1] >= 129);
+      negative += Number(maps.normal[i + 1] <= 126);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 255 ||
+          maps.normal[i + 2] < 240 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255,
+      );
+    }
+    expect(warm / (512 * 512)).toBeGreaterThan(0.9);
+    expect(tilt).toBeLessThan(0.15);
+    expect(positive / (512 * 512)).toBeGreaterThan(0.005);
+    expect(negative / (512 * 512)).toBeGreaterThan(0.005);
+    expect(invalid).toBe(0);
+  });
+  it('repeats fine brush relief and all conductor channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('nickelsilver', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
+    }
   });
 });
 
@@ -66482,6 +66646,7 @@ describe('periodic procedural material fields', () => {
         expect(Math.abs(Math.hypot(nx, ny, nz) - 1)).toBeLessThan(0.008);
         expect(first.metallicRoughness[p]).toBe(255);
         if (
+          kind === 'nickelsilver' ||
           kind === 'metal' ||
           kind === 'diamondplate' ||
           kind === 'hammeredmetal' ||
@@ -75983,6 +76148,7 @@ describe('procedural preset acquisition and ownership', () => {
   });
 
   it.each([
+    'nickelsilver',
     'metal',
     'copperpatina',
     'chippedenamel',
@@ -76083,7 +76249,8 @@ describe('procedural preset acquisition and ownership', () => {
     async (kind) => {
       const preset = await ProceduralMaterial.create(kind, { size: 32 });
       expect(preset.material.metallic).toBe(
-        kind === 'metal' ||
+        kind === 'nickelsilver' ||
+          kind === 'metal' ||
           kind === 'copperpatina' ||
           kind === 'chippedenamel' ||
           kind === 'gabion' ||
