@@ -1987,10 +1987,11 @@ export function createSurfaceSampler(
       case 'padauk':
       case 'iroko':
       case 'purpleheart':
+      case 'yellowheart':
       case 'sapele':
       case 'wenge': {
         const fine =
-            kind === 'iroko' || kind === 'purpleheart'
+            kind === 'iroko' || kind === 'purpleheart' || kind === 'yellowheart'
               ? proceduralMaterialPresets[kind]
               : undefined,
           sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : fine,
@@ -36087,6 +36088,7 @@ export function createSurfaceSampler(
     kind === 'eudialyte' ||
     kind === 'iroko' ||
     kind === 'purpleheart' ||
+    kind === 'yellowheart' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

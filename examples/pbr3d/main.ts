@@ -843,6 +843,7 @@ try {
     'eudialyte',
     'iroko',
     'purpleheart',
+    'yellowheart',
     'basswood',
     'sphericalwashers',
     'mungbeans',

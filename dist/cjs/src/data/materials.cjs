@@ -15651,6 +15651,39 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .1
 	}),
+	yellowheart: Object.freeze({
+		dark: [
+			205,
+			165,
+			71
+		],
+		light: [
+			255,
+			232,
+			142
+		],
+		roughness: .48,
+		relief: .0015,
+		columns: 40,
+		rows: 12,
+		widthMinimum: .055,
+		widthVariation: .025,
+		lengthMinimum: .1,
+		lengthVariation: .14,
+		poreChance: .15,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .075,
+		bands: 5,
+		bandWarp: .1,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .02,
+		fiberColumns: 224,
+		fiberRows: 6,
+		fiberContrast: .16
+	}),
 	purpleheart: Object.freeze({
 		dark: [
 			39,
@@ -16968,6 +17001,7 @@ var proceduralTileMeters = Object.freeze({
 	eudialyte: .12,
 	iroko: .18,
 	purpleheart: .12,
+	yellowheart: .12,
 	basswood: .1,
 	sphericalwashers: .1,
 	mungbeans: .045,
