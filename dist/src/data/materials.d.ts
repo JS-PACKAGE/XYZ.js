@@ -8422,6 +8422,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         bandRadius: 0.42;
         bandCore: 0.22;
     }>;
+    ticking: Readonly<{
+        dark: readonly [14, 29, 55];
+        light: readonly [239, 234, 218];
+        roughness: 0.8;
+        relief: 0.0012;
+        warpThreads: 144;
+        weftThreads: 144;
+        warpRadius: 0.495;
+        warpCore: 0.44;
+        weftRadius: 0.495;
+        weftCore: 0.44;
+        warpLiftHalf: 0.49;
+        weftLiftHalf: 0.49;
+        liftShoulder: 0.12;
+        lift: 0.1;
+        warpFibers: 576;
+        weftFibers: 576;
+        groundTone: 0.91;
+        dyeDepth: 0.84;
+        stripeDraft: readonly [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0];
+        draft: readonly [6, 5, 3];
+        stripeYarns: 3;
+    }>;
     chambray: Readonly<{
         dark: readonly [19, 53, 88];
         light: readonly [238, 242, 246];
@@ -10056,6 +10079,7 @@ export declare const proceduralTileMeters: Readonly<{
     datepits: 0.08;
     sapele: 0.3;
     chambray: 0.016;
+    ticking: 0.048;
     nephrite: 0.16;
     diorite: 0.16;
     carawayseeds: 0.04;

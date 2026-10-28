@@ -14792,6 +14792,58 @@ var proceduralMaterialPresets = Object.freeze({
 		bandRadius: .42,
 		bandCore: .22
 	}),
+	ticking: Object.freeze({
+		dark: [
+			14,
+			29,
+			55
+		],
+		light: [
+			239,
+			234,
+			218
+		],
+		roughness: .8,
+		relief: .0012,
+		warpThreads: 144,
+		weftThreads: 144,
+		warpRadius: .495,
+		warpCore: .44,
+		weftRadius: .495,
+		weftCore: .44,
+		warpLiftHalf: .49,
+		weftLiftHalf: .49,
+		liftShoulder: .12,
+		lift: .1,
+		warpFibers: 576,
+		weftFibers: 576,
+		groundTone: .91,
+		dyeDepth: .84,
+		stripeDraft: Object.freeze([
+			1,
+			0,
+			1,
+			1,
+			1,
+			1,
+			1,
+			0,
+			1,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		]),
+		draft: Object.freeze([
+			6,
+			5,
+			3
+		]),
+		stripeYarns: 3
+	}),
 	chambray: Object.freeze({
 		dark: [
 			19,
@@ -16779,6 +16831,7 @@ var proceduralTileMeters = Object.freeze({
 	datepits: .08,
 	sapele: .3,
 	chambray: .016,
+	ticking: .048,
 	nephrite: .16,
 	diorite: .16,
 	carawayseeds: .04,

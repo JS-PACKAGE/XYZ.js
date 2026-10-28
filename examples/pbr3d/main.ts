@@ -810,6 +810,7 @@ try {
     'datepits',
     'sapele',
     'chambray',
+    'ticking',
     'nephrite',
     'diorite',
     'carawayseeds',

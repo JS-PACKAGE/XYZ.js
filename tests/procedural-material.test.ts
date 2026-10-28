@@ -773,6 +773,7 @@ const kinds: ProceduralMaterialKind[] = [
   'datepits',
   'sapele',
   'chambray',
+  'ticking',
   'nephrite',
   'diorite',
   'carawayseeds',
@@ -1037,6 +1038,253 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Yarn-dyed navy ticking with broad centers, thin flank lines and uninterrupted 2/1 twill floats', () => {
+  const p = proceduralMaterialPresets.ticking;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps dense cream ground and dyed warp populations without nap, metallic yarns or pigment-carved relief for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ticking', seed),
+        a = empty();
+      let blue = 0,
+        cream = 0,
+        low = Infinity,
+        high = -Infinity,
+        sumAO = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          blue += Number(a.color < 0.35);
+          cream += Number(a.color > 0.8);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          sumAO += a.occlusion;
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.7 ||
+              a.roughness > 0.95 ||
+              a.height < 0.02 * p.relief ||
+              a.height > 0.55 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(blue / 65536).toBeGreaterThan(0.2);
+      expect(blue / 65536).toBeLessThan(0.33);
+      expect(cream / 65536).toBeGreaterThan(0.6);
+      expect(cream / 65536).toBeLessThan(0.8);
+      expect(sumAO / 65536).toBeGreaterThan(0.97);
+      expect(high - low).toBeGreaterThan(0.15 * p.relief);
+      expect(high - low).toBeLessThan(0.3 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('exposes two dyed warp floats then one cream weft, advances the twill shed and never pinches the middle of a double float into per-pick beads', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ticking', seed);
+      for (const col of [1, 13, 25])
+        for (let row = 0; row < p.weftThreads; row += 3) {
+          let dyed = 0,
+            cream = 0,
+            changes = 0;
+          for (let j = 0; j < 3; j++) {
+            sample(
+              (col + 0.5) / p.warpThreads,
+              (row + j + 0.5) / p.weftThreads,
+              a,
+            );
+            sample(
+              (col + 1.5) / p.warpThreads,
+              (row + j + 0.5) / p.weftThreads,
+              b,
+            );
+            dyed += Number(a.color < 0.35);
+            cream += Number(a.color > 0.8);
+            changes += Number(a.color < 0.35 !== b.color < 0.35);
+          }
+          expect(dyed).toBe(2);
+          expect(cream).toBe(1);
+          expect(changes).toBe(2);
+        }
+      for (let row = 0; row < p.weftThreads; row += 3) {
+        sample(1.5 / p.warpThreads, row / p.weftThreads, a);
+        sample(1.5 / p.warpThreads, (row + 1) / p.weftThreads, b);
+        sample(1.5 / p.warpThreads, (row + 2) / p.weftThreads, c);
+        expect(a.height).toBeGreaterThan(0.45 * p.relief);
+        expect(a.height - b.height).toBeGreaterThan(0.08 * p.relief);
+        expect(a.height - c.height).toBeGreaterThan(0.08 * p.relief);
+      }
+    }
+  });
+  it('forms broad dyed center stripes flanked by two narrow lines, while the cream weft prevents a printed solid bar or crosswise plaid', () => {
+    const sample = createSurfaceSampler('ticking', 7),
+      a = empty();
+    const columns = new Float64Array(p.warpThreads),
+      rows = new Float64Array(p.weftThreads);
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        sample((col + 0.5) / p.warpThreads, (row + 0.5) / p.weftThreads, a);
+        columns[col] += a.color / p.weftThreads;
+        rows[row] += a.color / p.warpThreads;
+      }
+    const runs: number[] = [];
+    let width = 0;
+    for (const mean of columns) {
+      if (mean < 0.6) width++;
+      else if (width) {
+        runs.push(width);
+        width = 0;
+      }
+    }
+    if (width) runs.push(width);
+    expect(runs.length).toBeGreaterThan(2);
+    expect(runs.length % 3).toBe(0);
+    for (let i = 0; i < runs.length; i += 3) {
+      expect(runs[i + 1]).toBeGreaterThan(3 * Math.max(runs[i], runs[i + 2]));
+      expect(Math.max(runs[i], runs[i + 2])).toBeLessThan(
+        1.25 * Math.min(runs[i], runs[i + 2]),
+      );
+    }
+    expect(Math.max(...columns) - Math.min(...columns)).toBeGreaterThan(0.4);
+    expect(Math.max(...rows) - Math.min(...rows)).toBeLessThan(0.03);
+  });
+  it('keeps dyed yarn owners, crown shoulders, whole-float joins, grain and fiber boundaries C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ticking', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let i = 0; i <= p.warpThreads; i++)
+        for (const offset of [
+          0,
+          0.5 - p.warpRadius,
+          0.5 - p.warpCore,
+          0.5,
+          0.5 + p.warpCore,
+          0.5 + p.warpRadius,
+        ]) {
+          const x = (i + offset) / p.warpThreads;
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(x, y);
+            check(y, x);
+          }
+        }
+      for (const n of [128, p.warpFibers])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0.173, 0.5, 0.719]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque navy-and-cream maps with dielectric cotton, shallow woven normals and dense non-cavity occlusion', () => {
+    const maps = generateProceduralMaps('ticking', 512, 7, { heightMap: true });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let blue = 0,
+      cream = 0,
+      normalVariation = 0,
+      maxTilt = 0,
+      ao = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      blue += Number(b - r > 20 && r < 100);
+      cream += Number(r > 190 && g > 190 && b > 175);
+      normalVariation += Number(
+        maps.normal[i] !== 128 || maps.normal[i + 1] !== 128,
+      );
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      ao += maps.occlusion[i] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(0.2);
+    expect(blue / (512 * 512)).toBeLessThan(0.35);
+    expect(cream / (512 * 512)).toBeGreaterThan(0.6);
+    expect(cream / (512 * 512)).toBeLessThan(0.8);
+    expect(normalVariation / (512 * 512)).toBeGreaterThan(0.5);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.03);
+    expect(ao / (512 * 512)).toBeGreaterThan(0.97);
+    expect(invalid).toBe(0);
+  });
+  it('repeats every yarn, grouped stripe and material channel over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ticking', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }
