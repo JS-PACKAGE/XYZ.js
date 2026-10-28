@@ -8855,6 +8855,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberContrast: 0.07;
         grainHeight: 0.002;
     }>;
+    blackeyedpeas: Readonly<{
+        dark: readonly [22, 20, 18];
+        light: readonly [248, 242, 222];
+        roughness: 0.67;
+        relief: 0.025;
+        cells: 5;
+        halfLength: 0.3;
+        halfWidth: 0.245;
+        bodyShoulder: 0.12;
+        eyeWidth: 0.085;
+        eyeLength: 0.11;
+        eyeShoulder: 0.35;
+        hilumStraight: 0.022;
+        hilumRadius: 0.012;
+        hilumCore: 0.0075;
+        shellColor: 0.86;
+        shellVariation: 0.04;
+        coatContrast: 0.03;
+        grainContrast: 0.015;
+        eyeColor: 0.045;
+        hilumColor: 0.99;
+        bodyBase: 0.32;
+        domeHeight: 0.3;
+    }>;
     adzukibeans: Readonly<{
         dark: readonly [96, 8, 18];
         light: readonly [242, 228, 201];
@@ -9714,6 +9738,7 @@ export declare const proceduralTileMeters: Readonly<{
     zebrawood: 0.16;
     twopinscrewheads: 0.06;
     amazonite: 0.06;
+    blackeyedpeas: 0.06;
     adzukibeans: 0.05;
     anigre: 0.16;
     larvikite: 0.12;

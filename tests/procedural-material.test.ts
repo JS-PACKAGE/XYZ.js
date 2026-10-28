@@ -787,6 +787,7 @@ const kinds: ProceduralMaterialKind[] = [
   'zebrawood',
   'twopinscrewheads',
   'amazonite',
+  'blackeyedpeas',
   'adzukibeans',
   'anigre',
   'larvikite',
@@ -3275,6 +3276,286 @@ describe('Figured light Anigre with flat transverse curl and fine recessed longi
       for (let y = 0; y <= 128; y++)
         for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
       expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
+
+describe('Dry cream black-eyed cowpeas with dark oval eyes around short pale hila', () => {
+  const p = proceduralMaterialPresets.blackeyedpeas;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const directions = new Float64Array(384 * 2);
+  for (let j = 0; j < 384; j++) {
+    const angle = (2 * Math.PI * j) / 384;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'encloses one short pale hilum in a dark eye on intact convex cream skin for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('blackeyedpeas', seed),
+        a = empty(),
+        b = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const local = (x: number, y: number, out: SurfaceSample) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, out);
+          local(0, 0, a);
+          const center = a.height;
+          expect(a.color).toBeGreaterThan(0.9);
+          expect(center).toBeGreaterThan(0.5 * p.relief);
+          let eyeMax = 0,
+            eyeHeight = Infinity,
+            coatMin = Infinity,
+            coatHeight = 0,
+            aoMin = Infinity,
+            roughMin = Infinity,
+            roughMax = 0,
+            invalid = 0,
+            pale = 0,
+            runs = 0,
+            previous = false,
+            first = false;
+          for (let j = 0; j < 384; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            local(0.05 * x, 0.05 * y, a);
+            eyeMax = Math.max(eyeMax, a.color);
+            eyeHeight = Math.min(eyeHeight, a.height);
+            local(0.15 * x, 0.15 * y, b);
+            coatMin = Math.min(coatMin, b.color);
+            coatHeight = Math.max(coatHeight, b.height);
+            aoMin = Math.min(aoMin, a.occlusion, b.occlusion);
+            roughMin = Math.min(roughMin, a.roughness, b.roughness);
+            roughMax = Math.max(roughMax, a.roughness, b.roughness);
+            invalid += Number(
+              a.metallic !== 0 ||
+                b.metallic !== 0 ||
+                a.mortar !== 0 ||
+                b.mortar !== 0,
+            );
+            local(0.025 * x, 0.025 * y, a);
+            const white = a.color > 0.75;
+            if (j === 0) first = white;
+            if (white && !previous) runs++;
+            pale += Number(white);
+            previous = white;
+          }
+          if (first && previous) runs--;
+          expect(eyeMax).toBeLessThan(0.1);
+          expect(eyeHeight).toBeGreaterThan(0.5 * p.relief);
+          expect(coatMin).toBeGreaterThan(0.8);
+          expect(center - coatHeight).toBeGreaterThan(0.03 * p.relief);
+          expect(aoMin).toBeGreaterThan(0.95);
+          expect(roughMin).toBeGreaterThan(0.6);
+          expect(roughMax).toBeLessThan(0.8);
+          expect(invalid).toBe(0);
+          expect(runs).toBe(2);
+          expect(pale).toBeGreaterThan(64);
+          expect(pale).toBeLessThan(128);
+          let outwardRise = 0;
+          for (let j = 0; j < 384; j += 16) {
+            let previousHeight = center;
+            for (let k = 1; k <= 24; k++) {
+              const r = (0.18 * k) / 24;
+              local(r * directions[j * 2], r * directions[j * 2 + 1], a);
+              outwardRise = Math.max(outwardRise, a.height - previousHeight);
+              previousHeight = a.height;
+            }
+          }
+          expect(outwardRise).toBeLessThan(0.00001 * p.relief);
+          for (let j = 0; j < 384; j += 16) {
+            local(0.4 * directions[j * 2], 0.4 * directions[j * 2 + 1], a);
+            expect(a.height).toBeLessThan(0.04 * p.relief);
+            expect(a.occlusion).toBeLessThan(0.4);
+          }
+        }
+    },
+  );
+  it('keeps rotated body and eye shoulders short capsule joins cache cells and owner wraps C1 without duplicating seed hashes', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      observed = empty(),
+      h = 1e-10;
+    const bodyScales = [
+      1,
+      Math.sqrt(1 - p.bodyShoulder * 0.5),
+      Math.sqrt(1 - p.bodyShoulder),
+    ];
+    const eyeScales = [
+      1,
+      Math.sqrt(1 - p.eyeShoulder * 0.5),
+      Math.sqrt(1 - p.eyeShoulder),
+    ];
+    const signs = [-1, 1];
+    const gridCoordinates = [
+      ...new Set([
+        0,
+        1,
+        ...Array.from({ length: 6 }, (_, i) => i / 5),
+        ...Array.from({ length: 8 }, (_, i) => i / 7),
+        ...Array.from({ length: 129 }, (_, i) => i / 128),
+      ]),
+    ];
+    const radii = [
+      p.hilumCore,
+      Math.sqrt((p.hilumRadius ** 2 + p.hilumCore ** 2) * 0.5),
+      p.hilumRadius,
+    ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blackeyedpeas', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Infer the visible body's minor axis from its sampled second harmonic,
+          // rather than replicate the private seeded placement implementation.
+          let vx = 0,
+            vy = 0;
+          for (let j = 0; j < 384; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            sample(
+              (col + 0.5 + 0.15 * x) / p.cells,
+              (row + 0.5 + 0.15 * y) / p.cells,
+              observed,
+            );
+            vx -= observed.height * (x * x - y * y);
+            vy -= observed.height * (2 * x * y);
+          }
+          const angle = 0.5 * Math.atan2(vy, vx),
+            ca = Math.cos(angle),
+            sa = Math.sin(angle);
+          const local = (x: number, y: number) =>
+            check(
+              (col + 0.5 + ca * x - sa * y) / p.cells,
+              (row + 0.5 + sa * x + ca * y) / p.cells,
+            );
+          for (let j = 0; j < 384; j++) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1],
+              t = j / 383;
+            for (const scale of bodyScales)
+              local(p.halfWidth * scale * x, p.halfLength * scale * y);
+            for (const scale of eyeScales)
+              local(p.eyeWidth * scale * x, p.eyeLength * scale * y);
+            for (const r of radii)
+              local(r * x, Math.sign(y || 1) * p.hilumStraight + r * y);
+            for (const sign of signs) {
+              for (const r of radii)
+                local(sign * r, (2 * t - 1) * p.hilumStraight);
+              local((2 * t - 1) * p.hilumRadius, sign * p.hilumStraight);
+            }
+          }
+          local(0, 0);
+        }
+      for (const x of gridCoordinates)
+        for (const y of gridCoordinates) check(x, y);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque cream skin black eyes pale hila and resolved interior convex normals without metallic holes', () => {
+    const maps = generateProceduralMaps('blackeyedpeas', 512, 7, {
+      heightMap: true,
+    });
+    const height = maps.height!;
+    const opaqueMaps = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      height,
+    ];
+    let cream = 0,
+      eye = 0,
+      hilum = 0,
+      back = 0,
+      invalid = 0,
+      interior = 0,
+      tilted = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        ao = maps.occlusion[i];
+      cream += Number(r > 200 && g > 195 && b > 175 && ao > 245);
+      eye += Number(r < 70 && g < 65 && ao > 245);
+      hilum += Number(r > 240 && g > 233 && ao > 245);
+      back += Number(ao < 85);
+      invalid += Number(maps.metallicRoughness[i + 2] !== 0);
+      for (const data of opaqueMaps) invalid += Number(data[i + 3] !== 255);
+    }
+    for (let y = 2; y < 510; y++)
+      for (let x = 2; x < 510; x++) {
+        const i = (y * 512 + x) * 4;
+        let inside = true;
+        for (let dy = -2; dy <= 2 && inside; dy++)
+          for (let dx = -2; dx <= 2; dx++)
+            if (maps.occlusion[((y + dy) * 512 + x + dx) * 4] <= 245) {
+              inside = false;
+              break;
+            }
+        if (!inside) continue;
+        interior++;
+        const nx = (2 * maps.normal[i]) / 255 - 1,
+          ny = (2 * maps.normal[i + 1]) / 255 - 1;
+        tilted += Number(nx * nx + ny * ny > 0.005);
+      }
+    expect(cream / (512 * 512)).toBeGreaterThan(0.14);
+    expect(cream / (512 * 512)).toBeLessThan(0.24);
+    expect(eye / (512 * 512)).toBeGreaterThan(0.01);
+    expect(eye / (512 * 512)).toBeLessThan(0.05);
+    expect(hilum / (512 * 512)).toBeGreaterThan(0.0005);
+    expect(hilum / (512 * 512)).toBeLessThan(0.005);
+    expect(back / (512 * 512)).toBeGreaterThan(0.73);
+    expect(tilted / interior).toBeGreaterThan(0.4);
+    expect(invalid).toBe(0);
+  });
+  it('repeats intact seed pigment convex relief dielectric channels and backing over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('blackeyedpeas', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
     }
   });
 });

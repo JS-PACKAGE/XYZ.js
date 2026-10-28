@@ -15401,6 +15401,38 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberContrast: .07,
 		grainHeight: .002
 	}),
+	blackeyedpeas: Object.freeze({
+		dark: [
+			22,
+			20,
+			18
+		],
+		light: [
+			248,
+			242,
+			222
+		],
+		roughness: .67,
+		relief: .025,
+		cells: 5,
+		halfLength: .3,
+		halfWidth: .245,
+		bodyShoulder: .12,
+		eyeWidth: .085,
+		eyeLength: .11,
+		eyeShoulder: .35,
+		hilumStraight: .022,
+		hilumRadius: .012,
+		hilumCore: .0075,
+		shellColor: .86,
+		shellVariation: .04,
+		coatContrast: .03,
+		grainContrast: .015,
+		eyeColor: .045,
+		hilumColor: .99,
+		bodyBase: .32,
+		domeHeight: .3
+	}),
 	adzukibeans: Object.freeze({
 		dark: [
 			96,
@@ -16299,6 +16331,7 @@ var proceduralTileMeters = Object.freeze({
 	zebrawood: .16,
 	twopinscrewheads: .06,
 	amazonite: .06,
+	blackeyedpeas: .06,
 	adzukibeans: .05,
 	anigre: .16,
 	larvikite: .12,

@@ -4097,6 +4097,70 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'blackeyedpeas': {
+        const p = proceduralMaterialPresets.blackeyedpeas,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          coatField = cachedNoise(5, 7, seed ^ 0x1d811),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d813),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseBody = 1 / p.bodyShoulder,
+          inverseEyeWidth = 1 / (p.eyeWidth * p.eyeWidth),
+          inverseEyeLength = 1 / (p.eyeLength * p.eyeLength),
+          inverseEye = 1 / p.eyeShoulder,
+          hilumSquared = p.hilumRadius * p.hilumRadius,
+          inverseHilum = 1 / (hilumSquared - p.hilumCore * p.hilumCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3,
+              angle = TAU * hash(col, row, seed ^ 0x1d815);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              p.shellColor + p.shellVariation * hash(col, row, seed ^ 0x1d817);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 3,
+            dx = fract(uc) - 0.5,
+            dy = fract(vc) - 0.5,
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            x2 = x * x,
+            y2 = y * y,
+            cap = clamp(1 - x2 * inverseWidth - y2 * inverseLength),
+            body = smooth(clamp(cap * inverseBody));
+          color = 0.025;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 0;
+          if (body === 0) return;
+          const eye = smooth(
+              clamp(
+                (1 - x2 * inverseEyeWidth - y2 * inverseEyeLength) * inverseEye,
+              ),
+            ),
+            hy = Math.max(0, Math.abs(y) - p.hilumStraight),
+            hilum = smooth(clamp((hilumSquared - x2 - hy * hy) * inverseHilum)),
+            grain = grainField(u, v),
+            coat =
+              poses[i + 2] +
+              p.coatContrast * coatField(u, v) +
+              p.grainContrast * grain,
+            pigmented = coat + eye * (p.eyeColor - coat);
+          // The black eye surrounds a short pale hilum on one intact seed;
+          // neither pigment changes the convex body into a hole or a split.
+          color +=
+            body * (pigmented + hilum * (p.hilumColor - pigmented) - color);
+          height += body * (p.bodyBase + p.domeHeight * smooth(cap) - height);
+          roughness += body * (p.roughness + 0.025 * grain - roughness);
+          occlusion += body * (0.98 - occlusion);
+          return;
+        };
+      }
       case 'adzukibeans': {
         const p = proceduralMaterialPresets.adzukibeans,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -35650,6 +35714,7 @@ export function createSurfaceSampler(
     kind === 'squaresocketheads' ||
     kind === 'twopinscrewheads' ||
     kind === 'amazonite' ||
+    kind === 'blackeyedpeas' ||
     kind === 'adzukibeans' ||
     kind === 'anigre' ||
     kind === 'larvikite' ||

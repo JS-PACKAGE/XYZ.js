@@ -824,6 +824,7 @@ try {
     'zebrawood',
     'twopinscrewheads',
     'amazonite',
+    'blackeyedpeas',
     'adzukibeans',
     'anigre',
     'larvikite',

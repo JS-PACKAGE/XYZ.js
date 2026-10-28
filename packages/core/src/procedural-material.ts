@@ -761,6 +761,7 @@ export type ProceduralMaterialKind =
   | 'zebrawood'
   | 'twopinscrewheads'
   | 'amazonite'
+  | 'blackeyedpeas'
   | 'adzukibeans'
   | 'anigre'
   | 'larvikite'
@@ -1767,6 +1768,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zebrawood',
   'twopinscrewheads',
   'amazonite',
+  'blackeyedpeas',
   'adzukibeans',
   'anigre',
   'larvikite',
