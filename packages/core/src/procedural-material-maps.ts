@@ -3659,8 +3659,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tigerwood':
       case 'snakewood': {
-        const p = proceduralMaterialPresets.snakewood,
+        const p = proceduralMaterialPresets[kind],
           patches = new Float64Array(p.columns * p.rows * p.patchSlots * 6),
           woodField = cachedNoise(96, 6, seed ^ 0x1d411),
           fiberField = cachedNoise(128, 8, seed ^ 0x1d413),
@@ -3728,8 +3729,8 @@ export function createSurfaceSampler(
             p.fiberContrast * fiber +
             0.01 * grain -
             p.patchContrast * patch;
-          // Dark figure is wood pigment on the same polished plane, not raised
-          // snakeskin scales, birdseye pits or a network of decay cracks.
+          // Dark figure is pigment on one polished wood plane, not scales,
+          // pits, fissures or recessed stripes.
           height = 0.45 + 0.006 * wood + 0.002 * fiber + 0.001 * grain;
           roughness = p.roughness + 0.02 * grain;
           occlusion = 1;
@@ -35728,6 +35729,7 @@ export function createSurfaceSampler(
     kind === 'anigre' ||
     kind === 'larvikite' ||
     kind === 'squareholewashers' ||
+    kind === 'tigerwood' ||
     kind === 'snakewood' ||
     kind === 'safflowerseeds' ||
     kind === 'thulite' ||

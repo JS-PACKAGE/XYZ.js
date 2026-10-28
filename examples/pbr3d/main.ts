@@ -829,6 +829,7 @@ try {
     'anigre',
     'larvikite',
     'squareholewashers',
+    'tigerwood',
     'snakewood',
     'safflowerseeds',
     'thulite',

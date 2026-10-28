@@ -8668,6 +8668,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         bodyHeight: 0.6;
         grainHeight: 0.003;
     }>;
+    tigerwood: Readonly<{
+        dark: readonly [23, 10, 5];
+        light: readonly [203, 121, 56];
+        roughness: 0.32;
+        relief: 0.002;
+        columns: 7;
+        rows: 2;
+        patchSlots: 2;
+        patchChance: 0.62;
+        jitterX: 0.4;
+        jitterY: 0.42;
+        widthMinimum: 0.09;
+        widthVariation: 0.22;
+        lengthMinimum: 0.48;
+        lengthVariation: 0.31;
+        slope: 0.18;
+        bend: 0.45;
+        coreQ: 0.35;
+        faceColor: 0.72;
+        woodContrast: 0.08;
+        fiberContrast: 0.12;
+        patchContrast: 0.65;
+    }>;
     snakewood: Readonly<{
         dark: readonly [17, 6, 3];
         light: readonly [171, 82, 37];
@@ -9760,6 +9783,7 @@ export declare const proceduralTileMeters: Readonly<{
     anigre: 0.16;
     larvikite: 0.12;
     squareholewashers: 0.1;
+    tigerwood: 0.18;
     snakewood: 0.16;
     safflowerseeds: 0.06;
     thulite: 0.12;

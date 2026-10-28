@@ -15142,6 +15142,37 @@ var proceduralMaterialPresets = Object.freeze({
 		bodyHeight: .6,
 		grainHeight: .003
 	}),
+	tigerwood: Object.freeze({
+		dark: [
+			23,
+			10,
+			5
+		],
+		light: [
+			203,
+			121,
+			56
+		],
+		roughness: .32,
+		relief: .002,
+		columns: 7,
+		rows: 2,
+		patchSlots: 2,
+		patchChance: .62,
+		jitterX: .4,
+		jitterY: .42,
+		widthMinimum: .09,
+		widthVariation: .22,
+		lengthMinimum: .48,
+		lengthVariation: .31,
+		slope: .18,
+		bend: .45,
+		coreQ: .35,
+		faceColor: .72,
+		woodContrast: .08,
+		fiberContrast: .12,
+		patchContrast: .65
+	}),
 	snakewood: Object.freeze({
 		dark: [
 			17,
@@ -16361,6 +16392,7 @@ var proceduralTileMeters = Object.freeze({
 	anigre: .16,
 	larvikite: .12,
 	squareholewashers: .1,
+	tigerwood: .18,
 	snakewood: .16,
 	safflowerseeds: .06,
 	thulite: .12,
