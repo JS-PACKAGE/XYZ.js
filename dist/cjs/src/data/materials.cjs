@@ -15261,6 +15261,33 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .35,
 		grainHeight: .002
 	}),
+	ramie: Object.freeze({
+		dark: [
+			159,
+			154,
+			132
+		],
+		light: [
+			249,
+			246,
+			227
+		],
+		roughness: .78,
+		relief: .004,
+		yarnTone: .84,
+		warpThreads: 48,
+		weftThreads: 48,
+		warpRadius: .42,
+		warpCore: .3,
+		weftRadius: .42,
+		weftCore: .3,
+		warpLiftHalf: .46,
+		weftLiftHalf: .46,
+		liftShoulder: .12,
+		lift: .12,
+		warpFibers: 192,
+		weftFibers: 192
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16223,6 +16250,7 @@ var proceduralTileMeters = Object.freeze({
 	safflowerseeds: .06,
 	unakite: .12,
 	eudialyte: .12,
+	ramie: .04,
 	cupwashers: .1
 });
 //#endregion

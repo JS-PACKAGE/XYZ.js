@@ -5136,8 +5136,10 @@ export function createSurfaceSampler(
       case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
+      case 'ramie':
       case 'poplin': {
-        const gabardine = kind === 'gabardine',
+        const ramie = kind === 'ramie',
+          gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
@@ -5147,14 +5149,26 @@ export function createSurfaceSampler(
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
           bareWeave = 1 - napPreset.napCoverage,
-          warpTone = chambray ? 0.18 : flannel ? napPreset.yarnTone : 0.82,
-          weftTone = chambray ? 0.92 : flannel ? napPreset.yarnTone : 0.63,
+          warpTone = ramie
+            ? proceduralMaterialPresets.ramie.yarnTone
+            : chambray
+              ? 0.18
+              : flannel
+                ? napPreset.yarnTone
+                : 0.82,
+          weftTone = ramie
+            ? warpTone
+            : chambray
+              ? 0.92
+              : flannel
+                ? napPreset.yarnTone
+                : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
           huckPreset = proceduralMaterialPresets.huckaback,
           huckRepeat = huckPreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          equalYarns = twill || huck || chambray || flannel,
+          equalYarns = twill || huck || chambray || flannel || ramie,
           warpBase = equalYarns ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
           weftCrown = ottoman ? 0.1 : equalYarns ? 0.04 : 0.07,
@@ -35594,6 +35608,7 @@ export function createSurfaceSampler(
     kind === 'safflowerseeds' ||
     kind === 'unakite' ||
     kind === 'eudialyte' ||
+    kind === 'ramie' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

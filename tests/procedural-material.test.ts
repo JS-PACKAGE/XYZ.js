@@ -795,8 +795,201 @@ const kinds: ProceduralMaterialKind[] = [
   'safflowerseeds',
   'unakite',
   'eudialyte',
+  'ramie',
   'cupwashers',
 ];
+
+describe('Natural off-white Ramie with balanced one-over-one fine yarns and opaque recessed interstices', () => {
+  const p = proceduralMaterialPresets.ramie;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps both axes equally bright and raised with alternating one-pick floats and lower opaque backing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('ramie', seed),
+        cross = empty(),
+        next = empty(),
+        warp = empty(),
+        weft = empty(),
+        gap = empty(),
+        high = empty(),
+        low = empty(),
+        rotated = empty();
+      let invalid = 0;
+      for (let row = 0; row < p.weftThreads; row++)
+        for (let col = 0; col < p.warpThreads; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v, cross);
+          sample((col + 1.5) / p.warpThreads, v, next);
+          sample(u, (row + 1) / p.weftThreads, warp);
+          sample((col + 1) / p.warpThreads, v, weft);
+          sample((col + 1) / p.warpThreads, (row + 1) / p.weftThreads, gap);
+          expect(Math.abs(cross.color - next.color)).toBeLessThan(0.03);
+          expect(Math.abs(warp.color - weft.color)).toBeLessThan(0.03);
+          expect(Math.abs(cross.height - next.height)).toBeLessThan(
+            0.007 * p.relief,
+          );
+          expect(Math.abs(warp.height - weft.height)).toBeLessThan(
+            0.007 * p.relief,
+          );
+          expect(cross.height - warp.height).toBeGreaterThan(0.11 * p.relief);
+          expect(cross.height - weft.height).toBeGreaterThan(0.11 * p.relief);
+          expect(gap.height).toBeLessThan(warp.height);
+          expect(gap.height).toBeLessThan(weft.height);
+          expect(cross.occlusion - gap.occlusion).toBeGreaterThan(0.5);
+          if (((col + row) & 1) === 0) {
+            sample(u, v + 0.39 / p.weftThreads, high);
+            sample(u, v + 1.39 / p.weftThreads, low);
+            sample(v + 0.39 / p.weftThreads, u + 1 / p.warpThreads, rotated);
+          } else {
+            sample(u + 0.39 / p.warpThreads, v, high);
+            sample(u + 1.39 / p.warpThreads, v, low);
+            sample(v, u + 1.39 / p.warpThreads, rotated);
+          }
+          expect(high.height - low.height).toBeGreaterThan(0.08 * p.relief);
+          expect(Math.abs(high.height - rotated.height)).toBeLessThan(
+            0.007 * p.relief,
+          );
+          invalid += Number(
+            cross.metallic !== 0 ||
+              cross.mortar !== 0 ||
+              gap.metallic !== 0 ||
+              gap.mortar !== 0,
+          );
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 warm off-white yarns with darker opaque interstices and signed normals in both yarn directions', () => {
+    const maps = generateProceduralMaps('ramie', 512, 7, { heightMap: true });
+    let ivory = 0,
+      shadow = 0,
+      px = 0,
+      nx = 0,
+      py = 0,
+      ny = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      ivory += Number(
+        r > 220 && g > 215 && b > 195 && r > b + 10 && r - b < 40,
+      );
+      shadow += Number(r < 190 && g < 190);
+      px += Number(maps.normal[i] > 132);
+      nx += Number(maps.normal[i] < 124);
+      py += Number(maps.normal[i + 1] > 132);
+      ny += Number(maps.normal[i + 1] < 124);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+    }
+    expect(ivory / (512 * 512)).toBeGreaterThan(0.4);
+    expect(shadow / (512 * 512)).toBeGreaterThan(0.02);
+    for (const n of [px, nx, py, ny])
+      expect(n / (512 * 512)).toBeGreaterThan(0.04);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the balanced weave fiber shading and every opaque dielectric channel across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ramie', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps actual yarn supports cores crossing-lift shoulders fiber joins cache cuts and all their intersections C1', () => {
+    const cuts = (
+      threads: number,
+      radius: number,
+      core: number,
+      lift: number,
+      fibers: number,
+    ): number[] => {
+      const values = new Set<number>([0, 1]);
+      for (let k = 0; k < threads; k++)
+        for (const d of [
+          -0.5,
+          0,
+          0.5,
+          -radius,
+          radius,
+          -core,
+          core,
+          -lift,
+          lift,
+          lift - p.liftShoulder,
+          p.liftShoulder - lift,
+        ])
+          values.add((k + 0.5 + d) / threads);
+      for (const grid of [fibers, 128])
+        for (let k = 0; k <= grid; k++) values.add(k / grid);
+      return [...values];
+    };
+    const xs = cuts(
+        p.warpThreads,
+        p.warpRadius,
+        p.warpCore,
+        p.warpLiftHalf,
+        p.warpFibers,
+      ),
+      ys = cuts(
+        p.weftThreads,
+        p.weftRadius,
+        p.weftCore,
+        p.weftLiftHalf,
+        p.weftFibers,
+      ),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('ramie', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of xs) for (const v of ys) check(u, v);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Raspberry-red and black angular Eudialyte-bearing fragments on a level polished plane without false twinning ribs', () => {
   const p = proceduralMaterialPresets.eudialyte;
