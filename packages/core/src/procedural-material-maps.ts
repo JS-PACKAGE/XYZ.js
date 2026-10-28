@@ -3738,6 +3738,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'safflowerseeds': {
+        const p = proceduralMaterialPresets.safflowerseeds,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d51b),
+          inverseWidth = 1 / (p.halfWidth * p.halfWidth),
+          inverseLength = 1 / (p.halfLength * p.halfLength),
+          inverseBody = 1 / p.shoulder,
+          ribSquared = p.ribRadius * p.ribRadius,
+          inverseRib = 1 / (ribSquared - p.ribCore * p.ribCore),
+          inverseRibLength = 1 / (p.ribLength * p.ribLength),
+          inverseScarWidth = 1 / (p.scarWidth * p.scarWidth),
+          inverseScarLength = 1 / (p.scarLength * p.scarLength),
+          inverseScar = 1 / p.scarShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1d511);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d513) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d515) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1d517);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            cap = Math.max(0, 1 - y * y * inverseLength),
+            field = (y < 0 ? cap * cap : cap) - x * x * inverseWidth,
+            body = smooth(clamp(field * inverseBody));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          mortar = 1;
+          if (body === 0) return;
+          const left = x + p.ribOffset,
+            right = x - p.ribOffset,
+            rib =
+              (smooth(clamp((ribSquared - left * left) * inverseRib)) +
+                smooth(clamp((ribSquared - right * right) * inverseRib))) *
+              smooth(clamp(1 - y * y * inverseRibLength)),
+            sy = y - p.scarY,
+            scar = smooth(
+              clamp(
+                (1 -
+                  right * right * inverseScarWidth -
+                  sy * sy * inverseScarLength) *
+                  inverseScar,
+              ),
+            ),
+            grain = grainField(u, v);
+          // Two front-visible pale ribs approximate the four-ridged achene;
+          // the attachment scar is lateral along one rib, not a central bean eye.
+          color +=
+            body *
+            (0.91 +
+              0.035 * poses[i + 4] +
+              0.015 * grain -
+              p.ribContrast * rib -
+              p.scarContrast * scar -
+              color);
+          height +=
+            body *
+            (p.bodyHeight +
+              p.domeHeight * smooth(clamp(field)) +
+              p.ribHeight * rib +
+              p.grainHeight * grain -
+              p.scarDepth * scar -
+              height);
+          roughness +=
+            body * (p.roughness + 0.025 * grain + 0.08 * scar - roughness);
+          occlusion += body * (0.99 - 0.05 * scar - occlusion);
+          mortar = 1 - body;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35402,6 +35485,7 @@ export function createSurfaceSampler(
     kind === 'larvikite' ||
     kind === 'squareholewashers' ||
     kind === 'snakewood' ||
+    kind === 'safflowerseeds' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

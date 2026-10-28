@@ -9073,3 +9073,18 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Fresh Node既有750種64² seed7四maps相對HEAD SHA256全部不變；新kind512五maps各1048576 bytes。dist ESM／CJS對snakewood32²／512²與lacewood／birdseyemaple／burlwood／anigre／zebrawood／spaltedwood各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
 - 單次完整source／gallery／fixture diff及省略artifact已讀完review；README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，精確insertions與relative-link delta0確認。Lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）與distribution（367 exports）通過（39.11s）；751為材質數，不是API export數。完整suite另列，無新增依賴、版本調整或push。
 - 最終格式檢查與完整 suite 通過：179 個測試檔／7751 項測試全部通過（835.43s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 847.99s。依功能獨立提交，不 push。
+
+## 2026-10-28 程序材質：象牙白淡黃縱稜偏側凹痕紅花瘦果（safflowerseeds）
+
+- 目錄751→752種：36個seeded旋轉／微偏移的白色完整Carthamus tinctorius瘦果，寬上端、窄下端obovate輪廓，前側淡黃隆稜與沿一側稜的小凹scar。不是去殼果仁、黑條向日葵殼、扁南瓜籽、深斑蓖麻或中央大豆臍；兩條前側可見稜只是四縱稜瘦果的表面近似，不宣稱完整四角3D截面。
+- 已實讀IDTools SeedImages的Carthamus tinctorius資料，並實看Julia Scher（USDA-APHIS-PPQ）署名的第一張白色／黃稜瘦果照片。資料明列obovate、white with light yellow ridges、smooth／glossy與沿稜略凹的lateral scar；選圖中少深條的白色樣本，不否認同圖深條個體或另圖scaly pappus形式。來源7×3×2 mm不是runtime精密尺度驗收，不打包照片。
+- 沿用既有非對稱cap／cap²、C1 body／squared rib肩與elliptic scar慣例。0.06 m tile、36個五欄cos／sin／中心／tone pose共180值，加128² grain共16,564個Float64／132,512 bytes一次快取；角度／reciprocals預算，空背底提早返回，不逐點配置／hash／sqrt／trig／鄰格搜尋，略過共用detail。保守旋轉包圍各軸支撐加jitter約0.47423255，小於0.5，完整留在owner內。
+- Dome、raised ribs與淺凹lateral scar各自影響height，稜／scar隨各果實局部軸旋轉，不把色條假裝隆稜或把scar放正中央。Opaque maps、optional height、M0／factor0及既有tint／Worker／cache／repeats／ownership不變；0.015 UV relief不是m單位geometry displacement，不新增冠毛薄片、全果殼幾何、透明切口、精密截面、種子鑑定／發芽／品種／營養／尺度認證，不宣稱所有樣本無深條或冠毛。
+- 六項隔離行為首次全部通過；十一個有效temporary負向變體由AssertionError抓到：metallic瘦果、對稱而非obovate輪廓、深褐殼、只有色條而無隆稜、無稜色、缺scar、中心而非側scar、平殼無dome，以及硬body／rib／scar肩。三種硬肩在前五項通過後由真邊界C1抓到（827.5279／133.3195／463.5932 > 0.03）。變體限定正確temporary source/data block，沒有永久probe、放寬門檻、減採樣或加timeout。
+- Fixture涵蓋三seed全部36果的寬／窄輪廓、白色完整高body、兩前稜高度與色差、側scar相對另一稜的色深／凹度／AO、背底；actual512驗證白色coverage／opaque／M0／partial edges與shaped normals。各seed4096 signed UV六channels；C1涵蓋真正cap／cap² body support／mid／core、兩側rib support／squared-mid／core及長度端點、三組偏側scar橢圓各513方向、6／128 owner-cache邊界與128² grid，雙軸h1e-10／strict0.03逐seed聚合worst，hash只定位形態不當sampler副本期望值。
+- Build與typecheck通過；main material定向檔11項通過／3818 skipped（3829項，3.14s），整組含格式化／build／typecheck共41.57s。Regex包含Safflower fixture及safflowerseeds／hazelnutshells／pumpkinseeds／castorbeans／adzukibeans實際匹配的既有案例，不把skipped稱為重驗。
+- Managed Chromium headless正式752種gallery強制WebGPU／WebGL2各選safflowerseeds、關動畫、擷取25球mesh及四maps；strict dist API另擷取actual512且CSS512×512的albedo／normal，見象牙白非對稱果形、淡縱稜、偏側小凹痕與對應曲面normal。所有page與about:blank cleanup errors空，不外推Safari、實機、Canvas2D 3D、backend parity或fps。
+- Strict static完整dist NativeWorker／cache以512² seed7、height、tint[0.8,1,0.9]及repeats3實跑，direct／worker／cache-hit五maps逐byte相同；cache一筆5242880 bytes、hit1／miss1，worker completed1／failed0。獨立textures、isolated destroy、全bundles／pool destroy、cache clear、default與createMaterial factor0通過，page／cleanup errors空，managed tabs皆已關閉。
+- Fresh Node既有751種64² seed7四maps相對HEAD SHA256全部不變；新kind512五maps各1048576 bytes。dist ESM／CJS對safflowerseeds32²／512²與hazelnutshells／pumpkinseeds／castorbeans／adzukibeans／datepits／cubebberries各64²五maps逐byte相同，共八組，不宣稱跨realm constructor相同。
+- 單次完整source／gallery／fixture diff已讀完review；README中／英／日、PLAN、DESIGN、CURRENT及中英技術／使用文件同步，精確insertions與relative-link delta0確認。Lint、format:check、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 consumers）與distribution（367 exports）全部通過（50.74s）；752為材質數，不是API export數。完整suite另列，無新增依賴、版本調整或push。
+- 最終格式檢查與完整 suite 通過：179 個測試檔／7758 項測試全部通過（845.98s）；完整命令含 ACCEPTANCE 格式化與全倉 format:check 共 858.00s。依功能獨立提交，不 push。

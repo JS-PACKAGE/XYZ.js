@@ -792,8 +792,224 @@ const kinds: ProceduralMaterialKind[] = [
   'larvikite',
   'squareholewashers',
   'snakewood',
+  'safflowerseeds',
   'cupwashers',
 ];
+
+describe('Ivory Safflower achenes with obovate tapered bodies pale front ribs and a depressed lateral scar', () => {
+  const p = proceduralMaterialPresets.safflowerseeds;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const hash = (x: number, y: number, seed: number) => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const pose = (seed: number, col: number, row: number) => {
+    const angle = 2 * Math.PI * hash(col, row, seed ^ 0x1d511);
+    return {
+      c: Math.cos(angle),
+      s: Math.sin(angle),
+      x: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d513) - 1),
+      y: 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d515) - 1),
+    };
+  };
+  const directions = new Float64Array(513 * 2);
+  for (let j = 0; j <= 512; j++) {
+    const angle = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps white broad-apex narrow-base whole achenes raised pale longitudinal ribs and an off-axis scar aligned with each seed for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('safflowerseeds', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number, out: SurfaceSample) =>
+              sample(
+                (col + f.x + x * f.c - y * f.s) / p.cells,
+                (row + f.y + x * f.s + y * f.c) / p.cells,
+                out,
+              );
+          local(0, 0, a);
+          expect(a.color).toBeGreaterThan(0.88);
+          expect(a.height).toBeGreaterThan(0.55 * p.relief);
+          expect(a.mortar).toBe(0);
+          expect(a.metallic).toBe(0);
+          local(0.09, 0.22, a);
+          local(0.09, -0.22, b);
+          expect(a.color).toBeGreaterThan(0.8);
+          expect(a.mortar).toBe(0);
+          expect(b.mortar).toBe(1);
+          expect(b.height).toBeCloseTo(0.025 * p.relief, 12);
+          for (const x of [-p.ribOffset, p.ribOffset]) {
+            local(x, 0, a);
+            local(x - 0.02, 0, b);
+            local(x + 0.02, 0, c);
+            expect(a.height - (b.height + c.height) * 0.5).toBeGreaterThan(
+              0.02 * p.relief,
+            );
+            expect((b.color + c.color) * 0.5 - a.color).toBeGreaterThan(0.07);
+          }
+          local(p.ribOffset, p.scarY, a);
+          local(-p.ribOffset, p.scarY, b);
+          expect(b.color - a.color).toBeGreaterThan(0.15);
+          expect(b.height - a.height).toBeGreaterThan(0.02 * p.relief);
+          expect(b.occlusion - a.occlusion).toBeGreaterThan(0.049);
+          expect(a.metallic).toBe(0);
+          local(0.23, 0, a);
+          expect(a.mortar).toBe(1);
+          expect(a.occlusion).toBeCloseTo(0.3, 12);
+        }
+    },
+  );
+  it('writes actual512 smooth white ivory whole seeds with pale ridges opaque metal-zero maps and shaped normals not black striped hulls', () => {
+    const maps = generateProceduralMaps('safflowerseeds', 512, 7, {
+      heightMap: true,
+    });
+    let white = 0,
+      back = 0,
+      partial = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        ao = maps.occlusion[i];
+      white += Number(r > 210 && g > 205 && b > 180);
+      back += Number(ao < 90);
+      partial += Number(ao > 90 && ao < 235);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 || maps.metallicRoughness[i + 2] !== 0,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(white / (512 * 512)).toBeGreaterThan(0.05);
+    expect(white / (512 * 512)).toBeLessThan(0.22);
+    expect(back / (512 * 512)).toBeGreaterThan(0.75);
+    expect(partial).toBeGreaterThan(1000);
+    expect(tilt).toBeGreaterThan(0.1);
+    expect(invalid).toBe(0);
+  });
+  it('repeats each rotated obovate hull rib lateral scar and backing over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('safflowerseeds', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps true tapered body contours front-rib shoulders lateral-scar ellipses and owner and grain-cache boundaries C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      ribMid = Math.sqrt(
+        (p.ribRadius * p.ribRadius + p.ribCore * p.ribCore) * 0.5,
+      ),
+      radii = [
+        1,
+        Math.sqrt(1 - p.scarShoulder),
+        Math.sqrt(1 - p.scarShoulder * 0.5),
+      ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('safflowerseeds', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const f = pose(seed, col, row),
+            local = (x: number, y: number) =>
+              check(
+                (col + f.x + x * f.c - y * f.s) / p.cells,
+                (row + f.y + x * f.s + y * f.c) / p.cells,
+              );
+          for (let j = -128; j <= 128; j++) {
+            const y = (p.halfLength * j) / 128,
+              cap = Math.max(0, 1 - (y * y) / (p.halfLength * p.halfLength)),
+              profile = y < 0 ? cap * cap : cap;
+            for (const level of [0, p.shoulder * 0.5, p.shoulder])
+              if (profile >= level) {
+                const x = p.halfWidth * Math.sqrt(profile - level);
+                local(x, y);
+                local(-x, y);
+              }
+          }
+          for (const center of [-p.ribOffset, p.ribOffset])
+            for (const offset of [
+              -p.ribRadius,
+              -ribMid,
+              -p.ribCore,
+              0,
+              p.ribCore,
+              ribMid,
+              p.ribRadius,
+            ])
+              for (let j = -128; j <= 128; j++)
+                local(center + offset, (p.halfLength * j) / 128);
+          for (const y of [-p.ribLength, 0, p.ribLength])
+            for (let j = -128; j <= 128; j++) local((p.halfWidth * j) / 128, y);
+          for (const r of radii)
+            for (let j = 0; j <= 512; j++)
+              local(
+                p.ribOffset + p.scarWidth * r * directions[j * 2],
+                p.scarY + p.scarLength * r * directions[j * 2 + 1],
+              );
+        }
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Reddish-brown straight-grained Snakewood with irregular dark flat pigment patches not scales or pits', () => {
   const p = proceduralMaterialPresets.snakewood;

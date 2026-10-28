@@ -15173,6 +15173,40 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberContrast: .05,
 		patchContrast: .5
 	}),
+	safflowerseeds: Object.freeze({
+		dark: [
+			42,
+			32,
+			16
+		],
+		light: [
+			252,
+			249,
+			234
+		],
+		roughness: .32,
+		relief: .015,
+		cells: 6,
+		jitter: .1,
+		halfWidth: .145,
+		halfLength: .345,
+		shoulder: .1,
+		ribOffset: .065,
+		ribRadius: .012,
+		ribCore: .006,
+		ribLength: .28,
+		ribContrast: .1,
+		ribHeight: .035,
+		scarY: -.15,
+		scarWidth: .022,
+		scarLength: .045,
+		scarShoulder: .2,
+		scarContrast: .17,
+		scarDepth: .025,
+		bodyHeight: .34,
+		domeHeight: .26,
+		grainHeight: .002
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16132,6 +16166,7 @@ var proceduralTileMeters = Object.freeze({
 	larvikite: .12,
 	squareholewashers: .1,
 	snakewood: .16,
+	safflowerseeds: .06,
 	cupwashers: .1
 });
 //#endregion

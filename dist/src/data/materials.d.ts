@@ -8691,6 +8691,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberContrast: 0.05;
         patchContrast: 0.5;
     }>;
+    safflowerseeds: Readonly<{
+        dark: readonly [42, 32, 16];
+        light: readonly [252, 249, 234];
+        roughness: 0.32;
+        relief: 0.015;
+        cells: 6;
+        jitter: 0.1;
+        halfWidth: 0.145;
+        halfLength: 0.345;
+        shoulder: 0.1;
+        ribOffset: 0.065;
+        ribRadius: 0.012;
+        ribCore: 0.006;
+        ribLength: 0.28;
+        ribContrast: 0.1;
+        ribHeight: 0.035;
+        scarY: -0.15;
+        scarWidth: 0.022;
+        scarLength: 0.045;
+        scarShoulder: 0.2;
+        scarContrast: 0.17;
+        scarDepth: 0.025;
+        bodyHeight: 0.34;
+        domeHeight: 0.26;
+        grainHeight: 0.002;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9595,5 +9621,6 @@ export declare const proceduralTileMeters: Readonly<{
     larvikite: 0.12;
     squareholewashers: 0.1;
     snakewood: 0.16;
+    safflowerseeds: 0.06;
     cupwashers: 0.1;
 }>;
