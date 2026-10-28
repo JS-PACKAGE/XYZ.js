@@ -783,6 +783,7 @@ export type ProceduralMaterialKind =
   | 'iroko'
   | 'purpleheart'
   | 'yellowheart'
+  | 'bloodwood'
   | 'basswood'
   | 'sphericalwashers'
   | 'mungbeans'
@@ -1810,6 +1811,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'iroko',
   'purpleheart',
   'yellowheart',
+  'bloodwood',
   'basswood',
   'sphericalwashers',
   'mungbeans',

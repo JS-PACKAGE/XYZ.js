@@ -809,6 +809,7 @@ const kinds: ProceduralMaterialKind[] = [
   'iroko',
   'purpleheart',
   'yellowheart',
+  'bloodwood',
   'basswood',
   'sphericalwashers',
   'mungbeans',
@@ -1042,6 +1043,223 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Uniform blood-red Bloodwood with fine longitudinal grain and sparse short recessed vessels', () => {
+  const p = proceduralMaterialPresets.bloodwood;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps a fine uniform red board with sparse darker recessed vessels, not dense stripes or raised grain for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bloodwood', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let pits = 0,
+        solid = 0,
+        pitHeight = 0,
+        bodyHeight = 0,
+        pitRoughness = 0,
+        bodyRoughness = 0,
+        low = Infinity,
+        high = -Infinity,
+        lowBody = 1,
+        highBody = 0,
+        across = 0,
+        along = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          if (a.occlusion < 0.9) {
+            pits++;
+            pitHeight += a.height;
+            pitRoughness += a.roughness;
+          }
+          if (a.occlusion === 1) {
+            solid++;
+            bodyHeight += a.height;
+            bodyRoughness += a.roughness;
+            lowBody = Math.min(lowBody, a.color);
+            highBody = Math.max(highBody, a.color);
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.39 ||
+              a.roughness > 0.57 ||
+              a.occlusion < 0.75 ||
+              a.height < 0.4 * p.relief ||
+              a.height > 0.504 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(pits / 65536).toBeGreaterThan(0.001);
+      expect(pits / 65536).toBeLessThan(0.004);
+      expect(solid / 65536).toBeGreaterThan(0.994);
+      expect(high - low).toBeGreaterThan(0.08 * p.relief);
+      expect(high - low).toBeLessThan(0.11 * p.relief);
+      expect(bodyHeight / solid - pitHeight / pits).toBeGreaterThan(
+        0.075 * p.relief,
+      );
+      expect(pitRoughness / pits - bodyRoughness / solid).toBeGreaterThan(0.06);
+      expect(lowBody).toBeGreaterThan(0.24);
+      expect(highBody).toBeLessThan(0.46);
+      expect(highBody - lowBody).toBeGreaterThan(0.12);
+      expect(highBody - lowBody).toBeLessThan(0.2);
+      expect(across).toBeGreaterThan(15 * along);
+      expect(across).toBeLessThan(30 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps sparse vessel owners, observed pore shoulders, grain and fiber lattices C1 rather than clipping pits at grid lines', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bloodwood', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        p.columns,
+        p.rows,
+        3,
+        4,
+        p.fiberColumns,
+        p.fiberRows,
+        128,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let row = 0; row <= 128; row++)
+        for (const level of [0.8, 1]) {
+          const v = row / 128;
+          sample(0, v, a);
+          let previous = a.occlusion;
+          for (let x = 1; x <= 1024; x++) {
+            sample(x / 1024, v, a);
+            const current = a.occlusion;
+            if (previous < level !== current < level) {
+              let left = (x - 1) / 1024,
+                right = x / 1024;
+              const below = previous < level;
+              for (let j = 0; j < 48; j++) {
+                const middle = (left + right) / 2;
+                sample(middle, v, b);
+                if (b.occlusion < level === below) left = middle;
+                else right = middle;
+              }
+              check((left + right) / 2, v);
+            }
+            previous = current;
+          }
+        }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 warm blood-red dielectric maps with shallow pore normals and only sparse vessel occlusion, not orange, gray or neon paint', () => {
+    const maps = generateProceduralMaps('bloodwood', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      pits = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      red += Number(r > 140 && r - g > 80 && g - b >= 5 && g - b <= 18);
+      pits += Number(maps.occlusion[i] < 230);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(0.99);
+    expect(pits / (512 * 512)).toBeGreaterThan(0.001);
+    expect(pits / (512 * 512)).toBeLessThan(0.004);
+    expect(maxTilt).toBeGreaterThan(0.0006);
+    expect(maxTilt).toBeLessThan(0.006);
+    expect(invalid).toBe(0);
+  });
+  it('repeats fine pigment grain and genuinely recessed vessel channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bloodwood', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

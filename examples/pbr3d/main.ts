@@ -846,6 +846,7 @@ try {
     'iroko',
     'purpleheart',
     'yellowheart',
+    'bloodwood',
     'basswood',
     'sphericalwashers',
     'mungbeans',
