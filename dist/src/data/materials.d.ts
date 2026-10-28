@@ -8990,6 +8990,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         bodyBase: 0.32;
         domeHeight: 0.3;
     }>;
+    dalmatianstone: Readonly<{
+        dark: readonly [13, 17, 15];
+        light: readonly [240, 232, 206];
+        roughness: 0.28;
+        relief: 0.002;
+        cells: 10;
+        spotChance: 0.82;
+        centerMin: 0.15;
+        centerRange: 0.7;
+        widthMin: 0.12;
+        widthRange: 0.15;
+        lengthMin: 0.1;
+        lengthRange: 0.13;
+        bend: 1;
+        shoulder: 0.38;
+        matrixBase: 0.86;
+        matrixCloud: 0.09;
+        matrixGrain: 0.025;
+        spotBase: 0.035;
+        spotTone: 0.045;
+        spotGrain: 0.015;
+        height: 0.43;
+        grainHeight: 0.002;
+        grainRoughness: 0.02;
+        spotRoughness: 0.035;
+        edgeWarp: 0.8;
+    }>;
     thomsonite: Readonly<{
         dark: readonly [147, 76, 65];
         light: readonly [255, 240, 218];
@@ -10037,6 +10064,7 @@ export declare const proceduralTileMeters: Readonly<{
     sphericalwashers: 0.1;
     mungbeans: 0.045;
     thomsonite: 0.048;
+    dalmatianstone: 0.06;
     nickelsilver: 0.025;
     hopsack: 0.016;
     lyocell: 0.012;

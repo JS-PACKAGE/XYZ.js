@@ -807,6 +807,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sphericalwashers',
   'mungbeans',
   'thomsonite',
+  'dalmatianstone',
   'nickelsilver',
   'hopsack',
   'lyocell',
@@ -1035,6 +1036,215 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Dalmatian stone with dark irregular flush aggregates in a pale creamy polished matrix', () => {
+  const p = proceduralMaterialPresets.dalmatianstone;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps dark discrete inclusions isotropic and flush rather than rings holes or embossing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('dalmatianstone', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let dark = 0,
+        pale = 0,
+        darkHeight = 0,
+        paleHeight = 0,
+        darkRoughness = 0,
+        paleRoughness = 0,
+        across = 0,
+        along = 0,
+        low = Infinity,
+        high = -Infinity,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          if (a.color < 0.2) {
+            dark++;
+            darkHeight += a.height;
+            darkRoughness += a.roughness;
+          }
+          if (a.color > 0.8) {
+            pale++;
+            paleHeight += a.height;
+            paleRoughness += a.roughness;
+          }
+          invalid += Number(
+            a.occlusion !== 1 ||
+              a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.25 ||
+              a.roughness > 0.4,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(dark / 65536).toBeGreaterThan(0.035);
+      expect(dark / 65536).toBeLessThan(0.13);
+      expect(pale / 65536).toBeGreaterThan(0.8);
+      expect(across).toBeGreaterThan(0.6 * along);
+      expect(across).toBeLessThan(1.7 * along);
+      expect(high - low).toBeGreaterThan(0.001 * p.relief);
+      expect(high - low).toBeLessThan(0.0021 * p.relief);
+      expect(Math.abs(darkHeight / dark - paleHeight / pale)).toBeLessThan(
+        0.0003 * p.relief,
+      );
+      expect(darkRoughness / dark - paleRoughness / pale).toBeGreaterThan(0.02);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps matrix and grain caches, cell ownership, signed seams and observed dark contours C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const coordinates = new Set<number>();
+    for (const n of [p.cells, 12, 128])
+      for (let i = 0; i <= n; i++) coordinates.add(i / n);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dalmatianstone', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of coordinates) for (const v of coordinates) check(u, v);
+      for (let row = 0; row <= 64; row++)
+        for (const level of [0.2, 0.5, 0.8]) {
+          const v = row / 64;
+          sample(0, v, a);
+          let previous = a.color;
+          for (let x = 1; x <= 512; x++) {
+            sample(x / 512, v, a);
+            const current = a.color;
+            if (previous < level !== current < level) {
+              let left = (x - 1) / 512,
+                right = x / 512;
+              const below = previous < level;
+              for (let j = 0; j < 48; j++) {
+                const middle = (left + right) / 2;
+                sample(middle, v, b);
+                if (b.color < level === below) left = middle;
+                else right = middle;
+              }
+              check((left + right) / 2, v);
+            }
+            previous = current;
+          }
+        }
+      for (let i = 0; i < 4096; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 creamy matrix and dark green-black aggregates on five opaque flat dielectric maps', () => {
+    const maps = generateProceduralMaps('dalmatianstone', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let dark = 0,
+      cream = 0,
+      warm = 0,
+      darkRoughness = 0,
+      creamRoughness = 0,
+      tilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (r < 60) {
+        dark++;
+        darkRoughness += maps.metallicRoughness[i + 1];
+      }
+      if (r > 190) {
+        cream++;
+        creamRoughness += maps.metallicRoughness[i + 1];
+        warm += Number(r - g >= 4 && g - b >= 15);
+      }
+      tilt = Math.max(
+        tilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.04);
+    expect(dark / (512 * 512)).toBeLessThan(0.15);
+    expect(cream / (512 * 512)).toBeGreaterThan(0.8);
+    expect(warm / cream).toBeGreaterThan(0.98);
+    expect(darkRoughness / dark - creamRoughness / cream).toBeGreaterThan(5);
+    expect(tilt).toBeLessThan(0.005);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all six inclusion and polished-matrix channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('dalmatianstone', seed);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

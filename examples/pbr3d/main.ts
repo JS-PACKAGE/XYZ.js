@@ -844,6 +844,7 @@ try {
     'sphericalwashers',
     'mungbeans',
     'thomsonite',
+    'dalmatianstone',
     'nickelsilver',
     'hopsack',
     'lyocell',

@@ -781,6 +781,7 @@ export type ProceduralMaterialKind =
   | 'sphericalwashers'
   | 'mungbeans'
   | 'thomsonite'
+  | 'dalmatianstone'
   | 'nickelsilver'
   | 'hopsack'
   | 'lyocell'
@@ -1801,6 +1802,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sphericalwashers',
   'mungbeans',
   'thomsonite',
+  'dalmatianstone',
   'nickelsilver',
   'hopsack',
   'lyocell',

@@ -15576,6 +15576,41 @@ var proceduralMaterialPresets = Object.freeze({
 		bodyBase: .32,
 		domeHeight: .3
 	}),
+	dalmatianstone: Object.freeze({
+		dark: [
+			13,
+			17,
+			15
+		],
+		light: [
+			240,
+			232,
+			206
+		],
+		roughness: .28,
+		relief: .002,
+		cells: 10,
+		spotChance: .82,
+		centerMin: .15,
+		centerRange: .7,
+		widthMin: .12,
+		widthRange: .15,
+		lengthMin: .1,
+		lengthRange: .13,
+		bend: 1,
+		shoulder: .38,
+		matrixBase: .86,
+		matrixCloud: .09,
+		matrixGrain: .025,
+		spotBase: .035,
+		spotTone: .045,
+		spotGrain: .015,
+		height: .43,
+		grainHeight: .002,
+		grainRoughness: .02,
+		spotRoughness: .035,
+		edgeWarp: .8
+	}),
 	thomsonite: Object.freeze({
 		dark: [
 			147,
@@ -16744,6 +16779,7 @@ var proceduralTileMeters = Object.freeze({
 	sphericalwashers: .1,
 	mungbeans: .045,
 	thomsonite: .048,
+	dalmatianstone: .06,
 	nickelsilver: .025,
 	hopsack: .016,
 	lyocell: .012,

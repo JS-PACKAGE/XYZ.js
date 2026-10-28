@@ -23200,6 +23200,78 @@ export function createSurfaceSampler(
           occlusion = 0.3 + face * (0.68 - 0.6 * aperture - 0.12 * seam);
         };
       }
+      case 'dalmatianstone': {
+        const p = proceduralMaterialPresets.dalmatianstone,
+          spots = new Float64Array(p.cells * p.cells * 8),
+          grainField = cachedNoise(128, 128, seed ^ 0x1e411),
+          matrixField = cachedNoise(12, 12, seed ^ 0x1e413),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            if (hash(col, row, seed ^ 0x1e415) >= p.spotChance) continue;
+            const i = (row * p.cells + col) * 8,
+              angle = TAU * hash(col, row, seed ^ 0x1e417),
+              width =
+                p.widthMin + p.widthRange * hash(col, row, seed ^ 0x1e419),
+              length =
+                p.lengthMin + p.lengthRange * hash(col, row, seed ^ 0x1e41b);
+            spots[i] =
+              p.centerMin + p.centerRange * hash(col, row, seed ^ 0x1e41d);
+            spots[i + 1] =
+              p.centerMin + p.centerRange * hash(col, row, seed ^ 0x1e41f);
+            spots[i + 2] = Math.cos(angle);
+            spots[i + 3] = Math.sin(angle);
+            spots[i + 4] = 1 / (width * width);
+            spots[i + 5] = 1 / (length * length);
+            spots[i + 6] = p.bend * (hash(col, row, seed ^ 0x1e421) - 0.5);
+            spots[i + 7] = hash(col, row, seed ^ 0x1e423);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            grain = grainField(u, v);
+          color =
+            p.matrixBase +
+            p.matrixCloud * matrixField(u, v) +
+            p.matrixGrain * grain;
+          height = p.height + p.grainHeight * grain;
+          roughness = p.roughness + p.grainRoughness * grain;
+          occlusion = 1;
+          let remaining = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                i =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  8;
+              if (spots[i + 4] === 0) continue;
+              const dx = uc - cx - spots[i],
+                dy = vc - cy - spots[i + 1],
+                y = dy * spots[i + 2] - dx * spots[i + 3],
+                x =
+                  dx * spots[i + 2] + dy * spots[i + 3] + spots[i + 6] * y * y,
+                q =
+                  (x * x * spots[i + 4] + y * y * spots[i + 5]) *
+                  (1 + p.edgeWarp * (grain - 0.5));
+              if (q >= 1) continue;
+              const spot = smooth(clamp((1 - q) * inverseShoulder));
+              // Dark aggregates may join across cells, but remain flush in the polished matrix.
+              color +=
+                spot *
+                (p.spotBase +
+                  p.spotTone * spots[i + 7] +
+                  p.spotGrain * grain -
+                  color);
+              remaining *= 1 - spot;
+            }
+          roughness += p.spotRoughness * (1 - remaining);
+          return;
+        };
+      }
       case 'thomsonite':
       case 'orbicularjasper': {
         const p =
@@ -35947,6 +36019,7 @@ export function createSurfaceSampler(
     kind === 'iroko' ||
     kind === 'purpleheart' ||
     kind === 'thomsonite' ||
+    kind === 'dalmatianstone' ||
     kind === 'basswood' ||
     kind === 'nickelsilver' ||
     kind === 'hopsack' ||
