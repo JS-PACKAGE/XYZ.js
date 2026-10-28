@@ -8820,6 +8820,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    basswood: Readonly<{
+        dark: readonly [166, 143, 104];
+        light: readonly [246, 232, 203];
+        roughness: 0.6;
+        relief: 0.0012;
+        brushU: 96;
+        brushV: 4;
+        grainCells: 128;
+        baseTone: 0.68;
+        brushTone: 0.18;
+        grainTone: 0.035;
+        baseHeight: 0.45;
+        brushHeight: 0.008;
+        grainHeight: 0.004;
+        brushRoughness: 0.025;
+        grainRoughness: 0.035;
+    }>;
     sphericalwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9880,6 +9897,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    basswood: 0.1;
     sphericalwashers: 0.1;
     mungbeans: 0.045;
     thomsonite: 0.048;

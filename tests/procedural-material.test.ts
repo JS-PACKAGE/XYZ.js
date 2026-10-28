@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'basswood',
   'sphericalwashers',
   'mungbeans',
   'thomsonite',
@@ -1267,6 +1268,191 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Pale finely sanded Basswood with understated long straight grain', () => {
+  const p = proceduralMaterialPresets.basswood;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps subtle continuous lengthwise pigment on a shallow intact pale wood face rather than coarse colored grooves for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('basswood', seed),
+        a = empty(),
+        b = empty();
+      let minimum = Infinity,
+        maximum = -Infinity,
+        heightMin = Infinity,
+        heightMax = -Infinity,
+        transverse = 0,
+        longitudinal = 0,
+        invalid = 0;
+      const step = 1 / 1024;
+      for (let j = 0; j < 8192; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        minimum = Math.min(minimum, a.color);
+        maximum = Math.max(maximum, a.color);
+        heightMin = Math.min(heightMin, a.height);
+        heightMax = Math.max(heightMax, a.height);
+        invalid += Number(
+          a.color < 0.6 ||
+            a.color > 0.95 ||
+            a.metallic !== 0 ||
+            a.mortar !== 0 ||
+            a.occlusion !== 1 ||
+            a.roughness < 0.55 ||
+            a.roughness > 0.65,
+        );
+        for (const key of keys) invalid += Number(!Number.isFinite(a[key]));
+        sample(u + step, v, b);
+        transverse += (a.color - b.color) ** 2;
+        sample(u, v + step, b);
+        longitudinal += (a.color - b.color) ** 2;
+      }
+      expect(maximum - minimum).toBeGreaterThan(0.1);
+      expect(maximum - minimum).toBeLessThan(0.25);
+      expect(transverse).toBeGreaterThan(longitudinal * 6);
+      expect((heightMax - heightMin) / p.relief).toBeGreaterThan(0.003);
+      expect((heightMax - heightMin) / p.relief).toBeLessThan(0.015);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps long-grain and micrograin true lattice boundaries and signed UV edges C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('basswood', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const grid of [96, 4, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j < 31; j++) {
+            const other = (j * 0.41421356237) % 1;
+            check(k / grid, other);
+            check(other, k / grid);
+          }
+      for (let j = 0; j < 8192; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque cream-tan wood with shallow signed micrograin normals no metal and no carved or fake horizontal normals', () => {
+    const maps = generateProceduralMaps('basswood', 512, 7, {
+      heightMap: true,
+    });
+    const data = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let pale = 0,
+      invalid = 0,
+      minRed = 255,
+      maxRed = 0,
+      maxTilt = 0,
+      positive = 0,
+      negative = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      pale += Number(r > 210 && g > 195 && b > 165 && r > g && g > b);
+      minRed = Math.min(minRed, r);
+      maxRed = Math.max(maxRed, r);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      positive += Number(maps.normal[i] >= 128);
+      negative += Number(maps.normal[i] <= 127);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const bytes of data) invalid += Number(bytes[i + 3] !== 255);
+    }
+    expect(pale / (512 * 512)).toBeGreaterThan(0.95);
+    expect(maxRed - minRed).toBeGreaterThan(8);
+    expect(maxRed - minRed).toBeLessThan(25);
+    expect(maxTilt).toBeLessThan(0.001);
+    expect(positive / (512 * 512)).toBeGreaterThan(0.003);
+    expect(negative / (512 * 512)).toBeGreaterThan(0.003);
+    expect(invalid).toBe(0);
+    const sample = createSurfaceSampler('basswood', 7),
+      left = empty(),
+      right = empty();
+    let opposed = 0,
+      resolved = 0;
+    for (let j = 0; j < 4096; j++) {
+      const pixel = (j * 61) % (512 * 512),
+        x = pixel % 512,
+        y = Math.floor(pixel / 512),
+        u = (x + 0.5) / 512,
+        v = (y + 0.5) / 512;
+      sample(u - 1 / 512, v, left);
+      sample(u + 1 / 512, v, right);
+      const rise = right.height - left.height;
+      if (Math.abs(rise) > 1e-11) {
+        resolved++;
+        opposed += Number(
+          (rise > 0 && maps.normal[pixel * 4] <= 127) ||
+            (rise < 0 && maps.normal[pixel * 4] >= 128),
+        );
+      }
+    }
+    expect(resolved).toBeGreaterThan(4000);
+    expect(opposed / resolved).toBeGreaterThan(0.999);
+  });
+  it('repeats fine straight pigment shallow microrelief and dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('basswood', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
+    }
   });
 });
 

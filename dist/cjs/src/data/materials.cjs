@@ -15350,6 +15350,31 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .1
 	}),
+	basswood: Object.freeze({
+		dark: [
+			166,
+			143,
+			104
+		],
+		light: [
+			246,
+			232,
+			203
+		],
+		roughness: .6,
+		relief: .0012,
+		brushU: 96,
+		brushV: 4,
+		grainCells: 128,
+		baseTone: .68,
+		brushTone: .18,
+		grainTone: .035,
+		baseHeight: .45,
+		brushHeight: .008,
+		grainHeight: .004,
+		brushRoughness: .025,
+		grainRoughness: .035
+	}),
 	sphericalwashers: Object.freeze({
 		dark: [
 			34,
@@ -16534,6 +16559,7 @@ var proceduralTileMeters = Object.freeze({
 	unakite: .12,
 	eudialyte: .12,
 	iroko: .18,
+	basswood: .1,
 	sphericalwashers: .1,
 	mungbeans: .045,
 	thomsonite: .048,

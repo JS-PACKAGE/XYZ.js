@@ -28796,8 +28796,12 @@ export function createSurfaceSampler(
           occlusion = 0.8 + 0.2 * smooth(height);
           return;
         };
+      case 'basswood':
       case 'nickelsilver': {
-        const p = proceduralMaterialPresets.nickelsilver,
+        const p =
+            kind === 'basswood'
+              ? proceduralMaterialPresets.basswood
+              : proceduralMaterialPresets.nickelsilver,
           brushField = cachedNoise(p.brushU, p.brushV, seed ^ 0x17211),
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x17213);
         return () => {
@@ -35817,6 +35821,7 @@ export function createSurfaceSampler(
     kind === 'eudialyte' ||
     kind === 'iroko' ||
     kind === 'thomsonite' ||
+    kind === 'basswood' ||
     kind === 'nickelsilver' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||
