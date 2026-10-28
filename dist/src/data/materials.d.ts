@@ -8907,6 +8907,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    purpleheart: Readonly<{
+        dark: readonly [39, 13, 37];
+        light: readonly [157, 87, 149];
+        roughness: 0.48;
+        relief: 0.003;
+        columns: 30;
+        rows: 10;
+        widthMinimum: 0.05;
+        widthVariation: 0.04;
+        lengthMinimum: 0.13;
+        lengthVariation: 0.15;
+        poreChance: 0.24;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.13;
+        bands: 5;
+        bandWarp: 0.18;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.1;
+        fiberColumns: 192;
+        fiberRows: 6;
+        fiberContrast: 0.12;
+    }>;
     basswood: Readonly<{
         dark: readonly [166, 143, 104];
         light: readonly [246, 232, 203];
@@ -10007,6 +10032,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    purpleheart: 0.12;
     basswood: 0.1;
     sphericalwashers: 0.1;
     mungbeans: 0.045;

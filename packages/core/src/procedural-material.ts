@@ -776,6 +776,7 @@ export type ProceduralMaterialKind =
   | 'unakite'
   | 'eudialyte'
   | 'iroko'
+  | 'purpleheart'
   | 'basswood'
   | 'sphericalwashers'
   | 'mungbeans'
@@ -1795,6 +1796,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'purpleheart',
   'basswood',
   'sphericalwashers',
   'mungbeans',

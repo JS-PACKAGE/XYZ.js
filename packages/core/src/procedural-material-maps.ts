@@ -1985,21 +1985,24 @@ export function createSurfaceSampler(
       }
       case 'padauk':
       case 'iroko':
+      case 'purpleheart':
       case 'sapele':
       case 'wenge': {
-        const iroko =
-            kind === 'iroko' ? proceduralMaterialPresets.iroko : undefined,
-          sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : iroko,
+        const fine =
+            kind === 'iroko' || kind === 'purpleheart'
+              ? proceduralMaterialPresets[kind]
+              : undefined,
+          sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : fine,
           p = sparse ?? proceduralMaterialPresets[kind],
           bandContrast = sparse ? sparse.bandContrast : 0.3,
           centerMinimum = sparse ? sparse.centerMinimum : 0.4,
           centerRange = sparse ? sparse.centerRange : 0.2,
-          fiberContrast = iroko ? iroko.fiberContrast : 0.04,
+          fiberContrast = fine ? fine.fiberContrast : 0.04,
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(3, 4, seed ^ 0x1ae11),
           fiberField = cachedNoise(
-            iroko ? iroko.fiberColumns : 64,
-            iroko ? iroko.fiberRows : 4,
+            fine ? fine.fiberColumns : 64,
+            fine ? fine.fiberRows : 4,
             seed ^ 0x1ae13,
           ),
           grainField = cachedNoise(128, 128, seed ^ 0x1ae15),
@@ -35942,6 +35945,7 @@ export function createSurfaceSampler(
     kind === 'unakite' ||
     kind === 'eudialyte' ||
     kind === 'iroko' ||
+    kind === 'purpleheart' ||
     kind === 'thomsonite' ||
     kind === 'basswood' ||
     kind === 'nickelsilver' ||
