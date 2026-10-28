@@ -488,6 +488,7 @@ export type ProceduralMaterialKind =
   | 'maplesamara'
   | 'lenoweave'
   | 'circlips'
+  | 'eclips'
   | 'tuliptiles'
   | 'gingerslice'
   | 'fivebarplate'
@@ -1505,6 +1506,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'maplesamara',
   'lenoweave',
   'circlips',
+  'eclips',
   'tuliptiles',
   'gingerslice',
   'fivebarplate',
@@ -2072,6 +2074,7 @@ export class ProceduralMaterial {
         this.kind === 'hexnuts' ||
         this.kind === 'wingnuts' ||
         this.kind === 'circlips' ||
+        this.kind === 'eclips' ||
         this.kind === 'fivebarplate' ||
         this.kind === 'scalemail' ||
         this.kind === 'slottedmetal' ||

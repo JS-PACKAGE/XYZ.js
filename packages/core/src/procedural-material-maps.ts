@@ -21178,6 +21178,91 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'eclips': {
+        const p = proceduralMaterialPresets.eclips,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(96, 96, seed ^ 0x1c311),
+          outerSquared = p.outerRadius * p.outerRadius,
+          innerSquared = p.innerRadius * p.innerRadius,
+          inverseOuter = 1 / (outerSquared - p.outerCore * p.outerCore),
+          inverseInner = 1 / (p.innerCore * p.innerCore - innerSquared),
+          pocketSquared = p.pocketRadius * p.pocketRadius,
+          inversePocketOuter =
+            1 / (pocketSquared - p.pocketCore * p.pocketCore),
+          inversePocketBottom = 1 / p.pocketFade,
+          inverseLug = 1 / p.lugShoulder,
+          inverseGap = 1 / (p.gapHalf * p.gapHalf - p.gapCore * p.gapCore),
+          inverseGapEnd = 1 / p.gapFade,
+          inverseFlare = 1 / p.flareRange;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle =
+                ((row + col) & 1) * Math.PI +
+                p.turn * (2 * hash(col, row, seed ^ 0x1c315) - 1),
+              inverseScale =
+                1 /
+                (p.scaleMin + p.scaleRange * hash(col, row, seed ^ 0x1c317));
+            poses[i] = Math.cos(angle) * inverseScale;
+            poses[i + 1] = Math.sin(angle) * inverseScale;
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c319) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c31b) - 1);
+            poses[i + 4] = hash(col, row, seed ^ 0x1c31d);
+          }
+        return () => {
+          color = p.backgroundColor;
+          height = p.backgroundHeight;
+          roughness = p.backgroundRoughness;
+          occlusion = p.backgroundOcclusion;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y;
+          if (q <= innerSquared || q >= outerSquared) return;
+          const flare =
+              p.flareWidth * smooth(clamp((-y - p.flareStart) * inverseFlare)),
+            gapHalf = p.gapHalf + flare,
+            mouth =
+              smooth(clamp((gapHalf * gapHalf - x * x) * inverseGap)) *
+              smooth(clamp((p.gapTop - y) * inverseGapEnd)),
+            // The paired wing windows join the bore; the central lug protects the abs-x join.
+            pocket =
+              smooth(clamp((pocketSquared - q) * inversePocketOuter)) *
+              smooth(clamp((y - p.pocketBottom) * inversePocketBottom)) *
+              smooth(
+                clamp(
+                  (Math.abs(x) - p.lugHalf - p.lugSlope * (y - p.innerRadius)) *
+                    inverseLug,
+                ),
+              ),
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - innerSquared) * inverseInner)) *
+              (1 - mouth) *
+              (1 - pocket);
+          if (face === 0) return;
+          const grain = grainField(u, v);
+          color +=
+            face *
+            (p.faceColor +
+              p.faceColorVariation * poses[i + 4] +
+              p.grainColor * grain -
+              color);
+          height += face * (p.faceHeight + p.microRelief * grain - height);
+          roughness +=
+            face * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion += face * (p.faceOcclusion - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'circlips': {
         const p = proceduralMaterialPresets.circlips;
         const grainField = cachedNoise(96, 96, seed ^ 0xd719);
@@ -35668,6 +35753,7 @@ export function createSurfaceSampler(
     kind === 'maplesamara' ||
     kind === 'lenoweave' ||
     kind === 'circlips' ||
+    kind === 'eclips' ||
     kind === 'tuliptiles' ||
     kind === 'gingerslice' ||
     kind === 'fivebarplate' ||

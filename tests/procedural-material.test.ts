@@ -514,6 +514,7 @@ const kinds: ProceduralMaterialKind[] = [
   'maplesamara',
   'lenoweave',
   'circlips',
+  'eclips',
   'tuliptiles',
   'gingerslice',
   'fivebarplate',
@@ -1265,6 +1266,344 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Stainless E retaining clips with three contact lugs and connected wing windows', () => {
+  const p = proceduralMaterialPresets.eclips;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const contacts = [
+    [0, 0.2],
+    [-0.21, -0.06],
+    [0.21, -0.06],
+  ] as const;
+  const openings = [
+    [0, 0],
+    [0, -0.25],
+    [-0.16, 0.14],
+    [0.16, 0.14],
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Recover pose from the outer coverage contour and mirror-symmetric lug, not seeded private hashes.
+  const locate = (
+    sample: (u: number, v: number, out: SurfaceSample) => void,
+    row: number,
+    col: number,
+  ) => {
+    const out = empty();
+    const metal = (x: number, y: number) => {
+      sample((col + x) / p.cells, (row + y) / p.cells, out);
+      return out.metallic;
+    };
+    const arch = metal(0.5, 0.75) > metal(0.5, 0.25) ? 1 : -1;
+    const edge = (dx: number, dy: number, threshold = 0.5) => {
+      let outside = 0.45,
+        inside = 0.45;
+      while (inside > 0.2) {
+        inside -= 0.002;
+        if (metal(0.5 + dx * inside, 0.5 + dy * inside) > threshold) break;
+        outside = inside;
+      }
+      expect(inside).toBeGreaterThan(0.2);
+      for (let i = 0; i < 48; i++) {
+        const middle = (outside + inside) / 2;
+        if (metal(0.5 + dx * middle, 0.5 + dy * middle) > threshold)
+          inside = middle;
+        else outside = middle;
+      }
+      return (outside + inside) / 2;
+    };
+    const lx = 0.5 - edge(-1, 0),
+      rx = 0.5 + edge(1, 0),
+      ay = 0.5 + arch * edge(0, arch),
+      cx = (lx + rx) / 2,
+      cy =
+        ((0.5 - cx) ** 2 + ay * ay - (rx - cx) ** 2 - 0.25) / (2 * (ay - 0.5)),
+      radius = Math.sqrt((rx - cx) ** 2 + (0.5 - cy) ** 2),
+      scale = radius / Math.sqrt((p.outerRadius ** 2 + p.outerCore ** 2) / 2),
+      base = arch > 0 ? 0 : Math.PI;
+    const on = (angle: number) =>
+      metal(
+        cx + scale * 0.23 * Math.sin(angle),
+        cy + scale * 0.23 * Math.cos(angle),
+      );
+    let left = base - 0.6,
+      right = base;
+    for (let i = 0; i < 48; i++) {
+      const middle = (left + right) / 2;
+      if (on(middle) > 0.5) right = middle;
+      else left = middle;
+    }
+    const edgeA = (left + right) / 2;
+    left = base;
+    right = base + 0.6;
+    for (let i = 0; i < 48; i++) {
+      const middle = (left + right) / 2;
+      if (on(middle) > 0.5) left = middle;
+      else right = middle;
+    }
+    const angle = (edgeA + (left + right) / 2) / 2;
+    return {
+      cx,
+      cy,
+      scale,
+      cos: Math.cos(angle),
+      sin: Math.sin(angle),
+      bevel: edge(1, 0, 0.05) - edge(1, 0, 0.95),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps three metal contact lugs and an open connected cavity without plier eyelets for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('eclips', seed),
+        out = empty(),
+        size = 96,
+        steelMask = new Uint8Array(size * size),
+        voidMask = new Uint8Array(size * size),
+        queue = new Uint32Array(steelMask.length),
+        neighbors = new Int32Array(8);
+      const components = (mask: Uint8Array) => {
+        let count = 0;
+        for (let index = 0; index < mask.length; index++) {
+          if (!mask[index]) continue;
+          count++;
+          mask[index] = 0;
+          queue[0] = index;
+          let end = 1;
+          for (let start = 0; start < end; start++) {
+            const i = queue[start],
+              x = i % size,
+              y = Math.floor(i / size);
+            neighbors[0] = x ? i - 1 : -1;
+            neighbors[1] = x + 1 < size ? i + 1 : -1;
+            neighbors[2] = y ? i - size : -1;
+            neighbors[3] = y + 1 < size ? i + size : -1;
+            neighbors[4] = x && y ? i - size - 1 : -1;
+            neighbors[5] = x + 1 < size && y ? i - size + 1 : -1;
+            neighbors[6] = x && y + 1 < size ? i + size - 1 : -1;
+            neighbors[7] = x + 1 < size && y + 1 < size ? i + size + 1 : -1;
+            for (const next of neighbors)
+              if (next >= 0 && mask[next]) {
+                mask[next] = 0;
+                queue[end++] = next;
+              }
+          }
+        }
+        return count;
+      };
+      let bad = false;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pose = locate(sample, row, col);
+          expect(pose.bevel).toBeGreaterThan(0.007);
+          expect(pose.bevel).toBeLessThan(0.018);
+          const at = (x: number, y: number) =>
+            sample(
+              (col + pose.cx + pose.scale * (x * pose.cos + y * pose.sin)) /
+                p.cells,
+              (row + pose.cy + pose.scale * (-x * pose.sin + y * pose.cos)) /
+                p.cells,
+              out,
+            );
+          for (const [x, y] of contacts) {
+            at(x, y);
+            expect(out.metallic).toBeGreaterThan(0.98);
+            expect(out.height).toBeGreaterThan(0.4 * p.relief);
+            expect(out.roughness).toBeLessThan(0.4);
+            expect(out.occlusion).toBeGreaterThan(0.95);
+          }
+          for (const [x, y] of openings) {
+            at(x, y);
+            expect(out.metallic).toBe(0);
+            expect(out.height).toBeLessThan(0.05 * p.relief);
+            expect(out.roughness).toBeGreaterThan(0.85);
+            expect(out.occlusion).toBeLessThan(0.4);
+          }
+          steelMask.fill(0);
+          voidMask.fill(0);
+          let steel = 0,
+            backing = 0;
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++) {
+              sample(
+                (col + (x + 0.5) / size) / p.cells,
+                (row + (y + 0.5) / size) / p.cells,
+                out,
+              );
+              for (const key of keys) bad ||= !Number.isFinite(out[key]);
+              bad ||= out.mortar !== 0;
+              if (out.metallic > 0.8) {
+                steelMask[y * size + x] = 1;
+                steel++;
+              } else if (out.metallic < 0.2) {
+                voidMask[y * size + x] = 1;
+                backing++;
+              }
+            }
+          expect(steel / steelMask.length).toBeGreaterThan(0.08);
+          expect(steel / steelMask.length).toBeLessThan(0.18);
+          expect(backing / voidMask.length).toBeGreaterThan(0.78);
+          expect(components(steelMask)).toBe(1);
+          expect(components(voidMask)).toBe(1);
+        }
+      expect(bad).toBe(false);
+    },
+  );
+  it('keeps measured plate contours, wing shoulders, mouth flare, grain cache and ownership C1', () => {
+    const h = 1e-10,
+      a = empty(),
+      b = empty(),
+      c = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eclips', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const pose = locate(sample, row, col);
+          const local = (x: number, y: number) =>
+            check(
+              (col + pose.cx + pose.scale * (x * pose.cos + y * pose.sin)) /
+                p.cells,
+              (row + pose.cy + pose.scale * (-x * pose.sin + y * pose.cos)) /
+                p.cells,
+            );
+          for (const radius of [
+            p.outerRadius,
+            p.outerCore,
+            p.innerRadius,
+            p.innerCore,
+            p.pocketRadius,
+            p.pocketCore,
+          ])
+            for (let i = 0; i < 128; i++) {
+              const angle = (2 * Math.PI * i) / 128;
+              local(radius * Math.cos(angle), radius * Math.sin(angle));
+            }
+          for (let i = 0; i <= 64; i++) {
+            const x = -0.34 + (0.68 * i) / 64;
+            for (const y of [
+              p.pocketBottom,
+              p.pocketBottom + p.pocketFade,
+              p.gapTop,
+              p.gapTop - p.gapFade,
+              -p.flareStart,
+              -p.flareStart - p.flareRange,
+            ])
+              local(x, y);
+            const y = (0.29 * i) / 64,
+              half = p.lugHalf + p.lugSlope * (y - p.innerRadius);
+            for (const side of [-1, 1]) {
+              local(side * half, y);
+              local(side * (half + p.lugShoulder), y);
+            }
+            for (const edge of [p.gapHalf, p.gapCore, -p.gapHalf, -p.gapCore])
+              local(edge, (-0.2 * i) / 64);
+          }
+        }
+      for (let i = 0; i <= 96; i++)
+        for (let j = 0; j < 17; j++) {
+          check(i / 96, (j + 0.31) / 17);
+          check((j + 0.37) / 17, i / 96);
+        }
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes opaque silver metal above nonmetal backing with coherent roughness AO and signed edge normals at 512', () => {
+    const maps = generateProceduralMaps('eclips', 512, 7, { heightMap: true }),
+      streams = Object.values(maps);
+    let metal = 0,
+      backing = 0,
+      silver = 0,
+      metalRoughness = 0,
+      backingRoughness = 0,
+      minAO = 255,
+      maxAO = 0,
+      maxTilt = 0,
+      bad = false;
+    const directions = new Uint32Array(4);
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2],
+        r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (m > 250) {
+        metal++;
+        metalRoughness += maps.metallicRoughness[i + 1];
+        silver += Number(r > 170 && g > r && b > g && b - r < 20);
+      } else if (m === 0) {
+        backing++;
+        backingRoughness += maps.metallicRoughness[i + 1];
+      }
+      directions[0] += Number(maps.normal[i] > 128);
+      directions[1] += Number(maps.normal[i] < 127);
+      directions[2] += Number(maps.normal[i + 1] > 128);
+      directions[3] += Number(maps.normal[i + 1] < 127);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      for (const map of streams) bad ||= map[i + 3] !== 255;
+    }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.08);
+    expect(metal / (512 * 512)).toBeLessThan(0.18);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.78);
+    expect(silver / metal).toBeGreaterThan(0.95);
+    expect(backingRoughness / backing - metalRoughness / metal).toBeGreaterThan(
+      100,
+    );
+    expect(minAO).toBeLessThan(90);
+    expect(maxAO).toBeGreaterThan(245);
+    for (const count of directions)
+      expect(count / (512 * 512)).toBeGreaterThan(0.003);
+    expect(maxTilt).toBeGreaterThan(0.15);
+    expect(maxTilt).toBeLessThan(0.5);
+    expect(bad).toBe(false);
+  });
+  it('repeats all six surface channels through signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eclips', seed);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.6180339887498949) % 1,
+          v = (i * 0.4142135623730951) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }
@@ -68003,6 +68342,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'fishhooks' &&
           kind !== 'barbedwire' &&
           kind !== 'horseshoes' &&
+          kind !== 'eclips' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -77456,6 +77796,7 @@ describe('procedural preset acquisition and ownership', () => {
     'hexnuts',
     'wingnuts',
     'circlips',
+    'eclips',
     'fivebarplate',
     'scalemail',
     'slottedmetal',
@@ -77557,6 +77898,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'hexnuts' ||
           kind === 'wingnuts' ||
           kind === 'circlips' ||
+          kind === 'eclips' ||
           kind === 'fivebarplate' ||
           kind === 'scalemail' ||
           kind === 'slottedmetal' ||

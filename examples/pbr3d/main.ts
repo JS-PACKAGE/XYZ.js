@@ -551,6 +551,7 @@ try {
     'maplesamara',
     'lenoweave',
     'circlips',
+    'eclips',
     'tuliptiles',
     'gingerslice',
     'fivebarplate',
