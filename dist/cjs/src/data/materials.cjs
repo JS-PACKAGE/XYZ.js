@@ -10733,6 +10733,35 @@ var proceduralMaterialPresets = Object.freeze({
 		threshold: .43,
 		shoulder: .19
 	}),
+	silknoil: Object.freeze({
+		dark: [
+			171,
+			143,
+			100
+		],
+		light: [
+			255,
+			253,
+			239
+		],
+		roughness: .86,
+		relief: .0016,
+		threads: 128,
+		nepCells: 48,
+		nepChance: .35,
+		nepHalfMinimum: .15,
+		nepHalfVariation: .12,
+		nepWidthMinimum: .07,
+		nepWidthVariation: .05,
+		nepShoulder: .4,
+		nepLift: .11,
+		nepRoughness: .035,
+		nepToneMinimum: .45,
+		nepToneVariation: .35,
+		baseHeight: .26,
+		yarnLift: .045,
+		interlaceLift: .02
+	}),
 	matelasse: Object.freeze({
 		dark: [
 			192,
@@ -16912,6 +16941,7 @@ var proceduralTileMeters = Object.freeze({
 	tortoiseshellacetate: .2,
 	cathedralquilt: .6,
 	matelasse: .24,
+	silknoil: .12,
 	buckwheathulls: .064,
 	rutilatedquartz: .2,
 	peppermintcanes: .32,

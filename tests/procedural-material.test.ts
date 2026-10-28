@@ -630,6 +630,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tortoiseshellacetate',
   'cathedralquilt',
   'matelasse',
+  'silknoil',
   'buckwheathulls',
   'rutilatedquartz',
   'peppermintcanes',
@@ -1043,6 +1044,250 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Natural matte Silk Noil with alternating plain-weave yarns and small raised short-fiber neps', () => {
+  const p = proceduralMaterialPresets.silknoil;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps sparse rougher raised neps on mostly cream matte plain cloth, not dark holes or printed flecks for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('silknoil', seed),
+        a = empty(),
+        b = empty();
+      let neps = 0,
+        plain = 0,
+        nepHeight = 0,
+        plainHeight = 0,
+        nepRoughness = 0,
+        plainRoughness = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          if (a.occlusion > 0.98) {
+            neps++;
+            nepHeight += a.height;
+            nepRoughness += a.roughness;
+          }
+          if (a.occlusion < 0.976) {
+            plain++;
+            plainHeight += a.height;
+            plainRoughness += a.roughness;
+          }
+          low = Math.min(low, a.height / p.relief);
+          high = Math.max(high, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.85 ||
+              a.roughness > 0.93 ||
+              a.occlusion < 0.89 ||
+              a.occlusion > 1 ||
+              a.height < 0.25 * p.relief ||
+              a.height > 0.44 * p.relief ||
+              a.color < 0.44 ||
+              a.color > 0.88,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(neps / 65536).toBeGreaterThan(0.01);
+      expect(neps / 65536).toBeLessThan(0.025);
+      expect(plain / 65536).toBeGreaterThan(0.97);
+      expect(plain / 65536).toBeLessThan(0.99);
+      expect(nepHeight / neps - plainHeight / plain).toBeGreaterThan(
+        0.035 * p.relief,
+      );
+      expect(nepHeight / neps - plainHeight / plain).toBeLessThan(
+        0.07 * p.relief,
+      );
+      expect(nepRoughness / neps - plainRoughness / plain).toBeGreaterThan(
+        0.025,
+      );
+      expect(nepRoughness / neps - plainRoughness / plain).toBeLessThan(0.045);
+      expect(high - low).toBeGreaterThan(0.09);
+      expect(high - low).toBeLessThan(0.14);
+      expect(invalid).toBe(0);
+      sample(0.5 / p.threads, 0.5 / p.threads, a);
+      sample(0, 0, b);
+      expect(a.height - b.height).toBeGreaterThan(0.04 * p.relief);
+      expect(a.height - b.height).toBeLessThan(0.05 * p.relief);
+      expect(a.color - b.color).toBeGreaterThan(0.014);
+      expect(a.occlusion - b.occlusion).toBeGreaterThan(0.07);
+    },
+  );
+  it('alternates exposed yarn crowns at adjacent plain-weave crossings rather than embossing identical bead intersections', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('silknoil', seed);
+      sample(0.65 / p.threads, 0.5 / p.threads, a);
+      sample(0.5 / p.threads, 0.65 / p.threads, b);
+      expect(a.height - b.height).toBeGreaterThan(0.001 * p.relief);
+      sample(1.65 / p.threads, 0.5 / p.threads, a);
+      sample(0.5 / p.threads, 1.65 / p.threads, b);
+      expect(b.height - a.height).toBeGreaterThan(0.001 * p.relief);
+    }
+  });
+  it('keeps occupied and empty nep owners, yarn crossings and grain lattices C1 over all six channels', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('silknoil', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of new Set([p.nepCells, p.threads, 128]))
+        for (let i = 0; i <= n; i++)
+          for (const t of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.04);
+    }
+  });
+  it('writes actual512 opaque cream matte dielectric maps with small raised-nep AO components in both yarn directions and real nonflat normals', () => {
+    const maps = generateProceduralMaps('silknoil', 512, 7, {
+        heightMap: true,
+      }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let cream = 0,
+      neps = 0,
+      tilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      cream += Number(
+        r > 235 && r - g >= 3 && r - g <= 8 && g - b > 10 && g - b < 25,
+      );
+      neps += Number(maps.occlusion[i] > 249);
+      tilt = Math.max(
+        tilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.metallicRoughness[i + 1] < 215 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(cream / (512 * 512)).toBeGreaterThan(0.97);
+    expect(cream / (512 * 512)).toBeLessThan(0.995);
+    expect(neps / (512 * 512)).toBeGreaterThan(0.01);
+    expect(neps / (512 * 512)).toBeLessThan(0.03);
+    expect(tilt).toBeGreaterThan(0.002);
+    expect(tilt).toBeLessThan(0.008);
+    expect(invalid).toBe(0);
+    const visited = new Uint8Array(512 * 512),
+      queue = new Int32Array(512 * 512);
+    let wide = 0,
+      tall = 0;
+    for (let i = 0; i < visited.length; i++) {
+      if (visited[i] || maps.occlusion[4 * i] <= 249) continue;
+      let begin = 0,
+        end = 1,
+        minX = 512,
+        maxX = 0,
+        minY = 512,
+        maxY = 0;
+      queue[0] = i;
+      visited[i] = 1;
+      while (begin < end) {
+        const at = queue[begin++],
+          x = at % 512,
+          y = Math.floor(at / 512);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        for (let axis = 0; axis < 2; axis++) {
+          const coordinate = axis === 0 ? x : y,
+            stride = axis === 0 ? 1 : 512;
+          for (let step = -1; step <= 1; step += 2) {
+            if (coordinate + step < 0 || coordinate + step >= 512) continue;
+            const next = at + step * stride;
+            if (!visited[next] && maps.occlusion[4 * next] > 249) {
+              visited[next] = 1;
+              queue[end++] = next;
+            }
+          }
+        }
+      }
+      const w = maxX - minX + 1,
+        h = maxY - minY + 1;
+      if (w >= 2 * h) wide++;
+      else if (h >= 2 * w) tall++;
+    }
+    expect(wide).toBeGreaterThan(150);
+    expect(tall).toBeGreaterThan(150);
+    expect(wide / tall).toBeGreaterThan(0.65);
+    expect(wide / tall).toBeLessThan(1.5);
+  });
+  it('repeats both nep directions, alternating yarns and every surface channel over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('silknoil', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

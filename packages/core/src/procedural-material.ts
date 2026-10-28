@@ -604,6 +604,7 @@ export type ProceduralMaterialKind =
   | 'tortoiseshellacetate'
   | 'cathedralquilt'
   | 'matelasse'
+  | 'silknoil'
   | 'buckwheathulls'
   | 'rutilatedquartz'
   | 'peppermintcanes'
@@ -1632,6 +1633,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tortoiseshellacetate',
   'cathedralquilt',
   'matelasse',
+  'silknoil',
   'buckwheathulls',
   'rutilatedquartz',
   'peppermintcanes',

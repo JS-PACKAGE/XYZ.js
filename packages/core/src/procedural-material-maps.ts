@@ -14147,6 +14147,77 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'silknoil': {
+        const p = proceduralMaterialPresets.silknoil,
+          neps = new Float64Array(p.nepCells * p.nepCells * 6),
+          grainField = cachedNoise(128, 128, seed ^ 0x20c11),
+          inverseShoulder = 1 / p.nepShoulder;
+        for (let row = 0; row < p.nepCells; row++)
+          for (let col = 0; col < p.nepCells; col++) {
+            if (hash(col, row, seed ^ 0x20c13) >= p.nepChance) continue;
+            const i = (row * p.nepCells + col) * 6,
+              half =
+                p.nepHalfMinimum +
+                p.nepHalfVariation * hash(col, row, seed ^ 0x20c15),
+              width =
+                p.nepWidthMinimum +
+                p.nepWidthVariation * hash(col, row, seed ^ 0x20c17);
+            neps[i] = 0.35 + 0.3 * hash(col, row, seed ^ 0x20c19);
+            neps[i + 1] = 0.35 + 0.3 * hash(col, row, seed ^ 0x20c1b);
+            neps[i + 2] = 1 / (half * half);
+            neps[i + 3] = 1 / (width * width);
+            neps[i + 4] = Number(hash(col, row, seed ^ 0x20c1d) < 0.5);
+            neps[i + 5] =
+              p.nepToneMinimum +
+              p.nepToneVariation * hash(col, row, seed ^ 0x20c1f);
+          }
+        return () => {
+          const x = u * p.threads,
+            y = v * p.threads,
+            yarnCol = Math.floor(x),
+            yarnRow = Math.floor(y),
+            fx = x - yarnCol - 0.5,
+            fy = y - yarnRow - 0.5,
+            wx = 1 - 4 * fx * fx,
+            wy = 1 - 4 * fy * fy,
+            warp = wx * wx,
+            weft = wy * wy,
+            yarn = warp + weft - warp * weft,
+            crossing = (yarnCol + yarnRow) & 1 ? 1 : -1,
+            interlace = crossing * warp * weft * (warp - weft),
+            grain = grainField(u, v),
+            uc = u * p.nepCells,
+            vc = v * p.nepCells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.nepCells + col) * 6;
+          color = 0.83 + 0.03 * yarn + 0.015 * grain;
+          // Micrograin cannot reverse the visible warp/weft crown ordering.
+          height =
+            p.baseHeight +
+            p.yarnLift * yarn +
+            p.interlaceLift * interlace +
+            0.004 * grain;
+          roughness += 0.025 * grain;
+          occlusion = 0.9 + 0.075 * yarn;
+          if (neps[i + 2] === 0) return;
+          const dx = uc - col - neps[i],
+            dy = vc - row - neps[i + 1],
+            along = neps[i + 4] ? dx : dy,
+            across = neps[i + 4] ? dy : dx,
+            q = clamp(
+              1 - along * along * neps[i + 2] - across * across * neps[i + 3],
+            );
+          if (q === 0) return;
+          const face = smooth(clamp(q * inverseShoulder)),
+            crown = q * q;
+          color += face * (neps[i + 5] + 0.015 * grain - color);
+          height += p.nepLift * crown;
+          roughness += p.nepRoughness * face;
+          occlusion += face * (0.99 - occlusion);
+          return;
+        };
+      }
       case 'matelasse': {
         const p = proceduralMaterialPresets.matelasse,
           inverseRib = 1 / (p.ribRadius * p.ribRadius),
@@ -36082,6 +36153,7 @@ export function createSurfaceSampler(
     kind === 'tortoiseshellacetate' ||
     kind === 'cathedralquilt' ||
     kind === 'matelasse' ||
+    kind === 'silknoil' ||
     kind === 'buckwheathulls' ||
     kind === 'rutilatedquartz' ||
     kind === 'peppermintcanes' ||

@@ -5490,6 +5490,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         threshold: 0.43;
         shoulder: 0.19;
     }>;
+    silknoil: Readonly<{
+        dark: readonly [171, 143, 100];
+        light: readonly [255, 253, 239];
+        roughness: 0.86;
+        relief: 0.0016;
+        threads: 128;
+        nepCells: 48;
+        nepChance: 0.35;
+        nepHalfMinimum: 0.15;
+        nepHalfVariation: 0.12;
+        nepWidthMinimum: 0.07;
+        nepWidthVariation: 0.05;
+        nepShoulder: 0.4;
+        nepLift: 0.11;
+        nepRoughness: 0.035;
+        nepToneMinimum: 0.45;
+        nepToneVariation: 0.35;
+        baseHeight: 0.26;
+        yarnLift: 0.045;
+        interlaceLift: 0.02;
+    }>;
     matelasse: Readonly<{
         dark: readonly [192, 183, 160];
         light: readonly [255, 252, 236];
@@ -10036,6 +10057,7 @@ export declare const proceduralTileMeters: Readonly<{
     tortoiseshellacetate: 0.2;
     cathedralquilt: 0.6;
     matelasse: 0.24;
+    silknoil: 0.12;
     buckwheathulls: 0.064;
     rutilatedquartz: 0.2;
     peppermintcanes: 0.32;

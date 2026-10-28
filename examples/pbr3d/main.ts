@@ -667,6 +667,7 @@ try {
     'tortoiseshellacetate',
     'cathedralquilt',
     'matelasse',
+    'silknoil',
     'buckwheathulls',
     'rutilatedquartz',
     'peppermintcanes',
