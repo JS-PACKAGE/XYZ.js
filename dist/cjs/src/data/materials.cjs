@@ -15350,6 +15350,38 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .1
 	}),
+	mungbeans: Object.freeze({
+		dark: [
+			17,
+			80,
+			4
+		],
+		light: [
+			247,
+			241,
+			218
+		],
+		roughness: .7,
+		relief: .018,
+		cells: 6,
+		halfLength: .32,
+		halfWidth: .235,
+		bodyShoulder: .12,
+		eyeWidth: .038,
+		eyeLength: .125,
+		eyeShoulder: .3,
+		hilumStraight: .08,
+		hilumRadius: .018,
+		hilumCore: .012,
+		shellColor: .36,
+		shellVariation: .1,
+		coatContrast: .025,
+		grainContrast: .015,
+		eyeColor: .095,
+		hilumColor: .99,
+		bodyBase: .32,
+		domeHeight: .3
+	}),
 	thomsonite: Object.freeze({
 		dark: [
 			147,
@@ -16477,6 +16509,7 @@ var proceduralTileMeters = Object.freeze({
 	unakite: .12,
 	eudialyte: .12,
 	iroko: .18,
+	mungbeans: .045,
 	thomsonite: .048,
 	nickelsilver: .025,
 	lyocell: .012,

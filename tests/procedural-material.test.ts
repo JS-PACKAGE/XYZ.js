@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'mungbeans',
   'thomsonite',
   'nickelsilver',
   'lyocell',
@@ -1265,6 +1266,198 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Intact green mung seeds with a narrow dark-green band around a long pale hilum', () => {
+  const p = proceduralMaterialPresets.mungbeans;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps each pale oblong scar within a local dark-green band on intact convex green coats for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('mungbeans', seed),
+        a = empty();
+      let smallestBandContrast = Infinity,
+        widestCapsule = 0,
+        smallestCoat = Infinity,
+        invalid = 0,
+        outwardRise = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const world = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, a);
+          world(0, 0);
+          expect(a.color).toBeGreaterThan(0.95);
+          expect(a.height).toBeGreaterThan(0.5 * p.relief);
+          const center = a.height;
+          let tallest = -Infinity,
+            axis = 0;
+          // Recover the visible major axis from the convex coat, not private seed hashes.
+          for (let j = 0; j < 512; j++) {
+            const angle = (2 * Math.PI * j) / 512;
+            world(0.15 * Math.cos(angle), 0.15 * Math.sin(angle));
+            if (a.height > tallest) {
+              tallest = a.height;
+              axis = angle;
+            }
+          }
+          const cx = Math.cos(axis),
+            cy = Math.sin(axis);
+          const local = (x: number, y: number) =>
+            world(-cy * x + cx * y, cx * x + cy * y);
+          for (const sign of [-1, 1]) {
+            local(0, sign * 0.06);
+            expect(a.color).toBeGreaterThan(0.95);
+            expect(a.height).toBeGreaterThan(0.5 * p.relief);
+            local(sign * 0.027, 0);
+            const side = a.color,
+              sideHeight = a.height;
+            expect(side).toBeGreaterThan(0.06);
+            expect(side).toBeLessThan(0.2);
+            expect(sideHeight).toBeGreaterThan(0.5 * p.relief);
+            expect(Math.abs(center - sideHeight)).toBeLessThan(
+              0.002 * p.relief,
+            );
+            local(0, sign * 0.105);
+            expect(a.color).toBeLessThan(0.23);
+            expect(a.height).toBeGreaterThan(0.5 * p.relief);
+            local(sign * 0.12, 0);
+            smallestCoat = Math.min(smallestCoat, a.color);
+            smallestBandContrast = Math.min(
+              smallestBandContrast,
+              a.color - side,
+            );
+            expect(center - a.height).toBeGreaterThan(0.03 * p.relief);
+            for (let k = 0; k <= 48; k++) {
+              local((sign * (0.06 * k)) / 48, 0);
+              if (a.color > 0.85)
+                widestCapsule = Math.max(widestCapsule, (0.06 * k) / 48);
+            }
+          }
+          for (let j = 0; j < 48; j++) {
+            const angle = (2 * Math.PI * j) / 48,
+              x = Math.cos(angle),
+              y = Math.sin(angle);
+            let previous = center;
+            for (let k = 1; k <= 72; k++) {
+              const r = (0.4 * k) / 72;
+              world(r * x, r * y);
+              outwardRise = Math.max(outwardRise, a.height - previous);
+              previous = a.height;
+              invalid += Number(
+                !Number.isFinite(
+                  a.color + a.height + a.roughness + a.occlusion,
+                ) ||
+                  a.color < 0 ||
+                  a.color > 1 ||
+                  a.metallic !== 0 ||
+                  a.mortar !== 0,
+              );
+              if (r < 0.15)
+                invalid += Number(
+                  a.occlusion < 0.95 || a.roughness < 0.65 || a.roughness > 0.8,
+                );
+            }
+            world(0.4 * x, 0.4 * y);
+            invalid += Number(a.height > 0.04 * p.relief || a.occlusion > 0.4);
+          }
+        }
+      expect(smallestCoat).toBeGreaterThan(0.3);
+      expect(smallestBandContrast).toBeGreaterThan(0.2);
+      expect(widestCapsule).toBeGreaterThan(0.009);
+      expect(widestCapsule).toBeLessThan(0.022);
+      expect(outwardRise).toBeLessThan(0.00001 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 opaque green coats dark-green bands pale scars and resolved interior convex normals without metallic cavities', () => {
+    const maps = generateProceduralMaps('mungbeans', 512, 7, {
+      heightMap: true,
+    });
+    const data = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let green = 0,
+      band = 0,
+      pale = 0,
+      backing = 0,
+      invalid = 0,
+      interior = 0,
+      tilted = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        ao = maps.occlusion[i];
+      green += Number(
+        g > r + 20 && g > b + 35 && r > 65 && r < 180 && ao > 245,
+      );
+      band += Number(r < 65 && g > 80 && g < 125 && b < 55 && ao > 245);
+      pale += Number(r > 225 && g > 225 && b > 195 && ao > 245);
+      backing += Number(ao < 85);
+      invalid += Number(maps.metallicRoughness[i + 2] !== 0);
+      for (const bytes of data) invalid += Number(bytes[i + 3] !== 255);
+    }
+    for (let y = 2; y < 510; y++)
+      for (let x = 2; x < 510; x++) {
+        let inside = true;
+        for (let dy = -2; dy <= 2 && inside; dy++)
+          for (let dx = -2; dx <= 2; dx++)
+            if (maps.occlusion[((y + dy) * 512 + x + dx) * 4] <= 245) {
+              inside = false;
+              break;
+            }
+        if (!inside) continue;
+        const i = (y * 512 + x) * 4,
+          nx = (2 * maps.normal[i]) / 255 - 1,
+          ny = (2 * maps.normal[i + 1]) / 255 - 1;
+        interior++;
+        tilted += Number(nx * nx + ny * ny > 0.005);
+      }
+    expect(green / (512 * 512)).toBeGreaterThan(0.12);
+    expect(band / (512 * 512)).toBeGreaterThan(0.002);
+    expect(band / (512 * 512)).toBeLessThan(0.02);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.003);
+    expect(pale / (512 * 512)).toBeLessThan(0.015);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.7);
+    expect(tilted / interior).toBeGreaterThan(0.4);
+    expect(invalid).toBe(0);
+  });
+  it('repeats green coat pale hilum dark band intact relief and dielectric backing over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('mungbeans', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
+    }
   });
 });
 
@@ -4294,7 +4487,7 @@ describe('Figured light Anigre with flat transverse curl and fine recessed longi
   });
 });
 
-describe('Dry cream black-eyed cowpeas with dark oval eyes around short pale hila', () => {
+describe('Black-eyed cowpea behavior and shared intact seed continuity', () => {
   const p = proceduralMaterialPresets.blackeyedpeas;
   const keys = [
     'color',
@@ -4400,104 +4593,109 @@ describe('Dry cream black-eyed cowpeas with dark oval eyes around short pale hil
         }
     },
   );
-  it('keeps rotated body and eye shoulders short capsule joins cache cells and owner wraps C1 without duplicating seed hashes', () => {
-    const a = empty(),
-      b = empty(),
-      c = empty(),
-      observed = empty(),
-      h = 1e-10;
-    const bodyScales = [
-      1,
-      Math.sqrt(1 - p.bodyShoulder * 0.5),
-      Math.sqrt(1 - p.bodyShoulder),
-    ];
-    const eyeScales = [
-      1,
-      Math.sqrt(1 - p.eyeShoulder * 0.5),
-      Math.sqrt(1 - p.eyeShoulder),
-    ];
-    const signs = [-1, 1];
-    const gridCoordinates = [
-      ...new Set([
-        0,
+  it.each(['blackeyedpeas', 'mungbeans'] as const)(
+    'keeps %s rotated body and eye shoulders capsule joins cache cells and owner wraps C1 without duplicating seed hashes',
+    (kind) => {
+      const p = proceduralMaterialPresets[kind];
+      const a = empty(),
+        b = empty(),
+        c = empty(),
+        observed = empty(),
+        h = 1e-10;
+      const bodyScales = [
         1,
-        ...Array.from({ length: 6 }, (_, i) => i / 5),
-        ...Array.from({ length: 8 }, (_, i) => i / 7),
-        ...Array.from({ length: 129 }, (_, i) => i / 128),
-      ]),
-    ];
-    const radii = [
-      p.hilumCore,
-      Math.sqrt((p.hilumRadius ** 2 + p.hilumCore ** 2) * 0.5),
-      p.hilumRadius,
-    ];
-    for (const seed of [0, 1, 0xffffffff]) {
-      const sample = createSurfaceSampler('blackeyedpeas', seed);
-      let worst = 0;
-      const check = (u: number, v: number) => {
-        for (let axis = 0; axis < 2; axis++) {
-          const du = axis ? 0 : h,
-            dv = axis ? h : 0;
-          sample(u - du, v - dv, a);
-          sample(u, v, b);
-          sample(u + du, v + dv, c);
-          for (const key of keys)
-            worst = Math.max(
-              worst,
-              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
-            );
-        }
-      };
-      for (let row = 0; row < p.cells; row++)
-        for (let col = 0; col < p.cells; col++) {
-          // Infer the visible body's minor axis from its sampled second harmonic,
-          // rather than replicate the private seeded placement implementation.
-          let vx = 0,
-            vy = 0;
-          for (let j = 0; j < 384; j++) {
-            const x = directions[j * 2],
-              y = directions[j * 2 + 1];
-            sample(
-              (col + 0.5 + 0.15 * x) / p.cells,
-              (row + 0.5 + 0.15 * y) / p.cells,
-              observed,
-            );
-            vx -= observed.height * (x * x - y * y);
-            vy -= observed.height * (2 * x * y);
+        Math.sqrt(1 - p.bodyShoulder * 0.5),
+        Math.sqrt(1 - p.bodyShoulder),
+      ];
+      const eyeScales = [
+        1,
+        Math.sqrt(1 - p.eyeShoulder * 0.5),
+        Math.sqrt(1 - p.eyeShoulder),
+      ];
+      const signs = [-1, 1];
+      const gridCoordinates = [
+        ...new Set([
+          0,
+          1,
+          ...Array.from({ length: p.cells + 1 }, (_, i) => i / p.cells),
+          ...Array.from({ length: 6 }, (_, i) => i / 5),
+          ...Array.from({ length: 8 }, (_, i) => i / 7),
+          ...Array.from({ length: 129 }, (_, i) => i / 128),
+        ]),
+      ];
+      const radii = [
+        p.hilumCore,
+        Math.sqrt((p.hilumRadius ** 2 + p.hilumCore ** 2) * 0.5),
+        p.hilumRadius,
+      ];
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        let worst = 0;
+        const check = (u: number, v: number) => {
+          for (let axis = 0; axis < 2; axis++) {
+            const du = axis ? 0 : h,
+              dv = axis ? h : 0;
+            sample(u - du, v - dv, a);
+            sample(u, v, b);
+            sample(u + du, v + dv, c);
+            for (const key of keys)
+              worst = Math.max(
+                worst,
+                Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+              );
           }
-          const angle = 0.5 * Math.atan2(vy, vx),
-            ca = Math.cos(angle),
-            sa = Math.sin(angle);
-          const local = (x: number, y: number) =>
-            check(
-              (col + 0.5 + ca * x - sa * y) / p.cells,
-              (row + 0.5 + sa * x + ca * y) / p.cells,
-            );
-          for (let j = 0; j < 384; j++) {
-            const x = directions[j * 2],
-              y = directions[j * 2 + 1],
-              t = j / 383;
-            for (const scale of bodyScales)
-              local(p.halfWidth * scale * x, p.halfLength * scale * y);
-            for (const scale of eyeScales)
-              local(p.eyeWidth * scale * x, p.eyeLength * scale * y);
-            for (const r of radii)
-              local(r * x, Math.sign(y || 1) * p.hilumStraight + r * y);
-            for (const sign of signs) {
-              for (const r of radii)
-                local(sign * r, (2 * t - 1) * p.hilumStraight);
-              local((2 * t - 1) * p.hilumRadius, sign * p.hilumStraight);
+        };
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            // Infer the visible body's minor axis from its sampled second harmonic,
+            // rather than replicate the private seeded placement implementation.
+            let vx = 0,
+              vy = 0;
+            for (let j = 0; j < 384; j++) {
+              const x = directions[j * 2],
+                y = directions[j * 2 + 1];
+              sample(
+                (col + 0.5 + 0.15 * x) / p.cells,
+                (row + 0.5 + 0.15 * y) / p.cells,
+                observed,
+              );
+              vx -= observed.height * (x * x - y * y);
+              vy -= observed.height * (2 * x * y);
             }
+            const angle = 0.5 * Math.atan2(vy, vx),
+              ca = Math.cos(angle),
+              sa = Math.sin(angle);
+            const local = (x: number, y: number) =>
+              check(
+                (col + 0.5 + ca * x - sa * y) / p.cells,
+                (row + 0.5 + sa * x + ca * y) / p.cells,
+              );
+            for (let j = 0; j < 384; j++) {
+              const x = directions[j * 2],
+                y = directions[j * 2 + 1],
+                t = j / 383;
+              for (const scale of bodyScales)
+                local(p.halfWidth * scale * x, p.halfLength * scale * y);
+              for (const scale of eyeScales)
+                local(p.eyeWidth * scale * x, p.eyeLength * scale * y);
+              for (const r of radii)
+                local(r * x, Math.sign(y || 1) * p.hilumStraight + r * y);
+              for (const sign of signs) {
+                for (const r of radii)
+                  local(sign * r, (2 * t - 1) * p.hilumStraight);
+                local((2 * t - 1) * p.hilumRadius, sign * p.hilumStraight);
+              }
+            }
+            local(0, 0);
           }
-          local(0, 0);
-        }
-      for (const x of gridCoordinates)
-        for (const y of gridCoordinates) check(x, y);
-      for (let j = 0; j < 4096; j++)
-        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
-      expect(worst).toBeLessThan(0.03);
-    }
-  });
+        for (const x of gridCoordinates)
+          for (const y of gridCoordinates) check(x, y);
+        for (let j = 0; j < 4096; j++)
+          check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+        expect(worst).toBeLessThan(0.03);
+      }
+    },
+  );
   it('writes actual512 opaque cream skin black eyes pale hila and resolved interior convex normals without metallic holes', () => {
     const maps = generateProceduralMaps('blackeyedpeas', 512, 7, {
       heightMap: true,

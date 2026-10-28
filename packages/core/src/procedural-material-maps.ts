@@ -4108,8 +4108,12 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'mungbeans':
       case 'blackeyedpeas': {
-        const p = proceduralMaterialPresets.blackeyedpeas,
+        const p =
+            kind === 'mungbeans'
+              ? proceduralMaterialPresets.mungbeans
+              : proceduralMaterialPresets.blackeyedpeas,
           poses = new Float64Array(p.cells * p.cells * 3),
           coatField = cachedNoise(5, 7, seed ^ 0x1d811),
           grainField = cachedNoise(128, 128, seed ^ 0x1d813),
@@ -4162,7 +4166,7 @@ export function createSurfaceSampler(
               p.coatContrast * coatField(u, v) +
               p.grainContrast * grain,
             pigmented = coat + eye * (p.eyeColor - coat);
-          // The black eye surrounds a short pale hilum on one intact seed;
+          // A darker halo surrounds a pale hilum on one intact seed;
           // neither pigment changes the convex body into a hole or a split.
           color +=
             body * (pigmented + hilum * (p.hilumColor - pigmented) - color);
@@ -35751,6 +35755,7 @@ export function createSurfaceSampler(
     kind === 'squaresocketheads' ||
     kind === 'twopinscrewheads' ||
     kind === 'amazonite' ||
+    kind === 'mungbeans' ||
     kind === 'blackeyedpeas' ||
     kind === 'adzukibeans' ||
     kind === 'anigre' ||

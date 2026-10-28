@@ -8820,6 +8820,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    mungbeans: Readonly<{
+        dark: readonly [17, 80, 4];
+        light: readonly [247, 241, 218];
+        roughness: 0.7;
+        relief: 0.018;
+        cells: 6;
+        halfLength: 0.32;
+        halfWidth: 0.235;
+        bodyShoulder: 0.12;
+        eyeWidth: 0.038;
+        eyeLength: 0.125;
+        eyeShoulder: 0.3;
+        hilumStraight: 0.08;
+        hilumRadius: 0.018;
+        hilumCore: 0.012;
+        shellColor: 0.36;
+        shellVariation: 0.1;
+        coatContrast: 0.025;
+        grainContrast: 0.015;
+        eyeColor: 0.095;
+        hilumColor: 0.99;
+        bodyBase: 0.32;
+        domeHeight: 0.3;
+    }>;
     thomsonite: Readonly<{
         dark: readonly [147, 76, 65];
         light: readonly [255, 240, 218];
@@ -9839,6 +9863,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    mungbeans: 0.045;
     thomsonite: 0.048;
     nickelsilver: 0.025;
     lyocell: 0.012;
