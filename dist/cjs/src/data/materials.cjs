@@ -15321,6 +15321,30 @@ var proceduralMaterialPresets = Object.freeze({
 		warpFibers: 192,
 		weftFibers: 192
 	}),
+	wavewashers: Object.freeze({
+		dark: [
+			34,
+			42,
+			50
+		],
+		light: [
+			230,
+			235,
+			240
+		],
+		roughness: .3,
+		relief: .02,
+		cells: 5,
+		outerRadius: .41,
+		fullOuter: .39,
+		boreRadius: .27,
+		fullBore: .29,
+		bodyBase: .52,
+		waveAmplitude: .12,
+		faceColor: .68,
+		grainContrast: .02,
+		grainHeight: .002
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16285,6 +16309,7 @@ var proceduralTileMeters = Object.freeze({
 	eudialyte: .12,
 	iroko: .18,
 	ramie: .04,
+	wavewashers: .1,
 	cupwashers: .1
 });
 //#endregion

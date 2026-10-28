@@ -3925,6 +3925,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'wavewashers': {
+        const p = proceduralMaterialPresets.wavewashers,
+          phases = new Float64Array(p.cells * p.cells * 2),
+          grainField = cachedNoise(128, 128, seed ^ 0x1d713),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.fullOuter * p.fullOuter),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (p.fullBore * p.fullBore - boreSquared);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 2,
+              phase = TAU * hash(col, row, seed ^ 0x1d711);
+            phases[i] = p.waveAmplitude * Math.cos(phase);
+            phases[i + 1] = p.waveAmplitude * Math.sin(phase);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = uc - col - 0.5,
+            y = vc - row - 0.5,
+            x2 = x * x,
+            y2 = y * y,
+            q = x2 + y2,
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - boreSquared) * inverseBore));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          // Normalize the cubic harmonic by r³ so every ring radius shares
+          // one three-wave lift; only nonempty faces pay for the radial root.
+          const i = (row * p.cells + col) * 2,
+            wave =
+              (x * (x2 - 3 * y2) * phases[i] +
+                y * (3 * x2 - y2) * phases[i + 1]) /
+              (q * Math.sqrt(q)),
+            grain = grainField(u, v);
+          color += face * (p.faceColor + p.grainContrast * grain - color);
+          height += face * (p.bodyBase + wave + p.grainHeight * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.95 - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35608,6 +35660,7 @@ export function createSurfaceSampler(
     kind === 'eudialyte' ||
     kind === 'iroko' ||
     kind === 'ramie' ||
+    kind === 'wavewashers' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

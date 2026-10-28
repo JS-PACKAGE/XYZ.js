@@ -797,8 +797,237 @@ const kinds: ProceduralMaterialKind[] = [
   'eudialyte',
   'iroko',
   'ramie',
+  'wavewashers',
   'cupwashers',
 ];
+
+describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
+  const p = proceduralMaterialPresets.wavewashers;
+  const seeds = [0, 1, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const directions = new Float64Array(384 * 2);
+  for (let j = 0; j < 384; j++) {
+    const angle = (2 * Math.PI * j) / 384;
+    directions[j * 2] = Math.cos(angle);
+    directions[j * 2 + 1] = Math.sin(angle);
+  }
+  const radius = (p.fullBore + p.fullOuter) * 0.5,
+    middle = radius / p.cells,
+    inner = ((p.fullBore + radius) * 0.5) / p.cells,
+    outer = ((radius + p.fullOuter) * 0.5) / p.cells;
+  it.each(seeds)(
+    'keeps one continuous metallic rim and three equal-radius wave cycles without radial flare or a metallic bore floor for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('wavewashers', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        heights = new Float64Array(24);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const u = (col + 0.5) / p.cells,
+            v = (row + 0.5) / p.cells;
+          sample(u, v, a);
+          sample(u + 0.48 / p.cells, v, b);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(1);
+          expect(a.height).toBeLessThan(0.04 * p.relief);
+          expect(a.occlusion).toBeLessThan(0.4);
+          expect(b.metallic).toBe(0);
+          expect(b.mortar).toBe(1);
+          expect(b.height).toBe(a.height);
+          let invalid = 0;
+          for (let j = 0; j < 384; j++) {
+            sample(
+              u + middle * directions[j * 2],
+              v + middle * directions[j * 2 + 1],
+              a,
+            );
+            invalid += Number(
+              a.metallic !== 1 ||
+                a.mortar !== 0 ||
+                a.height <= 0.35 * p.relief ||
+                a.height >= 0.7 * p.relief ||
+                a.roughness >= 0.36 ||
+                a.occlusion <= 0.9,
+            );
+          }
+          expect(invalid).toBe(0);
+          for (let j = 0; j < 24; j++) {
+            const x = directions[j * 32],
+              y = directions[j * 32 + 1];
+            sample(u + middle * x, v + middle * y, a);
+            heights[j] = a.height;
+            sample(u + inner * x, v + inner * y, b);
+            sample(u + outer * x, v + outer * y, c);
+            expect(Math.abs(a.height - b.height)).toBeLessThan(
+              1.05 * p.grainHeight * p.relief,
+            );
+            expect(Math.abs(a.height - c.height)).toBeLessThan(
+              1.05 * p.grainHeight * p.relief,
+            );
+          }
+          for (let j = 0; j < 8; j++) {
+            const low = Math.min(heights[j], heights[j + 8], heights[j + 16]),
+              high = Math.max(heights[j], heights[j + 8], heights[j + 16]);
+            expect(high - low).toBeLessThan(1.05 * p.grainHeight * p.relief);
+          }
+          const dx = heights[0] - heights[4],
+            dy = heights[2] - heights[6],
+            power = dx * dx + dy * dy;
+          expect(power).toBeGreaterThan(
+            (1.9 * p.waveAmplitude * p.relief) ** 2,
+          );
+          expect(power).toBeLessThan((2.1 * p.waveAmplitude * p.relief) ** 2);
+        }
+    },
+  );
+  it('keeps actual bore/outer supports and cores, angular cuts, grain, owners and UV seams C1', () => {
+    const radii = [
+      p.boreRadius,
+      Math.sqrt((p.boreRadius ** 2 + p.fullBore ** 2) * 0.5),
+      p.fullBore,
+      p.fullOuter,
+      Math.sqrt((p.fullOuter ** 2 + p.outerRadius ** 2) * 0.5),
+      p.outerRadius,
+    ];
+    const cuts = new Set<number>();
+    for (const n of [2 * p.cells, 128])
+      for (let j = 0; j <= n; j++) cuts.add(j / n);
+    const h = 1e-10;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('wavewashers', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+          sample(u, v, b);
+          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((b[key] - a[key]) / h - (c[key] - b[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (const radius of radii)
+            for (let j = 0; j < 384; j++)
+              check(
+                (col + 0.5 + radius * directions[j * 2]) / p.cells,
+                (row + 0.5 + radius * directions[j * 2 + 1]) / p.cells,
+              );
+      for (const u of cuts) for (const v of cuts) check(u, v);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes opaque silver annuli, lower dielectric bores, feathered metal boundaries and true interior wave normals at actual512', () => {
+    const maps = generateProceduralMaps('wavewashers', 512, 7, {
+      heightMap: true,
+    });
+    let metal = 0,
+      back = 0,
+      partial = 0,
+      invalid = 0,
+      lowMetal = 255,
+      highMetal = 0,
+      highBack = 0,
+      interior = 0,
+      tilted = 0;
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        const i = (y * 512 + x) * 4,
+          m = maps.metallicRoughness[i + 2];
+        invalid += Number(
+          maps.baseColor[i + 3] !== 255 ||
+            maps.normal[i + 3] !== 255 ||
+            maps.metallicRoughness[i + 3] !== 255 ||
+            maps.occlusion[i + 3] !== 255 ||
+            maps.height![i + 3] !== 255,
+        );
+        if (m === 255) {
+          metal++;
+          lowMetal = Math.min(lowMetal, maps.height![i]);
+          highMetal = Math.max(highMetal, maps.height![i]);
+          invalid += Number(
+            maps.baseColor[i] < 160 ||
+              maps.baseColor[i] > 190 ||
+              maps.metallicRoughness[i + 1] >= 95 ||
+              maps.occlusion[i] <= 225,
+          );
+        }
+        if (m === 0) {
+          back++;
+          highBack = Math.max(highBack, maps.height![i]);
+        }
+        if (m > 0 && m < 255) partial++;
+        // Two-pixel erosion excludes the rim/bevel normals: flat washers must
+        // not satisfy the wave-normal check merely through their sharp edges.
+        if (m !== 255 || x < 2 || y < 2 || x >= 510 || y >= 510) continue;
+        if (
+          maps.metallicRoughness[i - 8 + 2] !== 255 ||
+          maps.metallicRoughness[i + 8 + 2] !== 255 ||
+          maps.metallicRoughness[i - 4096 + 2] !== 255 ||
+          maps.metallicRoughness[i + 4096 + 2] !== 255
+        )
+          continue;
+        interior++;
+        const nx = 2 * maps.normal[i] - 255,
+          ny = 2 * maps.normal[i + 1] - 255;
+        tilted += Number(nx * nx + ny * ny > 36);
+      }
+    expect(invalid).toBe(0);
+    expect(metal / (512 * 512)).toBeGreaterThan(0.16);
+    expect(metal / (512 * 512)).toBeLessThan(0.28);
+    expect(back / (512 * 512)).toBeGreaterThan(0.63);
+    expect(back / (512 * 512)).toBeLessThan(0.77);
+    expect(partial / (512 * 512)).toBeGreaterThan(0.04);
+    expect(partial / (512 * 512)).toBeLessThan(0.14);
+    expect(highBack).toBeLessThan(lowMetal);
+    expect(highMetal - lowMetal).toBeGreaterThan(75);
+    expect(interior / (512 * 512)).toBeGreaterThan(0.08);
+    expect(interior / (512 * 512)).toBeLessThan(0.2);
+    expect(tilted / interior).toBeGreaterThan(0.7);
+  });
+  it('repeats all six curved metal and open-bore channels across signed UV periods', () => {
+    let worst = 0;
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('wavewashers', seed),
+        a = empty(),
+        b = empty();
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
 
 describe('Golden brown Iroko with sparse closed longitudinal vessels and flat interlocked grain', () => {
   const p = proceduralMaterialPresets.iroko;
@@ -65408,6 +65637,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'squaresocketheads' &&
           kind !== 'twopinscrewheads' &&
           kind !== 'squareholewashers' &&
+          kind !== 'wavewashers' &&
           kind !== 'cupwashers' &&
           kind !== 'pentalobescrewheads' &&
           kind !== 'tripointscrewheads' &&

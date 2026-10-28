@@ -8799,6 +8799,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         warpFibers: 192;
         weftFibers: 192;
     }>;
+    wavewashers: Readonly<{
+        dark: readonly [34, 42, 50];
+        light: readonly [230, 235, 240];
+        roughness: 0.3;
+        relief: 0.02;
+        cells: 5;
+        outerRadius: 0.41;
+        fullOuter: 0.39;
+        boreRadius: 0.27;
+        fullBore: 0.29;
+        bodyBase: 0.52;
+        waveAmplitude: 0.12;
+        faceColor: 0.68;
+        grainContrast: 0.02;
+        grainHeight: 0.002;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9708,5 +9724,6 @@ export declare const proceduralTileMeters: Readonly<{
     eudialyte: 0.12;
     iroko: 0.18;
     ramie: 0.04;
+    wavewashers: 0.1;
     cupwashers: 0.1;
 }>;

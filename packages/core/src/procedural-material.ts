@@ -771,6 +771,7 @@ export type ProceduralMaterialKind =
   | 'eudialyte'
   | 'iroko'
   | 'ramie'
+  | 'wavewashers'
   | 'cupwashers';
 
 export interface ProceduralMaterialOptions {
@@ -1776,6 +1777,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'eudialyte',
   'iroko',
   'ramie',
+  'wavewashers',
   'cupwashers',
 ];
 const repeatSampler = Object.freeze({
@@ -2013,6 +2015,7 @@ export class ProceduralMaterial {
         this.kind === 'squaresocketheads' ||
         this.kind === 'twopinscrewheads' ||
         this.kind === 'squareholewashers' ||
+        this.kind === 'wavewashers' ||
         this.kind === 'cupwashers' ||
         this.kind === 'pentalobescrewheads' ||
         this.kind === 'tripointscrewheads' ||
