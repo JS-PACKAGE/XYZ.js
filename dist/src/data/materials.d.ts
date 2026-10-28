@@ -7955,6 +7955,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         bend: 0.04;
         fiberLift: 0.035;
     }>;
+    sodalite: Readonly<{
+        dark: readonly [5, 17, 112];
+        light: readonly [238, 240, 237];
+        roughness: 0.24;
+        relief: 0.0002;
+        coarseCells: 11;
+        mediumCells: 43;
+        coarseWeight: 0.82;
+        mediumWeight: 0.18;
+        warp: 0.08;
+        veinCenter: 0.5;
+        veinRadius: 0.028;
+        veinCore: 0.009;
+        matrixBase: 0.035;
+        matrixCloud: 0.12;
+        matrixGrain: 0.15;
+        veinBase: 0.91;
+        veinCloud: 0.06;
+        patchStart: 0.8;
+        patchRange: 0.13;
+        patchStrength: 0.8;
+        height: 0.5;
+        grainHeight: 0.003;
+        veinRoughness: 0.045;
+        grainRoughness: 0.015;
+    }>;
     howlite: Readonly<{
         dark: readonly [72, 73, 72];
         light: readonly [249, 247, 239];
@@ -10006,6 +10032,7 @@ export declare const proceduralTileMeters: Readonly<{
     brakediscs: 0.72;
     mulberrypaper: 0.16;
     howlite: 0.24;
+    sodalite: 0.12;
     ottoman: 0.024;
     shackles: 0.6;
     watercaltrops: 0.24;

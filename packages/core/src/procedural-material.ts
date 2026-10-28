@@ -723,6 +723,7 @@ export type ProceduralMaterialKind =
   | 'brakediscs'
   | 'mulberrypaper'
   | 'howlite'
+  | 'sodalite'
   | 'ottoman'
   | 'shackles'
   | 'watercaltrops'
@@ -1744,6 +1745,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'brakediscs',
   'mulberrypaper',
   'howlite',
+  'sodalite',
   'ottoman',
   'shackles',
   'watercaltrops',

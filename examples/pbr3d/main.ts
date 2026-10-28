@@ -786,6 +786,7 @@ try {
     'brakediscs',
     'mulberrypaper',
     'howlite',
+    'sodalite',
     'ottoman',
     'shackles',
     'watercaltrops',

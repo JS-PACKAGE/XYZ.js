@@ -2276,6 +2276,51 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sodalite': {
+        const p = proceduralMaterialPresets.sodalite,
+          coarseField = cachedNoise(
+            p.coarseCells,
+            p.coarseCells,
+            seed ^ 0x1e511,
+          ),
+          mediumField = cachedNoise(
+            p.mediumCells,
+            p.mediumCells,
+            seed ^ 0x1e513,
+          ),
+          cloudField = cachedNoise(6, 6, seed ^ 0x1e515),
+          grainField = cachedNoise(128, 128, seed ^ 0x1e517),
+          warpX = cachedNoise(4, 4, seed ^ 0x1e519),
+          warpY = cachedNoise(4, 4, seed ^ 0x1e51b),
+          veinSquared = p.veinRadius * p.veinRadius,
+          inverseVein = 1 / (veinSquared - p.veinCore * p.veinCore),
+          inversePatch = 1 / p.patchRange;
+        return () => {
+          const x = u + p.warp * (warpX(u, v) - 0.5),
+            y = v + p.warp * (warpY(u, v) - 0.5),
+            carrier =
+              p.coarseWeight * coarseField(x, y) +
+              p.mediumWeight * mediumField(x, y) -
+              p.veinCenter,
+            ribbon = smooth(
+              clamp((veinSquared - carrier * carrier) * inverseVein),
+            ),
+            cloud = cloudField(u, v),
+            patch =
+              p.patchStrength *
+              smooth(clamp((cloud - p.patchStart) * inversePatch)),
+            vein = 1 - (1 - ribbon) * (1 - patch),
+            grain = grainField(u, v);
+          color = p.matrixBase + p.matrixCloud * cloud + p.matrixGrain * grain;
+          // White calcite-like veins are filled mineral pigment on one polished plane.
+          color += vein * (p.veinBase + p.veinCloud * cloud - color);
+          height = p.height + p.grainHeight * grain;
+          roughness =
+            p.roughness + p.grainRoughness * grain + p.veinRoughness * vein;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'howlite': {
         const p = proceduralMaterialPresets.howlite,
           sites = new Float64Array(p.cells * p.cells * 2),
@@ -35980,6 +36025,7 @@ export function createSurfaceSampler(
     kind === 'brakediscs' ||
     kind === 'mulberrypaper' ||
     kind === 'howlite' ||
+    kind === 'sodalite' ||
     kind === 'ottoman' ||
     kind === 'shackles' ||
     kind === 'watercaltrops' ||

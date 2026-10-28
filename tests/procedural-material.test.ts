@@ -749,6 +749,7 @@ const kinds: ProceduralMaterialKind[] = [
   'brakediscs',
   'mulberrypaper',
   'howlite',
+  'sodalite',
   'ottoman',
   'shackles',
   'watercaltrops',
@@ -1036,6 +1037,218 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Opaque Sodalite with granular blue matrix and flat white calcite-like veins', () => {
+  const p = proceduralMaterialPresets.sodalite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps granular blue matrix and white calcite-like veins isotropic and flush rather than rings holes or embossing for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sodalite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let blue = 0,
+        midBlue = 0,
+        white = 0,
+        blueHeight = 0,
+        whiteHeight = 0,
+        blueRoughness = 0,
+        whiteRoughness = 0,
+        across = 0,
+        along = 0,
+        low = Infinity,
+        high = -Infinity,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          midBlue += Number(a.color > 0.09 && a.color < 0.18);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          if (a.color < 0.35) {
+            blue++;
+            blueHeight += a.height;
+            blueRoughness += a.roughness;
+          }
+          if (a.color > 0.8) {
+            white++;
+            whiteHeight += a.height;
+            whiteRoughness += a.roughness;
+          }
+          invalid += Number(
+            a.occlusion !== 1 ||
+              a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.2 ||
+              a.roughness > 0.4,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(midBlue / 65536).toBeGreaterThan(0.25);
+      expect(blue / 65536).toBeGreaterThan(0.65);
+      expect(blue / 65536).toBeLessThan(0.97);
+      expect(white / 65536).toBeGreaterThan(0.025);
+      expect(across).toBeGreaterThan(0.6 * along);
+      expect(across).toBeLessThan(1.7 * along);
+      expect(high - low).toBeGreaterThan(0.001 * p.relief);
+      expect(high - low).toBeLessThan(0.0031 * p.relief);
+      expect(Math.abs(blueHeight / blue - whiteHeight / white)).toBeLessThan(
+        0.0005 * p.relief,
+      );
+      expect(whiteRoughness / white - blueRoughness / blue).toBeGreaterThan(
+        0.02,
+      );
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps matrix and grain caches, signed seams and observed blue-to-white contours C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const coordinates = new Set<number>();
+    for (const n of [p.coarseCells, p.mediumCells, 4, 6, 128])
+      for (let i = 0; i <= n; i++) coordinates.add(i / n);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sodalite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of coordinates) for (const v of coordinates) check(u, v);
+      for (let row = 0; row <= 64; row++)
+        for (const level of [0.2, 0.5, 0.8]) {
+          const v = row / 64;
+          sample(0, v, a);
+          let previous = a.color;
+          for (let x = 1; x <= 512; x++) {
+            sample(x / 512, v, a);
+            const current = a.color;
+            if (previous < level !== current < level) {
+              let left = (x - 1) / 512,
+                right = x / 512;
+              const below = previous < level;
+              for (let j = 0; j < 48; j++) {
+                const middle = (left + right) / 2;
+                sample(middle, v, b);
+                if (b.color < level === below) left = middle;
+                else right = middle;
+              }
+              check((left + right) / 2, v);
+            }
+            previous = current;
+          }
+        }
+      for (let i = 0; i < 4096; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 blue granular matrix and white veins on five opaque dielectric maps without carved mineral boundaries', () => {
+    const maps = generateProceduralMaps('sodalite', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let blue = 0,
+      white = 0,
+      blueRoughness = 0,
+      whiteRoughness = 0,
+      tilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (b - g > 55 && g - r > 5) {
+        blue++;
+        blueRoughness += maps.metallicRoughness[i + 1];
+      }
+      if (r > 190 && g > 190 && b > 190) {
+        white++;
+        whiteRoughness += maps.metallicRoughness[i + 1];
+      }
+      tilt = Math.max(
+        tilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(0.65);
+    expect(blue / (512 * 512)).toBeLessThan(0.97);
+    expect(white / (512 * 512)).toBeGreaterThan(0.025);
+    expect(white / (512 * 512)).toBeLessThan(0.18);
+    expect(whiteRoughness / white - blueRoughness / blue).toBeGreaterThan(5);
+    expect(tilt).toBeLessThan(0.005);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all six mineral-vein and polished-matrix channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sodalite', seed);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

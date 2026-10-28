@@ -14108,6 +14108,40 @@ var proceduralMaterialPresets = Object.freeze({
 		bend: .04,
 		fiberLift: .035
 	}),
+	sodalite: Object.freeze({
+		dark: [
+			5,
+			17,
+			112
+		],
+		light: [
+			238,
+			240,
+			237
+		],
+		roughness: .24,
+		relief: 2e-4,
+		coarseCells: 11,
+		mediumCells: 43,
+		coarseWeight: .82,
+		mediumWeight: .18,
+		warp: .08,
+		veinCenter: .5,
+		veinRadius: .028,
+		veinCore: .009,
+		matrixBase: .035,
+		matrixCloud: .12,
+		matrixGrain: .15,
+		veinBase: .91,
+		veinCloud: .06,
+		patchStart: .8,
+		patchRange: .13,
+		patchStrength: .8,
+		height: .5,
+		grainHeight: .003,
+		veinRoughness: .045,
+		grainRoughness: .015
+	}),
 	howlite: Object.freeze({
 		dark: [
 			72,
@@ -16721,6 +16755,7 @@ var proceduralTileMeters = Object.freeze({
 	brakediscs: .72,
 	mulberrypaper: .16,
 	howlite: .24,
+	sodalite: .12,
 	ottoman: .024,
 	shackles: .6,
 	watercaltrops: .24,
