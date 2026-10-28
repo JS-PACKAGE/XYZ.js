@@ -3936,6 +3936,54 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sphericalwashers': {
+        const p = proceduralMaterialPresets.sphericalwashers,
+          tones = new Float64Array(p.cells * p.cells),
+          grainField = cachedNoise(128, 128, seed ^ 0x1e013),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - p.fullOuter * p.fullOuter),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / (p.fullBore * p.fullBore - boreSquared),
+          sphereSquared = p.sphereRadius * p.sphereRadius,
+          outerHeight = Math.sqrt(sphereSquared - outerSquared);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] =
+              p.faceColor + p.faceVariation * hash(col, row, seed ^ 0x1e011);
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc) - 0.5,
+            y = fract(vc) - 0.5,
+            q = x * x + y * y,
+            face =
+              smooth(clamp((outerSquared - q) * inverseOuter)) *
+              smooth(clamp((q - boreSquared) * inverseBore));
+          color = 0.035;
+          height = 0.025;
+          roughness = 0.96;
+          occlusion = 0.3;
+          metallic = 0;
+          mortar = 1;
+          if (face === 0) return;
+          // The part is flipped seating-face up: true spherical falloff,
+          // not the flat bearing side or the opposite conical seat. The
+          // compact annulus keeps the radial root strictly above zero.
+          const crown = Math.sqrt(sphereSquared - q) - outerHeight,
+            grain = grainField(u, v);
+          color +=
+            face *
+            (tones[row * p.cells + col] + p.grainContrast * grain - color);
+          height += face * (p.bodyBase + p.domeScale * crown - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.95 - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+          return;
+        };
+      }
       case 'wavewashers': {
         const p = proceduralMaterialPresets.wavewashers,
           phases = new Float64Array(p.cells * p.cells * 2),
@@ -35772,6 +35820,7 @@ export function createSurfaceSampler(
     kind === 'nickelsilver' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||
+    kind === 'sphericalwashers' ||
     kind === 'wavewashers' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||

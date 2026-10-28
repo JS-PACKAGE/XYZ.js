@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'sphericalwashers',
   'mungbeans',
   'thomsonite',
   'nickelsilver',
@@ -1266,6 +1267,247 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Convex-face-up spherical stainless washers with open round bores', () => {
+  const p = proceduralMaterialPresets.sphericalwashers;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const directions = new Float64Array(513 * 2);
+  for (let j = 0; j <= 512; j++) {
+    const a = (2 * Math.PI * j) / 512;
+    directions[j * 2] = Math.cos(a);
+    directions[j * 2 + 1] = Math.sin(a);
+  }
+  it.each([0, 1, 0xffffffff])(
+    'keeps complete annuli convex toward their open bores with genuinely spherical rather than conical or parabolic falloff for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sphericalwashers', seed),
+        a = empty();
+      let invalid = 0,
+        minimumCurvatureRatio = Infinity,
+        maximumAngularSpread = 0,
+        leastFall = Infinity;
+      const radii = [
+        Math.sqrt(0.04),
+        Math.sqrt(0.06),
+        Math.sqrt(0.08),
+        Math.sqrt(0.1),
+      ];
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          const at = (x: number, y: number) =>
+            sample((col + 0.5 + x) / p.cells, (row + 0.5 + y) / p.cells, a);
+          at(0, 0);
+          expect(a.metallic).toBe(0);
+          expect(a.height).toBeLessThan(0.04 * p.relief);
+          expect(a.occlusion).toBeLessThan(0.4);
+          const ringHeights = Array.from({ length: 4 }, () => [] as number[]);
+          for (let j = 0; j < 512; j += 16) {
+            const x = directions[j * 2],
+              y = directions[j * 2 + 1];
+            const heights = new Float64Array(4);
+            for (let k = 0; k < radii.length; k++) {
+              at(radii[k] * x, radii[k] * y);
+              heights[k] = a.height;
+              ringHeights[k].push(a.height);
+              invalid += Number(
+                a.metallic !== 1 ||
+                  a.mortar !== 0 ||
+                  a.occlusion < 0.9 ||
+                  a.roughness < 0.25 ||
+                  a.roughness > 0.4 ||
+                  a.height < 0.3 * p.relief,
+              );
+            }
+            const first = heights[0] - heights[1],
+              middle = heights[1] - heights[2],
+              last = heights[2] - heights[3];
+            leastFall = Math.min(leastFall, heights[0] - heights[3]);
+            expect(first).toBeGreaterThan(0.015 * p.relief);
+            minimumCurvatureRatio = Math.min(
+              minimumCurvatureRatio,
+              middle / first,
+              last / middle,
+            );
+            at(0.1 * x, 0.1 * y);
+            invalid += Number(
+              a.metallic !== 0 ||
+                a.mortar !== 1 ||
+                a.height > 0.04 * p.relief ||
+                a.occlusion > 0.4,
+            );
+            at(0.45 * x, 0.45 * y);
+            invalid += Number(
+              a.metallic !== 0 ||
+                a.mortar !== 1 ||
+                a.height > 0.04 * p.relief ||
+                a.occlusion > 0.4,
+            );
+            for (let k = 0; k <= 144; k++) {
+              const r = (0.45 * k) / 144;
+              at(r * x, r * y);
+              for (const key of keys)
+                invalid += Number(!Number.isFinite(a[key]));
+              invalid += Number(
+                a.metallic < 0 ||
+                  a.metallic > 1 ||
+                  Math.abs(a.metallic + a.mortar - 1) > 1e-12 ||
+                  a.color < 0 ||
+                  a.color > 1 ||
+                  a.height < 0,
+              );
+            }
+          }
+          for (const heights of ringHeights)
+            maximumAngularSpread = Math.max(
+              maximumAngularSpread,
+              Math.max(...heights) - Math.min(...heights),
+            );
+        }
+      expect(leastFall).toBeGreaterThan(0.05 * p.relief);
+      // Equal squared-radius steps distinguish a sphere from a straight cone or paraboloid.
+      expect(minimumCurvatureRatio).toBeGreaterThan(1.025);
+      expect(maximumAngularSpread).toBeLessThan(0.002 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps true bore and outer shoulder circles all angular meridians cached grain owner edges and both UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const radii = [
+      p.boreRadius,
+      Math.sqrt((p.boreRadius ** 2 + p.fullBore ** 2) / 2),
+      p.fullBore,
+      p.fullOuter,
+      Math.sqrt((p.fullOuter ** 2 + p.outerRadius ** 2) / 2),
+      p.outerRadius,
+    ];
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sphericalwashers', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let j = 0; j <= 512; j++)
+            for (const r of radii)
+              check(
+                (col + 0.5 + r * directions[j * 2]) / p.cells,
+                (row + 0.5 + r * directions[j * 2 + 1]) / p.cells,
+              );
+      for (const grid of [p.cells, 128])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      for (let j = 0; j < 8192; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque silver full-metal spherical faces round dielectric bores and outward radial normals rather than flat or inverted cups', () => {
+    const maps = generateProceduralMaps('sphericalwashers', 512, 7, {
+      heightMap: true,
+    });
+    const data = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let metal = 0,
+      partial = 0,
+      backing = 0,
+      silver = 0,
+      invalid = 0,
+      interior = 0,
+      outward = 0,
+      tilted = 0;
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        const i = (y * 512 + x) * 4,
+          m = maps.metallicRoughness[i + 2],
+          ao = maps.occlusion[i];
+        metal += Number(m === 255);
+        partial += Number(m > 0 && m < 255);
+        backing += Number(m === 0 && ao < 85);
+        silver += Number(
+          m === 255 &&
+            maps.baseColor[i] > 150 &&
+            maps.baseColor[i + 1] > 150 &&
+            maps.baseColor[i + 2] > 160,
+        );
+        for (const bytes of data) invalid += Number(bytes[i + 3] !== 255);
+        const u = ((x + 0.5) / 512) * p.cells,
+          v = ((y + 0.5) / 512) * p.cells,
+          dx = u - Math.floor(u) - 0.5,
+          dy = v - Math.floor(v) - 0.5,
+          q = dx * dx + dy * dy;
+        if (q < 0.04 || q > 0.0961 || m !== 255) continue;
+        const nx = (2 * maps.normal[i]) / 255 - 1,
+          ny = (2 * maps.normal[i + 1]) / 255 - 1;
+        interior++;
+        outward += Number(nx * dx + ny * dy > 0.005);
+        tilted += Number(nx * nx + ny * ny > 0.002);
+        invalid += Number(ao < 235 || maps.normal[i + 2] < 240);
+      }
+    expect(metal / (512 * 512)).toBeGreaterThan(0.22);
+    expect(metal / (512 * 512)).toBeLessThan(0.3);
+    expect(partial / (512 * 512)).toBeGreaterThan(0.02);
+    expect(backing / (512 * 512)).toBeGreaterThan(0.6);
+    expect(silver / (512 * 512)).toBeGreaterThan(0.22);
+    expect(outward / interior).toBeGreaterThan(0.95);
+    expect(tilted / interior).toBeGreaterThan(0.95);
+    expect(invalid).toBe(0);
+  });
+  it('repeats spherical convex faces round bores metal transitions and backing over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sphericalwashers', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
+    }
   });
 });
 
@@ -67134,6 +67376,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'squaresocketheads' &&
           kind !== 'twopinscrewheads' &&
           kind !== 'squareholewashers' &&
+          kind !== 'sphericalwashers' &&
           kind !== 'wavewashers' &&
           kind !== 'cupwashers' &&
           kind !== 'pentalobescrewheads' &&

@@ -773,6 +773,7 @@ export type ProceduralMaterialKind =
   | 'unakite'
   | 'eudialyte'
   | 'iroko'
+  | 'sphericalwashers'
   | 'mungbeans'
   | 'thomsonite'
   | 'nickelsilver'
@@ -1786,6 +1787,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'sphericalwashers',
   'mungbeans',
   'thomsonite',
   'nickelsilver',
@@ -2030,6 +2032,7 @@ export class ProceduralMaterial {
         this.kind === 'squaresocketheads' ||
         this.kind === 'twopinscrewheads' ||
         this.kind === 'squareholewashers' ||
+        this.kind === 'sphericalwashers' ||
         this.kind === 'wavewashers' ||
         this.kind === 'cupwashers' ||
         this.kind === 'pentalobescrewheads' ||

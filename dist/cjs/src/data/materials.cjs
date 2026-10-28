@@ -15350,6 +15350,31 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .1
 	}),
+	sphericalwashers: Object.freeze({
+		dark: [
+			34,
+			42,
+			50
+		],
+		light: [
+			230,
+			235,
+			240
+		],
+		roughness: .3,
+		relief: .025,
+		cells: 5,
+		outerRadius: .36,
+		fullOuter: .338,
+		boreRadius: .15,
+		fullBore: .174,
+		sphereRadius: .54,
+		domeScale: 1.3,
+		bodyBase: .32,
+		faceColor: .68,
+		faceVariation: .05,
+		grainContrast: .02
+	}),
 	mungbeans: Object.freeze({
 		dark: [
 			17,
@@ -16509,6 +16534,7 @@ var proceduralTileMeters = Object.freeze({
 	unakite: .12,
 	eudialyte: .12,
 	iroko: .18,
+	sphericalwashers: .1,
 	mungbeans: .045,
 	thomsonite: .048,
 	nickelsilver: .025,

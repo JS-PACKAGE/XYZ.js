@@ -836,6 +836,7 @@ try {
     'unakite',
     'eudialyte',
     'iroko',
+    'sphericalwashers',
     'mungbeans',
     'thomsonite',
     'nickelsilver',

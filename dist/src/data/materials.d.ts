@@ -8820,6 +8820,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    sphericalwashers: Readonly<{
+        dark: readonly [34, 42, 50];
+        light: readonly [230, 235, 240];
+        roughness: 0.3;
+        relief: 0.025;
+        cells: 5;
+        outerRadius: 0.36;
+        fullOuter: 0.338;
+        boreRadius: 0.15;
+        fullBore: 0.174;
+        sphereRadius: 0.54;
+        domeScale: 1.3;
+        bodyBase: 0.32;
+        faceColor: 0.68;
+        faceVariation: 0.05;
+        grainContrast: 0.02;
+    }>;
     mungbeans: Readonly<{
         dark: readonly [17, 80, 4];
         light: readonly [247, 241, 218];
@@ -9863,6 +9880,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    sphericalwashers: 0.1;
     mungbeans: 0.045;
     thomsonite: 0.048;
     nickelsilver: 0.025;
