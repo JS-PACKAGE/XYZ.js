@@ -3821,6 +3821,36 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'unakite': {
+        const p = proceduralMaterialPresets.unakite,
+          coarseField = cachedNoise(
+            p.coarseCells,
+            p.coarseCells,
+            seed ^ 0x1d611,
+          ),
+          mediumField = cachedNoise(
+            p.mediumCells,
+            p.mediumCells,
+            seed ^ 0x1d613,
+          ),
+          fineField = cachedNoise(p.fineCells, p.fineCells, seed ^ 0x1d615);
+        return () => {
+          const fine = fineField(u, v),
+            mixture =
+              p.coarseWeight * coarseField(u, v) +
+              p.mediumWeight * mediumField(u, v) +
+              p.fineWeight * fine,
+            tone = smooth(smooth(mixture)),
+            pink = smooth(tone * tone);
+          // Smooth polynomial contrast preserves a granular pink/green mosaic
+          // without threshold cuts, false crystal ribs or a nearest-grain grid.
+          color = p.greenBase + p.pinkContrast * pink + p.fineContrast * fine;
+          height = p.height + p.grainHeight * fine;
+          roughness = p.roughness + 0.08 * (1 - pink) + 0.015 * fine;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35486,6 +35516,7 @@ export function createSurfaceSampler(
     kind === 'squareholewashers' ||
     kind === 'snakewood' ||
     kind === 'safflowerseeds' ||
+    kind === 'unakite' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

@@ -793,8 +793,172 @@ const kinds: ProceduralMaterialKind[] = [
   'squareholewashers',
   'snakewood',
   'safflowerseeds',
+  'unakite',
   'cupwashers',
 ];
+
+describe('Granular mottled green and salmon-pink Unakite on one polished dielectric plane without a regular grain grid', () => {
+  const p = proceduralMaterialPresets.unakite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'retains green and pink pigment domains fine micrograin and smooth transitions without embossing or cavity AO for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('unakite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let green = 0,
+        pink = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity,
+        jump = 0;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          const u = x / 128,
+            v = y / 128;
+          sample(u, v, a);
+          sample(u + 1 / 512, v, b);
+          sample(u, v + 1 / 512, c);
+          green += Number(a.color < 0.2);
+          pink += Number(a.color > 0.6);
+          invalid += Number(
+            a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+          );
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          jump = Math.max(
+            jump,
+            Math.abs(b.color - a.color),
+            Math.abs(c.color - a.color),
+          );
+        }
+      expect(green / 16641).toBeGreaterThan(0.1);
+      expect(pink / 16641).toBeGreaterThan(0.08);
+      expect(pink / 16641).toBeLessThan(0.7);
+      expect(high - low).toBeGreaterThan(0.0015 * p.relief);
+      expect(high - low).toBeLessThan(0.0021 * p.relief);
+      expect(jump).toBeLessThan(0.15);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('writes actual512 opaque green and salmon-pink granular stone with metal-zero AO-one maps and an almost flat polished normal', () => {
+    const maps = generateProceduralMaps('unakite', 512, 7, { heightMap: true });
+    let green = 0,
+      pink = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      green += Number(g > r + 10 && g > b + 15);
+      pink += Number(r > g + 25 && r > b + 20);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(green / (512 * 512)).toBeGreaterThan(0.1);
+    expect(pink / (512 * 512)).toBeGreaterThan(0.1);
+    expect(pink / (512 * 512)).toBeLessThan(0.7);
+    expect(tilt).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the multiscale green and pink pigment micrograin and all polished dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('unakite', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps actual pigment iso-contours polynomial contrast and every multiscale cache grid C1 including period seams', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      probe = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('unakite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const grid of [p.coarseCells, p.mediumCells, p.fineCells])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      const grid = p.coarseCells * 4;
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            const u = x / grid,
+              v = y / grid,
+              du = axis ? 0 : 1 / grid,
+              dv = axis ? 1 / grid : 0;
+            sample(u, v, probe);
+            const start = probe.color;
+            sample(u + du, v + dv, probe);
+            const end = probe.color;
+            for (const level of [0.15, 0.35, 0.6]) {
+              if ((start - level) * (end - level) >= 0) continue;
+              let lo = 0,
+                hi = 1;
+              for (let j = 0; j < 50; j++) {
+                const t = (lo + hi) * 0.5;
+                sample(u + t * du, v + t * dv, probe);
+                if ((start - level) * (probe.color - level) > 0) lo = t;
+                else hi = t;
+              }
+              const t = (lo + hi) * 0.5;
+              check(u + t * du, v + t * dv);
+            }
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Ivory Safflower achenes with obovate tapered bodies pale front ribs and a depressed lateral scar', () => {
   const p = proceduralMaterialPresets.safflowerseeds;

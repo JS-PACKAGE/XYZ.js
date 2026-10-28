@@ -15207,6 +15207,31 @@ var proceduralMaterialPresets = Object.freeze({
 		domeHeight: .26,
 		grainHeight: .002
 	}),
+	unakite: Object.freeze({
+		dark: [
+			39,
+			76,
+			30
+		],
+		light: [
+			244,
+			127,
+			132
+		],
+		roughness: .22,
+		relief: 12e-5,
+		coarseCells: 8,
+		mediumCells: 24,
+		fineCells: 96,
+		coarseWeight: .7,
+		mediumWeight: .22,
+		fineWeight: .08,
+		greenBase: .06,
+		pinkContrast: .75,
+		fineContrast: .035,
+		height: .35,
+		grainHeight: .002
+	}),
 	cupwashers: Object.freeze({
 		dark: [
 			34,
@@ -16167,6 +16192,7 @@ var proceduralTileMeters = Object.freeze({
 	squareholewashers: .1,
 	snakewood: .16,
 	safflowerseeds: .06,
+	unakite: .12,
 	cupwashers: .1
 });
 //#endregion
