@@ -582,6 +582,7 @@ try {
     'diamondcheckertiles',
     'appleslice',
     'paperclips',
+    'rclips',
     'ivyleaf',
     'ribknit',
     'pillowtiles',

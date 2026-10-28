@@ -4049,6 +4049,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedWidth: 0.014;
         seedShoulder: 0.2;
     }>;
+    rclips: Readonly<{
+        dark: readonly [24, 31, 38];
+        light: readonly [228, 236, 241];
+        roughness: 0.3;
+        relief: 0.004;
+        cells: 4;
+        wireWidth: 0.018;
+        shoulder: 0.4;
+        arcFade: 0.015;
+        legs: readonly [readonly [-0.12, -0.25, -0.12, 0.39], readonly [0.12, -0.25, 0.12, -0.18], readonly [0.12, -0.18, 0.105, -0.15], readonly [0.105, -0.15, -0.045, -0.065], readonly [-0.045, -0.065, -0.065, -0.045], readonly [-0.065, -0.045, -0.062, -0.022], readonly [-0.062, -0.022, -0.03, 0.04], readonly [-0.03, 0.04, -0.02, 0.075], readonly [-0.02, 0.075, -0.035, 0.11], readonly [-0.035, 0.11, -0.065, 0.16], readonly [-0.065, 0.16, -0.06, 0.185], readonly [-0.06, 0.185, -0.035, 0.215], readonly [-0.035, 0.215, 0.025, 0.31]];
+        bends: readonly [readonly [0, -0.25, 0.12, -1]];
+    }>;
     paperclips: Readonly<{
         dark: readonly [26, 31, 36];
         light: readonly [221, 227, 232];
@@ -9851,6 +9863,7 @@ export declare const proceduralTileMeters: Readonly<{
     diamondcheckertiles: 1.2;
     appleslice: 0.4;
     paperclips: 0.24;
+    rclips: 0.12;
     ivyleaf: 0.32;
     ribknit: 0.12;
     pillowtiles: 0.6;

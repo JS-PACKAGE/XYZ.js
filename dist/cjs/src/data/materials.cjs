@@ -8405,6 +8405,110 @@ var proceduralMaterialPresets = Object.freeze({
 		seedWidth: .014,
 		seedShoulder: .2
 	}),
+	rclips: Object.freeze({
+		dark: [
+			24,
+			31,
+			38
+		],
+		light: [
+			228,
+			236,
+			241
+		],
+		roughness: .3,
+		relief: .004,
+		cells: 4,
+		wireWidth: .018,
+		shoulder: .4,
+		arcFade: .015,
+		legs: Object.freeze([
+			[
+				-.12,
+				-.25,
+				-.12,
+				.39
+			],
+			[
+				.12,
+				-.25,
+				.12,
+				-.18
+			],
+			[
+				.12,
+				-.18,
+				.105,
+				-.15
+			],
+			[
+				.105,
+				-.15,
+				-.045,
+				-.065
+			],
+			[
+				-.045,
+				-.065,
+				-.065,
+				-.045
+			],
+			[
+				-.065,
+				-.045,
+				-.062,
+				-.022
+			],
+			[
+				-.062,
+				-.022,
+				-.03,
+				.04
+			],
+			[
+				-.03,
+				.04,
+				-.02,
+				.075
+			],
+			[
+				-.02,
+				.075,
+				-.035,
+				.11
+			],
+			[
+				-.035,
+				.11,
+				-.065,
+				.16
+			],
+			[
+				-.065,
+				.16,
+				-.06,
+				.185
+			],
+			[
+				-.06,
+				.185,
+				-.035,
+				.215
+			],
+			[
+				-.035,
+				.215,
+				.025,
+				.31
+			]
+		]),
+		bends: Object.freeze([[
+			0,
+			-.25,
+			.12,
+			-1
+		]])
+	}),
 	paperclips: Object.freeze({
 		dark: [
 			26,
@@ -16603,6 +16707,7 @@ var proceduralTileMeters = Object.freeze({
 	diamondcheckertiles: 1.2,
 	appleslice: .4,
 	paperclips: .24,
+	rclips: .12,
 	ivyleaf: .32,
 	ribknit: .12,
 	pillowtiles: .6,

@@ -1282,6 +1282,7 @@ export function createSurfaceSampler(
     kind === 'squarewashers' ||
     kind === 'spurgears' ||
     kind === 'paperclips' ||
+    kind === 'rclips' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -19700,8 +19701,10 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'rclips':
       case 'paperclips': {
-        const p = proceduralMaterialPresets.paperclips;
+        const rclip = kind === 'rclips',
+          p = proceduralMaterialPresets[kind];
         const segments = new Float64Array(p.legs.length * 5),
           bends = new Float64Array(p.bends.length * 5);
         for (let i = 0; i < p.legs.length; i++) {
@@ -19734,7 +19737,8 @@ export function createSurfaceSampler(
           const turn = (Math.floor(uc) + Math.floor(vc)) & 1 ? 1 : -1;
           const x = (dx + turn * dy) * Math.SQRT1_2,
             y = (dy - turn * dx) * Math.SQRT1_2;
-          let outside = 1;
+          let outside = 1,
+            outsideCrown = 1;
           for (let i = 0; i < segments.length; i += 5) {
             const sx = x - segments[i],
               sy = y - segments[i + 1];
@@ -19742,15 +19746,10 @@ export function createSurfaceSampler(
               (sx * segments[i + 2] + sy * segments[i + 3]) * segments[i + 4],
             );
             const qx = sx - t * segments[i + 2],
-              qy = sy - t * segments[i + 3];
-            outside *=
-              1 -
-              smooth(
-                clamp(
-                  (1 - (qx * qx + qy * qy) * inverseWireSquared) *
-                    inverseShoulder,
-                ),
-              );
+              qy = sy - t * segments[i + 3],
+              remaining = 1 - (qx * qx + qy * qy) * inverseWireSquared;
+            outside *= 1 - smooth(clamp(remaining * inverseShoulder));
+            if (rclip) outsideCrown *= 1 - smooth(clamp(remaining));
           }
           for (let i = 0; i < bends.length; i += 5) {
             const bx = x - bends[i],
@@ -19758,14 +19757,23 @@ export function createSurfaceSampler(
             const ring = (bx * bx + by * by - bends[i + 2]) * bends[i + 3];
             // A compact half-plane shoulder overlaps each capsule endpoint;
             // a hard semicircle cut would jump across its wire profile.
-            const half = smooth(clamp(1 + by * bends[i + 4] * inverseArcFade));
-            outside *=
-              1 - half * smooth(clamp((1 - ring * ring) * inverseShoulder));
+            const half = smooth(clamp(1 + by * bends[i + 4] * inverseArcFade)),
+              remaining = 1 - ring * ring;
+            outside *= 1 - half * smooth(clamp(remaining * inverseShoulder));
+            if (rclip) outsideCrown *= 1 - half * smooth(clamp(remaining));
           }
           const face = 1 - outside,
             grain = grainField(u, v);
-          color = 0.05 + 0.77 * face + 0.02 * grain;
-          height = 0.06 + 0.64 * face + 0.004 * grain;
+          if (rclip) {
+            // R-clips use rounded wire crowns and dielectric gaps, not a stamped sheet.
+            const crown = 1 - outsideCrown;
+            color = 0.05 + face * (0.6 + 0.17 * crown) + 0.02 * grain;
+            height = 0.06 + face * (0.28 + 0.36 * crown) + 0.004 * grain;
+            metallic = face;
+          } else {
+            color = 0.05 + 0.77 * face + 0.02 * grain;
+            height = 0.06 + 0.64 * face + 0.004 * grain;
+          }
           roughness += 0.3 * (1 - face) + 0.02 * grain;
           occlusion = 0.33 + 0.65 * face;
           return;
@@ -36125,6 +36133,7 @@ export function createSurfaceSampler(
     kind === 'diamondcheckertiles' ||
     kind === 'appleslice' ||
     kind === 'paperclips' ||
+    kind === 'rclips' ||
     kind === 'ivyleaf' ||
     kind === 'ribknit' ||
     kind === 'pillowtiles' ||
