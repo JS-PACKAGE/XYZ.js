@@ -629,6 +629,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dualinlinechips',
   'tortoiseshellacetate',
   'cathedralquilt',
+  'matelasse',
   'buckwheathulls',
   'rutilatedquartz',
   'peppermintcanes',
@@ -1040,6 +1041,198 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Ivory Matelasse with a raised continuous diamond binding network, softly lofted panels and interlaced yarns', () => {
+  const p = proceduralMaterialPresets.matelasse;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps raised binding ribs above softly lofted cream cloth, not stitched depressions or filled tiles for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('matelasse', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        lowColor = 1,
+        highColor = 0,
+        raised = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          const h = a.height / p.relief;
+          low = Math.min(low, h);
+          high = Math.max(high, h);
+          lowColor = Math.min(lowColor, a.color);
+          highColor = Math.max(highColor, a.color);
+          raised += Number(h > 0.45);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.85 ||
+              a.roughness > 0.91 ||
+              a.occlusion < 0.89 ||
+              h < 0.27 ||
+              h > 0.54,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(high - low).toBeGreaterThan(0.18);
+      expect(high - low).toBeLessThan(0.25);
+      expect(raised / 65536).toBeGreaterThan(0.1);
+      expect(raised / 65536).toBeLessThan(0.23);
+      expect(lowColor).toBeGreaterThan(0.75);
+      expect(highColor).toBeLessThan(0.83);
+      expect(highColor - lowColor).toBeGreaterThan(0.015);
+      expect(highColor - lowColor).toBeLessThan(0.05);
+      expect(invalid).toBe(0);
+      const rib = empty(),
+        panel = empty(),
+        valley = empty(),
+        crossing = empty();
+      sample(0.75 / p.cells, 0.25 / p.cells, rib);
+      sample(0.5 / p.cells, 0, panel);
+      sample(0.25 / p.cells, 0.125 / p.cells, valley);
+      sample(0, 0, crossing);
+      expect(rib.height - panel.height).toBeGreaterThan(0.11 * p.relief);
+      expect(panel.height - valley.height).toBeGreaterThan(0.04 * p.relief);
+      expect(rib.occlusion - valley.occlusion).toBeGreaterThan(0.04);
+      expect(panel.roughness - rib.roughness).toBeGreaterThan(0.015);
+      expect(crossing.height - rib.height).toBeLessThan(0.03 * p.relief);
+      expect(crossing.height).toBeGreaterThan(0.47 * p.relief);
+    },
+  );
+  it('alternates the exposed yarn crown at adjacent plain-weave crossings instead of embossing identical bead intersections', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('matelasse', seed);
+      sample(0.65 / p.threads, 0.5 / p.threads, a);
+      sample(0.5 / p.threads, 0.65 / p.threads, b);
+      expect(a.height - b.height).toBeGreaterThan(0.002 * p.relief);
+      sample(1.65 / p.threads, 0.5 / p.threads, a);
+      sample(0.5 / p.threads, 1.65 / p.threads, b);
+      expect(b.height - a.height).toBeGreaterThan(0.002 * p.relief);
+    }
+  });
+  it('keeps binding shoulders, diamond panel owners, grain and alternating yarn owners C1 without nearest-rib ridges or crossing jumps', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('matelasse', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let i = 0; i <= p.cells; i++)
+        for (const t of [0, 0.137, 0.5, 0.793])
+          for (const offset of [0, -p.ribRadius, p.ribRadius, -0.5, 0.5]) {
+            const s = (i + offset) / p.cells;
+            check((s + t) / 2, (s - t) / 2);
+            check((t + s) / 2, (t - s) / 2);
+          }
+      for (const n of [p.threads, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.04);
+    }
+  });
+  it('writes actual512 opaque ivory dielectric maps with real shallow woven-relief normals and binding-valley AO, not metallic, gray or painted diamond lines', () => {
+    const maps = generateProceduralMaps('matelasse', 512, 7, {
+        heightMap: true,
+      }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let ivory = 0,
+      occluded = 0,
+      invalid = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      ivory += Number(
+        r > 235 && r - g >= 4 && r - g <= 7 && g - b >= 15 && g - b <= 20,
+      );
+      occluded += Number(maps.occlusion[i] < 240);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 254,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(ivory / (512 * 512)).toBeGreaterThan(0.99);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.65);
+    expect(occluded / (512 * 512)).toBeLessThan(0.8);
+    expect(maxTilt).toBeGreaterThan(0.004);
+    expect(maxTilt).toBeLessThan(0.02);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the binding network, lofted panels and even yarn-parity channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('matelasse', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

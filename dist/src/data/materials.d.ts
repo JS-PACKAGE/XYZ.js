@@ -5490,6 +5490,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         threshold: 0.43;
         shoulder: 0.19;
     }>;
+    matelasse: Readonly<{
+        dark: readonly [192, 183, 160];
+        light: readonly [255, 252, 236];
+        roughness: 0.88;
+        relief: 0.0016;
+        cells: 6;
+        threads: 128;
+        ribRadius: 0.075;
+        baseHeight: 0.28;
+        ribLift: 0.2;
+        panelLift: 0.07;
+        yarnLift: 0.035;
+        interlaceLift: 0.02;
+    }>;
     cathedralquilt: Readonly<{
         dark: readonly [8, 29, 63];
         light: readonly [247, 233, 201];
@@ -9972,6 +9986,7 @@ export declare const proceduralTileMeters: Readonly<{
     dualinlinechips: 0.16;
     tortoiseshellacetate: 0.2;
     cathedralquilt: 0.6;
+    matelasse: 0.24;
     buckwheathulls: 0.064;
     rutilatedquartz: 0.2;
     peppermintcanes: 0.32;

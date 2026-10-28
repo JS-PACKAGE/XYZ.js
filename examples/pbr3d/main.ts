@@ -666,6 +666,7 @@ try {
     'dualinlinechips',
     'tortoiseshellacetate',
     'cathedralquilt',
+    'matelasse',
     'buckwheathulls',
     'rutilatedquartz',
     'peppermintcanes',

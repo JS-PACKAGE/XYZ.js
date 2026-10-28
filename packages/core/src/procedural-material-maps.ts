@@ -14050,6 +14050,49 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'matelasse': {
+        const p = proceduralMaterialPresets.matelasse,
+          inverseRib = 1 / (p.ribRadius * p.ribRadius),
+          grainField = cachedNoise(128, 128, seed ^ 0x20a11);
+        return () => {
+          const s = (u + v) * p.cells,
+            t = (u - v) * p.cells,
+            ds = fract(s + 0.5) - 0.5,
+            dt = fract(t + 0.5) - 0.5,
+            a = smooth(clamp(1 - ds * ds * inverseRib)),
+            b = smooth(clamp(1 - dt * dt * inverseRib)),
+            rib = a + b - a * b,
+            ps = fract(s) - 0.5,
+            pt = fract(t) - 0.5,
+            ls = 1 - 4 * ps * ps,
+            lt = 1 - 4 * pt * pt,
+            panel = ls * ls * lt * lt,
+            x = u * p.threads,
+            y = v * p.threads,
+            fx = fract(x) - 0.5,
+            fy = fract(y) - 0.5,
+            wx = 1 - 4 * fx * fx,
+            wy = 1 - 4 * fy * fy,
+            warp = wx * wx,
+            weft = wy * wy,
+            yarn = warp + weft - warp * weft,
+            crossing = (Math.floor(x) + Math.floor(y)) & 1 ? 1 : -1,
+            interlace = crossing * warp * weft * (warp - weft),
+            grain = grainField(u, v);
+          // A woven raised binding network, not sunken dashed sewing stitches.
+          color = 0.76 + 0.03 * yarn + 0.018 * grain + 0.012 * rib;
+          height =
+            p.baseHeight +
+            p.ribLift * rib +
+            p.panelLift * panel +
+            p.yarnLift * yarn +
+            p.interlaceLift * interlace +
+            0.003 * grain;
+          roughness += 0.025 * grain - 0.025 * rib;
+          occlusion = 0.92 + 0.065 * rib + 0.025 * panel - 0.025 * (1 - yarn);
+          return;
+        };
+      }
       case 'cathedralquilt': {
         const p = proceduralMaterialPresets.cathedralquilt,
           tones = new Float64Array(p.cells * p.cells),
@@ -35941,6 +35984,7 @@ export function createSurfaceSampler(
     kind === 'dualinlinechips' ||
     kind === 'tortoiseshellacetate' ||
     kind === 'cathedralquilt' ||
+    kind === 'matelasse' ||
     kind === 'buckwheathulls' ||
     kind === 'rutilatedquartz' ||
     kind === 'peppermintcanes' ||

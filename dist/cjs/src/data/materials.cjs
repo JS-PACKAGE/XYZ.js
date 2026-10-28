@@ -10733,6 +10733,28 @@ var proceduralMaterialPresets = Object.freeze({
 		threshold: .43,
 		shoulder: .19
 	}),
+	matelasse: Object.freeze({
+		dark: [
+			192,
+			183,
+			160
+		],
+		light: [
+			255,
+			252,
+			236
+		],
+		roughness: .88,
+		relief: .0016,
+		cells: 6,
+		threads: 128,
+		ribRadius: .075,
+		baseHeight: .28,
+		ribLift: .2,
+		panelLift: .07,
+		yarnLift: .035,
+		interlaceLift: .02
+	}),
 	cathedralquilt: Object.freeze({
 		dark: [
 			8,
@@ -16824,6 +16846,7 @@ var proceduralTileMeters = Object.freeze({
 	dualinlinechips: .16,
 	tortoiseshellacetate: .2,
 	cathedralquilt: .6,
+	matelasse: .24,
 	buckwheathulls: .064,
 	rutilatedquartz: .2,
 	peppermintcanes: .32,
