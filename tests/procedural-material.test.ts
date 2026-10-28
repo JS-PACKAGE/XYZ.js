@@ -610,6 +610,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tomatoslices',
   'pinstripewool',
   'chrysanthemumstone',
+  'snowflakeobsidian',
   'sewingsnaps',
   'lathplaster',
   'ceramiccapacitors',
@@ -1269,6 +1270,208 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Snowflake obsidian with flush gray radial inclusions in a black polished face', () => {
+  const p = proceduralMaterialPresets.snowflakeobsidian;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps differently sized connected irregular gray clusters embedded flush for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('snowflakeobsidian', seed),
+        out = empty(),
+        size = 96,
+        mask = new Uint8Array(size * size),
+        queue = new Uint32Array(mask.length),
+        neighbors = new Int32Array(8);
+      let minimumArea = Infinity,
+        maximumArea = 0,
+        minimumHeight = Infinity,
+        maximumHeight = -Infinity,
+        bad = false;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          mask.fill(0);
+          let pale = 0,
+            black = 0,
+            sx = 0,
+            sy = 0,
+            paleRoughness = 0,
+            blackRoughness = 0;
+          for (let y = 0; y < size; y++)
+            for (let x = 0; x < size; x++) {
+              sample(
+                (col + (x + 0.5) / size) / p.cells,
+                (row + (y + 0.5) / size) / p.cells,
+                out,
+              );
+              for (const key of keys) bad ||= !Number.isFinite(out[key]);
+              bad ||=
+                out.metallic !== 0 || out.mortar !== 0 || out.occlusion < 0.98;
+              minimumHeight = Math.min(minimumHeight, out.height);
+              maximumHeight = Math.max(maximumHeight, out.height);
+              if (out.color > 0.6) {
+                mask[y * size + x] = 1;
+                pale++;
+                sx += x;
+                sy += y;
+                paleRoughness += out.roughness;
+              } else if (out.color < 0.1) {
+                black++;
+                blackRoughness += out.roughness;
+              }
+            }
+          const area = pale / mask.length,
+            cx = sx / pale,
+            cy = sy / pale;
+          minimumArea = Math.min(minimumArea, area);
+          maximumArea = Math.max(maximumArea, area);
+          expect(area).toBeGreaterThan(0.008);
+          expect(area).toBeLessThan(0.15);
+          expect(black / mask.length).toBeGreaterThan(0.8);
+          expect(paleRoughness / pale - blackRoughness / black).toBeGreaterThan(
+            0.1,
+          );
+          let radiusSquared = 0;
+          for (let i = 0; i < mask.length; i++)
+            if (mask[i]) {
+              radiusSquared = Math.max(
+                radiusSquared,
+                ((i % size) - cx) ** 2 + (Math.floor(i / size) - cy) ** 2,
+              );
+            }
+          // Dense radiating patches have notched outlines, not sparse crystal spokes or smooth painted disks.
+          const compactness = pale / (Math.PI * radiusSquared);
+          expect(compactness).toBeGreaterThan(0.5);
+          expect(compactness).toBeLessThan(0.88);
+          // Diagonal pixel contacts belong to the same rasterized inclusion.
+          let components = 0;
+          for (let index = 0; index < mask.length; index++) {
+            if (!mask[index]) continue;
+            components++;
+            mask[index] = 0;
+            queue[0] = index;
+            let end = 1;
+            for (let start = 0; start < end; start++) {
+              const i = queue[start],
+                x = i % size,
+                y = Math.floor(i / size);
+              neighbors[0] = x ? i - 1 : -1;
+              neighbors[1] = x + 1 < size ? i + 1 : -1;
+              neighbors[2] = y ? i - size : -1;
+              neighbors[3] = y + 1 < size ? i + size : -1;
+              neighbors[4] = x && y ? i - size - 1 : -1;
+              neighbors[5] = x + 1 < size && y ? i - size + 1 : -1;
+              neighbors[6] = x && y + 1 < size ? i + size - 1 : -1;
+              neighbors[7] = x + 1 < size && y + 1 < size ? i + size + 1 : -1;
+              for (const next of neighbors)
+                if (next >= 0 && mask[next]) {
+                  mask[next] = 0;
+                  queue[end++] = next;
+                }
+            }
+          }
+          expect(components).toBe(1);
+        }
+      expect(bad).toBe(false);
+      expect(maximumArea / minimumArea).toBeGreaterThan(3.5);
+      expect(maximumHeight - minimumHeight).toBeLessThan(0.006 * p.relief);
+    },
+  );
+  it('keeps both cache-lattice directions, cell ownership and UV seams C1', () => {
+    const h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('snowflakeobsidian', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = 0;
+      for (let i = 0; i <= 96; i++)
+        for (let j = 0; j < 31; j++)
+          for (let axis = 0; axis < 2; axis++) {
+            const u = axis ? (j + 0.37) / 31 : i / 96,
+              v = axis ? i / 96 : (j + 0.17) / 31;
+            sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
+            sample(u, v, b);
+            sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
+            for (const key of keys)
+              worst = Math.max(
+                worst,
+                Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+              );
+          }
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('encodes opaque black glass and gray patches without metallic flakes, cavities or carved normals at 512', () => {
+    const maps = generateProceduralMaps('snowflakeobsidian', 512, 7, {
+        heightMap: true,
+      }),
+      streams = Object.values(maps);
+    let black = 0,
+      gray = 0,
+      blackRoughness = 0,
+      grayRoughness = 0,
+      bad = false,
+      maximumTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (r < 24 && g < 24 && b < 24) {
+        black++;
+        blackRoughness += maps.metallicRoughness[i + 1];
+      } else if (r > 100 && Math.max(r, g, b) - Math.min(r, g, b) < 12) {
+        gray++;
+        grayRoughness += maps.metallicRoughness[i + 1];
+      }
+      for (const map of streams) bad ||= map[i + 3] !== 255;
+      bad ||= maps.metallicRoughness[i + 2] !== 0 || maps.occlusion[i] < 250;
+      maximumTilt = Math.max(
+        maximumTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+    }
+    expect(bad).toBe(false);
+    expect(black / (512 * 512)).toBeGreaterThan(0.85);
+    expect(gray / (512 * 512)).toBeGreaterThan(0.025);
+    expect(gray / (512 * 512)).toBeLessThan(0.15);
+    expect(grayRoughness / gray - blackRoughness / black).toBeGreaterThan(25);
+    expect(maximumTilt).toBeLessThan(0.0002);
+  });
+  it('repeats every surface channel for signed integer UV translations', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('snowflakeobsidian', seed),
+        a = empty(),
+        b = empty();
+      let worst = 0;
+      for (let i = 0; i < 2048; i++) {
+        const u = (i * 0.6180339887498949) % 1,
+          v = (i * 0.4142135623730951) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-10);
+    }
   });
 });
 

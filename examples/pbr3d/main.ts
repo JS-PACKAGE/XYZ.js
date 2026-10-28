@@ -647,6 +647,7 @@ try {
     'tomatoslices',
     'pinstripewool',
     'chrysanthemumstone',
+    'snowflakeobsidian',
     'sewingsnaps',
     'lathplaster',
     'ceramiccapacitors',

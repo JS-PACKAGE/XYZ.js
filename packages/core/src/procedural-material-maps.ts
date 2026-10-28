@@ -14971,8 +14971,21 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'snowflakeobsidian':
       case 'chrysanthemumstone': {
-        const p = proceduralMaterialPresets.chrysanthemumstone,
+        const snowflake = kind === 'snowflakeobsidian',
+          snowProfile = proceduralMaterialPresets.snowflakeobsidian,
+          p = snowflake
+            ? snowProfile
+            : proceduralMaterialPresets.chrysanthemumstone,
+          scaleMin = snowflake ? snowProfile.scaleMin : 1,
+          scaleRange = snowflake ? snowProfile.scaleRange : 0,
+          matrixTone = snowflake ? snowProfile.matrixTone : 0.045,
+          matrixGrain = snowflake ? snowProfile.matrixGrain : 0.04,
+          crystalTone = snowflake ? snowProfile.crystalTone : 0.9,
+          crystalVariation = snowflake ? snowProfile.crystalVariation : 0.05,
+          crystalGrain = snowflake ? snowProfile.crystalGrain : 0.02,
+          crystalPolish = snowflake ? -snowProfile.crystalRoughness : 0.14,
           stride = 3 + p.arms * 4,
           crystals = new Float64Array(p.cells * p.cells * stride),
           bound =
@@ -14981,13 +14994,18 @@ export function createSurfaceSampler(
             p.lengthRange +
             p.widthMin +
             p.widthRange,
-          boundSquared = bound * bound,
+          boundSquared = snowflake
+            ? (bound * (scaleMin + scaleRange)) ** 2
+            : bound * bound,
           inverseShoulder = 1 / p.shoulder,
           grainField = cachedNoise(96, 96, seed ^ 0x12211);
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
             const offset = (row * p.cells + col) * stride,
-              phase = TAU * hash(col, row, seed ^ 0x12213);
+              phase = TAU * hash(col, row, seed ^ 0x12213),
+              scale = snowflake
+                ? scaleMin + scaleRange * hash(col, row, seed ^ 0x12227)
+                : 1;
             crystals[offset] =
               0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x12217) - 1);
             crystals[offset + 1] =
@@ -15009,6 +15027,11 @@ export function createSurfaceSampler(
                   p.widthRange * hash(col + arm * p.cells, row, seed ^ 0x12223);
               crystals[i] = Math.cos(angle);
               crystals[i + 1] = Math.sin(angle);
+              if (snowflake) {
+                // Scale the cached basis, not the embedded surface height.
+                crystals[i] /= scale;
+                crystals[i + 1] /= scale;
+              }
               crystals[i + 2] = 1 / (length * length);
               crystals[i + 3] = 1 / (width * width);
             }
@@ -15037,13 +15060,17 @@ export function createSurfaceSampler(
               outside *= 1 - face;
             }
           const flower = 1 - outside;
-          color = 0.045 + 0.04 * grain;
+          color = matrixTone + matrixGrain * grain;
           color +=
-            flower * (0.9 + 0.05 * crystals[offset + 2] + 0.02 * grain - color);
+            flower *
+            (crystalTone +
+              crystalVariation * crystals[offset + 2] +
+              crystalGrain * grain -
+              color);
           // Pale radial crystals are embedded in a polished rock face, not
           // botanical petals or carved relief. Grain alone shapes the surface.
           height = 0.4 + 0.004 * grain;
-          roughness += 0.02 * grain - 0.14 * flower;
+          roughness += 0.02 * grain - crystalPolish * flower;
           occlusion = 0.99;
           return;
         };
@@ -35667,6 +35694,7 @@ export function createSurfaceSampler(
     kind === 'twillweave' ||
     kind === 'pinstripewool' ||
     kind === 'chrysanthemumstone' ||
+    kind === 'snowflakeobsidian' ||
     kind === 'sewingsnaps' ||
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||

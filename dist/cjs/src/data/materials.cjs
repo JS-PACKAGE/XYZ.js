@@ -10142,6 +10142,38 @@ var proceduralMaterialPresets = Object.freeze({
 		exposureShoulder: .08,
 		stripeEvery: 8
 	}),
+	snowflakeobsidian: Object.freeze({
+		dark: [
+			4,
+			6,
+			8
+		],
+		light: [
+			199,
+			201,
+			195
+		],
+		roughness: .14,
+		relief: .001,
+		cells: 6,
+		arms: 24,
+		jitter: .15,
+		bladeCenter: .06,
+		lengthMin: .115,
+		lengthRange: .065,
+		widthMin: .026,
+		widthRange: .021,
+		angleJitter: .2,
+		shoulder: .6,
+		scaleMin: .4,
+		scaleRange: .7,
+		matrixTone: .025,
+		matrixGrain: .025,
+		crystalTone: .68,
+		crystalVariation: .15,
+		crystalGrain: .18,
+		crystalRoughness: .16
+	}),
 	chrysanthemumstone: Object.freeze({
 		dark: [
 			12,
@@ -16403,6 +16435,7 @@ var proceduralTileMeters = Object.freeze({
 	tomatoslices: .32,
 	pinstripewool: .08,
 	chrysanthemumstone: .48,
+	snowflakeobsidian: .12,
 	sewingsnaps: .12,
 	lathplaster: .8,
 	ceramiccapacitors: .12,

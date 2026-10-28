@@ -5135,6 +5135,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         exposureShoulder: 0.08;
         stripeEvery: 8;
     }>;
+    snowflakeobsidian: Readonly<{
+        dark: readonly [4, 6, 8];
+        light: readonly [199, 201, 195];
+        roughness: 0.14;
+        relief: 0.001;
+        cells: 6;
+        arms: 24;
+        jitter: 0.15;
+        bladeCenter: 0.06;
+        lengthMin: 0.115;
+        lengthRange: 0.065;
+        widthMin: 0.026;
+        widthRange: 0.021;
+        angleJitter: 0.2;
+        shoulder: 0.6;
+        scaleMin: 0.4;
+        scaleRange: 0.7;
+        matrixTone: 0.025;
+        matrixGrain: 0.025;
+        crystalTone: 0.68;
+        crystalVariation: 0.15;
+        crystalGrain: 0.18;
+        crystalRoughness: 0.16;
+    }>;
     chrysanthemumstone: Readonly<{
         dark: readonly [12, 14, 17];
         light: readonly [237, 233, 218];
@@ -9728,6 +9752,7 @@ export declare const proceduralTileMeters: Readonly<{
     tomatoslices: 0.32;
     pinstripewool: 0.08;
     chrysanthemumstone: 0.48;
+    snowflakeobsidian: 0.12;
     sewingsnaps: 0.12;
     lathplaster: 0.8;
     ceramiccapacitors: 0.12;

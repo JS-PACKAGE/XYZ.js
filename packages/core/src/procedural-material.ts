@@ -584,6 +584,7 @@ export type ProceduralMaterialKind =
   | 'tomatoslices'
   | 'pinstripewool'
   | 'chrysanthemumstone'
+  | 'snowflakeobsidian'
   | 'sewingsnaps'
   | 'lathplaster'
   | 'ceramiccapacitors'
@@ -1600,6 +1601,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tomatoslices',
   'pinstripewool',
   'chrysanthemumstone',
+  'snowflakeobsidian',
   'sewingsnaps',
   'lathplaster',
   'ceramiccapacitors',
