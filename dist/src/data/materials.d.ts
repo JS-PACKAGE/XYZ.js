@@ -8820,6 +8820,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    thomsonite: Readonly<{
+        dark: readonly [147, 76, 65];
+        light: readonly [255, 240, 218];
+        roughness: 0.2;
+        relief: 0.004;
+        cells: 6;
+        centerMin: 0.46;
+        centerVariation: 0.08;
+        radiusMin: 0.28;
+        radiusVariation: 0.15;
+        shoulder: 0.16;
+    }>;
     nickelsilver: Readonly<{
         dark: readonly [112, 110, 98];
         light: readonly [224, 222, 204];
@@ -9827,6 +9839,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    thomsonite: 0.048;
     nickelsilver: 0.025;
     lyocell: 0.012;
     ramie: 0.04;

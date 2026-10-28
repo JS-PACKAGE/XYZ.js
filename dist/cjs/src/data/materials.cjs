@@ -15350,6 +15350,26 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .1
 	}),
+	thomsonite: Object.freeze({
+		dark: [
+			147,
+			76,
+			65
+		],
+		light: [
+			255,
+			240,
+			218
+		],
+		roughness: .2,
+		relief: .004,
+		cells: 6,
+		centerMin: .46,
+		centerVariation: .08,
+		radiusMin: .28,
+		radiusVariation: .15,
+		shoulder: .16
+	}),
 	nickelsilver: Object.freeze({
 		dark: [
 			112,
@@ -16457,6 +16477,7 @@ var proceduralTileMeters = Object.freeze({
 	unakite: .12,
 	eudialyte: .12,
 	iroko: .18,
+	thomsonite: .048,
 	nickelsilver: .025,
 	lyocell: .012,
 	ramie: .04,

@@ -23026,8 +23026,12 @@ export function createSurfaceSampler(
           occlusion = 0.3 + face * (0.68 - 0.6 * aperture - 0.12 * seam);
         };
       }
+      case 'thomsonite':
       case 'orbicularjasper': {
-        const p = proceduralMaterialPresets.orbicularjasper;
+        const p =
+          kind === 'thomsonite'
+            ? proceduralMaterialPresets.thomsonite
+            : proceduralMaterialPresets.orbicularjasper;
         const orbs = new Float64Array(p.cells * p.cells * 4);
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
@@ -35759,6 +35763,7 @@ export function createSurfaceSampler(
     kind === 'unakite' ||
     kind === 'eudialyte' ||
     kind === 'iroko' ||
+    kind === 'thomsonite' ||
     kind === 'nickelsilver' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||

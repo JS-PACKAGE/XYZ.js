@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'thomsonite',
   'nickelsilver',
   'lyocell',
   'ramie',
@@ -1264,6 +1265,192 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Pink and cream concentric Thomsonite eyes embedded flush in a polished opaque cut', () => {
+  const p = proceduralMaterialPresets.thomsonite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps repeated concentric pale eyes rather than stripes solid dots raised beads or carved cavities for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('thomsonite', seed),
+        a = empty(),
+        b = empty();
+      let low = Infinity,
+        high = -Infinity,
+        invalid = 0,
+        smallestContrast = Infinity;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Locate the observed dark core instead of reconstructing private seeded poses.
+          let core = Infinity,
+            cx = 0,
+            cy = 0;
+          for (let iy = 0; iy <= 16; iy++)
+            for (let ix = 0; ix <= 16; ix++) {
+              const x = p.centerMin + (p.centerVariation * ix) / 16,
+                y = p.centerMin + (p.centerVariation * iy) / 16;
+              sample((col + x) / p.cells, (row + y) / p.cells, a);
+              if (a.color < core) {
+                core = a.color;
+                cx = x;
+                cy = y;
+              }
+            }
+          for (let ray = 0; ray < 8; ray++) {
+            const angle = (ray * Math.PI) / 4,
+              dx = Math.cos(angle),
+              dy = Math.sin(angle);
+            let bright = false,
+              rings = 0,
+              darkest = Infinity,
+              palest = -Infinity;
+            for (let j = 0; j <= 384; j++) {
+              const r = (0.47 * j) / 384;
+              sample(
+                (col + cx + r * dx) / p.cells,
+                (row + cy + r * dy) / p.cells,
+                a,
+              );
+              if (a.color > 0.55 && !bright) rings++;
+              bright = a.color > 0.55;
+              darkest = Math.min(darkest, a.color);
+              palest = Math.max(palest, a.color);
+              low = Math.min(low, a.height);
+              high = Math.max(high, a.height);
+              for (const key of keys)
+                invalid += Number(!Number.isFinite(a[key]));
+              invalid += Number(
+                a.color < 0 ||
+                  a.color > 1 ||
+                  a.roughness < 0 ||
+                  a.roughness > 1 ||
+                  a.occlusion !== 1 ||
+                  a.metallic !== 0 ||
+                  a.mortar !== 0,
+              );
+            }
+            expect(rings).toBeGreaterThan(2);
+            expect(rings).toBeLessThan(5);
+            smallestContrast = Math.min(smallestContrast, palest - darkest);
+          }
+          // Cell boundaries are a filled coplanar matrix, never inter-tile grout or voids.
+          sample(col / p.cells, row / p.cells, b);
+          expect(b.occlusion).toBe(1);
+          expect(b.metallic).toBe(0);
+          expect(b.mortar).toBe(0);
+        }
+      expect(smallestContrast).toBeGreaterThan(0.5);
+      expect(high - low).toBeLessThan(0.006 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps both C1 directions at owner and cached-field seams plus distributed polished-eye pigment and relief', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      cuts = new Set<number>();
+    for (const cells of [p.cells, 8, 96])
+      for (let i = 0; i <= cells; i++) cuts.add(i / cells);
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('thomsonite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const cut of cuts)
+        for (let j = 0; j < 17; j++) {
+          check(cut, (j + 0.37) / 17);
+          check((j + 0.31) / 17, cut);
+        }
+      for (let j = 0; j < 8192; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque pink and cream pigment on a nearly planar nonmetal surface without ring normals or cavity AO', () => {
+    const maps = generateProceduralMaps('thomsonite', 512, 7, {
+        heightMap: true,
+      }),
+      all = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let pink = 0,
+      cream = 0,
+      invalid = 0,
+      tilt = 0;
+    for (const map of all)
+      for (let i = 3; i < map.length; i += 4) invalid += Number(map[i] !== 255);
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        x = (2 * maps.normal[i]) / 255 - 1,
+        y = (2 * maps.normal[i + 1]) / 255 - 1;
+      pink += Number(r > g + 25 && g > b && r > 150);
+      cream += Number(r > 220 && g > 190 && b > 170 && r > g && g > b);
+      tilt = Math.max(tilt, x * x + y * y);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 250,
+      );
+    }
+    expect(pink / (512 * 512)).toBeGreaterThan(0.2);
+    expect(cream / (512 * 512)).toBeGreaterThan(0.015);
+    expect(tilt).toBeLessThan(0.001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all polished-eye pigment roughness and height channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('thomsonite', seed);
+      let worst = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(5e-11);
+    }
   });
 });
 
