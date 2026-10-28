@@ -804,6 +804,7 @@ const kinds: ProceduralMaterialKind[] = [
   'mungbeans',
   'thomsonite',
   'nickelsilver',
+  'hopsack',
   'lyocell',
   'ramie',
   'wavewashers',
@@ -1258,6 +1259,226 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       const sample = createSurfaceSampler('iroko', seed),
         a = empty(),
         b = empty();
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Navy Hopsack with paired warp and weft basket-weave floats', () => {
+  const p = proceduralMaterialPresets.hopsack;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps two distinct yarns per group and continuous two-pick floats on both axes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('hopsack', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        d = empty(),
+        over = new Uint8Array(64);
+      let orientation = Infinity,
+        join = Infinity,
+        valley = Infinity,
+        pigmentMin = Infinity,
+        pigmentMax = -Infinity;
+      for (let row = 0; row < 8; row++)
+        for (let col = 0; col < 8; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v + 0.47 / p.weftThreads, a);
+          sample(u, v - 0.47 / p.weftThreads, b);
+          sample(u + 0.47 / p.warpThreads, v, c);
+          sample(u - 0.47 / p.warpThreads, v, d);
+          const directional = (a.height + b.height - c.height - d.height) * 0.5;
+          over[row * 8 + col] = Number(directional > 0);
+          orientation = Math.min(orientation, Math.abs(directional));
+          sample(u, v, a);
+          pigmentMin = Math.min(pigmentMin, a.color);
+          pigmentMax = Math.max(pigmentMax, a.color);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+      // Infer the draft from actual height, allowing shifted or inverted repeats.
+      let matchingPhases = 0;
+      for (const phaseX of [0, 1])
+        for (const phaseY of [0, 1])
+          for (const inverse of [false, true]) {
+            let matches = true;
+            for (let row = 0; row < 8; row++)
+              for (let col = 0; col < 8; col++) {
+                const expected =
+                  ((Math.floor((col + phaseX) / 2) +
+                    Math.floor((row + phaseY) / 2)) &
+                    1) ===
+                  0;
+                matches &&=
+                  Boolean(over[row * 8 + col]) === (expected !== inverse);
+              }
+            matchingPhases += Number(matches);
+          }
+      expect(matchingPhases).toBeGreaterThan(0);
+      expect(orientation).toBeGreaterThan(0.02 * p.relief);
+      expect(pigmentMax - pigmentMin).toBeLessThan(0.04);
+      for (let row = 0; row < 7; row++)
+        for (let col = 0; col < 7; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads,
+            warp = over[row * 8 + col] !== 0;
+          sample(u, v, a);
+          if (
+            over[(row + Number(warp)) * 8 + col + Number(!warp)] ===
+            Number(warp)
+          ) {
+            sample(
+              u + Number(!warp) / p.warpThreads,
+              v + Number(warp) / p.weftThreads,
+              b,
+            );
+            sample(
+              u + (Number(!warp) * 0.5) / p.warpThreads,
+              v + (Number(warp) * 0.5) / p.weftThreads,
+              c,
+            );
+            join = Math.min(join, c.height - Math.min(a.height, b.height));
+          }
+          if (
+            over[(row + Number(!warp)) * 8 + col + Number(warp)] ===
+            Number(warp)
+          ) {
+            sample(
+              u + Number(warp) / p.warpThreads,
+              v + Number(!warp) / p.weftThreads,
+              b,
+            );
+            sample(
+              u + (Number(warp) * 0.5) / p.warpThreads,
+              v + (Number(!warp) * 0.5) / p.weftThreads,
+              c,
+            );
+            valley = Math.min(valley, Math.min(a.height, b.height) - c.height);
+          }
+        }
+      expect(join).toBeGreaterThan(-0.004 * p.relief);
+      expect(valley).toBeGreaterThan(0.1 * p.relief);
+    },
+  );
+  it('keeps yarn shoulders, paired float ends, fibers, cached grain and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hopsack', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const offsets = [
+        0,
+        0.5,
+        0.5 - p.warpRadius,
+        0.5 + p.warpRadius,
+        0.5 - p.warpCore,
+        0.5 + p.warpCore,
+        0.5 - p.warpLiftHalf,
+        0.5 + p.warpLiftHalf,
+        0.5 - (p.warpLiftHalf - p.liftShoulder),
+        0.5 + (p.warpLiftHalf - p.liftShoulder),
+      ];
+      for (let k = 0; k < p.warpThreads; k++)
+        for (const offset of offsets)
+          for (let j = 0; j < 17; j++) {
+            check((k + offset) / p.warpThreads, (j + 0.31) / 17);
+            check((j + 0.37) / 17, (k + offset) / p.weftThreads);
+          }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j < 17; j++) {
+          check(k / 128, (j + 0.31) / 17);
+          check((j + 0.37) / 17, k / 128);
+        }
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes opaque navy cloth with recessed interstices and signed moderate-relief normals on both axes at actual512', () => {
+    const maps = generateProceduralMaps('hopsack', 512, 7, { heightMap: true });
+    const streams = Object.values(maps);
+    let navy = 0,
+      invalid = 0,
+      positiveX = 0,
+      negativeX = 0,
+      positiveY = 0,
+      negativeY = 0,
+      minAO = 255,
+      maxAO = 0,
+      maxTilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      navy += Number(b > g && g > r && r < 80 && b < 130);
+      positiveX += Number(maps.normal[i] > 128);
+      negativeX += Number(maps.normal[i] < 127);
+      positiveY += Number(maps.normal[i + 1] > 128);
+      negativeY += Number(maps.normal[i + 1] < 127);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 240,
+      );
+      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+    }
+    expect(navy / (512 * 512)).toBeGreaterThan(0.95);
+    for (const count of [positiveX, negativeX, positiveY, negativeY])
+      expect(count / (512 * 512)).toBeGreaterThan(0.1);
+    expect(minAO).toBeLessThan(150);
+    expect(maxAO).toBeGreaterThan(240);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.15);
+    expect(invalid).toBe(0);
+  });
+  it('repeats both paired float axes and all six surface channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hopsack', seed);
       for (let j = 0; j < 4096; j++) {
         const u = (j * 0.61803398875) % 1,
           v = (j * 0.41421356237) % 1;

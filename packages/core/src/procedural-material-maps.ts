@@ -5313,32 +5313,36 @@ export function createSurfaceSampler(
       case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
+      case 'hopsack':
       case 'lyocell':
       case 'ramie':
       case 'poplin': {
-        const lyocell = kind === 'lyocell',
+        const hopsack = kind === 'hopsack',
+          lyocell = kind === 'lyocell',
           ramie = kind === 'ramie',
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
-          profiledWeave = kind === 'huckaback' || lyocell,
+          profiledWeave = kind === 'huckaback' || lyocell || hopsack,
           chambray = kind === 'chambray',
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
           bareWeave = 1 - napPreset.napCoverage,
-          warpTone = lyocell
-            ? proceduralMaterialPresets.lyocell.yarnTone
-            : ramie
-              ? proceduralMaterialPresets.ramie.yarnTone
-              : chambray
-                ? 0.18
-                : flannel
-                  ? napPreset.yarnTone
-                  : 0.82,
+          warpTone = hopsack
+            ? proceduralMaterialPresets.hopsack.yarnTone
+            : lyocell
+              ? proceduralMaterialPresets.lyocell.yarnTone
+              : ramie
+                ? proceduralMaterialPresets.ramie.yarnTone
+                : chambray
+                  ? 0.18
+                  : flannel
+                    ? napPreset.yarnTone
+                    : 0.82,
           weftTone =
-            ramie || lyocell
+            ramie || lyocell || hopsack
               ? warpTone
               : chambray
                 ? 0.92
@@ -5346,9 +5350,11 @@ export function createSurfaceSampler(
                   ? napPreset.yarnTone
                   : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
-          profilePreset = lyocell
-            ? proceduralMaterialPresets.lyocell
-            : proceduralMaterialPresets.huckaback,
+          profilePreset = hopsack
+            ? proceduralMaterialPresets.hopsack
+            : lyocell
+              ? proceduralMaterialPresets.lyocell
+              : proceduralMaterialPresets.huckaback,
           draftRepeat = profilePreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
@@ -35823,6 +35829,7 @@ export function createSurfaceSampler(
     kind === 'thomsonite' ||
     kind === 'basswood' ||
     kind === 'nickelsilver' ||
+    kind === 'hopsack' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||
     kind === 'sphericalwashers' ||

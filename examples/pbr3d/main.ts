@@ -841,6 +841,7 @@ try {
     'mungbeans',
     'thomsonite',
     'nickelsilver',
+    'hopsack',
     'lyocell',
     'ramie',
     'wavewashers',
