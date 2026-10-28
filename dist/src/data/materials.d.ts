@@ -8087,6 +8087,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         scarY: 0.12;
         scarRadius: 0.025;
     }>;
+    cavansite: Readonly<{
+        dark: readonly [0, 87, 163];
+        light: readonly [250, 245, 229];
+        roughness: 0.78;
+        relief: 0.004;
+        cells: 4;
+        chance: 0.65;
+        jitter: 0.07;
+        scaleMinimum: 0.86;
+        scaleVariation: 0.14;
+        needles: 36;
+        bodyRadius: 0.235;
+        bodyShoulder: 0.55;
+        needleOffset: 0.165;
+        needleHalfMinimum: 0.07;
+        needleHalfVariation: 0.025;
+        needleWidthMinimum: 0.009;
+        needleWidthVariation: 0.006;
+        needleShoulder: 0.3;
+        bodyLift: 0.34;
+        needleLift: 0.09;
+        crystalRoughness: 0.35;
+        needleAngleJitter: 0.18;
+    }>;
     fluorite: Readonly<{
         dark: readonly [54, 27, 82];
         light: readonly [235, 221, 245];
@@ -10113,6 +10137,7 @@ export declare const proceduralTileMeters: Readonly<{
     shackles: 0.6;
     watercaltrops: 0.24;
     fluorite: 0.06;
+    cavansite: 0.16;
     wenge: 0.12;
     parchment: 0.04;
     cavalrytwill: 0.024;

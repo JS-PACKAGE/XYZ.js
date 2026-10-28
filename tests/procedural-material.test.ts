@@ -756,6 +756,7 @@ const kinds: ProceduralMaterialKind[] = [
   'shackles',
   'watercaltrops',
   'fluorite',
+  'cavansite',
   'wenge',
   'parchment',
   'cavalrytwill',
@@ -1041,6 +1042,254 @@ describe('Closed silver three-wave spring washers with uniform-width angular lif
           v = (j * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Raised brilliant-blue Cavansite short-acicular rosettes on a pale granular mineral matrix', () => {
+  const p = proceduralMaterialPresets.cavansite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps sparse smoother blue raised rosettes among a dominant pale rough matrix for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cavansite', seed),
+        a = empty();
+      let blue = 0,
+        host = 0,
+        blueHeight = 0,
+        hostHeight = 0,
+        blueRoughness = 0,
+        hostRoughness = 0,
+        low = 1,
+        high = 0,
+        lowMatrix = 1,
+        highMatrix = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          if (a.color < 0.25) {
+            blue++;
+            blueHeight += a.height;
+            blueRoughness += a.roughness;
+          }
+          if (a.color > 0.8) {
+            host++;
+            hostHeight += a.height;
+            hostRoughness += a.roughness;
+          }
+          if (a.color > 0.8 && a.roughness >= p.roughness) {
+            lowMatrix = Math.min(lowMatrix, a.height / p.relief);
+            highMatrix = Math.max(highMatrix, a.height / p.relief);
+          }
+          low = Math.min(low, a.height / p.relief);
+          high = Math.max(high, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.34 ||
+              a.roughness > 0.82 ||
+              a.occlusion < 0.87 ||
+              a.occlusion > 1 ||
+              a.height < 0.21 * p.relief ||
+              a.height > 0.62 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(blue / 65536).toBeGreaterThan(0.05);
+      expect(blue / 65536).toBeLessThan(0.14);
+      expect(host / 65536).toBeGreaterThan(0.83);
+      expect(host / 65536).toBeLessThan(0.94);
+      expect(blueHeight / blue - hostHeight / host).toBeGreaterThan(
+        0.14 * p.relief,
+      );
+      expect(blueHeight / blue - hostHeight / host).toBeLessThan(
+        0.2 * p.relief,
+      );
+      expect(hostRoughness / host - blueRoughness / blue).toBeGreaterThan(0.35);
+      expect(highMatrix - lowMatrix).toBeGreaterThan(0.035);
+      expect(highMatrix - lowMatrix).toBeLessThan(0.065);
+      expect(high - low).toBeGreaterThan(0.34);
+      expect(high - low).toBeLessThan(0.4);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps observable short-acicular rosette rims rather than smooth painted circles, square crystals or long-spiked stars', () => {
+    const a = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cavansite', seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          let peak = 0,
+            u = 0,
+            v = 0;
+          for (let y = 0; y < 64; y++)
+            for (let x = 0; x < 64; x++) {
+              const cu = (col + (x + 0.5) / 64) / p.cells,
+                cv = (row + (y + 0.5) / 64) / p.cells;
+              sample(cu, cv, a);
+              if (a.height > peak) {
+                peak = a.height;
+                u = cu;
+                v = cv;
+              }
+            }
+          if (peak < 0.5 * p.relief) continue;
+          let step = 1 / (64 * p.cells);
+          for (let j = 0; j < 10; j++) {
+            let bu = u,
+              bv = v;
+            for (let y = -1; y <= 1; y++)
+              for (let x = -1; x <= 1; x++) {
+                sample(u + x * step, v + y * step, a);
+                if (a.height > peak) {
+                  peak = a.height;
+                  bu = u + x * step;
+                  bv = v + y * step;
+                }
+              }
+            u = bu;
+            v = bv;
+            step *= 0.5;
+          }
+          let minimum = 1,
+            maximum = 0;
+          for (let angle = 0; angle < 64; angle++) {
+            const d = ((angle + 0.5) * 2 * Math.PI) / 64,
+              dx = Math.cos(d) / p.cells,
+              dy = Math.sin(d) / p.cells;
+            let radius = 0;
+            for (let r = 1; r <= 96; r++) {
+              const rr = (0.3 * r) / 96;
+              sample(u + dx * rr, v + dy * rr, a);
+              if (a.color < 0.25) radius = rr;
+            }
+            minimum = Math.min(minimum, radius);
+            maximum = Math.max(maximum, radius);
+          }
+          expect(minimum).toBeGreaterThan(0.14);
+          expect(maximum).toBeLessThan(0.27);
+          expect(maximum - minimum).toBeGreaterThan(0.04);
+          expect(maximum - minimum).toBeLessThan(0.09);
+        }
+    }
+  });
+  it('keeps occupied and empty owner boundaries and both grain lattices C1 over six channels', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cavansite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 32, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.05);
+    }
+  });
+  it('writes actual512 opaque dielectric brilliant-blue crystal and warm-white host maps with lower crystal roughness and genuine nonflat normals', () => {
+    const maps = generateProceduralMaps('cavansite', 512, 7, {
+        heightMap: true,
+      }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let blue = 0,
+      host = 0,
+      blueRoughness = 0,
+      hostRoughness = 0,
+      tilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (r < 60 && g > 80 && g < 120 && b > 160 && b < 185) {
+        blue++;
+        blueRoughness += maps.metallicRoughness[i + 1];
+      }
+      if (r > 210 && g > 215 && b > 215 && g - b >= 2 && g - b <= 18) {
+        host++;
+        hostRoughness += maps.metallicRoughness[i + 1];
+      }
+      tilt = Math.max(
+        tilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(0.025);
+    expect(blue / (512 * 512)).toBeLessThan(0.15);
+    expect(host / (512 * 512)).toBeGreaterThan(0.8);
+    expect(hostRoughness / host - blueRoughness / blue).toBeGreaterThan(85);
+    expect(tilt).toBeGreaterThan(0.015);
+    expect(tilt).toBeLessThan(0.07);
+    expect(invalid).toBe(0);
+  });
+  it('repeats crystal crowns, acicular rims, pale matrix and all other channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cavansite', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

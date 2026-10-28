@@ -2060,6 +2060,99 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cavansite': {
+        const p = proceduralMaterialPresets.cavansite,
+          sites = new Float64Array(p.cells * p.cells * 6),
+          needles = new Float64Array(p.needles * 4),
+          grainField = cachedNoise(128, 128, seed ^ 0x20b11),
+          hostField = cachedNoise(32, 32, seed ^ 0x20b13),
+          inverseBody = 1 / (p.bodyRadius * p.bodyRadius),
+          inverseBodyShoulder = 1 / p.bodyShoulder,
+          inverseNeedleShoulder = 1 / p.needleShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x20b15);
+            sites[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20b17) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20b19) - 1);
+            sites[i + 2] = Math.cos(angle);
+            sites[i + 3] = Math.sin(angle);
+            sites[i + 4] =
+              1 /
+              (p.scaleMinimum +
+                p.scaleVariation * hash(col, row, seed ^ 0x20b1b));
+            sites[i + 5] = Number(hash(col, row, seed ^ 0x20b1d) < p.chance);
+          }
+        for (let j = 0; j < p.needles; j++) {
+          const i = j * 4,
+            angle =
+              (TAU *
+                (j +
+                  p.needleAngleJitter * (2 * hash(j, 0, seed ^ 0x20b25) - 1))) /
+              p.needles,
+            half =
+              p.needleHalfMinimum +
+              p.needleHalfVariation * hash(j, 0, seed ^ 0x20b21),
+            width =
+              p.needleWidthMinimum +
+              p.needleWidthVariation * hash(j, 0, seed ^ 0x20b23);
+          needles[i] = Math.cos(angle);
+          needles[i + 1] = Math.sin(angle);
+          needles[i + 2] = 1 / (half * half);
+          needles[i + 3] = 1 / (width * width);
+        }
+        return () => {
+          const grain = grainField(u, v),
+            host = hostField(u, v),
+            uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6;
+          color = 0.86 + 0.11 * host + 0.012 * grain;
+          height = 0.22 + 0.045 * host + 0.012 * grain;
+          roughness += 0.035 * grain;
+          occlusion = 0.94 + 0.04 * host;
+          if (sites[i + 5] === 0) return;
+          const dx = (fract(uc) - sites[i]) * sites[i + 4],
+            dy = (fract(vc) - sites[i + 1]) * sites[i + 4],
+            x = dx * sites[i + 2] + dy * sites[i + 3],
+            y = dy * sites[i + 2] - dx * sites[i + 3],
+            radial = clamp(1 - (x * x + y * y) * inverseBody),
+            // Pigment and AO must also meet exposed needles with zero slope at the body rim.
+            core = radial * radial,
+            body = smooth(clamp(radial * inverseBodyShoulder));
+          let uncovered = 1 - body,
+            needleRemaining = 1;
+          for (let j = 0; j < p.needles; j++) {
+            const k = j * 4,
+              along = x * needles[k] + y * needles[k + 1] - p.needleOffset,
+              across = y * needles[k] - x * needles[k + 1],
+              q = clamp(
+                1 -
+                  along * along * needles[k + 2] -
+                  across * across * needles[k + 3],
+              );
+            uncovered *= 1 - smooth(clamp(q * inverseNeedleShoulder));
+            needleRemaining *= 1 - q * q;
+          }
+          const face = 1 - uncovered,
+            needlesLift = 1 - needleRemaining;
+          if (face === 0) return;
+          color += face * (0.03 + 0.09 * grain + 0.03 * core - color);
+          height +=
+            face *
+            (0.25 +
+              p.bodyLift * core +
+              p.needleLift * needlesLift +
+              0.006 * grain -
+              height);
+          roughness += face * (p.crystalRoughness + 0.08 * grain - roughness);
+          occlusion +=
+            face * (0.88 + 0.1 * core + 0.03 * needlesLift - occlusion);
+          return;
+        };
+      }
       case 'fluorite': {
         const p = proceduralMaterialPresets.fluorite,
           crystals = new Float64Array(p.cells * p.cells * 6),
@@ -36098,6 +36191,7 @@ export function createSurfaceSampler(
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
+    kind === 'cavansite' ||
     kind === 'wenge' ||
     kind === 'parchment' ||
     kind === 'cavalrytwill' ||

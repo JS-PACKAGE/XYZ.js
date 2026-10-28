@@ -14380,6 +14380,38 @@ var proceduralMaterialPresets = Object.freeze({
 		scarY: .12,
 		scarRadius: .025
 	}),
+	cavansite: Object.freeze({
+		dark: [
+			0,
+			87,
+			163
+		],
+		light: [
+			250,
+			245,
+			229
+		],
+		roughness: .78,
+		relief: .004,
+		cells: 4,
+		chance: .65,
+		jitter: .07,
+		scaleMinimum: .86,
+		scaleVariation: .14,
+		needles: 36,
+		bodyRadius: .235,
+		bodyShoulder: .55,
+		needleOffset: .165,
+		needleHalfMinimum: .07,
+		needleHalfVariation: .025,
+		needleWidthMinimum: .009,
+		needleWidthVariation: .006,
+		needleShoulder: .3,
+		bodyLift: .34,
+		needleLift: .09,
+		crystalRoughness: .35,
+		needleAngleJitter: .18
+	}),
 	fluorite: Object.freeze({
 		dark: [
 			54,
@@ -16973,6 +17005,7 @@ var proceduralTileMeters = Object.freeze({
 	shackles: .6,
 	watercaltrops: .24,
 	fluorite: .06,
+	cavansite: .16,
 	wenge: .12,
 	parchment: .04,
 	cavalrytwill: .024,
