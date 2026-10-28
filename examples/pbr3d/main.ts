@@ -832,6 +832,7 @@ try {
     'safflowerseeds',
     'unakite',
     'eudialyte',
+    'iroko',
     'ramie',
     'cupwashers',
   ] as const) {

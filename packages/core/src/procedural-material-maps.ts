@@ -1983,35 +1983,32 @@ export function createSurfaceSampler(
         };
       }
       case 'padauk':
+      case 'iroko':
       case 'sapele':
       case 'wenge': {
-        const p = proceduralMaterialPresets[kind],
-          bandContrast =
-            kind === 'padauk'
-              ? proceduralMaterialPresets.padauk.bandContrast
-              : 0.3,
-          centerMinimum =
-            kind === 'padauk'
-              ? proceduralMaterialPresets.padauk.centerMinimum
-              : 0.4,
-          centerRange =
-            kind === 'padauk'
-              ? proceduralMaterialPresets.padauk.centerRange
-              : 0.2,
+        const iroko =
+            kind === 'iroko' ? proceduralMaterialPresets.iroko : undefined,
+          sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : iroko,
+          p = sparse ?? proceduralMaterialPresets[kind],
+          bandContrast = sparse ? sparse.bandContrast : 0.3,
+          centerMinimum = sparse ? sparse.centerMinimum : 0.4,
+          centerRange = sparse ? sparse.centerRange : 0.2,
+          fiberContrast = iroko ? iroko.fiberContrast : 0.04,
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(3, 4, seed ^ 0x1ae11),
-          fiberField = cachedNoise(64, 4, seed ^ 0x1ae13),
+          fiberField = cachedNoise(
+            iroko ? iroko.fiberColumns : 64,
+            iroko ? iroko.fiberRows : 4,
+            seed ^ 0x1ae13,
+          ),
           grainField = cachedNoise(128, 128, seed ^ 0x1ae15),
           bandSquared = p.bandRadius * p.bandRadius,
-          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore);
+          inverseBand = 1 / (bandSquared - p.bandCore * p.bandCore),
+          inversePore = 1 / p.poreShoulder;
         for (let row = 0; row < p.rows; row++)
           for (let col = 0; col < p.columns; col++) {
             const i = (row * p.columns + col) * 4;
-            if (
-              kind === 'padauk' &&
-              hash(col, row, seed ^ 0x1c217) >=
-                proceduralMaterialPresets.padauk.poreChance
-            )
+            if (sparse && hash(col, row, seed ^ 0x1c217) >= sparse.poreChance)
               continue;
             const width =
                 p.widthMinimum +
@@ -2037,7 +2034,7 @@ export function createSurfaceSampler(
             const dx = x - col - pores[i],
               dy = y - row - pores[i + 1],
               q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3];
-            pore = smooth(clamp((1 - q) / p.poreShoulder));
+            pore = smooth(clamp((1 - q) * inversePore));
           }
           const phase = u * p.bands + p.bandWarp * warpField(u, v),
             distance = phase - Math.floor(phase + 0.5),
@@ -2046,9 +2043,10 @@ export function createSurfaceSampler(
             ),
             fiber = fiberField(u, v),
             grain = grainField(u, v);
-          // Long open vessels are actual shallow depressions; pale parenchyma
-          // bands are pigment, not proud corduroy-like strips.
-          color = 0.25 + bandContrast * band + 0.04 * fiber + 0.012 * grain;
+          // Long open vessels genuinely recess; longitudinal grain and ribbon
+          // figure remain pigment, not proud corduroy-like strips.
+          color =
+            0.25 + bandContrast * band + fiberContrast * fiber + 0.012 * grain;
           color += pore * (0.035 - color);
           height = 0.5 + 0.003 * grain - p.poreDepth * pore;
           roughness += 0.025 * grain + 0.08 * pore;
@@ -35608,6 +35606,7 @@ export function createSurfaceSampler(
     kind === 'safflowerseeds' ||
     kind === 'unakite' ||
     kind === 'eudialyte' ||
+    kind === 'iroko' ||
     kind === 'ramie' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||

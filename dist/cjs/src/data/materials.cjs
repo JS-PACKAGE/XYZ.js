@@ -15261,6 +15261,39 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .35,
 		grainHeight: .002
 	}),
+	iroko: Object.freeze({
+		dark: [
+			111,
+			77,
+			34
+		],
+		light: [
+			238,
+			200,
+			131
+		],
+		roughness: .62,
+		relief: .003,
+		columns: 36,
+		rows: 12,
+		widthMinimum: .04,
+		widthVariation: .03,
+		lengthMinimum: .14,
+		lengthVariation: .14,
+		poreChance: .28,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .11,
+		bands: 6,
+		bandWarp: .35,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .16,
+		fiberColumns: 256,
+		fiberRows: 8,
+		fiberContrast: .1
+	}),
 	ramie: Object.freeze({
 		dark: [
 			159,
@@ -16250,6 +16283,7 @@ var proceduralTileMeters = Object.freeze({
 	safflowerseeds: .06,
 	unakite: .12,
 	eudialyte: .12,
+	iroko: .18,
 	ramie: .04,
 	cupwashers: .1
 });

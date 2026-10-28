@@ -8755,6 +8755,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.35;
         grainHeight: 0.002;
     }>;
+    iroko: Readonly<{
+        dark: readonly [111, 77, 34];
+        light: readonly [238, 200, 131];
+        roughness: 0.62;
+        relief: 0.003;
+        columns: 36;
+        rows: 12;
+        widthMinimum: 0.04;
+        widthVariation: 0.03;
+        lengthMinimum: 0.14;
+        lengthVariation: 0.14;
+        poreChance: 0.28;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.11;
+        bands: 6;
+        bandWarp: 0.35;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.16;
+        fiberColumns: 256;
+        fiberRows: 8;
+        fiberContrast: 0.1;
+    }>;
     ramie: Readonly<{
         dark: readonly [159, 154, 132];
         light: readonly [249, 246, 227];
@@ -9681,6 +9706,7 @@ export declare const proceduralTileMeters: Readonly<{
     safflowerseeds: 0.06;
     unakite: 0.12;
     eudialyte: 0.12;
+    iroko: 0.18;
     ramie: 0.04;
     cupwashers: 0.1;
 }>;
