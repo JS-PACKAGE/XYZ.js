@@ -3851,6 +3851,82 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'eudialyte': {
+        const p = proceduralMaterialPresets.eudialyte,
+          sites = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1e319),
+          inverseSupport = 1 / p.supportSquared,
+          inverseSeam = 1 / p.seamShoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let slot = 0; slot < 2; slot++) {
+              const x = col * 2 + slot,
+                i = (row * p.cells + col) * 6 + slot * 3,
+                tone = hash(x, row, seed ^ 0x1e315);
+              sites[i] =
+                p.siteMinimum + p.siteVariation * hash(x, row, seed ^ 0x1e311);
+              sites[i + 1] =
+                p.siteMinimum + p.siteVariation * hash(x, row, seed ^ 0x1e313);
+              sites[i + 2] =
+                tone > p.darkThreshold
+                  ? p.raspberryBase + p.raspberryVariation * tone
+                  : p.matrixBase + p.matrixVariation * tone;
+            }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let pigment = 0,
+            weight = 0,
+            squared = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = col + ox,
+                cy = row + oy,
+                owner =
+                  (((cy + p.cells) % p.cells) * p.cells +
+                    ((cx + p.cells) % p.cells)) *
+                  6;
+              for (let slot = 0; slot < 2; slot++) {
+                const i = owner + slot * 3,
+                  dx = x - cx - sites[i],
+                  dy = y - cy - sites[i + 1];
+                // Radius 1.18 vanishes before omitted sites enter at distance 1.2.
+                // An own site is within squared distance 1.28, keeping weight positive.
+                let cap = clamp(1 - (dx * dx + dy * dy) * inverseSupport);
+                if (cap === 0) continue;
+                cap *= cap;
+                cap *= cap;
+                cap *= cap;
+                cap *= cap;
+                pigment += cap * sites[i + 2];
+                weight += cap;
+                squared += cap * cap;
+              }
+            }
+          const inverseWeight = 1 / weight,
+            mineral = pigment * inverseWeight,
+            face = smooth(
+              clamp(
+                (squared * inverseWeight * inverseWeight - p.seamThreshold) *
+                  inverseSeam,
+              ),
+            ),
+            grain = grainField(u, v);
+          // As in Howlite, normalized overlap avoids nearest-site derivative jumps.
+          color =
+            p.matrixBase +
+            face *
+              (mineral * (1 - p.fineContrast + p.fineContrast * grain) -
+                p.matrixBase);
+          // Dark matrix and raspberry fragments share a polished plane, not carved pits.
+          height = p.height + p.grainHeight * grain;
+          roughness = p.roughness + 0.05 * (1 - mineral) + 0.01 * grain;
+          occlusion = 1;
+          return;
+        };
+      }
       case 'cupwashers': {
         const p = proceduralMaterialPresets.cupwashers,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -35517,6 +35593,7 @@ export function createSurfaceSampler(
     kind === 'snakewood' ||
     kind === 'safflowerseeds' ||
     kind === 'unakite' ||
+    kind === 'eudialyte' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
     kind === 'castorbeans' ||

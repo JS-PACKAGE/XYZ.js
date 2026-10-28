@@ -8734,6 +8734,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.35;
         grainHeight: 0.002;
     }>;
+    eudialyte: Readonly<{
+        dark: readonly [9, 8, 13];
+        light: readonly [205, 22, 90];
+        roughness: 0.2;
+        relief: 0.00012;
+        cells: 8;
+        grainCells: 192;
+        siteMinimum: 0.2;
+        siteVariation: 0.6;
+        supportSquared: 1.3924;
+        darkThreshold: 0.25;
+        raspberryBase: 0.68;
+        raspberryVariation: 0.16;
+        matrixBase: 0.025;
+        matrixVariation: 0.05;
+        fineContrast: 0.28;
+        seamThreshold: 0.5;
+        seamShoulder: 0.06;
+        height: 0.35;
+        grainHeight: 0.002;
+    }>;
     cupwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -9640,5 +9661,6 @@ export declare const proceduralTileMeters: Readonly<{
     snakewood: 0.16;
     safflowerseeds: 0.06;
     unakite: 0.12;
+    eudialyte: 0.12;
     cupwashers: 0.1;
 }>;

@@ -794,8 +794,317 @@ const kinds: ProceduralMaterialKind[] = [
   'snakewood',
   'safflowerseeds',
   'unakite',
+  'eudialyte',
   'cupwashers',
 ];
+
+describe('Raspberry-red and black angular Eudialyte-bearing fragments on a level polished plane without false twinning ribs', () => {
+  const p = proceduralMaterialPresets.eudialyte;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Seed work locates real support circles and dark-class sites; sample outputs are not reconstructed.
+  const siteHash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const sitesFor = (seed: number): Float64Array => {
+    const points = new Float64Array(p.cells * p.cells * 4);
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (let slot = 0; slot < 2; slot++) {
+          const x = col * 2 + slot,
+            i = ((row * p.cells + col) * 2 + slot) * 2;
+          points[i] =
+            (col +
+              p.siteMinimum +
+              p.siteVariation * siteHash(x, row, seed ^ 0x1e311)) /
+            p.cells;
+          points[i + 1] =
+            (row +
+              p.siteMinimum +
+              p.siteVariation * siteHash(x, row, seed ^ 0x1e313)) /
+            p.cells;
+        }
+    return points;
+  };
+  // Geometry-only overlap locates shoulder roots; no pigment/roughness/height output is copied.
+  const concentration = (
+    points: Float64Array,
+    u: number,
+    v: number,
+  ): number => {
+    let sum = 0,
+      squared = 0;
+    for (let i = 0; i < points.length; i += 2) {
+      let dx = u - points[i],
+        dy = v - points[i + 1];
+      dx = (dx - Math.round(dx)) * p.cells;
+      dy = (dy - Math.round(dy)) * p.cells;
+      const cap = 1 - (dx * dx + dy * dy) / p.supportSquared;
+      if (cap <= 0) continue;
+      const a = cap * cap,
+        b = a * a,
+        c = b * b,
+        weight = c * c;
+      sum += weight;
+      squared += weight * weight;
+    }
+    return squared / (sum * sum);
+  };
+  function* neighbors(
+    points: Float64Array,
+  ): Generator<readonly [number, number, number, number, number, number]> {
+    for (let i = 0; i < points.length; i += 2)
+      for (let j = i + 2; j < points.length; j += 2) {
+        let dx = points[j] - points[i],
+          dy = points[j + 1] - points[i + 1];
+        dx -= Math.round(dx);
+        dy -= Math.round(dy);
+        const u = points[i] + dx * 0.5,
+          v = points[i + 1] + dy * 0.5,
+          r2 = (dx * dx + dy * dy) * 0.25;
+        let nearest = true;
+        for (let k = 0; k < points.length; k += 2) {
+          if (k === i || k === j) continue;
+          let x = points[k] - u,
+            y = points[k + 1] - v;
+          x -= Math.round(x);
+          y -= Math.round(y);
+          if (x * x + y * y < r2 - 1e-14) {
+            nearest = false;
+            break;
+          }
+        }
+        if (nearest) yield [i, j, u, v, dx, dy] as const;
+      }
+  }
+  it.each([0, 1, 0xffffffff])(
+    'retains black and raspberry fragment domains and fine micrograin without embossing or cavity AO for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('eudialyte', seed),
+        a = empty();
+      let dark = 0,
+        raspberry = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity;
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) {
+          const u = x / 128,
+            v = y / 128;
+          sample(u, v, a);
+          dark += Number(a.color < 0.2);
+          raspberry += Number(a.color > 0.6);
+          invalid += Number(
+            a.metallic !== 0 || a.mortar !== 0 || a.occlusion !== 1,
+          );
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+        }
+      expect(dark / 16641).toBeGreaterThan(0.1);
+      expect(raspberry / 16641).toBeGreaterThan(0.08);
+      expect(high - low).toBeGreaterThan(0.0015 * p.relief);
+      expect(high - low).toBeLessThan(0.0021 * p.relief);
+      expect(invalid).toBe(0);
+      const points = sitesFor(seed),
+        colors = new Float64Array(points.length / 2);
+      let checked = 0;
+      for (let i = 0; i < points.length; i += 2) {
+        sample(points[i], points[i + 1], a);
+        colors[i / 2] = a.color;
+      }
+      for (const [i, j, u, v] of neighbors(points)) {
+        if (colors[i / 2] <= 0.55 || colors[j / 2] <= 0.55) continue;
+        sample(u, v, a);
+        expect(a.color).toBeLessThan(0.12);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(2);
+      let blackCores = 0;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let slot = 0; slot < 2; slot++) {
+            const x = col * 2 + slot,
+              i = ((row * p.cells + col) * 2 + slot) * 2;
+            if (
+              siteHash(x, row, seed ^ 0x1e315) > p.darkThreshold ||
+              concentration(points, points[i], points[i + 1]) <= 0.8
+            )
+              continue;
+            sample(points[i], points[i + 1], a);
+            expect(a.color).toBeLessThan(0.25);
+            blackCores++;
+          }
+      expect(blackCores).toBeGreaterThan(2);
+    },
+  );
+  it('writes actual512 opaque dark and raspberry-red granular stone with metal-zero AO-one maps and an almost flat polished normal', () => {
+    const maps = generateProceduralMaps('eudialyte', 512, 7, {
+      heightMap: true,
+    });
+    let dark = 0,
+      raspberry = 0,
+      invalid = 0,
+      tilt = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      dark += Number(r < 65 && g < 40 && b < 45);
+      raspberry += Number(r > g + 45 && b > g + 15 && r > b + 40);
+      invalid += Number(
+        maps.baseColor[i + 3] !== 255 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255,
+      );
+      const nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      tilt = Math.max(tilt, nx * nx + ny * ny);
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.1);
+    expect(raspberry / (512 * 512)).toBeGreaterThan(0.1);
+    expect(tilt).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats the black and raspberry fragment pigment micrograin and all polished dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eudialyte', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys) expect(b[key]).toBeCloseTo(a[key], 10);
+      }
+    }
+  });
+  it('keeps actual pigment iso-contours every compact support circle true overlap shoulder and owner/cache grids C1 including period seams', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      probe = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('eudialyte', seed),
+        points = sitesFor(seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++)
+          for (let slot = 0; slot < 2; slot++) {
+            const x = col * 2 + slot,
+              cx =
+                col +
+                p.siteMinimum +
+                p.siteVariation * siteHash(x, row, seed ^ 0x1e311),
+              cy =
+                row +
+                p.siteMinimum +
+                p.siteVariation * siteHash(x, row, seed ^ 0x1e313),
+              radius = Math.sqrt(p.supportSquared);
+            for (let k = 0; k <= 512; k++) {
+              const angle = (2 * Math.PI * k) / 512;
+              check(
+                (cx + radius * Math.cos(angle)) / p.cells,
+                (cy + radius * Math.sin(angle)) / p.cells,
+              );
+            }
+          }
+      let localized = 0;
+      for (const [, , u, v, dx, dy] of neighbors(points))
+        for (const sign of [-1, 1]) {
+          const du = sign * dx * 0.5,
+            dv = sign * dy * 0.5,
+            start = concentration(points, u, v),
+            end = concentration(points, u + du, v + dv);
+          for (const level of [
+            p.seamThreshold,
+            p.seamThreshold + p.seamShoulder,
+          ]) {
+            if ((start - level) * (end - level) >= 0) continue;
+            let lo = 0,
+              hi = 1;
+            for (let k = 0; k < 50; k++) {
+              const t = (lo + hi) * 0.5,
+                value = concentration(points, u + t * du, v + t * dv);
+              if ((start - level) * (value - level) > 0) lo = t;
+              else hi = t;
+            }
+            const t = (lo + hi) * 0.5;
+            check(u + t * du, v + t * dv);
+            localized++;
+          }
+        }
+      expect(localized).toBeGreaterThan(2);
+      for (const grid of [p.cells, p.grainCells])
+        for (let k = 0; k <= grid; k++)
+          for (let j = 0; j <= 128; j++) {
+            check(k / grid, j / 128);
+            check(j / 128, k / grid);
+          }
+      const grid = p.cells * 4;
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            const u = x / grid,
+              v = y / grid,
+              du = axis ? 0 : 1 / grid,
+              dv = axis ? 1 / grid : 0;
+            sample(u, v, probe);
+            const start = probe.color;
+            sample(u + du, v + dv, probe);
+            const end = probe.color;
+            for (const level of [0.15, 0.35, 0.6]) {
+              if ((start - level) * (end - level) >= 0) continue;
+              let lo = 0,
+                hi = 1;
+              for (let j = 0; j < 50; j++) {
+                const t = (lo + hi) * 0.5;
+                sample(u + t * du, v + t * dv, probe);
+                if ((start - level) * (probe.color - level) > 0) lo = t;
+                else hi = t;
+              }
+              const t = (lo + hi) * 0.5;
+              check(u + t * du, v + t * dv);
+            }
+          }
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+});
 
 describe('Granular mottled green and salmon-pink Unakite on one polished dielectric plane without a regular grain grid', () => {
   const p = proceduralMaterialPresets.unakite;

@@ -768,6 +768,7 @@ export type ProceduralMaterialKind =
   | 'snakewood'
   | 'safflowerseeds'
   | 'unakite'
+  | 'eudialyte'
   | 'cupwashers';
 
 export interface ProceduralMaterialOptions {
@@ -1770,6 +1771,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'snakewood',
   'safflowerseeds',
   'unakite',
+  'eudialyte',
   'cupwashers',
 ];
 const repeatSampler = Object.freeze({
