@@ -8820,6 +8820,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.1;
     }>;
+    lyocell: Readonly<{
+        dark: readonly [119, 104, 80];
+        light: readonly [229, 213, 179];
+        roughness: 0.56;
+        relief: 0.0005;
+        yarnTone: 0.82;
+        warpThreads: 48;
+        weftThreads: 48;
+        warpRadius: 0.495;
+        warpCore: 0.4;
+        weftRadius: 0.495;
+        weftCore: 0.4;
+        warpLiftHalf: 0.49;
+        weftLiftHalf: 0.49;
+        liftShoulder: 0.06;
+        lift: 0.065;
+        warpFibers: 192;
+        weftFibers: 192;
+        draft: readonly [7, 14, 13, 11];
+    }>;
     ramie: Readonly<{
         dark: readonly [159, 154, 132];
         light: readonly [249, 246, 227];
@@ -9790,6 +9810,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    lyocell: 0.012;
     ramie: 0.04;
     wavewashers: 0.1;
     cupwashers: 0.1;

@@ -5260,39 +5260,46 @@ export function createSurfaceSampler(
       case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
+      case 'lyocell':
       case 'ramie':
       case 'poplin': {
-        const ramie = kind === 'ramie',
+        const lyocell = kind === 'lyocell',
+          ramie = kind === 'ramie',
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
-          huck = kind === 'huckaback',
+          profiledWeave = kind === 'huckaback' || lyocell,
           chambray = kind === 'chambray',
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
           bareWeave = 1 - napPreset.napCoverage,
-          warpTone = ramie
-            ? proceduralMaterialPresets.ramie.yarnTone
-            : chambray
-              ? 0.18
-              : flannel
-                ? napPreset.yarnTone
-                : 0.82,
-          weftTone = ramie
-            ? warpTone
-            : chambray
-              ? 0.92
-              : flannel
-                ? napPreset.yarnTone
-                : 0.63,
+          warpTone = lyocell
+            ? proceduralMaterialPresets.lyocell.yarnTone
+            : ramie
+              ? proceduralMaterialPresets.ramie.yarnTone
+              : chambray
+                ? 0.18
+                : flannel
+                  ? napPreset.yarnTone
+                  : 0.82,
+          weftTone =
+            ramie || lyocell
+              ? warpTone
+              : chambray
+                ? 0.92
+                : flannel
+                  ? napPreset.yarnTone
+                  : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
-          huckPreset = proceduralMaterialPresets.huckaback,
-          huckRepeat = huckPreset.draft.length,
+          profilePreset = lyocell
+            ? proceduralMaterialPresets.lyocell
+            : proceduralMaterialPresets.huckaback,
+          draftRepeat = profilePreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          equalYarns = twill || huck || chambray || flannel || ramie,
+          equalYarns = twill || profiledWeave || chambray || flannel || ramie,
           warpBase = equalYarns ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
           weftCrown = ottoman ? 0.1 : equalYarns ? 0.04 : 0.07,
@@ -5319,42 +5326,42 @@ export function createSurfaceSampler(
           inverseWarpShoulder = 1 / (1 - p.warpCore * p.warpCore * inverseWarp),
           inverseWeftShoulder = 1 / (1 - p.weftCore * p.weftCore * inverseWeft),
           inverseLift = 1 / p.liftShoulder,
-          huckProfiles = huck
-            ? new Float64Array(huckRepeat * huckRepeat * 6)
+          floatProfiles = profiledWeave
+            ? new Float64Array(draftRepeat * draftRepeat * 6)
             : undefined,
           slubRows = shantung
             ? new Float64Array(p.weftThreads * slubPreset.slubs * 3)
             : undefined;
         // Whole equal-draft runs keep long floats raised through intermediate
-        // thread owners instead of turning each five-pick float into five beads.
-        if (huckProfiles)
-          for (let row = 0; row < huckRepeat; row++)
-            for (let col = 0; col < huckRepeat; col++) {
-              const flag = (huckPreset.draft[row] >>> col) & 1,
-                i = (row * huckRepeat + col) * 6;
+        // thread owners instead of turning continuous floats into per-pick beads.
+        if (floatProfiles)
+          for (let row = 0; row < draftRepeat; row++)
+            for (let col = 0; col < draftRepeat; col++) {
+              const flag = (profilePreset.draft[row] >>> col) & 1,
+                i = (row * draftRepeat + col) * 6;
               for (let axis = 0; axis < 2; axis++) {
                 let before = 0,
                   after = 0;
                 while (
-                  before < huckRepeat - 1 &&
-                  ((huckPreset.draft[
+                  before < draftRepeat - 1 &&
+                  ((profilePreset.draft[
                     axis === 0
-                      ? (row - before - 1 + huckRepeat) % huckRepeat
+                      ? (row - before - 1 + draftRepeat) % draftRepeat
                       : row
                   ] >>>
                     (axis === 0
                       ? col
-                      : (col - before - 1 + huckRepeat) % huckRepeat)) &
+                      : (col - before - 1 + draftRepeat) % draftRepeat)) &
                     1) ===
                     flag
                 )
                   before++;
                 while (
-                  after < huckRepeat - 1 - before &&
-                  ((huckPreset.draft[
-                    axis === 0 ? (row + after + 1) % huckRepeat : row
+                  after < draftRepeat - 1 - before &&
+                  ((profilePreset.draft[
+                    axis === 0 ? (row + after + 1) % draftRepeat : row
                   ] >>>
-                    (axis === 0 ? col : (col + after + 1) % huckRepeat)) &
+                    (axis === 0 ? col : (col + after + 1) % draftRepeat)) &
                     1) ===
                     flag
                 )
@@ -5365,9 +5372,9 @@ export function createSurfaceSampler(
                     (axis === 0 ? p.weftLiftHalf : p.warpLiftHalf),
                   core = Math.max(0, half - p.liftShoulder),
                   squared = half * half;
-                huckProfiles[j] = (after - before) * 0.5;
-                huckProfiles[j + 1] = squared;
-                huckProfiles[j + 2] = 1 / (squared - core * core);
+                floatProfiles[j] = (after - before) * 0.5;
+                floatProfiles[j + 1] = squared;
+                floatProfiles[j + 2] = 1 / (squared - core * core);
               }
             }
         if (slubRows)
@@ -5414,8 +5421,9 @@ export function createSurfaceSampler(
             qy = fy * fy * weftInverse,
             warp = smooth(clamp((1 - qx) * inverseWarpShoulder)),
             weft = smooth(clamp((1 - qy) * weftShoulder)),
-            warpOver = huck
-              ? ((huckPreset.draft[row % huckRepeat] >>> (col % huckRepeat)) &
+            warpOver = profiledWeave
+              ? ((profilePreset.draft[row % draftRepeat] >>>
+                  (col % draftRepeat)) &
                   1) !==
                 0
               : cavalry
@@ -5434,26 +5442,26 @@ export function createSurfaceSampler(
           occlusion = 0.45;
           if (coverage === 0 && !flannel) return;
           // Cavalry's six-step draft pairs steep wales; Ottoman pairs wefts.
-          // Huck floats span whole draft runs; other lifts fade per crossing.
+          // Profiled floats span whole draft runs; other lifts fade per crossing.
           const sign = warpOver ? 1 : -1,
-            profileIndex = huckProfiles
-              ? ((row % huckRepeat) * huckRepeat + (col % huckRepeat)) * 6
+            profileIndex = floatProfiles
+              ? ((row % draftRepeat) * draftRepeat + (col % draftRepeat)) * 6
               : 0,
-            liftX = huckProfiles
+            liftX = floatProfiles
               ? smooth(
                   clamp(
-                    (huckProfiles[profileIndex + 4] -
-                      (fx - huckProfiles[profileIndex + 3]) ** 2) *
-                      huckProfiles[profileIndex + 5],
+                    (floatProfiles[profileIndex + 4] -
+                      (fx - floatProfiles[profileIndex + 3]) ** 2) *
+                      floatProfiles[profileIndex + 5],
                   ),
                 )
               : smooth(clamp((p.warpLiftHalf - Math.abs(fx)) * inverseLift)),
-            liftY = huckProfiles
+            liftY = floatProfiles
               ? smooth(
                   clamp(
-                    (huckProfiles[profileIndex + 1] -
-                      (fy - huckProfiles[profileIndex]) ** 2) *
-                      huckProfiles[profileIndex + 2],
+                    (floatProfiles[profileIndex + 1] -
+                      (fy - floatProfiles[profileIndex]) ** 2) *
+                      floatProfiles[profileIndex + 2],
                   ),
                 )
               : smooth(clamp((p.weftLiftHalf - Math.abs(fy)) * inverseLift)),
@@ -35736,6 +35744,7 @@ export function createSurfaceSampler(
     kind === 'unakite' ||
     kind === 'eudialyte' ||
     kind === 'iroko' ||
+    kind === 'lyocell' ||
     kind === 'ramie' ||
     kind === 'wavewashers' ||
     kind === 'cupwashers' ||

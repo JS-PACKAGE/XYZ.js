@@ -836,6 +836,7 @@ try {
     'unakite',
     'eudialyte',
     'iroko',
+    'lyocell',
     'ramie',
     'wavewashers',
     'cupwashers',

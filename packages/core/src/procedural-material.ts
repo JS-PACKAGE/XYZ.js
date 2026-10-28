@@ -773,6 +773,7 @@ export type ProceduralMaterialKind =
   | 'unakite'
   | 'eudialyte'
   | 'iroko'
+  | 'lyocell'
   | 'ramie'
   | 'wavewashers'
   | 'cupwashers';
@@ -1782,6 +1783,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'lyocell',
   'ramie',
   'wavewashers',
   'cupwashers',

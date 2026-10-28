@@ -799,6 +799,7 @@ const kinds: ProceduralMaterialKind[] = [
   'unakite',
   'eudialyte',
   'iroko',
+  'lyocell',
   'ramie',
   'wavewashers',
   'cupwashers',
@@ -1262,6 +1263,263 @@ describe('Golden brown Iroko with sparse closed longitudinal vessels and flat in
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Fine beige Lyocell with a continuous three-over-one twill and uniform dye on a smooth opaque dielectric face', () => {
+  const p = proceduralMaterialPresets.lyocell;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps a phase-independent three-over-one diagonal relief and raised float joins without two-color yarns open mesh grout or metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('lyocell', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        d = empty(),
+        orientations = new Float64Array(64);
+      let orientation = Infinity,
+        join = Infinity,
+        centerLow = Infinity,
+        centerHigh = -Infinity,
+        dense = 0,
+        invalid = 0,
+        low = Infinity,
+        high = -Infinity;
+      for (let row = 0; row < 8; row++)
+        for (let col = 0; col < 8; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v + 0.47 / p.weftThreads, a);
+          sample(u, v - 0.47 / p.weftThreads, b);
+          sample(u + 0.47 / p.warpThreads, v, c);
+          sample(u - 0.47 / p.warpThreads, v, d);
+          const relief = 0.5 * (a.height + b.height - c.height - d.height);
+          orientations[row * 8 + col] = relief;
+          orientation = Math.min(orientation, Math.abs(relief));
+          sample(u, v, a);
+          centerLow = Math.min(centerLow, a.color);
+          centerHigh = Math.max(centerHigh, a.color);
+        }
+      expect(orientation).toBeGreaterThan(0.001 * p.relief);
+      for (let row = 0; row < 8; row++) {
+        let over = 0;
+        for (let col = 0; col < 8; col++)
+          over += Number(orientations[row * 8 + col] > 0);
+        expect(over).toBe(6);
+      }
+      for (let col = 0; col < 8; col++) {
+        let over = 0;
+        for (let row = 0; row < 8; row++)
+          over += Number(orientations[row * 8 + col] > 0);
+        expect(over).toBe(6);
+      }
+      let forward = true,
+        backward = true;
+      for (let row = 1; row < 8; row++)
+        for (let col = 0; col < 8; col++) {
+          const over = orientations[row * 8 + col] > 0;
+          forward &&=
+            over === orientations[(row - 1) * 8 + ((col + 7) % 8)] > 0;
+          backward &&=
+            over === orientations[(row - 1) * 8 + ((col + 1) % 8)] > 0;
+        }
+      expect(Number(forward || backward)).toBe(1);
+      for (let row = 0; row < 7; row++)
+        for (let col = 0; col < 8; col++) {
+          if (
+            orientations[row * 8 + col] <= 0 ||
+            orientations[(row + 1) * 8 + col] <= 0
+          )
+            continue;
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v, a);
+          sample(u, v + 1 / p.weftThreads, b);
+          sample(u, (row + 1) / p.weftThreads, c);
+          join = Math.min(join, c.height - Math.min(a.height, b.height));
+        }
+      for (let j = 0; j < 4096; j++) {
+        sample(
+          (j * 0.61803398875 + 0.137) % 1,
+          (j * 0.41421356237 + 0.271) % 1,
+          a,
+        );
+        dense += Number(a.occlusion > 0.96);
+        low = Math.min(low, a.height);
+        high = Math.max(high, a.height);
+        invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+          );
+      }
+      sample(0, 0, a);
+      low = Math.min(low, a.height);
+      high = Math.max(high, a.height);
+      expect(join).toBeGreaterThan(-0.004 * p.relief);
+      expect(centerLow).toBeGreaterThan(0.75);
+      expect(centerHigh - centerLow).toBeLessThan(0.03);
+      expect(dense / 4096).toBeGreaterThan(0.94);
+      expect(high - low).toBeGreaterThan(0.25 * p.relief);
+      expect(high - low).toBeLessThan(0.6 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps true yarn core and support fiber cache draft and single or three-pick float lift joins C1 in both directions', () => {
+    const critical = (
+      threads: number,
+      fibers: number,
+      radius: number,
+      core: number,
+      half: number,
+    ) => {
+      const values = new Set<number>();
+      const offsets = [
+        0,
+        0.5,
+        0.5 - radius,
+        0.5 + radius,
+        0.5 - core,
+        0.5 + core,
+        0.5 - half,
+        0.5 + half,
+        0.5 - (half - p.liftShoulder),
+        0.5 + (half - p.liftShoulder),
+        0.5 - (1 + half),
+        0.5 + (1 + half),
+        0.5 - (1 + half - p.liftShoulder),
+        0.5 + (1 + half - p.liftShoulder),
+      ];
+      for (let j = 0; j < threads; j++)
+        for (const offset of offsets) values.add((j + offset) / threads);
+      for (const cells of [fibers, 128])
+        for (let j = 0; j <= cells; j++) values.add(j / cells);
+      return values;
+    };
+    const us = critical(
+        p.warpThreads,
+        p.warpFibers,
+        p.warpRadius,
+        p.warpCore,
+        p.warpLiftHalf,
+      ),
+      vs = critical(
+        p.weftThreads,
+        p.weftFibers,
+        p.weftRadius,
+        p.weftCore,
+        p.weftLiftHalf,
+      );
+    const up = Array.from(
+        { length: p.warpThreads },
+        (_, j) => (j + 0.5) / p.warpThreads,
+      ),
+      vp = Array.from(
+        { length: p.weftThreads },
+        (_, j) => (j + 0.5) / p.weftThreads,
+      );
+    for (let j = 0; j < 17; j++) {
+      up.push((j + 0.31) / 17);
+      vp.push((j + 0.37) / 17);
+    }
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lyocell', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const u of us) for (const v of vp) check(u, v);
+      for (const v of vs) for (const u of up) check(u, v);
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 dense warm beige cloth with five opaque maps metal-zero packing and signed valid microrelief normals on both axes', () => {
+    const maps = generateProceduralMaps('lyocell', 512, 7, { heightMap: true });
+    const all = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let warm = 0,
+      invalid = 0,
+      px = 0,
+      nx = 0,
+      py = 0,
+      ny = 0,
+      tilt = 0;
+    for (const map of all)
+      for (let i = 3; i < map.length; i += 4) invalid += Number(map[i] !== 255);
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        x = (2 * maps.normal[i]) / 255 - 1,
+        y = (2 * maps.normal[i + 1]) / 255 - 1;
+      warm += Number(r > 185 && r > g && g > b);
+      tilt = Math.max(tilt, x * x + y * y);
+      px += Number(maps.normal[i] >= 129);
+      nx += Number(maps.normal[i] <= 126);
+      py += Number(maps.normal[i + 1] >= 129);
+      ny += Number(maps.normal[i + 1] <= 126);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 180,
+      );
+    }
+    expect(warm / (512 * 512)).toBeGreaterThan(0.9);
+    expect(tilt).toBeLessThan(0.5);
+    for (const signed of [px, nx, py, ny])
+      expect(signed / (512 * 512)).toBeGreaterThan(0.005);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all dyed-yarn float relief and dielectric channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('lyocell', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          expect(Math.abs(a[key] - b[key])).toBeLessThan(5e-11);
+      }
+    }
   });
 });
 
