@@ -3904,6 +3904,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.25;
         legs: readonly (readonly [-0.035, -0.08, -0.035, 0.17] | readonly [-0.035, 0.17, -0.12, 0.32] | readonly [0.035, -0.08, 0.035, 0.26] | readonly [0.035, 0.26, 0.15, 0.36])[];
     }>;
+    garterstitch: Readonly<{
+        dark: readonly [117, 106, 88];
+        light: readonly [246, 237, 219];
+        roughness: 0.91;
+        relief: 0.007;
+        columns: 24;
+        rows: 20;
+        halfWidth: 0.43;
+        halfHeight: 0.28;
+        band: 0.8;
+        loopOffset: 0.09;
+        clip: 0.12;
+        courseWidth: 0.49;
+        wander: 0.16;
+    }>;
     seedstitch: Readonly<{
         dark: readonly [20, 34, 27];
         light: readonly [143, 173, 138];
@@ -10227,6 +10242,7 @@ export declare const proceduralTileMeters: Readonly<{
     fiddleheads: 0.24;
     cowrieshells: 0.2;
     cotterpins: 0.12;
+    garterstitch: 0.12;
     seedstitch: 0.12;
     mangosteenslice: 0.32;
     pickettiles: 0.9;

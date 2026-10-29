@@ -20792,6 +20792,52 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'garterstitch': {
+        const p = proceduralMaterialPresets.garterstitch,
+          grainField = cachedNoise(96, 96, seed ^ 0x4dcb),
+          courseField = cachedNoise(p.columns, p.rows, seed ^ 0x38a7),
+          inverseX = 1 / (p.halfWidth * p.halfWidth),
+          inverseY = 1 / (p.halfHeight * p.halfHeight),
+          inverseBand = 1 / p.band,
+          inverseClip = 1 / (2 * p.clip),
+          inverseCourse = 1 / p.courseWidth;
+        return () => {
+          const vc = v * p.rows + p.wander * (courseField(u, v) - 0.5),
+            x = fract(u * p.columns + (Math.floor(vc) & 1) * 0.5) - 0.5,
+            y = fract(vc) - 0.5,
+            topY = (y - p.loopOffset) ** 2 * inverseY,
+            bottomY = (y + p.loopOffset) ** 2 * inverseY;
+          let above = 1,
+            below = 1;
+          for (let offset = -1; offset <= 1; offset++) {
+            const dx = x - offset,
+              d = (dx * dx * inverseX + topY - 1) * inverseBand;
+            above *= 1 - smooth(clamp(1 - d * d));
+          }
+          // Keep both shifted return neighbors; dropping one opens an ownership seam.
+          for (let offset = -0.5; offset <= 0.5; offset++) {
+            const dx = x - offset,
+              d = (dx * dx * inverseX + bottomY - 1) * inverseBand;
+            below *= 1 - smooth(clamp(1 - d * d));
+          }
+          const front =
+              (1 - above) *
+              smooth(clamp((p.loopOffset - y + p.clip) * inverseClip)),
+            back =
+              (1 - below) *
+              smooth(clamp((y + p.loopOffset + p.clip) * inverseClip)),
+            exposed = back * (1 - front),
+            yarn = front + exposed,
+            course = smooth(clamp(1 - (y * inverseCourse) ** 2)),
+            grain = grainField(u, v);
+          color = 0.64 + 0.09 * grain + 0.02 * front - 0.01 * exposed;
+          height =
+            0.08 + 0.16 * course + 0.56 * front + 0.3 * exposed + 0.025 * grain;
+          roughness += 0.035 * (1 - yarn) + 0.015 * grain * yarn;
+          occlusion = 0.58 + 0.2 * course + 0.2 * yarn;
+          return;
+        };
+      }
       case 'seedstitch': {
         const p = proceduralMaterialPresets.seedstitch;
         const grainField = cachedNoise(96, 96, seed ^ 0x4dcb);
@@ -36452,6 +36498,7 @@ export function createSurfaceSampler(
     kind === 'cowrieshells' ||
     kind === 'cotterpins' ||
     kind === 'seedstitch' ||
+    kind === 'garterstitch' ||
     kind === 'mangosteenslice' ||
     kind === 'pickettiles' ||
     kind === 'squarewashers' ||

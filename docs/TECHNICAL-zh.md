@@ -1266,6 +1266,10 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 外觀參考：[Smithsonian NMNH標本45995](https://qrius.si.edu/browse/object/10025324)記載亮黑火山玻璃、灰色花／雪花狀斑與放射狀cristobalite包體；已實看其[標本原圖](https://ids.si.edu/ids/deliveryService?max_w=1200&max_h=1200&id=ark:/65665/m37e19cafc4bb04afdab04a3abbf447ee0)。本preset只把黑灰放射紋近似到作者選定的磨光平面，不重現原標本斷口geometry、不複製光照、不校準色彩／尺寸或打包照片。
 
+`garterstitch` 近似作者暖奶油色搓板針表面：橫向柔和凸脊帶交錯圓弧purl crowns及較低return arcs，同色微grain與輕微seeded course wander；不是直線V／bar針法圖、印色條紋、垂直rib、點狀seed stitch或金屬。獨立leaf使用既有cachedNoise／smooth／compact ellipse-ring與半平面肩部，保留三個前弧及兩個半cell鄰接return支撐，product union／exposed underpass避免max crease。24欄／20脊、96² grain加24×20 course field共9696 Float64／77,568B tables（非總RAM）；整橢圓保守row支撐0.465660＜0.5、course半寬0.49＜0.5、水平outer support0.576906小於被丟棄鄰弧的最近距離1，取樣無新增配置／hash／trig／sqrt。作者名義tile為0.12m，實際height／normal提供凸紋，非靠色印；opaque dielectric／metallic 0、optional height、tint／repeats、Worker／cache及ownership沿用原契約。不建立完整互套紗線或fuzz mesh、不模擬彈性／垂墜／雙面衣片，不做纖維成分、針數實物量測或BRDF認證；不更動原Seed Stitch或Rib Knit。
+
+形貌參考：[Emily Wessel／Tin Can Knits — Garter Stitch, Stockinette Stitch, and Ribbing](https://blog.tincanknits.com/2013/06/14/basicstitches/)說明平面往返編織每列knit、圈織交替knit／purl，並區分直向ribbing；其Marshmallow mitts及Malt blanket邊緣兩張發布照片已實看，取橫脊與圓弧針圈，不複製照片、光照、款式、色彩或實體針距。來源的柔軟、彈性與雙面外觀不是本2D材質具布料物理的證明。
+
 `woodruffkeys` 近似散置的銀灰色實心半月鍵平面：一條直弦與一段圓弧圍出較淺圓缺，種子改變各件方向、位置、尺寸與微小明暗；不是圓幣、三角片、長圓孔或有孔墊圈。以既有periodic cachedNoise／hash／smooth組合圓與半平面compact C1肩部，平坦凸金屬面帶微弱grain，深色霧面底維持dielectric，並非透明空隙。constructor預存4×4×6 poses及96² grain，共9312 Float64／74,496B tables（非總RAM）；最大旋轉整圓加jitter支撐0.434＜0.5，owner切換不切件，逐點不新增配置／hash／trig／sqrt。作者名義tile為0.08m，opaque RGBA、optional height、tint／repeats、Worker／cache與texture ownership沿用原契約。預設material metallic factor為1，實際metal map分開金屬件與非金屬底，顯式override仍優先；不提供零件厚度mesh、軸槽裝配、負載／材質等級／DIN或安全認證，也不從照片校準尺寸、色彩或BRDF。
 
 形貌參考：[mbo Oßwald — Woodruff keys DIN 6888](https://www.mbo-osswald.de/en/shop/woodruff-keys-din-6888)的實心零件照片及dimensioned drawing已實看，取直弦／圓弧平面形狀，不複製產品光照、倒角加工痕或組裝圖。[Woodstock Industrial — DIN 6888](https://www.woodstockindustrial.com/specs/din-6888)說明disc segment與flat top，表列例如h2.6／d7，顯示圓缺不必恰為半圓；此preset是作者輪廓與名義tile，並未取得標準全文、驗證公差或認證任何廠商零件。

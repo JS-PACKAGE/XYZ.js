@@ -8180,6 +8180,29 @@ var proceduralMaterialPresets = Object.freeze({
 			]
 		])
 	}),
+	garterstitch: Object.freeze({
+		dark: [
+			117,
+			106,
+			88
+		],
+		light: [
+			246,
+			237,
+			219
+		],
+		roughness: .91,
+		relief: .007,
+		columns: 24,
+		rows: 20,
+		halfWidth: .43,
+		halfHeight: .28,
+		band: .8,
+		loopOffset: .09,
+		clip: .12,
+		courseWidth: .49,
+		wander: .16
+	}),
 	seedstitch: Object.freeze({
 		dark: [
 			20,
@@ -17234,6 +17257,7 @@ var proceduralTileMeters = Object.freeze({
 	fiddleheads: .24,
 	cowrieshells: .2,
 	cotterpins: .12,
+	garterstitch: .12,
 	seedstitch: .12,
 	mangosteenslice: .32,
 	pickettiles: .9,

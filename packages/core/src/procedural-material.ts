@@ -508,6 +508,7 @@ export type ProceduralMaterialKind =
   | 'fiddleheads'
   | 'cowrieshells'
   | 'cotterpins'
+  | 'garterstitch'
   | 'seedstitch'
   | 'mangosteenslice'
   | 'pickettiles'
@@ -1549,6 +1550,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fiddleheads',
   'cowrieshells',
   'cotterpins',
+  'garterstitch',
   'seedstitch',
   'mangosteenslice',
   'pickettiles',

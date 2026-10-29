@@ -534,6 +534,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fiddleheads',
   'cowrieshells',
   'cotterpins',
+  'garterstitch',
   'seedstitch',
   'mangosteenslice',
   'pickettiles',
@@ -57187,6 +57188,324 @@ describe('Thick-rind mangosteen slices with six white pulp lobes', () => {
           }
     }
   });
+});
+
+describe('Garter-stitch relief keeps horizontal curved purl crowns rather than printed stitch symbols', () => {
+  const observe = (seed: number, n = 512) => {
+    const sample = createSurfaceSampler('garterstitch', seed),
+      s: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        metallic: 0,
+        mortar: 0,
+      },
+      heights = new Float64Array(n * n),
+      rough = new Float64Array(n * n),
+      rowMean = new Float64Array(n),
+      colMean = new Float64Array(n);
+    let low = Infinity,
+      high = -Infinity,
+      maxR = 0,
+      minR = 1,
+      minAO = 1,
+      maxAO = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const i = y * n + x;
+        sample((x + 0.5) / n, (y + 0.5) / n, s);
+        heights[i] = s.height;
+        rough[i] = s.roughness;
+        rowMean[y] = rowMean[y]! + s.height / n;
+        colMean[x] = colMean[x]! + s.height / n;
+        low = Math.min(low, s.height);
+        high = Math.max(high, s.height);
+        maxR = Math.max(maxR, s.roughness);
+        minR = Math.min(minR, s.roughness);
+        minAO = Math.min(minAO, s.occlusion);
+        maxAO = Math.max(maxAO, s.occlusion);
+      }
+    const spectrum = (values: Float64Array) => {
+      let frequency = 0,
+        amplitude = 0;
+      for (let k = 1; k <= 64; k++) {
+        let re = 0,
+          im = 0;
+        for (let i = 0; i < n; i++) {
+          const angle = (2 * Math.PI * k * (i + 0.5)) / n;
+          re += (values[i]! * Math.cos(angle)) / n;
+          im -= (values[i]! * Math.sin(angle)) / n;
+        }
+        const candidate = 2 * Math.hypot(re, im);
+        if (candidate > amplitude) {
+          frequency = k;
+          amplitude = candidate;
+        }
+      }
+      return { frequency, amplitude };
+    };
+    const rows = spectrum(rowMean),
+      columns = spectrum(colMean);
+    let spanSum = 0,
+      strong = 0,
+      weaker = 0,
+      peaks = 0;
+    for (let row = 0; row < rows.frequency; row++) {
+      let top = Infinity,
+        bottom = -Infinity;
+      for (let x = 4; x < n; x += 8) {
+        let best = -Infinity,
+          at = 0;
+        for (
+          let y = Math.ceil((row * n) / rows.frequency);
+          y < Math.min(n, Math.ceil(((row + 1) * n) / rows.frequency));
+          y++
+        ) {
+          const h = heights[y * n + x]!;
+          if (h > best) {
+            best = h;
+            at = y;
+          }
+        }
+        top = Math.min(top, at);
+        bottom = Math.max(bottom, at);
+      }
+      spanSum += (bottom - top) / (n / rows.frequency);
+    }
+    for (let x = 4; x < n; x += 8)
+      for (let y = 3; y < n - 3; y++) {
+        const h = heights[y * n + x]!;
+        if (h <= heights[(y - 1) * n + x]! || h <= heights[(y + 1) * n + x]!)
+          continue;
+        let a = h,
+          b = h;
+        for (let d = 1; d <= 3; d++) {
+          a = Math.min(a, heights[(y - d) * n + x]!);
+          b = Math.min(b, heights[(y + d) * n + x]!);
+        }
+        if (Math.min(h - a, h - b) < 0.04 * (high - low)) continue;
+        peaks++;
+        const level = (h - low) / (high - low);
+        if (level > 0.72) strong++;
+        if (level > 0.3 && level < 0.66) weaker++;
+      }
+    return {
+      sample,
+      n,
+      rough,
+      maxR,
+      minR,
+      minAO,
+      maxAO,
+      low,
+      high,
+      frequency: rows.frequency,
+      dominance: rows.amplitude / columns.amplitude,
+      projection: rows.amplitude / (high - low),
+      curvedSpan: spanSum / rows.frequency,
+      peaks,
+      strong: strong / peaks,
+      weaker: weaker / peaks,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let value = observations.get(seed);
+    if (!value) {
+      value = observe(seed);
+      observations.set(seed, value);
+    }
+    return value;
+  };
+  it.each([0, 7, 0x7fffffff])(
+    'keeps horizontal ridges, genuinely curved crests and separate front/return relief at seed %s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.high - o.low).toBeGreaterThan(0.001);
+      expect(o.high - o.low).toBeLessThan(0.02);
+      expect(o.frequency).toBeGreaterThan(10);
+      expect(o.frequency).toBeLessThan(30);
+      expect(o.dominance).toBeGreaterThan(5);
+      expect(o.projection).toBeGreaterThan(0.2);
+      expect(o.projection).toBeLessThan(0.6);
+      expect(o.curvedSpan).toBeGreaterThan(0.2);
+      expect(o.curvedSpan).toBeLessThan(0.5);
+      expect(o.peaks).toBeGreaterThan(100);
+      expect(o.strong).toBeGreaterThan(0.5);
+      expect(o.weaker).toBeGreaterThan(0.06);
+      expect(o.minR).toBeGreaterThan(0.84);
+      expect(o.maxR).toBeLessThan(0.99);
+      expect(o.maxR - o.minR).toBeGreaterThan(0.015);
+      expect(o.minAO).toBeLessThan(0.7);
+      expect(o.maxAO).toBeGreaterThan(0.9);
+    },
+  );
+  it.each([0, 7, 0x7fffffff])(
+    'keeps observed purl shoulders and real UV seams C1 at seed %s',
+    (seed) => {
+      const { sample, n, rough, maxR } = observed(seed),
+        probe: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          metallic: 0,
+          mortar: 0,
+        },
+        base = { ...probe },
+        a = { ...probe },
+        b = { ...probe },
+        channels = [
+          'color',
+          'height',
+          'roughness',
+          'occlusion',
+          'metallic',
+        ] as const;
+      let boundaries = 0,
+        checked = 0,
+        worst = 0;
+      const check = (x: number, y: number) => {
+        const h = 1e-9;
+        sample(x, y, base);
+        for (let axis = 0; axis < 2; axis++) {
+          sample(x - (axis === 0 ? h : 0), y - (axis === 1 ? h : 0), a);
+          sample(x + (axis === 0 ? h : 0), y + (axis === 1 ? h : 0), b);
+          for (const key of channels)
+            worst = Math.max(
+              worst,
+              Math.abs((b[key] - base[key]) / h - (base[key] - a[key]) / h),
+            );
+        }
+      };
+      // Exact observed ground avoids shifting a compact edge past the derivative probe.
+      // This ground stays constant even where a course wanders.
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            if (axis === 0 ? x === n - 1 : y === n - 1) continue;
+            const i = y * n + x,
+              j = i + (axis === 0 ? 1 : n),
+              iInside = maxR - rough[i]! > 0,
+              jInside = maxR - rough[j]! > 0;
+            if (iInside === jInside) continue;
+            if (boundaries++ % 37 !== 0) continue;
+            let inside = iInside ? 0 : 1,
+              outside = iInside ? 1 : 0;
+            for (let q = 0; q < 44; q++) {
+              const mid = (inside + outside) / 2;
+              sample(
+                (x + 0.5 + (axis === 0 ? mid : 0)) / n,
+                (y + 0.5 + (axis === 1 ? mid : 0)) / n,
+                probe,
+              );
+              if (maxR - probe.roughness > 0) inside = mid;
+              else outside = mid;
+            }
+            check(
+              (x + 0.5 + (axis === 0 ? outside : 0)) / n,
+              (y + 0.5 + (axis === 1 ? outside : 0)) / n,
+            );
+            checked++;
+          }
+      for (let i = 0; i < 256; i++) {
+        const t = ((i * 37.17) % 256) / 256;
+        check(0, t);
+        check(t, 0);
+      }
+      expect(checked).toBeGreaterThan(200);
+      expect(worst).toBeLessThan(0.03);
+      observations.delete(seed);
+    },
+  );
+  it('writes uniformly dyed warm cream, matte dielectric RGBA and rounded signed normals at actual512', () => {
+    const maps = generateProceduralMaps('garterstitch', 512, 7, {
+        heightMap: true,
+      }),
+      arrays = Object.values(maps);
+    let minRed = 255,
+      maxRed = 0,
+      red = 0,
+      green = 0,
+      blue = 0,
+      rough = 0,
+      positiveX = 0,
+      negativeX = 0,
+      positiveY = 0,
+      negativeY = 0,
+      tilt = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < 512 * 512; i++) {
+      const p = i * 4,
+        x = maps.normal[p]! / 127.5 - 1,
+        y = maps.normal[p + 1]! / 127.5 - 1;
+      red += maps.baseColor[p]!;
+      green += maps.baseColor[p + 1]!;
+      blue += maps.baseColor[p + 2]!;
+      minRed = Math.min(minRed, maps.baseColor[p]!);
+      maxRed = Math.max(maxRed, maps.baseColor[p]!);
+      rough += maps.metallicRoughness[p + 1]! / 255;
+      if (x > 0.05) positiveX++;
+      if (x < -0.05) negativeX++;
+      if (y > 0.05) positiveY++;
+      if (y < -0.05) negativeY++;
+      tilt = Math.max(tilt, x * x + y * y);
+      minAO = Math.min(minAO, maps.occlusion[p]!);
+      maxAO = Math.max(maxAO, maps.occlusion[p]!);
+      expect(maps.metallicRoughness[p + 2]).toBe(0);
+      expect(maps.normal[p + 2]!).toBeGreaterThan(175);
+      for (const bytes of arrays) expect(bytes[p + 3]).toBe(255);
+    }
+    const pixels = 512 * 512;
+    expect(red / pixels).toBeGreaterThan(180);
+    expect(red / pixels).toBeLessThan(235);
+    expect((red - green) / pixels).toBeGreaterThan(3);
+    expect((red - green) / pixels).toBeLessThan(20);
+    expect((green - blue) / pixels).toBeGreaterThan(8);
+    expect((green - blue) / pixels).toBeLessThan(30);
+    expect(maxRed - minRed).toBeLessThan(32);
+    expect(rough / pixels).toBeGreaterThan(0.84);
+    expect(rough / pixels).toBeLessThan(0.99);
+    for (const count of [positiveX, negativeX, positiveY, negativeY])
+      expect(count / pixels).toBeGreaterThan(0.05);
+    expect(tilt).toBeGreaterThan(0.3);
+    expect(tilt).toBeLessThan(0.85);
+    expect(minAO).toBeLessThan(180);
+    expect(maxAO).toBeGreaterThan(235);
+  });
+  it.each([0, 7, 0x7fffffff])(
+    'keeps signed UV periods through curved crowns and seeded course wander at seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('garterstitch', seed),
+        a: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          metallic: 0,
+          mortar: 0,
+        },
+        b = { ...a },
+        channels = [
+          'color',
+          'height',
+          'roughness',
+          'occlusion',
+          'metallic',
+          'mortar',
+        ] as const;
+      for (let i = 0; i < 4096; i++) {
+        const x = ((i * 37.17) % 2048) / 1024 - 0.5,
+          y = ((i * 19.37) % 2048) / 1024 - 0.5;
+        sample(x, y, a);
+        sample(x + (i & 1 ? 2 : -1), y + (i & 2 ? 1 : -2), b);
+        for (const key of channels)
+          expect(Math.abs(a[key] - b[key])).toBeLessThan(5e-10);
+      }
+    },
+  );
 });
 
 describe('Alternating knit and purl seed stitch', () => {

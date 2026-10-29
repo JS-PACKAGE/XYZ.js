@@ -571,6 +571,7 @@ try {
     'fiddleheads',
     'cowrieshells',
     'cotterpins',
+    'garterstitch',
     'seedstitch',
     'mangosteenslice',
     'pickettiles',
