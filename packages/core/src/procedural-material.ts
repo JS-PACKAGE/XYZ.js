@@ -827,6 +827,7 @@ export type ProceduralMaterialKind =
   | 'sateen'
   | 'surah'
   | 'serge'
+  | 'habotai'
   | 'batiste'
   | 'ramie'
   | 'wavewashers'
@@ -1891,6 +1892,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sateen',
   'surah',
   'serge',
+  'habotai',
   'batiste',
   'ramie',
   'wavewashers',

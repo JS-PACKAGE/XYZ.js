@@ -5922,6 +5922,7 @@ export function createSurfaceSampler(
       case 'surah':
       case 'serge':
       case 'lyocell':
+      case 'habotai':
       case 'batiste':
       case 'ramie':
       case 'grosgrain':
@@ -5952,11 +5953,14 @@ export function createSurfaceSampler(
                   : kind === 'surah'
                     ? proceduralMaterialPresets.surah
                     : proceduralMaterialPresets.lyocell,
-          balancedPlain = kind === 'ramie' || kind === 'batiste',
+          balancedPlain =
+            kind === 'habotai' || kind === 'ramie' || kind === 'batiste',
           balancedPlainPreset =
-            kind === 'batiste'
-              ? proceduralMaterialPresets.batiste
-              : proceduralMaterialPresets.ramie,
+            kind === 'habotai'
+              ? proceduralMaterialPresets.habotai
+              : kind === 'batiste'
+                ? proceduralMaterialPresets.batiste
+                : proceduralMaterialPresets.ramie,
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
@@ -37256,6 +37260,7 @@ export function createSurfaceSampler(
     kind === 'sateen' ||
     kind === 'surah' ||
     kind === 'serge' ||
+    kind === 'habotai' ||
     kind === 'batiste' ||
     kind === 'ramie' ||
     kind === 'tabwashers' ||

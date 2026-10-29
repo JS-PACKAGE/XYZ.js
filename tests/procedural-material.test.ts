@@ -853,6 +853,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sateen',
   'surah',
   'serge',
+  'habotai',
   'batiste',
   'ramie',
   'wavewashers',
@@ -88376,4 +88377,370 @@ describe('Azurite dark-blue oblique-ended tabular crystal triples on rough host'
     for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
     expect(o.invalid).toBe(0);
   });
+});
+
+describe('Habotai dense pearl-white balanced plain silk with shallow relief and soft sheen', () => {
+  const p = proceduralMaterialPresets.habotai,
+    keys = [
+      'color',
+      'height',
+      'roughness',
+      'occlusion',
+      'metallic',
+      'mortar',
+    ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('habotai', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      e = empty(),
+      orient = new Uint8Array(p.warpThreads * p.weftThreads);
+    let minCrossLift = Infinity,
+      maxCrossLift = -Infinity,
+      minBind = Infinity,
+      maxBind = 0,
+      balancedColor = 0,
+      balancedHeight = 0,
+      minGapDrop = Infinity,
+      minAO = Infinity,
+      maxFaceRough = 0,
+      minFaceRough = 1,
+      invalid = 0;
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        const u = (col + 0.5) / p.warpThreads,
+          v = (row + 0.5) / p.weftThreads;
+        sample(u, v, a);
+        sample((col + 1) / p.warpThreads, (row + 1) / p.weftThreads, d);
+        sample(u, v + 0.39 / p.weftThreads, b);
+        sample(u + 0.39 / p.warpThreads, v, c);
+        const drop = Math.abs(b.height - c.height) / p.relief;
+        orient[row * p.warpThreads + col] = Number(b.height > c.height);
+        minBind = Math.min(minBind, drop);
+        maxBind = Math.max(maxBind, drop);
+        sample(u, (row + 1) / p.weftThreads, b);
+        sample((col + 1) / p.warpThreads, v, c);
+        balancedColor = Math.max(balancedColor, Math.abs(b.color - c.color));
+        balancedHeight = Math.max(
+          balancedHeight,
+          Math.abs(b.height - c.height) / p.relief,
+        );
+        minCrossLift = Math.min(
+          minCrossLift,
+          (a.height - Math.max(b.height, c.height)) / p.relief,
+        );
+        maxCrossLift = Math.max(
+          maxCrossLift,
+          (a.height - Math.min(b.height, c.height)) / p.relief,
+        );
+        minGapDrop = Math.min(
+          minGapDrop,
+          (Math.min(b.height, c.height) - d.height) / p.relief,
+        );
+        minAO = Math.min(minAO, a.occlusion - d.occlusion);
+        minFaceRough = Math.min(minFaceRough, a.roughness);
+        maxFaceRough = Math.max(maxFaceRough, a.roughness);
+        sample((col + 1.5) / p.warpThreads, v, e);
+        balancedColor = Math.max(balancedColor, Math.abs(a.color - e.color));
+        balancedHeight = Math.max(
+          balancedHeight,
+          Math.abs(a.height - e.height) / p.relief,
+        );
+        invalid += Number(
+          a.metallic !== 0 ||
+            d.metallic !== 0 ||
+            a.mortar !== 0 ||
+            d.mortar !== 0,
+        );
+      }
+    let transitions = 0,
+      ones = 0;
+    for (let row = 0; row < p.weftThreads; row++)
+      for (let col = 0; col < p.warpThreads; col++) {
+        const flag = orient[row * p.warpThreads + col];
+        ones += flag;
+        transitions += Number(
+          flag !== orient[row * p.warpThreads + ((col + 1) % p.warpThreads)],
+        );
+        transitions += Number(
+          flag !== orient[((row + 1) % p.weftThreads) * p.warpThreads + col],
+        );
+      }
+    return {
+      minCrossLift,
+      maxCrossLift,
+      minBind,
+      maxBind,
+      balancedColor,
+      balancedHeight,
+      minGapDrop,
+      minAO,
+      minFaceRough,
+      maxFaceRough,
+      alternation: transitions / (2 * orient.length),
+      warpOverFraction: ones / orient.length,
+      invalid,
+    };
+  };
+  const spectrum = (seed: number) => {
+    const sample = createSurfaceSampler('habotai', seed),
+      a = empty(),
+      counts = [];
+    for (let axis = 0; axis < 2; axis++) {
+      let previous = false,
+        count = 0;
+      for (let i = 0; i < 8192; i++) {
+        const t = (i + 0.37) / 8192;
+        sample(
+          axis ? 0.5 / p.warpThreads : t,
+          axis ? t : 0.5 / p.weftThreads,
+          a,
+        );
+        const inside = a.height / p.relief > 0.405;
+        if (inside && !previous) count++;
+        previous = inside;
+      }
+      counts.push(count);
+    }
+    return counts;
+  };
+  const observedC1 = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed crystal and host curvature instead of copying private plate profiles.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'preserves balanced fine 1/1 crossovers dense low-gap yarns and shallow binding at seed%s',
+    (seed) => {
+      const o = observe(seed),
+        frequencies = spectrum(seed);
+      expect(o.minCrossLift).toBeGreaterThan(0.04);
+      expect(o.maxCrossLift).toBeLessThan(0.07);
+      expect(o.minBind).toBeGreaterThan(0.01);
+      expect(o.maxBind).toBeLessThan(0.03);
+      expect(o.balancedColor).toBeLessThan(0.03);
+      expect(o.balancedHeight).toBeLessThan(0.004);
+      expect(o.minGapDrop).toBeGreaterThan(0.33);
+      expect(o.minGapDrop).toBeLessThan(0.4);
+      expect(o.minAO).toBeGreaterThan(0.5);
+      expect(o.minFaceRough).toBeGreaterThan(0.34);
+      expect(o.maxFaceRough).toBeLessThan(0.48);
+      expect(o.alternation).toBe(1);
+      expect(o.warpOverFraction).toBe(0.5);
+      for (const f of frequencies) {
+        expect(f).toBeGreaterThan(72);
+        expect(f).toBeLessThan(96);
+      }
+      expect(Math.abs(frequencies[0] - frequencies[1])).toBeLessThan(2);
+      expect(o.invalid).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps dense yarn shoulders binding fiber grain and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('habotai', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = observedC1(sample, p.relief),
+        period = 0;
+      const check = (u: number, v: number) => {
+        const h = 1e-10;
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs(c[key] - 2 * b[key] + a[key]) /
+                h /
+                (key === 'height' ? p.relief : 1),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let i = 0; i <= p.warpThreads; i++)
+        for (let j = 0; j < 16; j++) {
+          check(i / p.warpThreads, (j + 0.37) / 16);
+          check((j + 0.37) / 16, i / p.weftThreads);
+        }
+      for (let i = 0; i < p.warpFibers; i++)
+        for (let j = 0; j < 8; j++) {
+          check(i / p.warpFibers, (j + 0.37) / 8);
+          check((j + 0.37) / 8, i / p.weftFibers);
+        }
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          period = Math.max(period, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(0.04);
+      expect(period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes pearl opaque dielectric silk and gentle resolved shoulders without claiming minimum-size fiber resolution at actual%s',
+    (size) => {
+      const observePixels = (
+          maps: ReturnType<typeof generateProceduralMaps>,
+        ) => {
+          const n = maps.baseColor.length / 4,
+            signed = [0, 0, 0, 0];
+          let pearl = 0,
+            shadow = 0,
+            rough = 0,
+            maxTilt = 0,
+            minAO = 255,
+            maxAO = 0,
+            invalid = 0;
+          for (let j = 0; j < maps.baseColor.length; j += 4) {
+            const r = maps.baseColor[j],
+              g = maps.baseColor[j + 1],
+              b = maps.baseColor[j + 2],
+              nx = maps.normal[j] / 127.5 - 1,
+              ny = maps.normal[j + 1] / 127.5 - 1;
+            pearl += Number(
+              r > 235 && g > 233 && b > 222 && r >= g && g >= b && r - b < 18,
+            );
+            shadow += Number(r < 210 && g < 210);
+            rough += maps.metallicRoughness[j + 1] / 255;
+            maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+            minAO = Math.min(minAO, maps.occlusion[j]);
+            maxAO = Math.max(maxAO, maps.occlusion[j]);
+            signed[0] += Number(maps.normal[j] > 128);
+            signed[1] += Number(maps.normal[j] < 127);
+            signed[2] += Number(maps.normal[j + 1] > 128);
+            signed[3] += Number(maps.normal[j + 1] < 127);
+            for (const stream of Object.values(maps))
+              invalid += Number(stream[j + 3] !== 255);
+            invalid += Number(maps.metallicRoughness[j + 2] !== 0);
+          }
+          return {
+            pearl: pearl / n,
+            shadow: shadow / n,
+            rough: rough / n,
+            maxTilt,
+            signed: signed.map((x) => x / n),
+            minAO,
+            maxAO,
+            invalid,
+          };
+        },
+        o = observePixels(
+          generateProceduralMaps('habotai', size, 7, { heightMap: true }),
+        );
+      expect(o.pearl).toBeGreaterThan(0.92);
+      expect(o.shadow).toBeLessThan(0.08);
+      expect(o.rough).toBeGreaterThan(0.37);
+      expect(o.rough).toBeLessThan(0.46);
+      expect(o.maxTilt).toBeLessThan(0.0015);
+      expect(o.maxAO).toBeGreaterThan(245);
+      if (size === 512) {
+        expect(o.shadow).toBeGreaterThan(0.015);
+        expect(o.minAO).toBeLessThan(195);
+        expect(o.maxTilt).toBeGreaterThan(0.0001);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
+      }
+      expect(o.invalid).toBe(0);
+    },
+  );
 });

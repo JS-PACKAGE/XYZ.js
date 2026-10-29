@@ -890,6 +890,7 @@ try {
     'sateen',
     'surah',
     'serge',
+    'habotai',
     'batiste',
     'ramie',
     'wavewashers',
