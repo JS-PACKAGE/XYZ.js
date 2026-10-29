@@ -720,6 +720,7 @@ try {
     'orecchiette',
     'solderlessbreadboard',
     'kyaniteblades',
+    'barite',
     'internaltoothwashers',
     'driedchillies',
     'utilityknifeblades',

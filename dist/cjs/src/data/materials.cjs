@@ -12230,6 +12230,42 @@ var proceduralMaterialPresets = Object.freeze({
 		channelWidth: .035,
 		channelShoulder: .007
 	}),
+	barite: Object.freeze({
+		dark: [
+			74,
+			61,
+			44
+		],
+		light: [
+			248,
+			242,
+			216
+		],
+		roughness: .28,
+		relief: .003,
+		cells: 4,
+		pitch: .19,
+		halfWidth: .09,
+		sideShoulder: .009,
+		endShoulder: .014,
+		endSlope: .12,
+		tops: [
+			-.18,
+			-.24,
+			-.19
+		],
+		bottoms: [
+			.22,
+			.25,
+			.2
+		],
+		striae: 1,
+		jitter: .045,
+		scale: .94,
+		scaleVariation: .04,
+		faceTilt: 0,
+		striaHeight: .002
+	}),
 	kyaniteblades: Object.freeze({
 		dark: [
 			12,
@@ -12260,6 +12296,8 @@ var proceduralMaterialPresets = Object.freeze({
 			.29
 		],
 		striae: 3,
+		faceTilt: .05,
+		striaHeight: .08,
 		jitter: .015,
 		scale: .94,
 		scaleVariation: .04
@@ -17324,6 +17362,7 @@ var proceduralTileMeters = Object.freeze({
 	orecchiette: .16,
 	solderlessbreadboard: .04064,
 	kyaniteblades: .16,
+	barite: .08,
 	internaltoothwashers: .16,
 	driedchillies: .16,
 	utilityknifeblades: .24,

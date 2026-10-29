@@ -6535,6 +6535,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         channelWidth: 0.035;
         channelShoulder: 0.007;
     }>;
+    barite: Readonly<{
+        dark: readonly [74, 61, 44];
+        light: readonly [248, 242, 216];
+        roughness: 0.28;
+        relief: 0.003;
+        cells: 4;
+        pitch: 0.19;
+        halfWidth: 0.09;
+        sideShoulder: 0.009;
+        endShoulder: 0.014;
+        endSlope: 0.12;
+        tops: readonly [-0.18, -0.24, -0.19];
+        bottoms: readonly [0.22, 0.25, 0.2];
+        striae: 1;
+        jitter: 0.045;
+        scale: 0.94;
+        scaleVariation: 0.04;
+        faceTilt: 0;
+        striaHeight: 0.002;
+    }>;
     kyaniteblades: Readonly<{
         dark: readonly [12, 36, 71];
         light: readonly [163, 208, 243];
@@ -6549,6 +6569,8 @@ export declare const proceduralMaterialPresets: Readonly<{
         tops: readonly [-0.25, -0.36, -0.28];
         bottoms: readonly [0.31, 0.36, 0.29];
         striae: 3;
+        faceTilt: 0.05;
+        striaHeight: 0.08;
         jitter: 0.015;
         scale: 0.94;
         scaleVariation: 0.04;
@@ -10341,6 +10363,7 @@ export declare const proceduralTileMeters: Readonly<{
     orecchiette: 0.16;
     solderlessbreadboard: 0.04064;
     kyaniteblades: 0.16;
+    barite: 0.08;
     internaltoothwashers: 0.16;
     driedchillies: 0.16;
     utilityknifeblades: 0.24;

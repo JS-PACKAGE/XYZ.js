@@ -657,6 +657,7 @@ export type ProceduralMaterialKind =
   | 'orecchiette'
   | 'solderlessbreadboard'
   | 'kyaniteblades'
+  | 'barite'
   | 'internaltoothwashers'
   | 'driedchillies'
   | 'utilityknifeblades'
@@ -1696,6 +1697,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'orecchiette',
   'solderlessbreadboard',
   'kyaniteblades',
+  'barite',
   'internaltoothwashers',
   'driedchillies',
   'utilityknifeblades',

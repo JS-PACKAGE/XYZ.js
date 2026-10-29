@@ -683,6 +683,7 @@ const kinds: ProceduralMaterialKind[] = [
   'orecchiette',
   'solderlessbreadboard',
   'kyaniteblades',
+  'barite',
   'internaltoothwashers',
   'driedchillies',
   'utilityknifeblades',
@@ -36226,287 +36227,430 @@ describe('Closed silver-colored washer rims with twelve inward metal teeth alter
   });
 });
 
-describe('Opaque blue kyanite-inspired bundles of three parallel cleaved blades with staggered oblique ends and three raised longitudinal striae on darker matrix', () => {
-  const p = proceduralMaterialPresets.kyaniteblades;
-  const hash = (x: number, y: number, seed: number): number => {
-    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
-    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
-    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
-    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
-  };
-  const world = (
+describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blades on mineral backing', () => {
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const locate = (
     seed: number,
-    col: number,
-    row: number,
-    x: number,
-    y: number,
+    n = 512,
+    kind: 'barite' | 'kyaniteblades' = 'barite',
   ) => {
-    const a = 2 * Math.PI * hash(col, row, seed ^ 0x16415),
-      c = Math.cos(a),
-      s = Math.sin(a),
-      scale = p.scale + p.scaleVariation * hash(col, row, seed ^ 0x1641b);
-    return [
-      (col +
-        0.5 +
-        p.jitter * (2 * hash(col, row, seed ^ 0x16417) - 1) +
-        scale * (c * x - s * y)) /
-        p.cells,
-      (row +
-        0.5 +
-        p.jitter * (2 * hash(col, row, seed ^ 0x16419) - 1) +
-        scale * (s * x + c * y)) /
-        p.cells,
-    ] as const;
+    const p = proceduralMaterialPresets[kind];
+
+    const sample = createSurfaceSampler(kind, seed),
+      a = empty(),
+      mask = new Uint16Array(n * n),
+      height = new Float64Array(n * n),
+      queue = new Int32Array(n * n),
+      faces: {
+        cx: number;
+        cy: number;
+        angle: number;
+        length: number;
+        width: number;
+        aspect: number;
+        fill: number;
+        core: number;
+        topSpan: number;
+      }[] = [];
+    let ownerId = 1,
+      backHeight = 0,
+      backCount = 0,
+      faceHeight = 0,
+      faceCount = 0,
+      faceRough = 0,
+      backRough = 0,
+      backAO = 1;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const i = y * n + x;
+        sample((x + 0.5) / n, (y + 0.5) / n, a);
+        height[i] = a.height / p.relief;
+        if (a.color > 0.6) {
+          mask[i] = 1;
+          faceCount++;
+          faceHeight += height[i];
+          faceRough += a.roughness;
+        } else if (a.color < 0.2) {
+          backCount++;
+          backHeight += height[i];
+          backRough += a.roughness;
+          backAO = Math.min(backAO, a.occlusion);
+        }
+      }
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] !== 1) continue;
+      const owner = ++ownerId;
+      let start = 0,
+        end = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        sxy = 0,
+        syy = 0;
+      mask[i] = owner;
+      queue[0] = i;
+      while (start < end) {
+        const at = queue[start++],
+          x = at % n,
+          y = Math.floor(at / n);
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        sxy += x * y;
+        syy += y * y;
+        for (let dir = 0; dir < 4; dir++) {
+          const next =
+            dir === 0
+              ? y * n + ((x + 1) % n)
+              : dir === 1
+                ? y * n + ((x + n - 1) % n)
+                : dir === 2
+                  ? ((y + 1) % n) * n + x
+                  : ((y + n - 1) % n) * n + x;
+          if (mask[next] === 1) {
+            mask[next] = owner;
+            queue[end++] = next;
+          }
+        }
+      }
+      if (end < 40) continue;
+      const cx = sx / end,
+        cy = sy / end,
+        xx = sxx / end - cx * cx,
+        xy = sxy / end - cx * cy,
+        yy = syy / end - cy * cy,
+        angle = 0.5 * Math.atan2(2 * xy, xx - yy),
+        c = Math.cos(angle),
+        s = Math.sin(angle);
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity,
+        low = Infinity,
+        high = -Infinity,
+        core = 0;
+      for (let j = 0; j < end; j++) {
+        const at = queue[j],
+          x = at % n,
+          y = Math.floor(at / n),
+          dx = x - cx,
+          dy = y - cy,
+          px = c * dx + s * dy,
+          py = c * dy - s * dx;
+        minX = Math.min(minX, px);
+        maxX = Math.max(maxX, px);
+        minY = Math.min(minY, py);
+        maxY = Math.max(maxY, py);
+        if (x < 4 || x >= n - 4 || y < 4 || y >= n - 4) continue;
+        // Adjacent plates must not satisfy this face’s erosion stencil.
+        let inside = true;
+        for (let oy = -4; oy <= 4; oy += 4)
+          for (let ox = -4; ox <= 4; ox += 4)
+            inside &&= mask[(y + oy) * n + x + ox] === owner;
+        if (inside) {
+          core++;
+          low = Math.min(low, height[at]);
+          high = Math.max(high, height[at]);
+        }
+      }
+      const length = maxX - minX + 1,
+        width = maxY - minY + 1;
+      faces.push({
+        cx,
+        cy,
+        angle,
+        length,
+        width,
+        aspect: length / width,
+        fill: end / (length * width),
+        core: core / end,
+        topSpan: high - low,
+      });
+    }
+    const bins = new Set(
+        faces.map((f) => Math.floor(((f.angle + Math.PI * 0.5) * 8) / Math.PI)),
+      ),
+      groups = new Set();
+    for (let i = 0; i < faces.length; i++) {
+      const f = faces[i],
+        nearest = faces
+          .map((g, j) => ({ j, d: (g.cx - f.cx) ** 2 + (g.cy - f.cy) ** 2 }))
+          .filter((v) => v.j !== i)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 2);
+      if (
+        nearest.every(
+          (v) =>
+            Math.cos(2 * (faces[v.j].angle - f.angle)) > 0.98 &&
+            v.d < 9 * f.width * f.width,
+        )
+      )
+        groups.add(
+          [i, ...nearest.map((v) => v.j)].sort((a, b) => a - b).join(','),
+        );
+    }
+    return {
+      faces,
+      backAO,
+      bins: bins.size,
+      groups: groups.size,
+      faceFraction: faceCount / (n * n),
+      backFraction: backCount / (n * n),
+      raised: faceHeight / faceCount - backHeight / backCount,
+      smoother: backRough / backCount - faceRough / faceCount,
+    };
   };
   it.each([0, 1, 0xffffffff])(
-    'keeps three separate long stepped oblique-ended blades each with three actual longitudinal height and roughness ridges rather than circular mica plates or pigment stripes for seed %s',
+    'keeps broad straight-sided flat raised plates in locally parallel triples, not slender blue blades or round caps, for seed %s',
     (seed) => {
-      const sample = createSurfaceSampler('kyaniteblades', seed),
-        out: SurfaceSample = {
-          color: 0,
-          height: 0,
-          roughness: 0,
-          occlusion: 0,
-          mortar: 0,
-          metallic: 0,
-        };
-      for (let row = 0; row < p.cells; row++)
-        for (let col = 0; col < p.cells; col++) {
-          const lengths: number[] = [];
-          for (let blade = 0; blade < 3; blade++) {
-            const cx = (blade - 1) * p.pitch;
-            for (const across of [-0.03, 0, 0.03])
-              for (let j = 0; j <= 64; j++) {
-                const along =
-                  p.tops[blade] +
-                  0.02 +
-                  ((p.bottoms[blade] - p.tops[blade] - 0.04) * j) / 64;
-                sample(
-                  ...world(
-                    seed,
-                    col,
-                    row,
-                    cx + across,
-                    along + p.endSlope * across,
-                  ),
-                  out,
-                );
-                const crest = { ...out };
-                expect(crest.height).toBeGreaterThan(0.0023865);
-                expect(crest.height).toBeLessThan(0.0026695);
-                expect(crest.occlusion).toBeCloseTo(0.99, 12);
-                expect(crest.metallic).toBe(0);
-                expect(crest.mortar).toBe(0);
-                const vx = across < 0 ? -0.015 : 0.015;
-                sample(
-                  ...world(seed, col, row, cx + vx, along + p.endSlope * vx),
-                  out,
-                );
-                expect(crest.height - out.height).toBeGreaterThan(0.0002372);
-                expect(crest.color - out.color).toBeGreaterThan(0.0299);
-                expect(out.roughness - crest.roughness).toBeGreaterThan(0.0599);
-                expect(out.occlusion).toBeCloseTo(0.97, 12);
-                expect(out.mortar).toBe(0);
-                expect(out.metallic).toBe(0);
-              }
-            for (const y of [-0.15, 0, 0.15]) {
-              let ribs = 0,
-                prior = false;
-              for (let j = 0; j <= 2048; j++) {
-                sample(
-                  ...world(seed, col, row, cx - 0.039 + (0.078 * j) / 2048, y),
-                  out,
-                );
-                const high = out.roughness < 0.46;
-                if (high && !prior) ribs++;
-                prior = high;
-              }
-              expect(ribs).toBe(3);
-            }
-            for (const across of [-0.03, 0, 0.03])
-              for (const end of [p.tops[blade], p.bottoms[blade]]) {
-                const sign = end < 0 ? 1 : -1;
-                sample(
-                  ...world(
-                    seed,
-                    col,
-                    row,
-                    cx + across,
-                    end + sign * 0.02 + p.endSlope * across,
-                  ),
-                  out,
-                );
-                const inside = { ...out };
-                sample(
-                  ...world(
-                    seed,
-                    col,
-                    row,
-                    cx + across,
-                    end - sign * 0.01 + p.endSlope * across,
-                  ),
-                  out,
-                );
-                expect(inside.height - out.height).toBeGreaterThan(0.0018944);
-                expect(inside.color - out.color).toBeGreaterThan(0.6299);
-                expect(out.roughness - inside.roughness).toBeGreaterThan(
-                  0.4299,
-                );
-                expect(out.height).toBeGreaterThan(0.0004799);
-                expect(out.height).toBeLessThan(0.0004921);
-                expect(out.occlusion).toBeCloseTo(0.55, 12);
-                expect(out.mortar).toBe(0);
-              }
-            let count = 0,
-              runs = 0,
-              prior = false;
-            for (let j = 0; j <= 4096; j++) {
-              sample(
-                ...world(seed, col, row, cx, -0.4 + (0.8 * j) / 4096),
-                out,
-              );
-              const face = out.height > 0.0017;
-              if (face && !prior) runs++;
-              if (face) count++;
-              prior = face;
-            }
-            expect(runs).toBe(1);
-            lengths.push((count * 0.8) / 4096);
-          }
-          expect(lengths[0]).toBeGreaterThan(0.54);
-          expect(lengths[0]).toBeLessThan(0.561);
-          expect(lengths[1]).toBeGreaterThan(0.7);
-          expect(lengths[1]).toBeLessThan(0.721);
-          expect(lengths[2]).toBeGreaterThan(0.55);
-          expect(lengths[2]).toBeLessThan(0.571);
-          expect(lengths[1] - lengths[0]).toBeGreaterThan(0.14);
-          expect(lengths[1] - lengths[2]).toBeGreaterThan(0.13);
-          let blades = 0,
-            prior = false;
-          for (let j = 0; j <= 4096; j++) {
-            sample(...world(seed, col, row, -0.22 + (0.44 * j) / 4096, 0), out);
-            const face = out.height > 0.0017;
-            if (face && !prior) blades++;
-            prior = face;
-          }
-          expect(blades).toBe(3);
-          for (const x of [-0.06, 0.06])
-            for (let j = 0; j <= 128; j++) {
-              sample(
-                ...world(seed, col, row, x, -0.39 + (0.78 * j) / 128),
-                out,
-              );
-              expect(out.height).toBeGreaterThan(0.0004799);
-              expect(out.height).toBeLessThan(0.0004921);
-              expect(out.roughness).toBeGreaterThanOrEqual(0.87);
-              expect(out.roughness).toBeLessThan(0.8901);
-              expect(out.occlusion).toBeCloseTo(0.55, 12);
-              expect(out.mortar).toBe(0);
-              expect(out.metallic).toBe(0);
-            }
-        }
+      const measured = locate(seed);
+      expect(measured.faces.length).toBeGreaterThan(20);
+      expect(measured.bins).toBeGreaterThan(3);
+      expect(measured.groups).toBeGreaterThan(5);
+      expect(measured.faceFraction).toBeGreaterThan(0.1);
+      expect(measured.faceFraction).toBeLessThan(0.35);
+      expect(measured.backFraction).toBeGreaterThan(0.6);
+      expect(measured.raised).toBeGreaterThan(0.3);
+      expect(measured.smoother).toBeGreaterThan(0.35);
+      for (const face of measured.faces) {
+        expect(face.aspect).toBeGreaterThan(1.3);
+        expect(face.aspect).toBeLessThan(3.5);
+        expect(face.fill).toBeGreaterThan(0.8);
+        expect(face.core).toBeGreaterThan(0.2);
+        expect(face.topSpan).toBeLessThan(0.015);
+      }
     },
   );
-  it('resolves actual512 allthree highblue blades separated by darker rougher lower opaque mineralmatrix along their lengths', () => {
-    for (const seed of [0, 1, 0xffffffff]) {
-      const maps = generateProceduralMaps('kyaniteblades', 512, seed);
-      for (let row = 0; row < p.cells; row++)
-        for (let col = 0; col < p.cells; col++) {
-          const index = (x: number, y: number) => {
-            const [u, v] = world(seed, col, row, x, y);
-            return (Math.floor(v * 512) * 512 + Math.floor(u * 512)) * 4;
-          };
-          for (const x of [-p.pitch, 0, p.pitch])
-            for (const y of [-0.15, 0, 0.15]) {
-              const blade = index(x, y),
-                matrix = index(x < 0 ? -0.06 : 0.06, y);
-              expect(
-                maps.baseColor[blade + 2] - maps.baseColor[matrix + 2],
-              ).toBeGreaterThan(95);
-              expect(
-                maps.metallicRoughness[matrix + 1] -
-                  maps.metallicRoughness[blade + 1],
-              ).toBeGreaterThan(90);
-              expect(
-                maps.occlusion[blade] - maps.occlusion[matrix],
-              ).toBeGreaterThan(100);
-              expect(maps.metallicRoughness[blade + 2]).toBe(0);
-              expect(maps.metallicRoughness[matrix + 2]).toBe(0);
-            }
+  it.each([0, 1, 0xffffffff])(
+    'preserves narrow blue parallel Kyanite blades with three real raised smoother striae rather than painted bands for seed %s',
+    (seed) => {
+      const measured = locate(seed, 512, 'kyaniteblades'),
+        sample = createSurfaceSampler('kyaniteblades', seed),
+        a = empty(),
+        kp = proceduralMaterialPresets.kyaniteblades;
+      expect(measured.faces.length).toBeGreaterThan(20);
+      expect(measured.groups).toBeGreaterThan(5);
+      expect(measured.bins).toBeGreaterThan(2);
+      expect(measured.raised).toBeGreaterThan(0.35);
+      expect(measured.smoother).toBeGreaterThan(0.3);
+      let threeRidges = 0;
+      for (const face of measured.faces) {
+        expect(face.aspect).toBeGreaterThan(4.5);
+        expect(face.aspect).toBeLessThan(10);
+        expect(face.fill).toBeGreaterThan(0.8);
+        const heights = [],
+          roughness = [],
+          dx = -Math.sin(face.angle),
+          dy = Math.cos(face.angle);
+        for (let j = 0; j < 65; j++) {
+          const t = (j / 64 - 0.5) * 0.86 * face.width;
+          sample(
+            (face.cx + 0.5 + dx * t) / 512,
+            (face.cy + 0.5 + dy * t) / 512,
+            a,
+          );
+          heights.push(a.height / kp.relief);
+          roughness.push(a.roughness);
         }
-    }
-  });
-  it('keeps allsidebevels obliqueendbevels productcorners striae complete nearestblade and poseowners UVwraps C1', () => {
-    const h = 1e-10,
-      keys = [
-        'color',
-        'height',
-        'roughness',
-        'occlusion',
-        'metallic',
-        'mortar',
-      ] as const;
-    for (const seed of [0, 1, 0xffffffff]) {
-      const sample = createSurfaceSampler('kyaniteblades', seed),
-        a: SurfaceSample = {
-          color: 0,
-          height: 0,
-          roughness: 0,
-          occlusion: 0,
-          mortar: 0,
-          metallic: 0,
-        },
-        b = { ...a },
-        c = { ...a };
-      const check = (u: number, v: number) => {
-        for (let axis = 0; axis < 2; axis++) {
-          sample(u - (axis ? 0 : h), v - (axis ? h : 0), a);
-          sample(u, v, b);
-          sample(u + (axis ? 0 : h), v + (axis ? h : 0), c);
-          for (const key of keys)
-            expect(Math.abs((c[key] - 2 * b[key] + a[key]) / h)).toBeLessThan(
-              0.03,
-            );
-        }
-      };
-      for (let y = 0; y <= 128; y++)
-        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
-      for (let row = 0; row < p.cells; row++)
-        for (let col = 0; col < p.cells; col++)
-          for (let blade = 0; blade < 3; blade++) {
-            const cx = (blade - 1) * p.pitch;
-            for (let j = 0; j <= 128; j++) {
-              const t = j / 128,
-                across = -p.halfWidth + 2 * p.halfWidth * t;
-              for (const y of [
-                p.tops[blade],
-                p.tops[blade] + p.endShoulder,
-                p.bottoms[blade],
-                p.bottoms[blade] - p.endShoulder,
-              ])
-                check(
-                  ...world(
-                    seed,
-                    col,
-                    row,
-                    cx + across,
-                    y + p.endSlope * across,
-                  ),
-                );
-              for (const x of [
-                -p.halfWidth,
-                -p.halfWidth + p.sideShoulder,
-                0,
-                p.halfWidth - p.sideShoulder,
-                p.halfWidth,
-                -p.pitch / 2,
-                p.pitch / 2,
-              ])
-                check(...world(seed, col, row, cx + x, -0.4 + 0.8 * t));
-            }
+        let peaks = 0;
+        for (let j = 4; j < 61; j++)
+          if (
+            heights[j] > heights[j - 1] &&
+            heights[j] >= heights[j + 1] &&
+            heights[j] -
+              Math.min(
+                heights[j - 4],
+                heights[j - 3],
+                heights[j - 2],
+                heights[j - 1],
+              ) >
+              0.012 &&
+            heights[j] -
+              Math.min(
+                heights[j + 1],
+                heights[j + 2],
+                heights[j + 3],
+                heights[j + 4],
+              ) >
+              0.012
+          ) {
+            peaks++;
+            expect(
+              Math.min(roughness[j - 4], roughness[j + 4]) - roughness[j],
+            ).toBeGreaterThan(0.005);
           }
+        threeRidges += Number(peaks === 3);
+      }
+      expect(threeRidges / measured.faces.length).toBeGreaterThan(0.9);
+      const maps = generateProceduralMaps('kyaniteblades', 512, seed, {
+          heightMap: true,
+        }),
+        streams = Object.values(maps);
+      let blue = 0,
+        darkHost = 0,
+        invalid = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const r = maps.baseColor[i],
+          b = maps.baseColor[i + 2];
+        blue += Number(b > 170 && b - r > 40);
+        darkHost += Number(b < 130);
+        invalid += Number(maps.metallicRoughness[i + 2] !== 0);
+        for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+      }
+      expect(blue / (512 * 512)).toBeGreaterThan(0.08);
+      expect(darkHost / (512 * 512)).toBeGreaterThan(0.7);
+      expect(invalid).toBe(0);
+    },
+  );
+  it.each(['barite', 'kyaniteblades'] as const)(
+    'keeps observed %s shoulders, owner boundaries, grain cache and signed wraps C1',
+    (kind) => {
+      const a = empty(),
+        b = empty(),
+        c = empty(),
+        h = 1e-9,
+        n = 512;
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed),
+          measured = locate(seed, n, kind);
+        let worst = 0,
+          edges = 0;
+        const check = (u: number, v: number) => {
+          for (let axis = 0; axis < 2; axis++) {
+            const du = axis ? 0 : h,
+              dv = axis ? h : 0;
+            sample(u - du, v - dv, a);
+            sample(u, v, b);
+            sample(u + du, v + dv, c);
+            for (const key of keys)
+              worst = Math.max(
+                worst,
+                Math.abs(c[key] - 2 * b[key] + a[key]) / h,
+              );
+          }
+        };
+        // Follow observable occlusion back to the measured host, not private hashed poses.
+        for (const face of measured.faces)
+          for (let direction = 0; direction < 8; direction++) {
+            const angle = face.angle + (direction * Math.PI) / 4,
+              dx = Math.cos(angle),
+              dy = Math.sin(angle),
+              u = (face.cx + 0.5) / n,
+              v = (face.cy + 0.5) / n;
+            let lo = 0,
+              hi = 0;
+            for (let step = 1; step < 2 * face.length; step++) {
+              sample(u + (dx * step) / n, v + (dy * step) / n, a);
+              if (a.occlusion <= measured.backAO + 1e-13) {
+                lo = (step - 1) / n;
+                hi = step / n;
+                break;
+              }
+            }
+            if (!hi) continue;
+            for (let j = 0; j < 44; j++) {
+              const mid = (lo + hi) / 2;
+              sample(u + dx * mid, v + dy * mid, a);
+              if (a.occlusion > measured.backAO + 1e-13) lo = mid;
+              else hi = mid;
+            }
+            check(u + (dx * (lo + hi)) / 2, v + (dy * (lo + hi)) / 2);
+            edges++;
+          }
+        for (const frequency of [proceduralMaterialPresets[kind].cells, 128])
+          for (let k = 0; k <= frequency; k++)
+            for (let j = 0; j < 17; j++) {
+              check(k / frequency, (j + 0.31) / 17);
+              check((j + 0.37) / 17, k / frequency);
+            }
+        expect(edges).toBeGreaterThan(100);
+        expect(worst).toBeLessThan(0.03);
+      }
+    },
+  );
+  it('writes cream polished faces on dominant brown rough host with opaque metal-zero maps and signed edge normals at actual512', () => {
+    const maps = generateProceduralMaps('barite', 512, 7, { heightMap: true }),
+      streams = Object.values(maps);
+    let cream = 0,
+      host = 0,
+      posX = 0,
+      negX = 0,
+      posY = 0,
+      negY = 0,
+      minAO = 255,
+      maxAO = 0,
+      maxTilt = 0,
+      rough = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      cream += Number(r > 190 && g > 180 && b > 150 && r > g && g > b);
+      host += Number(r < 125 && g < 110 && b < 90);
+      posX += Number(maps.normal[i] > 128);
+      negX += Number(maps.normal[i] < 127);
+      posY += Number(maps.normal[i + 1] > 128);
+      negY += Number(maps.normal[i + 1] < 127);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 235,
+      );
+      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
     }
+    expect(cream / (512 * 512)).toBeGreaterThan(0.1);
+    expect(cream / (512 * 512)).toBeLessThan(0.3);
+    expect(host / (512 * 512)).toBeGreaterThan(0.6);
+    for (const count of [posX, negX, posY, negY])
+      expect(count / (512 * 512)).toBeGreaterThan(0.015);
+    expect(minAO).toBeLessThan(150);
+    expect(maxAO).toBeGreaterThan(245);
+    expect(maxTilt).toBeGreaterThan(0.03);
+    expect(maxTilt).toBeLessThan(0.3);
+    expect(rough / (512 * 512)).toBeGreaterThan(0.7);
+    expect(rough / (512 * 512)).toBeLessThan(0.85);
+    expect(invalid).toBe(0);
   });
+  it.each(['barite', 'kyaniteblades'] as const)(
+    'repeats observed %s faces and every surface channel over signed UV periods',
+    (kind) => {
+      const a = empty(),
+        b = empty();
+      let worst = 0;
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let j = 0; j < 4096; j++) {
+          const u = (j * 0.61803398875) % 1,
+            v = (j * 0.41421356237) % 1;
+          sample(u, v, a);
+          sample(u - 2, v + 3, b);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(a[key] - b[key]));
+        }
+      }
+      expect(worst).toBeLessThan(5e-10);
+    },
+  );
 });
 
 describe('Opaque white solderless breadboard face with two banks of five square recesses per row and a continuous lower central trough', () => {

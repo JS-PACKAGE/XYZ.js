@@ -10334,14 +10334,17 @@ export function createSurfaceSampler(
           mortar = 1 - face;
         };
       }
+      case 'barite':
       case 'kyaniteblades': {
-        const p = proceduralMaterialPresets.kyaniteblades,
+        const p = proceduralMaterialPresets[kind],
           poses = new Float64Array(p.cells * p.cells * 6),
           grainField = cachedNoise(128, 128, seed ^ 0x16411),
           inversePitch = 1 / p.pitch,
           inverseWidth = 1 / p.halfWidth,
           inverseSide = 1 / p.sideShoulder,
           inverseEnd = 1 / p.endShoulder,
+          faceTilt = p.faceTilt,
+          striaHeight = p.striaHeight,
           striaFrequency = (TAU * p.striae) / (2 * p.halfWidth);
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
@@ -10387,8 +10390,8 @@ export function createSurfaceSampler(
               0.7 + 0.12 * poses[i + 5] + 0.06 * stria + 0.03 * grain,
             bladeHeight =
               0.55 +
-              0.05 * across * inverseWidth +
-              0.08 * stria +
+              faceTilt * across * inverseWidth +
+              striaHeight * stria +
               0.004 * grain,
             bladeRoughness = p.roughness + 0.1 * (1 - stria) + 0.04 * grain;
           color += face * (bladeColor - color);
@@ -36477,6 +36480,7 @@ export function createSurfaceSampler(
     kind === 'orecchiette' ||
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
+    kind === 'barite' ||
     kind === 'internaltoothwashers' ||
     kind === 'driedchillies' ||
     kind === 'utilityknifeblades' ||
