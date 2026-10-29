@@ -873,6 +873,7 @@ try {
     'yellowheart',
     'bloodwood',
     'basswood',
+    'tabwashers',
     'sphericalwashers',
     'mungbeans',
     'thomsonite',

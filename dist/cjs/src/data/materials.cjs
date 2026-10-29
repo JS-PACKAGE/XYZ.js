@@ -16396,6 +16396,30 @@ var proceduralMaterialPresets = Object.freeze({
 		brushRoughness: .025,
 		grainRoughness: .035
 	}),
+	tabwashers: Object.freeze({
+		dark: [
+			35,
+			41,
+			46
+		],
+		light: [
+			226,
+			232,
+			237
+		],
+		roughness: .33,
+		relief: .0028,
+		cells: 4,
+		jitter: .02,
+		scale: .91,
+		scaleVariation: .04,
+		outerRadius: .29,
+		boreRadius: .13,
+		bevel: .012,
+		tabStart: .16,
+		tabEnd: .43,
+		tabHalfWidth: .09
+	}),
 	sphericalwashers: Object.freeze({
 		dark: [
 			34,
@@ -18044,6 +18068,7 @@ var proceduralTileMeters = Object.freeze({
 	yellowheart: .12,
 	bloodwood: .12,
 	basswood: .1,
+	tabwashers: .1,
 	sphericalwashers: .1,
 	mungbeans: .045,
 	thomsonite: .048,

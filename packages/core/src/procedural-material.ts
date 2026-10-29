@@ -810,6 +810,7 @@ export type ProceduralMaterialKind =
   | 'yellowheart'
   | 'bloodwood'
   | 'basswood'
+  | 'tabwashers'
   | 'sphericalwashers'
   | 'mungbeans'
   | 'thomsonite'
@@ -1868,6 +1869,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'yellowheart',
   'bloodwood',
   'basswood',
+  'tabwashers',
   'sphericalwashers',
   'mungbeans',
   'thomsonite',
@@ -2120,6 +2122,7 @@ export class ProceduralMaterial {
         this.kind === 'squaresocketheads' ||
         this.kind === 'twopinscrewheads' ||
         this.kind === 'squareholewashers' ||
+        this.kind === 'tabwashers' ||
         this.kind === 'sphericalwashers' ||
         this.kind === 'wavewashers' ||
         this.kind === 'cupwashers' ||

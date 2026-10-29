@@ -9492,6 +9492,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         brushRoughness: 0.025;
         grainRoughness: 0.035;
     }>;
+    tabwashers: Readonly<{
+        dark: readonly [35, 41, 46];
+        light: readonly [226, 232, 237];
+        roughness: 0.33;
+        relief: 0.0028;
+        cells: 4;
+        jitter: 0.02;
+        scale: 0.91;
+        scaleVariation: 0.04;
+        outerRadius: 0.29;
+        boreRadius: 0.13;
+        bevel: 0.012;
+        tabStart: 0.16;
+        tabEnd: 0.43;
+        tabHalfWidth: 0.09;
+    }>;
     sphericalwashers: Readonly<{
         dark: readonly [34, 42, 50];
         light: readonly [230, 235, 240];
@@ -10882,6 +10898,7 @@ export declare const proceduralTileMeters: Readonly<{
     yellowheart: 0.12;
     bloodwood: 0.12;
     basswood: 0.1;
+    tabwashers: 0.1;
     sphericalwashers: 0.1;
     mungbeans: 0.045;
     thomsonite: 0.048;

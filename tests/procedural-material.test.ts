@@ -836,6 +836,7 @@ const kinds: ProceduralMaterialKind[] = [
   'yellowheart',
   'bloodwood',
   'basswood',
+  'tabwashers',
   'sphericalwashers',
   'mungbeans',
   'thomsonite',
@@ -7920,6 +7921,378 @@ describe('Pale finely sanded Basswood with understated long straight grain', () 
       }
       expect(worst).toBeLessThan(5e-11);
     }
+  });
+});
+
+describe('Flat silver single external tab washers with one closed round bore', () => {
+  const p = proceduralMaterialPresets.tabwashers;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const n = 512,
+      sample = createSurfaceSampler('tabwashers', seed),
+      a = empty(),
+      mask = new Uint8Array(n * n),
+      seen = new Uint8Array(n * n),
+      queue = new Int32Array(n * n),
+      holes: { u: number; v: number; area: number }[] = [];
+    let metal = 0,
+      host = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, a);
+        mask[y * n + x] = Number(a.metallic > 0.5);
+        metal += mask[y * n + x];
+        host += Number(a.metallic === 0);
+      }
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] || seen[i]) continue;
+      let start = 0,
+        end = 1,
+        sx = 0,
+        sy = 0,
+        border = false;
+      seen[i] = 1;
+      queue[0] = i;
+      while (start < end) {
+        const at = queue[start++],
+          x = at % n,
+          y = Math.floor(at / n);
+        sx += x + 0.5;
+        sy += y + 0.5;
+        border ||= x === 0 || y === 0 || x === n - 1 || y === n - 1;
+        for (const next of [
+          y * n + ((x + 1) % n),
+          y * n + ((x + n - 1) % n),
+          ((y + 1) % n) * n + x,
+          ((y + n - 1) % n) * n + x,
+        ])
+          if (!mask[next] && !seen[next]) {
+            seen[next] = 1;
+            queue[end++] = next;
+          }
+      }
+      if (!border && end > 4)
+        holes.push({ u: sx / end / n, v: sy / end / n, area: end });
+    }
+    let faceComponents = 0;
+    seen.fill(0);
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i] || seen[i]) continue;
+      faceComponents++;
+      let start = 0,
+        end = 1;
+      seen[i] = 1;
+      queue[0] = i;
+      while (start < end) {
+        const at = queue[start++],
+          x = at % n,
+          y = Math.floor(at / n);
+        for (const next of [
+          y * n + ((x + 1) % n),
+          y * n + ((x + n - 1) % n),
+          ((y + 1) % n) * n + x,
+          ((y + n - 1) % n) * n + x,
+        ])
+          if (mask[next] && !seen[next]) {
+            seen[next] = 1;
+            queue[end++] = next;
+          }
+      }
+    }
+    const owners = [];
+    for (const hole of holes) {
+      let { u, v } = hole;
+      const radial = (angle: number, inner: boolean) => {
+        const co = Math.cos(angle),
+          si = Math.sin(angle);
+        let previous = false,
+          lo = 0,
+          hi = 0;
+        for (let j = 1; j <= 128; j++) {
+          const r = j / n;
+          sample(u + r * co, v + r * si, a);
+          const inside = a.metallic > 0.5;
+          if (inner ? inside : previous && !inside) {
+            lo = (j - 1) / n;
+            hi = r;
+            break;
+          }
+          previous = inside;
+        }
+        for (let k = 0; k < 36; k++) {
+          const mid = (lo + hi) / 2;
+          sample(u + mid * co, v + mid * si, a);
+          if (a.metallic > 0.5 === inner) hi = mid;
+          else lo = mid;
+        }
+        return (lo + hi) / 2;
+      };
+      for (let j = 0; j < 3; j++) {
+        u += (radial(0, true) - radial(Math.PI, true)) / 2;
+        v += (radial(Math.PI / 2, true) - radial(-Math.PI / 2, true)) / 2;
+      }
+      const radii = [],
+        inners = [];
+      for (let j = 0; j < 720; j++) {
+        radii.push(radial((j * 2 * Math.PI) / 720, false));
+        inners.push(radial((j * 2 * Math.PI) / 720, true));
+      }
+      const sorted = [...radii].sort((a, b) => a - b),
+        base = sorted[360];
+      let sx = 0,
+        sy = 0,
+        runs = 0;
+      for (let j = 0; j < 720; j++) {
+        const theta = (j * 2 * Math.PI) / 720,
+          protrudes = radii[j] > base * 1.12;
+        sx += protrudes ? Math.cos(theta) : 0;
+        sy += protrudes ? Math.sin(theta) : 0;
+        if (protrudes && radii[(j + 719) % 720] <= base * 1.12) runs++;
+      }
+      const angle = Math.atan2(sy, sx),
+        xs: number[] = [],
+        ys: number[] = [];
+      for (let j = 0; j < 720; j++) {
+        if (radii[j] < base * 1.12) continue;
+        const theta = (j * 2 * Math.PI) / 720 - angle;
+        xs.push(radii[j] * Math.cos(theta));
+        ys.push(radii[j] * Math.sin(theta));
+      }
+      const tip = Math.max(...xs),
+        end = xs.filter((x, j) => Math.abs(ys[j]) < base * 0.2);
+      let coreMin = 1 / 0,
+        coreMax = -1 / 0,
+        core = 0,
+        coreH = 0;
+      for (let j = 0; j < 720; j++) {
+        const theta = (j * 2 * Math.PI) / 720,
+          rr = (inners[j] + base) * 0.5;
+        sample(u + rr * Math.cos(theta), v + rr * Math.sin(theta), a);
+        if (a.metallic > 0.999) {
+          core++;
+          coreH += a.height;
+          coreMin = Math.min(coreMin, a.height);
+          coreMax = Math.max(coreMax, a.height);
+        }
+      }
+      sample(
+        u + (base + tip) * 0.5 * Math.cos(angle),
+        v + (base + tip) * 0.5 * Math.sin(angle),
+        a,
+      );
+      const tabLift = Math.abs(a.height - coreH / core) / p.relief,
+        tabMetal = a.metallic;
+      sample(u, v, a);
+      owners.push({
+        u,
+        v,
+        angle,
+        base,
+        boreRatio: inners.reduce((s, x) => s + x, 0) / 720 / base,
+        boreRoundness: (Math.max(...inners) - Math.min(...inners)) / base,
+        lobeRuns: runs,
+        tipRatio: tip / base,
+        tabWidth: (Math.max(...ys) - Math.min(...ys)) / base,
+        straightness: (Math.max(...end) - Math.min(...end)) / base,
+        flatness: (coreMax - coreMin) / p.relief,
+        centerMetal: a.metallic,
+        tabLift,
+        tabMetal,
+        core: core / 720,
+      });
+    }
+    return {
+      seed,
+      metal: metal / n / n,
+      host: host / n / n,
+      faceComponents,
+      owners,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('tabwashers', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    let worst = 0,
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 192; y++)
+      for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+    const observed = observe(seed);
+    for (const owner of observed.owners) {
+      for (let j = 0; j < 360; j++) {
+        const co = Math.cos((j * Math.PI) / 180),
+          si = Math.sin((j * Math.PI) / 180);
+        for (const metalThreshold of [0, 0.5, 1]) {
+          let previous = false;
+          for (let k = 0; k <= 128; k++) {
+            const r = k / 512;
+            sample(owner.u + r * co, owner.v + r * si, a);
+            const inside =
+              metalThreshold === 1
+                ? a.metallic === 1
+                : a.metallic > metalThreshold;
+            if (inside !== previous) {
+              let lo = (k - 1) / 512,
+                hi = r;
+              for (let step = 0; step < 36; step++) {
+                const mid = (lo + hi) / 2;
+                sample(owner.u + mid * co, owner.v + mid * si, a);
+                if (
+                  (metalThreshold === 1
+                    ? a.metallic === 1
+                    : a.metallic > metalThreshold) === previous
+                )
+                  lo = mid;
+                else hi = mid;
+              }
+              const rr = (lo + hi) / 2;
+              check(owner.u + rr * co, owner.v + rr * si);
+            }
+            previous = inside;
+          }
+        }
+      }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(period, Math.abs(a[key] - b[key]));
+    }
+    return { seed, worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps one closed round bore and one straight-ended flat external lug per connected washer at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.host).toBeGreaterThan(0.7);
+      expect(o.metal).toBeGreaterThan(0.1);
+      expect(o.metal).toBeLessThan(0.28);
+      expect(o.faceComponents).toBe(o.owners.length);
+      for (const a of o.owners) {
+        expect(a.boreRatio).toBeGreaterThan(0.35);
+        expect(a.boreRatio).toBeLessThan(0.6);
+        expect(a.boreRoundness).toBeLessThan(0.005);
+        expect(a.lobeRuns).toBe(1);
+        expect(a.tipRatio).toBeGreaterThan(1.35);
+        expect(a.tipRatio).toBeLessThan(1.65);
+        expect(a.tabWidth).toBeGreaterThan(0.45);
+        expect(a.tabWidth).toBeLessThan(0.75);
+        expect(a.straightness).toBeLessThan(0.01);
+        expect(a.flatness).toBeLessThan(0.01);
+        expect(a.core).toBeGreaterThan(0.9);
+        expect(a.centerMetal).toBe(0);
+        expect(a.tabLift).toBeLessThan(0.006);
+        expect(a.tabMetal).toBeGreaterThan(0.999);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps measured bore outer rim lug and flat-core contours grain and signed wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.03);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it('writes opaque silver flat full-metal faces and dielectric open bores and backing with resolved bevel normals', () => {
+    const maps = generateProceduralMaps('tabwashers', 512, 7, {
+      heightMap: true,
+    });
+    const pixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+      let core = 0,
+        host = 0,
+        red = 0,
+        blueRed = 0,
+        rough = 0,
+        maxTilt = 0,
+        minZ = 255,
+        invalid = 0;
+      const signed = [0, 0, 0, 0],
+        n = maps.baseColor.length / 4;
+      for (let i = 0; i < n; i++) {
+        const p = i * 4,
+          m = maps.metallicRoughness[p + 2],
+          nx = maps.normal[p] / 127.5 - 1,
+          ny = maps.normal[p + 1] / 127.5 - 1;
+        if (m === 255) {
+          core++;
+          red += maps.baseColor[p];
+          blueRed += maps.baseColor[p + 2] - maps.baseColor[p];
+          rough += maps.metallicRoughness[p + 1] / 255;
+        }
+        host += Number(m === 0);
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        minZ = Math.min(minZ, maps.normal[p + 2]);
+        signed[0] += Number(nx > 0.01);
+        signed[1] += Number(nx < -0.01);
+        signed[2] += Number(ny > 0.01);
+        signed[3] += Number(ny < -0.01);
+        for (const map of Object.values(maps))
+          invalid += Number(map[p + 3] !== 255);
+      }
+      return {
+        core: core / n,
+        host: host / n,
+        red: red / core,
+        blueRed: blueRed / core,
+        rough: rough / core,
+        maxTilt,
+        minZ,
+        signed: signed.map((x) => x / n),
+        invalid,
+      };
+    };
+    const o = pixels(maps);
+    expect(o.core).toBeGreaterThan(0.1);
+    expect(o.core).toBeLessThan(0.25);
+    expect(o.host).toBeGreaterThan(0.7);
+    expect(o.red).toBeGreaterThan(165);
+    expect(o.red).toBeLessThan(205);
+    expect(o.blueRed).toBeGreaterThan(5);
+    expect(o.blueRed).toBeLessThan(18);
+    expect(o.rough).toBeGreaterThan(0.28);
+    expect(o.rough).toBeLessThan(0.42);
+    expect(o.maxTilt).toBeGreaterThan(0.1);
+    expect(o.maxTilt).toBeLessThan(0.4);
+    for (const direction of o.signed) expect(direction).toBeGreaterThan(0.015);
+    expect(o.minZ).toBeGreaterThan(225);
+    expect(o.invalid).toBe(0);
   });
 });
 
@@ -76244,6 +76617,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'squaresocketheads' &&
           kind !== 'twopinscrewheads' &&
           kind !== 'squareholewashers' &&
+          kind !== 'tabwashers' &&
           kind !== 'sphericalwashers' &&
           kind !== 'wavewashers' &&
           kind !== 'cupwashers' &&
@@ -85732,6 +86106,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rclips',
     'linchpins',
     'woodruffkeys',
+    'tabwashers',
     'gibheadkeys',
     'parallelkeys',
     'hinges',
@@ -85839,6 +86214,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rclips' ||
           kind === 'linchpins' ||
           kind === 'woodruffkeys' ||
+          kind === 'tabwashers' ||
           kind === 'gibheadkeys' ||
           kind === 'parallelkeys' ||
           kind === 'hinges' ||

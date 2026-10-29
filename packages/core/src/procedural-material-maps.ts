@@ -4341,6 +4341,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tabwashers': {
+        const p = proceduralMaterialPresets.tabwashers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x23d11),
+          outerSquared = p.outerRadius * p.outerRadius,
+          inverseOuter = 1 / (outerSquared - (p.outerRadius - p.bevel) ** 2),
+          boreSquared = p.boreRadius * p.boreRadius,
+          inverseBore = 1 / ((p.boreRadius + p.bevel) ** 2 - boreSquared),
+          inverseBevel = 1 / p.bevel;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x23d13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23d15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23d17) - 1);
+            poses[i + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x23d19));
+            poses[i + 5] = hash(col, row, seed ^ 0x23d1b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = (fract(uc) - poses[i + 2]) * poses[i + 4],
+            dy = (fract(vc) - poses[i + 3]) * poses[i + 4],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            q = x * x + y * y,
+            disk = smooth(clamp((outerSquared - q) * inverseOuter)),
+            tab =
+              smooth(clamp((x - p.tabStart) * inverseBevel)) *
+              smooth(clamp((p.tabEnd - x) * inverseBevel)) *
+              smooth(clamp((p.tabHalfWidth - Math.abs(y)) * inverseBevel)),
+            face =
+              (1 - (1 - disk) * (1 - tab)) *
+              smooth(clamp((q - boreSquared) * inverseBore));
+          color = 0.045;
+          height = 0.04;
+          roughness = 0.92;
+          occlusion = 0.4;
+          metallic = 0;
+          mortar = 0;
+          if (face === 0) return;
+          const grain = grainField(u, v);
+          // One flat external lug shares the annular face, not a split or lift.
+          color += face * (0.73 + 0.08 * poses[i + 5] + 0.015 * grain - color);
+          height += face * (0.58 + 0.003 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+          metallic = face;
+          return;
+        };
+      }
       case 'sphericalwashers': {
         const p = proceduralMaterialPresets.sphericalwashers,
           tones = new Float64Array(p.cells * p.cells),
@@ -36970,6 +37027,7 @@ export function createSurfaceSampler(
     kind === 'serge' ||
     kind === 'batiste' ||
     kind === 'ramie' ||
+    kind === 'tabwashers' ||
     kind === 'sphericalwashers' ||
     kind === 'wavewashers' ||
     kind === 'cupwashers' ||
