@@ -768,6 +768,7 @@ const kinds: ProceduralMaterialKind[] = [
   'shackles',
   'watercaltrops',
   'fluorite',
+  'vanadinite',
   'pyromorphite',
   'redberyl',
   'cavansite',
@@ -4155,6 +4156,336 @@ describe('Reddish-brown curly Makore with interrupted flat figure and sparse rec
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Orange brown Vanadinite hexagonal raised rims with one recessed opaque hexagonal floor', () => {
+  const p = proceduralMaterialPresets.vanadinite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const locate = (seed: number) => {
+    const sample = createSurfaceSampler('vanadinite', seed),
+      a = empty(),
+      owners = [],
+      cells = p.cells,
+      n = 128;
+    for (let row = 0; row < cells; row++)
+      for (let col = 0; col < cells; col++) {
+        let count = 0,
+          sx = 0,
+          sy = 0;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            const u = (col + (x + 0.5) / n) / cells,
+              v = (row + (y + 0.5) / n) / cells;
+            sample(u, v, a);
+            if (a.roughness < 0.5) {
+              count++;
+              sx += u;
+              sy += v;
+            }
+          }
+        if (!count) continue;
+        let u = sx / count,
+          v = sy / count;
+        for (let k = 0; k < 3; k++) {
+          const limits = [];
+          for (const angle of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+            let lo = 0,
+              hi = 0.5 / cells;
+            for (let j = 0; j < 36; j++) {
+              const mid = (lo + hi) / 2;
+              sample(u + mid * Math.cos(angle), v + mid * Math.sin(angle), a);
+              if (a.roughness < 0.5) lo = mid;
+              else hi = mid;
+            }
+            limits.push((lo + hi) / 2);
+          }
+          u += (limits[0] - limits[1]) / 2;
+          v += (limits[2] - limits[3]) / 2;
+        }
+        const outer: number[] = [],
+          inner: number[] = [];
+        for (let j = 0; j < 120; j++) {
+          const angle = (j * Math.PI) / 60,
+            co = Math.cos(angle),
+            si = Math.sin(angle);
+          for (const [radii, threshold] of [
+            [outer, 0.5],
+            [inner, 0.86],
+          ] as const) {
+            let lo = 0,
+              hi = 0.5 / cells;
+            for (let k = 0; k < 36; k++) {
+              const mid = (lo + hi) / 2;
+              sample(u + mid * co, v + mid * si, a);
+              if (
+                threshold === 0.5 ? a.roughness < 0.5 : a.occlusion < threshold
+              )
+                lo = mid;
+              else hi = mid;
+            }
+            radii.push((lo + hi) / 2);
+          }
+        }
+        const min = Math.min(...outer),
+          max = Math.max(...outer),
+          mean = outer.reduce((s, x) => s + x, 0) / 120;
+        let six = 0,
+          ratioSum = 0,
+          ratioMin = 1 / 0,
+          ratioMax = -1 / 0,
+          rimMin = 1 / 0,
+          rimMax = -1 / 0,
+          rimH = 0,
+          rimR = 0,
+          rimAO = 0;
+        for (let j = 0; j < 120; j++) {
+          six += (outer[j] - outer[(j + 20) % 120]) ** 2;
+          const ratio = inner[j] / outer[j];
+          ratioSum += ratio;
+          ratioMin = Math.min(ratioMin, ratio);
+          ratioMax = Math.max(ratioMax, ratio);
+          const rr = (inner[j] + outer[j]) * 0.5;
+          sample(
+            u + rr * Math.cos((j * Math.PI) / 60),
+            v + rr * Math.sin((j * Math.PI) / 60),
+            a,
+          );
+          rimMin = Math.min(rimMin, a.height);
+          rimMax = Math.max(rimMax, a.height);
+          rimH += a.height;
+          rimR += a.roughness;
+          rimAO += a.occlusion;
+        }
+        let score = 1 / 0;
+        for (let phase = 0; phase < 20; phase++) {
+          let err = 0;
+          for (let j = 0; j < 120; j++) {
+            const theta = ((j - phase) * Math.PI) / 60,
+              plane = Math.max(
+                Math.abs(Math.cos(theta)),
+                Math.abs(Math.cos(theta + Math.PI / 3)),
+                Math.abs(Math.cos(theta - Math.PI / 3)),
+              );
+            err += (outer[j] - min / plane) ** 2;
+          }
+          score = Math.min(score, Math.sqrt(err / 120) / mean);
+        }
+        sample(u, v, a);
+        const center = { ...a };
+        let floorMin = 1 / 0,
+          floorMax = -1 / 0;
+        for (let j = 0; j < 24; j++) {
+          const rr = Math.min(...inner) * 0.4;
+          sample(
+            u + rr * Math.cos((j * Math.PI) / 12),
+            v + rr * Math.sin((j * Math.PI) / 12),
+            a,
+          );
+          floorMin = Math.min(floorMin, a.height);
+          floorMax = Math.max(floorMax, a.height);
+        }
+        sample((col + 0.01) / cells, (row + 0.01) / cells, a);
+        owners.push({
+          u,
+          v,
+          col,
+          row,
+          rmin: min,
+          rmax: max,
+          six: Math.sqrt(six / 120) / mean,
+          hexFit: score,
+          aspect: max / min,
+          pitRatio: ratioSum / 120,
+          alignment: ratioMax - ratioMin,
+          rimFlat: (rimMax - rimMin) / p.relief,
+          floorFlat: (floorMax - floorMin) / p.relief,
+          depth: (rimH / 120 - center.height) / p.relief,
+          rimAboveHost: (rimH / 120 - a.height) / p.relief,
+          floorAboveHost: (center.height - a.height) / p.relief,
+          centerAO: center.occlusion,
+          rimAO: rimAO / 120,
+          rimR: rimR / 120,
+        });
+      }
+    return owners;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('vanadinite', seed),
+      owners = locate(seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    let worst = 0,
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 192; y++)
+      for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+    for (const o of owners)
+      for (let j = 0; j < 120; j++) {
+        const co = Math.cos((j * Math.PI) / 60),
+          si = Math.sin((j * Math.PI) / 60);
+        for (const inner of [false, true])
+          for (const threshold of inner
+            ? [0.74000000001, 0.86, 0.97999999999]
+            : [0.34, 0.50001, 0.83]) {
+            let lo = 0,
+              hi = 0.5 / p.cells;
+            for (let k = 0; k < 36; k++) {
+              const mid = (lo + hi) / 2;
+              sample(o.u + mid * co, o.v + mid * si, a);
+              if (inner ? a.occlusion < threshold : a.roughness < threshold)
+                lo = mid;
+              else hi = mid;
+            }
+            const rr = (lo + hi) / 2;
+            check(o.u + rr * co, o.v + rr * si);
+          }
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(period, Math.abs(a[key] - b[key]));
+    }
+    return { seed, worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'preserves six straight rim sides and a smaller aligned recessed hexagon with flat floor above the host at seed%s',
+    (seed) => {
+      const owners = locate(seed);
+      for (const o of owners) {
+        expect(o.aspect).toBeGreaterThan(1.12);
+        expect(o.aspect).toBeLessThan(1.18);
+        expect(o.six).toBeLessThan(0.005);
+        expect(o.hexFit).toBeLessThan(0.012);
+        expect(o.pitRatio).toBeGreaterThan(0.35);
+        expect(o.pitRatio).toBeLessThan(0.6);
+        expect(o.alignment).toBeLessThan(0.015);
+        expect(o.rimFlat).toBeLessThan(0.008);
+        expect(o.floorFlat).toBeLessThan(0.008);
+        expect(o.depth).toBeGreaterThan(0.2);
+        expect(o.depth).toBeLessThan(0.36);
+        expect(o.rimAboveHost).toBeGreaterThan(0.4);
+        expect(o.floorAboveHost).toBeGreaterThan(0.12);
+        expect(o.centerAO).toBeGreaterThan(0.65);
+        expect(o.centerAO).toBeLessThan(0.82);
+        expect(o.rimAO).toBeGreaterThan(0.95);
+        expect(o.rimR).toBeGreaterThan(0.22);
+        expect(o.rimR).toBeLessThan(0.33);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed outer shoulder inner rim flat-floor joins owners and signed wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.03);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it('writes warm orange brown crystal rims and darker floors on dominant pale rough mineral host in actual512 opaque dielectric maps', () => {
+    const maps = generateProceduralMaps('vanadinite', 512, 7, {
+      heightMap: true,
+    });
+    const pixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+      let host = 0,
+        crystal = 0,
+        red = 0,
+        green = 0,
+        blue = 0,
+        rough = 0,
+        maxTilt = 0,
+        invalid = 0;
+      const signed = [0, 0, 0, 0],
+        n = maps.baseColor.length / 4;
+      for (let i = 0; i < n; i++) {
+        const p = i * 4,
+          r = maps.baseColor[p],
+          g = maps.baseColor[p + 1],
+          b = maps.baseColor[p + 2],
+          nx = maps.normal[p] / 127.5 - 1,
+          ny = maps.normal[p + 1] / 127.5 - 1;
+        host += Number(r > 215 && g > 175 && b > 130);
+        if (maps.metallicRoughness[p + 1] < 110) {
+          crystal++;
+          red += r;
+          green += g;
+          blue += b;
+          rough += maps.metallicRoughness[p + 1] / 255;
+        }
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        signed[0] += Number(nx > 0.015);
+        signed[1] += Number(nx < -0.015);
+        signed[2] += Number(ny > 0.015);
+        signed[3] += Number(ny < -0.015);
+        for (const map of Object.values(maps))
+          invalid += Number(map[p + 3] !== 255);
+        invalid += Number(maps.metallicRoughness[p + 2] !== 0);
+      }
+      return {
+        host: host / n,
+        crystal: crystal / n,
+        red: red / crystal,
+        green: green / crystal,
+        blue: blue / crystal,
+        rough: rough / crystal,
+        maxTilt,
+        signed: signed.map((x) => x / n),
+        invalid,
+      };
+    };
+    const o = pixels(maps);
+    expect(o.host).toBeGreaterThan(0.65);
+    expect(o.crystal).toBeGreaterThan(0.15);
+    expect(o.crystal).toBeLessThan(0.3);
+    expect(o.red).toBeGreaterThan(165);
+    expect(o.red).toBeLessThan(205);
+    expect(o.green).toBeGreaterThan(85);
+    expect(o.green).toBeLessThan(135);
+    expect(o.blue).toBeGreaterThan(55);
+    expect(o.blue).toBeLessThan(100);
+    expect(o.red - o.green).toBeGreaterThan(65);
+    expect(o.green - o.blue).toBeGreaterThan(25);
+    expect(o.rough).toBeGreaterThan(0.22);
+    expect(o.rough).toBeLessThan(0.34);
+    expect(o.maxTilt).toBeGreaterThan(0.07);
+    expect(o.maxTilt).toBeLessThan(0.4);
+    for (const direction of o.signed) expect(direction).toBeGreaterThan(0.01);
+    expect(o.invalid).toBe(0);
   });
 });
 

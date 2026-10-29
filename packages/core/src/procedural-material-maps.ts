@@ -2257,6 +2257,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'vanadinite': {
+        const p = proceduralMaterialPresets.vanadinite,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          cloudField = cachedNoise(8, 8, seed ^ 0x23f11),
+          grainField = cachedNoise(128, 128, seed ^ 0x23f13),
+          inverseOuter = 1 / (1 - p.coreRatio * p.coreRatio),
+          pitSquared = p.pitRatio * p.pitRatio,
+          inversePit = 1 / (pitSquared * (1 - p.pitCoreRatio * p.pitCoreRatio));
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x23f15),
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x23f17);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23f19) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x23f1b) - 1);
+            poses[i + 2] = Math.cos(angle);
+            poses[i + 3] = Math.sin(angle);
+            poses[i + 4] = 1 / (radius * radius);
+            poses[i + 5] = hash(col, row, seed ^ 0x23f1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            grain = grainField(u, v),
+            cloud = cloudField(u, v),
+            dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            a = 0.5 * x + 0.8660254037844386 * y,
+            b = 0.5 * x - 0.8660254037844386 * y,
+            inverseRadius = poses[i + 4],
+            x2 = x * x * inverseRadius,
+            a2 = a * a * inverseRadius,
+            b2 = b * b * inverseRadius,
+            face =
+              smooth(clamp((1 - x2) * inverseOuter)) *
+              smooth(clamp((1 - a2) * inverseOuter)) *
+              smooth(clamp((1 - b2) * inverseOuter));
+          color = 0.8 + 0.1 * cloud + 0.06 * grain;
+          height = 0.12 + 0.025 * cloud + 0.04 * grain;
+          roughness = 0.84 + 0.08 * grain;
+          occlusion = 0.98;
+          metallic = 0;
+          mortar = 0;
+          if (face === 0) return;
+          const pit =
+            smooth(clamp((pitSquared - x2) * inversePit)) *
+            smooth(clamp((pitSquared - a2) * inversePit)) *
+            smooth(clamp((pitSquared - b2) * inversePit));
+          // A single hexagonal recess leaves a flat opaque crystal floor.
+          // It is neither a transparent tube nor a pyramidal crystal apex.
+          color +=
+            face *
+            (0.48 + 0.06 * poses[i + 5] - 0.2 * pit + 0.02 * grain - color);
+          height +=
+            face *
+            (0.64 +
+              0.035 * poses[i + 5] -
+              p.pitDepth * pit +
+              0.002 * grain -
+              height);
+          roughness +=
+            face * (p.roughness + 0.06 * pit + 0.02 * grain - roughness);
+          occlusion += face * (0.98 - 0.24 * pit - occlusion);
+          return;
+        };
+      }
       case 'pyromorphite':
       case 'redberyl': {
         const p = proceduralMaterialPresets[kind],
@@ -36972,6 +37044,7 @@ export function createSurfaceSampler(
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
+    kind === 'vanadinite' ||
     kind === 'pyromorphite' ||
     kind === 'redberyl' ||
     kind === 'cavansite' ||
