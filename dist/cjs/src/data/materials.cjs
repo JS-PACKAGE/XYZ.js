@@ -13964,6 +13964,33 @@ var proceduralMaterialPresets = Object.freeze({
 		grooveY: -.075,
 		grooveWidth: .008
 	}),
+	faille: Object.freeze({
+		dark: [
+			167,
+			163,
+			145
+		],
+		light: [
+			246,
+			244,
+			226
+		],
+		roughness: .62,
+		relief: 3e-4,
+		warpThreads: 60,
+		weftThreads: 20,
+		warpRadius: .21,
+		warpCore: .15,
+		weftRadius: .46,
+		weftCore: .38,
+		warpLiftHalf: .3,
+		weftLiftHalf: .46,
+		liftShoulder: .06,
+		lift: .12,
+		warpFibers: 240,
+		weftFibers: 80,
+		weftCrown: .02
+	}),
 	poplin: Object.freeze({
 		dark: [
 			102,
@@ -17784,6 +17811,7 @@ var proceduralTileMeters = Object.freeze({
 	cloisonne: .18,
 	rambutanskin: .12,
 	rackgears: .6,
+	faille: .03,
 	poplin: .016,
 	ooliticlimestone: .024,
 	ogeetiles: .72,

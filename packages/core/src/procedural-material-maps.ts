@@ -5674,6 +5674,7 @@ export function createSurfaceSampler(
       case 'lyocell':
       case 'batiste':
       case 'ramie':
+      case 'faille':
       case 'poplin': {
         const drill = kind === 'cottondrill',
           drillPreset = proceduralMaterialPresets.cottondrill,
@@ -5706,6 +5707,7 @@ export function createSurfaceSampler(
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
+          faille = kind === 'faille',
           shantung = kind === 'shantung',
           profiledWeave =
             kind === 'huckaback' || fineCloth || basket || ticking || drill,
@@ -5752,7 +5754,13 @@ export function createSurfaceSampler(
             twill || profiledWeave || chambray || flannel || balancedPlain,
           warpBase = equalYarns ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
-          weftCrown = ottoman ? 0.1 : equalYarns ? 0.04 : 0.07,
+          weftCrown = faille
+            ? proceduralMaterialPresets.faille.weftCrown
+            : ottoman
+              ? 0.1
+              : equalYarns
+                ? 0.04
+                : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,
@@ -36762,6 +36770,7 @@ export function createSurfaceSampler(
     kind === 'cloisonne' ||
     kind === 'rambutanskin' ||
     kind === 'rackgears' ||
+    kind === 'faille' ||
     kind === 'poplin' ||
     kind === 'gabardine' ||
     kind === 'oilspotglaze' ||
