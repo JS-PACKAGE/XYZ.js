@@ -12295,6 +12295,28 @@ var proceduralMaterialPresets = Object.freeze({
 		channelWidth: .035,
 		channelShoulder: .007
 	}),
+	wulfenite: Object.freeze({
+		dark: [
+			48,
+			25,
+			13
+		],
+		light: [
+			255,
+			141,
+			30
+		],
+		roughness: .2,
+		relief: .003,
+		cells: 7,
+		chance: .68,
+		jitter: .16,
+		halfMinimum: .12,
+		halfVariation: .1,
+		aspectMinimum: .92,
+		aspectVariation: .16,
+		shoulder: .24
+	}),
 	barite: Object.freeze({
 		dark: [
 			74,
@@ -17613,6 +17635,7 @@ var proceduralTileMeters = Object.freeze({
 	solderlessbreadboard: .04064,
 	kyaniteblades: .16,
 	barite: .08,
+	wulfenite: .06,
 	internaltoothwashers: .16,
 	driedchillies: .16,
 	utilityknifeblades: .24,

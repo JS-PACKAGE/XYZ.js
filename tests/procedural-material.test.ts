@@ -686,6 +686,7 @@ const kinds: ProceduralMaterialKind[] = [
   'orecchiette',
   'solderlessbreadboard',
   'kyaniteblades',
+  'wulfenite',
   'barite',
   'internaltoothwashers',
   'driedchillies',
@@ -37290,7 +37291,7 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
   },
 );
 
-describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blades on mineral backing', () => {
+describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Kyanite on mineral backing', () => {
   const keys = [
     'color',
     'height',
@@ -37307,12 +37308,100 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
     metallic: 0,
     mortar: 0,
   });
+  const observedC1 = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed crystal and host curvature instead of copying private plate profiles.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
   const locate = (
     seed: number,
     n = 512,
-    kind: 'barite' | 'kyaniteblades' = 'barite',
+    kind: 'barite' | 'kyaniteblades' | 'wulfenite' = 'barite',
   ) => {
-    const p = proceduralMaterialPresets[kind];
+    const p = proceduralMaterialPresets[kind],
+      erosion = kind === 'wulfenite' ? 2 : 4;
 
     const sample = createSurfaceSampler(kind, seed),
       a = empty(),
@@ -37396,9 +37485,38 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
         cy = sy / end,
         xx = sxx / end - cx * cx,
         xy = sxy / end - cx * cy,
-        yy = syy / end - cy * cy,
-        angle = 0.5 * Math.atan2(2 * xy, xx - yy),
-        c = Math.cos(angle),
+        yy = syy / end - cy * cy;
+      let angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+      if (kind === 'wulfenite') {
+        // Square covariance is isotropic; fit measured points instead of trusting a degenerate PCA angle.
+        let area = Infinity;
+        for (let step = 0; step < 90; step++) {
+          const a = (step * Math.PI) / 180,
+            c = Math.cos(a),
+            s = Math.sin(a);
+          let loX = Infinity,
+            hiX = -Infinity,
+            loY = Infinity,
+            hiY = -Infinity;
+          for (let j = 0; j < end; j++) {
+            const at = queue[j],
+              x = (at % n) - cx,
+              y = Math.floor(at / n) - cy,
+              px = c * x + s * y,
+              py = c * y - s * x;
+            loX = Math.min(loX, px);
+            hiX = Math.max(hiX, px);
+            loY = Math.min(loY, py);
+            hiY = Math.max(hiY, py);
+          }
+          const candidate = (hiX - loX + 1) * (hiY - loY + 1);
+          if (candidate < area) {
+            area = candidate;
+            angle = a;
+          }
+        }
+      }
+      const c = Math.cos(angle),
         s = Math.sin(angle);
       let minX = Infinity,
         maxX = -Infinity,
@@ -37419,11 +37537,12 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
         maxX = Math.max(maxX, px);
         minY = Math.min(minY, py);
         maxY = Math.max(maxY, py);
-        if (x < 4 || x >= n - 4 || y < 4 || y >= n - 4) continue;
+        if (x < erosion || x >= n - erosion || y < erosion || y >= n - erosion)
+          continue;
         // Adjacent plates must not satisfy this face’s erosion stencil.
         let inside = true;
-        for (let oy = -4; oy <= 4; oy += 4)
-          for (let ox = -4; ox <= 4; ox += 4)
+        for (let oy = -erosion; oy <= erosion; oy += erosion)
+          for (let ox = -erosion; ox <= erosion; ox += erosion)
             inside &&= mask[(y + oy) * n + x + ox] === owner;
         if (inside) {
           core++;
@@ -37439,7 +37558,10 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
         angle,
         length,
         width,
-        aspect: length / width,
+        aspect:
+          kind === 'wulfenite'
+            ? Math.max(length, width) / Math.min(length, width)
+            : length / width,
         fill: end / (length * width),
         core: core / end,
         topSpan: high - low,
@@ -37476,8 +37598,90 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
       backFraction: backCount / (n * n),
       raised: faceHeight / faceCount - backHeight / backCount,
       smoother: backRough / backCount - faceRough / faceCount,
+      faceRoughness: faceRough / faceCount,
+      backRoughness: backRough / backCount,
     };
   };
+  it.each([0, 1, 0xffffffff])(
+    'finds varied scattered near-square orange plates with flat raised smoother tops at seed %s',
+    (seed) => {
+      const m = locate(seed, 512, 'wulfenite');
+      expect(m.faces.length).toBeGreaterThan(15);
+      expect(m.bins).toBeGreaterThan(2);
+      expect(m.faceFraction).toBeGreaterThan(0.025);
+      expect(m.faceFraction).toBeLessThan(0.18);
+      expect(m.backFraction).toBeGreaterThan(0.8);
+      expect(m.raised).toBeGreaterThan(0.35);
+      expect(m.smoother).toBeGreaterThan(0.5);
+      expect(m.faceRoughness).toBeGreaterThan(0.12);
+      expect(m.faceRoughness).toBeLessThan(0.4);
+      expect(m.backRoughness).toBeGreaterThan(0.84);
+      const widths = m.faces.map((f) => Math.sqrt(f.length * f.width));
+      expect(Math.max(...widths) / Math.min(...widths)).toBeGreaterThan(1.3);
+      for (const f of m.faces) {
+        expect(f.aspect).toBeLessThan(1.3);
+        expect(f.fill).toBeGreaterThan(0.88);
+        expect(f.core).toBeGreaterThan(0.15);
+        expect(f.topSpan).toBeLessThan(0.012);
+      }
+    },
+  );
+  it.each([32, 512])(
+    'packs actual %s orange dielectric square faces and dominant dark rough mineral backing',
+    (size) => {
+      const maps = generateProceduralMaps('wulfenite', size, 7, {
+          heightMap: true,
+        }),
+        streams = Object.values(maps);
+      let orange = 0,
+        back = 0,
+        rough = 0,
+        tilt = 0,
+        minZ = 255,
+        minAO = 255,
+        maxAO = 0,
+        invalid = 0,
+        posX = 0,
+        negX = 0,
+        posY = 0,
+        negY = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const r = maps.baseColor[i],
+          g = maps.baseColor[i + 1],
+          b = maps.baseColor[i + 2],
+          nx = maps.normal[i] / 127.5 - 1,
+          ny = maps.normal[i + 1] / 127.5 - 1;
+        orange += Number(r > 160 && g > 75 && g < 150 && b < 50 && r - g > 60);
+        back += Number(r < 95 && g < 60 && b < 30);
+        rough += maps.metallicRoughness[i + 1] / 255;
+        tilt = Math.max(tilt, nx * nx + ny * ny);
+        minZ = Math.min(minZ, maps.normal[i + 2]);
+        minAO = Math.min(minAO, maps.occlusion[i]);
+        maxAO = Math.max(maxAO, maps.occlusion[i]);
+        invalid += Number(maps.metallicRoughness[i + 2] !== 0);
+        for (const stream of streams) invalid += Number(stream[i + 3] !== 255);
+        posX += Number(maps.normal[i] > 128);
+        negX += Number(maps.normal[i] < 127);
+        posY += Number(maps.normal[i + 1] > 128);
+        negY += Number(maps.normal[i + 1] < 127);
+      }
+      expect(orange / (size * size)).toBeGreaterThan(0.025);
+      expect(orange / (size * size)).toBeLessThan(0.18);
+      expect(back / (size * size)).toBeGreaterThan(0.8);
+      expect(rough / (size * size)).toBeGreaterThan(0.8);
+      expect(rough / (size * size)).toBeLessThan(0.95);
+      expect(minAO).toBeLessThan(150);
+      expect(maxAO).toBeGreaterThan(245);
+      expect(minZ).toBeGreaterThan(230);
+      expect(tilt).toBeLessThan(0.35);
+      expect(invalid).toBe(0);
+      if (size === 512) {
+        expect(tilt).toBeGreaterThan(0.02);
+        for (const count of [posX, negX, posY, negY])
+          expect(count / (size * size)).toBeGreaterThan(0.005);
+      }
+    },
+  );
   it.each([0, 1, 0xffffffff])(
     'keeps broad straight-sided flat raised plates in locally parallel triples, not slender blue blades or round caps, for seed %s',
     (seed) => {
@@ -37580,7 +37784,7 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
       expect(invalid).toBe(0);
     },
   );
-  it.each(['barite', 'kyaniteblades'] as const)(
+  it.each(['barite', 'kyaniteblades', 'wulfenite'] as const)(
     'keeps observed %s shoulders, owner boundaries, grain cache and signed wraps C1',
     (kind) => {
       const a = empty(),
@@ -37591,8 +37795,7 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
       for (const seed of [0, 1, 0xffffffff]) {
         const sample = createSurfaceSampler(kind, seed),
           measured = locate(seed, n, kind);
-        let worst = 0,
-          edges = 0;
+        let worst = 0;
         const check = (u: number, v: number) => {
           for (let axis = 0; axis < 2; axis++) {
             const du = axis ? 0 : h,
@@ -37603,7 +37806,11 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
             for (const key of keys)
               worst = Math.max(
                 worst,
-                Math.abs(c[key] - 2 * b[key] + a[key]) / h,
+                Math.abs(c[key] - 2 * b[key] + a[key]) /
+                  h /
+                  (key === 'height'
+                    ? proceduralMaterialPresets[kind].relief
+                    : 1),
               );
           }
         };
@@ -37633,7 +37840,6 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
               else hi = mid;
             }
             check(u + (dx * (lo + hi)) / 2, v + (dy * (lo + hi)) / 2);
-            edges++;
           }
         for (const frequency of [proceduralMaterialPresets[kind].cells, 128])
           for (let k = 0; k <= frequency; k++)
@@ -37641,8 +37847,10 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
               check(k / frequency, (j + 0.31) / 17);
               check((j + 0.37) / 17, k / frequency);
             }
-        expect(edges).toBeGreaterThan(100);
         expect(worst).toBeLessThan(0.03);
+        expect(
+          observedC1(sample, proceduralMaterialPresets[kind].relief),
+        ).toBeLessThan(0.03);
       }
     },
   );
@@ -37694,7 +37902,7 @@ describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blade
     expect(rough / (512 * 512)).toBeLessThan(0.85);
     expect(invalid).toBe(0);
   });
-  it.each(['barite', 'kyaniteblades'] as const)(
+  it.each(['barite', 'kyaniteblades', 'wulfenite'] as const)(
     'repeats observed %s faces and every surface channel over signed UV periods',
     (kind) => {
       const a = empty(),

@@ -6576,6 +6576,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         channelWidth: 0.035;
         channelShoulder: 0.007;
     }>;
+    wulfenite: Readonly<{
+        dark: readonly [48, 25, 13];
+        light: readonly [255, 141, 30];
+        roughness: 0.2;
+        relief: 0.003;
+        cells: 7;
+        chance: 0.68;
+        jitter: 0.16;
+        halfMinimum: 0.12;
+        halfVariation: 0.1;
+        aspectMinimum: 0.92;
+        aspectVariation: 0.16;
+        shoulder: 0.24;
+    }>;
     barite: Readonly<{
         dark: readonly [74, 61, 44];
         light: readonly [248, 242, 216];
@@ -10539,6 +10553,7 @@ export declare const proceduralTileMeters: Readonly<{
     solderlessbreadboard: 0.04064;
     kyaniteblades: 0.16;
     barite: 0.08;
+    wulfenite: 0.06;
     internaltoothwashers: 0.16;
     driedchillies: 0.16;
     utilityknifeblades: 0.24;

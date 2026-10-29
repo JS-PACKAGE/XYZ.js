@@ -10356,6 +10356,61 @@ export function createSurfaceSampler(
           mortar = 1 - face;
         };
       }
+      case 'wulfenite': {
+        const p = proceduralMaterialPresets.wulfenite,
+          poses = new Float64Array(p.cells * p.cells * 7),
+          grainField = cachedNoise(128, 128, seed ^ 0x23911),
+          hostField = cachedNoise(16, 16, seed ^ 0x23913),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            if (hash(col, row, seed ^ 0x23915) >= p.chance) continue;
+            const i = (row * p.cells + col) * 7,
+              angle = TAU * hash(col, row, seed ^ 0x23917),
+              width =
+                p.halfMinimum +
+                p.halfVariation * hash(col, row, seed ^ 0x23919),
+              length =
+                width *
+                (p.aspectMinimum +
+                  p.aspectVariation * hash(col, row, seed ^ 0x2391b));
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2391d) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2391f) - 1);
+            poses[i + 4] = 1 / (width * width);
+            poses[i + 5] = 1 / (length * length);
+            poses[i + 6] = hash(col, row, seed ^ 0x23921);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 7,
+            grain = grainField(u, v),
+            host = hostField(u, v);
+          color = 0.06 + 0.06 * host + 0.015 * grain;
+          height = 0.1 + 0.025 * host + 0.003 * grain;
+          roughness = 0.9 + 0.04 * host + 0.01 * grain;
+          occlusion = 0.54;
+          if (poses[i + 4] === 0) return;
+          const dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            face =
+              smooth(clamp((1 - x * x * poses[i + 4]) * inverseShoulder)) *
+              smooth(clamp((1 - y * y * poses[i + 5]) * inverseShoulder));
+          if (face === 0) return;
+          // Broad tabular tops remain flat; only the compact shoulder rises from the mineral host.
+          color += face * (0.72 + 0.1 * poses[i + 6] + 0.025 * grain - color);
+          height += face * (0.53 + 0.004 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.97 + 0.02 * grain - occlusion);
+          return;
+        };
+      }
       case 'barite':
       case 'kyaniteblades': {
         const p = proceduralMaterialPresets[kind],
@@ -36642,6 +36697,7 @@ export function createSurfaceSampler(
     kind === 'orecchiette' ||
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
+    kind === 'wulfenite' ||
     kind === 'barite' ||
     kind === 'woodruffkeys' ||
     kind === 'parallelkeys' ||
