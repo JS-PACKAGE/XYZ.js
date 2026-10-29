@@ -833,6 +833,7 @@ try {
     'septarian',
     'squaresocketheads',
     'pietersite',
+    'bronzite',
     'castorbeans',
     'zebrawood',
     'twopinscrewheads',

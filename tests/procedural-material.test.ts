@@ -796,6 +796,7 @@ const kinds: ProceduralMaterialKind[] = [
   'septarian',
   'squaresocketheads',
   'pietersite',
+  'bronzite',
   'castorbeans',
   'zebrawood',
   'twopinscrewheads',
@@ -2164,6 +2165,253 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Polished dark brown Bronzite with differently oriented localized bronze striation flecks', () => {
+  const p = proceduralMaterialPresets.bronzite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const orientations = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const bytes = maps.baseColor,
+      angles = new Uint32Array(8);
+    let eligible = 0;
+    for (let cy = 8; cy < 504; cy += 8)
+      for (let cx = 8; cx < 504; cx += 8) {
+        let xx = 0,
+          xy = 0,
+          yy = 0,
+          bright = 0,
+          curvature = 0;
+        for (let oy = -3; oy <= 3; oy++)
+          for (let ox = -3; ox <= 3; ox++) {
+            const i = ((cy + oy) * 512 + cx + ox) * 4,
+              dx = bytes[i + 4] - bytes[i - 4],
+              dy = bytes[i + 2048] - bytes[i - 2048],
+              lap =
+                bytes[i + 4] +
+                bytes[i - 4] +
+                bytes[i + 2048] +
+                bytes[i - 2048] -
+                4 * bytes[i];
+            bright += Number(bytes[i] > 90);
+            xx += dx * dx;
+            xy += dx * dy;
+            yy += dy * dy;
+            curvature += lap * lap;
+          }
+        const energy = xx + yy;
+        if (bright < 18 || energy < 1500) continue;
+        eligible++;
+        const coherence = Math.sqrt((xx - yy) ** 2 + 4 * xy * xy) / energy;
+        if (coherence > 0.72 && curvature / energy > 1.3) {
+          const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+          angles[
+            Math.min(7, Math.floor(((angle + Math.PI * 0.5) * 8) / Math.PI))
+          ]++;
+        }
+      }
+    return {
+      eligible,
+      aligned: [...angles].reduce((a, b) => a + b, 0),
+      angles: [...angles],
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a dominant dark brown body with a minority of static bright bronze flecks and polished dielectric channels for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bronzite', seed),
+        a = empty();
+      let dark = 0,
+        bright = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let i = 0; i < 65536; i++) {
+        sample((i * 0.61803398875) % 1, (i * 0.41421356237) % 1, a);
+        dark += Number(a.color < 0.25);
+        bright += Number(a.color > 0.42);
+        low = Math.min(low, a.color);
+        high = Math.max(high, a.color);
+        invalid += Number(
+          a.metallic !== 0 ||
+            a.mortar !== 0 ||
+            a.occlusion !== 1 ||
+            a.roughness < 0.21 ||
+            a.roughness > 0.27,
+        );
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+          );
+      }
+      expect(dark / 65536).toBeGreaterThan(0.6);
+      expect(dark / 65536).toBeLessThan(0.85);
+      expect(bright / 65536).toBeGreaterThan(0.07);
+      expect(bright / 65536).toBeLessThan(0.18);
+      expect(high - low).toBeGreaterThan(0.65);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('observes fine local striations in many different orientations rather than globally aligned engraving or isotropic noise', () => {
+    const metrics = orientations(
+      generateProceduralMaps('bronzite', 512, 7, { heightMap: true }),
+    );
+    expect(metrics.eligible).toBeGreaterThan(300);
+    expect(metrics.eligible).toBeLessThan(1200);
+    expect(metrics.aligned).toBeGreaterThan(75);
+    expect(metrics.aligned).toBeLessThan(300);
+    expect(metrics.angles.filter((count) => count > 2).length).toBeGreaterThan(
+      5,
+    );
+  });
+  it('keeps dark grain and bright striation flecks on one polished cut plane without raised flakes, engraved grain or cracks', () => {
+    const a = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bronzite', seed);
+      let dark = 0,
+        bright = 0,
+        dh = 0,
+        bh = 0,
+        low = 1,
+        high = 0;
+      for (let i = 0; i < 65536; i++) {
+        sample((i * 0.61803398875) % 1, (i * 0.41421356237) % 1, a);
+        low = Math.min(low, a.height);
+        high = Math.max(high, a.height);
+        if (a.color < 0.25) {
+          dark++;
+          dh += a.height;
+        }
+        if (a.color > 0.42) {
+          bright++;
+          bh += a.height;
+        }
+      }
+      expect(high - low).toBeLessThan(0.0025 * p.relief);
+      expect(Math.abs(dh / dark - bh / bright)).toBeLessThan(
+        0.00025 * p.relief,
+      );
+    }
+  });
+  it('keeps finite-neighbor owner boundaries, all cached fields and signed seams C1 across all six channels', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bronzite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 5, 7, 96, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [-1, 0, 0.173, 0.5, 0.719, 1]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i <= p.cells; i++)
+        for (let j = 0; j < 512; j++) {
+          const t = (j + 0.5) / 512;
+          check(i / p.cells, t);
+          check(t, i / p.cells);
+        }
+      for (let i = 0; i < 16384; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.06);
+    }
+  });
+  it('writes actual512 warm brown and bronze opaque maps with polished nonmetallic channels, unbroken AO and near-flat normals', () => {
+    const maps = generateProceduralMaps('bronzite', 512, 7, {
+        heightMap: true,
+      }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let bright = 0,
+      warm = 0,
+      dark = 0,
+      rough = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      bright += Number(r > 95 && g > 70 && b > 35 && r > g && g > b);
+      warm += Number(r > g && g > b && r - b > 15);
+      dark += Number(r < 75);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.normal[i + 2] !== 255 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(bright / 262144).toBeGreaterThan(0.07);
+    expect(bright / 262144).toBeLessThan(0.18);
+    expect(warm / 262144).toBeGreaterThan(0.84);
+    expect(dark / 262144).toBeGreaterThan(0.65);
+    expect(dark / 262144).toBeLessThan(0.86);
+    expect(rough / 262144).toBeGreaterThan(0.21);
+    expect(rough / 262144).toBeLessThan(0.27);
+    expect(maxTilt).toBeLessThan(0.0001);
+    expect(invalid).toBe(0);
+  });
+  it('repeats every angular grain, oriented striation and localized fleck over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bronzite', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

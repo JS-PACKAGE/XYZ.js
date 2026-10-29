@@ -770,6 +770,7 @@ export type ProceduralMaterialKind =
   | 'septarian'
   | 'squaresocketheads'
   | 'pietersite'
+  | 'bronzite'
   | 'castorbeans'
   | 'zebrawood'
   | 'twopinscrewheads'
@@ -1804,6 +1805,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'septarian',
   'squaresocketheads',
   'pietersite',
+  'bronzite',
   'castorbeans',
   'zebrawood',
   'twopinscrewheads',

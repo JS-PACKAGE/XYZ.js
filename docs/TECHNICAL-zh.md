@@ -1184,6 +1184,10 @@ Root 匯出 `ProceduralMaterial`、共四百五十九種的 `ProceduralMaterialK
 
 槽形參考：[Aspen Fasteners — Square Drive Recess／Robertson Drive規格](https://www.aspenfasteners.com/content/pdf/square_drive_specification.pdf)說明四個插入方向的方形凹穴及多種真實尺寸；此視覺preset不照搬特定尺寸，也不繼承供應商的扭矩、保持力或通用配合主張，未打包參考圖。
 
+`bronzite` 近似選定的深褐磨光Bronzite石面：不同方向的細密青銅色短紋只在局部亮起，暗褐石粒與亮flecks共用平齊切面，不是整片同向機刻條紋、藍灰Pietersite、金屬礦或凸金箔。沿用既有不規則五半平面fragment leaf與舊Pietersite算術順序，新kind才加96² C1 fleck gate，且每點在鄰格loop外只取一次；它是固定顏料快照，不是變角schiller／chatoyancy或光學模型。20²個23欄fragment owners、5×7 cloud／128² grain／96² fleck共34,835 Float64／278,680B tables，非總RAM；constructor預算seed pose、trig與support，每點無配置／hash／trig／sqrt。3×3鄰格與circle cull的保守support上界約1.224216，小於漏除owner最短1.25；五個C1肩乘積與periodic cached fields保留signed連續性。0.12m nominal tile、0.0008 UV relief僅作者參考，顏色不雕height，AO1／metallic0／mortar0、opaque與近乎平面normal保持一致；選用height、tint／Worker／cache／repeats及ownership不變。不是照片掃描，不新增真geometry／動態閃光／透射，也不認證礦種、產地、天然處理、硬度、價值或療效。
+
+外觀參考：實讀[UFRGS的Enstatite教學文件（2022年3月版）](https://www.ufrgs.br/minmicro/Enstatite.pdf)，其保留Bronzite作傳統含鐵enstatite變體用語，並說明反射下可見青銅至暗色的內部反射；不將傳統名稱認證成獨立礦種，也不把薄片PPL／CPL干涉色當石材base color。實讀[Ra’ike的Commons照片attribution頁](https://commons.wikimedia.org/wiki/File:Bronzite_-_Variety_of_Enstatite.jpg)並實看可用960px thumbnail，取深褐／青銅細紋外觀，不打包影像或聲稱重現其變角閃光。Gemopedia只回challenge、CAMEO403，未記為成功閱讀。
+
 `pietersite` 是藍灰與金褐纖維角礫膠結的風格化拋光切面，不是平行整片tigereye條帶，也不把顏色當金屬或挖成凹溝。36個不規則五半平面clast各自含纖維方向、彎曲band／細fiber與blue/gold相，23值pose共828個Float64／6,624 B；5×7 cloud與128² grain共16,419值皆快取。3×3 owner加圓界cull，半徑保守上界1.045164小於漏除owner最短1.15；五個C1 shoulder乘積沒有nearest-plane角稜，surface sampler無逐點配置／hash／trig／sqrt，needsDetail bypass保留。單一藍灰→金褐authored ramp讓全部礦物顏料沿用tint，M0／mortar0／AO1及opaque。全相同一平切面，只含grain理論高度跨度0.000003 UV；0.06 m參考tile／0.001 UV relief按參考尺度換算0.18μm，不是幾何位移或實測纖維尺度。沿用options／Worker／cache／ownership，不宣稱視角相關chatoyancy、anisotropy、半透明、產地鑑定或地質生成模擬。
 
 礦物參考：已實讀[Hu與Heaney — A Microstructural Study of Pietersite from Namibia and China（GIA，2010）](https://www.gia.edu/dam/migrated-assets/docs/doc1/A-Microstructural-Study-of-Pietersite-from-Namibia-and-China.pdf)七頁文字，並將原PDF第七頁Figure 8標本照片實際rasterize檢視。採局部不同方向纖維束及藍灰／金褐角礫外觀，不將所有產地視為相同地質成因，不宣稱此固定PBR貼圖重現研究中的動態chatoyancy，也未打包參考圖片。

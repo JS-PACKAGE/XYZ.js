@@ -3712,8 +3712,16 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bronzite':
       case 'pietersite': {
-        const p = proceduralMaterialPresets.pietersite,
+        const p = proceduralMaterialPresets[kind],
+          fleckField =
+            kind === 'bronzite'
+              ? cachedNoise(96, 96, seed ^ 0x1b911)
+              : undefined,
+          inverseFleck = 1 / proceduralMaterialPresets.bronzite.fleckShoulder,
+          fleckMinimum = proceduralMaterialPresets.bronzite.fleckMinimum,
+          fleckBase = proceduralMaterialPresets.bronzite.fleckBase,
           poses = new Float64Array(p.cells * p.cells * 23),
           cloudField = cachedNoise(5, 7, seed ^ 0x1c711),
           grainField = cachedNoise(128, 128, seed ^ 0x1c713),
@@ -3767,7 +3775,10 @@ export function createSurfaceSampler(
             col = Math.floor(uc),
             row = Math.floor(vc),
             cloud = cloudField(u, v),
-            grain = grainField(u, v);
+            grain = grainField(u, v),
+            fleck = fleckField
+              ? smooth(clamp((fleckField(u, v) - fleckMinimum) * inverseFleck))
+              : 1;
           color = p.cementBase + p.cementCloud * cloud;
           for (let oy = -1; oy <= 1; oy++)
             for (let ox = -1; ox <= 1; ox++) {
@@ -3807,7 +3818,13 @@ export function createSurfaceSampler(
                   p.pigmentGrain * grain;
               // Compact half-plane products preserve angular fragments and C1
               // corners; differently oriented fiber pigment does not carve them.
-              color += face * (pigment - color);
+              // The optional fleck gate is static pigment, not optical schiller.
+              color +=
+                face *
+                ((fleckField
+                  ? fleckBase + (pigment - fleckBase) * fleck
+                  : pigment) -
+                  color);
             }
           height = p.height + p.grainHeight * grain;
           roughness = p.roughness + p.grainRoughness * (grain - 0.5);
@@ -36466,6 +36483,7 @@ export function createSurfaceSampler(
     kind === 'wavewashers' ||
     kind === 'cupwashers' ||
     kind === 'pietersite' ||
+    kind === 'bronzite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||
     kind === 'datepits' ||
