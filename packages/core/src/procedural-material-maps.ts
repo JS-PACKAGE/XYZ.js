@@ -36780,6 +36780,7 @@ export function createSurfaceSampler(
     kind === 'cloisonne' ||
     kind === 'rambutanskin' ||
     kind === 'rackgears' ||
+    kind === 'grosgrain' ||
     kind === 'faille' ||
     kind === 'poplin' ||
     kind === 'gabardine' ||
