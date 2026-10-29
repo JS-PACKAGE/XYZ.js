@@ -10697,6 +10697,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'azurite':
       case 'celestine':
       case 'barite':
       case 'kyaniteblades': {
@@ -37128,6 +37129,7 @@ export function createSurfaceSampler(
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
+    kind === 'azurite' ||
     kind === 'celestine' ||
     kind === 'barite' ||
     kind === 'clevispins' ||

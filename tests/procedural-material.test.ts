@@ -689,6 +689,7 @@ const kinds: ProceduralMaterialKind[] = [
   'solderlessbreadboard',
   'kyaniteblades',
   'wulfenite',
+  'azurite',
   'celestine',
   'barite',
   'internaltoothwashers',
@@ -87920,6 +87921,459 @@ describe('White Oak broad flush ray flecks across shallow longitudinal vessels',
     expect(o.signed[1]).toBeGreaterThan(0.008);
     expect(o.signed[2]).toBeGreaterThan(0.0015);
     expect(o.signed[3]).toBeGreaterThan(0.0015);
+    expect(o.invalid).toBe(0);
+  });
+});
+
+describe('Azurite dark-blue oblique-ended tabular crystal triples on rough host', () => {
+  const p = proceduralMaterialPresets.azurite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const n = 512,
+      sample = createSurfaceSampler('azurite', seed),
+      a = empty(),
+      mask = new Uint8Array(n * n),
+      seen = new Uint8Array(n * n),
+      faces = [];
+    let faceN = 0,
+      hostN = 0,
+      fh = 0,
+      hh = 0,
+      fr = 0,
+      hr = 0,
+      invalid = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, a);
+        const i = y * n + x;
+        if (a.color > 0.6) {
+          mask[i] = 1;
+          faceN++;
+          fh += a.height / p.relief;
+          fr += a.roughness;
+        } else if (a.color < 0.2) {
+          hostN++;
+          hh += a.height / p.relief;
+          hr += a.roughness;
+        }
+        invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+      }
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start] || seen[start]) continue;
+      const q = [start];
+      seen[start] = 1;
+      let sx = 0,
+        sy = 0,
+        sxx = 0,
+        sxy = 0,
+        syy = 0;
+      for (let at = 0; at < q.length; at++) {
+        const i = q[at],
+          x = i % n,
+          y = Math.floor(i / n);
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        sxy += x * y;
+        syy += y * y;
+        for (let d = 0; d < 4; d++) {
+          const nx = x + (d === 0 ? 1 : d === 1 ? -1 : 0),
+            ny = y + (d === 2 ? 1 : d === 3 ? -1 : 0);
+          if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+          const j = ny * n + nx;
+          if (mask[j] && !seen[j]) {
+            seen[j] = 1;
+            q.push(j);
+          }
+        }
+      }
+      if (q.length < 50) continue;
+      const cx = sx / q.length,
+        cy = sy / q.length,
+        xx = sxx / q.length - cx * cx,
+        yy = syy / q.length - cy * cy,
+        xy = sxy / q.length - cx * cy;
+      let angle = 0.5 * Math.atan2(2 * xy, xx - yy),
+        best = 1 / 0,
+        bounds = [0, 0, 0, 0];
+      const fit = (theta: number) => {
+        const c = Math.cos(theta),
+          s = Math.sin(theta);
+        let lo = 1 / 0,
+          hi = -1 / 0,
+          down = 1 / 0,
+          up = -1 / 0;
+        for (const i of q) {
+          const dx = (i % n) - cx,
+            dy = Math.floor(i / n) - cy,
+            x = c * dx + s * dy,
+            y = c * dy - s * dx;
+          lo = Math.min(lo, x);
+          hi = Math.max(hi, x);
+          down = Math.min(down, y);
+          up = Math.max(up, y);
+        }
+        return { area: (hi - lo) * (up - down), bounds: [lo, hi, down, up] };
+      };
+      for (let pass = 0; pass < 3; pass++) {
+        const center = angle,
+          step = 0.004 / 4 ** pass;
+        for (let j = -40; j <= 40; j++) {
+          const theta = center + j * step,
+            o = fit(theta);
+          if (o.area < best) {
+            best = o.area;
+            angle = theta;
+            bounds = o.bounds;
+          }
+        }
+      }
+      const c = Math.cos(angle),
+        s = Math.sin(angle),
+        length = bounds[1] - bounds[0],
+        width = bounds[3] - bounds[2],
+        centerX = (bounds[0] + bounds[1]) / 2,
+        centerY = (bounds[2] + bounds[3]) / 2;
+      let coreLow = 1 / 0,
+        coreHigh = -1 / 0,
+        core = 0;
+      const lows = [],
+        highs = [],
+        acrossValues: number[] = [];
+      for (let j = 0; j < 11; j++) {
+        const across = centerY + width * (j / 10 - 0.5) * 0.6,
+          read = (t: number) => {
+            sample(
+              (cx + c * t - s * across + 0.5) / n,
+              (cy + s * t + c * across + 0.5) / n,
+              a,
+            );
+            return a.color > 0.6;
+          };
+        const middle = centerX;
+        if (!read(middle)) continue;
+        let left = middle - length,
+          right = middle;
+        for (let k = 0; k < 36; k++) {
+          const mid = (left + right) / 2;
+          if (read(mid)) right = mid;
+          else left = mid;
+        }
+        lows.push((left + right) / 2);
+        left = middle;
+        right = middle + length;
+        for (let k = 0; k < 36; k++) {
+          const mid = (left + right) / 2;
+          if (read(mid)) left = mid;
+          else right = mid;
+        }
+        highs.push((left + right) / 2);
+        acrossValues.push(across);
+        for (let k = 0; k < 7; k++) {
+          const t = centerX + length * (k / 6 - 0.5) * 0.5;
+          sample(
+            (cx + c * t - s * across + 0.5) / n,
+            (cy + s * t + c * across + 0.5) / n,
+            a,
+          );
+          if (a.color > 0.69) {
+            core++;
+            coreLow = Math.min(coreLow, a.height / p.relief);
+            coreHigh = Math.max(coreHigh, a.height / p.relief);
+          }
+        }
+      }
+      const regress = (values: number[]) => {
+        const count = values.length,
+          mx = acrossValues.reduce((x, y) => x + y, 0) / count,
+          my = values.reduce((x, y) => x + y, 0) / count;
+        let cov = 0,
+          varX = 0;
+        for (let j = 0; j < count; j++) {
+          cov += (acrossValues[j] - mx) * (values[j] - my);
+          varX += (acrossValues[j] - mx) ** 2;
+        }
+        const slope = cov / varX;
+        let error = 0;
+        for (let j = 0; j < count; j++)
+          error = Math.max(
+            error,
+            Math.abs(values[j] - my - slope * (acrossValues[j] - mx)) / n,
+          );
+        return { slope, error };
+      };
+      faces.push({
+        cx,
+        cy,
+        angle,
+        aspect: length / width,
+        span: length / n,
+        fill: q.length / (length * width),
+        core,
+        coreSpan: coreHigh - coreLow,
+        low: regress(lows),
+        high: regress(highs),
+      });
+    }
+    return {
+      faceFraction: faceN / (n * n),
+      hostFraction: hostN / (n * n),
+      raised: fh / faceN - hh / hostN,
+      faceRough: fr / faceN,
+      hostRough: hr / hostN,
+      invalid,
+      faces,
+    };
+  };
+  const observedC1 = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed crystal and host curvature instead of copying private plate profiles.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'measures broad straight-sided oblique-ended parallel plates with shallow striae and smoother raised cores at seed%s',
+    (seed) => {
+      const o = observe(seed),
+        groups = new Set<string>();
+      expect(o.faces.length).toBeGreaterThan(55);
+      expect(o.faces.length).toBeLessThan(90);
+      expect(o.faceFraction).toBeGreaterThan(0.12);
+      expect(o.faceFraction).toBeLessThan(0.22);
+      expect(o.hostFraction).toBeGreaterThan(0.75);
+      expect(o.raised).toBeGreaterThan(0.38);
+      expect(o.raised).toBeLessThan(0.48);
+      expect(o.faceRough).toBeGreaterThan(0.2);
+      expect(o.faceRough).toBeLessThan(0.32);
+      expect(o.hostRough).toBeGreaterThan(0.84);
+      expect(o.invalid).toBe(0);
+      for (let i = 0; i < o.faces.length; i++) {
+        const f = o.faces[i];
+        expect(f.aspect).toBeGreaterThan(3.1);
+        expect(f.aspect).toBeLessThan(5.8);
+        expect(Math.abs(f.low.slope)).toBeGreaterThan(0.65);
+        expect(Math.abs(f.low.slope)).toBeLessThan(0.95);
+        expect(Math.abs(f.high.slope - f.low.slope)).toBeLessThan(0.025);
+        expect(Math.max(f.low.error, f.high.error)).toBeLessThan(0.0003);
+        expect(f.core).toBeGreaterThan(65);
+        expect(f.coreSpan).toBeGreaterThan(0.007);
+        expect(f.coreSpan).toBeLessThan(0.017);
+        const nearest = o.faces
+          .map((g, j) => ({ j, d: (g.cx - f.cx) ** 2 + (g.cy - f.cy) ** 2 }))
+          .filter((v) => v.j !== i)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 2);
+        if (
+          nearest.every(
+            (v) =>
+              Math.cos(2 * (o.faces[v.j].angle - f.angle)) > 0.98 &&
+              v.d < 9 * ((512 * f.span) / f.aspect) ** 2,
+          )
+        )
+          groups.add(
+            [i, ...nearest.map((v) => v.j)].sort((a, b) => a - b).join(','),
+          );
+      }
+      expect(groups.size).toBeGreaterThan(15);
+      expect(
+        new Set(
+          o.faces.map((f) =>
+            Math.floor(((f.angle + Math.PI / 2) * 8) / Math.PI),
+          ),
+        ).size,
+      ).toBeGreaterThan(4);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed crystal edges striae host joins and signed UV seamless and C1 at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('azurite', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let worst = observedC1(sample, p.relief),
+        period = 0;
+      const check = (u: number, v: number) => {
+        const h = 1e-10;
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs(c[key] - 2 * b[key] + a[key]) /
+                h /
+                (key === 'height' ? p.relief : 1),
+            );
+        }
+      };
+      for (let y = 0; y <= 128; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+      for (let owner = 0; owner <= p.cells; owner++)
+        for (let j = 0; j <= 256; j++) {
+          check(owner / p.cells, j / 256);
+          check(j / 256, owner / p.cells);
+        }
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          period = Math.max(period, Math.abs(a[key] - b[key]));
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(period).toBeLessThan(5e-10);
+    },
+  );
+  it('writes deep blue opaque dielectric crystals dark rough host and four signed shoulder normals at actual512', () => {
+    const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+        const n = maps.baseColor.length / 4,
+          signed = [0, 0, 0, 0];
+        let blue = 0,
+          host = 0,
+          rough = 0,
+          maxTilt = 0,
+          invalid = 0;
+        for (let j = 0; j < maps.baseColor.length; j += 4) {
+          const r = maps.baseColor[j],
+            g = maps.baseColor[j + 1],
+            b = maps.baseColor[j + 2],
+            nx = maps.normal[j] / 127.5 - 1,
+            ny = maps.normal[j + 1] / 127.5 - 1;
+          blue += Number(
+            b > 125 && b < 205 && r < 40 && g > 40 && g < 85 && b > g * 2,
+          );
+          host += Number(b < 60 && r < 20 && g < 25);
+          rough += maps.metallicRoughness[j + 1] / 255;
+          maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+          signed[0] += Number(nx > 0.02);
+          signed[1] += Number(nx < -0.02);
+          signed[2] += Number(ny > 0.02);
+          signed[3] += Number(ny < -0.02);
+          for (const stream of Object.values(maps))
+            invalid += Number(stream[j + 3] !== 255);
+          invalid += Number(maps.metallicRoughness[j + 2] !== 0);
+        }
+        return {
+          blue: blue / n,
+          host: host / n,
+          rough: rough / n,
+          maxTilt,
+          signed: signed.map((x) => x / n),
+          invalid,
+        };
+      },
+      o = observePixels(
+        generateProceduralMaps('azurite', 512, 7, { heightMap: true }),
+      );
+    expect(o.blue).toBeGreaterThan(0.12);
+    expect(o.blue).toBeLessThan(0.22);
+    expect(o.host).toBeGreaterThan(0.75);
+    expect(o.rough).toBeGreaterThan(0.73);
+    expect(o.rough).toBeLessThan(0.82);
+    expect(o.maxTilt).toBeGreaterThan(0.14);
+    expect(o.maxTilt).toBeLessThan(0.32);
+    for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
     expect(o.invalid).toBe(0);
   });
 });

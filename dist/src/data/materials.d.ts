@@ -6632,6 +6632,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         aspectVariation: 0.16;
         shoulder: 0.24;
     }>;
+    azurite: Readonly<{
+        dark: readonly [7, 13, 27];
+        light: readonly [29, 76, 195];
+        roughness: 0.19;
+        relief: 0.0034;
+        cells: 5;
+        pitch: 0.16;
+        halfWidth: 0.07;
+        sideShoulder: 0.008;
+        endShoulder: 0.014;
+        endSlope: 0.78;
+        tops: readonly [-0.21, -0.29, -0.18];
+        bottoms: readonly [0.25, 0.28, 0.21];
+        striae: 3;
+        jitter: 0.025;
+        scale: 0.93;
+        scaleVariation: 0.045;
+        faceTilt: 0;
+        striaHeight: 0.008;
+    }>;
     celestine: Readonly<{
         dark: readonly [83, 83, 75];
         light: readonly [207, 225, 248];
@@ -10845,6 +10865,7 @@ export declare const proceduralTileMeters: Readonly<{
     orecchiette: 0.16;
     solderlessbreadboard: 0.04064;
     kyaniteblades: 0.16;
+    azurite: 0.1;
     celestine: 0.1;
     barite: 0.08;
     wulfenite: 0.06;

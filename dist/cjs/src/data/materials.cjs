@@ -12375,6 +12375,42 @@ var proceduralMaterialPresets = Object.freeze({
 		aspectVariation: .16,
 		shoulder: .24
 	}),
+	azurite: Object.freeze({
+		dark: [
+			7,
+			13,
+			27
+		],
+		light: [
+			29,
+			76,
+			195
+		],
+		roughness: .19,
+		relief: .0034,
+		cells: 5,
+		pitch: .16,
+		halfWidth: .07,
+		sideShoulder: .008,
+		endShoulder: .014,
+		endSlope: .78,
+		tops: [
+			-.21,
+			-.29,
+			-.18
+		],
+		bottoms: [
+			.25,
+			.28,
+			.21
+		],
+		striae: 3,
+		jitter: .025,
+		scale: .93,
+		scaleVariation: .045,
+		faceTilt: 0,
+		striaHeight: .008
+	}),
 	celestine: Object.freeze({
 		dark: [
 			83,
@@ -18052,6 +18088,7 @@ var proceduralTileMeters = Object.freeze({
 	orecchiette: .16,
 	solderlessbreadboard: .04064,
 	kyaniteblades: .16,
+	azurite: .1,
 	celestine: .1,
 	barite: .08,
 	wulfenite: .06,
