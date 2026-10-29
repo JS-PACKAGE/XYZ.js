@@ -771,6 +771,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hempcrete',
   'utilityblades',
   'chrysocolla',
+  'hemimorphite',
   'sichuanpepperhusks',
   'huckaback',
   'anorthosite',
@@ -2171,6 +2172,260 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
           v = (i * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Sky-blue Hemimorphite with irregular joined rounded mineral caps and pale interstices', () => {
+  const p = proceduralMaterialPresets.hemimorphite;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'infers irregular convex crowns joined into a bounded single layer for seed %s',
+    (seed) => {
+      const n = 96,
+        sample = createSurfaceSampler('hemimorphite', seed),
+        a = empty(),
+        heights = new Float64Array(n * n),
+        aos = new Float64Array(n * n),
+        peaks = new Uint8Array(n * n),
+        crowns: number[] = [];
+      let min = Infinity,
+        max = -Infinity,
+        invalid = 0,
+        minAO = 1;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x;
+          sample((x + 0.5) / n, (y + 0.5) / n, a);
+          heights[i] = a.height / p.relief;
+          aos[i] = a.occlusion;
+          min = Math.min(min, heights[i]);
+          max = Math.max(max, heights[i]);
+          minAO = Math.min(minAO, a.occlusion);
+          invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+        }
+      let peakAO = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x,
+            z = heights[i];
+          if (z < 0.43) continue;
+          let local = true;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (
+                (dx || dy) &&
+                heights[((y + dy + n) % n) * n + ((x + dx + n) % n)] >= z
+              )
+                local = false;
+          if (!local) continue;
+          let ring = 0;
+          for (let d = 0; d < 8; d++) {
+            const angle = (2 * Math.PI * d) / 8;
+            sample(
+              (x + 0.5) / n + 0.025 * Math.cos(angle),
+              (y + 0.5) / n + 0.025 * Math.sin(angle),
+              a,
+            );
+            ring += a.height / p.relief;
+          }
+          if (z - ring / 8 > 0.035) {
+            peaks[i] = 1;
+            crowns.push(i);
+            peakAO += aos[i];
+          }
+        }
+      expect(min).toBeGreaterThan(0.05);
+      expect(max).toBeGreaterThan(0.45);
+      // Multiple overlapping caps must stay inside one authored layer's envelope.
+      expect(max).toBeLessThan(
+        p.noduleBase +
+          p.noduleLift * (p.heightMinimum + p.heightVariation) +
+          p.grainLift +
+          1e-9,
+      );
+      expect(crowns.length).toBeGreaterThan(20);
+      expect(crowns.length).toBeLessThan(160);
+      expect(peakAO / crowns.length).toBeGreaterThan(0.92);
+      expect(minAO).toBeLessThan(0.8);
+      let nearestMin = Infinity,
+        nearestMax = 0;
+      for (const i of crowns) {
+        const x = i % n,
+          y = Math.floor(i / n);
+        let nearest = Infinity;
+        for (const j of crowns)
+          if (i !== j) {
+            let dx = Math.abs(x - (j % n)),
+              dy = Math.abs(y - Math.floor(j / n));
+            dx = Math.min(dx, n - dx);
+            dy = Math.min(dy, n - dy);
+            nearest = Math.min(nearest, dx * dx + dy * dy);
+          }
+        nearestMin = Math.min(nearestMin, nearest);
+        nearestMax = Math.max(nearestMax, nearest);
+      }
+      expect(nearestMax / nearestMin).toBeGreaterThan(2);
+      const seen = new Uint8Array(n * n),
+        queue = new Int32Array(n * n);
+      let largest = 0,
+        largestPeaks = 0;
+      for (let i = 0; i < heights.length; i++) {
+        if (seen[i] || heights[i] <= 0.32) continue;
+        let start = 0,
+          end = 1,
+          count = 0;
+        queue[0] = i;
+        seen[i] = 1;
+        const enqueue = (next: number) => {
+          if (!seen[next] && heights[next] > 0.32) {
+            seen[next] = 1;
+            queue[end++] = next;
+          }
+        };
+        while (start < end) {
+          const at = queue[start++],
+            x = at % n,
+            y = Math.floor(at / n);
+          count += peaks[at];
+          enqueue(y * n + ((x + 1) % n));
+          enqueue(y * n + ((x + n - 1) % n));
+          enqueue(((y + 1) % n) * n + x);
+          enqueue(((y + n - 1) % n) * n + x);
+        }
+        if (end > largest) {
+          largest = end;
+          largestPeaks = count;
+        }
+      }
+      expect(largest / (n * n)).toBeGreaterThan(0.4);
+      expect(largestPeaks).toBeGreaterThan(12);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps all surface channels C1 across owner transitions, fine grain and signed UV wraps', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hemimorphite', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (let cell = 0; cell <= p.cells; cell++)
+        for (let j = 0; j <= 512; j++) {
+          check(cell / p.cells, j / 512);
+          check(j / 512, cell / p.cells);
+        }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j < 17; j++) {
+          check(k / 128, (j + 0.31) / 17);
+          check((j + 0.37) / 17, k / 128);
+        }
+      for (let j = 0; j < 4096; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.08);
+    }
+  });
+  it('writes opaque sky-blue and pale mineral areas with moderate two-axis relief and satin roughness at actual512', () => {
+    const maps = generateProceduralMaps('hemimorphite', 512, 7, {
+        heightMap: true,
+      }),
+      streams = Object.values(maps);
+    let blue = 0,
+      pale = 0,
+      positiveX = 0,
+      negativeX = 0,
+      positiveY = 0,
+      negativeY = 0,
+      minAO = 255,
+      maxAO = 0,
+      maxTilt = 0,
+      maxAOStep = 0,
+      rough = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      blue += Number(g - r > 35 && b - r > 45);
+      pale += Number(r > 190 && g > 210 && b > 220);
+      positiveX += Number(maps.normal[i] > 128);
+      negativeX += Number(maps.normal[i] < 127);
+      positiveY += Number(maps.normal[i + 1] > 128);
+      negativeY += Number(maps.normal[i + 1] < 127);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      const right = (i / 4) % 512 === 511 ? i - 511 * 4 : i + 4,
+        down = (i + 512 * 4) % maps.occlusion.length;
+      maxAOStep = Math.max(
+        maxAOStep,
+        Math.abs(maps.occlusion[i] - maps.occlusion[right]),
+        Math.abs(maps.occlusion[i] - maps.occlusion[down]),
+      );
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 220,
+      );
+      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+    }
+    expect(blue / (512 * 512)).toBeGreaterThan(0.65);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.08);
+    expect(pale / (512 * 512)).toBeLessThan(0.35);
+    for (const count of [positiveX, negativeX, positiveY, negativeY])
+      expect(count / (512 * 512)).toBeGreaterThan(0.25);
+    expect(minAO).toBeLessThan(205);
+    expect(maxAO).toBeGreaterThan(240);
+    expect(maxAOStep).toBeLessThan(24);
+    expect(maxTilt).toBeGreaterThan(0.005);
+    expect(maxTilt).toBeLessThan(0.25);
+    expect(rough / (512 * 512)).toBeGreaterThan(0.42);
+    expect(rough / (512 * 512)).toBeLessThan(0.7);
+    expect(invalid).toBe(0);
+  });
+  it('repeats joined mineral caps, frosting and all six PBR channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('hemimorphite', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

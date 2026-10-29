@@ -1542,6 +1542,102 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'hemimorphite': {
+        const p = proceduralMaterialPresets.hemimorphite,
+          sites = new Float64Array(p.cells * p.cells * 5),
+          grainField = cachedNoise(p.grainColumns, p.grainRows, seed ^ 0x21d11),
+          frostField = cachedNoise(p.frostColumns, p.frostRows, seed ^ 0x21d13),
+          fineFrostField = cachedNoise(
+            p.fineFrostColumns,
+            p.fineFrostRows,
+            seed ^ 0x21d1f,
+          ),
+          inverseShoulder = 1 / p.shoulder,
+          coarseFrostWeight = 1 - p.fineFrostWeight,
+          inverseFrost = 1 / p.frostSpan;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              radius =
+                p.radiusMinimum +
+                p.radiusVariation * hash(col, row, seed ^ 0x21d15);
+            sites[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x21d17) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x21d19) - 1);
+            sites[i + 2] = 1 / (radius * radius);
+            sites[i + 3] =
+              p.heightMinimum +
+              p.heightVariation * hash(col, row, seed ^ 0x21d1b);
+            sites[i + 4] = hash(col, row, seed ^ 0x21d1d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            x = fract(uc),
+            y = fract(vc),
+            grain = grainField(u, v),
+            frost = smooth(
+              clamp(
+                (coarseFrostWeight * frostField(u, v) +
+                  p.fineFrostWeight * fineFrostField(u, v) -
+                  p.frostThreshold) *
+                  inverseFrost,
+              ),
+            );
+          color = p.matrixColor + p.matrixFrostTone * frost;
+          height = p.matrixHeight + p.grainLift * grain;
+          roughness = p.matrixRoughness + p.matrixGrainRoughness * grain;
+          occlusion = p.matrixOcclusion + p.matrixFrostOcclusion * frost;
+          let outside = 1,
+            total = 0,
+            domeSum = 0,
+            toneSum = 0;
+          for (let oy = -1; oy <= 1; oy++) {
+            const wy = (row + oy + p.cells) % p.cells;
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (col + ox + p.cells) % p.cells,
+                i = (wy * p.cells + wx) * 5,
+                dx = x - ox - sites[i],
+                dy = y - oy - sites[i + 1],
+                field = 1 - (dx * dx + dy * dy) * sites[i + 2];
+              if (field <= 0) continue;
+              const face = smooth(clamp(field * inverseShoulder)),
+                dome = field * field * sites[i + 3];
+              outside *= 1 - face;
+              total += face;
+              domeSum += face * dome;
+              toneSum += face * sites[i + 4];
+            }
+          }
+          const face = 1 - outside;
+          if (face === 0) return;
+          // Continuous weighted caps join across cells without adding stacked heights.
+          const inverseTotal = 1 / total,
+            dome = domeSum * inverseTotal;
+          color +=
+            face *
+            (p.noduleColor +
+              p.noduleToneVariation * (toneSum * inverseTotal) +
+              p.grainTone * grain +
+              p.frostTone * frost -
+              color);
+          height +=
+            face *
+            (p.noduleBase + p.noduleLift * dome + p.grainLift * grain - height);
+          roughness +=
+            face *
+            (p.roughness +
+              p.grainRoughness * grain -
+              p.domeRoughness * dome -
+              roughness);
+          occlusion +=
+            face * (p.noduleOcclusion + p.domeOcclusion * dome - occlusion);
+          return;
+        };
+      }
       case 'chrysocolla': {
         const p = proceduralMaterialPresets.chrysocolla,
           globules = p.centers.length / 2,
@@ -36450,6 +36546,7 @@ export function createSurfaceSampler(
     kind === 'hempcrete' ||
     kind === 'utilityblades' ||
     kind === 'chrysocolla' ||
+    kind === 'hemimorphite' ||
     kind === 'sichuanpepperhusks' ||
     kind === 'huckaback' ||
     kind === 'anorthosite' ||

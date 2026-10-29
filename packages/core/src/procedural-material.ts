@@ -745,6 +745,7 @@ export type ProceduralMaterialKind =
   | 'hempcrete'
   | 'utilityblades'
   | 'chrysocolla'
+  | 'hemimorphite'
   | 'sichuanpepperhusks'
   | 'huckaback'
   | 'anorthosite'
@@ -1781,6 +1782,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hempcrete',
   'utilityblades',
   'chrysocolla',
+  'hemimorphite',
   'sichuanpepperhusks',
   'huckaback',
   'anorthosite',

@@ -808,6 +808,7 @@ try {
     'hempcrete',
     'utilityblades',
     'chrysocolla',
+    'hemimorphite',
     'sichuanpepperhusks',
     'huckaback',
     'anorthosite',
