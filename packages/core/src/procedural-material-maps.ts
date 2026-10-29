@@ -3733,8 +3733,16 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'whiteoak':
       case 'whiteash': {
-        const p = proceduralMaterialPresets.whiteash,
+        const p = proceduralMaterialPresets[kind],
+          oak = kind === 'whiteoak',
+          rayPreset = proceduralMaterialPresets.whiteoak,
+          rays = oak
+            ? new Float64Array(rayPreset.rayColumns * rayPreset.rayRows * 6)
+            : undefined,
+          inverseRay = oak ? 1 / (1 - rayPreset.rayCoreQ) : 0,
+          woodTone = oak ? 0.65 : 0.87,
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(4, 3, seed ^ 0x23b11),
           fiberField = cachedNoise(96, 4, seed ^ 0x23b13),
@@ -3760,6 +3768,32 @@ export function createSurfaceSampler(
             pores[i + 2] = 1 / (width * width);
             pores[i + 3] = 1 / (length * length);
           }
+        // Each curved fleck stays within its periodic owner; no point-time neighbor scan.
+        if (rays)
+          for (let row = 0; row < rayPreset.rayRows; row++)
+            for (let col = 0; col < rayPreset.rayColumns; col++) {
+              if (hash(col, row, seed ^ 0x33b1d) >= rayPreset.rayChance)
+                continue;
+              const i = (row * rayPreset.rayColumns + col) * 6,
+                length =
+                  rayPreset.rayLength +
+                  rayPreset.rayLengthVariation * hash(col, row, seed ^ 0x33b11),
+                width =
+                  rayPreset.rayWidth +
+                  rayPreset.rayWidthVariation * hash(col, row, seed ^ 0x33b13);
+              rays[i] =
+                0.5 +
+                rayPreset.rayJitterX * (2 * hash(col, row, seed ^ 0x33b15) - 1);
+              rays[i + 1] =
+                0.5 +
+                rayPreset.rayJitterY * (2 * hash(col, row, seed ^ 0x33b17) - 1);
+              rays[i + 2] = 1 / (length * length);
+              rays[i + 3] = 1 / (width * width);
+              rays[i + 4] =
+                rayPreset.raySlope * (2 * hash(col, row, seed ^ 0x33b19) - 1);
+              rays[i + 5] =
+                rayPreset.rayBend * (2 * hash(col, row, seed ^ 0x33b1b) - 1);
+            }
         return () => {
           const warpedU = u + (p.warp * (warpField(u, v) - 0.5)) / p.bands,
             x = fract(warpedU) * p.columns,
@@ -3774,6 +3808,24 @@ export function createSurfaceSampler(
               q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3];
             pore = smooth(clamp((1 - q) * inversePore));
           }
+          let ray = 0;
+          if (rays) {
+            const rx = u * rayPreset.rayColumns,
+              ry = v * rayPreset.rayRows,
+              col = Math.floor(rx),
+              row = Math.floor(ry),
+              i = (row * rayPreset.rayColumns + col) * 6,
+              dx = rx - col - rays[i],
+              dy =
+                ry -
+                row -
+                rays[i + 1] -
+                rays[i + 4] * dx -
+                rays[i + 5] * dx * dx,
+              q = dx * dx * rays[i + 2] + dy * dy * rays[i + 3];
+            ray = rays[i + 3] > 0 ? smooth(clamp((1 - q) * inverseRay)) : 0;
+            pore *= 1 - ray;
+          }
           const distance = fract(warpedU * p.bands) - 0.25,
             early = smooth(clamp(1 - distance * distance * 16)),
             fiber = fiberField(u, v),
@@ -3781,13 +3833,16 @@ export function createSurfaceSampler(
           // Earlywood vessels are larger and clustered in each growth band.
           // Band color stays coplanar: only the longitudinal openings recess.
           color =
-            0.87 -
+            woodTone -
             p.bandContrast * early +
             0.035 * (fiber - 0.5) +
             0.025 * grain;
+          // Rays are flush color and finish variation, not raised grain.
+          color += ray * rayPreset.rayContrast;
           color += pore * (0.2 - color);
           height = 0.5 + p.grainHeight * grain - p.poreDepth * pore;
-          roughness += 0.025 * grain + 0.12 * pore;
+          roughness +=
+            0.025 * grain + 0.12 * pore - rayPreset.rayRoughness * ray;
           occlusion = 1 - 0.32 * pore;
           return;
         };
@@ -37208,6 +37263,7 @@ export function createSurfaceSampler(
     kind === 'pietersite' ||
     kind === 'bronzite' ||
     kind === 'castorbeans' ||
+    kind === 'whiteoak' ||
     kind === 'whiteash' ||
     kind === 'kingwood' ||
     kind === 'braziliantulipwood' ||
