@@ -865,6 +865,7 @@ try {
     'hopsack',
     'monkscloth',
     'lyocell',
+    'surah',
     'ramie',
     'wavewashers',
     'cupwashers',

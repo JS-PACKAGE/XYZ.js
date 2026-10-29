@@ -16261,6 +16261,39 @@ var proceduralMaterialPresets = Object.freeze({
 			12
 		])
 	}),
+	surah: Object.freeze({
+		dark: [
+			66,
+			27,
+			18
+		],
+		light: [
+			218,
+			140,
+			96
+		],
+		roughness: .35,
+		relief: 7e-4,
+		yarnTone: .84,
+		warpThreads: 60,
+		weftThreads: 60,
+		warpRadius: .495,
+		warpCore: .4,
+		weftRadius: .495,
+		weftCore: .4,
+		warpLiftHalf: .49,
+		weftLiftHalf: .49,
+		liftShoulder: .06,
+		lift: .065,
+		warpFibers: 240,
+		weftFibers: 240,
+		draft: Object.freeze([
+			3,
+			6,
+			12,
+			9
+		])
+	}),
 	lyocell: Object.freeze({
 		dark: [
 			119,
@@ -17436,6 +17469,7 @@ var proceduralTileMeters = Object.freeze({
 	hopsack: .016,
 	monkscloth: .03,
 	lyocell: .012,
+	surah: .015,
 	ramie: .04,
 	wavewashers: .1,
 	cupwashers: .1
