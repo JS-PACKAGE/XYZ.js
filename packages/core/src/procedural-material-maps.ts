@@ -3661,16 +3661,21 @@ export function createSurfaceSampler(
         };
       }
       case 'bocote':
+      case 'kingwood':
       case 'braziliantulipwood':
       case 'macassarebony':
       case 'zebrawood': {
         const p = proceduralMaterialPresets[kind],
           fineStreaks =
-            kind === 'macassarebony' || kind === 'braziliantulipwood',
+            kind === 'macassarebony' ||
+            kind === 'braziliantulipwood' ||
+            kind === 'kingwood',
           streakPreset =
-            kind === 'braziliantulipwood'
-              ? proceduralMaterialPresets.braziliantulipwood
-              : proceduralMaterialPresets.macassarebony,
+            kind === 'kingwood'
+              ? proceduralMaterialPresets.kingwood
+              : kind === 'braziliantulipwood'
+                ? proceduralMaterialPresets.braziliantulipwood
+                : proceduralMaterialPresets.macassarebony,
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(
             fineStreaks ? streakPreset.warpColumns : 3,
@@ -36844,6 +36849,7 @@ export function createSurfaceSampler(
     kind === 'pietersite' ||
     kind === 'bronzite' ||
     kind === 'castorbeans' ||
+    kind === 'kingwood' ||
     kind === 'braziliantulipwood' ||
     kind === 'macassarebony' ||
     kind === 'zebrawood' ||

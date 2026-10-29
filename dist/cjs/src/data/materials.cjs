@@ -16975,6 +16975,40 @@ var proceduralMaterialPresets = Object.freeze({
 		bandContrast: .72,
 		grainHeight: .002
 	}),
+	kingwood: Object.freeze({
+		dark: [
+			17,
+			10,
+			16
+		],
+		light: [
+			142,
+			77,
+			67
+		],
+		roughness: .31,
+		relief: .0016,
+		columns: 32,
+		rows: 20,
+		widthMinimum: .045,
+		widthVariation: .035,
+		lengthMinimum: .1,
+		lengthVariation: .17,
+		poreChance: .12,
+		poreShoulder: .3,
+		poreDepth: .065,
+		bands: 36,
+		bandWarp: .45,
+		bandRadius: .3,
+		bandCore: .03,
+		bandWidthMinimum: .18,
+		bandWidthVariation: 1.25,
+		faceColor: .88,
+		bandContrast: .8,
+		grainHeight: .002,
+		warpColumns: 32,
+		warpRows: 4
+	}),
 	braziliantulipwood: Object.freeze({
 		dark: [
 			126,
@@ -17880,6 +17914,7 @@ var proceduralTileMeters = Object.freeze({
 	bronzite: .12,
 	castorbeans: .064,
 	zebrawood: .16,
+	kingwood: .24,
 	braziliantulipwood: .12,
 	macassarebony: .18,
 	bocote: .24,

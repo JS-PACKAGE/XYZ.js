@@ -809,6 +809,7 @@ const kinds: ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'kingwood',
   'braziliantulipwood',
   'macassarebony',
   'twopinscrewheads',
@@ -12681,7 +12682,12 @@ describe('Two opposed circular blind pin-drive recesses with closed flat steel f
   });
 });
 
-describe.each(['zebrawood', 'macassarebony', 'braziliantulipwood'] as const)(
+describe.each([
+  'zebrawood',
+  'macassarebony',
+  'braziliantulipwood',
+  'kingwood',
+] as const)(
   '%s coplanar longitudinal pigment with sparse recessed vessels',
   (kind) => {
     const p = proceduralMaterialPresets[kind];
@@ -12958,7 +12964,7 @@ describe.each(['zebrawood', 'macassarebony', 'braziliantulipwood'] as const)(
         expect(observed.directionRatio).toBeGreaterThan(4);
         expect(observed.completeRuns).toBeGreaterThan(8);
         expect(observed.widthSpan).toBeGreaterThan(
-          kind === 'braziliantulipwood' ? 0.005 : 0.002,
+          kind === 'braziliantulipwood' || kind === 'kingwood' ? 0.005 : 0.002,
         );
         expect(observed.invalid).toBe(0);
         const contours = poreContinuity(observed.sample, observed.mask);
@@ -12993,22 +12999,28 @@ describe.each(['zebrawood', 'macassarebony', 'braziliantulipwood'] as const)(
           nx = (2 * maps.normal[i]) / 255 - 1,
           ny = (2 * maps.normal[i + 1]) / 255 - 1;
         warm += Number(
-          kind === 'braziliantulipwood'
-            ? r > g + 20 && r > b + 40
-            : r > g && g > b,
+          kind === 'kingwood'
+            ? r > g + 8 && r > b + 5
+            : kind === 'braziliantulipwood'
+              ? r > g + 20 && r > b + 40
+              : r > g && g > b,
         );
         if (ao === 255) {
           dark += Number(
-            kind === 'braziliantulipwood'
-              ? r > 130 && r < 185 && g < 120 && b < 125 && r - g > 55
-              : r < (kind === 'zebrawood' ? 85 : 40),
+            kind === 'kingwood'
+              ? r < 60 && g < 35 && b < 40 && b > g && r - g > 8
+              : kind === 'braziliantulipwood'
+                ? r > 130 && r < 185 && g < 120 && b < 125 && r - g > 55
+                : r < (kind === 'zebrawood' ? 85 : 40),
           );
           light += Number(
-            kind === 'braziliantulipwood'
-              ? r > 210 && g > 160 && b > 110 && r > g + 15 && g > b + 25
-              : kind === 'zebrawood'
-                ? r > 185
-                : r > 65 && r < 125 && g > 35 && g < 90 && b > 17 && b < 60,
+            kind === 'kingwood'
+              ? r > 100 && g > 50 && b > 44 && r - g > 40 && g - b > 3
+              : kind === 'braziliantulipwood'
+                ? r > 210 && g > 160 && b > 110 && r > g + 15 && g > b + 25
+                : kind === 'zebrawood'
+                  ? r > 185
+                  : r > 65 && r < 125 && g > 35 && g < 90 && b > 17 && b < 60,
           );
           clearHeight = Math.min(clearHeight, maps.height![i]);
         }
