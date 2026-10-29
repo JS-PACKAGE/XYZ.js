@@ -4049,6 +4049,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         seedWidth: 0.014;
         seedShoulder: 0.2;
     }>;
+    linchpins: Readonly<{
+        dark: readonly [18, 22, 27];
+        light: readonly [232, 237, 242];
+        roughness: 0.31;
+        relief: 0.006;
+        cells: 4;
+        ringRadius: 0.27;
+        wireWidth: 0.018;
+        shaftLeft: -0.28;
+        shaftRight: 0.34;
+        shaftRadius: 0.043;
+        headX: -0.29;
+        headHalfX: 0.07;
+        headHalfY: 0.085;
+        shoulder: 0.3;
+    }>;
     rclips: Readonly<{
         dark: readonly [24, 31, 38];
         light: readonly [228, 236, 241];
@@ -9973,6 +9989,7 @@ export declare const proceduralTileMeters: Readonly<{
     appleslice: 0.4;
     paperclips: 0.24;
     rclips: 0.12;
+    linchpins: 0.2;
     ivyleaf: 0.32;
     ribknit: 0.12;
     pillowtiles: 0.6;

@@ -8405,6 +8405,30 @@ var proceduralMaterialPresets = Object.freeze({
 		seedWidth: .014,
 		seedShoulder: .2
 	}),
+	linchpins: Object.freeze({
+		dark: [
+			18,
+			22,
+			27
+		],
+		light: [
+			232,
+			237,
+			242
+		],
+		roughness: .31,
+		relief: .006,
+		cells: 4,
+		ringRadius: .27,
+		wireWidth: .018,
+		shaftLeft: -.28,
+		shaftRight: .34,
+		shaftRadius: .043,
+		headX: -.29,
+		headHalfX: .07,
+		headHalfY: .085,
+		shoulder: .3
+	}),
 	rclips: Object.freeze({
 		dark: [
 			24,
@@ -16857,6 +16881,7 @@ var proceduralTileMeters = Object.freeze({
 	appleslice: .4,
 	paperclips: .24,
 	rclips: .12,
+	linchpins: .2,
 	ivyleaf: .32,
 	ribknit: .12,
 	pillowtiles: .6,

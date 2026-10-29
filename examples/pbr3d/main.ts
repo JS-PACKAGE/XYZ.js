@@ -583,6 +583,7 @@ try {
     'appleslice',
     'paperclips',
     'rclips',
+    'linchpins',
     'ivyleaf',
     'ribknit',
     'pillowtiles',

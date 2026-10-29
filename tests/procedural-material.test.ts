@@ -546,6 +546,7 @@ const kinds: ProceduralMaterialKind[] = [
   'appleslice',
   'paperclips',
   'rclips',
+  'linchpins',
   'ivyleaf',
   'ribknit',
   'pillowtiles',
@@ -2159,6 +2160,303 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Closed round-keep Linch Pins with a solid shank and raised cold-headed end', () => {
+  const p = proceduralMaterialPresets.linchpins;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const uv = (col: number, row: number, x: number, y: number) => {
+    const turn = (col + row) & 1 ? 1 : -1;
+    return [
+      (col + 0.5 + (x - turn * y) * Math.SQRT1_2) / p.cells,
+      (row + 0.5 + (y + turn * x) * Math.SQRT1_2) / p.cells,
+    ] as const;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sparse raised silver hardware on a darker rougher dielectric bed for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('linchpins', seed),
+        a = empty();
+      let metal = 0,
+        bed = 0,
+        metalHeight = 0,
+        bedHeight = 0,
+        metalRoughness = 0,
+        bedRoughness = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          if (a.metallic > 0.95) {
+            metal++;
+            metalHeight += a.height;
+            metalRoughness += a.roughness;
+            invalid += Number(a.color < 0.75 || a.occlusion < 0.92);
+          }
+          if (a.metallic === 0) {
+            bed++;
+            bedHeight += a.height;
+            bedRoughness += a.roughness;
+            invalid += Number(a.color > 0.08 || a.occlusion > 0.45);
+          }
+          invalid += Number(a.mortar !== 0 || a.height > 0.8 * p.relief);
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(metal / 65536).toBeGreaterThan(0.07);
+      expect(metal / 65536).toBeLessThan(0.16);
+      expect(bed / 65536).toBeGreaterThan(0.8);
+      expect(bed / 65536).toBeLessThan(0.92);
+      expect(metalHeight / metal).toBeGreaterThan(0.45 * p.relief);
+      expect(bedHeight / bed).toBeLessThan(0.07 * p.relief);
+      expect(bedRoughness / bed - metalRoughness / metal).toBeGreaterThan(0.25);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('preserves the closed circular keep, thicker solid shank, proud headed end, and two open interior clearances in both alternating poses', () => {
+    const a = empty();
+    for (const seed of [0, 1, 0xffffffff])
+      for (const col of [0, 1]) {
+        const sample = createSurfaceSampler('linchpins', seed);
+        for (const [x, y] of [
+          [0, 0.27],
+          [0, -0.27],
+          [0.19, 0.19],
+          [-0.19, -0.19],
+          [0.1, 0.028],
+          [0.1, -0.028],
+          [0.34, 0],
+          [-0.335, 0.062],
+        ]) {
+          sample(...uv(col, 0, x, y), a);
+          expect(a.metallic).toBeGreaterThan(0.99);
+          expect(a.height).toBeGreaterThan(0.45 * p.relief);
+        }
+        for (const [x, y] of [
+          [0, 0.13],
+          [0, -0.13],
+          [0.18, 0.08],
+          [-0.18, -0.08],
+          [0.44, 0.1],
+          [-0.4, 0],
+        ]) {
+          sample(...uv(col, 0, x, y), a);
+          expect(a.metallic).toBe(0);
+          expect(a.height).toBeLessThan(0.07 * p.relief);
+        }
+      }
+  });
+  it('rounds wire and shank crowns and layers the shank over the keep and the head over the shank rather than making a flat washer or printed sign', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff])
+      for (const col of [0, 1]) {
+        const sample = createSurfaceSampler('linchpins', seed);
+        for (const [x, y, sx, sy, minimum] of [
+          [0, 0.27, 0, 0.282, 0.035],
+          [0.1, 0, 0.1, 0.03, 0.035],
+          [-0.29, 0, -0.29, 0.075, 0.02],
+        ]) {
+          sample(...uv(col, 0, x, y), a);
+          sample(...uv(col, 0, sx, sy), b);
+          expect(a.metallic).toBeGreaterThan(0.99);
+          expect(b.metallic).toBeGreaterThan(0.99);
+          expect(a.height - b.height).toBeGreaterThan(minimum * p.relief);
+        }
+        sample(...uv(col, 0, 0.27, 0), a);
+        sample(...uv(col, 0, 0, 0.27), b);
+        expect(a.height - b.height).toBeGreaterThan(0.08 * p.relief);
+        sample(...uv(col, 0, -0.29, 0), a);
+        sample(...uv(col, 0, 0.1, 0), b);
+        expect(a.height - b.height).toBeGreaterThan(0.05 * p.relief);
+      }
+  });
+  it('keeps round-wire edges, capsule projections, beveled head support, owner boundaries, grain lattice and signed seams C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('linchpins', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 96])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.173, 0.5, 0.719]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const col of [0, 1]) {
+        for (const radius of [
+          Math.sqrt(p.ringRadius ** 2 - 2 * p.ringRadius * p.wireWidth),
+          p.ringRadius,
+          Math.sqrt(p.ringRadius ** 2 + 2 * p.ringRadius * p.wireWidth),
+        ])
+          for (let angle = 0; angle < 16; angle++)
+            check(
+              ...uv(
+                col,
+                0,
+                radius * Math.cos((angle * Math.PI) / 8),
+                radius * Math.sin((angle * Math.PI) / 8),
+              ),
+            );
+        for (const [x, y] of [
+          [p.shaftLeft, 0],
+          [p.shaftRight, 0],
+          [p.shaftRight + p.shaftRadius, 0],
+          [0.1, p.shaftRadius],
+          [p.headX - p.headHalfX, 0],
+          [p.headX + p.headHalfX, 0],
+          [p.headX, p.headHalfY],
+        ])
+          check(...uv(col, 0, x, y));
+      }
+      for (let i = 0; i < 16384; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque near-neutral steel with separate dielectric clearances, rounded normals, sixteen connected pins and exactly two enclosed voids per closed keep', () => {
+    const maps = generateProceduralMaps('linchpins', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ],
+      mask = new Uint8Array(512 * 512);
+    let metal = 0,
+      bed = 0,
+      metalR = 0,
+      bedR = 0,
+      metalColor = 0,
+      bedColor = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      mask[i / 4] = Number(maps.metallicRoughness[i + 2] > 127);
+      if (maps.metallicRoughness[i + 2] > 240) {
+        metal++;
+        metalR += maps.metallicRoughness[i + 1];
+        metalColor += maps.baseColor[i];
+        invalid += Number(
+          maps.occlusion[i] < 230 ||
+            Math.abs(maps.baseColor[i] - maps.baseColor[i + 2]) > 18,
+        );
+      }
+      if (maps.metallicRoughness[i + 2] === 0) {
+        bed++;
+        bedR += maps.metallicRoughness[i + 1];
+        bedColor += maps.baseColor[i];
+        invalid += Number(maps.occlusion[i] > 120);
+      }
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.normal[i + 2] < 140 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2],
+      );
+      for (const stream of streams) invalid += Number(stream[i + 3] !== 255);
+    }
+    expect(metal / 262144).toBeGreaterThan(0.07);
+    expect(metal / 262144).toBeLessThan(0.16);
+    expect(bed / 262144).toBeGreaterThan(0.8);
+    expect(bed / 262144).toBeLessThan(0.92);
+    expect(bedR / bed - metalR / metal).toBeGreaterThan(65);
+    expect(metalR / metal).toBeGreaterThan(40);
+    expect(metalR / metal).toBeLessThan(140);
+    expect(metalColor / metal - bedColor / bed).toBeGreaterThan(100);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.95);
+    expect(invalid).toBe(0);
+    const seen = new Uint8Array(mask.length),
+      queue = new Int32Array(mask.length);
+    for (const flag of [0, 1]) {
+      seen.fill(0);
+      let components = 0;
+      for (let start = 0; start < mask.length; start++) {
+        if (seen[start] || mask[start] !== flag) continue;
+        components++;
+        let front = 0,
+          end = 1;
+        queue[0] = start;
+        seen[start] = 1;
+        while (front < end) {
+          const index = queue[front++],
+            x = index % 512,
+            y = Math.floor(index / 512);
+          for (let axis = 0; axis < 2; axis++)
+            for (let step = -1; step <= 1; step += 2) {
+              const position = axis ? y : x;
+              if (position + step < 0 || position + step >= 512) continue;
+              const next = index + step * (axis ? 512 : 1);
+              if (!seen[next] && mask[next] === flag) {
+                seen[next] = 1;
+                queue[end++] = next;
+              }
+            }
+        }
+      }
+      expect(components).toBe(
+        flag ? p.cells * p.cells : 2 * p.cells * p.cells + 1,
+      );
+    }
+  });
+  it('repeats both headed-pin poses and every channel across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('linchpins', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;
@@ -70881,6 +71179,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'horseshoes' &&
           kind !== 'eclips' &&
           kind !== 'rclips' &&
+          kind !== 'linchpins' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -80344,6 +80643,7 @@ describe('procedural preset acquisition and ownership', () => {
     'spurgears',
     'paperclips',
     'rclips',
+    'linchpins',
     'hinges',
     'coins',
     'ballchain',
@@ -80447,6 +80747,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'spurgears' ||
           kind === 'paperclips' ||
           kind === 'rclips' ||
+          kind === 'linchpins' ||
           kind === 'hinges' ||
           kind === 'coins' ||
           kind === 'ballchain' ||

@@ -520,6 +520,7 @@ export type ProceduralMaterialKind =
   | 'appleslice'
   | 'paperclips'
   | 'rclips'
+  | 'linchpins'
   | 'ivyleaf'
   | 'ribknit'
   | 'pillowtiles'
@@ -1549,6 +1550,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'appleslice',
   'paperclips',
   'rclips',
+  'linchpins',
   'ivyleaf',
   'ribknit',
   'pillowtiles',
@@ -2106,6 +2108,7 @@ export class ProceduralMaterial {
         this.kind === 'spurgears' ||
         this.kind === 'paperclips' ||
         this.kind === 'rclips' ||
+        this.kind === 'linchpins' ||
         this.kind === 'hinges' ||
         this.kind === 'coins' ||
         this.kind === 'ballchain' ||

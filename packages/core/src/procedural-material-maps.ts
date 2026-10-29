@@ -1283,6 +1283,7 @@ export function createSurfaceSampler(
     kind === 'spurgears' ||
     kind === 'paperclips' ||
     kind === 'rclips' ||
+    kind === 'linchpins' ||
     kind === 'starsocketbolts' ||
     kind === 'sawblades' ||
     kind === 'countersunkmetal' ||
@@ -19913,6 +19914,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'linchpins': {
+        const p = proceduralMaterialPresets.linchpins,
+          grainField = cachedNoise(96, 96, seed ^ 0x20d11),
+          ringSquared = p.ringRadius * p.ringRadius,
+          inverseRing = 1 / (2 * p.ringRadius * p.wireWidth),
+          inverseShaftSquared = 1 / (p.shaftRadius * p.shaftRadius),
+          inverseHeadX = 1 / p.headHalfX,
+          inverseHeadY = 1 / p.headHalfY,
+          inverseShoulder = 1 / p.shoulder,
+          shaftReach =
+            Math.max(Math.abs(p.shaftLeft), Math.abs(p.shaftRight)) +
+            p.shaftRadius,
+          headReach = Math.abs(p.headX) + p.headHalfX,
+          supportSquared = Math.max(
+            shaftReach * shaftReach,
+            headReach * headReach + p.headHalfY * p.headHalfY,
+            ringSquared + 2 * p.ringRadius * p.wireWidth,
+          );
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            dx = uc - col - 0.5,
+            dy = vc - row - 0.5,
+            grain = grainField(u, v);
+          color = 0.04 + 0.02 * grain;
+          height = 0.06 + 0.004 * grain;
+          roughness = p.roughness + 0.02 * grain + 0.36;
+          occlusion = 0.4 + 0.02 * grain;
+          metallic = 0;
+          if (dx * dx + dy * dy >= supportSquared) return;
+          const turn = (col + row) & 1 ? 1 : -1,
+            x = (dx + turn * dy) * Math.SQRT1_2,
+            y = (dy - turn * dx) * Math.SQRT1_2;
+          const ringQ = (x * x + y * y - ringSquared) * inverseRing,
+            ringRemaining = 1 - ringQ * ringQ,
+            ring = smooth(clamp(ringRemaining * inverseShoulder));
+          const shaftX = x - Math.min(p.shaftRight, Math.max(p.shaftLeft, x)),
+            shaftRemaining =
+              1 - (shaftX * shaftX + y * y) * inverseShaftSquared,
+            shaft = smooth(clamp(shaftRemaining * inverseShoulder));
+          const hx = (x - p.headX) * inverseHeadX,
+            hy = y * inverseHeadY,
+            hx2 = hx * hx,
+            hy2 = hy * hy,
+            hx4 = hx2 * hx2,
+            hy4 = hy2 * hy2,
+            headRemaining = 1 - hx4 * hx4 - hy4 * hy4,
+            head = smooth(clamp(headRemaining * inverseShoulder));
+          const face = 1 - (1 - ring) * (1 - shaft) * (1 - head);
+          if (face === 0) return;
+          const ringCrown = smooth(clamp(ringRemaining)),
+            shaftCrown = smooth(clamp(shaftRemaining)),
+            headCrown = smooth(clamp(headRemaining)),
+            crown = 1 - (1 - ringCrown) * (1 - shaftCrown) * (1 - headCrown);
+          color = 0.04 + face * (0.75 + 0.08 * crown) + 0.02 * grain;
+          // The closed keep lies behind the solid shank and its cold-headed end.
+          height += ring * (0.42 + 0.12 * ringCrown - height);
+          height += shaft * (0.54 + 0.12 * shaftCrown - height);
+          height += head * (0.64 + 0.1 * headCrown - height);
+          roughness = p.roughness + 0.02 * grain + 0.36 * (1 - face);
+          occlusion = 0.4 + 0.56 * face + 0.02 * grain;
+          metallic = face;
+          return;
+        };
+      }
       case 'rclips':
       case 'paperclips': {
         const rclip = kind === 'rclips',
@@ -36351,6 +36419,7 @@ export function createSurfaceSampler(
     kind === 'appleslice' ||
     kind === 'paperclips' ||
     kind === 'rclips' ||
+    kind === 'linchpins' ||
     kind === 'ivyleaf' ||
     kind === 'ribknit' ||
     kind === 'pillowtiles' ||
