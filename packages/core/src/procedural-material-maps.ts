@@ -5554,6 +5554,7 @@ export function createSurfaceSampler(
       case 'cavalrytwill':
       case 'ottoman':
       case 'gabardine':
+      case 'monkscloth':
       case 'hopsack':
       case 'lyocell':
       case 'ramie':
@@ -5562,7 +5563,11 @@ export function createSurfaceSampler(
           drillPreset = proceduralMaterialPresets.cottondrill,
           ticking = kind === 'ticking',
           tickPreset = proceduralMaterialPresets.ticking,
-          hopsack = kind === 'hopsack',
+          basket = kind === 'hopsack' || kind === 'monkscloth',
+          basketPreset =
+            kind === 'monkscloth'
+              ? proceduralMaterialPresets.monkscloth
+              : proceduralMaterialPresets.hopsack,
           lyocell = kind === 'lyocell',
           ramie = kind === 'ramie',
           gabardine = kind === 'gabardine',
@@ -5571,15 +5576,15 @@ export function createSurfaceSampler(
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
           profiledWeave =
-            kind === 'huckaback' || lyocell || hopsack || ticking || drill,
+            kind === 'huckaback' || lyocell || basket || ticking || drill,
           chambray = kind === 'chambray',
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
           bareWeave = 1 - napPreset.napCoverage,
           warpTone = drill
             ? drillPreset.yarnTone
-            : hopsack
-              ? proceduralMaterialPresets.hopsack.yarnTone
+            : basket
+              ? basketPreset.yarnTone
               : lyocell
                 ? proceduralMaterialPresets.lyocell.yarnTone
                 : ramie
@@ -5591,7 +5596,7 @@ export function createSurfaceSampler(
                       : 0.82,
           weftTone = ticking
             ? tickPreset.groundTone
-            : ramie || lyocell || hopsack || drill
+            : ramie || lyocell || basket || drill
               ? warpTone
               : chambray
                 ? 0.92
@@ -5603,8 +5608,8 @@ export function createSurfaceSampler(
             ? drillPreset
             : ticking
               ? tickPreset
-              : hopsack
-                ? proceduralMaterialPresets.hopsack
+              : basket
+                ? basketPreset
                 : lyocell
                   ? proceduralMaterialPresets.lyocell
                   : proceduralMaterialPresets.huckaback,
@@ -36477,6 +36482,7 @@ export function createSurfaceSampler(
     kind === 'basswood' ||
     kind === 'nickelsilver' ||
     kind === 'hopsack' ||
+    kind === 'monkscloth' ||
     kind === 'lyocell' ||
     kind === 'ramie' ||
     kind === 'sphericalwashers' ||

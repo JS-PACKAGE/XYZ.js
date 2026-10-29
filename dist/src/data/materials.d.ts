@@ -9319,6 +9319,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         brushRoughness: 0.1;
         grainRoughness: 0.02;
     }>;
+    monkscloth: Readonly<{
+        dark: readonly [128, 118, 97];
+        light: readonly [247, 241, 224];
+        roughness: 0.91;
+        relief: 0.0018;
+        yarnTone: 0.84;
+        warpThreads: 32;
+        weftThreads: 32;
+        warpRadius: 0.46;
+        warpCore: 0.32;
+        weftRadius: 0.46;
+        weftCore: 0.32;
+        warpLiftHalf: 0.49;
+        weftLiftHalf: 0.49;
+        liftShoulder: 0.12;
+        lift: 0.1;
+        warpFibers: 128;
+        weftFibers: 128;
+        draft: readonly [15, 15, 15, 15, 240, 240, 240, 240];
+    }>;
     hopsack: Readonly<{
         dark: readonly [12, 20, 33];
         light: readonly [66, 88, 118];
@@ -10378,6 +10398,7 @@ export declare const proceduralTileMeters: Readonly<{
     dalmatianstone: 0.06;
     nickelsilver: 0.025;
     hopsack: 0.016;
+    monkscloth: 0.03;
     lyocell: 0.012;
     ramie: 0.04;
     wavewashers: 0.1;

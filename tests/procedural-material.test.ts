@@ -824,6 +824,7 @@ const kinds: ProceduralMaterialKind[] = [
   'dalmatianstone',
   'nickelsilver',
   'hopsack',
+  'monkscloth',
   'lyocell',
   'ramie',
   'wavewashers',
@@ -2170,6 +2171,232 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
           v = (i * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Natural four-by-four Monk’s Cloth with four separable yarns and continuous grouped floats', () => {
+  const p = proceduralMaterialPresets.monkscloth;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps four distinct yarns per group and continuous four-pick floats on both axes for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('monkscloth', seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        d = empty(),
+        over = new Uint8Array(256);
+      let orientation = Infinity,
+        join = Infinity,
+        valley = Infinity,
+        pigmentMin = Infinity,
+        pigmentMax = -Infinity;
+      for (let row = 0; row < 16; row++)
+        for (let col = 0; col < 16; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads;
+          sample(u, v + 0.47 / p.weftThreads, a);
+          sample(u, v - 0.47 / p.weftThreads, b);
+          sample(u + 0.47 / p.warpThreads, v, c);
+          sample(u - 0.47 / p.warpThreads, v, d);
+          const directional = (a.height + b.height - c.height - d.height) * 0.5;
+          over[row * 16 + col] = Number(directional > 0);
+          orientation = Math.min(orientation, Math.abs(directional));
+          sample(u, v, a);
+          pigmentMin = Math.min(pigmentMin, a.color);
+          pigmentMax = Math.max(pigmentMax, a.color);
+          expect(a.metallic).toBe(0);
+          expect(a.mortar).toBe(0);
+        }
+      // Infer the draft from actual height, allowing shifted or inverted repeats.
+      let matchingPhases = 0;
+      for (const phaseX of [0, 1, 2, 3])
+        for (const phaseY of [0, 1, 2, 3])
+          for (const inverse of [false, true]) {
+            let matches = true;
+            for (let row = 0; row < 16; row++)
+              for (let col = 0; col < 16; col++) {
+                const expected =
+                  ((Math.floor((col + phaseX) / 4) +
+                    Math.floor((row + phaseY) / 4)) &
+                    1) ===
+                  0;
+                matches &&=
+                  Boolean(over[row * 16 + col]) === (expected !== inverse);
+              }
+            matchingPhases += Number(matches);
+          }
+      expect(matchingPhases).toBeGreaterThan(0);
+      expect(orientation).toBeGreaterThan(0.02 * p.relief);
+      expect(pigmentMax - pigmentMin).toBeLessThan(0.04);
+      for (let row = 0; row < 15; row++)
+        for (let col = 0; col < 15; col++) {
+          const u = (col + 0.5) / p.warpThreads,
+            v = (row + 0.5) / p.weftThreads,
+            warp = over[row * 16 + col] !== 0;
+          sample(u, v, a);
+          if (
+            over[(row + Number(warp)) * 16 + col + Number(!warp)] ===
+            Number(warp)
+          ) {
+            sample(
+              u + Number(!warp) / p.warpThreads,
+              v + Number(warp) / p.weftThreads,
+              b,
+            );
+            sample(
+              u + (Number(!warp) * 0.5) / p.warpThreads,
+              v + (Number(warp) * 0.5) / p.weftThreads,
+              c,
+            );
+            join = Math.min(join, c.height - Math.min(a.height, b.height));
+          }
+          if (
+            over[(row + Number(!warp)) * 16 + col + Number(warp)] ===
+            Number(warp)
+          ) {
+            sample(
+              u + Number(warp) / p.warpThreads,
+              v + Number(!warp) / p.weftThreads,
+              b,
+            );
+            sample(
+              u + (Number(warp) * 0.5) / p.warpThreads,
+              v + (Number(!warp) * 0.5) / p.weftThreads,
+              c,
+            );
+            valley = Math.min(valley, Math.min(a.height, b.height) - c.height);
+          }
+        }
+      expect(join).toBeGreaterThan(-0.004 * p.relief);
+      expect(valley).toBeGreaterThan(0.1 * p.relief);
+    },
+  );
+  it('keeps yarn shoulders, four-pick float ends, fibers, cached grain and UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('monkscloth', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      const offsets = [
+        0,
+        0.5,
+        0.5 - p.warpRadius,
+        0.5 + p.warpRadius,
+        0.5 - p.warpCore,
+        0.5 + p.warpCore,
+        0.5 - p.warpLiftHalf,
+        0.5 + p.warpLiftHalf,
+        0.5 - (p.warpLiftHalf - p.liftShoulder),
+        0.5 + (p.warpLiftHalf - p.liftShoulder),
+      ];
+      for (let k = 0; k < p.warpThreads; k++)
+        for (const offset of offsets)
+          for (let j = 0; j < 17; j++) {
+            check((k + offset) / p.warpThreads, (j + 0.31) / 17);
+            check((j + 0.37) / 17, (k + offset) / p.weftThreads);
+          }
+      for (let k = 0; k <= 128; k++)
+        for (let j = 0; j < 17; j++) {
+          check(k / 128, (j + 0.31) / 17);
+          check((j + 0.37) / 17, k / 128);
+        }
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes opaque cream cloth with recessed interstices and signed moderate-relief normals on both axes at actual512', () => {
+    const maps = generateProceduralMaps('monkscloth', 512, 7, {
+      heightMap: true,
+    });
+    const streams = Object.values(maps);
+    let cream = 0,
+      invalid = 0,
+      positiveX = 0,
+      negativeX = 0,
+      positiveY = 0,
+      negativeY = 0,
+      minAO = 255,
+      maxAO = 0,
+      maxTilt = 0,
+      rough = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      cream += Number(r > 200 && g > 190 && b > 160 && r > g && g > b);
+      positiveX += Number(maps.normal[i] > 128);
+      negativeX += Number(maps.normal[i] < 127);
+      positiveY += Number(maps.normal[i + 1] > 128);
+      negativeY += Number(maps.normal[i + 1] < 127);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 240,
+      );
+      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+    }
+    expect(cream / (512 * 512)).toBeGreaterThan(0.9);
+    for (const count of [positiveX, negativeX, positiveY, negativeY])
+      expect(count / (512 * 512)).toBeGreaterThan(0.1);
+    expect(minAO).toBeLessThan(150);
+    expect(maxAO).toBeGreaterThan(240);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.15);
+    expect(rough / (512 * 512)).toBeGreaterThan(0.87);
+    expect(rough / (512 * 512)).toBeLessThan(0.95);
+    expect(invalid).toBe(0);
+  });
+  it('repeats both four-yarn float axes and all six surface channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('monkscloth', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

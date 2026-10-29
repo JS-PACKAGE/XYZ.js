@@ -798,6 +798,7 @@ export type ProceduralMaterialKind =
   | 'dalmatianstone'
   | 'nickelsilver'
   | 'hopsack'
+  | 'monkscloth'
   | 'lyocell'
   | 'ramie'
   | 'wavewashers'
@@ -1833,6 +1834,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'dalmatianstone',
   'nickelsilver',
   'hopsack',
+  'monkscloth',
   'lyocell',
   'ramie',
   'wavewashers',

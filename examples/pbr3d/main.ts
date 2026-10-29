@@ -861,6 +861,7 @@ try {
     'dalmatianstone',
     'nickelsilver',
     'hopsack',
+    'monkscloth',
     'lyocell',
     'ramie',
     'wavewashers',

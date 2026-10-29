@@ -16143,6 +16143,43 @@ var proceduralMaterialPresets = Object.freeze({
 		brushRoughness: .1,
 		grainRoughness: .02
 	}),
+	monkscloth: Object.freeze({
+		dark: [
+			128,
+			118,
+			97
+		],
+		light: [
+			247,
+			241,
+			224
+		],
+		roughness: .91,
+		relief: .0018,
+		yarnTone: .84,
+		warpThreads: 32,
+		weftThreads: 32,
+		warpRadius: .46,
+		warpCore: .32,
+		weftRadius: .46,
+		weftCore: .32,
+		warpLiftHalf: .49,
+		weftLiftHalf: .49,
+		liftShoulder: .12,
+		lift: .1,
+		warpFibers: 128,
+		weftFibers: 128,
+		draft: Object.freeze([
+			15,
+			15,
+			15,
+			15,
+			240,
+			240,
+			240,
+			240
+		])
+	}),
 	hopsack: Object.freeze({
 		dark: [
 			12,
@@ -17315,6 +17352,7 @@ var proceduralTileMeters = Object.freeze({
 	dalmatianstone: .06,
 	nickelsilver: .025,
 	hopsack: .016,
+	monkscloth: .03,
 	lyocell: .012,
 	ramie: .04,
 	wavewashers: .1,
