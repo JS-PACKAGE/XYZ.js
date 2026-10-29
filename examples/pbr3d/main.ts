@@ -871,6 +871,7 @@ try {
     'hopsack',
     'monkscloth',
     'lyocell',
+    'sateen',
     'surah',
     'serge',
     'ramie',

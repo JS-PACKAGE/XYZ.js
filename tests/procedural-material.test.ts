@@ -834,6 +834,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hopsack',
   'monkscloth',
   'lyocell',
+  'sateen',
   'surah',
   'serge',
   'ramie',
@@ -2852,6 +2853,261 @@ describe.each(['hemimorphite', 'smithsonite'] as const)(
   },
 );
 
+describe('Ivory filling-faced five-harness Sateen with continuous four-end filling floats', () => {
+  const p = proceduralMaterialPresets.sateen;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('sateen', seed),
+      a = empty();
+    const z = (x: number, y: number): number => {
+      sample(x / p.warpThreads, y / p.weftThreads, a);
+      return a.height / p.relief;
+    };
+    const crossing = (col: number, row: number): boolean => {
+      const x = col + 0.5,
+        y = row + 0.5,
+        m = z(x, y),
+        acrossWarp = 2 * m - z(x - 0.25, y) - z(x + 0.25, y),
+        acrossWeft = 2 * m - z(x, y - 0.25) - z(x, y + 0.25);
+      expect(Math.abs(acrossWarp - acrossWeft)).toBeGreaterThan(0.005);
+      return acrossWarp > acrossWeft;
+    };
+    return { sample, z, crossing };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'infers isolated satin binders and an actual four-to-one filling face at seed %s',
+    (seed) => {
+      const { crossing } = observe(seed);
+      for (const offset of [0, 5, 25, 50]) {
+        const rows = Array.from({ length: 5 }, (_, row) =>
+          Array.from({ length: 5 }, (_, col) =>
+            Number(crossing(col + offset, row + offset)),
+          ),
+        );
+        for (let i = 0; i < 5; i++) {
+          expect(rows[i].reduce((sum, v) => sum + v, 0)).toBe(1);
+          expect(rows.reduce((sum, row) => sum + row[i], 0)).toBe(1);
+        }
+        const binders = rows.map((row) => row.indexOf(1)),
+          step = (binders[1] - binders[0] + 5) % 5;
+        // Either valid satin counter and any phase are allowed; adjacent twill binders are not.
+        expect(Number(step === 2 || step === 3)).toBe(1);
+        for (let row = 0; row < 5; row++)
+          expect((binders[(row + 1) % 5] - binders[row] + 5) % 5).toBe(step);
+      }
+    },
+  );
+  it.each([0, 1, 0xffffffff])(
+    'keeps observed four-yarn weft floats raised through all intermediate owners at seed %s',
+    (seed) => {
+      const { z, crossing } = observe(seed);
+      for (const offset of [0, 5, 25, 50])
+        for (let row = 0; row < 5; row++) {
+          const binder = Array.from({ length: 5 }, (_, col) =>
+              crossing(col + offset, row + offset),
+            ).indexOf(true),
+            y = row + offset + 0.5;
+          for (let j = 1; j < 4; j++) {
+            const x = binder + offset + j + 1,
+              center = (z(x - 0.5, y) + z(x + 0.5, y)) / 2;
+            // Ground gaps must not break a long top float into beads at each warp owner.
+            expect(z(x, y) - center).toBeGreaterThan(-0.012);
+          }
+        }
+    },
+  );
+  const observedC1 = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? p.relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? p.relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed yarn curvature rather than reproducing the private draft or lift profiles.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps measured six-channel float and binder curvature C1 at seed %s',
+    (seed) => {
+      const { sample } = observe(seed),
+        a = empty(),
+        b = empty(),
+        c = empty(),
+        h = 1e-10;
+      let worst = 0;
+      const check = (u: number, v: number): void => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs(c[key] - 2 * b[key] + a[key]) /
+                h /
+                (key === 'height' ? p.relief : 1),
+            );
+        }
+      };
+      for (let i = 0; i <= p.warpThreads; i++)
+        for (let j = 0; j < 33; j++) check(i / p.warpThreads, (j + 0.37) / 33);
+      for (let i = 0; i <= p.weftThreads; i++)
+        for (let j = 0; j < 33; j++) check((j + 0.41) / 33, i / p.weftThreads);
+      for (const count of [p.warpFibers, 128])
+        for (let i = 0; i <= count; i++)
+          for (let j = 0; j < 11; j++) check(i / count, (j + 0.37) / 11);
+      for (const count of [p.weftFibers, 128])
+        for (let i = 0; i <= count; i++)
+          for (let j = 0; j < 11; j++) check((j + 0.41) / 11, i / count);
+      expect(worst).toBeLessThan(0.03);
+      expect(observedC1(sample)).toBeLessThan(0.03);
+    },
+  );
+  it.each([32, 512])(
+    'packs warm ivory dielectric yarns, satin finish and resolved relief at actual %s',
+    (size) => {
+      const maps = generateProceduralMaps('sateen', size, 7, {
+          heightMap: true,
+        }),
+        streams = Object.values(maps);
+      let ivory = 0,
+        rough = 0,
+        maxTilt = 0,
+        invalid = 0,
+        minZ = 255;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const r = maps.baseColor[i],
+          g = maps.baseColor[i + 1],
+          b = maps.baseColor[i + 2],
+          nx = maps.normal[i] / 127.5 - 1,
+          ny = maps.normal[i + 1] / 127.5 - 1;
+        ivory += Number(r > 190 && g > 180 && b > 160 && r >= g && g > b);
+        rough += maps.metallicRoughness[i + 1] / 255;
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        minZ = Math.min(minZ, maps.normal[i + 2]);
+        invalid += Number(maps.metallicRoughness[i + 2] !== 0);
+        for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+      }
+      expect(ivory / (size * size)).toBeGreaterThan(0.8);
+      expect(rough / (size * size)).toBeGreaterThan(0.36);
+      expect(rough / (size * size)).toBeLessThan(0.62);
+      expect(minZ).toBeGreaterThan(245);
+      expect(maxTilt).toBeLessThan(0.08);
+      if (size === 512) expect(maxTilt).toBeGreaterThan(0.0005);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('repeats all six actual yarn channels across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sateen', seed);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
 describe.each(['surah', 'serge'] as const)(
   '%s balanced continuous two-over/two-under fine twill',
   (kind) => {

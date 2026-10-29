@@ -5663,6 +5663,7 @@ export function createSurfaceSampler(
       case 'gabardine':
       case 'monkscloth':
       case 'hopsack':
+      case 'sateen':
       case 'surah':
       case 'serge':
       case 'lyocell':
@@ -5677,14 +5678,19 @@ export function createSurfaceSampler(
             kind === 'monkscloth'
               ? proceduralMaterialPresets.monkscloth
               : proceduralMaterialPresets.hopsack,
-          fineTwill =
-            kind === 'lyocell' || kind === 'surah' || kind === 'serge',
-          fineTwillPreset =
-            kind === 'serge'
-              ? proceduralMaterialPresets.serge
-              : kind === 'surah'
-                ? proceduralMaterialPresets.surah
-                : proceduralMaterialPresets.lyocell,
+          fineCloth =
+            kind === 'lyocell' ||
+            kind === 'surah' ||
+            kind === 'serge' ||
+            kind === 'sateen',
+          fineClothPreset =
+            kind === 'sateen'
+              ? proceduralMaterialPresets.sateen
+              : kind === 'serge'
+                ? proceduralMaterialPresets.serge
+                : kind === 'surah'
+                  ? proceduralMaterialPresets.surah
+                  : proceduralMaterialPresets.lyocell,
           ramie = kind === 'ramie',
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
@@ -5692,7 +5698,7 @@ export function createSurfaceSampler(
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
           profiledWeave =
-            kind === 'huckaback' || fineTwill || basket || ticking || drill,
+            kind === 'huckaback' || fineCloth || basket || ticking || drill,
           chambray = kind === 'chambray',
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
@@ -5701,8 +5707,8 @@ export function createSurfaceSampler(
             ? drillPreset.yarnTone
             : basket
               ? basketPreset.yarnTone
-              : fineTwill
-                ? fineTwillPreset.yarnTone
+              : fineCloth
+                ? fineClothPreset.yarnTone
                 : ramie
                   ? proceduralMaterialPresets.ramie.yarnTone
                   : chambray
@@ -5712,7 +5718,7 @@ export function createSurfaceSampler(
                       : 0.82,
           weftTone = ticking
             ? tickPreset.groundTone
-            : ramie || fineTwill || basket || drill
+            : ramie || fineCloth || basket || drill
               ? warpTone
               : chambray
                 ? 0.92
@@ -5726,8 +5732,8 @@ export function createSurfaceSampler(
               ? tickPreset
               : basket
                 ? basketPreset
-                : fineTwill
-                  ? fineTwillPreset
+                : fineCloth
+                  ? fineClothPreset
                   : proceduralMaterialPresets.huckaback,
           draftRepeat = profilePreset.draft.length,
           p = proceduralMaterialPresets[kind],
@@ -36748,6 +36754,7 @@ export function createSurfaceSampler(
     kind === 'hopsack' ||
     kind === 'monkscloth' ||
     kind === 'lyocell' ||
+    kind === 'sateen' ||
     kind === 'surah' ||
     kind === 'serge' ||
     kind === 'ramie' ||

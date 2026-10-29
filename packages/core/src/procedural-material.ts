@@ -808,6 +808,7 @@ export type ProceduralMaterialKind =
   | 'hopsack'
   | 'monkscloth'
   | 'lyocell'
+  | 'sateen'
   | 'surah'
   | 'serge'
   | 'ramie'
@@ -1854,6 +1855,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hopsack',
   'monkscloth',
   'lyocell',
+  'sateen',
   'surah',
   'serge',
   'ramie',
