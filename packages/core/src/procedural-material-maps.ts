@@ -2158,6 +2158,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'redberyl': {
+        const p = proceduralMaterialPresets.redberyl,
+          poses = new Float64Array(p.cells * p.cells * 8),
+          cloudField = cachedNoise(8, 8, seed ^ 0x1b711),
+          grainField = cachedNoise(128, 128, seed ^ 0x1b713),
+          inverseShoulder = 1 / (1 - p.coreRatio * p.coreRatio);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 8;
+            if (hash(col, row, seed ^ 0x1b721) >= p.occupancy) continue;
+            const angle = TAU * hash(col, row, seed ^ 0x1b715),
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x1b717);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b719) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b71b) - 1);
+            poses[i + 2] = Math.cos(angle);
+            poses[i + 3] = Math.sin(angle);
+            poses[i + 4] = 1 / (radius * radius);
+            poses[i + 5] = 0.58 + 0.08 * hash(col, row, seed ^ 0x1b71d);
+            poses[i + 6] = 0.12 + 0.1 * hash(col, row, seed ^ 0x1b71f);
+            poses[i + 7] = (radius * radius) / 0.75;
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 8,
+            grain = grainField(u, v),
+            cloud = cloudField(u, v);
+          color = 0.76 + 0.15 * cloud + 0.1 * grain;
+          height = 0.14 + 0.045 * cloud + 0.05 * grain;
+          roughness = 0.8 + 0.08 * grain;
+          occlusion = 0.99;
+          if (poses[i + 7] === 0) return;
+          const dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1];
+          if (dx * dx + dy * dy >= poses[i + 7]) return;
+          const x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            a = 0.5 * x + 0.8660254037844386 * y,
+            b = 0.5 * x - 0.8660254037844386 * y,
+            inverseRadius = poses[i + 4],
+            face =
+              smooth(clamp((1 - x * x * inverseRadius) * inverseShoulder)) *
+              smooth(clamp((1 - a * a * inverseRadius) * inverseShoulder)) *
+              smooth(clamp((1 - b * b * inverseRadius) * inverseShoulder));
+          if (face === 0) return;
+          // Flat basal terminations, not quartz-like pyramidal apices or painted hexagons.
+          color += face * (poses[i + 6] + 0.05 * grain - color);
+          height += face * (poses[i + 5] + 0.001 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.98 - occlusion);
+        };
+      }
       case 'fluorite': {
         const p = proceduralMaterialPresets.fluorite,
           crystals = new Float64Array(p.cells * p.cells * 6),
@@ -36350,6 +36405,7 @@ export function createSurfaceSampler(
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
+    kind === 'redberyl' ||
     kind === 'cavansite' ||
     kind === 'wenge' ||
     kind === 'parchment' ||

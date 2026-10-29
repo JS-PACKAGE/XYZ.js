@@ -14488,6 +14488,26 @@ var proceduralMaterialPresets = Object.freeze({
 		crystalRoughness: .35,
 		needleAngleJitter: .18
 	}),
+	redberyl: Object.freeze({
+		dark: [
+			113,
+			7,
+			40
+		],
+		light: [
+			242,
+			239,
+			227
+		],
+		roughness: .22,
+		relief: .008,
+		cells: 4,
+		jitter: .15,
+		radius: .135,
+		radiusVariation: .12,
+		coreRatio: .87,
+		occupancy: .78
+	}),
 	fluorite: Object.freeze({
 		dark: [
 			54,
@@ -17150,6 +17170,7 @@ var proceduralTileMeters = Object.freeze({
 	shackles: .6,
 	watercaltrops: .24,
 	fluorite: .06,
+	redberyl: .18,
 	cavansite: .16,
 	wenge: .12,
 	parchment: .04,

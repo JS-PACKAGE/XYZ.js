@@ -8163,6 +8163,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         crystalRoughness: 0.35;
         needleAngleJitter: 0.18;
     }>;
+    redberyl: Readonly<{
+        dark: readonly [113, 7, 40];
+        light: readonly [242, 239, 227];
+        roughness: 0.22;
+        relief: 0.008;
+        cells: 4;
+        jitter: 0.15;
+        radius: 0.135;
+        radiusVariation: 0.12;
+        coreRatio: 0.87;
+        occupancy: 0.78;
+    }>;
     fluorite: Readonly<{
         dark: readonly [54, 27, 82];
         light: readonly [235, 221, 245];
@@ -10237,6 +10249,7 @@ export declare const proceduralTileMeters: Readonly<{
     shackles: 0.6;
     watercaltrops: 0.24;
     fluorite: 0.06;
+    redberyl: 0.18;
     cavansite: 0.16;
     wenge: 0.12;
     parchment: 0.04;

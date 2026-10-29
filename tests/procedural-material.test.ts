@@ -759,6 +759,7 @@ const kinds: ProceduralMaterialKind[] = [
   'shackles',
   'watercaltrops',
   'fluorite',
+  'redberyl',
   'cavansite',
   'wenge',
   'parchment',
@@ -2162,6 +2163,304 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Raspberry-red Beryl with raised flat hexagonal basal faces on pale granular rhyolite', () => {
+  const p = proceduralMaterialPresets.redberyl;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const locate = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    resolution = 96,
+  ) => {
+    const a = empty(),
+      owners = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        let n = 0,
+          xsum = 0,
+          ysum = 0;
+        for (let y = 0; y < resolution; y++)
+          for (let x = 0; x < resolution; x++) {
+            const u = (col + (x + 0.5) / resolution) / p.cells,
+              v = (row + (y + 0.5) / resolution) / p.cells;
+            sample(u, v, a);
+            if (a.color < 0.3 && a.height > 0.45 * p.relief) {
+              n++;
+              xsum += u;
+              ysum += v;
+            }
+          }
+        if (!n) continue;
+        const u = xsum / n,
+          v = ysum / n,
+          radii = [];
+        for (let j = 0; j < 120; j++) {
+          const angle = (j * Math.PI) / 60,
+            dx = Math.cos(angle) / p.cells,
+            dy = Math.sin(angle) / p.cells;
+          let lo = 0,
+            hi = 0.36;
+          for (let k = 0; k < 24; k++) {
+            const mid = (lo + hi) / 2;
+            sample(u + dx * mid, v + dy * mid, a);
+            if (a.color < 0.35) lo = mid;
+            else hi = mid;
+          }
+          radii.push((lo + hi) / 2);
+        }
+        const rmin = Math.min(...radii),
+          rmax = Math.max(...radii),
+          rmean = radii.reduce((s, v) => s + v, 0) / radii.length;
+        let six = 0,
+          opposite = 0;
+        for (let j = 0; j < 120; j++) {
+          six += (radii[j] - radii[(j + 20) % 120]) ** 2;
+          opposite += (radii[j] - radii[(j + 60) % 120]) ** 2;
+        }
+        let lowHeight = 1,
+          highHeight = 0;
+        for (let j = 0; j < 16; j++) {
+          const angle = (j * Math.PI) / 8;
+          sample(
+            u + (0.4 * rmin * Math.cos(angle)) / p.cells,
+            v + (0.4 * rmin * Math.sin(angle)) / p.cells,
+            a,
+          );
+          lowHeight = Math.min(lowHeight, a.height / p.relief);
+          highHeight = Math.max(highHeight, a.height / p.relief);
+        }
+        let straightFit = Infinity;
+        for (let phase = 0; phase < 20; phase++) {
+          let error = 0;
+          for (let j = 0; j < 120; j++) {
+            const theta = ((j - phase) * Math.PI) / 60;
+            const plane = Math.max(
+              Math.abs(Math.cos(theta)),
+              Math.abs(Math.cos(theta + Math.PI / 3)),
+              Math.abs(Math.cos(theta - Math.PI / 3)),
+            );
+            error += (radii[j] - rmin / plane) ** 2;
+          }
+          straightFit = Math.min(straightFit, Math.sqrt(error / 120) / rmean);
+        }
+        owners.push({
+          straightFit,
+          col,
+          row,
+          u,
+          v,
+          ratio: rmax / rmin,
+          six: Math.sqrt(six / 120) / rmean,
+          opposite: Math.sqrt(opposite / 120) / rmean,
+          topSpan: highHeight - lowHeight,
+          faceHeight: (highHeight + lowHeight) / 2,
+        });
+      }
+    return owners;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps sparse smoother raised red crystal faces on a dominant rough pale host for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('redberyl', seed),
+        a = empty();
+      let red = 0,
+        host = 0,
+        redHeight = 0,
+        hostHeight = 0,
+        redRough = 0,
+        hostRough = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          if (a.color < 0.3) {
+            red++;
+            redHeight += a.height;
+            redRough += a.roughness;
+          }
+          if (a.color > 0.75) {
+            host++;
+            hostHeight += a.height;
+            hostRough += a.roughness;
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion < 0.97 ||
+              a.occlusion > 1 ||
+              a.height < 0.13 * p.relief ||
+              a.height > 0.68 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(red / 65536).toBeGreaterThan(0.04);
+      expect(red / 65536).toBeLessThan(0.16);
+      expect(host / 65536).toBeGreaterThan(0.8);
+      expect(host / 65536).toBeLessThan(0.95);
+      expect(redHeight / red - hostHeight / host).toBeGreaterThan(
+        0.36 * p.relief,
+      );
+      expect(redHeight / red - hostHeight / host).toBeLessThan(0.5 * p.relief);
+      expect(hostRough / host - redRough / red).toBeGreaterThan(0.5);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('observes six straight-sided symmetric terminations instead of circular spots, square tablets or triangular chips', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const owners = locate(createSurfaceSampler('redberyl', seed));
+      expect(owners.length).toBeGreaterThan(7);
+      expect(owners.length).toBeLessThan(17);
+      for (const owner of owners) {
+        expect(owner.ratio).toBeGreaterThan(1.1);
+        expect(owner.ratio).toBeLessThan(1.2);
+        expect(owner.six).toBeLessThan(0.015);
+        expect(owner.straightFit).toBeLessThan(0.013);
+        expect(owner.opposite).toBeLessThan(0.02);
+      }
+    }
+  });
+  it('keeps each basal face flat and higher than its granular matrix rather than forming quartz apices, domes, holes or coplanar print', () => {
+    const a = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('redberyl', seed),
+        owners = locate(sample);
+      for (const owner of owners) {
+        expect(owner.topSpan).toBeLessThan(0.003);
+        expect(owner.faceHeight).toBeGreaterThan(0.55);
+        expect(owner.faceHeight).toBeLessThan(0.68);
+        sample(owner.u, owner.v, a);
+        expect(a.roughness).toBeGreaterThan(0.2);
+        expect(a.roughness).toBeLessThan(0.27);
+        sample((owner.col + 0.02) / p.cells, (owner.row + 0.02) / p.cells, a);
+        expect(owner.faceHeight - a.height / p.relief).toBeGreaterThan(0.34);
+      }
+    }
+  });
+  it('keeps occupied and vacant owner boundaries, both grain lattices and signed seams C1 across all six channels', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('redberyl', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, 8, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [-1, 0, 0.173, 0.5, 0.719, 1]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i < 16384; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque raspberry-red and pale granular maps with lower crystal roughness and genuinely raised nonflat normals', () => {
+    const maps = generateProceduralMaps('redberyl', 512, 7, {
+        heightMap: true,
+      }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ];
+    let red = 0,
+      pale = 0,
+      redRough = 0,
+      paleRough = 0,
+      paleTilted = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (r > 115 && r < 165 && g < 90 && b - g > 18) {
+        red++;
+        redRough += maps.metallicRoughness[i + 1];
+      }
+      if (r > 205 && g > 185 && b > 175 && r - g < 35) {
+        pale++;
+        paleRough += maps.metallicRoughness[i + 1];
+        paleTilted += Number(
+          Math.abs(maps.normal[i] - 127.5) > 2.5 ||
+            Math.abs(maps.normal[i + 1] - 127.5) > 2.5,
+        );
+      }
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] < 247 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 195,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / 262144).toBeGreaterThan(0.05);
+    expect(red / 262144).toBeLessThan(0.18);
+    expect(pale / 262144).toBeGreaterThan(0.78);
+    expect(paleTilted / pale).toBeGreaterThan(0.2);
+    expect(paleRough / pale - redRough / red).toBeGreaterThan(130);
+    expect(maxTilt).toBeGreaterThan(0.2);
+    expect(maxTilt).toBeLessThan(0.7);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all flat crystal faces and granular host channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('redberyl', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

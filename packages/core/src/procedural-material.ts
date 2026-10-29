@@ -733,6 +733,7 @@ export type ProceduralMaterialKind =
   | 'shackles'
   | 'watercaltrops'
   | 'fluorite'
+  | 'redberyl'
   | 'cavansite'
   | 'wenge'
   | 'parchment'
@@ -1765,6 +1766,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'shackles',
   'watercaltrops',
   'fluorite',
+  'redberyl',
   'cavansite',
   'wenge',
   'parchment',

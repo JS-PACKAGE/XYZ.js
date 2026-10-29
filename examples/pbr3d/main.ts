@@ -796,6 +796,7 @@ try {
     'shackles',
     'watercaltrops',
     'fluorite',
+    'redberyl',
     'cavansite',
     'wenge',
     'parchment',
