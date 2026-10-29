@@ -9845,6 +9845,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         bandContrast: 0.72;
         grainHeight: 0.002;
     }>;
+    braziliantulipwood: Readonly<{
+        dark: readonly [126, 37, 57];
+        light: readonly [245, 213, 153];
+        roughness: 0.34;
+        relief: 0.0016;
+        columns: 32;
+        rows: 20;
+        widthMinimum: 0.045;
+        widthVariation: 0.035;
+        lengthMinimum: 0.1;
+        lengthVariation: 0.17;
+        poreChance: 0.14;
+        poreShoulder: 0.3;
+        poreDepth: 0.06;
+        bands: 28;
+        bandWarp: 0.55;
+        bandRadius: 0.3;
+        bandCore: 0.03;
+        bandWidthMinimum: 0.2;
+        bandWidthVariation: 1.1;
+        faceColor: 0.88;
+        bandContrast: 0.68;
+        grainHeight: 0.002;
+        warpColumns: 24;
+        warpRows: 4;
+    }>;
     macassarebony: Readonly<{
         dark: readonly [10, 8, 6];
         light: readonly [116, 73, 44];
@@ -10691,6 +10717,7 @@ export declare const proceduralTileMeters: Readonly<{
     bronzite: 0.12;
     castorbeans: 0.064;
     zebrawood: 0.16;
+    braziliantulipwood: 0.12;
     macassarebony: 0.18;
     bocote: 0.24;
     twopinscrewheads: 0.06;

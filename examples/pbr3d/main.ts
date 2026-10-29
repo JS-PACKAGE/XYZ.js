@@ -844,6 +844,7 @@ try {
     'castorbeans',
     'zebrawood',
     'bocote',
+    'braziliantulipwood',
     'macassarebony',
     'twopinscrewheads',
     'amazonite',

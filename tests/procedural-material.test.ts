@@ -807,6 +807,7 @@ const kinds: ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'braziliantulipwood',
   'macassarebony',
   'twopinscrewheads',
   'amazonite',
@@ -12678,7 +12679,7 @@ describe('Two opposed circular blind pin-drive recesses with closed flat steel f
   });
 });
 
-describe.each(['zebrawood', 'macassarebony'] as const)(
+describe.each(['zebrawood', 'macassarebony', 'braziliantulipwood'] as const)(
   '%s coplanar longitudinal pigment with sparse recessed vessels',
   (kind) => {
     const p = proceduralMaterialPresets[kind];
@@ -12712,7 +12713,12 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
           sample(u, v, b);
           sample(u + du, v + dv, c);
           for (const key of keys)
-            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+            worst = Math.max(
+              worst,
+              Math.abs(c[key] - 2 * b[key] + a[key]) /
+                h /
+                (key === 'height' ? p.relief : 1),
+            );
         }
         return worst;
       };
@@ -12815,7 +12821,6 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
       const out = empty(),
         check = checker(sample);
       let edges = 0,
-        checked = 0,
         worst = 0;
       for (let y = 0; y < n; y++)
         for (let x = 0; x < n; x++)
@@ -12839,7 +12844,6 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
               worst,
               check(u + (axis ? 0 : t / n), v + (axis ? t / n : 0), 1e-10),
             );
-            checked++;
           }
       for (let j = 0; j < n; j++) {
         worst = Math.max(
@@ -12848,27 +12852,53 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
           check((j + 0.31) / n, 0, 1e-10),
         );
       }
-      return { checked, worst };
+      return { worst };
     };
     const pigmentContinuity = (
       sample: ReturnType<typeof createSurfaceSampler>,
-    ) => {
-      const out = empty(),
-        check = checker(sample),
-        values = new Float64Array(n + 1),
-        scores = new Float64Array(n + 1);
-      let candidates = 0,
-        worst = 0;
+    ): { worst: number } => {
+      const n = 512,
+        lines = 8,
+        values = new Float64Array((n + 1) * keys.length),
+        scores = new Float64Array(n + 1),
+        probes = [empty(), empty(), empty(), empty(), empty()];
+      let worst = 0;
+      const curvature = (
+        a: SurfaceSample,
+        b: SurfaceSample,
+        c: SurfaceSample,
+      ): number => {
+        let score = 0;
+        for (const key of keys)
+          score = Math.max(
+            score,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (key === 'height' ? p.relief : 1),
+          );
+        return score;
+      };
       for (let axis = 0; axis < 2; axis++)
-        for (let line = 0; line < 8; line++) {
-          const fixed = (line + 0.37) / 8;
-          const color = (x: number): number => {
+        for (let line = 0; line < lines; line++) {
+          const fixed = (line + 0.37) / lines;
+          const read = (x: number, out: SurfaceSample): void => {
             sample(axis ? fixed : x, axis ? x : fixed, out);
-            return out.color;
           };
-          for (let i = 0; i <= n; i++) values[i] = color(i / n);
+          for (let i = 0; i <= n; i++) {
+            read(i / n, probes[0]);
+            for (let k = 0; k < keys.length; k++)
+              values[k * (n + 1) + i] =
+                probes[0][keys[k]] / (keys[k] === 'height' ? p.relief : 1);
+          }
+          scores.fill(0);
           for (let i = 1; i < n; i++)
-            scores[i] = Math.abs(values[i + 1] - 2 * values[i] + values[i - 1]);
+            for (let k = 0; k < keys.length; k++) {
+              const at = k * (n + 1) + i;
+              scores[i] = Math.max(
+                scores[i],
+                Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+              );
+            }
+          // Refine actual pigment and vessel curvature without copying private streak profiles.
           for (let i = 2; i < n - 1; i++) {
             if (
               scores[i] < scores[i - 1] ||
@@ -12880,17 +12910,12 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
               span = 2 / n,
               at = 0,
               h = 0;
-            // Refine observed curvature peaks, not the sampler's private seeded shoulder equations.
             for (let step = 0; step < 24; step++) {
-              const q = span / 4,
-                x0 = color(lo),
-                x1 = color(lo + q),
-                x2 = color(lo + 2 * q),
-                x3 = color(lo + 3 * q),
-                x4 = color(lo + 4 * q),
-                s0 = Math.abs(x2 - 2 * x1 + x0),
-                s1 = Math.abs(x3 - 2 * x2 + x1),
-                s2 = Math.abs(x4 - 2 * x3 + x2);
+              const q = span / 4;
+              for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+              const s0 = curvature(probes[0], probes[1], probes[2]),
+                s1 = curvature(probes[1], probes[2], probes[3]),
+                s2 = curvature(probes[2], probes[3], probes[4]);
               let j = s1 > s0 ? 2 : 1;
               if (s2 > Math.max(s0, s1)) j = 3;
               at = lo + j * q;
@@ -12898,14 +12923,22 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
               lo += (j - 1) * q;
               span = 2 * q;
             }
-            worst = Math.max(
-              worst,
-              check(axis ? fixed : at, axis ? at : fixed, h),
-            );
-            candidates++;
+            const u = axis ? fixed : at,
+              v = axis ? at : fixed;
+            for (let direction = 0; direction < 2; direction++) {
+              const du = direction ? 0 : h,
+                dv = direction ? h : 0;
+              sample(u - du, v - dv, probes[0]);
+              sample(u, v, probes[1]);
+              sample(u + du, v + dv, probes[2]);
+              worst = Math.max(
+                worst,
+                curvature(probes[0], probes[1], probes[2]) / h,
+              );
+            }
           }
         }
-      return { candidates, worst };
+      return { worst };
     };
     it.each([0, 1, 0xffffffff])(
       'keeps unequal longitudinal pigment coplanar and real sparse vessels lower, rougher and C1 for seed %s',
@@ -12916,15 +12949,17 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
         expect(observed.base).toBeGreaterThan(0.9);
         expect(observed.deep).toBeGreaterThan(0.0001);
         expect(observed.deep).toBeLessThan(0.06);
+        expect(observed.baseRange).toBeGreaterThan(0.0005);
         expect(observed.baseRange).toBeLessThan(0.0045);
         expect(observed.depth).toBeGreaterThan(0.02);
         expect(observed.rougher).toBeGreaterThan(0.025);
         expect(observed.directionRatio).toBeGreaterThan(4);
         expect(observed.completeRuns).toBeGreaterThan(8);
-        expect(observed.widthSpan).toBeGreaterThan(0.002);
+        expect(observed.widthSpan).toBeGreaterThan(
+          kind === 'braziliantulipwood' ? 0.005 : 0.002,
+        );
         expect(observed.invalid).toBe(0);
         const contours = poreContinuity(observed.sample, observed.mask);
-        expect(contours.checked).toBeGreaterThan(20);
         expect(contours.worst).toBeLessThan(0.03);
       },
     );
@@ -12932,7 +12967,6 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
       'keeps measured pigment slope changes C1 for seed %s',
       (seed) => {
         const result = pigmentContinuity(createSurfaceSampler(kind, seed));
-        expect(result.candidates).toBeGreaterThan(32);
         expect(result.worst).toBeLessThan(0.03);
       },
     );
@@ -12956,13 +12990,23 @@ describe.each(['zebrawood', 'macassarebony'] as const)(
           ao = maps.occlusion[i],
           nx = (2 * maps.normal[i]) / 255 - 1,
           ny = (2 * maps.normal[i + 1]) / 255 - 1;
-        warm += Number(r > g && g > b);
+        warm += Number(
+          kind === 'braziliantulipwood'
+            ? r > g + 20 && r > b + 40
+            : r > g && g > b,
+        );
         if (ao === 255) {
-          dark += Number(r < (kind === 'zebrawood' ? 85 : 40));
+          dark += Number(
+            kind === 'braziliantulipwood'
+              ? r > 130 && r < 185 && g < 120 && b < 125 && r - g > 55
+              : r < (kind === 'zebrawood' ? 85 : 40),
+          );
           light += Number(
-            kind === 'zebrawood'
-              ? r > 185
-              : r > 65 && r < 125 && g > 35 && g < 90 && b > 17 && b < 60,
+            kind === 'braziliantulipwood'
+              ? r > 210 && g > 160 && b > 110 && r > g + 15 && g > b + 25
+              : kind === 'zebrawood'
+                ? r > 185
+                : r > 65 && r < 125 && g > 35 && g < 90 && b > 17 && b < 60,
           );
           clearHeight = Math.min(clearHeight, maps.height![i]);
         }

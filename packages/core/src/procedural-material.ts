@@ -781,6 +781,7 @@ export type ProceduralMaterialKind =
   | 'castorbeans'
   | 'zebrawood'
   | 'bocote'
+  | 'braziliantulipwood'
   | 'macassarebony'
   | 'twopinscrewheads'
   | 'amazonite'
@@ -1831,6 +1832,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'braziliantulipwood',
   'macassarebony',
   'twopinscrewheads',
   'amazonite',
