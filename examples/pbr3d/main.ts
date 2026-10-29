@@ -812,6 +812,7 @@ try {
     'utilityblades',
     'chrysocolla',
     'hemimorphite',
+    'smithsonite',
     'sichuanpepperhusks',
     'huckaback',
     'anorthosite',

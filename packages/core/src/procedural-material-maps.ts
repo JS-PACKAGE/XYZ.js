@@ -1542,8 +1542,9 @@ export function createSurfaceSampler(
           return;
         };
       }
-      case 'hemimorphite': {
-        const p = proceduralMaterialPresets.hemimorphite,
+      case 'hemimorphite':
+      case 'smithsonite': {
+        const p = proceduralMaterialPresets[kind],
           sites = new Float64Array(p.cells * p.cells * 5),
           grainField = cachedNoise(p.grainColumns, p.grainRows, seed ^ 0x21d11),
           frostField = cachedNoise(p.frostColumns, p.frostRows, seed ^ 0x21d13),
@@ -36665,6 +36666,7 @@ export function createSurfaceSampler(
     kind === 'utilityblades' ||
     kind === 'chrysocolla' ||
     kind === 'hemimorphite' ||
+    kind === 'smithsonite' ||
     kind === 'sichuanpepperhusks' ||
     kind === 'huckaback' ||
     kind === 'anorthosite' ||
