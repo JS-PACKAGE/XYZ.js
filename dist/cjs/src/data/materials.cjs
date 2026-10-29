@@ -16048,6 +16048,39 @@ var proceduralMaterialPresets = Object.freeze({
 		height: .35,
 		grainHeight: .002
 	}),
+	lignumvitae: Object.freeze({
+		dark: [
+			47,
+			46,
+			25
+		],
+		light: [
+			159,
+			146,
+			91
+		],
+		roughness: .32,
+		relief: .002,
+		columns: 32,
+		rows: 20,
+		widthMinimum: .035,
+		widthVariation: .025,
+		lengthMinimum: .09,
+		lengthVariation: .12,
+		poreChance: .08,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .45,
+		poreDepth: .07,
+		bands: 5,
+		bandWarp: .65,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .12,
+		fiberColumns: 256,
+		fiberRows: 10,
+		fiberContrast: .2
+	}),
 	iroko: Object.freeze({
 		dark: [
 			111,
@@ -17715,6 +17748,7 @@ var proceduralTileMeters = Object.freeze({
 	unakite: .12,
 	eudialyte: .12,
 	iroko: .18,
+	lignumvitae: .12,
 	purpleheart: .12,
 	yellowheart: .12,
 	bloodwood: .12,

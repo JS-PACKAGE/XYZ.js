@@ -821,6 +821,7 @@ const kinds: ProceduralMaterialKind[] = [
   'thulite',
   'unakite',
   'eudialyte',
+  'lignumvitae',
   'iroko',
   'purpleheart',
   'yellowheart',
@@ -6513,238 +6514,368 @@ describe('Eggplant Purpleheart with sparse closed longitudinal vessels and flat 
   });
 });
 
-describe('Golden brown Iroko with sparse closed longitudinal vessels and flat interlocked grain', () => {
-  const p = proceduralMaterialPresets.iroko;
-  const keys = [
-    'color',
-    'height',
-    'roughness',
-    'occlusion',
-    'mortar',
-    'metallic',
-  ] as const;
-  const empty = (): SurfaceSample => ({
-    color: 0,
-    height: 0,
-    roughness: 0,
-    occlusion: 0,
-    mortar: 0,
-    metallic: 0,
-  });
-  it.each([0, 1, 0xffffffff])(
-    'keeps sparse elongated pores genuinely recessed, grain flat and observed pore/cell/cache/UV joins C1 for seed %s',
-    (seed) => {
-      const sample = createSurfaceSampler('iroko', seed),
-        out = empty(),
-        a = empty(),
-        b = empty(),
-        c = empty(),
-        floor = empty(),
-        side = empty(),
-        lengthwise = empty(),
-        corner = empty();
-      const searchRows = [0.4, 0.5, 0.6];
-      // Recover pore support and core transitions from AO, rather than copying
-      // private hash/layout code or pinning random vessel coordinates.
-      const edge = (
-        axis: number,
-        fixed: number,
-        outside: number,
-        inside: number,
-        level: number,
-      ) => {
-        for (let j = 0; j < 48; j++) {
-          const mid = (outside + inside) / 2;
-          if (mid === outside || mid === inside) break;
-          sample(axis === 0 ? mid : fixed, axis === 0 ? fixed : mid, out);
-          if (level === 1 ? out.occlusion < 1 : out.occlusion <= level)
-            inside = mid;
-          else outside = mid;
-        }
-        return (outside + inside) / 2;
-      };
-      const h = 1e-10;
+describe.each(['iroko', 'lignumvitae'] as const)(
+  '%s fine coplanar grain and sparse recessed vessels',
+  (kind) => {
+    const p = proceduralMaterialPresets[kind];
+    const keys = [
+      'color',
+      'height',
+      'roughness',
+      'occlusion',
+      'mortar',
+      'metallic',
+    ] as const;
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const observedC1 = (
+      sample: ReturnType<typeof createSurfaceSampler>,
+    ): number => {
+      const n = 512,
+        lines = 8,
+        values = new Float64Array((n + 1) * keys.length),
+        scores = new Float64Array(n + 1),
+        probes = [empty(), empty(), empty(), empty(), empty()];
       let worst = 0;
-      const check = (u: number, v: number) => {
-        for (let axis = 0; axis < 2; axis++) {
-          sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
-          sample(u, v, b);
-          sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
-          for (const key of keys)
-            worst = Math.max(
-              worst,
-              Math.abs((b[key] - a[key]) / h - (c[key] - b[key]) / h),
-            );
-        }
-      };
-      let occupied = 0,
-        invalid = 0;
-      for (let row = 0; row < p.rows; row++)
-        for (let col = 0; col < p.columns; col++) {
-          let u = NaN,
-            v = NaN;
-          find: for (const y of searchRows)
-            for (let x = 4; x <= 28; x++) {
-              sample((col + x / 32) / p.columns, (row + y) / p.rows, out);
-              if (out.occlusion < 0.99) {
-                u = (col + x / 32) / p.columns;
-                v = (row + y) / p.rows;
-                break find;
-              }
-            }
-          if (!Number.isFinite(u)) continue;
-          occupied++;
-          const x0 = col / p.columns,
-            x1 = (col + 1) / p.columns,
-            y0 = row / p.rows,
-            y1 = (row + 1) / p.rows;
-          const firstLeft = edge(0, v, x0, u, 1),
-            firstRight = edge(0, v, x1, u, 1);
-          u = (firstLeft + firstRight) / 2;
-          const top = edge(1, u, y0, v, 1),
-            bottom = edge(1, u, y1, v, 1);
-          v = (top + bottom) / 2;
-          const left = edge(0, v, x0, u, 1),
-            right = edge(0, v, x1, u, 1),
-            rx = (right - left) / 2,
-            ry = (bottom - top) / 2;
-          sample(u, v, floor);
-          sample(u + 1.1 * rx, v, side);
-          sample(u, v + 0.6 * ry, lengthwise);
-          sample(u + 0.8 * rx, v + 0.8 * ry, corner);
-          expect(ry / rx).toBeGreaterThan(5);
-          expect(ry / rx).toBeLessThan(25);
-          expect(side.height - floor.height).toBeGreaterThan(0.09 * p.relief);
-          expect(lengthwise.height - floor.height).toBeLessThan(
-            0.004 * p.relief,
-          );
-          expect(floor.color).toBeLessThan(side.color);
-          expect(floor.roughness).toBeGreaterThan(side.roughness);
-          expect(floor.occlusion).toBeLessThan(0.8);
-          expect(side.occlusion).toBe(1);
-          expect(corner.occlusion).toBe(1);
-          invalid += Number(
-            floor.metallic !== 0 ||
-              floor.mortar !== 0 ||
-              side.metallic !== 0 ||
-              side.mortar !== 0,
-          );
-          check(left, v);
-          check(right, v);
-          check(edge(0, v, x0, u, floor.occlusion), v);
-          check(edge(0, v, x1, u, floor.occlusion), v);
-          check(u, top);
-          check(u, bottom);
-          check(u, edge(1, u, y0, v, floor.occlusion));
-          check(u, edge(1, u, y1, v, floor.occlusion));
-        }
-      expect(occupied / (p.columns * p.rows)).toBeGreaterThan(0.12);
-      expect(occupied / (p.columns * p.rows)).toBeLessThan(0.5);
-      expect(invalid).toBe(0);
-      let lo = Infinity,
-        hi = -Infinity,
-        lowHeight = Infinity,
-        highHeight = -Infinity,
-        along = 0,
-        across = 0,
-        maxStep = 0,
-        previous = NaN;
-      for (let j = 0; j <= 4096; j++) {
-        const u = j / 4096;
-        sample(u, 0, out);
-        const faceColor = out.color;
-        lo = Math.min(lo, faceColor);
-        hi = Math.max(hi, faceColor);
-        lowHeight = Math.min(lowHeight, out.height);
-        highHeight = Math.max(highHeight, out.height);
-        if (j > 0) maxStep = Math.max(maxStep, Math.abs(faceColor - previous));
-        previous = faceColor;
-        expect(out.occlusion).toBe(1);
-        sample(u, 0.0001, out);
-        along += Math.abs(out.color - faceColor);
-        sample(u + 0.0001, 0, out);
-        across += Math.abs(out.color - faceColor);
-      }
-      expect(hi - lo).toBeGreaterThan(0.18);
-      expect(hi - lo).toBeLessThan(0.3);
-      expect(highHeight - lowHeight).toBeLessThan(0.004 * p.relief);
-      expect(across).toBeGreaterThan(4 * along);
-      expect(maxStep).toBeLessThan(0.02);
-      const us = new Set<number>(),
-        vs = new Set<number>();
-      for (const n of [p.columns, 128, p.fiberColumns, 3])
-        for (let j = 0; j <= n; j++) us.add(j / n);
-      for (const n of [p.rows, 128, p.fiberRows, 4])
-        for (let j = 0; j <= n; j++) vs.add(j / n);
-      for (const u of us) for (const v of vs) check(u, v);
-      for (let j = 0; j < 4096; j++)
-        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
-      expect(worst).toBeLessThan(0.03);
-    },
-  );
-  it('writes opaque golden long grain with darker lower sparse vessels and directional pore normals at actual512', () => {
-    const maps = generateProceduralMaps('iroko', 512, 7, { heightMap: true });
-    let invalid = 0,
-      vesselPixels = 0,
-      light = 0,
-      dark = 0,
-      deepHeight = 0,
-      clearHeight = 255,
-      deepRed = 0,
-      clearRed = 255,
-      normalX = 0,
-      normalY = 0;
-    for (let i = 0; i < maps.baseColor.length; i += 4) {
-      const r = maps.baseColor[i],
-        g = maps.baseColor[i + 1],
-        b = maps.baseColor[i + 2];
-      invalid += Number(
-        maps.baseColor[i + 3] !== 255 ||
-          maps.metallicRoughness[i + 2] !== 0 ||
-          r <= g ||
-          g <= b,
-      );
-      if (maps.occlusion[i] < 205) {
-        vesselPixels++;
-        deepHeight = Math.max(deepHeight, maps.height![i]);
-        deepRed = Math.max(deepRed, r);
-      }
-      if (maps.occlusion[i] === 255) {
-        clearHeight = Math.min(clearHeight, maps.height![i]);
-        clearRed = Math.min(clearRed, r);
-        light += Number(r > 170);
-        dark += Number(r < 151);
-      }
-      normalX += Math.max(0, Math.abs(maps.normal[i] - 127.5) - 0.5);
-      normalY += Math.max(0, Math.abs(maps.normal[i + 1] - 127.5) - 0.5);
-    }
-    expect(invalid).toBe(0);
-    expect(vesselPixels / (512 * 512)).toBeGreaterThan(0.002);
-    expect(vesselPixels / (512 * 512)).toBeLessThan(0.02);
-    expect(deepHeight).toBeLessThan(clearHeight);
-    expect(deepRed).toBeLessThan(clearRed);
-    expect(light / (512 * 512)).toBeGreaterThan(0.08);
-    expect(dark / (512 * 512)).toBeGreaterThan(0.08);
-    expect(normalX).toBeGreaterThan(3 * normalY);
-  });
-  it('repeats all six vessel and golden grain channels over signed UV periods', () => {
-    let worst = 0;
-    for (const seed of [0, 1, 0xffffffff]) {
-      const sample = createSurfaceSampler('iroko', seed),
-        a = empty(),
-        b = empty();
-      for (let j = 0; j < 4096; j++) {
-        const u = (j * 0.61803398875) % 1,
-          v = (j * 0.41421356237) % 1;
-        sample(u, v, a);
-        sample(u - 2, v + 3, b);
+      const curvature = (
+        a: SurfaceSample,
+        b: SurfaceSample,
+        c: SurfaceSample,
+      ): number => {
+        let score = 0;
         for (const key of keys)
-          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+          score = Math.max(
+            score,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (key === 'height' ? p.relief : 1),
+          );
+        return score;
+      };
+      for (let axis = 0; axis < 2; axis++)
+        for (let line = 0; line < lines; line++) {
+          const fixed = (line + 0.37) / lines;
+          const read = (x: number, out: SurfaceSample): void => {
+            sample(axis ? fixed : x, axis ? x : fixed, out);
+          };
+          for (let i = 0; i <= n; i++) {
+            read(i / n, probes[0]);
+            for (let k = 0; k < keys.length; k++)
+              values[k * (n + 1) + i] =
+                probes[0][keys[k]] / (keys[k] === 'height' ? p.relief : 1);
+          }
+          scores.fill(0);
+          for (let i = 1; i < n; i++)
+            for (let k = 0; k < keys.length; k++) {
+              const at = k * (n + 1) + i;
+              scores[i] = Math.max(
+                scores[i],
+                Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+              );
+            }
+          // Refine observed grain and vessel curvature instead of copying private wood profiles.
+          for (let i = 2; i < n - 1; i++) {
+            if (
+              scores[i] < scores[i - 1] ||
+              scores[i] < scores[i + 1] ||
+              scores[i] < 1e-5
+            )
+              continue;
+            let lo = (i - 1) / n,
+              span = 2 / n,
+              at = 0,
+              h = 0;
+            for (let step = 0; step < 24; step++) {
+              const q = span / 4;
+              for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+              const s0 = curvature(probes[0], probes[1], probes[2]),
+                s1 = curvature(probes[1], probes[2], probes[3]),
+                s2 = curvature(probes[2], probes[3], probes[4]);
+              let j = s1 > s0 ? 2 : 1;
+              if (s2 > Math.max(s0, s1)) j = 3;
+              at = lo + j * q;
+              h = q;
+              lo += (j - 1) * q;
+              span = 2 * q;
+            }
+            const u = axis ? fixed : at,
+              v = axis ? at : fixed;
+            for (let direction = 0; direction < 2; direction++) {
+              const du = direction ? 0 : h,
+                dv = direction ? h : 0;
+              sample(u - du, v - dv, probes[0]);
+              sample(u, v, probes[1]);
+              sample(u + du, v + dv, probes[2]);
+              worst = Math.max(
+                worst,
+                curvature(probes[0], probes[1], probes[2]) / h,
+              );
+            }
+          }
+        }
+      return worst;
+    };
+    it.each([0, 1, 0xffffffff])(
+      'keeps sparse elongated pores genuinely recessed, grain flat and observed pore/cell/cache/UV joins C1 for seed %s',
+      (seed) => {
+        const sample = createSurfaceSampler(kind, seed),
+          out = empty(),
+          a = empty(),
+          b = empty(),
+          c = empty(),
+          floor = empty(),
+          side = empty(),
+          lengthwise = empty(),
+          corner = empty();
+        const searchRows = [0.4, 0.5, 0.6];
+        // Recover pore support and core transitions from AO, rather than copying
+        // private hash/layout code or pinning random vessel coordinates.
+        const edge = (
+          axis: number,
+          fixed: number,
+          outside: number,
+          inside: number,
+          level: number,
+        ) => {
+          for (let j = 0; j < 48; j++) {
+            const mid = (outside + inside) / 2;
+            if (mid === outside || mid === inside) break;
+            sample(axis === 0 ? mid : fixed, axis === 0 ? fixed : mid, out);
+            if (level === 1 ? out.occlusion < 1 : out.occlusion <= level)
+              inside = mid;
+            else outside = mid;
+          }
+          return (outside + inside) / 2;
+        };
+        const h = 1e-10;
+        let worst = 0;
+        const check = (u: number, v: number) => {
+          for (let axis = 0; axis < 2; axis++) {
+            sample(u - (axis === 0 ? h : 0), v - (axis === 1 ? h : 0), a);
+            sample(u, v, b);
+            sample(u + (axis === 0 ? h : 0), v + (axis === 1 ? h : 0), c);
+            for (const key of keys)
+              worst = Math.max(
+                worst,
+                Math.abs((b[key] - a[key]) / h - (c[key] - b[key]) / h) /
+                  (key === 'height' ? p.relief : 1),
+              );
+          }
+        };
+        let occupied = 0,
+          invalid = 0;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            let u = NaN,
+              v = NaN;
+            find: for (const y of searchRows)
+              for (let x = 4; x <= 28; x++) {
+                sample((col + x / 32) / p.columns, (row + y) / p.rows, out);
+                if (out.occlusion < 0.99) {
+                  u = (col + x / 32) / p.columns;
+                  v = (row + y) / p.rows;
+                  break find;
+                }
+              }
+            if (!Number.isFinite(u)) continue;
+            occupied++;
+            const x0 = col / p.columns,
+              x1 = (col + 1) / p.columns,
+              y0 = row / p.rows,
+              y1 = (row + 1) / p.rows;
+            const firstLeft = edge(0, v, x0, u, 1),
+              firstRight = edge(0, v, x1, u, 1);
+            u = (firstLeft + firstRight) / 2;
+            const top = edge(1, u, y0, v, 1),
+              bottom = edge(1, u, y1, v, 1);
+            v = (top + bottom) / 2;
+            const left = edge(0, v, x0, u, 1),
+              right = edge(0, v, x1, u, 1),
+              rx = (right - left) / 2,
+              ry = (bottom - top) / 2;
+            sample(u, v, floor);
+            sample(u + 1.1 * rx, v, side);
+            sample(u, v + 0.6 * ry, lengthwise);
+            sample(u + 0.8 * rx, v + 0.8 * ry, corner);
+            expect(ry / rx).toBeGreaterThan(kind === 'iroko' ? 5 : 2);
+            expect(ry / rx).toBeLessThan(kind === 'iroko' ? 25 : 15);
+            expect(side.height - floor.height).toBeGreaterThan(
+              (kind === 'iroko' ? 0.09 : 0.05) * p.relief,
+            );
+            expect(lengthwise.height - floor.height).toBeLessThan(
+              0.004 * p.relief,
+            );
+            expect(floor.color).toBeLessThan(side.color);
+            expect(floor.roughness).toBeGreaterThan(side.roughness);
+            expect(floor.occlusion).toBeLessThan(0.8);
+            expect(side.occlusion).toBe(1);
+            expect(corner.occlusion).toBe(1);
+            invalid += Number(
+              floor.metallic !== 0 ||
+                floor.mortar !== 0 ||
+                side.metallic !== 0 ||
+                side.mortar !== 0,
+            );
+            check(left, v);
+            check(right, v);
+            check(edge(0, v, x0, u, floor.occlusion), v);
+            check(edge(0, v, x1, u, floor.occlusion), v);
+            check(u, top);
+            check(u, bottom);
+            check(u, edge(1, u, y0, v, floor.occlusion));
+            check(u, edge(1, u, y1, v, floor.occlusion));
+          }
+        expect(occupied / (p.columns * p.rows)).toBeGreaterThan(
+          kind === 'iroko' ? 0.12 : 0.025,
+        );
+        expect(occupied / (p.columns * p.rows)).toBeLessThan(
+          kind === 'iroko' ? 0.5 : 0.16,
+        );
+        expect(invalid).toBe(0);
+        let lo = Infinity,
+          hi = -Infinity,
+          lowHeight = Infinity,
+          highHeight = -Infinity,
+          along = 0,
+          across = 0,
+          maxStep = 0,
+          previous = NaN;
+        for (let j = 0; j <= 4096; j++) {
+          const u = j / 4096;
+          sample(u, 0, out);
+          const faceColor = out.color;
+          lo = Math.min(lo, faceColor);
+          hi = Math.max(hi, faceColor);
+          lowHeight = Math.min(lowHeight, out.height);
+          highHeight = Math.max(highHeight, out.height);
+          if (j > 0)
+            maxStep = Math.max(maxStep, Math.abs(faceColor - previous));
+          previous = faceColor;
+          expect(out.occlusion).toBe(1);
+          sample(u, 0.0001, out);
+          along += Math.abs(out.color - faceColor);
+          sample(u + 0.0001, 0, out);
+          across += Math.abs(out.color - faceColor);
+        }
+        expect(hi - lo).toBeGreaterThan(0.18);
+        expect(hi - lo).toBeLessThan(kind === 'iroko' ? 0.3 : 0.36);
+        expect(highHeight - lowHeight).toBeLessThan(0.004 * p.relief);
+        expect(across).toBeGreaterThan(4 * along);
+        expect(maxStep).toBeLessThan(0.02);
+        const us = new Set<number>(),
+          vs = new Set<number>();
+        for (const n of [p.columns, 128, p.fiberColumns, 3])
+          for (let j = 0; j <= n; j++) us.add(j / n);
+        for (const n of [p.rows, 128, p.fiberRows, 4])
+          for (let j = 0; j <= n; j++) vs.add(j / n);
+        for (const u of us) for (const v of vs) check(u, v);
+        for (let j = 0; j < 4096; j++)
+          check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+        expect(worst).toBeLessThan(0.03);
+        expect(observedC1(sample)).toBeLessThan(0.03);
+      },
+    );
+    it('writes the named opaque wood color and polish with darker lower sparse vessels and directional pore normals at actual512', () => {
+      const maps = generateProceduralMaps(kind, 512, 7, { heightMap: true }),
+        streams = Object.values(maps);
+      let invalid = 0,
+        minZ = 255,
+        maxTilt = 0,
+        rough = 0,
+        namedColor = 0,
+        vesselPixels = 0,
+        light = 0,
+        dark = 0,
+        deepHeight = 0,
+        clearHeight = 255,
+        deepRed = 0,
+        clearRed = 255,
+        normalX = 0,
+        normalY = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const r = maps.baseColor[i],
+          g = maps.baseColor[i + 1],
+          b = maps.baseColor[i + 2];
+        invalid += Number(
+          maps.metallicRoughness[i + 2] !== 0 || r <= g || g <= b,
+        );
+        if (maps.occlusion[i] < 205) {
+          vesselPixels++;
+          deepHeight = Math.max(deepHeight, maps.height![i]);
+          deepRed = Math.max(deepRed, r);
+        }
+        if (maps.occlusion[i] === 255) {
+          clearHeight = Math.min(clearHeight, maps.height![i]);
+          clearRed = Math.min(clearRed, r);
+          light += Number(r > (kind === 'iroko' ? 170 : 95));
+          dark += Number(r < (kind === 'iroko' ? 151 : 90));
+        }
+        for (const stream of streams) invalid += Number(stream[i + 3] !== 255);
+        minZ = Math.min(minZ, maps.normal[i + 2]);
+        const nx = maps.normal[i] / 127.5 - 1,
+          ny = maps.normal[i + 1] / 127.5 - 1;
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        rough += maps.metallicRoughness[i + 1] / 255;
+        namedColor += Number(
+          kind === 'iroko'
+            ? r > 110 && g > 75 && b < 170
+            : r > 65 &&
+                r < 125 &&
+                g > 60 &&
+                g < 118 &&
+                b > 30 &&
+                b < 80 &&
+                r - g < 18 &&
+                g - b > 20,
+        );
+        normalX += Math.max(0, Math.abs(maps.normal[i] - 127.5) - 0.5);
+        normalY += Math.max(0, Math.abs(maps.normal[i + 1] - 127.5) - 0.5);
       }
-    }
-    expect(worst).toBeLessThan(5e-10);
-  });
-});
+      expect(invalid).toBe(0);
+      expect(vesselPixels / (512 * 512)).toBeGreaterThan(
+        kind === 'iroko' ? 0.002 : 0.0002,
+      );
+      expect(vesselPixels / (512 * 512)).toBeLessThan(
+        kind === 'iroko' ? 0.02 : 0.01,
+      );
+      expect(deepHeight).toBeLessThan(clearHeight);
+      expect(deepRed).toBeLessThan(clearRed);
+      expect(light / (512 * 512)).toBeGreaterThan(0.08);
+      expect(dark / (512 * 512)).toBeGreaterThan(0.08);
+      expect(normalX).toBeGreaterThan((kind === 'iroko' ? 3 : 2.5) * normalY);
+      expect(minZ).toBeGreaterThan(245);
+      expect(maxTilt).toBeGreaterThan(0.0003);
+      expect(maxTilt).toBeLessThan(0.06);
+      expect(namedColor / (512 * 512)).toBeGreaterThan(0.97);
+      expect(rough / (512 * 512)).toBeGreaterThan(
+        kind === 'iroko' ? 0.55 : 0.25,
+      );
+      expect(rough / (512 * 512)).toBeLessThan(kind === 'iroko' ? 0.75 : 0.45);
+    });
+    it('repeats all six vessel and fine-grain channels over signed UV periods', () => {
+      let worst = 0;
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed),
+          a = empty(),
+          b = empty();
+        for (let j = 0; j < 4096; j++) {
+          const u = (j * 0.61803398875) % 1,
+            v = (j * 0.41421356237) % 1;
+          sample(u, v, a);
+          sample(u - 2, v + 3, b);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(a[key] - b[key]));
+        }
+      }
+      expect(worst).toBeLessThan(5e-10);
+    });
+  },
+);
 
 describe('Stainless E retaining clips with three contact lugs and connected wing windows', () => {
   const p = proceduralMaterialPresets.eclips;

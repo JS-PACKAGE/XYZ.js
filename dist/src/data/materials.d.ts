@@ -9248,6 +9248,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         height: 0.35;
         grainHeight: 0.002;
     }>;
+    lignumvitae: Readonly<{
+        dark: readonly [47, 46, 25];
+        light: readonly [159, 146, 91];
+        roughness: 0.32;
+        relief: 0.002;
+        columns: 32;
+        rows: 20;
+        widthMinimum: 0.035;
+        widthVariation: 0.025;
+        lengthMinimum: 0.09;
+        lengthVariation: 0.12;
+        poreChance: 0.08;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.45;
+        poreDepth: 0.07;
+        bands: 5;
+        bandWarp: 0.65;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.12;
+        fiberColumns: 256;
+        fiberRows: 10;
+        fiberContrast: 0.2;
+    }>;
     iroko: Readonly<{
         dark: readonly [111, 77, 34];
         light: readonly [238, 200, 131];
@@ -10649,6 +10674,7 @@ export declare const proceduralTileMeters: Readonly<{
     unakite: 0.12;
     eudialyte: 0.12;
     iroko: 0.18;
+    lignumvitae: 0.12;
     purpleheart: 0.12;
     yellowheart: 0.12;
     bloodwood: 0.12;

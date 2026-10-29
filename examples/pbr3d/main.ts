@@ -858,6 +858,7 @@ try {
     'thulite',
     'unakite',
     'eudialyte',
+    'lignumvitae',
     'iroko',
     'purpleheart',
     'yellowheart',

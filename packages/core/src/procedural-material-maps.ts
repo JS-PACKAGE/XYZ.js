@@ -2083,6 +2083,7 @@ export function createSurfaceSampler(
         };
       }
       case 'padauk':
+      case 'lignumvitae':
       case 'iroko':
       case 'purpleheart':
       case 'yellowheart':
@@ -2090,6 +2091,7 @@ export function createSurfaceSampler(
       case 'sapele':
       case 'wenge': {
         const fine =
+            kind === 'lignumvitae' ||
             kind === 'iroko' ||
             kind === 'purpleheart' ||
             kind === 'yellowheart' ||
@@ -36743,6 +36745,7 @@ export function createSurfaceSampler(
     kind === 'thulite' ||
     kind === 'unakite' ||
     kind === 'eudialyte' ||
+    kind === 'lignumvitae' ||
     kind === 'iroko' ||
     kind === 'purpleheart' ||
     kind === 'yellowheart' ||

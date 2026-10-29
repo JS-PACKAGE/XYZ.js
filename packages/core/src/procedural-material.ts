@@ -795,6 +795,7 @@ export type ProceduralMaterialKind =
   | 'thulite'
   | 'unakite'
   | 'eudialyte'
+  | 'lignumvitae'
   | 'iroko'
   | 'purpleheart'
   | 'yellowheart'
@@ -1842,6 +1843,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'thulite',
   'unakite',
   'eudialyte',
+  'lignumvitae',
   'iroko',
   'purpleheart',
   'yellowheart',
