@@ -724,6 +724,7 @@ try {
     'solderlessbreadboard',
     'kyaniteblades',
     'wulfenite',
+    'celestine',
     'barite',
     'internaltoothwashers',
     'driedchillies',

@@ -687,6 +687,7 @@ const kinds: ProceduralMaterialKind[] = [
   'solderlessbreadboard',
   'kyaniteblades',
   'wulfenite',
+  'celestine',
   'barite',
   'internaltoothwashers',
   'driedchillies',
@@ -37451,7 +37452,7 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
   },
 );
 
-describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Kyanite on mineral backing', () => {
+describe('Distinct opaque pale-blue Celestine, cream Barite, orange Wulfenite and narrow three-striated Kyanite on mineral backing', () => {
   const keys = [
     'color',
     'height',
@@ -37558,10 +37559,10 @@ describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Ky
   const locate = (
     seed: number,
     n = 512,
-    kind: 'barite' | 'kyaniteblades' | 'wulfenite' = 'barite',
+    kind: 'barite' | 'celestine' | 'kyaniteblades' | 'wulfenite' = 'barite',
   ) => {
     const p = proceduralMaterialPresets[kind],
-      erosion = kind === 'wulfenite' ? 2 : 4;
+      erosion = kind === 'wulfenite' ? 2 : kind === 'celestine' ? 3 : 4;
 
     const sample = createSurfaceSampler(kind, seed),
       a = empty(),
@@ -37842,25 +37843,96 @@ describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Ky
       }
     },
   );
-  it.each([0, 1, 0xffffffff])(
-    'keeps broad straight-sided flat raised plates in locally parallel triples, not slender blue blades or round caps, for seed %s',
-    (seed) => {
-      const measured = locate(seed);
-      expect(measured.faces.length).toBeGreaterThan(20);
-      expect(measured.bins).toBeGreaterThan(3);
-      expect(measured.groups).toBeGreaterThan(5);
-      expect(measured.faceFraction).toBeGreaterThan(0.1);
-      expect(measured.faceFraction).toBeLessThan(0.35);
-      expect(measured.backFraction).toBeGreaterThan(0.6);
-      expect(measured.raised).toBeGreaterThan(0.3);
-      expect(measured.smoother).toBeGreaterThan(0.35);
-      for (const face of measured.faces) {
-        expect(face.aspect).toBeGreaterThan(1.3);
-        expect(face.aspect).toBeLessThan(3.5);
-        expect(face.fill).toBeGreaterThan(0.8);
-        expect(face.core).toBeGreaterThan(0.2);
-        expect(face.topSpan).toBeLessThan(0.015);
-      }
+  describe.each(['barite', 'celestine'] as const)(
+    '%s broad pale opaque tabular faces on rough mineral backing',
+    (kind) => {
+      it.each([0, 1, 0xffffffff])(
+        'keeps broad straight-sided flat raised plates in locally parallel triples, not slender blue blades or round caps, for seed %s',
+        (seed) => {
+          const measured = locate(seed, 512, kind);
+          expect(measured.faces.length).toBeGreaterThan(20);
+          expect(measured.bins).toBeGreaterThan(3);
+          expect(measured.groups).toBeGreaterThan(5);
+          expect(measured.faceFraction).toBeGreaterThan(0.1);
+          expect(measured.faceFraction).toBeLessThan(0.35);
+          expect(measured.backFraction).toBeGreaterThan(0.6);
+          expect(measured.raised).toBeGreaterThan(0.3);
+          expect(measured.smoother).toBeGreaterThan(0.35);
+          if (kind === 'celestine') {
+            expect(measured.faceRoughness).toBeGreaterThan(0.15);
+            expect(measured.faceRoughness).toBeLessThan(0.4);
+            expect(measured.backRoughness).toBeGreaterThan(0.8);
+          }
+          for (const face of measured.faces) {
+            expect(face.aspect).toBeGreaterThan(1.3);
+            expect(face.aspect).toBeLessThan(3.5);
+            expect(face.fill).toBeGreaterThan(0.8);
+            expect(face.core).toBeGreaterThan(0.2);
+            expect(face.topSpan).toBeLessThan(0.015);
+          }
+        },
+      );
+      it('writes the named pale polished faces on dominant rough host with opaque metal-zero maps and signed edge normals at actual512', () => {
+        const maps = generateProceduralMaps(kind, 512, 7, { heightMap: true }),
+          streams = Object.values(maps);
+        let cream = 0,
+          host = 0,
+          posX = 0,
+          negX = 0,
+          posY = 0,
+          negY = 0,
+          minAO = 255,
+          maxAO = 0,
+          maxTilt = 0,
+          rough = 0,
+          invalid = 0;
+        for (let i = 0; i < maps.baseColor.length; i += 4) {
+          const r = maps.baseColor[i],
+            g = maps.baseColor[i + 1],
+            b = maps.baseColor[i + 2],
+            nx = (2 * maps.normal[i]) / 255 - 1,
+            ny = (2 * maps.normal[i + 1]) / 255 - 1;
+          cream += Number(
+            kind === 'celestine'
+              ? r > 160 &&
+                  g > 175 &&
+                  b > 195 &&
+                  b - r > 20 &&
+                  b - r < 60 &&
+                  b - g > 10
+              : r > 190 && g > 180 && b > 150 && r > g && g > b,
+          );
+          host += Number(
+            kind === 'celestine'
+              ? r < 130 && g < 130 && b < 130
+              : r < 125 && g < 110 && b < 90,
+          );
+          posX += Number(maps.normal[i] > 128);
+          negX += Number(maps.normal[i] < 127);
+          posY += Number(maps.normal[i + 1] > 128);
+          negY += Number(maps.normal[i + 1] < 127);
+          minAO = Math.min(minAO, maps.occlusion[i]);
+          maxAO = Math.max(maxAO, maps.occlusion[i]);
+          maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+          rough += maps.metallicRoughness[i + 1] / 255;
+          invalid += Number(
+            maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 235,
+          );
+          for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+        }
+        expect(cream / (512 * 512)).toBeGreaterThan(0.1);
+        expect(cream / (512 * 512)).toBeLessThan(0.3);
+        expect(host / (512 * 512)).toBeGreaterThan(0.6);
+        for (const count of [posX, negX, posY, negY])
+          expect(count / (512 * 512)).toBeGreaterThan(0.015);
+        expect(minAO).toBeLessThan(150);
+        expect(maxAO).toBeGreaterThan(245);
+        expect(maxTilt).toBeGreaterThan(0.03);
+        expect(maxTilt).toBeLessThan(0.3);
+        expect(rough / (512 * 512)).toBeGreaterThan(0.7);
+        expect(rough / (512 * 512)).toBeLessThan(0.85);
+        expect(invalid).toBe(0);
+      });
     },
   );
   it.each([0, 1, 0xffffffff])(
@@ -37944,7 +38016,7 @@ describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Ky
       expect(invalid).toBe(0);
     },
   );
-  it.each(['barite', 'kyaniteblades', 'wulfenite'] as const)(
+  it.each(['barite', 'celestine', 'kyaniteblades', 'wulfenite'] as const)(
     'keeps observed %s shoulders, owner boundaries, grain cache and signed wraps C1',
     (kind) => {
       const a = empty(),
@@ -38014,55 +38086,8 @@ describe('Distinct opaque tabular Wulfenite, Barite and narrow three-striated Ky
       }
     },
   );
-  it('writes cream polished faces on dominant brown rough host with opaque metal-zero maps and signed edge normals at actual512', () => {
-    const maps = generateProceduralMaps('barite', 512, 7, { heightMap: true }),
-      streams = Object.values(maps);
-    let cream = 0,
-      host = 0,
-      posX = 0,
-      negX = 0,
-      posY = 0,
-      negY = 0,
-      minAO = 255,
-      maxAO = 0,
-      maxTilt = 0,
-      rough = 0,
-      invalid = 0;
-    for (let i = 0; i < maps.baseColor.length; i += 4) {
-      const r = maps.baseColor[i],
-        g = maps.baseColor[i + 1],
-        b = maps.baseColor[i + 2],
-        nx = (2 * maps.normal[i]) / 255 - 1,
-        ny = (2 * maps.normal[i + 1]) / 255 - 1;
-      cream += Number(r > 190 && g > 180 && b > 150 && r > g && g > b);
-      host += Number(r < 125 && g < 110 && b < 90);
-      posX += Number(maps.normal[i] > 128);
-      negX += Number(maps.normal[i] < 127);
-      posY += Number(maps.normal[i + 1] > 128);
-      negY += Number(maps.normal[i + 1] < 127);
-      minAO = Math.min(minAO, maps.occlusion[i]);
-      maxAO = Math.max(maxAO, maps.occlusion[i]);
-      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
-      rough += maps.metallicRoughness[i + 1] / 255;
-      invalid += Number(
-        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 235,
-      );
-      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
-    }
-    expect(cream / (512 * 512)).toBeGreaterThan(0.1);
-    expect(cream / (512 * 512)).toBeLessThan(0.3);
-    expect(host / (512 * 512)).toBeGreaterThan(0.6);
-    for (const count of [posX, negX, posY, negY])
-      expect(count / (512 * 512)).toBeGreaterThan(0.015);
-    expect(minAO).toBeLessThan(150);
-    expect(maxAO).toBeGreaterThan(245);
-    expect(maxTilt).toBeGreaterThan(0.03);
-    expect(maxTilt).toBeLessThan(0.3);
-    expect(rough / (512 * 512)).toBeGreaterThan(0.7);
-    expect(rough / (512 * 512)).toBeLessThan(0.85);
-    expect(invalid).toBe(0);
-  });
-  it.each(['barite', 'kyaniteblades', 'wulfenite'] as const)(
+
+  it.each(['barite', 'celestine', 'kyaniteblades', 'wulfenite'] as const)(
     'repeats observed %s faces and every surface channel over signed UV periods',
     (kind) => {
       const a = empty(),

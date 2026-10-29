@@ -10420,6 +10420,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'celestine':
       case 'barite':
       case 'kyaniteblades': {
         const p = proceduralMaterialPresets[kind],
@@ -36707,6 +36708,7 @@ export function createSurfaceSampler(
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
+    kind === 'celestine' ||
     kind === 'barite' ||
     kind === 'woodruffkeys' ||
     kind === 'parallelkeys' ||
