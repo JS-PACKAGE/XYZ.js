@@ -9933,6 +9933,27 @@ export declare const proceduralMaterialPresets: Readonly<{
         bandContrast: 0.72;
         grainHeight: 0.002;
     }>;
+    whiteash: Readonly<{
+        dark: readonly [99, 69, 39];
+        light: readonly [235, 216, 177];
+        roughness: 0.46;
+        relief: 0.0018;
+        bands: 8;
+        columns: 32;
+        rows: 14;
+        warp: 0.22;
+        earlyChance: 0.88;
+        lateChance: 0.2;
+        earlyWidth: 0.075;
+        lateWidth: 0.02;
+        widthVariation: 0.025;
+        lengthMinimum: 0.08;
+        lengthVariation: 0.24;
+        poreShoulder: 0.35;
+        poreDepth: 0.13;
+        bandContrast: 0.15;
+        grainHeight: 0.002;
+    }>;
     kingwood: Readonly<{
         dark: readonly [17, 10, 16];
         light: readonly [142, 77, 67];
@@ -10836,6 +10857,7 @@ export declare const proceduralTileMeters: Readonly<{
     bronzite: 0.12;
     castorbeans: 0.064;
     zebrawood: 0.16;
+    whiteash: 0.24;
     kingwood: 0.24;
     braziliantulipwood: 0.12;
     macassarebony: 0.18;

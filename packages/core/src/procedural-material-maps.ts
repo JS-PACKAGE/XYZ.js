@@ -3661,6 +3661,65 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'whiteash': {
+        const p = proceduralMaterialPresets.whiteash,
+          pores = new Float64Array(p.columns * p.rows * 4),
+          warpField = cachedNoise(4, 3, seed ^ 0x23b11),
+          fiberField = cachedNoise(96, 4, seed ^ 0x23b13),
+          grainField = cachedNoise(128, 128, seed ^ 0x23b15),
+          inversePore = 1 / p.poreShoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const early = col % (p.columns / p.bands) < p.columns / p.bands / 2;
+            if (
+              hash(col, row, seed ^ 0x23b17) >=
+              (early ? p.earlyChance : p.lateChance)
+            )
+              continue;
+            const i = (row * p.columns + col) * 4,
+              width =
+                (early ? p.earlyWidth : p.lateWidth) +
+                p.widthVariation * hash(col, row, seed ^ 0x23b19),
+              length =
+                p.lengthMinimum +
+                p.lengthVariation * hash(col, row, seed ^ 0x23b1b);
+            pores[i] = 0.3 + 0.4 * hash(col, row, seed ^ 0x23b1d);
+            pores[i + 1] = 0.34 + 0.32 * hash(col, row, seed ^ 0x23b1f);
+            pores[i + 2] = 1 / (width * width);
+            pores[i + 3] = 1 / (length * length);
+          }
+        return () => {
+          const warpedU = u + (p.warp * (warpField(u, v) - 0.5)) / p.bands,
+            x = fract(warpedU) * p.columns,
+            y = v * p.rows,
+            col = Math.floor(x),
+            row = Math.floor(y),
+            i = (row * p.columns + col) * 4;
+          let pore = 0;
+          if (pores[i + 3] > 0) {
+            const dx = x - col - pores[i],
+              dy = y - row - pores[i + 1],
+              q = dx * dx * pores[i + 2] + dy * dy * pores[i + 3];
+            pore = smooth(clamp((1 - q) * inversePore));
+          }
+          const distance = fract(warpedU * p.bands) - 0.25,
+            early = smooth(clamp(1 - distance * distance * 16)),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          // Earlywood vessels are larger and clustered in each growth band.
+          // Band color stays coplanar: only the longitudinal openings recess.
+          color =
+            0.87 -
+            p.bandContrast * early +
+            0.035 * (fiber - 0.5) +
+            0.025 * grain;
+          color += pore * (0.2 - color);
+          height = 0.5 + p.grainHeight * grain - p.poreDepth * pore;
+          roughness += 0.025 * grain + 0.12 * pore;
+          occlusion = 1 - 0.32 * pore;
+          return;
+        };
+      }
       case 'bocote':
       case 'kingwood':
       case 'braziliantulipwood':
@@ -36917,6 +36976,7 @@ export function createSurfaceSampler(
     kind === 'pietersite' ||
     kind === 'bronzite' ||
     kind === 'castorbeans' ||
+    kind === 'whiteash' ||
     kind === 'kingwood' ||
     kind === 'braziliantulipwood' ||
     kind === 'macassarebony' ||

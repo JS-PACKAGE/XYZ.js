@@ -812,6 +812,7 @@ const kinds: ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'whiteash',
   'kingwood',
   'braziliantulipwood',
   'macassarebony',
@@ -12773,6 +12774,282 @@ describe('Two opposed circular blind pin-drive recesses with closed flat steel f
         for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
       expect(worst).toBeLessThan(0.03);
     }
+  });
+});
+
+describe('White Ash pale coplanar growth bands with concentrated coarse earlywood vessels', () => {
+  const p = proceduralMaterialPresets.whiteash;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const n = 512,
+      sample = createSurfaceSampler('whiteash', seed),
+      a = empty(),
+      b = empty(),
+      mask = new Uint8Array(n * n),
+      seen = new Uint8Array(n * n),
+      queue = new Int32Array(n * n),
+      cols = new Float64Array(n),
+      counts = new Uint32Array(n);
+    let clear = 0,
+      clearHeight = 0,
+      poreHeight = 0,
+      clearRough = 0,
+      poreRough = 0,
+      deep = 0,
+      minimum = Infinity,
+      maximum = -Infinity,
+      invalid = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, a);
+        invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+        mask[y * n + x] = Number(a.occlusion < 0.95);
+        if (a.occlusion === 1) {
+          clear++;
+          clearHeight += a.height;
+          clearRough += a.roughness;
+          minimum = Math.min(minimum, a.height);
+          maximum = Math.max(maximum, a.height);
+          cols[x] += a.color;
+          counts[x]++;
+        }
+        if (a.occlusion < 0.75) {
+          deep++;
+          poreHeight += a.height;
+          poreRough += a.roughness;
+        }
+      }
+    for (let x = 0; x < n; x++) cols[x] /= counts[x];
+    const average = cols.reduce((s, x) => s + x, 0) / n;
+    let early = 0,
+      late = 0,
+      earlyWidth = 0,
+      lateWidth = 0,
+      longitudinal = 0,
+      components = 0;
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i] || seen[i]) continue;
+      let start = 0,
+        end = 1,
+        minX = n,
+        maxX = 0,
+        minY = n,
+        maxY = 0,
+        boundary = false,
+        sx = 0;
+      seen[i] = 1;
+      queue[0] = i;
+      while (start < end) {
+        const at = queue[start++],
+          x = at % n,
+          y = Math.floor(at / n);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        sx += x;
+        boundary ||= x === 0 || y === 0 || x === n - 1 || y === n - 1;
+        for (const next of [
+          y * n + ((x + 1) % n),
+          y * n + ((x + n - 1) % n),
+          ((y + 1) % n) * n + x,
+          ((y + n - 1) % n) * n + x,
+        ])
+          if (mask[next] && !seen[next]) {
+            seen[next] = 1;
+            queue[end++] = next;
+          }
+      }
+      if (boundary || end < 2) continue;
+      components++;
+      const width = maxX - minX + 1,
+        height = maxY - minY + 1;
+      longitudinal += Number(height > 2 * width);
+      if (cols[Math.round(sx / end)] < average) {
+        early++;
+        earlyWidth += width;
+      } else {
+        late++;
+        lateWidth += width;
+      }
+    }
+    let across = 0,
+      along = 0;
+    for (let j = 1; j <= 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      if (a.occlusion !== 1) continue;
+      sample(u + 0.0001, v, b);
+      if (b.occlusion === 1) across += Math.abs(b.color - a.color);
+      sample(u, v + 0.0001, b);
+      if (b.occlusion === 1) along += Math.abs(b.color - a.color);
+    }
+    return {
+      seed,
+      clear: clear / n / n,
+      deep: deep / n / n,
+      raised: clearHeight / clear - poreHeight / deep,
+      rougher: poreRough / deep - clearRough / clear,
+      flatness: (maximum - minimum) / p.relief,
+      early,
+      late,
+      earlyWidth: earlyWidth / early,
+      lateWidth: lateWidth / late,
+      longitudinal: longitudinal / components,
+      components,
+      direction: across / along,
+      invalid,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('whiteash', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    let worst = 0,
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let row = 0; row < 32; row++) {
+      const v = (row + 0.37) / 32;
+      let previous = false;
+      for (let x = 0; x <= 4096; x++) {
+        sample(x / 4096, v, a);
+        const inside = a.occlusion < 1;
+        if (inside !== previous) {
+          let lo = (x - 1) / 4096,
+            hi = x / 4096;
+          for (let k = 0; k < 36; k++) {
+            const mid = (lo + hi) / 2;
+            sample(mid, v, a);
+            if (a.occlusion < 1 === previous) lo = mid;
+            else hi = mid;
+          }
+          check((lo + hi) / 2, v);
+        }
+        previous = inside;
+      }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(period, Math.abs(a[key] - b[key]));
+    }
+    return { seed, worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'clusters broader and more numerous longitudinal openings in the darker earlywood bands at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.clear).toBeGreaterThan(0.92);
+      expect(o.deep).toBeGreaterThan(0.008);
+      expect(o.deep).toBeLessThan(0.05);
+      expect(o.early / o.late).toBeGreaterThan(2);
+      expect(o.earlyWidth / o.lateWidth).toBeGreaterThan(1.4);
+      expect(o.longitudinal).toBeGreaterThan(0.85);
+      expect(o.direction).toBeGreaterThan(2.5);
+      expect(o.flatness).toBeLessThan(0.01);
+      expect(o.raised).toBeGreaterThan(0.00012);
+      expect(o.raised).toBeLessThan(0.0004);
+      expect(o.rougher).toBeGreaterThan(0.08);
+      expect(o.rougher).toBeLessThan(0.18);
+      expect(o.invalid).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps actual pore contours growth-band joins noise cells and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it('writes pale warm opaque dielectric maps and resolved vessel side and end normals at actual512', () => {
+    const maps = generateProceduralMaps('whiteash', 512, 7, {
+      heightMap: true,
+    });
+    const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+      let pale = 0,
+        rough = 0,
+        maxTilt = 0,
+        invalid = 0;
+      const signed = [0, 0, 0, 0];
+      const n = maps.baseColor.length / 4;
+      for (let i = 0; i < n; i++) {
+        const p = i * 4,
+          r = maps.baseColor[p],
+          g = maps.baseColor[p + 1],
+          b = maps.baseColor[p + 2],
+          nx = maps.normal[p] / 127.5 - 1,
+          ny = maps.normal[p + 1] / 127.5 - 1;
+        pale += Number(
+          r > 195 && g > 175 && b > 135 && r > g + 10 && g > b + 20,
+        );
+        rough += maps.metallicRoughness[p + 1] / 255;
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        signed[0] += Number(nx > 0.01);
+        signed[1] += Number(nx < -0.01);
+        signed[2] += Number(ny > 0.005);
+        signed[3] += Number(ny < -0.005);
+        for (const map of Object.values(maps))
+          invalid += Number(map[p + 3] !== 255);
+        invalid += Number(maps.metallicRoughness[p + 2] !== 0);
+      }
+      return {
+        pale: pale / n,
+        rough: rough / n,
+        maxTilt,
+        signed: signed.map((x) => x / n),
+        invalid,
+      };
+    };
+    const o = observePixels(maps);
+    expect(o.pale).toBeGreaterThan(0.9);
+    expect(o.rough).toBeGreaterThan(0.4);
+    expect(o.rough).toBeLessThan(0.56);
+    expect(o.maxTilt).toBeGreaterThan(0.002);
+    expect(o.maxTilt).toBeLessThan(0.02);
+    expect(o.signed[0]).toBeGreaterThan(0.01);
+    expect(o.signed[1]).toBeGreaterThan(0.01);
+    expect(o.signed[2]).toBeGreaterThan(0.001);
+    expect(o.signed[3]).toBeGreaterThan(0.001);
+    expect(o.invalid).toBe(0);
   });
 });
 
