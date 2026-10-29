@@ -19810,6 +19810,66 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'gibheadkeys': {
+        const p = proceduralMaterialPresets.gibheadkeys,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x2e97),
+          inverseBevel = 1 / p.bevel;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const at = (row * p.cells + col) * 6,
+              angle = hash(col, row, seed ^ 0x7f21) * TAU;
+            poses[at] = (hash(col, row, seed ^ 0x24b7) - 0.5) * 2 * p.jitter;
+            poses[at + 1] =
+              (hash(col, row, seed ^ 0x65e1) - 0.5) * 2 * p.jitter;
+            poses[at + 2] = Math.cos(angle);
+            poses[at + 3] = Math.sin(angle);
+            poses[at + 4] =
+              1 /
+              (p.scale +
+                (hash(col, row, seed ^ 0x418d) * 2 - 1) * p.scaleVariation);
+            poses[at + 5] = hash(col, row, seed ^ 0xa65b);
+          }
+        // The complete headed side profile fits its owner without clipping at cell boundaries.
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            at = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[at]!,
+            dy = fract(vc) - 0.5 - poses[at + 1]!,
+            c = poses[at + 2]!,
+            s = poses[at + 3]!,
+            inverseScale = poses[at + 4]!,
+            x = (dx * c + dy * s) * inverseScale,
+            y = (-dx * s + dy * c) * inverseScale,
+            common =
+              smooth(clamp((x + p.halfLength) * inverseBevel)) *
+              smooth(clamp((y - p.bottom) * inverseBevel)),
+            body =
+              smooth(clamp((p.halfLength - x) * inverseBevel)) *
+              smooth(clamp((p.bodyTop - p.taper * x - y) * inverseBevel)),
+            head =
+              smooth(clamp((p.headEnd - x) * inverseBevel)) *
+              smooth(clamp((p.headTop - y) * inverseBevel)) *
+              smooth(clamp((x - y + p.headDiagonal) * inverseBevel)),
+            face = common * (1 - (1 - body) * (1 - head));
+          if (face === 0) {
+            color = 0.055;
+            height = 0.06;
+            roughness += 0.36;
+            occlusion = 0.48;
+            metallic = 0;
+            return;
+          }
+          const grain = grainField(u, v);
+          color = 0.055 + face * (0.69 + 0.08 * poses[at + 5]! + 0.012 * grain);
+          height = 0.06 + face * (0.5 + 0.003 * grain);
+          roughness += 0.36 * (1 - face) + 0.025 * grain * face;
+          occlusion = 0.48 + 0.5 * face;
+          metallic = face;
+          return;
+        };
+      }
       case 'parallelkeys': {
         const p = proceduralMaterialPresets.parallelkeys,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -36728,6 +36788,7 @@ export function createSurfaceSampler(
     kind === 'wulfenite' ||
     kind === 'celestine' ||
     kind === 'barite' ||
+    kind === 'gibheadkeys' ||
     kind === 'woodruffkeys' ||
     kind === 'parallelkeys' ||
     kind === 'internaltoothwashers' ||

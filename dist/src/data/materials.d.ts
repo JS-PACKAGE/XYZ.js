@@ -4196,6 +4196,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         pinHalfLength: 0.38;
         endShoulder: 0.025;
     }>;
+    gibheadkeys: Readonly<{
+        dark: readonly [35, 40, 43];
+        light: readonly [225, 231, 236];
+        roughness: 0.34;
+        relief: 0.0022;
+        cells: 4;
+        jitter: 0.025;
+        scale: 0.94;
+        scaleVariation: 0.03;
+        halfLength: 0.42;
+        bottom: -0.1;
+        bodyTop: 0.07;
+        taper: 0.01;
+        headEnd: -0.19;
+        headTop: 0.2;
+        headDiagonal: 0.51;
+        bevel: 0.012;
+    }>;
     parallelkeys: Readonly<{
         dark: readonly [35, 40, 43];
         light: readonly [225, 231, 236];
@@ -10562,6 +10580,7 @@ export declare const proceduralTileMeters: Readonly<{
     cashews: 0.16;
     hinges: 0.4;
     woodruffkeys: 0.08;
+    gibheadkeys: 0.2;
     parallelkeys: 0.12;
     coins: 0.12;
     righttriangletiles: 1;

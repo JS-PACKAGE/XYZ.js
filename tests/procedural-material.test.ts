@@ -549,6 +549,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rclips',
   'linchpins',
   'woodruffkeys',
+  'gibheadkeys',
   'parallelkeys',
   'ivyleaf',
   'ribknit',
@@ -37251,7 +37252,7 @@ describe('Closed silver-colored washer rims with twelve inward metal teeth alter
   });
 });
 
-describe.each(['woodruffkeys', 'parallelkeys'] as const)(
+describe.each(['woodruffkeys', 'parallelkeys', 'gibheadkeys'] as const)(
   '%s solid flat key faces on a dielectric backing',
   (kind) => {
     type KeyFace = {
@@ -37262,6 +37263,11 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
       fill: number;
       widths: number[];
       axialWidths: number[];
+      holes: number;
+      taper: number;
+      straightness: number;
+      endWidth: number;
+      rampWidth: number;
       pixelWidth: number;
       gap: number;
       core: number;
@@ -37341,13 +37347,43 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
         }
         const cx = sx / end,
           cy = sy / end,
-          angle =
+          principalAngle =
             0.5 *
             Math.atan2(
               2 * (sxy / end - cx * cy),
               sxx / end - cx * cx - (syy / end - cy * cy),
-            ),
-          c = Math.cos(angle),
+            );
+        let angle = principalAngle;
+        if (kind === 'gibheadkeys') {
+          // A one-ended head tilts the second-moment axis; search the straight shank frame.
+          let smallest = Infinity;
+          for (let k = -48; k <= 48; k++) {
+            const candidate = principalAngle + (k * Math.PI) / 720,
+              cc = Math.cos(candidate),
+              ss = Math.sin(candidate);
+            let aLow = Infinity,
+              aHigh = -Infinity,
+              bLow = Infinity,
+              bHigh = -Infinity;
+            for (let z = 0; z < end; z++) {
+              const i = queue[z]!,
+                x = ((i % n) + 0.5) / n - cx,
+                y = (Math.floor(i / n) + 0.5) / n - cy,
+                a = x * cc + y * ss,
+                b = -x * ss + y * cc;
+              aLow = Math.min(aLow, a);
+              aHigh = Math.max(aHigh, a);
+              bLow = Math.min(bLow, b);
+              bHigh = Math.max(bHigh, b);
+            }
+            const area = (aHigh - aLow) * (bHigh - bLow);
+            if (area < smallest) {
+              smallest = area;
+              angle = candidate;
+            }
+          }
+        }
+        const c = Math.cos(angle),
           t = Math.sin(angle),
           rowMin = new Int32Array(n).fill(n),
           rowMax = new Int32Array(n).fill(-1),
@@ -37361,6 +37397,11 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
           coreH = 0,
           coreR = 0,
           core = 0;
+        // Fixed pixels manufacture density-dependent flat-core loss.
+        const erosion =
+          kind === 'gibheadkeys'
+            ? Math.max(1, Math.round(Math.sqrt(end) * 0.06))
+            : 3;
         for (let z = 0; z < end; z++) {
           const i = queue[z]!,
             row = Math.floor(i / n),
@@ -37379,14 +37420,14 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
           if (metal[i]! > 0.9999) {
             let inside = true;
             // An adjacent metal part must not satisfy this face's erosion.
-            for (let dy = -3; dy <= 3; dy++)
-              for (let dx = -3; dx <= 3; dx++) {
+            for (let dy = -erosion; dy <= erosion; dy++)
+              for (let dx = -erosion; dx <= erosion; dx++) {
                 const j = i + dy * n + dx;
                 if (
                   j < 0 ||
                   j >= n * n ||
                   labels[j] !== id ||
-                  Math.abs((j % n) - col) > 3
+                  Math.abs((j % n) - col) > erosion
                 )
                   inside = false;
               }
@@ -37433,7 +37474,135 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
           if (rowCount[row])
             gap += rowMax[row]! - rowMin[row]! + 1 - rowCount[row]!;
         const raised = coreH / core - hostH;
+        let holes = 0,
+          taper = NaN,
+          straightness = NaN,
+          endWidth = NaN,
+          rampWidth = NaN;
+        if (kind === 'gibheadkeys') {
+          let minX = n,
+            minY = n,
+            maxX = 0,
+            maxY = 0;
+          for (let z = 0; z < end; z++) {
+            const i = queue[z]!,
+              x = i % n,
+              y = Math.floor(i / n);
+            minX = Math.min(minX, x);
+            maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y);
+            maxY = Math.max(maxY, y);
+          }
+          const w = maxX - minX + 3,
+            h = maxY - minY + 3,
+            exterior = new Uint8Array(w * h),
+            flood = new Int32Array(w * h);
+          const isFace = (i: number) => {
+            const x = (i % w) + minX - 1,
+              y = Math.floor(i / w) + minY - 1;
+            return (
+              x >= 0 && x < n && y >= 0 && y < n && labels[y * n + x] === id
+            );
+          };
+          let read = 0,
+            written = 1;
+          flood[0] = 0;
+          exterior[0] = 1;
+          while (read < written) {
+            const i = flood[read++]!;
+            for (const offset of [-1, 1, -w, w]) {
+              const j = i + offset;
+              if (
+                j >= 0 &&
+                j < w * h &&
+                Math.abs((j % w) - (i % w)) <= 1 &&
+                !exterior[j] &&
+                !isFace(j)
+              ) {
+                exterior[j] = 1;
+                flood[written++] = j;
+              }
+            }
+          }
+          for (let i = 0; i < w * h; i++)
+            if (!exterior[i] && !isFace(i)) holes++;
+          const first = axialWidths.slice(0, 4).reduce((a, b) => a + b, 0),
+            last = axialWidths.slice(-4).reduce((a, b) => a + b, 0),
+            headAtLeft = first > last,
+            span = right - left,
+            bottom: number[] = [],
+            top: number[] = [];
+          if (!headAtLeft) axialWidths.reverse();
+          let step = axialWidths.indexOf(Math.max(...axialWidths.slice(0, 10)));
+          while (step < 19 && axialWidths[step]! > 0.75) step++;
+          const start = step / 20 + 0.08;
+          const at = (a: number, b: number) => {
+            sample(cx + a * c - b * t, cy + a * t + b * c, s);
+            return s.metallic;
+          };
+          const measure = (fraction: number) => {
+            const a = headAtLeft
+                ? left + fraction * span
+                : right - fraction * span,
+              low = lo - (hi - lo) * 0.1,
+              high = hi + (hi - lo) * 0.1,
+              scan = (high - low) / 128;
+            let first = -1,
+              last = -1;
+            for (let k = 0; k <= 128; k++)
+              if (at(a, low + k * scan) > 0.5) {
+                if (first < 0) first = k;
+                last = k;
+              }
+            if (first <= 0 || last >= 128) return [NaN, NaN] as const;
+            let below = low + (first - 1) * scan,
+              inside = low + first * scan;
+            for (let k = 0; k < 44; k++) {
+              const mid = (below + inside) / 2;
+              if (at(a, mid) > 0.5) inside = mid;
+              else below = mid;
+            }
+            const bottomEdge = (below + inside) / 2;
+            inside = low + last * scan;
+            let above = low + (last + 1) * scan;
+            for (let k = 0; k < 44; k++) {
+              const mid = (inside + above) / 2;
+              if (at(a, mid) > 0.5) inside = mid;
+              else above = mid;
+            }
+            return [bottomEdge, (inside + above) / 2] as const;
+          };
+          for (let j = 0; j < 6; j++) {
+            const edges = measure(start + (j * (0.95 - start)) / 5);
+            bottom.push(edges[0]);
+            top.push(edges[1]);
+          }
+          const endEdges = measure(0.03),
+            rampEdges = measure(0.1);
+          endWidth = (endEdges[1] - endEdges[0]) / (hi - lo);
+          rampWidth = (rampEdges[1] - rampEdges[0]) / (hi - lo);
+          taper =
+            (top[0]! - bottom[0]! - (top[5]! - bottom[5]!)) /
+            ((0.95 - start) * span);
+          straightness = 0;
+          for (const values of [bottom, top]) {
+            const sum = values.reduce((a, b) => a + b, 0),
+              weighted = values.reduce((a, b, i) => a + i * b, 0),
+              slope = (6 * weighted - 15 * sum) / 105,
+              intercept = (sum - 15 * slope) / 6;
+            for (let i = 0; i < 6; i++)
+              straightness = Math.max(
+                straightness,
+                Math.abs(values[i]! - intercept - i * slope) / span,
+              );
+          }
+        }
         faces.push({
+          holes,
+          taper,
+          straightness,
+          endWidth,
+          rampWidth,
           cx,
           cy,
           angle,
@@ -37449,7 +37618,7 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
           smoother: hostR - coreR / core,
         });
       }
-      return { faces, host: host / (n * n), sample };
+      return { faces, host: host / (n * n), sample, metal, n };
     };
     const observations = new Map<number, ReturnType<typeof observeKeys>>();
     const observed = (seed: number) => {
@@ -37470,31 +37639,57 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
         const bins = new Set<number>();
         for (const face of faces) {
           bins.add(Math.floor(((face.angle + Math.PI / 2) / Math.PI) * 8));
-          expect(face.gap).toBeLessThan(0.001);
-          if (kind === 'woodruffkeys') {
-            expect(face.aspect).toBeGreaterThan(2.2);
-            expect(face.aspect).toBeLessThan(3.2);
-            expect(face.fill).toBeGreaterThan(0.68);
-            expect(face.fill).toBeLessThan(0.84);
-            expect(face.widths[0]!).toBeGreaterThan(0.94);
-            expect(face.widths[4]!).toBeGreaterThan(0.77);
-            expect(face.widths[5]!).toBeGreaterThan(0.7);
-            expect(face.widths[9]!).toBeGreaterThan(0.23);
-            expect(face.widths[9]!).toBeLessThan(0.48);
+          if (kind === 'gibheadkeys') {
+            expect(face.holes).toBe(0);
+            expect(face.aspect).toBeGreaterThan(2.4);
+            expect(face.aspect).toBeLessThan(3.4);
+            expect(face.fill).toBeGreaterThan(0.5);
+            expect(face.fill).toBeLessThan(0.75);
+            const body =
+                face.axialWidths.slice(9).reduce((a, b) => a + b, 0) / 11,
+              plateau = Math.max(...face.axialWidths.slice(0, 10)),
+              steps = face.axialWidths
+                .slice(2)
+                .map((value, i) => face.axialWidths[i]! - value);
+            expect(body).toBeGreaterThan(0.42);
+            expect(body).toBeLessThan(0.65);
+            expect(plateau).toBeGreaterThan(body * 1.5);
+            expect(plateau).toBeLessThan(body * 2.2);
+            // The outer head end rises through a chamfer before its flat top.
+            expect(face.endWidth).toBeLessThan(plateau * 0.88);
+            expect(face.rampWidth - face.endWidth).toBeGreaterThan(0.06);
+            // A step occupies at most two raster bins, unlike a smooth slope.
+            expect(Math.max(...steps)).toBeGreaterThan(0.3);
+            expect(face.taper).toBeGreaterThan(0.005);
+            expect(face.taper).toBeLessThan(0.02);
+            expect(face.straightness).toBeLessThan(0.003);
           } else {
-            expect(face.aspect).toBeGreaterThan(3.3);
-            expect(face.aspect).toBeLessThan(4.5);
-            expect(face.fill).toBeGreaterThan(0.9);
-            // Both ends taper, while the central parallel sides retain full width.
-            for (const tip of [face.axialWidths[0]!, face.axialWidths[19]!]) {
-              expect(tip).toBeGreaterThan(0.55);
-              expect(tip).toBeLessThan(0.9);
+            expect(face.gap).toBeLessThan(0.001);
+            if (kind === 'woodruffkeys') {
+              expect(face.aspect).toBeGreaterThan(2.2);
+              expect(face.aspect).toBeLessThan(3.2);
+              expect(face.fill).toBeGreaterThan(0.68);
+              expect(face.fill).toBeLessThan(0.84);
+              expect(face.widths[0]!).toBeGreaterThan(0.94);
+              expect(face.widths[4]!).toBeGreaterThan(0.77);
+              expect(face.widths[5]!).toBeGreaterThan(0.7);
+              expect(face.widths[9]!).toBeGreaterThan(0.23);
+              expect(face.widths[9]!).toBeLessThan(0.48);
+            } else {
+              expect(face.aspect).toBeGreaterThan(3.3);
+              expect(face.aspect).toBeLessThan(4.5);
+              expect(face.fill).toBeGreaterThan(0.9);
+              // Both ends taper, while the central parallel sides retain full width.
+              for (const tip of [face.axialWidths[0]!, face.axialWidths[19]!]) {
+                expect(tip).toBeGreaterThan(0.55);
+                expect(tip).toBeLessThan(0.9);
+              }
+              // Allow two transverse raster pixels for rotated PCA bins.
+              for (let bin = 4; bin < 16; bin++)
+                expect(face.axialWidths[bin]!).toBeGreaterThan(
+                  0.98 - 2 / face.pixelWidth,
+                );
             }
-            // Allow two transverse raster pixels for rotated PCA bins.
-            for (let bin = 4; bin < 16; bin++)
-              expect(face.axialWidths[bin]!).toBeGreaterThan(
-                0.98 - 2 / face.pixelWidth,
-              );
           }
           expect(face.core).toBeGreaterThan(0.4);
           expect(face.flatness).toBeLessThan(0.015);
@@ -37505,10 +37700,34 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
         expect(bins.size).toBeGreaterThan(3);
       },
     );
+    if (kind === 'gibheadkeys')
+      it.each([0, 7, 0x7fffffff])(
+        'keeps every rotated headed-key support inside its owner cell at seed %s',
+        (seed) => {
+          const sample = createSurfaceSampler(kind, seed),
+            cells = proceduralMaterialPresets[kind].cells,
+            s = {
+              color: 0,
+              height: 0,
+              roughness: 0,
+              occlusion: 0,
+              metallic: 0,
+              mortar: 0,
+            };
+          for (let line = 0; line <= cells; line++)
+            for (const offset of [-1e-9, 0, 1e-9])
+              for (let j = 0; j <= 4096; j++) {
+                sample(line / cells + offset, j / 4096, s);
+                expect(s.metallic).toBe(0);
+                sample(j / 4096, line / cells + offset, s);
+                expect(s.metallic).toBe(0);
+              }
+        },
+      );
     it.each([0, 7, 0x7fffffff])(
       'keeps measured outline and flat-core bevel transitions C1 at seed %s',
       (seed) => {
-        const { faces, sample } = observed(seed),
+        const { faces, sample, metal, n } = observed(seed),
           at = (x: number, y: number) => {
             const s = {
               color: 0,
@@ -37529,8 +37748,25 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
             'metallic',
             'mortar',
           ] as const;
-        let checked = 0,
-          worst = 0;
+        let worst = 0;
+        const check = (x: number, y: number, h = 1e-9) => {
+          const base = at(x, y);
+          for (let axis = 0; axis < 2; axis++) {
+            const a = at(x - (axis === 0 ? h : 0), y - (axis === 1 ? h : 0)),
+              b = at(x + (axis === 0 ? h : 0), y + (axis === 1 ? h : 0));
+            for (const channel of channels)
+              worst = Math.max(
+                worst,
+                Math.abs(
+                  (b[channel] - base[channel]) / h -
+                    (base[channel] - a[channel]) / h,
+                ) /
+                  (channel === 'height'
+                    ? proceduralMaterialPresets[kind].relief
+                    : 1),
+              );
+          }
+        };
         for (const face of faces)
           for (let ray = 0; ray < 12; ray++)
             for (const level of [1e-13, 1 - 1e-13]) {
@@ -37558,30 +37794,42 @@ describe.each(['woodruffkeys', 'parallelkeys'] as const)(
                 else outside = mid;
               }
               const x = face.cx + dx * outside,
-                y = face.cy + dy * outside,
-                base = at(x, y),
-                h = 1e-9;
-              for (let axis = 0; axis < 2; axis++) {
-                const a = at(
-                    x - (axis === 0 ? h : 0),
-                    y - (axis === 1 ? h : 0),
-                  ),
-                  b = at(x + (axis === 0 ? h : 0), y + (axis === 1 ? h : 0));
-                for (const channel of channels)
-                  worst = Math.max(
-                    worst,
-                    Math.abs(
-                      (b[channel] - base[channel]) / h -
-                        (base[channel] - a[channel]) / h,
-                    ) /
-                      (channel === 'height'
-                        ? proceduralMaterialPresets[kind].relief
-                        : 1),
-                  );
-              }
-              checked++;
+                y = face.cy + dy * outside;
+              check(x, y);
             }
-        expect(checked).toBeGreaterThan(60);
+        if (kind === 'gibheadkeys') {
+          for (let y = 0; y <= 192; y++)
+            for (let x = 0; x <= 192; x++) check(x / 192, y / 192, 1e-10);
+          let edge = 0;
+          for (const level of [1e-13, 1 - 1e-13])
+            for (let i = 0; i < n * n; i++)
+              for (let axis = 0; axis < 2; axis++) {
+                if (axis === 0 ? i % n === n - 1 : i >= n * (n - 1)) continue;
+                const neighbor = i + (axis === 0 ? 1 : n),
+                  inside = metal[i]! > level;
+                if (metal[neighbor]! > level === inside || edge++ % 17 !== 0)
+                  continue;
+                const x = ((i % n) + 0.5) / n,
+                  y = (Math.floor(i / n) + 0.5) / n;
+                let lo = 0,
+                  hi = 1;
+                for (let k = 0; k < 44; k++) {
+                  const mid = (lo + hi) / 2,
+                    value = at(
+                      x + (axis === 0 ? mid / n : 0),
+                      y + (axis === 1 ? mid / n : 0),
+                    );
+                  if (value.metallic > level === inside) lo = mid;
+                  else hi = mid;
+                }
+                const mid = (lo + hi) / 2;
+                check(
+                  x + (axis === 0 ? mid / n : 0),
+                  y + (axis === 1 ? mid / n : 0),
+                  1e-10,
+                );
+              }
+        }
         expect(worst).toBeLessThan(0.03);
       },
     );
@@ -75740,6 +75988,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rclips' &&
           kind !== 'linchpins' &&
           kind !== 'woodruffkeys' &&
+          kind !== 'gibheadkeys' &&
           kind !== 'parallelkeys' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
@@ -85206,6 +85455,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rclips',
     'linchpins',
     'woodruffkeys',
+    'gibheadkeys',
     'parallelkeys',
     'hinges',
     'coins',
@@ -85312,6 +85562,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rclips' ||
           kind === 'linchpins' ||
           kind === 'woodruffkeys' ||
+          kind === 'gibheadkeys' ||
           kind === 'parallelkeys' ||
           kind === 'hinges' ||
           kind === 'coins' ||

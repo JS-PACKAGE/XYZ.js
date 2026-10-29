@@ -8767,6 +8767,32 @@ var proceduralMaterialPresets = Object.freeze({
 		pinHalfLength: .38,
 		endShoulder: .025
 	}),
+	gibheadkeys: Object.freeze({
+		dark: [
+			35,
+			40,
+			43
+		],
+		light: [
+			225,
+			231,
+			236
+		],
+		roughness: .34,
+		relief: .0022,
+		cells: 4,
+		jitter: .025,
+		scale: .94,
+		scaleVariation: .03,
+		halfLength: .42,
+		bottom: -.1,
+		bodyTop: .07,
+		taper: .01,
+		headEnd: -.19,
+		headTop: .2,
+		headDiagonal: .51,
+		bevel: .012
+	}),
 	parallelkeys: Object.freeze({
 		dark: [
 			35,
@@ -17708,6 +17734,7 @@ var proceduralTileMeters = Object.freeze({
 	cashews: .16,
 	hinges: .4,
 	woodruffkeys: .08,
+	gibheadkeys: .2,
 	parallelkeys: .12,
 	coins: .12,
 	righttriangletiles: 1,
