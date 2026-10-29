@@ -800,6 +800,7 @@ const kinds: ProceduralMaterialKind[] = [
   'bronzite',
   'castorbeans',
   'zebrawood',
+  'bocote',
   'twopinscrewheads',
   'amazonite',
   'blackeyedpeas',
@@ -2172,6 +2173,269 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
           v = (i * 0.41421356237) % 1;
         sample(u, v, a);
         sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Golden-brown Bocote with folded coplanar dark eye figure and sparse recessed vessels', () => {
+  const p = proceduralMaterialPresets.bocote;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'finds closed folded grain eyes on a flat face rather than straight stripes or raised rings for seed %s',
+    (seed) => {
+      const n = 512,
+        sample = createSurfaceSampler('bocote', seed),
+        a = empty(),
+        tones = new Float64Array(n * n),
+        seen = new Uint8Array(n * n),
+        queue = new Int32Array(n * n),
+        liftX = new Int32Array(n * n),
+        liftY = new Int32Array(n * n);
+      let dark = 0,
+        gold = 0,
+        pores = 0,
+        darkHeight = 0,
+        goldHeight = 0,
+        poreHeight = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity,
+        invalid = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x;
+          sample((x + 0.5) / n, (y + 0.5) / n, a);
+          tones[i] = a.color;
+          const z = a.height / p.relief;
+          minHeight = Math.min(minHeight, z);
+          maxHeight = Math.max(maxHeight, z);
+          if (a.occlusion < 0.9) {
+            pores++;
+            poreHeight += z;
+          } else if (a.occlusion > 0.99) {
+            if (a.color < 0.2) {
+              dark++;
+              darkHeight += z;
+            }
+            if (a.color > 0.65) {
+              gold++;
+              goldHeight += z;
+            }
+          }
+          invalid += Number(a.metallic !== 0 || a.mortar !== 0);
+        }
+      let eyes = 0;
+      for (let i = 0; i < tones.length; i++) {
+        if (seen[i] || tones[i] < 0.45) continue;
+        let start = 0,
+          end = 1,
+          minX = Infinity,
+          maxX = -Infinity,
+          minY = Infinity,
+          maxY = -Infinity,
+          winding = false;
+        queue[0] = i;
+        seen[i] = 1;
+        liftX[i] = i % n;
+        liftY[i] = Math.floor(i / n);
+        const enqueue = (next: number, x: number, y: number) => {
+          if (tones[next] < 0.45) return;
+          if (seen[next]) winding ||= liftX[next] !== x || liftY[next] !== y;
+          else {
+            seen[next] = 1;
+            liftX[next] = x;
+            liftY[next] = y;
+            queue[end++] = next;
+          }
+        };
+        while (start < end) {
+          const at = queue[start++],
+            px = at % n,
+            py = Math.floor(at / n),
+            x = liftX[at],
+            y = liftY[at];
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+          enqueue(py * n + ((px + 1) % n), x + 1, y);
+          enqueue(py * n + ((px + n - 1) % n), x - 1, y);
+          enqueue(((py + 1) % n) * n + px, x, y + 1);
+          enqueue(((py + n - 1) % n) * n + px, x, y - 1);
+        }
+        const width = maxX - minX + 1,
+          height = maxY - minY + 1;
+        if (
+          !winding &&
+          width >= 8 &&
+          height >= 8 &&
+          end / (width * height) > 0.45 &&
+          width / height > 0.3 &&
+          width / height < 3
+        )
+          eyes++;
+      }
+      // Lift connected pigment components to distinguish closed eyes across UV seams from winding stripes.
+      expect(eyes).toBeGreaterThan(0);
+      expect(dark / (n * n)).toBeGreaterThan(0.2);
+      expect(gold / (n * n)).toBeGreaterThan(0.35);
+      expect(Math.abs(darkHeight / dark - goldHeight / gold)).toBeLessThan(
+        0.00005,
+      );
+      expect(pores / (n * n)).toBeGreaterThan(0.0003);
+      expect(pores / (n * n)).toBeLessThan(0.015);
+      expect(
+        Math.min(darkHeight / dark, goldHeight / gold) - poreHeight / pores,
+      ).toBeGreaterThan(0.02);
+      expect(maxHeight - minHeight).toBeLessThan(0.15);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps folded pigment, vessel shoulders, cache boundaries and signed UV wraps C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 2e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bocote', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(c[key] - 2 * b[key] + a[key]) / h);
+        }
+      };
+      for (const frequency of [p.columns, p.rows, 3, 5, p.bands, 4, 64, 128])
+        for (let k = 0; k <= frequency; k++)
+          for (let j = 0; j < 33; j++) {
+            check(k / frequency, (j + 0.31) / 33);
+            check((j + 0.37) / 33, k / frequency);
+          }
+      for (let j = 0; j < 8192; j++)
+        check((j * 0.61803398875) % 1, (j * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.12);
+    }
+  });
+  it('writes warm golden and near-black pigment with subtle vessel normals and no metal at actual512', () => {
+    const maps = generateProceduralMaps('bocote', 512, 7, { heightMap: true }),
+      streams = Object.values(maps);
+    let warm = 0,
+      dark = 0,
+      gold = 0,
+      rough = 0,
+      maxTilt = 0,
+      minAO = 255,
+      maxAO = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      warm += Number(r > g && g > b);
+      dark += Number(r < 70 && g < 60 && b < 45);
+      gold += Number(r > 145 && g > 95 && b > 40 && r - g > 25 && g - b > 30);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 250,
+      );
+      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+    }
+    const seen = new Uint8Array(512 * 512),
+      queue = new Int32Array(512 * 512);
+    let vesselCount = 0,
+      longitudinal = 0;
+    for (let i = 0; i < seen.length; i++) {
+      if (seen[i] || maps.occlusion[i * 4] >= 230) continue;
+      let start = 0,
+        end = 1,
+        minX = 512,
+        maxX = 0,
+        minY = 512,
+        maxY = 0,
+        boundary = false;
+      queue[0] = i;
+      seen[i] = 1;
+      while (start < end) {
+        const at = queue[start++],
+          x = at % 512,
+          y = Math.floor(at / 512);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        boundary ||= x === 0 || y === 0 || x === 511 || y === 511;
+        for (let direction = 0; direction < 4; direction++) {
+          const next =
+            direction === 0
+              ? y * 512 + ((x + 1) % 512)
+              : direction === 1
+                ? y * 512 + ((x + 511) % 512)
+                : direction === 2
+                  ? ((y + 1) % 512) * 512 + x
+                  : ((y + 511) % 512) * 512 + x;
+          if (!seen[next] && maps.occlusion[next * 4] < 230) {
+            seen[next] = 1;
+            queue[end++] = next;
+          }
+        }
+      }
+      if (!boundary && end >= 3) {
+        vesselCount++;
+        longitudinal += Number(maxY - minY + 1 > 2 * (maxX - minX + 1));
+      }
+    }
+    expect(vesselCount).toBeGreaterThan(5);
+    expect(longitudinal / vesselCount).toBeGreaterThan(0.8);
+    expect(warm / (512 * 512)).toBeGreaterThan(0.98);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.2);
+    expect(gold / (512 * 512)).toBeGreaterThan(0.35);
+    expect(rough / (512 * 512)).toBeGreaterThan(0.25);
+    expect(rough / (512 * 512)).toBeLessThan(0.5);
+    expect(maxTilt).toBeGreaterThan(0.0003);
+    expect(maxTilt).toBeLessThan(0.02);
+    expect(minAO).toBeLessThan(220);
+    expect(maxAO).toBeGreaterThan(250);
+    expect(invalid).toBe(0);
+  });
+  it('repeats eye contours, recessed vessels and all six surface channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bocote', seed);
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 2, v + 3, b);
         for (const key of keys)
           worst = Math.max(worst, Math.abs(a[key] - b[key]));
       }

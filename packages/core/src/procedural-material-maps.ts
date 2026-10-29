@@ -3657,8 +3657,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bocote':
       case 'zebrawood': {
-        const p = proceduralMaterialPresets.zebrawood,
+        const p = proceduralMaterialPresets[kind],
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(3, 5, seed ^ 0x1ca1b),
           widthField = cachedNoise(p.bands, 4, seed ^ 0x1ca1d),
@@ -36589,6 +36590,7 @@ export function createSurfaceSampler(
     kind === 'bronzite' ||
     kind === 'castorbeans' ||
     kind === 'zebrawood' ||
+    kind === 'bocote' ||
     kind === 'datepits' ||
     kind === 'sapele' ||
     kind === 'chambray' ||

@@ -9600,6 +9600,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         floorGrainHeight: 0.002;
         socketShade: 0.42;
     }>;
+    bocote: Readonly<{
+        dark: readonly [30, 23, 12];
+        light: readonly [201, 153, 79];
+        roughness: 0.34;
+        relief: 0.0016;
+        columns: 16;
+        rows: 8;
+        widthMinimum: 0.035;
+        widthVariation: 0.025;
+        lengthMinimum: 0.13;
+        lengthVariation: 0.18;
+        poreChance: 0.15;
+        poreShoulder: 0.3;
+        poreDepth: 0.07;
+        bands: 24;
+        bandWarp: 17;
+        bandRadius: 0.28;
+        bandCore: 0.1;
+        bandWidthMinimum: 0.5;
+        bandWidthVariation: 0.9;
+        faceColor: 0.78;
+        bandContrast: 0.72;
+        grainHeight: 0.002;
+    }>;
     zebrawood: Readonly<{
         dark: readonly [39, 22, 10];
         light: readonly [235, 207, 152];
@@ -10414,6 +10438,7 @@ export declare const proceduralTileMeters: Readonly<{
     bronzite: 0.12;
     castorbeans: 0.064;
     zebrawood: 0.16;
+    bocote: 0.24;
     twopinscrewheads: 0.06;
     amazonite: 0.06;
     blackeyedpeas: 0.06;

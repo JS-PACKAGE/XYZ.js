@@ -837,6 +837,7 @@ try {
     'bronzite',
     'castorbeans',
     'zebrawood',
+    'bocote',
     'twopinscrewheads',
     'amazonite',
     'blackeyedpeas',

@@ -16547,6 +16547,38 @@ var proceduralMaterialPresets = Object.freeze({
 		floorGrainHeight: .002,
 		socketShade: .42
 	}),
+	bocote: Object.freeze({
+		dark: [
+			30,
+			23,
+			12
+		],
+		light: [
+			201,
+			153,
+			79
+		],
+		roughness: .34,
+		relief: .0016,
+		columns: 16,
+		rows: 8,
+		widthMinimum: .035,
+		widthVariation: .025,
+		lengthMinimum: .13,
+		lengthVariation: .18,
+		poreChance: .15,
+		poreShoulder: .3,
+		poreDepth: .07,
+		bands: 24,
+		bandWarp: 17,
+		bandRadius: .28,
+		bandCore: .1,
+		bandWidthMinimum: .5,
+		bandWidthVariation: .9,
+		faceColor: .78,
+		bandContrast: .72,
+		grainHeight: .002
+	}),
 	zebrawood: Object.freeze({
 		dark: [
 			39,
@@ -17376,6 +17408,7 @@ var proceduralTileMeters = Object.freeze({
 	bronzite: .12,
 	castorbeans: .064,
 	zebrawood: .16,
+	bocote: .24,
 	twopinscrewheads: .06,
 	amazonite: .06,
 	blackeyedpeas: .06,
