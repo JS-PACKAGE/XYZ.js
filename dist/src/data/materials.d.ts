@@ -9621,6 +9621,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         weftFibers: 192;
         draft: readonly [7, 14, 13, 11];
     }>;
+    batiste: Readonly<{
+        dark: readonly [155, 153, 144];
+        light: readonly [252, 250, 242];
+        roughness: 0.72;
+        relief: 0.0002;
+        yarnTone: 0.9;
+        warpThreads: 60;
+        weftThreads: 60;
+        warpRadius: 0.42;
+        warpCore: 0.3;
+        weftRadius: 0.42;
+        weftCore: 0.3;
+        warpLiftHalf: 0.46;
+        weftLiftHalf: 0.46;
+        liftShoulder: 0.12;
+        lift: 0.12;
+        warpFibers: 240;
+        weftFibers: 240;
+    }>;
     ramie: Readonly<{
         dark: readonly [159, 154, 132];
         light: readonly [249, 246, 227];
@@ -10705,6 +10724,7 @@ export declare const proceduralTileMeters: Readonly<{
     surah: 0.015;
     sateen: 0.04;
     serge: 0.04;
+    batiste: 0.04;
     ramie: 0.04;
     wavewashers: 0.1;
     cupwashers: 0.1;

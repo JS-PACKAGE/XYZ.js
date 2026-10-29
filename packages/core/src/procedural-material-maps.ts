@@ -5669,6 +5669,7 @@ export function createSurfaceSampler(
       case 'surah':
       case 'serge':
       case 'lyocell':
+      case 'batiste':
       case 'ramie':
       case 'poplin': {
         const drill = kind === 'cottondrill',
@@ -5693,7 +5694,11 @@ export function createSurfaceSampler(
                 : kind === 'surah'
                   ? proceduralMaterialPresets.surah
                   : proceduralMaterialPresets.lyocell,
-          ramie = kind === 'ramie',
+          balancedPlain = kind === 'ramie' || kind === 'batiste',
+          balancedPlainPreset =
+            kind === 'batiste'
+              ? proceduralMaterialPresets.batiste
+              : proceduralMaterialPresets.ramie,
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
           twill = gabardine || cavalry,
@@ -5711,8 +5716,8 @@ export function createSurfaceSampler(
               ? basketPreset.yarnTone
               : fineCloth
                 ? fineClothPreset.yarnTone
-                : ramie
-                  ? proceduralMaterialPresets.ramie.yarnTone
+                : balancedPlain
+                  ? balancedPlainPreset.yarnTone
                   : chambray
                     ? 0.18
                     : flannel
@@ -5720,7 +5725,7 @@ export function createSurfaceSampler(
                       : 0.82,
           weftTone = ticking
             ? tickPreset.groundTone
-            : ramie || fineCloth || basket || drill
+            : balancedPlain || fineCloth || basket || drill
               ? warpTone
               : chambray
                 ? 0.92
@@ -5740,7 +5745,8 @@ export function createSurfaceSampler(
           draftRepeat = profilePreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
-          equalYarns = twill || profiledWeave || chambray || flannel || ramie,
+          equalYarns =
+            twill || profiledWeave || chambray || flannel || balancedPlain,
           warpBase = equalYarns ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
           weftCrown = ottoman ? 0.1 : equalYarns ? 0.04 : 0.07,
@@ -36816,6 +36822,7 @@ export function createSurfaceSampler(
     kind === 'sateen' ||
     kind === 'surah' ||
     kind === 'serge' ||
+    kind === 'batiste' ||
     kind === 'ramie' ||
     kind === 'sphericalwashers' ||
     kind === 'wavewashers' ||

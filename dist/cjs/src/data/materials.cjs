@@ -16600,6 +16600,33 @@ var proceduralMaterialPresets = Object.freeze({
 			11
 		])
 	}),
+	batiste: Object.freeze({
+		dark: [
+			155,
+			153,
+			144
+		],
+		light: [
+			252,
+			250,
+			242
+		],
+		roughness: .72,
+		relief: 2e-4,
+		yarnTone: .9,
+		warpThreads: 60,
+		weftThreads: 60,
+		warpRadius: .42,
+		warpCore: .3,
+		weftRadius: .42,
+		weftCore: .3,
+		warpLiftHalf: .46,
+		weftLiftHalf: .46,
+		liftShoulder: .12,
+		lift: .12,
+		warpFibers: 240,
+		weftFibers: 240
+	}),
 	ramie: Object.freeze({
 		dark: [
 			159,
@@ -17787,6 +17814,7 @@ var proceduralTileMeters = Object.freeze({
 	surah: .015,
 	sateen: .04,
 	serge: .04,
+	batiste: .04,
 	ramie: .04,
 	wavewashers: .1,
 	cupwashers: .1
