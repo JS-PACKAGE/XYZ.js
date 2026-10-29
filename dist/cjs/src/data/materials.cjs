@@ -8767,6 +8767,38 @@ var proceduralMaterialPresets = Object.freeze({
 		pinHalfLength: .38,
 		endShoulder: .025
 	}),
+	clevispins: Object.freeze({
+		dark: [
+			26,
+			32,
+			38
+		],
+		light: [
+			225,
+			232,
+			237
+		],
+		roughness: .31,
+		relief: .0032,
+		cells: 4,
+		jitter: .016,
+		scale: .92,
+		scaleVariation: .03,
+		headLeft: -.38,
+		headRight: -.28,
+		headHalfWidth: .18,
+		shankLeft: -.3,
+		shankRight: .37,
+		shankHalfWidth: .11,
+		tipChamfer: .025,
+		tipSlope: .58,
+		bevel: .012,
+		holeX: .265,
+		holeRadius: .034,
+		holeCore: .028,
+		shankCrown: .07,
+		headCrown: .05
+	}),
 	gibheadkeys: Object.freeze({
 		dark: [
 			35,
@@ -17844,6 +17876,7 @@ var proceduralTileMeters = Object.freeze({
 	cashews: .16,
 	hinges: .4,
 	woodruffkeys: .08,
+	clevispins: .12,
 	gibheadkeys: .2,
 	parallelkeys: .12,
 	coins: .12,

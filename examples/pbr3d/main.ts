@@ -586,6 +586,7 @@ try {
     'rclips',
     'linchpins',
     'woodruffkeys',
+    'clevispins',
     'gibheadkeys',
     'parallelkeys',
     'ivyleaf',

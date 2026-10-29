@@ -549,6 +549,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rclips',
   'linchpins',
   'woodruffkeys',
+  'clevispins',
   'gibheadkeys',
   'parallelkeys',
   'ivyleaf',
@@ -76971,6 +76972,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rclips' &&
           kind !== 'linchpins' &&
           kind !== 'woodruffkeys' &&
+          kind !== 'clevispins' &&
           kind !== 'gibheadkeys' &&
           kind !== 'parallelkeys' &&
           kind !== 'chainmail' &&
@@ -86439,6 +86441,7 @@ describe('procedural preset acquisition and ownership', () => {
     'linchpins',
     'woodruffkeys',
     'tabwashers',
+    'clevispins',
     'gibheadkeys',
     'parallelkeys',
     'hinges',
@@ -86547,6 +86550,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'linchpins' ||
           kind === 'woodruffkeys' ||
           kind === 'tabwashers' ||
+          kind === 'clevispins' ||
           kind === 'gibheadkeys' ||
           kind === 'parallelkeys' ||
           kind === 'hinges' ||
@@ -87167,6 +87171,425 @@ describe('Charcoal Whipcord with a single steep rib and continuous three-pick wa
       expect(s.gray).toBeGreaterThan(0.9);
       expect(s.maxColor - s.minColor).toBeGreaterThan(8);
       expect(s.maxAO - s.minAO).toBeGreaterThan(12);
+      expect(s.invalid).toBe(0);
+    }
+  });
+});
+
+describe('Silver Clevis pins with one short two-sided head and one enclosed tail cross-hole', () => {
+  const p = proceduralMaterialPresets.clevispins;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('clevispins', seed),
+      size = 128,
+      out = empty(),
+      evidence = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const mask = new Uint8Array(size * size),
+          seen = new Uint8Array(size * size),
+          xs: number[] = [],
+          ys: number[] = [];
+        let cx = 0,
+          cy = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            sample(
+              (col + (x + 0.5) / size) / p.cells,
+              (row + (y + 0.5) / size) / p.cells,
+              out,
+            );
+            if (out.metallic > 0.98) {
+              mask[y * size + x] = 1;
+              xs.push((x + 0.5) / size);
+              ys.push((y + 0.5) / size);
+              cx += (x + 0.5) / size;
+              cy += (y + 0.5) / size;
+            }
+          }
+        cx /= xs.length;
+        cy /= ys.length;
+        let xx = 0,
+          yy = 0,
+          xy = 0;
+        for (let j = 0; j < xs.length; j++) {
+          const x = xs[j] - cx,
+            y = ys[j] - cy;
+          xx += x * x;
+          yy += y * y;
+          xy += x * y;
+        }
+        const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+        let ax = Math.cos(angle),
+          ay = Math.sin(angle);
+        const holes: [number, number][][] = [];
+        for (let index = 0; index < mask.length; index++) {
+          if (mask[index] || seen[index]) continue;
+          const q = [index],
+            points: [number, number][] = [];
+          seen[index] = 1;
+          let boundary = false;
+          for (let at = 0; at < q.length; at++) {
+            const k = q[at],
+              x = k % size,
+              y = Math.floor(k / size);
+            points.push([x, y]);
+            if (x === 0 || y === 0 || x === size - 1 || y === size - 1)
+              boundary = true;
+            for (const [dx, dy] of [
+              [-1, 0],
+              [1, 0],
+              [0, -1],
+              [0, 1],
+            ]) {
+              const a = x + dx,
+                b = y + dy;
+              if (a < 0 || b < 0 || a >= size || b >= size) continue;
+              const n = b * size + a;
+              if (!mask[n] && !seen[n]) {
+                seen[n] = 1;
+                q.push(n);
+              }
+            }
+          }
+          if (!boundary) holes.push(points);
+        }
+        if (holes.length !== 1) {
+          evidence.push({
+            valid: false as const,
+            holes: holes.length,
+            metalFraction: xs.length / mask.length,
+          });
+          continue;
+        }
+        const hole = holes[0],
+          hx = hole.reduce((n, p) => n + (p[0] + 0.5) / size, 0) / hole.length,
+          hy = hole.reduce((n, p) => n + (p[1] + 0.5) / size, 0) / hole.length;
+        if ((hx - cx) * ax + (hy - cy) * ay < 0) {
+          ax = -ax;
+          ay = -ay;
+        }
+        let xmin = Infinity,
+          xmax = -Infinity;
+        for (let j = 0; j < xs.length; j++) {
+          const x = (xs[j] - cx) * ax + (ys[j] - cy) * ay;
+          xmin = Math.min(xmin, x);
+          xmax = Math.max(xmax, x);
+        }
+        const span = xmax - xmin,
+          bins = 64,
+          widths = [];
+        for (let i = 0; i < bins; i++) {
+          const target = xmin + (span * (i + 0.5)) / bins;
+          let low = Infinity,
+            high = -Infinity;
+          for (let j = 0; j < xs.length; j++) {
+            const x = (xs[j] - cx) * ax + (ys[j] - cy) * ay;
+            if (Math.abs(x - target) > span / bins) continue;
+            const y = -(xs[j] - cx) * ay + (ys[j] - cy) * ax;
+            low = Math.min(low, y);
+            high = Math.max(high, y);
+          }
+          widths.push(high - low);
+        }
+        let headLow = Infinity,
+          headHigh = -Infinity;
+        for (let j = 0; j < xs.length; j++) {
+          const x = (xs[j] - cx) * ax + (ys[j] - cy) * ay;
+          if (x < xmin + span * 0.02 || x > xmin + span * 0.1) continue;
+          const y = -(xs[j] - cx) * ay + (ys[j] - cy) * ax;
+          headLow = Math.min(headLow, y);
+          headHigh = Math.max(headHigh, y);
+        }
+        const bodyWidths = widths.slice(14, 44).filter(Number.isFinite),
+          headWidths = widths.slice(1, 8).filter(Number.isFinite),
+          bodyWidth = bodyWidths.reduce((a, b) => a + b, 0) / bodyWidths.length,
+          headWidth = Math.max(...headWidths),
+          holePosition = ((hx - cx) * ax + (hy - cy) * ay - xmin) / span;
+        let rmin = Infinity,
+          rmax = 0,
+          rheight = Infinity,
+          rhigh = -Infinity,
+          crownDrop = 0;
+        const ring = [];
+        for (let k = 0; k < 120; k++) {
+          const angle = (k * Math.PI) / 60,
+            dx = Math.cos(angle),
+            dy = Math.sin(angle);
+          let lo = 0,
+            hi = bodyWidth * 0.5;
+          for (let b = 0; b < 36; b++) {
+            const r = (lo + hi) * 0.5;
+            sample(
+              (col + hx + dx * r) / p.cells,
+              (row + hy + dy * r) / p.cells,
+              out,
+            );
+            if (out.metallic < 0.5) lo = r;
+            else hi = r;
+          }
+          ring.push((lo + hi) * 0.5);
+          rmin = Math.min(rmin, ring[k]);
+          rmax = Math.max(rmax, ring[k]);
+        }
+        sample((col + hx) / p.cells, (row + hy) / p.cells, out);
+        const bore = { ...out };
+        for (const t of [0.28, 0.4, 0.52]) {
+          const x = xmin + t * span,
+            u = col + cx + ax * x,
+            v = row + cy + ay * x;
+          sample(u / p.cells, v / p.cells, out);
+          const center = out.height;
+          sample(
+            (u - ay * bodyWidth * 0.35) / p.cells,
+            (v + ax * bodyWidth * 0.35) / p.cells,
+            out,
+          );
+          crownDrop = Math.max(crownDrop, (center - out.height) / p.relief);
+          rheight = Math.min(rheight, center / p.relief);
+          rhigh = Math.max(rhigh, center / p.relief);
+        }
+        evidence.push({
+          valid: true as const,
+          cx,
+          cy,
+          ax,
+          ay,
+          hx,
+          hy,
+          xmin,
+          xmax,
+          span,
+          bodyWidth,
+          holes: 1,
+          metalFraction: xs.length / mask.length,
+          aspect: span / bodyWidth,
+          headRatio: headWidth / bodyWidth,
+          headBilateral: Math.min(headHigh, -headLow) / (bodyWidth * 0.5),
+          headBalance: Math.abs(headHigh + headLow) / bodyWidth,
+          headLengthFraction:
+            widths.filter((w) => w > bodyWidth * 1.25).length / bins,
+          bodySpread:
+            (Math.max(...bodyWidths) - Math.min(...bodyWidths)) / bodyWidth,
+          holePosition,
+          holeRatio: (rmin + rmax) / bodyWidth,
+          holeRound: rmax / rmin,
+          boreMetal: bore.metallic,
+          boreHeight: bore.height / p.relief,
+          boreAO: bore.occlusion,
+          crownDrop,
+          axialFlat: rhigh - rheight,
+        });
+      }
+    return evidence;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('clevispins', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const,
+      h = 1e-10,
+      owners = observe(seed);
+    let worst = 0,
+      period = 0;
+    const check = (u: number, v: number) => {
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs((c[key] - 2 * b[key] + a[key]) / h) /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 192; y++)
+      for (let x = 0; x <= 192; x++) check(x / 192, y / 192);
+    for (let owner = 0; owner < owners.length; owner++) {
+      const o = owners[owner],
+        col = owner % p.cells,
+        row = Math.floor(owner / p.cells);
+      if (!o.valid) continue;
+      for (let j = 0; j < 120; j++) {
+        const angle = (j * Math.PI) / 60,
+          dx = Math.cos(angle),
+          dy = Math.sin(angle);
+        for (const threshold of [0.00000001, 0.5, 0.99999999]) {
+          let lo = 0,
+            hi = o.bodyWidth * 0.5;
+          for (let k = 0; k < 36; k++) {
+            const r = (lo + hi) * 0.5;
+            sample(
+              (col + o.hx + dx * r) / p.cells,
+              (row + o.hy + dy * r) / p.cells,
+              a,
+            );
+            if (a.metallic < threshold) lo = r;
+            else hi = r;
+          }
+          check(
+            (col + o.hx + dx * (lo + hi) * 0.5) / p.cells,
+            (row + o.hy + dy * (lo + hi) * 0.5) / p.cells,
+          );
+        }
+      }
+      for (let j = 0; j < 120; j++) {
+        const angle = (j * Math.PI) / 60,
+          dx = Math.cos(angle),
+          dy = Math.sin(angle),
+          startX = o.cx + o.ax * (o.xmin + 0.4 * o.span),
+          startY = o.cy + o.ay * (o.xmin + 0.4 * o.span);
+        for (const threshold of [0.00000001, 0.5, 0.99999999]) {
+          let lo = 0,
+            hi = 0.5;
+          for (let k = 0; k < 36; k++) {
+            const r = (lo + hi) * 0.5;
+            sample(
+              (col + startX + dx * r) / p.cells,
+              (row + startY + dy * r) / p.cells,
+              a,
+            );
+            if (a.metallic > threshold) lo = r;
+            else hi = r;
+          }
+          check(
+            (col + startX + dx * (lo + hi) * 0.5) / p.cells,
+            (row + startY + dy * (lo + hi) * 0.5) / p.cells,
+          );
+        }
+      }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const pixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    let metal = 0,
+      host = 0,
+      neutral = 0,
+      rough = 0,
+      maxTilt = 0,
+      invalid = 0;
+    const signs = [0, 0, 0, 0];
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const m = maps.metallicRoughness[i + 2],
+        r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      if (m > 250) {
+        metal++;
+        neutral += Number(r > 135 && r < 220 && g >= r && b >= g && b - r < 24);
+        rough += maps.metallicRoughness[i + 1] / 255;
+      }
+      host += Number(m === 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signs[0] += Number(nx < -0.015);
+      signs[1] += Number(nx > 0.015);
+      signs[2] += Number(ny < -0.015);
+      signs[3] += Number(ny > 0.015);
+      for (const bytes of Object.values(maps))
+        invalid += Number(bytes[i + 3] !== 255);
+    }
+    const count = maps.baseColor.length / 4;
+    return {
+      metal: metal / count,
+      host: host / count,
+      neutral: neutral / metal,
+      rough: rough / metal,
+      maxTilt,
+      signs: signs.map((x) => x / count),
+      invalid,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps one wider short head opposite a round enclosed bore on a straight unthreaded shaft for seed %s',
+    (seed) => {
+      for (const s of observe(seed)) {
+        expect(s.holes).toBe(1);
+        expect(s.metalFraction).toBeGreaterThan(0.1);
+        expect(s.metalFraction).toBeLessThan(0.18);
+        expect(s.aspect).toBeGreaterThan(3.3);
+        expect(s.aspect).toBeLessThan(4.3);
+        expect(s.headRatio).toBeGreaterThan(1.5);
+        expect(s.headRatio).toBeLessThan(2.0);
+        expect(s.headBilateral).toBeGreaterThan(1.4);
+        expect(s.headBalance).toBeLessThan(0.06);
+        expect(s.headLengthFraction).toBeGreaterThan(0.08);
+        expect(s.headLengthFraction).toBeLessThan(0.18);
+        expect(s.bodySpread).toBeLessThan(0.1);
+        expect(s.holePosition).toBeGreaterThan(0.82);
+        expect(s.holePosition).toBeLessThan(0.93);
+        expect(s.holeRatio).toBeGreaterThan(0.25);
+        expect(s.holeRatio).toBeLessThan(0.4);
+        expect(s.holeRound).toBeLessThan(1.25);
+        expect(s.boreMetal).toBe(0);
+        expect(s.boreHeight).toBeLessThan(0.08);
+        expect(s.boreAO).toBeLessThan(0.6);
+        expect(s.crownDrop).toBeGreaterThan(0.015);
+        expect(s.crownDrop).toBeLessThan(0.04);
+        expect(s.axialFlat).toBeLessThan(0.008);
+      }
+    },
+  );
+  it('keeps external edges, head joins, circular bore shoulders, grain and signed UV seams C1 in relief-normalized channels', () => {
+    for (const seed of [0, 7, 0xffffffff]) {
+      const s = continuity(seed);
+      expect(s.worst).toBeLessThan(0.03);
+      expect(s.period).toBeLessThan(5e-10);
+    }
+  });
+  it('writes neutral silver steel and rough nonmetallic backing with four signed normal slopes at actual512', () => {
+    const s = pixels(
+      generateProceduralMaps('clevispins', 512, 7, { heightMap: true }),
+    );
+    expect(s.metal).toBeGreaterThan(0.1);
+    expect(s.metal).toBeLessThan(0.18);
+    expect(s.host).toBeGreaterThan(0.8);
+    expect(s.neutral).toBeGreaterThan(0.98);
+    expect(s.rough).toBeGreaterThan(0.26);
+    expect(s.rough).toBeLessThan(0.39);
+    expect(s.maxTilt).toBeGreaterThan(0.1);
+    expect(s.maxTilt).toBeLessThan(0.4);
+    for (const sign of s.signs) expect(sign).toBeGreaterThan(0.015);
+    expect(s.invalid).toBe(0);
+  });
+  it('retains real metal and backing rather than disappearing or filling the supported minimum map', () => {
+    for (const seed of [0, 7, 0xffffffff]) {
+      const s = pixels(generateProceduralMaps('clevispins', 32, seed));
+      expect(s.metal).toBeGreaterThan(0.07);
+      expect(s.metal).toBeLessThan(0.22);
+      expect(s.host).toBeGreaterThan(0.72);
+      expect(s.neutral).toBeGreaterThan(0.98);
       expect(s.invalid).toBe(0);
     }
   });

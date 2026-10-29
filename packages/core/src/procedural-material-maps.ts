@@ -20014,6 +20014,89 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'clevispins': {
+        const p = proceduralMaterialPresets.clevispins,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x33811),
+          inverseBevel = 1 / p.bevel,
+          holeSquared = p.holeRadius * p.holeRadius,
+          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore),
+          inverseShank = 1 / (p.shankHalfWidth * p.shankHalfWidth),
+          inverseHead = 1 / (p.headHalfWidth * p.headHalfWidth);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const at = (row * p.cells + col) * 6,
+              angle = hash(col, row, seed ^ 0x33813) * TAU;
+            poses[at] = Math.cos(angle);
+            poses[at + 1] = Math.sin(angle);
+            poses[at + 2] = p.jitter * (2 * hash(col, row, seed ^ 0x33815) - 1);
+            poses[at + 3] = p.jitter * (2 * hash(col, row, seed ^ 0x33817) - 1);
+            poses[at + 4] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x33819));
+            poses[at + 5] = hash(col, row, seed ^ 0x3381b);
+          }
+        // A head at one end and one cross-hole at the other remain inside each owner.
+        return () => {
+          color = 0.045;
+          height = 0.035;
+          roughness = 0.91;
+          occlusion = 0.45;
+          metallic = 0;
+          mortar = 1;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            at = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - 0.5 - poses[at + 2],
+            dy = fract(vc) - 0.5 - poses[at + 3],
+            x = (dx * poses[at] + dy * poses[at + 1]) * poses[at + 4],
+            y = (-dx * poses[at + 1] + dy * poses[at]) * poses[at + 4],
+            head =
+              smooth(clamp((x - p.headLeft) * inverseBevel)) *
+              smooth(clamp((p.headRight - x) * inverseBevel)) *
+              smooth(clamp((p.headHalfWidth - y) * inverseBevel)) *
+              smooth(clamp((p.headHalfWidth + y) * inverseBevel)),
+            shank =
+              smooth(clamp((x - p.shankLeft) * inverseBevel)) *
+              smooth(clamp((p.shankRight - x) * inverseBevel)) *
+              smooth(clamp((p.shankHalfWidth - y) * inverseBevel)) *
+              smooth(clamp((p.shankHalfWidth + y) * inverseBevel)) *
+              smooth(
+                clamp(
+                  (p.shankRight -
+                    x +
+                    p.tipSlope * (p.shankHalfWidth - p.tipChamfer - y)) *
+                    inverseBevel,
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (p.shankRight -
+                    x +
+                    p.tipSlope * (p.shankHalfWidth - p.tipChamfer + y)) *
+                    inverseBevel,
+                ),
+              ),
+            silhouette = 1 - (1 - head) * (1 - shank);
+          if (silhouette === 0) return;
+          const hx = x - p.holeX,
+            hole = smooth(clamp((holeSquared - hx * hx - y * y) * inverseHole)),
+            face = silhouette * (1 - hole);
+          if (face === 0) return;
+          const grain = grainField(u, v),
+            shankRound = smooth(clamp(1 - y * y * inverseShank)),
+            headRound = smooth(clamp(1 - y * y * inverseHead)),
+            shankHeight = 0.46 + p.shankCrown * shankRound,
+            metalHeight =
+              shankHeight +
+              head * (0.49 + p.headCrown * headRound - shankHeight);
+          color += face * (0.65 + 0.13 * poses[at + 5] + 0.025 * grain - color);
+          height += face * (metalHeight + 0.003 * grain - height);
+          roughness += face * (p.roughness + 0.025 * grain - roughness);
+          occlusion += face * (0.99 - occlusion);
+          metallic = face;
+          mortar = 1 - face;
+        };
+      }
       case 'gibheadkeys': {
         const p = proceduralMaterialPresets.gibheadkeys,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -36992,6 +37075,7 @@ export function createSurfaceSampler(
     kind === 'wulfenite' ||
     kind === 'celestine' ||
     kind === 'barite' ||
+    kind === 'clevispins' ||
     kind === 'gibheadkeys' ||
     kind === 'woodruffkeys' ||
     kind === 'parallelkeys' ||
