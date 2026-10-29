@@ -832,6 +832,7 @@ const kinds: ProceduralMaterialKind[] = [
   'monkscloth',
   'lyocell',
   'surah',
+  'serge',
   'ramie',
   'wavewashers',
   'cupwashers',
@@ -2702,233 +2703,259 @@ describe('Sky-blue Hemimorphite with irregular joined rounded mineral caps and p
   });
 });
 
-describe('Warm copper-colored Surah with balanced continuous two-over/two-under silk twill', () => {
-  const p = proceduralMaterialPresets.surah;
-  const keys = [
-    'color',
-    'height',
-    'roughness',
-    'occlusion',
-    'metallic',
-    'mortar',
-  ] as const;
-  const empty = (): SurfaceSample => ({
-    color: 0,
-    height: 0,
-    roughness: 0,
-    occlusion: 0,
-    metallic: 0,
-    mortar: 0,
-  });
-  it.each([0, 1, 0xffffffff])(
-    'keeps balanced diagonal two-pick floats on both axes for seed %s',
-    (seed) => {
-      const sample = createSurfaceSampler('surah', seed),
-        a = empty(),
+describe.each(['surah', 'serge'] as const)(
+  '%s balanced continuous two-over/two-under fine twill',
+  (kind) => {
+    const p = proceduralMaterialPresets[kind];
+    const keys = [
+      'color',
+      'height',
+      'roughness',
+      'occlusion',
+      'metallic',
+      'mortar',
+    ] as const;
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      metallic: 0,
+      mortar: 0,
+    });
+    const isDyed = (r: number, g: number, b: number): boolean =>
+      kind === 'surah'
+        ? r > g && g > b && r - g > 40 && g - b > 25
+        : b > g && g > r && b - g > 12 && g - r > 8;
+    it.each([0, 1, 0xffffffff])(
+      'keeps balanced diagonal two-pick floats on both axes for seed %s',
+      (seed) => {
+        const sample = createSurfaceSampler(kind, seed),
+          a = empty(),
+          b = empty(),
+          c = empty(),
+          d = empty(),
+          over = new Uint8Array(256);
+        let orientation = Infinity,
+          join = Infinity,
+          valley = Infinity,
+          pigmentMin = Infinity,
+          pigmentMax = -Infinity;
+        for (let row = 0; row < 16; row++)
+          for (let col = 0; col < 16; col++) {
+            const u = (col + 0.5) / p.warpThreads,
+              v = (row + 0.5) / p.weftThreads;
+            sample(u, v + 0.47 / p.weftThreads, a);
+            sample(u, v - 0.47 / p.weftThreads, b);
+            sample(u + 0.47 / p.warpThreads, v, c);
+            sample(u - 0.47 / p.warpThreads, v, d);
+            const directional =
+              (a.height + b.height - c.height - d.height) * 0.5;
+            over[row * 16 + col] = Number(directional > 0);
+            orientation = Math.min(orientation, Math.abs(directional));
+            sample(u, v, a);
+            pigmentMin = Math.min(pigmentMin, a.color);
+            pigmentMax = Math.max(pigmentMax, a.color);
+            expect(a.metallic).toBe(0);
+            expect(a.mortar).toBe(0);
+          }
+        // Infer two-over/two-under diagonal runs from height, allowing either chirality and phase.
+        let matchingPhases = 0;
+        for (const phase of [0, 1, 2, 3])
+          for (const direction of [-1, 1]) {
+            let matches = true;
+            for (let row = 0; row < 16; row++)
+              for (let col = 0; col < 16; col++)
+                matches &&=
+                  Boolean(over[row * 16 + col]) ===
+                  (col + direction * row + phase + 32) % 4 < 2;
+            matchingPhases += Number(matches);
+          }
+        expect(matchingPhases).toBeGreaterThan(0);
+        expect(orientation).toBeGreaterThan(0.02 * p.relief);
+        expect(pigmentMax - pigmentMin).toBeLessThan(0.04);
+        for (let row = 0; row < 15; row++)
+          for (let col = 0; col < 15; col++) {
+            const u = (col + 0.5) / p.warpThreads,
+              v = (row + 0.5) / p.weftThreads,
+              warp = over[row * 16 + col] !== 0;
+            sample(u, v, a);
+            if (
+              over[(row + Number(warp)) * 16 + col + Number(!warp)] ===
+              Number(warp)
+            ) {
+              sample(
+                u + Number(!warp) / p.warpThreads,
+                v + Number(warp) / p.weftThreads,
+                b,
+              );
+              sample(
+                u + (Number(!warp) * 0.5) / p.warpThreads,
+                v + (Number(warp) * 0.5) / p.weftThreads,
+                c,
+              );
+              join = Math.min(join, c.height - Math.min(a.height, b.height));
+            }
+            if (
+              over[(row + Number(!warp)) * 16 + col + Number(warp)] ===
+              Number(warp)
+            ) {
+              sample(
+                u + Number(warp) / p.warpThreads,
+                v + Number(!warp) / p.weftThreads,
+                b,
+              );
+              sample(
+                u + (Number(warp) * 0.5) / p.warpThreads,
+                v + (Number(!warp) * 0.5) / p.weftThreads,
+                c,
+              );
+              valley = Math.min(
+                valley,
+                Math.min(a.height, b.height) - c.height,
+              );
+            }
+          }
+        expect(join).toBeGreaterThan(-0.004 * p.relief);
+        expect(valley).toBeGreaterThan(0.1 * p.relief);
+      },
+    );
+    it('keeps yarn shoulders, two-pick float ends, fibers, cached grain and UV wraps C1', () => {
+      const a = empty(),
         b = empty(),
         c = empty(),
-        d = empty(),
-        over = new Uint8Array(256);
-      let orientation = Infinity,
-        join = Infinity,
-        valley = Infinity,
-        pigmentMin = Infinity,
-        pigmentMax = -Infinity;
-      for (let row = 0; row < 16; row++)
-        for (let col = 0; col < 16; col++) {
-          const u = (col + 0.5) / p.warpThreads,
-            v = (row + 0.5) / p.weftThreads;
-          sample(u, v + 0.47 / p.weftThreads, a);
-          sample(u, v - 0.47 / p.weftThreads, b);
-          sample(u + 0.47 / p.warpThreads, v, c);
-          sample(u - 0.47 / p.warpThreads, v, d);
-          const directional = (a.height + b.height - c.height - d.height) * 0.5;
-          over[row * 16 + col] = Number(directional > 0);
-          orientation = Math.min(orientation, Math.abs(directional));
-          sample(u, v, a);
-          pigmentMin = Math.min(pigmentMin, a.color);
-          pigmentMax = Math.max(pigmentMax, a.color);
-          expect(a.metallic).toBe(0);
-          expect(a.mortar).toBe(0);
-        }
-      // Infer two-over/two-under diagonal runs from height, allowing either chirality and phase.
-      let matchingPhases = 0;
-      for (const phase of [0, 1, 2, 3])
-        for (const direction of [-1, 1]) {
-          let matches = true;
-          for (let row = 0; row < 16; row++)
-            for (let col = 0; col < 16; col++)
-              matches &&=
-                Boolean(over[row * 16 + col]) ===
-                (col + direction * row + phase + 32) % 4 < 2;
-          matchingPhases += Number(matches);
-        }
-      expect(matchingPhases).toBeGreaterThan(0);
-      expect(orientation).toBeGreaterThan(0.02 * p.relief);
-      expect(pigmentMax - pigmentMin).toBeLessThan(0.04);
-      for (let row = 0; row < 15; row++)
-        for (let col = 0; col < 15; col++) {
-          const u = (col + 0.5) / p.warpThreads,
-            v = (row + 0.5) / p.weftThreads,
-            warp = over[row * 16 + col] !== 0;
-          sample(u, v, a);
-          if (
-            over[(row + Number(warp)) * 16 + col + Number(!warp)] ===
-            Number(warp)
-          ) {
-            sample(
-              u + Number(!warp) / p.warpThreads,
-              v + Number(warp) / p.weftThreads,
-              b,
-            );
-            sample(
-              u + (Number(!warp) * 0.5) / p.warpThreads,
-              v + (Number(warp) * 0.5) / p.weftThreads,
-              c,
-            );
-            join = Math.min(join, c.height - Math.min(a.height, b.height));
+        h = 1e-10;
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        let worst = 0;
+        const check = (u: number, v: number) => {
+          for (let axis = 0; axis < 2; axis++) {
+            const du = axis ? 0 : h,
+              dv = axis ? h : 0;
+            sample(u - du, v - dv, a);
+            sample(u, v, b);
+            sample(u + du, v + dv, c);
+            for (const key of keys)
+              worst = Math.max(
+                worst,
+                Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+              );
           }
-          if (
-            over[(row + Number(!warp)) * 16 + col + Number(warp)] ===
-            Number(warp)
-          ) {
-            sample(
-              u + Number(warp) / p.warpThreads,
-              v + Number(!warp) / p.weftThreads,
-              b,
-            );
-            sample(
-              u + (Number(warp) * 0.5) / p.warpThreads,
-              v + (Number(!warp) * 0.5) / p.weftThreads,
-              c,
-            );
-            valley = Math.min(valley, Math.min(a.height, b.height) - c.height);
+        };
+        const offsets = [
+          0,
+          0.5,
+          0.5 - p.warpRadius,
+          0.5 + p.warpRadius,
+          0.5 - p.warpCore,
+          0.5 + p.warpCore,
+          0.5 - p.warpLiftHalf,
+          0.5 + p.warpLiftHalf,
+          0.5 - (p.warpLiftHalf - p.liftShoulder),
+          0.5 + (p.warpLiftHalf - p.liftShoulder),
+        ];
+        for (let k = 0; k < p.warpThreads; k++)
+          for (const offset of offsets) {
+            // A crossing yarn must not hide a discontinuity at an exposed shoulder.
+            check((k + offset) / p.warpThreads, 0);
+            check(0, (k + offset) / p.weftThreads);
+            for (let j = 0; j < 17; j++) {
+              check((k + offset) / p.warpThreads, (j + 0.31) / 17);
+              check((j + 0.37) / 17, (k + offset) / p.weftThreads);
+            }
           }
-        }
-      expect(join).toBeGreaterThan(-0.004 * p.relief);
-      expect(valley).toBeGreaterThan(0.1 * p.relief);
-    },
-  );
-  it('keeps yarn shoulders, two-pick float ends, fibers, cached grain and UV wraps C1', () => {
-    const a = empty(),
-      b = empty(),
-      c = empty(),
-      h = 1e-10;
-    for (const seed of [0, 1, 0xffffffff]) {
-      const sample = createSurfaceSampler('surah', seed);
-      let worst = 0;
-      const check = (u: number, v: number) => {
-        for (let axis = 0; axis < 2; axis++) {
-          const du = axis ? 0 : h,
-            dv = axis ? h : 0;
-          sample(u - du, v - dv, a);
-          sample(u, v, b);
-          sample(u + du, v + dv, c);
-          for (const key of keys)
-            worst = Math.max(
-              worst,
-              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
-            );
-        }
-      };
-      const offsets = [
-        0,
-        0.5,
-        0.5 - p.warpRadius,
-        0.5 + p.warpRadius,
-        0.5 - p.warpCore,
-        0.5 + p.warpCore,
-        0.5 - p.warpLiftHalf,
-        0.5 + p.warpLiftHalf,
-        0.5 - (p.warpLiftHalf - p.liftShoulder),
-        0.5 + (p.warpLiftHalf - p.liftShoulder),
-      ];
-      for (let k = 0; k < p.warpThreads; k++)
-        for (const offset of offsets) {
-          // A crossing yarn must not hide a discontinuity at an exposed shoulder.
-          check((k + offset) / p.warpThreads, 0);
-          check(0, (k + offset) / p.weftThreads);
-          for (let j = 0; j < 17; j++) {
-            check((k + offset) / p.warpThreads, (j + 0.31) / 17);
-            check((j + 0.37) / 17, (k + offset) / p.weftThreads);
-          }
-        }
-      for (const frequency of [p.warpFibers, p.weftFibers, 128])
-        for (let k = 0; k <= frequency; k++)
-          for (let j = 0; j < 17; j++) {
-            check(k / frequency, (j + 0.31) / 17);
-            check((j + 0.37) / 17, k / frequency);
-          }
-      expect(worst).toBeLessThan(0.03);
-    }
-  });
-  it('writes warm nonmetallic copper pigment with subtle interstices and signed fine-relief normals on both axes at actual512', () => {
-    const maps = generateProceduralMaps('surah', 512, 7, {
-      heightMap: true,
-    });
-    const streams = Object.values(maps);
-    let warm = 0,
-      invalid = 0,
-      minX = 1,
-      maxX = -1,
-      minY = 1,
-      maxY = -1,
-      minAO = 255,
-      maxAO = 0,
-      maxTilt = 0,
-      rough = 0;
-    for (let i = 0; i < maps.baseColor.length; i += 4) {
-      const r = maps.baseColor[i],
-        g = maps.baseColor[i + 1],
-        b = maps.baseColor[i + 2],
-        nx = (2 * maps.normal[i]) / 255 - 1,
-        ny = (2 * maps.normal[i + 1]) / 255 - 1;
-      warm += Number(r > g && g > b && r - g > 40 && g - b > 25);
-      minX = Math.min(minX, nx);
-      maxX = Math.max(maxX, nx);
-      minY = Math.min(minY, ny);
-      maxY = Math.max(maxY, ny);
-      minAO = Math.min(minAO, maps.occlusion[i]);
-      maxAO = Math.max(maxAO, maps.occlusion[i]);
-      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
-      rough += maps.metallicRoughness[i + 1] / 255;
-      invalid += Number(
-        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 240,
-      );
-      for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
-    }
-    expect(warm / (512 * 512)).toBeGreaterThan(0.9);
-    // Subpixel yarn phase changes coverage, not the presence of both signed slopes.
-    expect(minX).toBeLessThan(-0.01);
-    expect(maxX).toBeGreaterThan(0.01);
-    expect(minY).toBeLessThan(-0.01);
-    expect(maxY).toBeGreaterThan(0.01);
-    expect(minAO).toBeLessThan(250);
-    expect(maxAO).toBeGreaterThan(250);
-    expect(maxTilt).toBeGreaterThan(0.0002);
-    expect(maxTilt).toBeLessThan(0.01);
-    expect(rough / (512 * 512)).toBeGreaterThan(0.25);
-    expect(rough / (512 * 512)).toBeLessThan(0.5);
-    expect(invalid).toBe(0);
-  });
-  it('repeats both two-pick twill axes and all six surface channels over signed UV periods', () => {
-    const a = empty(),
-      b = empty();
-    let worst = 0;
-    for (const seed of [0, 1, 0xffffffff]) {
-      const sample = createSurfaceSampler('surah', seed);
-      for (let j = 0; j < 4096; j++) {
-        const u = (j * 0.61803398875) % 1,
-          v = (j * 0.41421356237) % 1;
-        sample(u, v, a);
-        sample(u - 2, v + 3, b);
-        for (const key of keys)
-          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+        for (const frequency of [p.warpFibers, p.weftFibers, 128])
+          for (let k = 0; k <= frequency; k++)
+            for (let j = 0; j < 17; j++) {
+              check(k / frequency, (j + 0.31) / 17);
+              check((j + 0.37) / 17, k / frequency);
+            }
+        expect(worst).toBeLessThan(0.03);
       }
-    }
-    expect(worst).toBeLessThan(5e-10);
-  });
-});
+    });
+    it('writes dyed nonmetallic yarns with the named finish, subtle interstices and signed fine-relief normals on both axes at actual512', () => {
+      const maps = generateProceduralMaps(kind, 512, 7, {
+        heightMap: true,
+      });
+      const streams = Object.values(maps);
+      let dyed = 0,
+        invalid = 0,
+        minX = 1,
+        maxX = -1,
+        minY = 1,
+        maxY = -1,
+        minAO = 255,
+        maxAO = 0,
+        maxTilt = 0,
+        rough = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4) {
+        const r = maps.baseColor[i],
+          g = maps.baseColor[i + 1],
+          b = maps.baseColor[i + 2],
+          nx = (2 * maps.normal[i]) / 255 - 1,
+          ny = (2 * maps.normal[i + 1]) / 255 - 1;
+        dyed += Number(isDyed(r, g, b));
+        minX = Math.min(minX, nx);
+        maxX = Math.max(maxX, nx);
+        minY = Math.min(minY, ny);
+        maxY = Math.max(maxY, ny);
+        minAO = Math.min(minAO, maps.occlusion[i]);
+        maxAO = Math.max(maxAO, maps.occlusion[i]);
+        maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+        rough += maps.metallicRoughness[i + 1] / 255;
+        invalid += Number(
+          maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 240,
+        );
+        for (const bytes of streams) invalid += Number(bytes[i + 3] !== 255);
+      }
+      expect(dyed / (512 * 512)).toBeGreaterThan(0.9);
+      // Subpixel yarn phase changes coverage, not the presence of both signed slopes.
+      expect(minX).toBeLessThan(-0.01);
+      expect(maxX).toBeGreaterThan(0.01);
+      expect(minY).toBeLessThan(-0.01);
+      expect(maxY).toBeGreaterThan(0.01);
+      expect(minAO).toBeLessThan(250);
+      expect(maxAO).toBeGreaterThan(250);
+      expect(maxTilt).toBeGreaterThan(0.0002);
+      expect(maxTilt).toBeLessThan(kind === 'surah' ? 0.01 : 0.25);
+      expect(rough / (512 * 512)).toBeGreaterThan(
+        kind === 'surah' ? 0.25 : 0.8,
+      );
+      expect(rough / (512 * 512)).toBeLessThan(kind === 'surah' ? 0.5 : 0.95);
+      expect(invalid).toBe(0);
+    });
+    it('retains dyed yarn coverage rather than aliasing to uniform ground at the supported 32px minimum', () => {
+      const maps = generateProceduralMaps(kind, 32, 7);
+      let dyed = 0;
+      for (let i = 0; i < maps.baseColor.length; i += 4)
+        dyed += Number(
+          isDyed(
+            maps.baseColor[i],
+            maps.baseColor[i + 1],
+            maps.baseColor[i + 2],
+          ),
+        );
+      expect(dyed / (32 * 32)).toBeGreaterThan(0.85);
+    });
+    it('repeats both two-pick twill axes and all six surface channels over signed UV periods', () => {
+      const a = empty(),
+        b = empty();
+      let worst = 0;
+      for (const seed of [0, 1, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let j = 0; j < 4096; j++) {
+          const u = (j * 0.61803398875) % 1,
+            v = (j * 0.41421356237) % 1;
+          sample(u, v, a);
+          sample(u - 2, v + 3, b);
+          for (const key of keys)
+            worst = Math.max(worst, Math.abs(a[key] - b[key]));
+        }
+      }
+      expect(worst).toBeLessThan(5e-10);
+    });
+  },
+);
 
 describe('Natural four-by-four Monk’s Cloth with four separable yarns and continuous grouped floats', () => {
   const p = proceduralMaterialPresets.monkscloth;

@@ -806,6 +806,7 @@ export type ProceduralMaterialKind =
   | 'monkscloth'
   | 'lyocell'
   | 'surah'
+  | 'serge'
   | 'ramie'
   | 'wavewashers'
   | 'cupwashers';
@@ -1848,6 +1849,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'monkscloth',
   'lyocell',
   'surah',
+  'serge',
   'ramie',
   'wavewashers',
   'cupwashers',

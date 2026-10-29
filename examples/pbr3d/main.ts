@@ -869,6 +869,7 @@ try {
     'monkscloth',
     'lyocell',
     'surah',
+    'serge',
     'ramie',
     'wavewashers',
     'cupwashers',

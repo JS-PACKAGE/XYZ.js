@@ -5654,6 +5654,7 @@ export function createSurfaceSampler(
       case 'monkscloth':
       case 'hopsack':
       case 'surah':
+      case 'serge':
       case 'lyocell':
       case 'ramie':
       case 'poplin': {
@@ -5666,11 +5667,14 @@ export function createSurfaceSampler(
             kind === 'monkscloth'
               ? proceduralMaterialPresets.monkscloth
               : proceduralMaterialPresets.hopsack,
-          fineTwill = kind === 'lyocell' || kind === 'surah',
+          fineTwill =
+            kind === 'lyocell' || kind === 'surah' || kind === 'serge',
           fineTwillPreset =
-            kind === 'surah'
-              ? proceduralMaterialPresets.surah
-              : proceduralMaterialPresets.lyocell,
+            kind === 'serge'
+              ? proceduralMaterialPresets.serge
+              : kind === 'surah'
+                ? proceduralMaterialPresets.surah
+                : proceduralMaterialPresets.lyocell,
           ramie = kind === 'ramie',
           gabardine = kind === 'gabardine',
           cavalry = kind === 'cavalrytwill',
@@ -36687,6 +36691,7 @@ export function createSurfaceSampler(
     kind === 'monkscloth' ||
     kind === 'lyocell' ||
     kind === 'surah' ||
+    kind === 'serge' ||
     kind === 'ramie' ||
     kind === 'sphericalwashers' ||
     kind === 'wavewashers' ||
