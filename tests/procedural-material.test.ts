@@ -816,6 +816,7 @@ const kinds: ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'europeanbeech',
   'whiteoak',
   'whiteash',
   'kingwood',
@@ -88741,6 +88742,416 @@ describe('Habotai dense pearl-white balanced plain silk with shallow relief and 
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
       }
       expect(o.invalid).toBe(0);
+    },
+  );
+});
+
+describe('European Beech fine diffuse longitudinal pores and minute flush ray flecks', () => {
+  const p = proceduralMaterialPresets.europeanbeech;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const observe = (seed: number) => {
+    const size = 512,
+      sample = createSurfaceSampler('europeanbeech', seed),
+      out = empty(),
+      rayMask = new Uint8Array(size * size),
+      poreMask = new Uint8Array(size * size),
+      heights = new Float64Array(size * size),
+      poreColumns = new Float64Array(size);
+    let rayColor = 0,
+      poreColor = 0,
+      clearColor = 0,
+      clearCount = 0,
+      rayClear = 0,
+      rayCount = 0,
+      poreCount = 0,
+      rayLow = 1 / 0,
+      rayHigh = -1 / 0,
+      rayAO = 1,
+      lowPore = 1 / 0,
+      highPore = -1 / 0,
+      invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        const i = y * size + x;
+        heights[i] = out.height / p.relief;
+        if (out.roughness < p.roughness - 0.025) {
+          rayMask[i] = 1;
+          rayCount++;
+          rayColor += out.color;
+          if (out.occlusion > 0.999) {
+            rayClear++;
+            rayLow = Math.min(rayLow, heights[i]);
+            rayHigh = Math.max(rayHigh, heights[i]);
+          }
+          rayAO = Math.min(rayAO, out.occlusion);
+        }
+        if (out.occlusion < 0.84) {
+          poreMask[i] = 1;
+          poreCount++;
+          poreColor += out.color;
+          poreColumns[x]++;
+          lowPore = Math.min(lowPore, heights[i]);
+          highPore = Math.max(highPore, heights[i]);
+        }
+        if (out.occlusion > 0.999 && out.roughness >= p.roughness) {
+          clearColor += out.color;
+          clearCount++;
+        }
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+      }
+    const components = (mask: Uint8Array) => {
+      const seen = new Uint8Array(mask.length),
+        result = [];
+      for (let start = 0; start < mask.length; start++) {
+        if (!mask[start] || seen[start]) continue;
+        const q = [start];
+        seen[start] = 1;
+        let minX = size,
+          maxX = 0,
+          minY = size,
+          maxY = 0,
+          cx = 0,
+          cy = 0;
+        for (let at = 0; at < q.length; at++) {
+          const index = q[at],
+            x = index % size,
+            y = Math.floor(index / size);
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+          cx += x;
+          cy += y;
+          for (const [dx, dy] of [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+          ]) {
+            const a = x + dx,
+              b = y + dy;
+            if (a < 0 || b < 0 || a >= size || b >= size) continue;
+            const n = b * size + a;
+            if (mask[n] && !seen[n]) {
+              seen[n] = 1;
+              q.push(n);
+            }
+          }
+        }
+        if (q.length < 3) continue;
+        cx /= q.length;
+        cy /= q.length;
+        let xx = 0,
+          yy = 0,
+          xy = 0;
+        for (const index of q) {
+          const x = (index % size) - cx,
+            y = Math.floor(index / size) - cy;
+          xx += x * x;
+          yy += y * y;
+          xy += x * y;
+        }
+        const angle = 0.5 * Math.atan2(2 * xy, xx - yy),
+          root = Math.hypot(xx - yy, 2 * xy),
+          ratio = Math.sqrt(
+            (xx + yy + root) / Math.max(0.000000000001, xx + yy - root),
+          );
+        result.push({
+          pixels: q.length,
+          minX,
+          maxX,
+          minY,
+          maxY,
+          angle,
+          ratio,
+          spanX: (maxX - minX + 1) / size,
+          spanY: (maxY - minY + 1) / size,
+        });
+      }
+      return result;
+    };
+    let strongestPoreBand = 0;
+    for (let frequency = 1; frequency <= 64; frequency++) {
+      let c = 0,
+        s = 0;
+      for (let x = 0; x < size; x++) {
+        const phase = (2 * Math.PI * frequency * (x + 0.5)) / size;
+        c += poreColumns[x] * Math.cos(phase);
+        s += poreColumns[x] * Math.sin(phase);
+      }
+      strongestPoreBand = Math.max(
+        strongestPoreBand,
+        Math.hypot(c, s) / poreCount,
+      );
+    }
+    return {
+      meanRayColor: rayColor / rayCount,
+      meanPoreColor: poreColor / poreCount,
+      meanClearColor: clearColor / clearCount,
+      strongestPoreBand,
+      rayClear: rayClear / rayCount,
+      rayCount: rayCount / (size * size),
+      poreCount: poreCount / (size * size),
+      rayLow,
+      rayHigh,
+      rayAO,
+      lowPore,
+      highPore,
+      invalid,
+      rays: components(rayMask).filter((x) => x.pixels > 5),
+      pores: components(poreMask),
+    };
+  };
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed vessel and fleck curvature instead of copying private placement tables.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('europeanbeech', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (const [columns, rows] of [
+      [p.columns, p.rows],
+      [p.rayColumns, p.rayRows],
+    ]) {
+      for (let x = 0; x <= columns; x++)
+        for (let y = 0; y <= 128; y++) check(x / columns, y / 128);
+      for (let y = 0; y <= rows; y++)
+        for (let x = 0; x <= 128; x++) check(x / 128, y / rows);
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    let warm = 0,
+      rough = 0,
+      maxTilt = 0,
+      invalid = 0;
+    const signed = [0, 0, 0, 0],
+      n = maps.baseColor.length / 4;
+    for (let i = 0; i < n; i++) {
+      const j = i * 4,
+        r = maps.baseColor[j],
+        g = maps.baseColor[j + 1],
+        b = maps.baseColor[j + 2],
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      warm += Number(r > 150 && g > 130 && b > 95 && r > g + 10 && g > b + 20);
+      rough += maps.metallicRoughness[j + 1] / 255;
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.01);
+      signed[1] += Number(nx < -0.01);
+      signed[2] += Number(ny > 0.005);
+      signed[3] += Number(ny < -0.005);
+      for (const map of Object.values(maps))
+        invalid += Number(map[j + 3] !== 255);
+      invalid += Number(maps.metallicRoughness[j + 2] !== 0);
+    }
+    return {
+      warm: warm / n,
+      rough: rough / n,
+      maxTilt,
+      signed: signed.map((x) => x / n),
+      invalid,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps many short flush flecks and diffuse recessed vessel openings at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.rayCount).toBeGreaterThan(0.009);
+      expect(o.rayCount).toBeLessThan(0.028);
+      expect(o.rays.length).toBeGreaterThan(55);
+      expect(o.rays.length).toBeLessThan(160);
+      for (const r of o.rays) {
+        expect(r.spanX).toBeLessThan(0.095);
+        expect(r.spanY).toBeLessThan(0.012);
+        expect(Math.abs(r.angle)).toBeLessThan(0.3);
+      }
+      expect(Math.max(...o.rays.map((r) => r.spanX))).toBeGreaterThan(0.045);
+      expect(o.rayClear).toBeGreaterThan(0.98);
+      expect(o.rayAO).toBeGreaterThan(0.95);
+      expect(o.rayLow).toBeGreaterThan(0.499);
+      expect(o.rayHigh).toBeLessThan(0.503);
+      expect(o.rayHigh - o.rayLow).toBeGreaterThan(0.0006);
+      expect(o.rayHigh - o.rayLow).toBeLessThan(0.003);
+      expect(o.meanRayColor - o.meanClearColor).toBeGreaterThan(0.04);
+      expect(o.meanRayColor - o.meanClearColor).toBeLessThan(0.15);
+      expect(o.poreCount).toBeGreaterThan(0.01);
+      expect(o.poreCount).toBeLessThan(0.026);
+      expect(o.pores.length).toBeGreaterThan(500);
+      expect(o.pores.length).toBeLessThan(1100);
+      expect(o.lowPore).toBeGreaterThan(0.44);
+      expect(o.lowPore).toBeLessThan(0.47);
+      expect(o.highPore).toBeLessThan(0.49);
+      expect(o.meanPoreColor).toBeLessThan(0.35);
+      expect(o.meanClearColor - o.meanPoreColor).toBeGreaterThan(0.35);
+      expect(
+        o.pores.filter((r) => r.spanY > 2 * r.spanX && Math.abs(r.angle) > 1.3)
+          .length / o.pores.length,
+      ).toBeGreaterThan(0.85);
+      expect(o.strongestPoreBand).toBeLessThan(0.45);
+      expect(o.invalid).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed pore and fleck shoulders owner joins grain and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque warm pink-tan dielectric finish with only resolvable micro normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('europeanbeech', size, 7, { heightMap: true }),
+      );
+      expect(o.warm).toBeGreaterThan(0.94);
+      expect(o.rough).toBeGreaterThan(0.4);
+      expect(o.rough).toBeLessThan(0.5);
+      expect(o.maxTilt).toBeLessThan(0.001);
+      expect(o.invalid).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.0001);
+        expect(o.signed[0]).toBeGreaterThan(0.01);
+        expect(o.signed[1]).toBeGreaterThan(0.01);
+        expect(o.signed[2]).toBeGreaterThan(0.003);
+        expect(o.signed[3]).toBeGreaterThan(0.003);
+      }
     },
   );
 });

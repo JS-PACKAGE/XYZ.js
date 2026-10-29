@@ -790,6 +790,7 @@ export type ProceduralMaterialKind =
   | 'castorbeans'
   | 'zebrawood'
   | 'bocote'
+  | 'europeanbeech'
   | 'whiteoak'
   | 'whiteash'
   | 'kingwood'
@@ -1855,6 +1856,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'castorbeans',
   'zebrawood',
   'bocote',
+  'europeanbeech',
   'whiteoak',
   'whiteash',
   'kingwood',

@@ -3733,16 +3733,22 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'europeanbeech':
       case 'whiteoak':
       case 'whiteash': {
         const p = proceduralMaterialPresets[kind],
-          oak = kind === 'whiteoak',
-          rayPreset = proceduralMaterialPresets.whiteoak,
-          rays = oak
+          beech = kind === 'europeanbeech',
+          rayedWood = kind !== 'whiteash',
+          rayPreset =
+            kind === 'europeanbeech'
+              ? proceduralMaterialPresets.europeanbeech
+              : proceduralMaterialPresets.whiteoak,
+          rays = rayedWood
             ? new Float64Array(rayPreset.rayColumns * rayPreset.rayRows * 6)
             : undefined,
-          inverseRay = oak ? 1 / (1 - rayPreset.rayCoreQ) : 0,
-          woodTone = oak ? 0.65 : 0.87,
+          inverseRay = rayedWood ? 1 / (1 - rayPreset.rayCoreQ) : 0,
+          woodTone =
+            kind === 'europeanbeech' ? 0.78 : kind === 'whiteoak' ? 0.65 : 0.87,
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(4, 3, seed ^ 0x23b11),
           fiberField = cachedNoise(96, 4, seed ^ 0x23b13),
@@ -3763,8 +3769,18 @@ export function createSurfaceSampler(
               length =
                 p.lengthMinimum +
                 p.lengthVariation * hash(col, row, seed ^ 0x23b1b);
-            pores[i] = 0.3 + 0.4 * hash(col, row, seed ^ 0x23b1d);
-            pores[i + 1] = 0.34 + 0.32 * hash(col, row, seed ^ 0x23b1f);
+            const poreX = hash(col, row, seed ^ 0x23b1d),
+              poreY = hash(col, row, seed ^ 0x23b1f);
+            pores[i] = beech
+              ? 0.5 +
+                proceduralMaterialPresets.europeanbeech.poreJitterX *
+                  (2 * poreX - 1)
+              : 0.3 + 0.4 * poreX;
+            pores[i + 1] = beech
+              ? 0.5 +
+                proceduralMaterialPresets.europeanbeech.poreJitterY *
+                  (2 * poreY - 1)
+              : 0.34 + 0.32 * poreY;
             pores[i + 2] = 1 / (width * width);
             pores[i + 3] = 1 / (length * length);
           }
@@ -3830,7 +3846,7 @@ export function createSurfaceSampler(
             early = smooth(clamp(1 - distance * distance * 16)),
             fiber = fiberField(u, v),
             grain = grainField(u, v);
-          // Earlywood vessels are larger and clustered in each growth band.
+          // Early/late presets support clustered ring pores or uniform diffuse pores.
           // Band color stays coplanar: only the longitudinal openings recess.
           color =
             woodTone -
@@ -37270,6 +37286,7 @@ export function createSurfaceSampler(
     kind === 'pietersite' ||
     kind === 'bronzite' ||
     kind === 'castorbeans' ||
+    kind === 'europeanbeech' ||
     kind === 'whiteoak' ||
     kind === 'whiteash' ||
     kind === 'kingwood' ||
