@@ -549,6 +549,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rclips',
   'linchpins',
   'woodruffkeys',
+  'parallelkeys',
   'ivyleaf',
   'ribknit',
   'pillowtiles',
@@ -36479,356 +36480,27 @@ describe('Closed silver-colored washer rims with twelve inward metal teeth alter
   });
 });
 
-describe('Woodruff keys keep solid flat segment faces on a dielectric backing', () => {
-  type KeyFace = {
-    cx: number;
-    cy: number;
-    angle: number;
-    aspect: number;
-    fill: number;
-    widths: number[];
-    gap: number;
-    core: number;
-    flatness: number;
-    raised: number;
-    smoother: number;
-  };
-  const observeKeys = (seed: number, n = 512) => {
-    const sample = createSurfaceSampler('woodruffkeys', seed),
-      s = {
-        color: 0,
-        height: 0,
-        roughness: 0,
-        occlusion: 0,
-        metallic: 0,
-        mortar: 0,
-      },
-      metal = new Float64Array(n * n),
-      height = new Float64Array(n * n),
-      rough = new Float64Array(n * n),
-      labels = new Uint16Array(n * n),
-      queue = new Int32Array(n * n),
-      neighbors = [-1, 1, -n, n],
-      faces: KeyFace[] = [];
-    let host = 0,
-      hostH = 0,
-      hostR = 0;
-    for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) {
-        const i = y * n + x;
-        sample((x + 0.5) / n, (y + 0.5) / n, s);
-        metal[i] = s.metallic;
-        height[i] = s.height;
-        rough[i] = s.roughness;
-        if (s.metallic === 0) {
-          host++;
-          hostH += s.height;
-          hostR += s.roughness;
-        }
-      }
-    hostH /= host;
-    hostR /= host;
-    for (let first = 0; first < n * n; first++) {
-      if (labels[first] || metal[first]! < 0.8) continue;
-      const id = faces.length + 1;
-      let end = 1,
-        cursor = 0,
-        sx = 0,
-        sy = 0,
-        sxx = 0,
-        syy = 0,
-        sxy = 0;
-      queue[0] = first;
-      labels[first] = id;
-      while (cursor < end) {
-        const i = queue[cursor++]!,
-          x = ((i % n) + 0.5) / n,
-          y = (Math.floor(i / n) + 0.5) / n;
-        sx += x;
-        sy += y;
-        sxx += x * x;
-        syy += y * y;
-        sxy += x * y;
-        for (const offset of neighbors) {
-          const j = i + offset;
-          if (
-            j >= 0 &&
-            j < n * n &&
-            !labels[j] &&
-            metal[j]! >= 0.8 &&
-            Math.abs((j % n) - (i % n)) <= 1
-          ) {
-            labels[j] = id;
-            queue[end++] = j;
-          }
-        }
-      }
-      const cx = sx / end,
-        cy = sy / end,
-        angle =
-          0.5 *
-          Math.atan2(
-            2 * (sxy / end - cx * cy),
-            sxx / end - cx * cx - (syy / end - cy * cy),
-          ),
-        c = Math.cos(angle),
-        t = Math.sin(angle),
-        rowMin = new Int32Array(n).fill(n),
-        rowMax = new Int32Array(n).fill(-1),
-        rowCount = new Int32Array(n);
-      let lo = Infinity,
-        hi = -Infinity,
-        left = Infinity,
-        right = -Infinity,
-        coreMin = Infinity,
-        coreMax = -Infinity,
-        coreH = 0,
-        coreR = 0,
-        core = 0;
-      for (let z = 0; z < end; z++) {
-        const i = queue[z]!,
-          row = Math.floor(i / n),
-          col = i % n,
-          x = (col + 0.5) / n - cx,
-          y = (row + 0.5) / n - cy,
-          a = x * c + y * t,
-          b = -x * t + y * c;
-        lo = Math.min(lo, b);
-        hi = Math.max(hi, b);
-        left = Math.min(left, a);
-        right = Math.max(right, a);
-        rowMin[row] = Math.min(rowMin[row]!, col);
-        rowMax[row] = Math.max(rowMax[row]!, col);
-        rowCount[row] = rowCount[row]! + 1;
-        if (metal[i]! > 0.9999) {
-          let inside = true;
-          // An adjacent metal part must not satisfy this face's erosion.
-          for (let dy = -3; dy <= 3; dy++)
-            for (let dx = -3; dx <= 3; dx++) {
-              const j = i + dy * n + dx;
-              if (
-                j < 0 ||
-                j >= n * n ||
-                labels[j] !== id ||
-                Math.abs((j % n) - col) > 3
-              )
-                inside = false;
-            }
-          if (inside) {
-            core++;
-            coreH += height[i]!;
-            coreR += rough[i]!;
-            coreMin = Math.min(coreMin, height[i]!);
-            coreMax = Math.max(coreMax, height[i]!);
-          }
-        }
-      }
-      const mins = new Float64Array(10).fill(Infinity),
-        maxs = new Float64Array(10).fill(-Infinity);
-      for (let z = 0; z < end; z++) {
-        const i = queue[z]!,
-          x = ((i % n) + 0.5) / n - cx,
-          y = (Math.floor(i / n) + 0.5) / n - cy,
-          a = x * c + y * t,
-          b = -x * t + y * c,
-          k = Math.min(9, Math.floor(((b - lo) / (hi - lo)) * 10));
-        mins[k] = Math.min(mins[k]!, a);
-        maxs[k] = Math.max(maxs[k]!, a);
-      }
-      const widths = Array.from(
-        maxs,
-        (v, i) => (v - mins[i]!) / (right - left),
-      );
-      if (widths[0]! < widths[9]!) widths.reverse();
-      let gap = 0;
-      for (let row = 0; row < n; row++)
-        if (rowCount[row])
-          gap += rowMax[row]! - rowMin[row]! + 1 - rowCount[row]!;
-      const raised = coreH / core - hostH;
-      faces.push({
-        cx,
-        cy,
-        angle,
-        aspect: (right - left) / (hi - lo),
-        fill: end / (n * n) / ((right - left) * (hi - lo)),
-        widths,
-        gap: gap / end,
-        core: core / end,
-        flatness: (coreMax - coreMin) / Math.abs(raised),
-        raised,
-        smoother: hostR - coreR / core,
-      });
-    }
-    return { faces, host: host / (n * n), sample };
-  };
-  const observations = new Map<number, ReturnType<typeof observeKeys>>();
-  const observed = (seed: number) => {
-    let result = observations.get(seed);
-    if (!result) {
-      result = observeKeys(seed);
-      observations.set(seed, result);
-    }
-    return result;
-  };
-  it.each([0, 7, 0x7fffffff])(
-    'keeps solid chord-to-arc silhouettes and flat raised metal at seed %s',
-    (seed) => {
-      const { faces, host } = observed(seed);
-      expect(host).toBeGreaterThan(0.65);
-      expect(host).toBeLessThan(0.93);
-      expect(faces.length).toBeGreaterThan(5);
-      const bins = new Set<number>();
-      for (const face of faces) {
-        bins.add(Math.floor(((face.angle + Math.PI / 2) / Math.PI) * 8));
-        expect(face.aspect).toBeGreaterThan(2.2);
-        expect(face.aspect).toBeLessThan(3.2);
-        expect(face.fill).toBeGreaterThan(0.68);
-        expect(face.fill).toBeLessThan(0.84);
-        expect(face.gap).toBeLessThan(0.001);
-        expect(face.widths[0]!).toBeGreaterThan(0.94);
-        expect(face.widths[4]!).toBeGreaterThan(0.77);
-        expect(face.widths[5]!).toBeGreaterThan(0.7);
-        expect(face.widths[9]!).toBeGreaterThan(0.23);
-        expect(face.widths[9]!).toBeLessThan(0.48);
-        expect(face.core).toBeGreaterThan(0.4);
-        expect(face.flatness).toBeLessThan(0.015);
-        expect(face.raised).toBeGreaterThan(0.0005);
-        expect(face.raised).toBeLessThan(0.01);
-        expect(face.smoother).toBeGreaterThan(0.2);
-      }
-      expect(bins.size).toBeGreaterThan(3);
-    },
-  );
-  it.each([0, 7, 0x7fffffff])(
-    'keeps measured chord and curved exits C1 at seed %s',
-    (seed) => {
-      const { faces, sample } = observed(seed),
-        at = (x: number, y: number) => {
-          const s = {
-            color: 0,
-            height: 0,
-            roughness: 0,
-            occlusion: 0,
-            metallic: 0,
-            mortar: 0,
-          };
-          sample(x, y, s);
-          return s;
-        },
-        channels = [
-          'color',
-          'height',
-          'roughness',
-          'occlusion',
-          'metallic',
-        ] as const;
-      let checked = 0,
-        worst = 0;
-      for (const face of faces)
-        for (let ray = 0; ray < 12; ray++) {
-          const angle = (ray * Math.PI) / 6,
-            dx = Math.cos(angle),
-            dy = Math.sin(angle);
-          let inside = 0,
-            outside = 0;
-          for (let step = 1; step < 256; step++) {
-            const distance = step / 1024;
-            if (
-              at(face.cx + dx * distance, face.cy + dy * distance).metallic <=
-              1e-13
-            ) {
-              outside = distance;
-              break;
-            }
-            inside = distance;
-          }
-          expect(outside).toBeGreaterThan(inside);
-          for (let iteration = 0; iteration < 44; iteration++) {
-            const mid = (inside + outside) / 2;
-            if (at(face.cx + dx * mid, face.cy + dy * mid).metallic > 1e-13)
-              inside = mid;
-            else outside = mid;
-          }
-          const x = face.cx + dx * outside,
-            y = face.cy + dy * outside,
-            base = at(x, y),
-            h = 1e-9;
-          for (let axis = 0; axis < 2; axis++) {
-            const a = at(x - (axis === 0 ? h : 0), y - (axis === 1 ? h : 0)),
-              b = at(x + (axis === 0 ? h : 0), y + (axis === 1 ? h : 0));
-            for (const channel of channels)
-              worst = Math.max(
-                worst,
-                Math.abs(
-                  (b[channel] - base[channel]) / h -
-                    (base[channel] - a[channel]) / h,
-                ),
-              );
-          }
-          checked++;
-        }
-      expect(checked).toBeGreaterThan(60);
-      expect(worst).toBeLessThan(0.03);
-    },
-  );
-  it('packs opaque neutral metal, dielectric ground and finite signed bevel normals at actual512', () => {
-    const maps = generateProceduralMaps('woodruffkeys', 512, 7, {
-        heightMap: true,
-      }),
-      arrays = Object.values(maps);
-    let core = 0,
-      host = 0,
-      red = 0,
-      blue = 0,
-      rough = 0,
-      positiveX = 0,
-      negativeX = 0,
-      positiveY = 0,
-      negativeY = 0,
-      tilt = 0;
-    for (let i = 0; i < 512 * 512; i++) {
-      const at = i * 4,
-        m = maps.metallicRoughness[at + 2]!;
-      if (m === 255) {
-        core++;
-        red += maps.baseColor[at]!;
-        blue += maps.baseColor[at + 2]!;
-        rough += maps.metallicRoughness[at + 1]! / 255;
-      }
-      if (m === 0) {
-        host++;
-        expect(maps.baseColor[at]!).toBeLessThan(65);
-        expect(maps.metallicRoughness[at + 1]! / 255).toBeGreaterThan(0.6);
-      }
-      const x = maps.normal[at]! / 127.5 - 1,
-        y = maps.normal[at + 1]! / 127.5 - 1;
-      if (x > 0.05) positiveX++;
-      if (x < -0.05) negativeX++;
-      if (y > 0.05) positiveY++;
-      if (y < -0.05) negativeY++;
-      tilt = Math.max(tilt, x * x + y * y);
-      expect(maps.normal[at + 2]!).toBeGreaterThan(190);
-      for (const bytes of arrays) expect(bytes[at + 3]).toBe(255);
-    }
-    expect(core / (512 * 512)).toBeGreaterThan(0.08);
-    expect(core / (512 * 512)).toBeLessThan(0.22);
-    expect(host / (512 * 512)).toBeGreaterThan(0.65);
-    expect(red / core).toBeGreaterThan(160);
-    expect(red / core).toBeLessThan(235);
-    expect((blue - red) / core).toBeGreaterThan(-4);
-    expect((blue - red) / core).toBeLessThan(24);
-    expect(rough / core).toBeGreaterThan(0.25);
-    expect(rough / core).toBeLessThan(0.48);
-    for (const count of [positiveX, negativeX, positiveY, negativeY])
-      expect(count / (512 * 512)).toBeGreaterThan(0.005);
-    expect(tilt).toBeGreaterThan(0.02);
-    expect(tilt).toBeLessThan(0.6);
-  });
-  it.each([0, 7, 0x7fffffff])(
-    'keeps signed UV periods across actual owner and grain changes at seed %s',
-    (seed) => {
-      const sample = createSurfaceSampler('woodruffkeys', seed),
-        a = {
+describe.each(['woodruffkeys', 'parallelkeys'] as const)(
+  '%s solid flat key faces on a dielectric backing',
+  (kind) => {
+    type KeyFace = {
+      cx: number;
+      cy: number;
+      angle: number;
+      aspect: number;
+      fill: number;
+      widths: number[];
+      axialWidths: number[];
+      pixelWidth: number;
+      gap: number;
+      core: number;
+      flatness: number;
+      raised: number;
+      smoother: number;
+    };
+    const observeKeys = (seed: number, n = 512) => {
+      const sample = createSurfaceSampler(kind, seed),
+        s = {
           color: 0,
           height: 0,
           roughness: 0,
@@ -36836,26 +36508,400 @@ describe('Woodruff keys keep solid flat segment faces on a dielectric backing', 
           metallic: 0,
           mortar: 0,
         },
-        b = { ...a },
-        channels = [
-          'color',
-          'height',
-          'roughness',
-          'occlusion',
-          'metallic',
-          'mortar',
-        ] as const;
-      for (let i = 0; i < 4096; i++) {
-        const x = ((i * 37.17) % 2048) / 1024 - 0.5,
-          y = ((i * 19.37) % 2048) / 1024 - 0.5;
-        sample(x, y, a);
-        sample(x + (i & 1 ? 2 : -1), y + (i & 2 ? 1 : -2), b);
-        for (const channel of channels)
-          expect(Math.abs(a[channel] - b[channel])).toBeLessThan(5e-10);
+        metal = new Float64Array(n * n),
+        height = new Float64Array(n * n),
+        rough = new Float64Array(n * n),
+        labels = new Uint16Array(n * n),
+        queue = new Int32Array(n * n),
+        neighbors = [-1, 1, -n, n],
+        faces: KeyFace[] = [];
+      let host = 0,
+        hostH = 0,
+        hostR = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x;
+          sample((x + 0.5) / n, (y + 0.5) / n, s);
+          metal[i] = s.metallic;
+          height[i] = s.height;
+          rough[i] = s.roughness;
+          if (s.metallic === 0) {
+            host++;
+            hostH += s.height;
+            hostR += s.roughness;
+          }
+        }
+      hostH /= host;
+      hostR /= host;
+      for (let first = 0; first < n * n; first++) {
+        if (labels[first] || metal[first]! < 0.8) continue;
+        const id = faces.length + 1;
+        let end = 1,
+          cursor = 0,
+          sx = 0,
+          sy = 0,
+          sxx = 0,
+          syy = 0,
+          sxy = 0;
+        queue[0] = first;
+        labels[first] = id;
+        while (cursor < end) {
+          const i = queue[cursor++]!,
+            x = ((i % n) + 0.5) / n,
+            y = (Math.floor(i / n) + 0.5) / n;
+          sx += x;
+          sy += y;
+          sxx += x * x;
+          syy += y * y;
+          sxy += x * y;
+          for (const offset of neighbors) {
+            const j = i + offset;
+            if (
+              j >= 0 &&
+              j < n * n &&
+              !labels[j] &&
+              metal[j]! >= 0.8 &&
+              Math.abs((j % n) - (i % n)) <= 1
+            ) {
+              labels[j] = id;
+              queue[end++] = j;
+            }
+          }
+        }
+        const cx = sx / end,
+          cy = sy / end,
+          angle =
+            0.5 *
+            Math.atan2(
+              2 * (sxy / end - cx * cy),
+              sxx / end - cx * cx - (syy / end - cy * cy),
+            ),
+          c = Math.cos(angle),
+          t = Math.sin(angle),
+          rowMin = new Int32Array(n).fill(n),
+          rowMax = new Int32Array(n).fill(-1),
+          rowCount = new Int32Array(n);
+        let lo = Infinity,
+          hi = -Infinity,
+          left = Infinity,
+          right = -Infinity,
+          coreMin = Infinity,
+          coreMax = -Infinity,
+          coreH = 0,
+          coreR = 0,
+          core = 0;
+        for (let z = 0; z < end; z++) {
+          const i = queue[z]!,
+            row = Math.floor(i / n),
+            col = i % n,
+            x = (col + 0.5) / n - cx,
+            y = (row + 0.5) / n - cy,
+            a = x * c + y * t,
+            b = -x * t + y * c;
+          lo = Math.min(lo, b);
+          hi = Math.max(hi, b);
+          left = Math.min(left, a);
+          right = Math.max(right, a);
+          rowMin[row] = Math.min(rowMin[row]!, col);
+          rowMax[row] = Math.max(rowMax[row]!, col);
+          rowCount[row] = rowCount[row]! + 1;
+          if (metal[i]! > 0.9999) {
+            let inside = true;
+            // An adjacent metal part must not satisfy this face's erosion.
+            for (let dy = -3; dy <= 3; dy++)
+              for (let dx = -3; dx <= 3; dx++) {
+                const j = i + dy * n + dx;
+                if (
+                  j < 0 ||
+                  j >= n * n ||
+                  labels[j] !== id ||
+                  Math.abs((j % n) - col) > 3
+                )
+                  inside = false;
+              }
+            if (inside) {
+              core++;
+              coreH += height[i]!;
+              coreR += rough[i]!;
+              coreMin = Math.min(coreMin, height[i]!);
+              coreMax = Math.max(coreMax, height[i]!);
+            }
+          }
+        }
+        const mins = new Float64Array(10).fill(Infinity),
+          maxs = new Float64Array(10).fill(-Infinity),
+          axialMins = new Float64Array(20).fill(Infinity),
+          axialMaxs = new Float64Array(20).fill(-Infinity);
+        for (let z = 0; z < end; z++) {
+          const i = queue[z]!,
+            x = ((i % n) + 0.5) / n - cx,
+            y = (Math.floor(i / n) + 0.5) / n - cy,
+            a = x * c + y * t,
+            b = -x * t + y * c,
+            k = Math.min(9, Math.floor(((b - lo) / (hi - lo)) * 10));
+          mins[k] = Math.min(mins[k]!, a);
+          maxs[k] = Math.max(maxs[k]!, a);
+          const axial = Math.min(
+            19,
+            Math.floor(((a - left) / (right - left)) * 20),
+          );
+          axialMins[axial] = Math.min(axialMins[axial]!, b);
+          axialMaxs[axial] = Math.max(axialMaxs[axial]!, b);
+        }
+        const widths = Array.from(
+          maxs,
+          (v, i) => (v - mins[i]!) / (right - left),
+        );
+        if (widths[0]! < widths[9]!) widths.reverse();
+        const axialWidths = Array.from(
+          axialMaxs,
+          (v, i) => (v - axialMins[i]!) / (hi - lo),
+        );
+        let gap = 0;
+        for (let row = 0; row < n; row++)
+          if (rowCount[row])
+            gap += rowMax[row]! - rowMin[row]! + 1 - rowCount[row]!;
+        const raised = coreH / core - hostH;
+        faces.push({
+          cx,
+          cy,
+          angle,
+          aspect: (right - left) / (hi - lo),
+          fill: end / (n * n) / ((right - left) * (hi - lo)),
+          widths,
+          axialWidths,
+          pixelWidth: n * (hi - lo),
+          gap: gap / end,
+          core: core / end,
+          flatness: (coreMax - coreMin) / Math.abs(raised),
+          raised,
+          smoother: hostR - coreR / core,
+        });
       }
-    },
-  );
-});
+      return { faces, host: host / (n * n), sample };
+    };
+    const observations = new Map<number, ReturnType<typeof observeKeys>>();
+    const observed = (seed: number) => {
+      let result = observations.get(seed);
+      if (!result) {
+        result = observeKeys(seed);
+        observations.set(seed, result);
+      }
+      return result;
+    };
+    it.each([0, 7, 0x7fffffff])(
+      'keeps the selected solid key silhouette and flat raised metal at seed %s',
+      (seed) => {
+        const { faces, host } = observed(seed);
+        expect(host).toBeGreaterThan(0.65);
+        expect(host).toBeLessThan(0.93);
+        expect(faces.length).toBeGreaterThan(5);
+        const bins = new Set<number>();
+        for (const face of faces) {
+          bins.add(Math.floor(((face.angle + Math.PI / 2) / Math.PI) * 8));
+          expect(face.gap).toBeLessThan(0.001);
+          if (kind === 'woodruffkeys') {
+            expect(face.aspect).toBeGreaterThan(2.2);
+            expect(face.aspect).toBeLessThan(3.2);
+            expect(face.fill).toBeGreaterThan(0.68);
+            expect(face.fill).toBeLessThan(0.84);
+            expect(face.widths[0]!).toBeGreaterThan(0.94);
+            expect(face.widths[4]!).toBeGreaterThan(0.77);
+            expect(face.widths[5]!).toBeGreaterThan(0.7);
+            expect(face.widths[9]!).toBeGreaterThan(0.23);
+            expect(face.widths[9]!).toBeLessThan(0.48);
+          } else {
+            expect(face.aspect).toBeGreaterThan(3.3);
+            expect(face.aspect).toBeLessThan(4.5);
+            expect(face.fill).toBeGreaterThan(0.9);
+            // Both ends taper, while the central parallel sides retain full width.
+            for (const tip of [face.axialWidths[0]!, face.axialWidths[19]!]) {
+              expect(tip).toBeGreaterThan(0.55);
+              expect(tip).toBeLessThan(0.9);
+            }
+            // Allow two transverse raster pixels for rotated PCA bins.
+            for (let bin = 4; bin < 16; bin++)
+              expect(face.axialWidths[bin]!).toBeGreaterThan(
+                0.98 - 2 / face.pixelWidth,
+              );
+          }
+          expect(face.core).toBeGreaterThan(0.4);
+          expect(face.flatness).toBeLessThan(0.015);
+          expect(face.raised).toBeGreaterThan(0.0005);
+          expect(face.raised).toBeLessThan(0.01);
+          expect(face.smoother).toBeGreaterThan(0.2);
+        }
+        expect(bins.size).toBeGreaterThan(3);
+      },
+    );
+    it.each([0, 7, 0x7fffffff])(
+      'keeps measured outline and flat-core bevel transitions C1 at seed %s',
+      (seed) => {
+        const { faces, sample } = observed(seed),
+          at = (x: number, y: number) => {
+            const s = {
+              color: 0,
+              height: 0,
+              roughness: 0,
+              occlusion: 0,
+              metallic: 0,
+              mortar: 0,
+            };
+            sample(x, y, s);
+            return s;
+          },
+          channels = [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'metallic',
+            'mortar',
+          ] as const;
+        let checked = 0,
+          worst = 0;
+        for (const face of faces)
+          for (let ray = 0; ray < 12; ray++)
+            for (const level of [1e-13, 1 - 1e-13]) {
+              const angle = (ray * Math.PI) / 6,
+                dx = Math.cos(angle),
+                dy = Math.sin(angle);
+              let inside = 0,
+                outside = 0;
+              for (let step = 1; step < 256; step++) {
+                const distance = step / 1024;
+                if (
+                  at(face.cx + dx * distance, face.cy + dy * distance)
+                    .metallic <= level
+                ) {
+                  outside = distance;
+                  break;
+                }
+                inside = distance;
+              }
+              expect(outside).toBeGreaterThan(inside);
+              for (let iteration = 0; iteration < 44; iteration++) {
+                const mid = (inside + outside) / 2;
+                if (at(face.cx + dx * mid, face.cy + dy * mid).metallic > level)
+                  inside = mid;
+                else outside = mid;
+              }
+              const x = face.cx + dx * outside,
+                y = face.cy + dy * outside,
+                base = at(x, y),
+                h = 1e-9;
+              for (let axis = 0; axis < 2; axis++) {
+                const a = at(
+                    x - (axis === 0 ? h : 0),
+                    y - (axis === 1 ? h : 0),
+                  ),
+                  b = at(x + (axis === 0 ? h : 0), y + (axis === 1 ? h : 0));
+                for (const channel of channels)
+                  worst = Math.max(
+                    worst,
+                    Math.abs(
+                      (b[channel] - base[channel]) / h -
+                        (base[channel] - a[channel]) / h,
+                    ) /
+                      (channel === 'height'
+                        ? proceduralMaterialPresets[kind].relief
+                        : 1),
+                  );
+              }
+              checked++;
+            }
+        expect(checked).toBeGreaterThan(60);
+        expect(worst).toBeLessThan(0.03);
+      },
+    );
+    it('packs opaque neutral metal, dielectric ground and finite signed bevel normals at actual512', () => {
+      const maps = generateProceduralMaps(kind, 512, 7, {
+          heightMap: true,
+        }),
+        arrays = Object.values(maps);
+      let core = 0,
+        host = 0,
+        red = 0,
+        blue = 0,
+        rough = 0,
+        positiveX = 0,
+        negativeX = 0,
+        positiveY = 0,
+        negativeY = 0,
+        tilt = 0;
+      for (let i = 0; i < 512 * 512; i++) {
+        const at = i * 4,
+          m = maps.metallicRoughness[at + 2]!;
+        if (m === 255) {
+          core++;
+          red += maps.baseColor[at]!;
+          blue += maps.baseColor[at + 2]!;
+          rough += maps.metallicRoughness[at + 1]! / 255;
+          expect(maps.occlusion[at]! / 255).toBeGreaterThan(0.9);
+        }
+        if (m === 0) {
+          host++;
+          expect(maps.baseColor[at]!).toBeLessThan(65);
+          expect(maps.metallicRoughness[at + 1]! / 255).toBeGreaterThan(0.6);
+          expect(maps.occlusion[at]! / 255).toBeLessThan(0.6);
+        }
+        const x = maps.normal[at]! / 127.5 - 1,
+          y = maps.normal[at + 1]! / 127.5 - 1;
+        if (x > 0.05) positiveX++;
+        if (x < -0.05) negativeX++;
+        if (y > 0.05) positiveY++;
+        if (y < -0.05) negativeY++;
+        tilt = Math.max(tilt, x * x + y * y);
+        expect(maps.normal[at + 2]!).toBeGreaterThan(190);
+        for (const bytes of arrays) expect(bytes[at + 3]).toBe(255);
+      }
+      expect(core / (512 * 512)).toBeGreaterThan(0.08);
+      expect(core / (512 * 512)).toBeLessThan(0.22);
+      expect(host / (512 * 512)).toBeGreaterThan(0.65);
+      expect(red / core).toBeGreaterThan(160);
+      expect(red / core).toBeLessThan(235);
+      expect((blue - red) / core).toBeGreaterThan(-4);
+      expect((blue - red) / core).toBeLessThan(24);
+      expect(rough / core).toBeGreaterThan(0.25);
+      expect(rough / core).toBeLessThan(0.48);
+      for (const count of [positiveX, negativeX, positiveY, negativeY])
+        expect(count / (512 * 512)).toBeGreaterThan(0.005);
+      expect(tilt).toBeGreaterThan(0.02);
+      expect(tilt).toBeLessThan(0.6);
+    });
+    it.each([0, 7, 0x7fffffff])(
+      'keeps signed UV periods across actual owner and grain changes at seed %s',
+      (seed) => {
+        const sample = createSurfaceSampler(kind, seed),
+          a = {
+            color: 0,
+            height: 0,
+            roughness: 0,
+            occlusion: 0,
+            metallic: 0,
+            mortar: 0,
+          },
+          b = { ...a },
+          channels = [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+            'metallic',
+            'mortar',
+          ] as const;
+        for (let i = 0; i < 4096; i++) {
+          const x = ((i * 37.17) % 2048) / 1024 - 0.5,
+            y = ((i * 19.37) % 2048) / 1024 - 0.5;
+          sample(x, y, a);
+          sample(x + (i & 1 ? 2 : -1), y + (i & 2 ? 1 : -2), b);
+          for (const channel of channels)
+            expect(Math.abs(a[channel] - b[channel])).toBeLessThan(5e-10);
+        }
+      },
+    );
+  },
+);
 
 describe('Distinct opaque tabular Barite and narrow three-striated Kyanite blades on mineral backing', () => {
   const keys = [
@@ -74692,6 +74738,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rclips' &&
           kind !== 'linchpins' &&
           kind !== 'woodruffkeys' &&
+          kind !== 'parallelkeys' &&
           kind !== 'chainmail' &&
           kind !== 'draincover'
         )
@@ -84157,6 +84204,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rclips',
     'linchpins',
     'woodruffkeys',
+    'parallelkeys',
     'hinges',
     'coins',
     'ballchain',
@@ -84262,6 +84310,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'rclips' ||
           kind === 'linchpins' ||
           kind === 'woodruffkeys' ||
+          kind === 'parallelkeys' ||
           kind === 'hinges' ||
           kind === 'coins' ||
           kind === 'ballchain' ||

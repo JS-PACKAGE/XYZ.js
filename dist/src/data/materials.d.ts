@@ -4196,6 +4196,19 @@ export declare const proceduralMaterialPresets: Readonly<{
         pinHalfLength: 0.38;
         endShoulder: 0.025;
     }>;
+    parallelkeys: Readonly<{
+        dark: readonly [35, 40, 43];
+        light: readonly [225, 231, 236];
+        roughness: 0.32;
+        relief: 0.003;
+        cells: 4;
+        halfSegment: 0.27;
+        radius: 0.095;
+        bevel: 0.016;
+        jitter: 0.04;
+        scale: 0.96;
+        scaleVariation: 0.025;
+    }>;
     woodruffkeys: Readonly<{
         dark: readonly [35, 40, 43];
         light: readonly [225, 231, 236];
@@ -10349,6 +10362,7 @@ export declare const proceduralTileMeters: Readonly<{
     cashews: 0.16;
     hinges: 0.4;
     woodruffkeys: 0.08;
+    parallelkeys: 0.12;
     coins: 0.12;
     righttriangletiles: 1;
     cherryblossom: 0.24;
