@@ -9372,6 +9372,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         coneRise: 0.38;
         grainHeight: 0.0025;
     }>;
+    makore: Readonly<{
+        dark: readonly [76, 31, 18];
+        light: readonly [205, 139, 93];
+        roughness: 0.46;
+        relief: 0.006;
+        columns: 28;
+        rows: 18;
+        poreChance: 0.1;
+        widthMinimum: 0.028;
+        widthVariation: 0.012;
+        lengthMinimum: 0.09;
+        lengthVariation: 0.07;
+        poreShoulder: 0.4;
+        poreDepth: 0.075;
+        curlBands: 22;
+        curlSkew: 1;
+        curlWarp: 1.5;
+        faceColor: 0.65;
+        curlContrast: 0.22;
+        fiberContrast: 0.06;
+        grainHeight: 0.0018;
+        curlThreshold: 0.32;
+        curlShoulder: 0.36;
+    }>;
     anigre: Readonly<{
         dark: readonly [123, 76, 46];
         light: readonly [238, 211, 165];
@@ -10293,6 +10317,7 @@ export declare const proceduralTileMeters: Readonly<{
     blackeyedpeas: 0.06;
     adzukibeans: 0.05;
     anigre: 0.16;
+    makore: 0.18;
     larvikite: 0.12;
     squareholewashers: 0.1;
     tigerwood: 0.18;

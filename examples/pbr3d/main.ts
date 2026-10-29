@@ -840,6 +840,7 @@ try {
     'blackeyedpeas',
     'adzukibeans',
     'anigre',
+    'makore',
     'larvikite',
     'squareholewashers',
     'tigerwood',

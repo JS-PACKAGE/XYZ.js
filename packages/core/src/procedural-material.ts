@@ -777,6 +777,7 @@ export type ProceduralMaterialKind =
   | 'blackeyedpeas'
   | 'adzukibeans'
   | 'anigre'
+  | 'makore'
   | 'larvikite'
   | 'squareholewashers'
   | 'tigerwood'
@@ -1810,6 +1811,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'blackeyedpeas',
   'adzukibeans',
   'anigre',
+  'makore',
   'larvikite',
   'squareholewashers',
   'tigerwood',

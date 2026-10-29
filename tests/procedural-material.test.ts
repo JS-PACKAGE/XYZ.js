@@ -803,6 +803,7 @@ const kinds: ProceduralMaterialKind[] = [
   'blackeyedpeas',
   'adzukibeans',
   'anigre',
+  'makore',
   'larvikite',
   'squareholewashers',
   'tigerwood',
@@ -2163,6 +2164,317 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Reddish-brown curly Makore with interrupted flat figure and sparse recessed longitudinal vessels', () => {
+  const p = proceduralMaterialPresets.makore;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const figureMetrics = (sample: ReturnType<typeof createSurfaceSampler>) => {
+    const a = empty(),
+      contrasts = [],
+      powers = [];
+    for (const u of [0.137, 0.369, 0.613, 0.891]) {
+      const values = new Float64Array(1024);
+      let mean = 0;
+      for (let y = 0; y < 1024; y++) {
+        sample(u, (y + 0.5) / 1024, a);
+        values[y] = a.color;
+        mean += a.color / 1024;
+      }
+      let mid = 0,
+        total = 0;
+      for (let frequency = 1; frequency <= 64; frequency++) {
+        let re = 0,
+          im = 0;
+        for (let y = 0; y < 1024; y++) {
+          const angle = (2 * Math.PI * frequency * (y + 0.5)) / 1024;
+          re += (values[y] - mean) * Math.cos(angle);
+          im += (values[y] - mean) * Math.sin(angle);
+        }
+        const power = re * re + im * im;
+        total += power;
+        if (frequency >= 14 && frequency <= 32) mid += power;
+      }
+      powers.push(mid / total);
+      for (let segment = 0; segment < 16; segment++) {
+        let low = 1,
+          high = 0;
+        for (let j = 0; j < 128; j++) {
+          sample(u, (segment + (j + 0.5) / 128) / 16, a);
+          if (a.occlusion > 0.99999) {
+            low = Math.min(low, a.color);
+            high = Math.max(high, a.color);
+          }
+        }
+        contrasts.push(high - low);
+      }
+    }
+    return {
+      contrasts,
+      powers,
+      quiet: contrasts.filter((v) => v < 0.04).length / contrasts.length,
+      strong: contrasts.filter((v) => v > 0.12).length / contrasts.length,
+      minimum: Math.min(...contrasts),
+      maximum: Math.max(...contrasts),
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'keeps a dominant warm face and sparse darker deeper rougher open vessels for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('makore', seed),
+        a = empty();
+      let pores = 0,
+        face = 0,
+        poreHeight = 0,
+        faceHeight = 0,
+        poreRough = 0,
+        faceRough = 0,
+        poreColor = 0,
+        faceColor = 0,
+        invalid = 0;
+      for (let i = 0; i < 65536; i++) {
+        sample((i * 0.61803398875) % 1, (i * 0.41421356237) % 1, a);
+        if (a.occlusion < 0.98) {
+          pores++;
+          poreHeight += a.height;
+          poreRough += a.roughness;
+          poreColor += a.color;
+        }
+        if (a.occlusion > 0.99999) {
+          face++;
+          faceHeight += a.height;
+          faceRough += a.roughness;
+          faceColor += a.color;
+        }
+        invalid += Number(
+          a.metallic !== 0 ||
+            a.mortar !== 0 ||
+            a.roughness < 0.43 ||
+            a.roughness > 0.58 ||
+            a.occlusion < 0.81 ||
+            a.occlusion > 1 ||
+            a.height < 0.4 * p.relief ||
+            a.height > 0.504 * p.relief,
+        );
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+          );
+      }
+      expect(pores / 65536).toBeGreaterThan(0.0004);
+      expect(pores / 65536).toBeLessThan(0.004);
+      expect(face / 65536).toBeGreaterThan(0.99);
+      expect(face / 65536).toBeLessThan(0.9999);
+      expect(faceHeight / face - poreHeight / pores).toBeGreaterThan(
+        0.045 * p.relief,
+      );
+      expect(faceHeight / face - poreHeight / pores).toBeLessThan(
+        0.085 * p.relief,
+      );
+      expect(faceColor / face - poreColor / pores).toBeGreaterThan(0.3);
+      expect(poreRough / pores - faceRough / face).toBeGreaterThan(0.035);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps transverse curl power in interrupted strong and quiet patches rather than straight grain, uninterrupted washboard stripes or random mottling', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const metrics = figureMetrics(createSurfaceSampler('makore', seed));
+      expect(metrics.quiet).toBeGreaterThan(0.08);
+      expect(metrics.quiet).toBeLessThan(0.6);
+      expect(metrics.strong).toBeGreaterThan(0.3);
+      expect(metrics.strong).toBeLessThan(0.85);
+      expect(metrics.maximum).toBeGreaterThan(0.18);
+      expect(metrics.minimum).toBeLessThan(0.03);
+      expect(
+        metrics.powers.reduce((sum, value) => sum + value, 0) /
+          metrics.powers.length,
+      ).toBeGreaterThan(0.38);
+      for (const power of metrics.powers) expect(power).toBeGreaterThan(0.2);
+    }
+  });
+  it('keeps both dark figured patches and light body regions coplanar rather than embossing or carving the curl', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('makore', seed),
+        a = empty();
+      let dark = 0,
+        light = 0,
+        darkHeight = 0,
+        lightHeight = 0,
+        low = 1,
+        high = 0;
+      for (let i = 0; i < 65536; i++) {
+        sample((i * 0.61803398875) % 1, (i * 0.41421356237) % 1, a);
+        if (a.occlusion > 0.99999) {
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          if (a.color < 0.48) {
+            dark++;
+            darkHeight += a.height;
+          }
+          if (a.color > 0.63) {
+            light++;
+            lightHeight += a.height;
+          }
+        }
+      }
+      expect(dark / 65536).toBeGreaterThan(0.035);
+      expect(light / 65536).toBeGreaterThan(0.3);
+      expect(high - low).toBeLessThan(0.003 * p.relief);
+      expect(Math.abs(darkHeight / dark - lightHeight / light)).toBeLessThan(
+        0.00025 * p.relief,
+      );
+    }
+  });
+  it('keeps vessel owners, figure and fiber caches and signed seams C1 in all six channels', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('makore', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.columns, p.rows, 3, 4, 5, 9, 96, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [-1, 0, 0.173, 0.5, 0.719, 1]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (let i = 0; i < 16384; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 warm reddish-brown opaque dielectric wood with isolated narrow longitudinal vessel components and shallow real normals', () => {
+    const maps = generateProceduralMaps('makore', 512, 7, { heightMap: true }),
+      streams = [
+        maps.baseColor,
+        maps.normal,
+        maps.metallicRoughness,
+        maps.occlusion,
+        maps.height!,
+      ],
+      mask = new Uint8Array(262144);
+    let warm = 0,
+      maxTilt = 0,
+      rough = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      warm += Number(
+        r > 115 &&
+          r < 180 &&
+          g > 55 &&
+          g < 125 &&
+          b > 30 &&
+          b < 90 &&
+          r - g > 35 &&
+          g - b > 20,
+      );
+      mask[i / 4] = Number(maps.occlusion[i] < 250);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      rough += maps.metallicRoughness[i + 1] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.normal[i + 2] < 250 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2],
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(warm / 262144).toBeGreaterThan(0.98);
+    expect(maxTilt).toBeGreaterThan(0.005);
+    expect(maxTilt).toBeLessThan(0.06);
+    expect(rough / 262144).toBeGreaterThan(0.44);
+    expect(rough / 262144).toBeLessThan(0.52);
+    let components = 0;
+    for (let i = 0; i < mask.length; i++) {
+      if (!mask[i]) continue;
+      components++;
+      const queue = [i];
+      mask[i] = 0;
+      let minX = 512,
+        maxX = 0,
+        minY = 512,
+        maxY = 0;
+      for (let q = 0; q < queue.length; q++) {
+        const current = queue[q],
+          x = current % 512,
+          y = Math.floor(current / 512);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        for (const next of [
+          x ? current - 1 : -1,
+          x < 511 ? current + 1 : -1,
+          y ? current - 512 : -1,
+          y < 511 ? current + 512 : -1,
+        ])
+          if (next >= 0 && mask[next]) {
+            mask[next] = 0;
+            queue.push(next);
+          }
+      }
+      expect(maxY - minY + 1).toBeGreaterThan(1.5 * (maxX - minX + 1));
+      expect(maxY - minY + 1).toBeLessThan(15);
+      expect(maxX - minX + 1).toBeLessThan(4);
+    }
+    expect(components).toBeGreaterThan(20);
+    expect(components).toBeLessThan(80);
+    expect(invalid).toBe(0);
+  });
+  it('repeats every figured patch, fiber and recessed vessel over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('makore', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

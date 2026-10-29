@@ -4308,13 +4308,18 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'makore':
       case 'anigre': {
-        const p = proceduralMaterialPresets.anigre,
+        const p = proceduralMaterialPresets[kind],
           pores = new Float64Array(p.columns * p.rows * 4),
           warpField = cachedNoise(3, 5, seed ^ 0x1d011),
           fiberField = cachedNoise(96, 4, seed ^ 0x1d013),
           grainField = cachedNoise(128, 128, seed ^ 0x1d015),
           cloudField = cachedNoise(5, 5, seed ^ 0x1d017),
+          figureField =
+            kind === 'makore' ? cachedNoise(5, 9, seed ^ 0x1b811) : undefined,
+          figureMinimum = proceduralMaterialPresets.makore.curlThreshold,
+          inverseFigure = 1 / proceduralMaterialPresets.makore.curlShoulder,
           inversePore = 1 / p.poreShoulder;
         for (let row = 0; row < p.rows; row++)
           for (let col = 0; col < p.columns; col++) {
@@ -4349,12 +4354,18 @@ export function createSurfaceSampler(
               u * p.curlSkew +
               p.curlWarp * (warpField(u, v) - 0.5),
             curl = smooth(1 - Math.abs(2 * fract(phase) - 1)),
-            grain = grainField(u, v);
+            grain = grainField(u, v),
+            curlContrast = figureField
+              ? p.curlContrast *
+                smooth(
+                  clamp((figureField(u, v) - figureMinimum) * inverseFigure),
+                )
+              : p.curlContrast;
           // Transverse curl is figured pigment on one flat face, not rippled
           // geometry or a directional optical shader; only open vessels recess.
           color =
             p.faceColor -
-            p.curlContrast * curl +
+            curlContrast * curl +
             p.fiberContrast * (fiberField(u, v) - 0.5) +
             0.04 * (cloudField(u, v) - 0.5) +
             0.02 * grain;
@@ -36430,6 +36441,7 @@ export function createSurfaceSampler(
     kind === 'blackeyedpeas' ||
     kind === 'adzukibeans' ||
     kind === 'anigre' ||
+    kind === 'makore' ||
     kind === 'larvikite' ||
     kind === 'squareholewashers' ||
     kind === 'tigerwood' ||

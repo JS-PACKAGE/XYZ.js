@@ -16238,6 +16238,38 @@ var proceduralMaterialPresets = Object.freeze({
 		coneRise: .38,
 		grainHeight: .0025
 	}),
+	makore: Object.freeze({
+		dark: [
+			76,
+			31,
+			18
+		],
+		light: [
+			205,
+			139,
+			93
+		],
+		roughness: .46,
+		relief: .006,
+		columns: 28,
+		rows: 18,
+		poreChance: .1,
+		widthMinimum: .028,
+		widthVariation: .012,
+		lengthMinimum: .09,
+		lengthVariation: .07,
+		poreShoulder: .4,
+		poreDepth: .075,
+		curlBands: 22,
+		curlSkew: 1,
+		curlWarp: 1.5,
+		faceColor: .65,
+		curlContrast: .22,
+		fiberContrast: .06,
+		grainHeight: .0018,
+		curlThreshold: .32,
+		curlShoulder: .36
+	}),
 	anigre: Object.freeze({
 		dark: [
 			123,
@@ -17214,6 +17246,7 @@ var proceduralTileMeters = Object.freeze({
 	blackeyedpeas: .06,
 	adzukibeans: .05,
 	anigre: .16,
+	makore: .18,
 	larvikite: .12,
 	squareholewashers: .1,
 	tigerwood: .18,
