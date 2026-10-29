@@ -7783,6 +7783,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         grooveY: -0.075;
         grooveWidth: 0.008;
     }>;
+    grosgrain: Readonly<{
+        dark: readonly [41, 46, 51];
+        light: readonly [178, 187, 194];
+        roughness: 0.57;
+        relief: 0.00045;
+        warpThreads: 120;
+        weftThreads: 28;
+        warpRadius: 0.21;
+        warpCore: 0.15;
+        weftRadius: 0.46;
+        weftCore: 0.36;
+        warpLiftHalf: 0.3;
+        weftLiftHalf: 0.46;
+        liftShoulder: 0.06;
+        lift: 0.12;
+        warpFibers: 480;
+        weftFibers: 112;
+        weftCrown: 0.18;
+    }>;
     faille: Readonly<{
         dark: readonly [167, 163, 145];
         light: readonly [246, 244, 226];
@@ -10727,6 +10746,7 @@ export declare const proceduralTileMeters: Readonly<{
     cloisonne: 0.18;
     rambutanskin: 0.12;
     rackgears: 0.6;
+    grosgrain: 0.025;
     faille: 0.03;
     poplin: 0.016;
     ooliticlimestone: 0.024;

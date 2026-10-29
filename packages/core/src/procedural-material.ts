@@ -713,6 +713,7 @@ export type ProceduralMaterialKind =
   | 'cloisonne'
   | 'rambutanskin'
   | 'rackgears'
+  | 'grosgrain'
   | 'faille'
   | 'poplin'
   | 'ooliticlimestone'
@@ -1768,6 +1769,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cloisonne',
   'rambutanskin',
   'rackgears',
+  'grosgrain',
   'faille',
   'poplin',
   'ooliticlimestone',

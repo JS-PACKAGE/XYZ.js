@@ -5680,6 +5680,7 @@ export function createSurfaceSampler(
       case 'lyocell':
       case 'batiste':
       case 'ramie':
+      case 'grosgrain':
       case 'faille':
       case 'poplin': {
         const drill = kind === 'cottondrill',
@@ -5760,13 +5761,16 @@ export function createSurfaceSampler(
             twill || profiledWeave || chambray || flannel || balancedPlain,
           warpBase = equalYarns ? 0.34 : 0.3,
           weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
-          weftCrown = faille
-            ? proceduralMaterialPresets.faille.weftCrown
-            : ottoman
-              ? 0.1
-              : equalYarns
-                ? 0.04
-                : 0.07,
+          weftCrown =
+            kind === 'grosgrain'
+              ? proceduralMaterialPresets.grosgrain.weftCrown
+              : faille
+                ? proceduralMaterialPresets.faille.weftCrown
+                : ottoman
+                  ? 0.1
+                  : equalYarns
+                    ? 0.04
+                    : 0.07,
           pairOffset = ottoman
             ? proceduralMaterialPresets.ottoman.pairOffset
             : 0,

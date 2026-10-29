@@ -739,6 +739,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cloisonne',
   'rambutanskin',
   'rackgears',
+  'grosgrain',
   'faille',
   'poplin',
   'ooliticlimestone',
@@ -24380,7 +24381,7 @@ describe('Honed oolitic limestone cortex grains with darker nuclei on one nearly
   });
 });
 
-describe.each(['poplin', 'faille'] as const)(
+describe.each(['poplin', 'faille', 'grosgrain'] as const)(
   '%s finer denser warp and broader one-over-one weft ribs',
   (kind) => {
     const p = proceduralMaterialPresets[kind];
@@ -24443,6 +24444,13 @@ describe.each(['poplin', 'faille'] as const)(
                 0.11 * p.relief,
               );
             }
+            sample(u, (row + 1.5) / p.weftThreads, neighbor);
+            expect(
+              (warpOver ? 1 : -1) * (cross.color - neighbor.color),
+            ).toBeGreaterThan(0.16);
+            expect(
+              (warpOver ? 1 : -1) * (neighbor.height - cross.height),
+            ).toBeGreaterThan((kind === 'faille' ? 0.1 : 0.16) * p.relief);
             sample(
               (col + 0.5 + 0.3) / p.warpThreads,
               (row + 1) / p.weftThreads,
@@ -24458,7 +24466,7 @@ describe.each(['poplin', 'faille'] as const)(
           }
       },
     );
-    it('writes visible alternating yarns, broad pale ribs, lower occluded interstices and opaque dielectric maps at512', () => {
+    it('writes visible alternating yarns, authored broad ribs, lower occluded interstices and opaque dielectric maps at512', () => {
       const maps = generateProceduralMaps(kind, 512, 7, { heightMap: true });
       const pixel = (u: number, v: number) =>
         (Math.floor((v % 1) * 512) * 512 + Math.floor((u % 1) * 512)) * 4;
@@ -24506,9 +24514,11 @@ describe.each(['poplin', 'faille'] as const)(
           g = maps.baseColor[i + 1]!,
           b = maps.baseColor[i + 2]!;
         if (
-          kind === 'faille'
-            ? r > 205 && g > 200 && b > 180 && r >= g && g - b > 12
-            : r - g > 15 && b - g > 10 && r - b > 10
+          kind === 'grosgrain'
+            ? r > 70 && g - r > 3 && b - g > 2 && b - r < 24
+            : kind === 'faille'
+              ? r > 205 && g > 200 && b > 180 && r >= g && g - b > 12
+              : r - g > 15 && b - g > 10 && r - b > 10
         )
           authoredColor++;
         roughness += maps.metallicRoughness[i + 1]! / 255;
@@ -24524,6 +24534,9 @@ describe.each(['poplin', 'faille'] as const)(
       if (kind === 'faille') {
         expect(roughness / (512 * 512)).toBeGreaterThan(0.55);
         expect(roughness / (512 * 512)).toBeLessThan(0.75);
+      } else if (kind === 'grosgrain') {
+        expect(roughness / (512 * 512)).toBeGreaterThan(0.5);
+        expect(roughness / (512 * 512)).toBeLessThan(0.7);
       }
     });
     it.each([0, 1, 0xffffffff])(
@@ -24575,6 +24588,27 @@ describe.each(['poplin', 'faille'] as const)(
         expect(axes[1]!.width).toBeGreaterThan(axes[0]!.width * 2.5);
       }
     });
+    if (kind === 'grosgrain')
+      it.each([0, 1, 0xffffffff])(
+        'rounds each single transverse rib toward both flanks rather than leaving a flat faille top for seed %s',
+        (seed) => {
+          const sample = createSurfaceSampler(kind, seed),
+            center = empty(),
+            flank = empty();
+          for (let row = 0; row < p.weftThreads; row++)
+            for (let col = 0; col < p.warpThreads; col++) {
+              const u = (col + 1) / p.warpThreads,
+                v = (row + 0.5) / p.weftThreads;
+              sample(u, v, center);
+              for (const side of [-1, 1]) {
+                sample(u, v + (side * 0.25) / p.weftThreads, flank);
+                const drop = (center.height - flank.height) / p.relief;
+                expect(drop).toBeGreaterThan(0.025);
+                expect(drop).toBeLessThan(0.055);
+              }
+            }
+        },
+      );
     it('keeps unequal yarn supports cores single-crossing owners lift ends fiber grids and UV wraps C1', () => {
       const h = 2e-9,
         channels = Object.keys(empty()) as (keyof SurfaceSample)[];

@@ -776,6 +776,7 @@ try {
     'cloisonne',
     'rambutanskin',
     'rackgears',
+    'grosgrain',
     'faille',
     'poplin',
     'ooliticlimestone',
