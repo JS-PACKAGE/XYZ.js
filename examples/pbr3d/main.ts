@@ -803,6 +803,7 @@ try {
     'shackles',
     'watercaltrops',
     'fluorite',
+    'pyromorphite',
     'redberyl',
     'cavansite',
     'wenge',

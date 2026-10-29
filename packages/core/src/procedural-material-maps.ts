@@ -2257,8 +2257,9 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pyromorphite':
       case 'redberyl': {
-        const p = proceduralMaterialPresets.redberyl,
+        const p = proceduralMaterialPresets[kind],
           poses = new Float64Array(p.cells * p.cells * 8),
           cloudField = cachedNoise(8, 8, seed ^ 0x1b711),
           grainField = cachedNoise(128, 128, seed ^ 0x1b713),
@@ -36789,6 +36790,7 @@ export function createSurfaceSampler(
     kind === 'shackles' ||
     kind === 'watercaltrops' ||
     kind === 'fluorite' ||
+    kind === 'pyromorphite' ||
     kind === 'redberyl' ||
     kind === 'cavansite' ||
     kind === 'wenge' ||
