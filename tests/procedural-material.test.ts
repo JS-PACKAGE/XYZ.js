@@ -780,6 +780,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sapele',
   'chambray',
   'ticking',
+  'cottondrill',
   'nephrite',
   'diorite',
   'carawayseeds',
@@ -2161,6 +2162,308 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Warm khaki Cotton Drill with continuous three-over-one warp-faced twill', () => {
+  const p = proceduralMaterialPresets.cottondrill;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps dense matte dielectric cotton crowns above sparse interstices for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cottondrill', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        crowns = 0,
+        gaps = 0,
+        bright = 0,
+        ao = 0,
+        roughness = 0,
+        invalid = 0;
+      // Incommensurate UVs also observe the narrow gaps missed by a regular 256 grid.
+      for (let i = 0; i < 65536; i++) {
+        sample((i * 0.61803398875) % 1, (i * 0.41421356237) % 1, a);
+        low = Math.min(low, a.height);
+        high = Math.max(high, a.height);
+        crowns += Number(a.height > 0.45 * p.relief);
+        gaps += Number(a.height < 0.1 * p.relief);
+        bright += Number(a.color > 0.75);
+        ao += a.occlusion;
+        roughness += a.roughness;
+        invalid += Number(
+          a.metallic !== 0 ||
+            a.mortar !== 0 ||
+            a.roughness < 0.8 ||
+            a.roughness > 0.98 ||
+            a.occlusion < 0.44 ||
+            a.occlusion > 1 ||
+            a.height < 0.02 * p.relief ||
+            a.height > 0.52 * p.relief,
+        );
+        for (const key of keys)
+          invalid += Number(
+            !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+          );
+      }
+      expect(crowns / 65536).toBeGreaterThan(0.7);
+      expect(crowns / 65536).toBeLessThan(0.87);
+      expect(gaps / 65536).toBeGreaterThan(0.0005);
+      expect(gaps / 65536).toBeLessThan(0.01);
+      expect(bright / 65536).toBeGreaterThan(0.96);
+      expect(ao / 65536).toBeGreaterThan(0.97);
+      expect(roughness / 65536).toBeGreaterThan(0.82);
+      expect(roughness / 65536).toBeLessThan(0.92);
+      expect(high - low).toBeGreaterThan(0.42 * p.relief);
+      expect(high - low).toBeLessThan(0.5 * p.relief);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('infers genuine three-over-one sheds and a consistent one-pick diagonal instead of plain, basket or zigzag weave', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottondrill', seed);
+      for (const rowStart of [
+        0,
+        Math.floor(p.weftThreads / 8) * 4,
+        p.weftThreads - 4,
+      ])
+        for (const colStart of [
+          0,
+          Math.floor(p.warpThreads / 8) * 4,
+          p.warpThreads - 4,
+        ]) {
+          const owners: boolean[][] = [];
+          for (let row = 0; row < 4; row++) {
+            owners[row] = [];
+            for (let col = 0; col < 4; col++) {
+              sample(
+                (colStart + col + 0.5) / p.warpThreads,
+                (rowStart + row + 0.75) / p.weftThreads,
+                a,
+              );
+              sample(
+                (colStart + col + 0.75) / p.warpThreads,
+                (rowStart + row + 0.5) / p.weftThreads,
+                b,
+              );
+              const crownDifference = (a.height - b.height) / p.relief;
+              expect(Math.abs(crownDifference)).toBeGreaterThan(0.004);
+              expect(Math.abs(crownDifference)).toBeLessThan(0.012);
+              owners[row][col] = crownDifference > 0;
+            }
+            expect(owners[row].filter(Boolean).length).toBe(3);
+          }
+          let forward = 0,
+            backward = 0;
+          for (let col = 0; col < 4; col++) {
+            expect(
+              owners.reduce((count, row) => count + Number(row[col]), 0),
+            ).toBe(3);
+            for (let row = 0; row < 4; row++) {
+              forward += Number(
+                owners[row][col] !== owners[(row + 1) % 4][(col + 1) % 4],
+              );
+              backward += Number(
+                owners[row][col] !== owners[(row + 1) % 4][(col + 3) % 4],
+              );
+            }
+          }
+          expect(Math.min(forward, backward)).toBe(0);
+          expect(Math.max(forward, backward)).toBeGreaterThan(0);
+        }
+    }
+  });
+  it('keeps three-pick warp floats unpinched through their internal joins, with rounded returning ends and the same dye on both yarn directions', () => {
+    const a = empty(),
+      b = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottondrill', seed);
+      const warpOver = (col: number, row: number) => {
+        sample((col + 0.5) / p.warpThreads, (row + 0.75) / p.weftThreads, a);
+        sample((col + 0.75) / p.warpThreads, (row + 0.5) / p.weftThreads, b);
+        return a.height > b.height;
+      };
+      let lowColor = 1,
+        highColor = 0;
+      for (let row = 0; row < 12; row++)
+        for (let col = 0; col < 12; col++) {
+          const current = warpOver(col, row),
+            next = warpOver(col, row + 1);
+          sample((col + 0.5) / p.warpThreads, (row + 0.5) / p.weftThreads, a);
+          lowColor = Math.min(lowColor, a.color);
+          highColor = Math.max(highColor, a.color);
+          sample((col + 0.5) / p.warpThreads, (row + 1) / p.weftThreads, a);
+          if (current && next)
+            expect(a.height).toBeGreaterThan(0.46 * p.relief);
+          else if (current !== next) {
+            expect(a.height).toBeGreaterThan(0.34 * p.relief);
+            expect(a.height).toBeLessThan(0.42 * p.relief);
+          }
+        }
+      expect(lowColor).toBeGreaterThan(0.75);
+      expect(highColor).toBeLessThan(0.9);
+      expect(highColor - lowColor).toBeLessThan(0.05);
+    }
+  });
+  it('keeps yarn edges, rounded crowns, whole-float shoulders, cached grain, fibers and signed seams C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottondrill', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const [axis, threads, radius, core, half, fibers] of [
+        [
+          0,
+          p.warpThreads,
+          p.warpRadius,
+          p.warpCore,
+          p.weftLiftHalf,
+          p.warpFibers,
+        ],
+        [
+          1,
+          p.weftThreads,
+          p.weftRadius,
+          p.weftCore,
+          p.warpLiftHalf,
+          p.weftFibers,
+        ],
+      ]) {
+        for (let i = 0; i <= threads; i++)
+          for (const offset of [
+            0,
+            0.5 - radius,
+            0.5 - core,
+            0.5 - half,
+            0.5 - half + p.liftShoulder,
+            0.5,
+            0.5 + half - p.liftShoulder,
+            0.5 + half,
+            0.5 + core,
+            0.5 + radius,
+          ])
+            for (const t of [-1, 0, 0.173, 0.5, 0.719, 1]) {
+              const s = (i + offset) / threads;
+              check(axis ? t : s, axis ? s : t);
+            }
+        for (const n of [128, fibers])
+          for (let i = 0; i <= n; i++)
+            for (const t of [0.173, 0.5, 0.719])
+              check(axis ? t : i / n, axis ? i / n : t);
+      }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque warm khaki, matte nonmetal yarns, shallow woven normals and dense non-cavity AO', () => {
+    const maps = generateProceduralMaps('cottondrill', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let warm = 0,
+      tilted = 0,
+      maxTilt = 0,
+      ao = 0,
+      roughness = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      warm += Number(
+        r > 130 &&
+          r < 215 &&
+          g > 100 &&
+          g < 195 &&
+          b > 65 &&
+          b < 165 &&
+          r - g > 12 &&
+          g - b > 22,
+      );
+      tilted += Number(
+        Math.abs(maps.normal[i] - 127.5) > 2 ||
+          Math.abs(maps.normal[i + 1] - 127.5) > 2,
+      );
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      ao += maps.occlusion[i] / 255;
+      roughness += maps.metallicRoughness[i + 1] / 255;
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(warm / 262144).toBeGreaterThan(0.98);
+    expect(tilted / 262144).toBeGreaterThan(0.2);
+    expect(maxTilt).toBeGreaterThan(0.002);
+    expect(maxTilt).toBeLessThan(0.03);
+    expect(ao / 262144).toBeGreaterThan(0.97);
+    expect(roughness / 262144).toBeGreaterThan(0.82);
+    expect(roughness / 262144).toBeLessThan(0.92);
+    expect(invalid).toBe(0);
+  });
+  it('repeats every dense yarn, three-pick float and all six channels over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cottondrill', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

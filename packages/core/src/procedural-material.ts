@@ -754,6 +754,7 @@ export type ProceduralMaterialKind =
   | 'sapele'
   | 'chambray'
   | 'ticking'
+  | 'cottondrill'
   | 'nephrite'
   | 'diorite'
   | 'carawayseeds'
@@ -1785,6 +1786,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sapele',
   'chambray',
   'ticking',
+  'cottondrill',
   'nephrite',
   'diorite',
   'carawayseeds',

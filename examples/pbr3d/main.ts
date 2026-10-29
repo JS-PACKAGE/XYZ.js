@@ -817,6 +817,7 @@ try {
     'sapele',
     'chambray',
     'ticking',
+    'cottondrill',
     'nephrite',
     'diorite',
     'carawayseeds',

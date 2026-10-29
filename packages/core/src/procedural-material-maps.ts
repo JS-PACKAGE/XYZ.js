@@ -5462,6 +5462,7 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cottondrill':
       case 'cottonflannel':
       case 'ticking':
       case 'chambray':
@@ -5474,7 +5475,9 @@ export function createSurfaceSampler(
       case 'lyocell':
       case 'ramie':
       case 'poplin': {
-        const ticking = kind === 'ticking',
+        const drill = kind === 'cottondrill',
+          drillPreset = proceduralMaterialPresets.cottondrill,
+          ticking = kind === 'ticking',
           tickPreset = proceduralMaterialPresets.ticking,
           hopsack = kind === 'hopsack',
           lyocell = kind === 'lyocell',
@@ -5484,25 +5487,28 @@ export function createSurfaceSampler(
           twill = gabardine || cavalry,
           ottoman = kind === 'ottoman',
           shantung = kind === 'shantung',
-          profiledWeave = kind === 'huckaback' || lyocell || hopsack || ticking,
+          profiledWeave =
+            kind === 'huckaback' || lyocell || hopsack || ticking || drill,
           chambray = kind === 'chambray',
           flannel = kind === 'cottonflannel',
           napPreset = proceduralMaterialPresets.cottonflannel,
           bareWeave = 1 - napPreset.napCoverage,
-          warpTone = hopsack
-            ? proceduralMaterialPresets.hopsack.yarnTone
-            : lyocell
-              ? proceduralMaterialPresets.lyocell.yarnTone
-              : ramie
-                ? proceduralMaterialPresets.ramie.yarnTone
-                : chambray
-                  ? 0.18
-                  : flannel
-                    ? napPreset.yarnTone
-                    : 0.82,
+          warpTone = drill
+            ? drillPreset.yarnTone
+            : hopsack
+              ? proceduralMaterialPresets.hopsack.yarnTone
+              : lyocell
+                ? proceduralMaterialPresets.lyocell.yarnTone
+                : ramie
+                  ? proceduralMaterialPresets.ramie.yarnTone
+                  : chambray
+                    ? 0.18
+                    : flannel
+                      ? napPreset.yarnTone
+                      : 0.82,
           weftTone = ticking
             ? tickPreset.groundTone
-            : ramie || lyocell || hopsack
+            : ramie || lyocell || hopsack || drill
               ? warpTone
               : chambray
                 ? 0.92
@@ -5510,13 +5516,15 @@ export function createSurfaceSampler(
                   ? napPreset.yarnTone
                   : 0.63,
           slubPreset = proceduralMaterialPresets.shantung,
-          profilePreset = ticking
-            ? tickPreset
-            : hopsack
-              ? proceduralMaterialPresets.hopsack
-              : lyocell
-                ? proceduralMaterialPresets.lyocell
-                : proceduralMaterialPresets.huckaback,
+          profilePreset = drill
+            ? drillPreset
+            : ticking
+              ? tickPreset
+              : hopsack
+                ? proceduralMaterialPresets.hopsack
+                : lyocell
+                  ? proceduralMaterialPresets.lyocell
+                  : proceduralMaterialPresets.huckaback,
           draftRepeat = profilePreset.draft.length,
           p = proceduralMaterialPresets[kind],
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
@@ -36396,6 +36404,7 @@ export function createSurfaceSampler(
     kind === 'sapele' ||
     kind === 'chambray' ||
     kind === 'ticking' ||
+    kind === 'cottondrill' ||
     kind === 'nephrite' ||
     kind === 'diorite' ||
     kind === 'carawayseeds' ||
