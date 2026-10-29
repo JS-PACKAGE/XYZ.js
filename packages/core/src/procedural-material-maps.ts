@@ -2900,10 +2900,17 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bluelaceagate':
       case 'rhodochrosite': {
-        const p = proceduralMaterialPresets.rhodochrosite,
+        const p = proceduralMaterialPresets[kind],
           warpField = cachedNoise(3, 3, seed ^ 0x1a211),
-          fineField = cachedNoise(9, 3, seed ^ 0x1a213),
+          fineField = cachedNoise(
+            kind === 'bluelaceagate'
+              ? proceduralMaterialPresets.bluelaceagate.fineColumns
+              : 9,
+            3,
+            seed ^ 0x1a213,
+          ),
           pigmentField = cachedNoise(12, 12, seed ^ 0x1a215),
           grainField = cachedNoise(128, 128, seed ^ 0x1a217),
           phaseOffset = hash(0, 0, seed ^ 0x1a219),
@@ -2930,14 +2937,14 @@ export function createSurfaceSampler(
                   fineShoulder,
               ),
             ),
-            calcite = 1 - (1 - wide) * (1 - fine),
+            paleBand = 1 - (1 - wide) * (1 - fine),
             pigment = pigmentField(u, v),
             grain = grainField(u, v);
           color = 0.22 + 0.14 * pigment;
-          color += calcite * (0.94 - color);
+          color += paleBand * (0.94 - color);
           // Laminae are optical bands on one polished face, not carved grooves.
           height = 0.4 + 0.002 * grain;
-          roughness += 0.03 * pigment + 0.025 * calcite;
+          roughness += 0.03 * pigment + 0.025 * paleBand;
           occlusion = 1;
           return;
         };
@@ -36412,6 +36419,7 @@ export function createSurfaceSampler(
     kind === 'gabbro' ||
     kind === 'turnbuckles' ||
     kind === 'rhodochrosite' ||
+    kind === 'bluelaceagate' ||
     kind === 'bayleaf' ||
     kind === 'pumpkinseeds' ||
     kind === 'spurgears' ||

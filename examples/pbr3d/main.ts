@@ -782,6 +782,7 @@ try {
     'gabbro',
     'turnbuckles',
     'rhodochrosite',
+    'bluelaceagate',
     'bayleaf',
     'gabardine',
     'oilspotglaze',

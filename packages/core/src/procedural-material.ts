@@ -719,6 +719,7 @@ export type ProceduralMaterialKind =
   | 'gabbro'
   | 'turnbuckles'
   | 'rhodochrosite'
+  | 'bluelaceagate'
   | 'bayleaf'
   | 'gabardine'
   | 'oilspotglaze'
@@ -1749,6 +1750,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'gabbro',
   'turnbuckles',
   'rhodochrosite',
+  'bluelaceagate',
   'bayleaf',
   'gabardine',
   'oilspotglaze',

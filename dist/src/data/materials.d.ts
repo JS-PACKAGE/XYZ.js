@@ -7874,6 +7874,21 @@ export declare const proceduralMaterialPresets: Readonly<{
         rodInner: 0.012;
         threadFrequency: 80;
     }>;
+    bluelaceagate: Readonly<{
+        dark: readonly [145, 169, 206];
+        light: readonly [246, 248, 249];
+        roughness: 0.19;
+        relief: 0.00012;
+        bands: 9;
+        warp: 1;
+        fineWarp: 0.16;
+        wideRadius: 0.1;
+        wideCore: 0.035;
+        fineRadius: 0.027;
+        fineCore: 0.009;
+        companionOffset: 0.18;
+        fineColumns: 48;
+    }>;
     rhodochrosite: Readonly<{
         dark: readonly [165, 42, 67];
         light: readonly [252, 238, 221];
@@ -10188,6 +10203,7 @@ export declare const proceduralTileMeters: Readonly<{
     gabbro: 0.18;
     turnbuckles: 0.24;
     rhodochrosite: 0.18;
+    bluelaceagate: 0.12;
     bayleaf: 0.24;
     gabardine: 0.018;
     oilspotglaze: 0.16;

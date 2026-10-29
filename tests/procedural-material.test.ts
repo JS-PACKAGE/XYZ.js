@@ -745,6 +745,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gabbro',
   'turnbuckles',
   'rhodochrosite',
+  'bluelaceagate',
   'bayleaf',
   'gabardine',
   'oilspotglaze',
@@ -2160,6 +2161,287 @@ describe('Uniform golden Yellowheart with fine longitudinal grain and sparse sho
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('yellowheart', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Pale Blue Lace Agate with unequal fine lacy companion laminae on one polished face', () => {
+  const p = proceduralMaterialPresets.bluelaceagate;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps blue matrix and pale laminae coplanar, smooth, unoccluded and dielectric for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('bluelaceagate', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let blue = 0,
+        white = 0,
+        blueRough = 0,
+        whiteRough = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity,
+        tvU = 0,
+        tvV = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          if (a.color < 0.5) {
+            blue++;
+            blueRough += a.roughness;
+          }
+          if (a.color > 0.85) {
+            white++;
+            whiteRough += a.roughness;
+          }
+          minHeight = Math.min(minHeight, a.height);
+          maxHeight = Math.max(maxHeight, a.height);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness < 0.15 ||
+              a.roughness > 0.3,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          tvU += Math.abs(a.color - b.color);
+          tvV += Math.abs(a.color - c.color);
+        }
+      expect(blue / 65536).toBeGreaterThan(0.72);
+      expect(blue / 65536).toBeLessThan(0.9);
+      expect(white / 65536).toBeGreaterThan(0.1);
+      expect(white / 65536).toBeLessThan(0.22);
+      expect((maxHeight - minHeight) / p.relief).toBeLessThan(0.003);
+      expect(whiteRough / white - blueRough / blue).toBeGreaterThan(0.008);
+      expect(whiteRough / white - blueRough / blue).toBeLessThan(0.06);
+      expect(tvV / tvU).toBeGreaterThan(1.8);
+      expect(tvV / tvU).toBeLessThan(12);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps each complete vertical traverse crossing alternating broad and much finer pale laminae, not one stripe, equal bands, or merged white sheets', () => {
+    const a = empty(),
+      n = 4096,
+      mask = new Uint8Array(n);
+    for (const seed of [0, 1, 0xffffffff])
+      for (const u of [0, 0.137, 0.413, 0.791]) {
+        const sample = createSurfaceSampler('bluelaceagate', seed);
+        for (let i = 0; i < n; i++) {
+          sample(u, (i + 0.5) / n, a);
+          mask[i] = Number(a.color > 0.8);
+        }
+        const start = mask.findIndex((value) => value === 0);
+        expect(start).toBeGreaterThan(-1);
+        const widths: number[] = [];
+        let run = 0;
+        for (let i = 1; i <= n; i++) {
+          if (mask[(start + i) % n]) run++;
+          else if (run) {
+            widths.push(run);
+            run = 0;
+          }
+        }
+        expect(widths.length).toBe(2 * p.bands);
+        const sorted = [...widths].sort((a, b) => a - b);
+        let small = 0,
+          large = 0;
+        for (let i = 0; i < p.bands; i++) {
+          small += sorted[i];
+          large += sorted[i + p.bands];
+        }
+        expect(large / small).toBeGreaterThan(2.2);
+        expect(large / small).toBeLessThan(5.5);
+        const cut = (sorted[p.bands - 1] + sorted[p.bands]) / 2;
+        let sameNeighbor = 0;
+        for (let i = 0; i < widths.length; i++) {
+          const currentWide = widths[i] > cut,
+            nextWide = widths[(i + 1) % widths.length] > cut;
+          sameNeighbor += Number(currentWide === nextWide);
+        }
+        expect(sameNeighbor).toBe(0);
+      }
+  });
+  it('retains visible fine lacy waviness along a complete pale lamina rather than reducing the stone to smooth printed waves', () => {
+    const a = empty();
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bluelaceagate', seed);
+      // Track whole visible laminae across signed V seams without reading private noise or phase values.
+      const find = (u: number, start: number, span: number, n: number) => {
+        let run = 0,
+          begin = 0,
+          best = 0,
+          center = NaN;
+        for (let j = 0; j <= n; j++) {
+          if (j < n) {
+            sample(u, start + ((j + 0.5) * span) / n, a);
+            if (a.color > 0.8) {
+              if (!run) begin = j;
+              run++;
+              continue;
+            }
+          }
+          if (run && begin > 0 && j < n && run > best) {
+            best = run;
+            center = start + (((begin + j) / 2) * span) / n;
+          }
+          run = 0;
+        }
+        expect(Number.isFinite(center)).toBe(true);
+        return center;
+      };
+      let center = find(0, 0, 1, 4096);
+      const path = new Float64Array(129);
+      path[0] = center;
+      for (let x = 1; x <= 128; x++) {
+        center = find(x / 128, center - 0.03, 0.06, 512);
+        path[x] = center;
+      }
+      let bend = 0;
+      for (let x = 1; x < 128; x++)
+        bend += Math.abs(path[x - 1] - 2 * path[x] + path[x + 1]);
+      expect(bend / 127).toBeGreaterThan(0.0005);
+      expect(bend / 127).toBeLessThan(0.004);
+    }
+  });
+  it('keeps all periodic fields and observed pale-band plateau boundaries C1, without hard color steps or slope creases', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-9;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bluelaceagate', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [3, 12, p.fineColumns, 128])
+        for (let i = 0; i <= n; i++)
+          for (const t of [0, 0.173, 0.5, 0.719]) {
+            check(i / n, t);
+            check(t, i / n);
+          }
+      for (const u of [0, 0.137, 0.413, 0.791]) {
+        let maximum = -Infinity;
+        for (let i = 0; i < 4096; i++) {
+          sample(u, i / 4096, a);
+          maximum = Math.max(maximum, a.color);
+        }
+        // Allow roundoff at the observed white plateau, then locate its shoulders from actual colors.
+        const threshold = maximum - 32 * Number.EPSILON;
+        sample(u, 0, a);
+        let previous = a.color >= threshold;
+        for (let i = 1; i <= 4096; i++) {
+          sample(u, i / 4096, a);
+          const current = a.color >= threshold;
+          if (current !== previous) {
+            let low = (i - 1) / 4096,
+              high = i / 4096;
+            for (let step = 0; step < 40; step++) {
+              const middle = (low + high) / 2;
+              sample(u, middle, a);
+              const above = a.color >= threshold;
+              if (above === previous) low = middle;
+              else high = middle;
+            }
+            check(u, (low + high) / 2);
+          }
+          previous = current;
+        }
+      }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 opaque pastel-blue matrix and near-white lacy bands on a near-flat polished dielectric face without false stripe shadows', () => {
+    const maps = generateProceduralMaps('bluelaceagate', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let blue = 0,
+      white = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      if (r >= 150 && r <= 210 && b - r >= 25 && g > r && b > g) blue++;
+      if (r >= 225 && Math.abs(b - r) <= 18 && Math.abs(g - r) <= 18) white++;
+      invalid += Number(
+        r < 150 ||
+          maps.metallicRoughness[i + 2] !== 0 ||
+          maps.metallicRoughness[i + 1] < 35 ||
+          maps.metallicRoughness[i + 1] > 80 ||
+          maps.occlusion[i] !== 255 ||
+          maps.occlusion[i + 1] !== 255 ||
+          maps.occlusion[i + 2] !== 255 ||
+          maps.normal[i + 2] < 254 ||
+          Math.abs(maps.normal[i] - 127.5) > 1 ||
+          Math.abs(maps.normal[i + 1] - 127.5) > 1,
+      );
+      for (const stream of streams) invalid += Number(stream[i + 3] !== 255);
+    }
+    expect(blue / 262144).toBeGreaterThan(0.72);
+    expect(blue / 262144).toBeLessThan(0.9);
+    expect(white / 262144).toBeGreaterThan(0.1);
+    expect(white / 262144).toBeLessThan(0.22);
+    expect(invalid).toBe(0);
+  });
+  it('repeats all six coplanar pigment and surface channels across signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('bluelaceagate', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

@@ -14079,6 +14079,29 @@ var proceduralMaterialPresets = Object.freeze({
 		rodInner: .012,
 		threadFrequency: 80
 	}),
+	bluelaceagate: Object.freeze({
+		dark: [
+			145,
+			169,
+			206
+		],
+		light: [
+			246,
+			248,
+			249
+		],
+		roughness: .19,
+		relief: 12e-5,
+		bands: 9,
+		warp: 1,
+		fineWarp: .16,
+		wideRadius: .1,
+		wideCore: .035,
+		fineRadius: .027,
+		fineCore: .009,
+		companionOffset: .18,
+		fineColumns: 48
+	}),
 	rhodochrosite: Object.freeze({
 		dark: [
 			165,
@@ -17080,6 +17103,7 @@ var proceduralTileMeters = Object.freeze({
 	gabbro: .18,
 	turnbuckles: .24,
 	rhodochrosite: .18,
+	bluelaceagate: .12,
 	bayleaf: .24,
 	gabardine: .018,
 	oilspotglaze: .16,
