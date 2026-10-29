@@ -730,6 +730,7 @@ export type ProceduralMaterialKind =
   | 'rhodochrosite'
   | 'bluelaceagate'
   | 'bayleaf'
+  | 'whipcord'
   | 'gabardine'
   | 'oilspotglaze'
   | 'persimmonslice'
@@ -1790,6 +1791,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rhodochrosite',
   'bluelaceagate',
   'bayleaf',
+  'whipcord',
   'gabardine',
   'oilspotglaze',
   'persimmonslice',

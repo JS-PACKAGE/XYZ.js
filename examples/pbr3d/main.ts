@@ -793,6 +793,7 @@ try {
     'rhodochrosite',
     'bluelaceagate',
     'bayleaf',
+    'whipcord',
     'gabardine',
     'oilspotglaze',
     'persimmonslice',

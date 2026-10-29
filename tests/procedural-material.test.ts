@@ -756,6 +756,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rhodochrosite',
   'bluelaceagate',
   'bayleaf',
+  'whipcord',
   'gabardine',
   'oilspotglaze',
   'persimmonslice',
@@ -86828,6 +86829,345 @@ describe('procedural preset acquisition and ownership', () => {
       expect([cache.size, cache.misses]).toEqual([1, 2]);
     } finally {
       pool.destroy();
+    }
+  });
+});
+
+describe('Charcoal Whipcord with a single steep rib and continuous three-pick warp floats', () => {
+  const p = proceduralMaterialPresets.whipcord;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('whipcord', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      over = new Uint8Array(256),
+      centers = new Float64Array(256);
+    let low = Infinity,
+      high = -Infinity,
+      pigmentMin = Infinity,
+      pigmentMax = -Infinity,
+      join = Infinity,
+      valley = Infinity,
+      warps = 0,
+      metals = 0,
+      orientation = Infinity,
+      minWarp = Infinity,
+      maxBinder = -Infinity;
+    for (let row = 0; row < 16; row++)
+      for (let col = 0; col < 16; col++) {
+        sample((col + 0.5) / p.warpThreads, (row + 0.5) / p.weftThreads, a);
+        centers[row * 16 + col] = a.height;
+        low = Math.min(low, a.height);
+        high = Math.max(high, a.height);
+        pigmentMin = Math.min(pigmentMin, a.color);
+        pigmentMax = Math.max(pigmentMax, a.color);
+        metals += Number(a.metallic !== 0 || a.mortar !== 0);
+      }
+    const threshold = (low + high) * 0.5;
+    for (let i = 0; i < 256; i++) {
+      over[i] = Number(centers[i] > threshold);
+      warps += over[i];
+      orientation = Math.min(
+        orientation,
+        Math.abs(centers[i] - threshold) / p.relief,
+      );
+      if (over[i]) minWarp = Math.min(minWarp, centers[i]);
+      else maxBinder = Math.max(maxBinder, centers[i]);
+    }
+    let phases = 0;
+    for (const phase of [0, 1, 2, 3])
+      for (const direction of [-1, 1]) {
+        let matches = true;
+        for (let row = 0; row < 16; row++)
+          for (let col = 0; col < 16; col++)
+            matches &&=
+              Boolean(over[row * 16 + col]) ===
+              (col + direction * row + phase + 32) % 4 < 3;
+        phases += Number(matches);
+      }
+    for (let row = 0; row < 15; row++)
+      for (let col = 0; col < 15; col++) {
+        const u = (col + 0.5) / p.warpThreads,
+          v = (row + 0.5) / p.weftThreads,
+          warp = over[row * 16 + col] !== 0;
+        sample(u, v, a);
+        if (
+          over[(row + Number(warp)) * 16 + col + Number(!warp)] === Number(warp)
+        ) {
+          sample(
+            u + Number(!warp) / p.warpThreads,
+            v + Number(warp) / p.weftThreads,
+            b,
+          );
+          sample(
+            u + (Number(!warp) * 0.5) / p.warpThreads,
+            v + (Number(warp) * 0.5) / p.weftThreads,
+            c,
+          );
+          join = Math.min(
+            join,
+            (c.height - Math.min(a.height, b.height)) / p.relief,
+          );
+        }
+        if (
+          over[(row + Number(!warp)) * 16 + col + Number(warp)] === Number(warp)
+        ) {
+          sample(
+            u + Number(warp) / p.warpThreads,
+            v + Number(!warp) / p.weftThreads,
+            b,
+          );
+          sample(
+            u + (Number(warp) * 0.5) / p.warpThreads,
+            v + (Number(!warp) * 0.5) / p.weftThreads,
+            c,
+          );
+          valley = Math.min(
+            valley,
+            (Math.min(a.height, b.height) - c.height) / p.relief,
+          );
+        }
+      }
+    return {
+      warps: warps / 256,
+      orientation,
+      phases,
+      pigmentSpan: pigmentMax - pigmentMin,
+      join,
+      valley,
+      metals,
+      binderDrop: (minWarp - maxBinder) / p.relief,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('whipcord', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      keys = [
+        'color',
+        'height',
+        'roughness',
+        'occlusion',
+        'metallic',
+        'mortar',
+      ] as const;
+    let worst = 0,
+      period = 0;
+    const check = (u: number, v: number) => {
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs((c[key] - 2 * b[key] + a[key]) / h) /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let axis = 0; axis < 2; axis++) {
+      const count = axis ? p.weftThreads : p.warpThreads,
+        radius = axis ? p.weftRadius : p.warpRadius,
+        core = axis ? p.weftCore : p.warpCore,
+        lift = axis ? p.weftLiftHalf : p.warpLiftHalf,
+        offsets = [
+          0,
+          0.5,
+          0.5 - radius,
+          0.5 + radius,
+          0.5 - core,
+          0.5 + core,
+          0.5 - lift,
+          0.5 + lift,
+          0.5 - lift + p.liftShoulder,
+          0.5 + lift - p.liftShoulder,
+        ];
+      for (let k = 0; k < count; k++)
+        for (const offset of offsets) {
+          const a = (k + offset) / count;
+          check(axis ? 0 : a, axis ? a : 0);
+          for (let j = 0; j < 17; j++) {
+            const b = (j + 0.371) / 17;
+            check(axis ? b : a, axis ? a : b);
+          }
+        }
+    }
+    for (const frequency of [p.warpFibers, p.weftFibers, 128])
+      for (let k = 0; k <= frequency; k++)
+        for (let j = 0; j < 17; j++) {
+          check(k / frequency, (j + 0.31) / 17);
+          check((j + 0.37) / 17, k / frequency);
+        }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const spectrum = (seed: number) => {
+    const sample = createSurfaceSampler('whipcord', seed),
+      out = empty(),
+      size = 1024,
+      curves = [new Float64Array(size), new Float64Array(size)],
+      result: { frequency: number; power: number }[][] = [];
+    for (let axis = 0; axis < 2; axis++) {
+      const curve = curves[axis];
+      for (let i = 0; i < size; i++) {
+        let sum = 0;
+        for (let j = 0; j < 97; j++) {
+          const a = (i + 0.5) / size,
+            b = (j + 0.371) / 97;
+          sample(axis ? b : a, axis ? a : b, out);
+          sum += out.height;
+        }
+        curve[i] = sum / 97;
+      }
+      const mean = curve.reduce((a, b) => a + b, 0) / size;
+      const peaks: { frequency: number; power: number }[] = [];
+      for (let f = 4; f <= 128; f++) {
+        let re = 0,
+          im = 0;
+        for (let i = 0; i < size; i++) {
+          const phase = (2 * Math.PI * f * i) / size,
+            value = curve[i] - mean;
+          re += value * Math.cos(phase);
+          im += value * Math.sin(phase);
+        }
+        peaks.push({ frequency: f, power: re * re + im * im });
+      }
+      peaks.sort((a, b) => b.power - a.power);
+      result.push(peaks.slice(0, 6));
+    }
+    return result;
+  };
+  const pixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const signs = [0, 0, 0, 0];
+    let gray = 0,
+      invalid = 0,
+      rough = 0,
+      maxtilt = 0,
+      minAO = 255,
+      maxAO = 0,
+      minColor = 255,
+      maxColor = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2],
+        nx = (2 * maps.normal[i]) / 255 - 1,
+        ny = (2 * maps.normal[i + 1]) / 255 - 1;
+      gray += Number(r > 45 && r < 110 && g >= r && b >= g && b - r < 18);
+      rough += maps.metallicRoughness[i + 1] / 255;
+      maxtilt = Math.max(maxtilt, nx * nx + ny * ny);
+      signs[0] += Number(nx < -0.01);
+      signs[1] += Number(nx > 0.01);
+      signs[2] += Number(ny < -0.01);
+      signs[3] += Number(ny > 0.01);
+      minAO = Math.min(minAO, maps.occlusion[i]);
+      maxAO = Math.max(maxAO, maps.occlusion[i]);
+      minColor = Math.min(minColor, r);
+      maxColor = Math.max(maxColor, r);
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 || maps.normal[i + 2] < 235,
+      );
+      for (const bytes of Object.values(maps))
+        invalid += Number(bytes[i + 3] !== 255);
+    }
+    const count = maps.baseColor.length / 4;
+    return {
+      gray: gray / count,
+      rough: rough / count,
+      maxtilt,
+      signs: signs.map((x) => x / count),
+      minAO,
+      maxAO,
+      minColor,
+      maxColor,
+      invalid,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps one binder per three raised warp floats, same-dye yarns and uninterrupted long floats for seed %s',
+    (seed) => {
+      const s = observe(seed);
+      expect(s.phases).toBeGreaterThan(0);
+      expect(s.warps).toBeGreaterThan(0.7);
+      expect(s.warps).toBeLessThan(0.8);
+      expect(s.orientation).toBeGreaterThan(0.04);
+      expect(s.binderDrop).toBeGreaterThan(0.1);
+      expect(s.binderDrop).toBeLessThan(0.2);
+      expect(s.pigmentSpan).toBeLessThan(0.04);
+      expect(s.join).toBeGreaterThan(-0.004);
+      expect(s.valley).toBeGreaterThan(0.2);
+      expect(s.metals).toBe(0);
+    },
+  );
+  it('keeps exposed yarn shoulders, whole-float ends, fibers, grain and signed wraps C1 in relief-normalized channels', () => {
+    for (const seed of [0, 7, 0xffffffff]) {
+      const s = continuity(seed);
+      expect(s.worst).toBeLessThan(0.03);
+      expect(s.period).toBeLessThan(5e-10);
+    }
+  });
+  it('measures steep single-rib direction from independent output spectra rather than a preset density ratio', () => {
+    const peaks = spectrum(7),
+      angle =
+        (Math.atan(peaks[0][0].frequency / peaks[1][0].frequency) * 180) /
+        Math.PI;
+    expect(angle).toBeGreaterThan(67);
+    expect(angle).toBeLessThan(76);
+    const competition = peaks.map((axis) =>
+      Math.max(
+        0,
+        ...axis
+          .filter((peak) => peak.frequency % axis[0].frequency !== 0)
+          .map((peak) => peak.power),
+      ),
+    );
+    for (let axis = 0; axis < 2; axis++)
+      expect(peaks[axis][0].power).toBeGreaterThan(competition[axis] * 20);
+  });
+  it('writes dense charcoal nonmetallic cloth with matte finish and signed modest-relief normals at actual512', () => {
+    const s = pixels(
+      generateProceduralMaps('whipcord', 512, 7, { heightMap: true }),
+    );
+    expect(s.gray).toBeGreaterThan(0.96);
+    expect(s.rough).toBeGreaterThan(0.72);
+    expect(s.rough).toBeLessThan(0.88);
+    expect(s.maxtilt).toBeGreaterThan(0.015);
+    expect(s.maxtilt).toBeLessThan(0.15);
+    for (const sign of s.signs) expect(sign).toBeGreaterThan(0.06);
+    expect(s.minAO).toBeLessThan(235);
+    expect(s.maxAO).toBeGreaterThan(250);
+    expect(s.invalid).toBe(0);
+  });
+  it('retains real charcoal and interstice contrast rather than aliasing to uniform ground at the supported 32px minimum', () => {
+    for (const seed of [0, 7, 0xffffffff]) {
+      const s = pixels(generateProceduralMaps('whipcord', 32, seed));
+      expect(s.gray).toBeGreaterThan(0.9);
+      expect(s.maxColor - s.minColor).toBeGreaterThan(8);
+      expect(s.maxAO - s.minAO).toBeGreaterThan(12);
+      expect(s.invalid).toBe(0);
     }
   });
 });

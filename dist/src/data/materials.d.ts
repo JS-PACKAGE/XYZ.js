@@ -8081,6 +8081,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.004;
         grainColor: 0.025;
     }>;
+    whipcord: Readonly<{
+        dark: readonly [7, 9, 11];
+        light: readonly [94, 101, 106];
+        roughness: 0.78;
+        relief: 0.0016;
+        yarnTone: 0.78;
+        warpThreads: 84;
+        weftThreads: 28;
+        warpRadius: 0.499;
+        warpCore: 0.4;
+        weftRadius: 0.49;
+        weftCore: 0.35;
+        warpLiftHalf: 0.49;
+        weftLiftHalf: 0.49;
+        liftShoulder: 0.18;
+        lift: 0.14;
+        warpFibers: 336;
+        weftFibers: 112;
+        draft: readonly [7, 14, 13, 11];
+        warpBase: 0.4;
+        weftBase: 0.27;
+    }>;
     gabardine: Readonly<{
         dark: readonly [54, 49, 35];
         light: readonly [203, 190, 150];
@@ -10832,6 +10854,7 @@ export declare const proceduralTileMeters: Readonly<{
     rhodochrosite: 0.18;
     bluelaceagate: 0.12;
     bayleaf: 0.24;
+    whipcord: 0.06;
     gabardine: 0.018;
     oilspotglaze: 0.16;
     persimmonslice: 0.24;

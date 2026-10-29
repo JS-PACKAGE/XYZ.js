@@ -14398,6 +14398,41 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .004,
 		grainColor: .025
 	}),
+	whipcord: Object.freeze({
+		dark: [
+			7,
+			9,
+			11
+		],
+		light: [
+			94,
+			101,
+			106
+		],
+		roughness: .78,
+		relief: .0016,
+		yarnTone: .78,
+		warpThreads: 84,
+		weftThreads: 28,
+		warpRadius: .499,
+		warpCore: .4,
+		weftRadius: .49,
+		weftCore: .35,
+		warpLiftHalf: .49,
+		weftLiftHalf: .49,
+		liftShoulder: .18,
+		lift: .14,
+		warpFibers: 336,
+		weftFibers: 112,
+		draft: Object.freeze([
+			7,
+			14,
+			13,
+			11
+		]),
+		warpBase: .4,
+		weftBase: .27
+	}),
 	gabardine: Object.freeze({
 		dark: [
 			54,
@@ -18010,6 +18045,7 @@ var proceduralTileMeters = Object.freeze({
 	rhodochrosite: .18,
 	bluelaceagate: .12,
 	bayleaf: .24,
+	whipcord: .06,
 	gabardine: .018,
 	oilspotglaze: .16,
 	persimmonslice: .24,

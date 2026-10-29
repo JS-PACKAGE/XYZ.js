@@ -5859,6 +5859,7 @@ export function createSurfaceSampler(
       case 'shantung':
       case 'cavalrytwill':
       case 'ottoman':
+      case 'whipcord':
       case 'gabardine':
       case 'monkscloth':
       case 'hopsack':
@@ -5881,18 +5882,21 @@ export function createSurfaceSampler(
               ? proceduralMaterialPresets.monkscloth
               : proceduralMaterialPresets.hopsack,
           fineCloth =
+            kind === 'whipcord' ||
             kind === 'lyocell' ||
             kind === 'surah' ||
             kind === 'serge' ||
             kind === 'sateen',
           fineClothPreset =
-            kind === 'sateen'
-              ? proceduralMaterialPresets.sateen
-              : kind === 'serge'
-                ? proceduralMaterialPresets.serge
-                : kind === 'surah'
-                  ? proceduralMaterialPresets.surah
-                  : proceduralMaterialPresets.lyocell,
+            kind === 'whipcord'
+              ? proceduralMaterialPresets.whipcord
+              : kind === 'sateen'
+                ? proceduralMaterialPresets.sateen
+                : kind === 'serge'
+                  ? proceduralMaterialPresets.serge
+                  : kind === 'surah'
+                    ? proceduralMaterialPresets.surah
+                    : proceduralMaterialPresets.lyocell,
           balancedPlain = kind === 'ramie' || kind === 'batiste',
           balancedPlainPreset =
             kind === 'batiste'
@@ -5947,8 +5951,20 @@ export function createSurfaceSampler(
           cavalryDraft = proceduralMaterialPresets.cavalrytwill.draft,
           equalYarns =
             twill || profiledWeave || chambray || flannel || balancedPlain,
-          warpBase = equalYarns ? 0.34 : 0.3,
-          weftBase = ottoman ? 0.52 : equalYarns ? 0.34 : 0.44,
+          warpBase =
+            kind === 'whipcord'
+              ? proceduralMaterialPresets.whipcord.warpBase
+              : equalYarns
+                ? 0.34
+                : 0.3,
+          weftBase =
+            kind === 'whipcord'
+              ? proceduralMaterialPresets.whipcord.weftBase
+              : ottoman
+                ? 0.52
+                : equalYarns
+                  ? 0.34
+                  : 0.44,
           weftCrown =
             kind === 'grosgrain'
               ? proceduralMaterialPresets.grosgrain.weftCrown
@@ -37032,6 +37048,7 @@ export function createSurfaceSampler(
     kind === 'grosgrain' ||
     kind === 'faille' ||
     kind === 'poplin' ||
+    kind === 'whipcord' ||
     kind === 'gabardine' ||
     kind === 'oilspotglaze' ||
     kind === 'persimmonslice' ||
