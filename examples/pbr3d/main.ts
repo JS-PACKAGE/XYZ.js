@@ -584,6 +584,7 @@ try {
     'paperclips',
     'rclips',
     'linchpins',
+    'woodruffkeys',
     'ivyleaf',
     'ribknit',
     'pillowtiles',

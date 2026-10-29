@@ -8744,6 +8744,27 @@ var proceduralMaterialPresets = Object.freeze({
 		pinHalfLength: .38,
 		endShoulder: .025
 	}),
+	woodruffkeys: Object.freeze({
+		dark: [
+			35,
+			40,
+			43
+		],
+		light: [
+			225,
+			231,
+			236
+		],
+		roughness: .32,
+		relief: .004,
+		cells: 4,
+		radius: .4,
+		chord: .1,
+		bevel: .018,
+		jitter: .04,
+		scale: .96,
+		scaleVariation: .025
+	}),
 	coins: Object.freeze({
 		dark: [
 			66,
@@ -17232,6 +17253,7 @@ var proceduralTileMeters = Object.freeze({
 	coffeerings: .36,
 	cashews: .16,
 	hinges: .4,
+	woodruffkeys: .08,
 	coins: .12,
 	righttriangletiles: 1,
 	cherryblossom: .24,
