@@ -31192,13 +31192,12 @@ describe('Serpentine springs with six continuous silver runs five alternating tr
               theta = Math.PI * t,
               st = Math.sin(theta),
               ct = Math.cos(theta);
+            // The closed t sweep already covers both straight/arc join endpoints.
             for (let run = 0; run < p.runs; run++) {
               const y = p.firstY + run * p.pitch;
               for (const d of [0, 0.004, 0.008, p.wireCore, p.wireRadius])
                 for (const sign of [-1, 1]) {
                   local(-p.halfRun + 2 * p.halfRun * t, y + sign * d);
-                  local(p.halfRun, y + sign * d);
-                  local(-p.halfRun, y + sign * d);
                 }
               if (run < p.runs - 1) local(-0.24 + 0.48 * t, y + r);
             }
