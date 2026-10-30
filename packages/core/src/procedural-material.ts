@@ -476,6 +476,7 @@ export type ProceduralMaterialKind =
   | 'soroban'
   | 'deltoidaltrihexagonaltiles'
   | 'snubtrihexagonaltiles'
+  | 'floretpentagonaltiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1570,6 +1571,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'soroban',
   'deltoidaltrihexagonaltiles',
   'snubtrihexagonaltiles',
+  'floretpentagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

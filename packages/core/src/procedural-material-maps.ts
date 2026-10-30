@@ -26768,6 +26768,98 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'floretpentagonaltiles': {
+        const p = proceduralMaterialPresets.floretpentagonaltiles,
+          root3 = Math.sqrt(3),
+          rowHeight = 0.5 * root3,
+          nodeRows = 2 * p.rows,
+          planes = new Float64Array(6 * 5 * 3),
+          tones = new Float64Array(p.columns * nodeRows * 6),
+          faceTone = [0.1, 0.48, 0.82],
+          grainField = cachedNoise(96, 96, seed ^ 0x3d21),
+          inverseShoulder = 1 / p.shoulder;
+        // A dual face joins the centers of the hexagon and four triangles meeting at a snub-tiling vertex.
+        // Six rotations of this pentagon form one chiral floret, with four 120-degree corners and one 60-degree corner.
+        const vertices = [
+          [0, 0],
+          [3 / 7, -root3 / 21],
+          [4 / 7, root3 / 21],
+          [0.5, root3 / 6],
+          [2 / 7, (4 * root3) / 21],
+        ];
+        for (let f = 0; f < 6; f++) {
+          const c = Math.cos((f * Math.PI) / 3),
+            s = Math.sin((f * Math.PI) / 3);
+          for (let k = 0; k < 5; k++) {
+            const a = vertices[k],
+              b = vertices[(k + 1) % 5],
+              ax = c * a[0] - s * a[1],
+              ay = s * a[0] + c * a[1],
+              bx = c * b[0] - s * b[1],
+              by = s * b[0] + c * b[1],
+              length = Math.hypot(bx - ax, by - ay),
+              nx = (ay - by) / length,
+              ny = (bx - ax) / length,
+              at = (f * 5 + k) * 3;
+            planes[at] = nx;
+            planes[at + 1] = ny;
+            planes[at + 2] = nx * ax + ny * ay;
+          }
+        }
+        for (let row = 0; row < nodeRows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let f = 0; f < 6; f++)
+              tones[(row * p.columns + col) * 6 + f] =
+                faceTone[f % 3] +
+                0.1 * hash(col, row, seed ^ (0x3d23 + 0x40 * f));
+        return () => {
+          const x = u * p.columns,
+            y = v * nodeRows * rowHeight,
+            row = Math.round(y / rowHeight),
+            col = Math.round(x - 0.5 * row);
+          let faces = 0,
+            pigment = 0;
+          // All petal vertices lie within radius sqrt(1/3) of their lattice owner; three by three owners suffice.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const j = row + oy,
+                i = col + ox,
+                qx = x - i - 0.5 * j,
+                qy = y - j * rowHeight;
+              if (qx * qx + qy * qy > 1 / 3 + 1e-12) continue;
+              const cycle = Math.floor(j / nodeRows),
+                toneAt =
+                  ((j - cycle * nodeRows) * p.columns +
+                    ((((i + cycle * p.rows) % p.columns) + p.columns) %
+                      p.columns)) *
+                  6;
+              for (let f = 0; f < 6; f++) {
+                let face = 1;
+                for (let k = 0; k < 5 && face > 0; k++) {
+                  const at = (f * 5 + k) * 3,
+                    distance =
+                      planes[at] * qx +
+                      planes[at + 1] * qy -
+                      planes[at + 2] -
+                      p.grout;
+                  face *=
+                    distance > 0
+                      ? smooth(clamp(distance * inverseShoulder))
+                      : 0;
+                }
+                faces += face;
+                pigment += face * tones[toneAt + f];
+              }
+            }
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39346,6 +39438,7 @@ export function createSurfaceSampler(
     kind === 'soroban' ||
     kind === 'deltoidaltrihexagonaltiles' ||
     kind === 'snubtrihexagonaltiles' ||
+    kind === 'floretpentagonaltiles' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

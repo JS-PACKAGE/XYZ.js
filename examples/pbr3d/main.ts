@@ -539,6 +539,7 @@ try {
     'soroban',
     'deltoidaltrihexagonaltiles',
     'snubtrihexagonaltiles',
+    'floretpentagonaltiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
