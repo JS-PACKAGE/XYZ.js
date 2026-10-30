@@ -519,6 +519,7 @@ try {
     'calcite',
     'halite',
     'waffleweave',
+    'fishscaleshingles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

@@ -482,6 +482,7 @@ const kinds: ProceduralMaterialKind[] = [
   'calcite',
   'halite',
   'waffleweave',
+  'fishscaleshingles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -93268,6 +93269,586 @@ describe('Waffle weave recessed pockets with rounded weft and warp float ridges 
         expect(o.maxTilt).toBeLessThan(0.4);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.1);
       } else expect(o.maxTilt).toBeLessThan(0.01);
+    },
+  );
+});
+
+describe('Fish-scale shingles with two-lobe courses staggered by half a lobe, seams and under-lap shadows', () => {
+  const p = proceduralMaterialPresets.fishscaleshingles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observe = (seed: number) => {
+    const lobePx = 48,
+      coursePx = (p.lobes * lobePx) / p.courses,
+      width = p.lobes * lobePx,
+      height = width,
+      shift = 0.5 / p.courses,
+      sample = createSurfaceSampler('fishscaleshingles', seed),
+      out = empty(),
+      h = new Float64Array(width * height),
+      color = new Float64Array(width * height),
+      ao = new Float64Array(width * height);
+    let minRoughness = 1,
+      maxRoughness = 0,
+      dielectric = 0;
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        sample((x + 0.5) / width, ((y + 0.5) / height + shift) % 1, out);
+        const i = y * width + x;
+        h[i] = out.height / p.relief;
+        color[i] = out.color;
+        ao[i] = out.occlusion;
+        minRoughness = Math.min(minRoughness, out.roughness);
+        maxRoughness = Math.max(maxRoughness, out.roughness);
+        dielectric += Number(out.metallic !== 0 || out.mortar !== 0);
+      }
+    const columns: number[][] = [];
+    for (let x = 0; x < width; x++) {
+      const found: number[] = [];
+      let start = -1,
+        last = -10;
+      for (let y = 0; y < height - 8; y++) {
+        if (h[y * width + x] - h[(y + 8) * width + x] > 0.1) {
+          if (y - last > 3 && start >= 0) found.push((start + last) / 2 + 4);
+          if (y - last > 3) start = y;
+          last = y;
+        }
+      }
+      if (start >= 0) found.push((start + last) / 2 + 4);
+      columns.push(found);
+    }
+    let badColumns = 0;
+    for (const found of columns)
+      badColumns += Number(found.length !== p.courses);
+    const curves: number[][] = [];
+    for (let r = 0; r < p.courses; r++) {
+      const curve = columns.map((found) =>
+        found.length === p.courses ? found[r] : NaN,
+      );
+      for (let x = 0; x < width; x++)
+        if (Number.isNaN(curve[x])) {
+          let left = 1,
+            right = 1;
+          while (
+            Number.isNaN(curve[(x - left + width) % width]) &&
+            left < width
+          )
+            left++;
+          while (Number.isNaN(curve[(x + right) % width]) && right < width)
+            right++;
+          const a = curve[(x - left + width) % width],
+            b = curve[(x + right) % width];
+          curve[x] =
+            Number.isNaN(a) || Number.isNaN(b)
+              ? NaN
+              : a + ((b - a) * left) / (left + right);
+        }
+      curves.push(curve);
+    }
+    const spacingOf = (list: number[]): number[] => {
+      const gaps: number[] = [];
+      for (let i = 0; i < list.length; i++)
+        gaps.push((list[(i + 1) % list.length] - list[i] + width) % width);
+      return gaps;
+    };
+    const courses = curves.map((curve) => {
+      const lo = Math.min(...curve),
+        hi = Math.max(...curve),
+        level = lo + 0.7 * (hi - lo),
+        inside = curve.map((y) => Number(y > level));
+      const begin = inside.findIndex(
+        (v, i) => v === 0 && inside[(i + 1) % width] === 1,
+      );
+      const tips: number[] = [];
+      let runStart = -1;
+      for (let k = 1; k <= width + 1; k++) {
+        const i = (begin + k) % width,
+          v = inside[i];
+        if (v === 1 && runStart < 0) runStart = k;
+        if (v === 0 && runStart >= 0) {
+          tips.push(
+            (((begin + (runStart + k - 1) / 2) % width) + width) % width,
+          );
+          runStart = -1;
+        }
+      }
+      tips.sort((a, b) => a - b);
+      const gaps = spacingOf(tips),
+        spacing = width / Math.max(tips.length, 1),
+        radius = spacing / 2;
+      let residual = 0,
+        counted = 0;
+      for (const tip of tips) {
+        const top = curve[Math.round(tip) % width];
+        for (
+          let d = -Math.floor(0.7 * radius);
+          d <= Math.floor(0.7 * radius);
+          d++
+        ) {
+          const y = curve[(Math.round(tip) + d + width) % width],
+            model =
+              top - radius + Math.sqrt(Math.max(0, radius * radius - d * d));
+          residual += (y - model) ** 2;
+          counted++;
+        }
+      }
+      return {
+        lobes: tips.length,
+        tips,
+        gapSpread: Math.max(...gaps) - Math.min(...gaps),
+        depth: (hi - lo) / lobePx,
+        circleRms:
+          Math.sqrt(residual / Math.max(counted, 1)) / Math.max(radius, 1),
+        tipY: curve.reduce((sum, y) => sum + y, 0) / width,
+        cusp: lo,
+        mean: curve.reduce((sum, y) => sum + y, 0) / width,
+      };
+    });
+    const seams = courses.map((course) => {
+      const y = ((Math.round(course.cusp - 12) % height) + height) % height,
+        line = Array.from({ length: width }, (_, x) => h[y * width + x]),
+        colors = Array.from({ length: width }, (_, x) => color[y * width + x]),
+        sorted = [...line].sort((a, b) => a - b),
+        median = sorted[width >> 1],
+        dips: number[] = [];
+      let runStart = -1;
+      for (let x = 0; x <= width; x++) {
+        const low = x < width && line[x] < median - 0.05;
+        if (low && runStart < 0) runStart = x;
+        if (!low && runStart >= 0) {
+          dips.push((runStart + x - 1) / 2);
+          runStart = -1;
+        }
+      }
+      if (
+        dips.length > 1 &&
+        line[0] < median - 0.05 &&
+        line[width - 1] < median - 0.05
+      ) {
+        const first = dips.shift() as number,
+          last = dips.pop() as number;
+        dips.unshift(((((last + first + width) / 2) % width) + width) % width);
+        dips.sort((a, b) => a - b);
+      }
+      const sortedColors = [...colors].sort((a, b) => a - b),
+        gaps = spacingOf(dips),
+        tones: number[] = [];
+      for (let k = 0; k < dips.length; k++) {
+        const from = Math.ceil(dips[k] + 6),
+          to = Math.floor(
+            dips[(k + 1) % dips.length] +
+              (k === dips.length - 1 ? width : 0) -
+              6,
+          );
+        let sum = 0,
+          n = 0;
+        for (let x = from; x <= to; x++) {
+          sum += colors[x % width];
+          n++;
+        }
+        tones.push(sum / Math.max(n, 1));
+      }
+      return {
+        count: dips.length,
+        dips,
+        gapSpread: Math.max(...gaps) - Math.min(...gaps),
+        seamColorDrop: sortedColors[width >> 1] - Math.min(...colors),
+        tones,
+      };
+    });
+    let minShadow = 1,
+      calm = 0,
+      calmCount = 0;
+    for (let r = 0; r < courses.length; r++) {
+      const lower = seams[(r + 1) % courses.length].dips;
+      for (const tip of courses[r].tips)
+        for (const offset of [0, 12, -12]) {
+          const x = (Math.round(tip) + offset + width) % width;
+          if (
+            lower.every(
+              (d) => Math.min(Math.abs(d - x), width - Math.abs(d - x)) > 10,
+            )
+          ) {
+            let low = 1;
+            for (let d = 2; d < 30; d++)
+              low = Math.min(
+                low,
+                ao[
+                  Math.min(height - 1, Math.round(curves[r][x]) + d) * width + x
+                ],
+              );
+            minShadow = Math.min(minShadow, low);
+            break;
+          }
+        }
+    }
+    for (let r = 0; r < courses.length; r++) {
+      const y = ((Math.round(courses[r].cusp - 12) % height) + height) % height;
+      for (let x = 0; x < width; x += 7)
+        if (
+          seams[r].dips.every(
+            (d) => Math.min(Math.abs(d - x), width - Math.abs(d - x)) > 10,
+          )
+        ) {
+          calm += ao[y * width + x];
+          calmCount++;
+        }
+    }
+    return {
+      badColumns,
+      courses,
+      seams,
+      minShadow,
+      calm: calm / calmCount,
+      minRoughness,
+      maxRoughness,
+      dielectric,
+      width,
+      lobePx,
+      coursePx,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('fishscaleshingles', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.lobes; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.lobes, j / 256);
+        check((k + 0.5) / p.lobes, j / 256);
+      }
+    for (let k = 0; k <= p.courses; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(j / 256, k / p.courses);
+        check(j / 256, (k + 1) / p.courses - 0.5 / p.lobes);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0,
+      faceRoughness = 0,
+      backingRoughness = 0,
+      faces = 0,
+      backings = 0;
+    const luma = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      luma[i] =
+        0.2126 * maps.baseColor[j] +
+        0.7152 * maps.baseColor[j + 1] +
+        0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma[i]);
+      maxLuma = Math.max(maxLuma, luma[i]);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    const middle = (minLuma + maxLuma) / 2;
+    for (let i = 0; i < count; i++) {
+      const roughness = maps.metallicRoughness[i * 4 + 1] / 255;
+      if (luma[i] > middle) {
+        faces++;
+        faceRoughness += roughness;
+      } else {
+        backings++;
+        backingRoughness += roughness;
+      }
+    }
+    return {
+      face: faces / count,
+      faceRoughness: faceRoughness / faces,
+      backingRoughness: backingRoughness / backings,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'keeps every course boundary as a stepped row of equal semicircular lobes at seed%s',
+    (seed) => {
+      expect(p.lobes).toBeGreaterThan(7);
+      expect(p.lobes).toBeLessThan(17);
+      expect(p.courses).toBeGreaterThan(5);
+      expect(p.courses).toBeLessThan(11);
+      const o = observe(seed);
+      expect(o.badColumns / o.width).toBeLessThan(0.15);
+      expect(o.courses.length).toBe(p.courses);
+      for (const course of o.courses) {
+        expect(course.lobes).toBe(p.lobes);
+        expect(course.gapSpread).toBeLessThan(3);
+        expect(course.depth).toBeGreaterThan(0.42);
+        expect(course.depth).toBeLessThan(0.58);
+        expect(course.circleRms).toBeLessThan(0.06);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'spaces courses evenly and staggers neighboring lobes by half a lobe at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      for (let r = 0; r < o.courses.length; r++) {
+        const next = o.courses[(r + 1) % o.courses.length],
+          pitch = (next.tipY - o.courses[r].tipY + o.width) % o.width,
+          stagger =
+            (((next.tips[0] - o.courses[r].tips[0]) % o.lobePx) + o.lobePx) %
+            o.lobePx;
+        expect(pitch).toBeGreaterThan(o.coursePx - 2);
+        expect(pitch).toBeLessThan(o.coursePx + 2);
+        expect(stagger).toBeGreaterThan(o.lobePx / 2 - 3);
+        expect(stagger).toBeLessThan(o.lobePx / 2 + 3);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'cuts a dark seam every second lobe with half-lobe stagger and varied shingle tones at seed%s',
+    (seed) => {
+      const o = observe(seed),
+        tones: number[] = [];
+      for (let r = 0; r < o.seams.length; r++) {
+        const seam = o.seams[r],
+          next = o.seams[(r + 1) % o.seams.length],
+          stagger =
+            (((next.dips[0] - seam.dips[0]) % o.lobePx) + o.lobePx) % o.lobePx;
+        expect(seam.count).toBe(p.lobes / 2);
+        expect(seam.gapSpread).toBeLessThan(3);
+        expect(seam.seamColorDrop).toBeGreaterThan(0.15);
+        expect(stagger).toBeGreaterThan(o.lobePx / 2 - 3);
+        expect(stagger).toBeLessThan(o.lobePx / 2 + 3);
+        tones.push(...seam.tones);
+      }
+      const mean = tones.reduce((sum, t) => sum + t, 0) / tones.length,
+        deviation = Math.sqrt(
+          tones.reduce((sum, t) => sum + (t - mean) ** 2, 0) / tones.length,
+        );
+      expect(deviation).toBeGreaterThan(0.01);
+      expect(deviation).toBeLessThan(0.08);
+    },
+  );
+  it('moves only shingle tones and grain between seeds while lobes and seams stay fixed', () => {
+    const a = observe(0),
+      b = observe(7),
+      wrap = (x: number, y: number, period: number) => {
+        const d = Math.abs(x - y) % period;
+        return Math.min(d, period - d);
+      };
+    let toneDifference = 0;
+    for (let r = 0; r < a.courses.length; r++) {
+      for (let k = 0; k < a.courses[r].tips.length; k++)
+        expect(
+          wrap(a.courses[r].tips[k], b.courses[r].tips[k], a.width),
+        ).toBeLessThan(2);
+      for (let k = 0; k < a.seams[r].dips.length; k++)
+        expect(
+          wrap(a.seams[r].dips[k], b.seams[r].dips[k], a.width),
+        ).toBeLessThan(2);
+      for (let k = 0; k < a.seams[r].tones.length; k++)
+        toneDifference = Math.max(
+          toneDifference,
+          Math.abs(a.seams[r].tones[k] - b.seams[r].tones[k]),
+        );
+    }
+    expect(toneDifference).toBeGreaterThan(0.01);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'casts under-lap shadow below each lobe on calm matte dielectric shingles at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.minShadow).toBeLessThan(0.7);
+      expect(o.calm).toBeGreaterThan(0.9);
+      expect(o.minRoughness).toBeGreaterThan(0.45);
+      expect(o.maxRoughness).toBeLessThan(0.58);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps lobe edges seams shadow bands and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes matte stepped shingle maps with resolved lobe normals and shadows at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('fishscaleshingles', size, 7, {
+          heightMap: true,
+        }),
+      );
+      expect(o.metallicPixels).toBe(0);
+      expect(Math.abs(o.backingRoughness - o.faceRoughness)).toBeLessThan(0.05);
+      expect(o.faceRoughness).toBeGreaterThan(0.45);
+      expect(o.faceRoughness).toBeLessThan(0.58);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(10);
+      expect(o.minAO).toBeLessThan(200);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.05);
+        expect(o.maxTilt).toBeLessThan(0.9);
+        const signed = [...o.signed].sort((a, b) => a - b);
+        expect(signed[1]).toBeGreaterThan(0.02);
+        expect(signed[3]).toBeGreaterThan(0.04);
+      } else expect(o.maxTilt).toBeLessThan(0.02);
     },
   );
 });

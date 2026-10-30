@@ -6754,6 +6754,33 @@ var proceduralMaterialPresets = Object.freeze({
 		bowl: .08,
 		knot: .12
 	}),
+	fishscaleshingles: Object.freeze({
+		dark: [
+			118,
+			108,
+			86
+		],
+		light: [
+			226,
+			220,
+			196
+		],
+		roughness: .5,
+		relief: .012,
+		lobes: 12,
+		courses: 8,
+		shoulder: .004,
+		ramp: .7,
+		base: .25,
+		lip: .22,
+		aoDepth: .45,
+		aoWidth: .22,
+		seamWidth: .006,
+		seamDepth: .1,
+		toneSpread: .1,
+		seamColor: .32,
+		seamAo: .5
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18208,6 +18235,7 @@ var proceduralTileMeters = Object.freeze({
 	calcite: .1,
 	halite: .08,
 	waffleweave: .12,
+	fishscaleshingles: 1.75,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

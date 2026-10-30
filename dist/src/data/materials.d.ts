@@ -3148,6 +3148,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         bowl: 0.08;
         knot: 0.12;
     }>;
+    fishscaleshingles: Readonly<{
+        dark: readonly [118, 108, 86];
+        light: readonly [226, 220, 196];
+        roughness: 0.5;
+        relief: 0.012;
+        lobes: 12;
+        courses: 8;
+        shoulder: 0.004;
+        ramp: 0.7;
+        base: 0.25;
+        lip: 0.22;
+        aoDepth: 0.45;
+        aoWidth: 0.22;
+        seamWidth: 0.006;
+        seamDepth: 0.1;
+        toneSpread: 0.1;
+        seamColor: 0.32;
+        seamAo: 0.5;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10905,6 +10924,7 @@ export declare const proceduralTileMeters: Readonly<{
     calcite: 0.1;
     halite: 0.08;
     waffleweave: 0.12;
+    fishscaleshingles: 1.75;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

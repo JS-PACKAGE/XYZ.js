@@ -25054,6 +25054,101 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.4 * ridge + 0.08 * bowl;
         };
       }
+      case 'fishscaleshingles': {
+        const p = proceduralMaterialPresets.fishscaleshingles,
+          shingles = p.lobes / 2,
+          tones = new Float64Array(p.courses * shingles),
+          grainField = cachedNoise(128, 128, seed ^ 0x34111),
+          lobe = 1 / p.lobes,
+          pitch = 1 / p.courses,
+          radius = 0.5 * lobe,
+          blend = 0.25 * radius,
+          inverseShoulder = 1 / p.shoulder,
+          inverseRamp = 1 / (p.ramp * pitch),
+          inverseAo = 1 / (p.aoWidth * pitch),
+          inverseSeam = 1 / p.seamWidth;
+        let coverage = 0,
+          outside = 0,
+          tone = 0,
+          seam = 0;
+        for (let i = 0; i < tones.length; i++)
+          tones[i] = hash(
+            i % shingles,
+            Math.floor(i / shingles),
+            seed ^ 0x34113,
+          );
+        // Soft coverage and outside distance of one course: a solid band above the cusp line plus its two nearest semicircular lobes.
+        const course = (row: number): void => {
+            const offset = 0.5 * (row & 1),
+              cusp = (row + 1) * pitch - radius,
+              side = u * p.lobes - offset,
+              index = Math.floor(side),
+              neighbor = side - index < 0.5 ? index - 1 : index + 1,
+              dy = v - cusp,
+              first = Math.hypot(u - lobe * (index + 0.5 + offset), dy),
+              second = Math.hypot(u - lobe * (neighbor + 0.5 + offset), dy),
+              mix = clamp(0.5 + (0.5 * (second - first)) / blend),
+              nearest =
+                second +
+                (first - second) * mix -
+                blend * mix * (1 - mix) -
+                radius;
+            outside = dy <= 0 || nearest < 0 ? 0 : nearest;
+            coverage =
+              1 -
+              (1 - smooth(clamp(-dy * inverseShoulder))) *
+                (1 - smooth(clamp((radius - first) * inverseShoulder))) *
+                (1 - smooth(clamp((radius - second) * inverseShoulder)));
+          },
+          // Shingles are two lobes wide; each narrow seam hides the tone step between neighbors.
+          shingle = (row: number): void => {
+            const scaled = (u * p.lobes - 0.5 * (row & 1)) / 2,
+              index = Math.floor(scaled),
+              wrapped = ((index % shingles) + shingles) % shingles;
+            tone =
+              tones[
+                (((row % p.courses) + p.courses) % p.courses) * shingles +
+                  wrapped
+              ];
+            seam =
+              1 -
+              smooth(
+                clamp(
+                  Math.abs(scaled - Math.round(scaled)) *
+                    2 *
+                    lobe *
+                    inverseSeam,
+                ),
+              );
+          };
+        return () => {
+          const row = Math.floor(v * p.courses),
+            grain = grainField(u, v);
+          course(row - 1);
+          const rampA = smooth(clamp(outside * inverseRamp)),
+            aoA = 1 - p.aoDepth * (1 - smooth(clamp(outside * inverseAo)));
+          course(row);
+          const s = coverage,
+            rampB = smooth(clamp(outside * inverseRamp)),
+            aoB = 1 - p.aoDepth * (1 - smooth(clamp(outside * inverseAo)));
+          shingle(row);
+          const colorA =
+              (0.6 + p.toneSpread * (tone - 0.5) + 0.03 * rampA) * (1 - seam) +
+              p.seamColor * seam,
+            heightA = p.base + p.lip * rampA - p.seamDepth * seam,
+            occlusionA = aoA * (1 - p.seamAo * seam);
+          shingle(row + 1);
+          const colorB =
+              (0.6 + p.toneSpread * (tone - 0.5) + 0.03 * rampB) * (1 - seam) +
+              p.seamColor * seam,
+            heightB = p.base + p.lip * rampB - p.seamDepth * seam,
+            occlusionB = aoB * (1 - p.seamAo * seam);
+          color = colorB + s * (colorA - colorB) + 0.02 * grain;
+          height = heightB + s * (heightA - heightB) + 0.004 * grain;
+          occlusion = occlusionB + s * (occlusionA - occlusionB);
+          roughness = p.roughness + 0.03 * grain;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37622,6 +37717,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'fishscaleshingles' ||
     kind === 'waffleweave' ||
     kind === 'halite' ||
     kind === 'calcite' ||
