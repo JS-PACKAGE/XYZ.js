@@ -6681,6 +6681,31 @@ var proceduralMaterialPresets = Object.freeze({
 		wallOcclusion: .12,
 		wallWidth: .05
 	}),
+	calcite: Object.freeze({
+		dark: [
+			78,
+			68,
+			58
+		],
+		light: [
+			238,
+			232,
+			218
+		],
+		roughness: .36,
+		relief: .0035,
+		cells: 4,
+		chance: .9,
+		halfMinimum: .21,
+		halfVariation: .05,
+		acuteDegrees: 75,
+		jitter: .04,
+		shoulder: .012,
+		stepMinimum: .46,
+		stepVariation: .22,
+		stepOffset: .2,
+		stepRise: .07
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18132,6 +18157,7 @@ var proceduralTileMeters = Object.freeze({
 	hexnuts: .08,
 	capnuts: .08,
 	flangenuts: .08,
+	calcite: .1,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

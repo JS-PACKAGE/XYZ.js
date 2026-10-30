@@ -24860,6 +24860,99 @@ export function createSurfaceSampler(
             p.wallOcclusion * wall;
         };
       }
+      case 'calcite': {
+        const p = proceduralMaterialPresets.calcite,
+          poses = new Float64Array(p.cells * p.cells * 10),
+          grainField = cachedNoise(128, 128, seed ^ 0x31111),
+          hostField = cachedNoise(16, 16, seed ^ 0x31113),
+          acute = (p.acuteDegrees * Math.PI) / 180,
+          sinAcute = Math.sin(acute),
+          cosAcute = Math.cos(acute),
+          inverseSin = 1 / sinAcute,
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            if (hash(col, row, seed ^ 0x31115) >= p.chance) continue;
+            const i = (row * p.cells + col) * 10,
+              angle = TAU * hash(col, row, seed ^ 0x31117),
+              half =
+                p.halfMinimum +
+                p.halfVariation * hash(col, row, seed ^ 0x31119),
+              step =
+                half *
+                (p.stepMinimum +
+                  p.stepVariation * hash(col, row, seed ^ 0x3111b)),
+              room = half - step;
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3111d) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3111f) - 1);
+            poses[i + 4] = half;
+            poses[i + 5] = step;
+            poses[i + 6] =
+              room * p.stepOffset * (2 * hash(col, row, seed ^ 0x31121) - 1);
+            poses[i + 7] =
+              room * p.stepOffset * (2 * hash(col, row, seed ^ 0x31123) - 1);
+            poses[i + 8] = hash(col, row, seed ^ 0x31125);
+            poses[i + 9] = 1;
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 10,
+            grain = grainField(u, v),
+            host = hostField(u, v);
+          color = 0.12 + 0.07 * host + 0.015 * grain;
+          height = 0.1 + 0.02 * host + 0.003 * grain;
+          roughness = 0.88 + 0.05 * host + 0.01 * grain;
+          occlusion = 0.55;
+          if (poses[i + 9] === 0) return;
+          const dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            t = y * inverseSin,
+            s = x - t * cosAcute,
+            face =
+              smooth(
+                clamp(
+                  (poses[i + 4] - Math.abs(s)) * sinAcute * inverseShoulder,
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (poses[i + 4] - Math.abs(t)) * sinAcute * inverseShoulder,
+                ),
+              );
+          if (face === 0) return;
+          const step =
+            face *
+            smooth(
+              clamp(
+                (poses[i + 5] - Math.abs(s - poses[i + 6])) *
+                  sinAcute *
+                  inverseShoulder,
+              ),
+            ) *
+            smooth(
+              clamp(
+                (poses[i + 5] - Math.abs(t - poses[i + 7])) *
+                  sinAcute *
+                  inverseShoulder,
+              ),
+            );
+          // Parallel cleavage plates stay flat; only the rhomb shoulders rise from the rough host.
+          color +=
+            face * (0.78 + 0.06 * poses[i + 8] + 0.02 * grain - color) +
+            step * 0.04;
+          height += face * (0.5 + 0.004 * grain - height) + step * p.stepRise;
+          roughness += face * (p.roughness + 0.02 * grain - roughness);
+          occlusion += face * (0.96 + 0.02 * grain - occlusion);
+          return;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37428,6 +37521,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'calcite' ||
     kind === 'azurite' ||
     kind === 'celestine' ||
     kind === 'barite' ||

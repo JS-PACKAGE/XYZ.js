@@ -479,6 +479,7 @@ const kinds: ProceduralMaterialKind[] = [
   'hexnuts',
   'capnuts',
   'flangenuts',
+  'calcite',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -91631,6 +91632,586 @@ describe('Flange nuts with six trimmed flats, a circular conical flange and an o
       expect(o.maxTilt).toBeGreaterThan(0.02);
       expect(o.maxTilt).toBeLessThan(0.99);
       for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.1);
+    },
+  );
+});
+
+describe('Calcite milky rhombohedral cleavage plates with nested parallel steps on rough dark mineral host', () => {
+  const p = proceduralMaterialPresets.calcite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observe = (seed: number) => {
+    const size = 512,
+      cell = size / p.cells,
+      sample = createSurfaceSampler('calcite', seed),
+      out = empty(),
+      height = new Float64Array(size * size),
+      color = new Float64Array(size * size),
+      roughness = new Float64Array(size * size),
+      occlusion = new Float64Array(size * size),
+      metallic = new Float64Array(size * size),
+      mortar = new Float64Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        height[i] = out.height / p.relief;
+        color[i] = out.color;
+        roughness[i] = out.roughness;
+        occlusion[i] = out.occlusion;
+        metallic[i] = out.metallic;
+        mortar[i] = out.mortar;
+      }
+    type Plate = {
+      count: number;
+      lobes: number;
+      cornerRatio: number;
+      edgeAngles: number[];
+      edgeRms: number[];
+      parallel: number[];
+      symmetry: number;
+      area: number;
+      orientation: number;
+      stepArea: number;
+      stepShape: number;
+      stepAxis: number;
+      stepInside: boolean;
+      stepRise: number;
+    };
+    const plates: Plate[] = [];
+    let plateColor = 0,
+      plateRoughness = 0,
+      plateOcclusion = 0,
+      hostColor = 0,
+      hostRoughness = 0,
+      hostOcclusion = 0,
+      plateCount = 0,
+      hostCount = 0,
+      dielectric = 0;
+    for (let i = 0; i < size * size; i++) {
+      dielectric += Number(metallic[i] !== 0 || mortar[i] !== 0);
+      if (height[i] > 0.45) {
+        plateColor += color[i];
+        plateRoughness += roughness[i];
+        plateOcclusion += occlusion[i];
+        plateCount++;
+      } else if (height[i] < 0.2) {
+        hostColor += color[i];
+        hostRoughness += roughness[i];
+        hostOcclusion += occlusion[i];
+        hostCount++;
+      }
+    }
+    const moments = (mask: Uint8Array, x0: number, y0: number) => {
+      let count = 0,
+        sx = 0,
+        sy = 0;
+      for (let y = y0; y < y0 + cell; y++)
+        for (let x = x0; x < x0 + cell; x++)
+          if (mask[y * size + x]) {
+            count++;
+            sx += x + 0.5;
+            sy += y + 0.5;
+          }
+      if (count === 0) return null;
+      const cx = sx / count,
+        cy = sy / count;
+      let xx = 0,
+        yy = 0,
+        xy = 0;
+      for (let y = y0; y < y0 + cell; y++)
+        for (let x = x0; x < x0 + cell; x++)
+          if (mask[y * size + x]) {
+            const dx = x + 0.5 - cx,
+              dy = y + 0.5 - cy;
+            xx += dx * dx;
+            yy += dy * dy;
+            xy += dx * dy;
+          }
+      const mean = (xx + yy) / (2 * count),
+        spread = Math.hypot((xx - yy) / 2, xy) / count;
+      return {
+        count,
+        cx,
+        cy,
+        axis: 0.5 * Math.atan2(2 * xy, xx - yy),
+        shape: (mean + spread) / (mean - spread),
+      };
+    };
+    const rays = 720,
+      window = 40;
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const x0 = col * cell,
+          y0 = row * cell,
+          outer = new Uint8Array(size * size),
+          inner = new Uint8Array(size * size);
+        for (let y = y0; y < y0 + cell; y++)
+          for (let x = x0; x < x0 + cell; x++) {
+            outer[y * size + x] = Number(height[y * size + x] > 0.3);
+            inner[y * size + x] = Number(height[y * size + x] > 0.535);
+          }
+        const m = moments(outer, x0, y0);
+        if (m === null) continue;
+        const radii = new Float64Array(rays);
+        for (let k = 0; k < rays; k++) {
+          const angle = (k * 2 * Math.PI) / rays;
+          let r = 0;
+          while (r < cell) {
+            const x = Math.floor(m.cx + r * Math.cos(angle)),
+              y = Math.floor(m.cy + r * Math.sin(angle));
+            if (
+              x < x0 ||
+              y < y0 ||
+              x >= x0 + cell ||
+              y >= y0 + cell ||
+              !outer[y * size + x]
+            )
+              break;
+            r += 0.25;
+          }
+          radii[k] = r;
+        }
+        const peaks: number[] = [];
+        for (let k = 0; k < rays; k++) {
+          let peak = true;
+          for (let j = -window; j <= window && peak; j++)
+            if (radii[(k + j + rays) % rays] > radii[k]) peak = false;
+          if (peak && radii[k] > radii[(k - 1 + rays) % rays]) peaks.push(k);
+        }
+        const corners: number[] = [];
+        for (const k of peaks) {
+          const last = corners[corners.length - 1];
+          if (last !== undefined && k - last < 20) {
+            if (radii[k] > radii[last]) corners[corners.length - 1] = k;
+          } else corners.push(k);
+        }
+        const first = corners[0],
+          tail = corners[corners.length - 1];
+        if (
+          first !== undefined &&
+          tail !== undefined &&
+          corners.length > 1 &&
+          first + rays - tail < 20
+        ) {
+          if (radii[tail] > radii[first]) corners.shift();
+          else corners.pop();
+        }
+        let symmetry = 0;
+        for (let k = 0; k < rays; k++)
+          symmetry += Math.abs(radii[k] / radii[(k + rays / 2) % rays] - 1);
+        const edgeAngles: number[] = [],
+          edgeRms: number[] = [],
+          directions: number[] = [];
+        for (let e = 0; e < corners.length; e++) {
+          const a = corners[e],
+            b = corners[(e + 1) % corners.length],
+            gap = (b - a + rays) % rays,
+            points: number[][] = [];
+          for (
+            let k = Math.ceil(a + 0.15 * gap);
+            k <= Math.floor(a + 0.85 * gap);
+            k++
+          ) {
+            const angle = ((k % rays) * 2 * Math.PI) / rays;
+            points.push([
+              m.cx + radii[k % rays] * Math.cos(angle),
+              m.cy + radii[k % rays] * Math.sin(angle),
+            ]);
+          }
+          const mx = points.reduce((sum, q) => sum + q[0], 0) / points.length,
+            my = points.reduce((sum, q) => sum + q[1], 0) / points.length;
+          let xx = 0,
+            yy = 0,
+            xy = 0;
+          for (const q of points) {
+            xx += (q[0] - mx) ** 2;
+            yy += (q[1] - my) ** 2;
+            xy += (q[0] - mx) * (q[1] - my);
+          }
+          const spread = Math.hypot((xx - yy) / 2, xy),
+            small = (xx + yy) / 2 - spread;
+          directions.push(0.5 * Math.atan2(2 * xy, xx - yy));
+          edgeRms.push(Math.sqrt(Math.max(0, small) / points.length) / cell);
+        }
+        const fold = (a: number, b: number): number => {
+          const d = Math.abs(a - b) % Math.PI;
+          return Math.min(d, Math.PI - d);
+        };
+        for (let e = 0; e < directions.length; e++)
+          edgeAngles.push(
+            (fold(directions[e], directions[(e + 1) % directions.length]) *
+              180) /
+              Math.PI,
+          );
+        const parallel =
+          directions.length === 4
+            ? [
+                (fold(directions[0], directions[2]) * 180) / Math.PI,
+                (fold(directions[1], directions[3]) * 180) / Math.PI,
+              ]
+            : [];
+        const cornerRadii = corners.map((k) => radii[k]).sort((a, b) => b - a);
+        const s = moments(inner, x0, y0);
+        let stepInside = s !== null;
+        let stepRise = 0,
+          stepCount = 0,
+          flatCount = 0,
+          flat = 0;
+        if (s !== null) {
+          for (let y = y0; y < y0 + cell; y++)
+            for (let x = x0; x < x0 + cell; x++) {
+              const i = y * size + x;
+              if (inner[i]) {
+                stepRise += height[i];
+                stepCount++;
+                for (const [dx, dy] of [
+                  [-3, 0],
+                  [3, 0],
+                  [0, -3],
+                  [0, 3],
+                ])
+                  if (!outer[(y + dy) * size + x + dx]) stepInside = false;
+              } else if (height[i] > 0.45 && height[i] <= 0.535) {
+                flat += height[i];
+                flatCount++;
+              }
+            }
+        }
+        plates.push({
+          count: m.count,
+          lobes: corners.length,
+          cornerRatio:
+            cornerRadii.length === 4
+              ? (cornerRadii[0] + cornerRadii[1]) /
+                (cornerRadii[2] + cornerRadii[3])
+              : 0,
+          edgeAngles,
+          edgeRms,
+          parallel,
+          symmetry: symmetry / rays,
+          area: m.count / (cell * cell),
+          orientation: ((m.axis % Math.PI) + Math.PI) % Math.PI,
+          stepArea: s === null ? 0 : s.count / m.count,
+          stepShape: s === null ? 0 : s.shape / m.shape,
+          stepAxis: s === null ? 0 : (fold(s.axis, m.axis) * 180) / Math.PI,
+          stepInside,
+          stepRise:
+            stepCount && flatCount
+              ? stepRise / stepCount - flat / flatCount
+              : 0,
+        });
+      }
+    let sin = 0,
+      cos = 0;
+    for (const plate of plates) {
+      sin += Math.sin(2 * plate.orientation);
+      cos += Math.cos(2 * plate.orientation);
+    }
+    return {
+      plates,
+      coverage: plateCount / (size * size),
+      colorGap: plateColor / plateCount - hostColor / hostCount,
+      roughnessGap: hostRoughness / hostCount - plateRoughness / plateCount,
+      occlusionGap: plateOcclusion / plateCount - hostOcclusion / hostCount,
+      plateRoughness: plateRoughness / plateCount,
+      hostCount,
+      dielectric,
+      orientation: plates.length ? Math.hypot(sin, cos) / plates.length : 1,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('calcite', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.cells, j / 256);
+        check(j / 256, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0,
+      faceRoughness = 0,
+      backingRoughness = 0,
+      faces = 0,
+      backings = 0;
+    const luma = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      luma[i] =
+        0.2126 * maps.baseColor[j] +
+        0.7152 * maps.baseColor[j + 1] +
+        0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma[i]);
+      maxLuma = Math.max(maxLuma, luma[i]);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    const middle = (minLuma + maxLuma) / 2;
+    for (let i = 0; i < count; i++) {
+      const roughness = maps.metallicRoughness[i * 4 + 1] / 255;
+      if (luma[i] > middle) {
+        faces++;
+        faceRoughness += roughness;
+      } else {
+        backings++;
+        backingRoughness += roughness;
+      }
+    }
+    return {
+      face: faces / count,
+      faceRoughness: faceRoughness / faces,
+      backingRoughness: backingRoughness / backings,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps four-corner oblique rhomb plates with straight parallel 75-degree edges at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.plates.length).toBeGreaterThan(9);
+      expect(o.plates.length).toBeLessThan(17);
+      expect(o.coverage).toBeGreaterThan(0.12);
+      expect(o.coverage).toBeLessThan(0.3);
+      for (const plate of o.plates) {
+        expect(plate.lobes).toBe(4);
+        expect(plate.area).toBeGreaterThan(0.12);
+        expect(plate.area).toBeLessThan(0.3);
+        expect(plate.cornerRatio).toBeGreaterThan(1.22);
+        expect(plate.cornerRatio).toBeLessThan(1.38);
+        expect(plate.symmetry).toBeLessThan(0.03);
+        expect(plate.edgeAngles.length).toBe(4);
+        for (const angle of plate.edgeAngles) {
+          expect(angle).toBeGreaterThan(72);
+          expect(angle).toBeLessThan(78);
+        }
+        for (const rms of plate.edgeRms) expect(rms).toBeLessThan(0.006);
+        expect(plate.parallel.length).toBe(2);
+        for (const gap of plate.parallel) expect(gap).toBeLessThan(3);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps one flat nested step plate parallel to each rhomb and fully inside it at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      for (const plate of o.plates) {
+        expect(plate.stepArea).toBeGreaterThan(0.12);
+        expect(plate.stepArea).toBeLessThan(0.55);
+        expect(plate.stepShape).toBeGreaterThan(0.9);
+        expect(plate.stepShape).toBeLessThan(1.1);
+        expect(plate.stepAxis).toBeLessThan(4);
+        expect(plate.stepInside).toBe(true);
+        expect(plate.stepRise).toBeGreaterThan(0.05);
+        expect(plate.stepRise).toBeLessThan(0.09);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates opaque milky plates from a rough dark dielectric host with random rhomb turns at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.colorGap).toBeGreaterThan(0.5);
+      expect(o.roughnessGap).toBeGreaterThan(0.4);
+      expect(o.occlusionGap).toBeGreaterThan(0.3);
+      expect(o.plateRoughness).toBeGreaterThan(0.25);
+      expect(o.plateRoughness).toBeLessThan(0.5);
+      expect(o.dielectric).toBe(0);
+      expect(o.orientation).toBeLessThan(0.75);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps rhomb shoulders step edges host joins and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque milky plates over rougher dark host with resolved shoulder normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('calcite', size, 7, { heightMap: true }),
+      );
+      expect(o.face).toBeGreaterThan(0.12);
+      expect(o.face).toBeLessThan(0.3);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.backingRoughness - o.faceRoughness).toBeGreaterThan(0.4);
+      expect(o.faceRoughness).toBeGreaterThan(0.25);
+      expect(o.faceRoughness).toBeLessThan(0.5);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(160);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.05);
+        expect(o.maxTilt).toBeLessThan(0.6);
+        for (const fraction of o.signed)
+          expect(fraction).toBeGreaterThan(0.005);
+      } else expect(o.maxTilt).toBeLessThan(0.02);
     },
   );
 });

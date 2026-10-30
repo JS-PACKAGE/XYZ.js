@@ -3099,6 +3099,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         wallOcclusion: 0.12;
         wallWidth: 0.05;
     }>;
+    calcite: Readonly<{
+        dark: readonly [78, 68, 58];
+        light: readonly [238, 232, 218];
+        roughness: 0.36;
+        relief: 0.0035;
+        cells: 4;
+        chance: 0.9;
+        halfMinimum: 0.21;
+        halfVariation: 0.05;
+        acuteDegrees: 75;
+        jitter: 0.04;
+        shoulder: 0.012;
+        stepMinimum: 0.46;
+        stepVariation: 0.22;
+        stepOffset: 0.2;
+        stepRise: 0.07;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10853,6 +10870,7 @@ export declare const proceduralTileMeters: Readonly<{
     hexnuts: 0.08;
     capnuts: 0.08;
     flangenuts: 0.08;
+    calcite: 0.1;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

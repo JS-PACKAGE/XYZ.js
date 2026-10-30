@@ -453,6 +453,7 @@ export type ProceduralMaterialKind =
   | 'hexnuts'
   | 'capnuts'
   | 'flangenuts'
+  | 'calcite'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1524,6 +1525,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hexnuts',
   'capnuts',
   'flangenuts',
+  'calcite',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
