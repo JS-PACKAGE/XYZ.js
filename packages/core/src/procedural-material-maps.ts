@@ -26384,6 +26384,117 @@ export function createSurfaceSampler(
           occlusion = 0.98 - 0.03 * ink;
         };
       }
+      case 'soroban': {
+        const p = proceduralMaterialPresets.soroban,
+          // A seven-rod soroban section in units of the rod pitch: a frame bar above and below, a reckoning bar with
+          // dots on every third rod, and on every rod one five-bead above and four one-beads below. The rods show the
+          // last seven digits of 1234567890.
+          rods = 7,
+          digits = [4, 5, 6, 7, 8, 9, 0],
+          top = 0.52,
+          slot = 0.78,
+          beamTop = top + 2 * slot,
+          beamBottom = beamTop + 0.5,
+          bottom = beamBottom + 5 * slot,
+          beamMiddle = (beamTop + beamBottom) / 2,
+          halfWidth = 0.45,
+          halfHeight = slot / 2,
+          rodHalf = 0.05,
+          dotRadius2 = 0.11 * 0.11,
+          edge = 0.05,
+          soft = p.soft,
+          grainField = cachedNoise(128, 128, seed ^ 0x50b0);
+        let tone = 0,
+          surface = 0,
+          rough = 0,
+          shade = 0;
+        // |t| made C1 at the ridge: exact outside +-0.05 and a parabola inside (0.025 at 0), shifted by 0.025 below.
+        const rounded = (t: number): number => {
+          const a = Math.abs(t);
+          return a < 0.05 ? ((t * t) / 0.05 + 0.05) / 2 : a;
+        };
+        const lay = (m: number, t: number, h: number, r: number, s: number) => {
+          tone += (t - tone) * m;
+          surface += (h - surface) * m;
+          rough += (r - rough) * m;
+          shade += (s - shade) * m;
+        };
+        return () => {
+          const gx = u * rods,
+            gy = v * rods,
+            index = Math.min(rods - 1, Math.floor(gx)),
+            dx = gx - index - 0.5,
+            digit = digits[index],
+            dy = gy - beamMiddle;
+          tone = 0.6 + 0.08 * grainField(u, v);
+          surface = 0;
+          rough = p.roughness;
+          shade = 0.97;
+          lay(
+            smooth(clamp((1 - (dx * dx) / (rodHalf * rodHalf)) / 0.6)),
+            0.88,
+            0.2,
+            0.45,
+            0.97,
+          );
+          lay(
+            1 -
+              (1 - smooth(clamp((top - gy) / edge))) *
+                (1 - smooth(clamp((gy - bottom) / edge))),
+            0.1,
+            0.45,
+            0.7,
+            0.94,
+          );
+          lay(
+            smooth(clamp((gy - beamTop) / edge)) *
+              smooth(clamp((beamBottom - gy) / edge)),
+            0.16,
+            0.42,
+            0.65,
+            0.94,
+          );
+          if ((rods - 1 - index) % 3 === 0)
+            lay(
+              smooth(
+                clamp((dotRadius2 - dx * dx - dy * dy) / (0.5 * dotRadius2)),
+              ),
+              0.95,
+              0.5,
+              0.55,
+              0.97,
+            );
+          // The five-bead rests at the top when off and at the bar when on; the one-beads rest at the bar when on.
+          let present = false,
+            center = 0;
+          if (gy >= top && gy < beamTop) {
+            const s = Math.min(1, Math.floor((gy - top) / slot));
+            center = top + (s + 0.5) * slot;
+            present = s === (digit >= 5 ? 1 : 0);
+          } else if (gy >= beamBottom && gy < bottom) {
+            const s = Math.min(4, Math.floor((gy - beamBottom) / slot));
+            center = beamBottom + (s + 0.5) * slot;
+            present = s !== digit % 5;
+          }
+          if (present) {
+            const s =
+              (rounded(dx) - 0.025) / (halfWidth - 0.025) +
+              (rounded(gy - center) - 0.025) / (halfHeight - 0.025);
+            lay(
+              smooth(clamp((1 - s) / soft)),
+              0.3 + 0.1 * clamp(1 - s),
+              0.7 + 0.3 * clamp(1 - s),
+              p.beadRoughness,
+              0.96 - 0.12 * clamp(s),
+            );
+          }
+          mortar = 0;
+          color = tone;
+          height = surface;
+          roughness = rough;
+          occlusion = shade;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38959,6 +39070,7 @@ export function createSurfaceSampler(
     kind === 'rule30' ||
     kind === 'embossedbraille' ||
     kind === 'ean13label' ||
+    kind === 'soroban' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

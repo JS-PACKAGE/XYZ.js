@@ -499,6 +499,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rule30',
   'embossedbraille',
   'ean13label',
+  'soroban',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -101998,6 +101999,546 @@ describe('EAN-13 barcode label printing the page example number in 30 bars on wh
         expect(Math.min(o.signed[0], o.signed[1])).toBeGreaterThan(0.05);
         expect(Math.min(o.signed[2], o.signed[3])).toBeGreaterThan(0.001);
       } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Seven-rod soroban with biconical wooden beads showing 4567890 and dots on every third rod', () => {
+  const p = proceduralMaterialPresets.soroban;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  // The page: a soroban rod has one five-bead above and four one-beads below a reckoning bar; beads moved towards the
+  // bar are "on", so a rod shows the digit 5 * (five-bead down) + (one-beads up); every third rod carries a dot.
+  const shown = '4567890',
+    rods = 7,
+    top = 0.52,
+    slot = 0.78,
+    beamTop = top + 2 * slot,
+    beamBottom = beamTop + 0.5,
+    bottom = beamBottom + 5 * slot,
+    halfWidth = 0.45,
+    halfHeight = slot / 2,
+    raster = 1008,
+    unit = raster / rods,
+    upperCenter = (k: number): number => top + (k + 0.5) * slot,
+    lowerCenter = (k: number): number => beamBottom + (k + 0.5) * slot;
+  // Which of the seven slots of a rod hold a bead for a digit: two above the bar, five below it.
+  const expectedSlots = (digit: number): boolean[] => {
+    const fiveOn = digit >= 5,
+      ones = digit % 5,
+      slots = [!fiveOn, fiveOn];
+    for (let k = 0; k < 5; k++) slots.push(k < ones || k > ones);
+    return slots;
+  };
+  const slotCenter = (slotIndex: number): number =>
+    slotIndex < 2 ? upperCenter(slotIndex) : lowerCenter(slotIndex - 2);
+  const beads: { x: number; y: number }[] = [];
+  for (let rod = 0; rod < rods; rod++)
+    expectedSlots(Number(shown[rod])).forEach((present, slotIndex) => {
+      if (present) beads.push({ x: rod + 0.5, y: slotCenter(slotIndex) });
+    });
+  const readDigit = (present: boolean[]): string => {
+    if (present[0] === present[1]) return '?';
+    const lower = present.slice(2);
+    if (lower.filter(Boolean).length !== 4) return '?';
+    return String((present[1] ? 5 : 0) + lower.indexOf(false));
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('soroban', seed),
+      out = empty(),
+      bead = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        bead[i] = out.height / p.relief > 0.6 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+      }
+    // Read every rod the way a user does: which of its seven bead slots is occupied, then which digit that shows.
+    let digits = '',
+      dots = '';
+    for (let rod = 0; rod < rods; rod++) {
+      const present: boolean[] = [];
+      for (let k = 0; k < 7; k++) {
+        sample((rod + 0.5) / rods, slotCenter(k) / rods, out);
+        present.push(out.height / p.relief > 0.6);
+      }
+      digits += readDigit(present);
+      sample((rod + 0.5) / rods, (beamTop + 0.25) / rods, out);
+      dots += out.color > 0.5 ? '1' : '0';
+    }
+    const labels = new Int32Array(raster * raster),
+      queue = new Int32Array(raster * raster),
+      parts: {
+        left: number;
+        right: number;
+        top: number;
+        bottom: number;
+        cx: number;
+        cy: number;
+        area: number;
+        equator: number;
+        shoulder: number;
+      }[] = [];
+    for (let start = 0; start < raster * raster; start++) {
+      if (!bead[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        minX = raster,
+        maxX = -1,
+        minY = raster,
+        maxY = -1,
+        sumX = 0,
+        sumY = 0;
+      const id = parts.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % raster,
+          y = (i - x) / raster;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        sumX += x + 0.5;
+        sumY += y + 0.5;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j =
+            ((y + dy + raster) % raster) * raster +
+            ((x + dx + raster) % raster);
+          if (bead[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      const cx = sumX / tail / unit,
+        cy = sumY / tail / unit;
+      // Widths of the row through the middle and of the rows half way to the tips: a double cone halves the width.
+      const rowWidth = (yy: number): number => {
+        const row = Math.min(
+          raster - 1,
+          Math.max(0, Math.round(yy * unit - 0.5)),
+        );
+        let count = 0;
+        for (let x = minX; x <= maxX; x++) count += bead[row * raster + x];
+        return count / unit;
+      };
+      parts.push({
+        left: minX / unit,
+        right: (maxX + 1) / unit,
+        top: minY / unit,
+        bottom: (maxY + 1) / unit,
+        cx,
+        cy,
+        area: tail / (unit * unit),
+        equator: rowWidth(cy),
+        shoulder:
+          (rowWidth(cy - halfHeight / 2) + rowWidth(cy + halfHeight / 2)) / 2,
+      });
+    }
+    parts.sort((a, b) => a.cx - b.cx || a.cy - b.cy);
+    const expected = [...beads].sort((a, b) => a.x - b.x || a.y - b.y);
+    let misplaced = 0,
+      misshapen = 0,
+      worstRatio = 0;
+    for (let k = 0; k < Math.max(parts.length, expected.length); k++) {
+      const part = parts[k],
+        bead = expected[k];
+      if (!part || !bead) {
+        misplaced++;
+        continue;
+      }
+      misplaced += Number(
+        Math.abs(part.cx - bead.x) > 0.02 || Math.abs(part.cy - bead.y) > 0.02,
+      );
+      misshapen += Number(
+        Math.abs(part.right - part.left - 2 * halfWidth) > 0.09 ||
+          Math.abs(part.bottom - part.top - 2 * halfHeight) > 0.09,
+      );
+      worstRatio = Math.max(
+        worstRatio,
+        Math.abs(part.shoulder / part.equator - 0.5),
+      );
+    }
+    // The bar edges read down a column between two rods, where no bead reaches.
+    const column: number[] = [];
+    for (let k = 0; k <= 3500; k++) {
+      sample(1 / rods, (k * 0.002) / rods, out);
+      column.push(out.height / p.relief);
+    }
+    const crossings: number[] = [];
+    for (let k = 1; k < column.length; k++)
+      if (column[k - 1] < 0.3 !== column[k] < 0.3)
+        crossings.push((k - 0.5) * 0.002);
+    // Heights along the vertical axis of a lower bead: the equator ridge stands above the shoulders and tips.
+    const axis = (offset: number): number => {
+      sample(0.5 / rods, (lowerCenter(0) + offset) / rods, out);
+      return out.height / p.relief;
+    };
+    return {
+      bead,
+      colors,
+      digits,
+      dots,
+      parts: parts.length,
+      misplaced,
+      misshapen,
+      worstRatio,
+      meanArea:
+        parts.reduce((sum, part) => sum + part.area, 0) /
+        Math.max(1, parts.length),
+      crossings,
+      ridge: axis(0) - axis(halfHeight / 2),
+      asymmetry: Math.abs(axis(halfHeight / 2) - axis(-halfHeight / 2)),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('soroban', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    // Sweep across and diagonally through every bead slot: the silhouette edges, the equator ridge, the tips where
+    // neighbouring beads meet, and the rod, bar and dot edges around them.
+    const sweep = Array.from({ length: 81 }, (_, i) => (i - 40) * 0.0125);
+    for (let rod = 0; rod < rods; rod++)
+      for (let k = 0; k < 7; k++) {
+        const x = rod + 0.5,
+          y = slotCenter(k);
+        for (const d of sweep) {
+          check((x + d) / rods, y / rods);
+          check(x / rods, (y + d) / rods);
+          check((x + d) / rods, (y + d) / rods);
+          check((x + d) / rods, (y - d) / rods);
+        }
+      }
+    for (const y of [top, beamTop, beamBottom, bottom, beamTop + 0.25])
+      for (let rod = 0; rod <= rods; rod++)
+        for (const d of sweep) {
+          check((rod + d) / rods, y / rods);
+          check((rod + 0.5 + d / 4) / rods, (y + d) / rods);
+        }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let beadRoughness = 0,
+      boardRoughness = 0,
+      beads = 0,
+      boards = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        pixelLuma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness < (p.roughness + p.beadRoughness) / 2) {
+        beads++;
+        beadRoughness += roughness;
+      } else {
+        boards++;
+        boardRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, pixelLuma);
+      maxLuma = Math.max(maxLuma, pixelLuma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      polishedFraction: beads / count,
+      beadRoughness: beadRoughness / Math.max(1, beads),
+      boardRoughness: boardRoughness / Math.max(1, boards),
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  it('follows the bi-quinary rod rules the page gives', () => {
+    // Every digit is one five-bead state plus 0-4 one-beads, and reading the beads recovers it.
+    for (let digit = 0; digit <= 9; digit++) {
+      const slots = expectedSlots(digit);
+      expect(slots.slice(0, 2).filter(Boolean).length).toBe(1);
+      expect(slots.slice(2).filter(Boolean).length).toBe(4);
+      expect(readDigit(slots)).toBe(String(digit));
+    }
+    // The page's caption: the right side shows 1234567890, here its last seven digits on seven rods, with five beads per rod.
+    expect(shown).toBe('1234567890'.slice(3));
+    expect(beads.length).toBe(rods * 5);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'reads 4567890 from the occupied bead slots of the seven rods and dots on every third rod at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.digits).toBe(shown);
+      expect(o.dots).toBe('1001001');
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'places 35 double-cone beads of the slot size on their slots between flat bars at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.parts).toBe(beads.length);
+      expect(o.misplaced).toBe(0);
+      expect(o.misshapen).toBe(0);
+      expect(o.worstRatio).toBeLessThan(0.12);
+      expect(
+        Math.abs(o.meanArea / (2 * halfWidth * halfHeight) - 1),
+      ).toBeLessThan(0.15);
+      expect(o.ridge).toBeGreaterThan(0.1);
+      expect(o.asymmetry).toBeLessThan(0.01);
+      // The bars end at 0.52 (frame), 2.08 and 2.58 (reckoning bar) and 6.48 (frame), each within a bar edge width.
+      expect(o.crossings.length).toBe(4);
+      [top, beamTop, beamBottom, bottom].forEach((edge, k) =>
+        expect(Math.abs(o.crossings[k] - edge)).toBeLessThan(0.05),
+      );
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'stacks polished raised beads over the rods, bars and the rougher board at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('soroban', seed),
+        read = (x: number, y: number): SurfaceSample => {
+          const out = empty();
+          sample(x / rods, y / rods, out);
+          return out;
+        },
+        bead = read(3.5, upperCenter(1)),
+        frame = read(3.5, top / 2),
+        beam = read(1, beamTop + 0.25),
+        dot = read(3.5, beamTop + 0.25),
+        rod = read(3.5, lowerCenter(2)),
+        board = read(1, 1.5);
+      expect((bead.height - frame.height) / p.relief).toBeGreaterThan(0.3);
+      expect((frame.height - rod.height) / p.relief).toBeGreaterThan(0.2);
+      expect((rod.height - board.height) / p.relief).toBeGreaterThan(0.1);
+      expect(dot.color - beam.color).toBeGreaterThan(0.5);
+      expect(rod.color - board.color).toBeGreaterThan(0.15);
+      expect(board.color - bead.color).toBeGreaterThan(0.1);
+      expect(board.roughness - bead.roughness).toBeGreaterThan(0.2);
+      expect(
+        bead.metallic + frame.metallic + rod.metallic + board.metallic,
+      ).toBe(0);
+      expect(observed(seed).dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the wood grain with the seed and never the beads at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.bead.length; i++) {
+        flips += Number(o.bead[i] !== base.bead[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.digits).toBe(base.digits);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps bead edges, ridges, tips, rods, bars, dots and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes polished raised beads on rougher wood with resolved facet normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('soroban', size, 7, { heightMap: true }),
+      );
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.polishedFraction).toBeGreaterThan(0.1);
+      expect(o.polishedFraction).toBeLessThan(0.5);
+      expect(o.boardRoughness - o.beadRoughness).toBeGreaterThan(0.15);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(60);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.minAO).toBeLessThan(235);
+      expect(o.maxTilt).toBeGreaterThan(0.1);
+      expect(o.maxTilt).toBeLessThan(3);
+      for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.005);
     },
   );
 });

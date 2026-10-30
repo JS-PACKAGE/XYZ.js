@@ -473,6 +473,7 @@ export type ProceduralMaterialKind =
   | 'rule30'
   | 'embossedbraille'
   | 'ean13label'
+  | 'soroban'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1564,6 +1565,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rule30',
   'embossedbraille',
   'ean13label',
+  'soroban',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

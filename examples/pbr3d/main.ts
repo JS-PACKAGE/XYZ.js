@@ -536,6 +536,7 @@ try {
     'rule30',
     'embossedbraille',
     'ean13label',
+    'soroban',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
