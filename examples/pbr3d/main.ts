@@ -526,6 +526,7 @@ try {
     'elongatedtriangulartiles',
     'truncatedtrihexagonaltiles',
     'kisrhombilletiles',
+    'chladnifigure',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

@@ -25810,6 +25810,40 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'chladnifigure': {
+        const p = proceduralMaterialPresets.chladnifigure,
+          // Sand on a vibrating plate collects on nodal lines; an authored two-product standing wave with equal-parity
+          // modes has a zero set that repeats with the tile.
+          alpha = Math.PI * p.modeA,
+          beta = Math.PI * p.modeB,
+          grainField = cachedNoise(128, 128, seed ^ 0x5c1d),
+          floorSquared = p.gradientFloor * p.gradientFloor;
+        return () => {
+          const au = Math.cos(alpha * u),
+            as = Math.sin(alpha * u),
+            bu = Math.cos(beta * u),
+            bs = Math.sin(beta * u),
+            av = Math.cos(alpha * v),
+            avs = Math.sin(alpha * v),
+            bv = Math.cos(beta * v),
+            bvs = Math.sin(beta * v),
+            f = au * bv - bu * av,
+            fx = beta * bs * av - alpha * as * bv,
+            fy = alpha * bu * avs - beta * au * bvs,
+            distance =
+              Math.abs(f) / Math.sqrt(fx * fx + fy * fy + floorSquared),
+            grain = grainField(u, v),
+            sand = smooth(
+              clamp(1 - distance / (p.width * (0.75 + 0.5 * grain))),
+            );
+          // Plate and sand are both ordinary surface: a nonzero mortar would blend the grout gray over the plate.
+          mortar = 0;
+          color = 0.12 + 0.03 * grain + sand * (0.7 + 0.1 * grain);
+          height = 0.12 + sand * (0.5 + 0.05 * grain);
+          roughness = p.roughness + (0.93 - p.roughness) * sand;
+          occlusion = 0.97 - 0.25 * sand;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38378,6 +38412,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'chladnifigure' ||
     kind === 'kisrhombilletiles' ||
     kind === 'truncatedtrihexagonaltiles' ||
     kind === 'elongatedtriangulartiles' ||

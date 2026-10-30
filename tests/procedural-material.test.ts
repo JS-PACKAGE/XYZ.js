@@ -489,6 +489,7 @@ const kinds: ProceduralMaterialKind[] = [
   'elongatedtriangulartiles',
   'truncatedtrihexagonaltiles',
   'kisrhombilletiles',
+  'chladnifigure',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -97044,6 +97045,442 @@ describe('Kisrhombille V4.6.12 tiling of 30-60-90 triangles in six line families
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.maxTilt).toBeLessThan(3);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Chladni figure with pale sand collected on the nodal lines of a dark vibrating plate', () => {
+  const p = proceduralMaterialPresets.chladnifigure;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const alpha = Math.PI * p.modeA,
+    beta = Math.PI * p.modeB,
+    floorSquared = p.gradientFloor * p.gradientFloor;
+  // Independent first-order distance to the zero set of cos(a pi u)cos(b pi v) - cos(b pi u)cos(a pi v).
+  const nodalDistance = (u: number, v: number): number => {
+    const f =
+        Math.cos(alpha * u) * Math.cos(beta * v) -
+        Math.cos(beta * u) * Math.cos(alpha * v),
+      fx =
+        beta * Math.sin(beta * u) * Math.cos(alpha * v) -
+        alpha * Math.sin(alpha * u) * Math.cos(beta * v),
+      fy =
+        alpha * Math.cos(beta * u) * Math.sin(alpha * v) -
+        beta * Math.cos(alpha * u) * Math.sin(beta * v);
+    return Math.abs(f) / Math.sqrt(fx * fx + fy * fy + floorSquared);
+  };
+  const components = (
+    size: number,
+    includes: (index: number) => boolean,
+  ): number => {
+    const label = new Uint8Array(size * size),
+      queue = new Int32Array(size * size);
+    let count = 0;
+    for (let start = 0; start < size * size; start++) {
+      if (!includes(start) || label[start]) continue;
+      count++;
+      let head = 0,
+        tail = 0;
+      queue[tail++] = start;
+      label[start] = 1;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % size,
+          y = (i - x) / size;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (includes(j) && !label[j]) {
+            label[j] = 1;
+            queue[tail++] = j;
+          }
+        }
+      }
+    }
+    return count;
+  };
+  const observe = (seed: number) => {
+    const size = 1024,
+      sample = createSurfaceSampler('chladnifigure', seed),
+      out = empty(),
+      sand = new Uint8Array(size * size),
+      distance = new Float64Array(size * size),
+      color = new Float64Array(size * size);
+    let sandCount = 0,
+      sandColor = 0,
+      plateColor = 0,
+      sandRoughness = 0,
+      plateRoughness = 0,
+      sandOcclusion = 0,
+      plateOcclusion = 0,
+      dielectric = 0,
+      violations = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const u = (x + 0.5) / size,
+          v = (y + 0.5) / size,
+          i = y * size + x;
+        sample(u, v, out);
+        sand[i] = out.height / p.relief > 0.37 ? 1 : 0;
+        distance[i] = nodalDistance(u, v);
+        color[i] = out.color;
+        dielectric += Number(out.metallic !== 0);
+        if (distance[i] < 0.3 * p.width && !sand[i]) violations++;
+        if (distance[i] > 0.7 * p.width && sand[i]) violations++;
+        if (sand[i]) {
+          sandCount++;
+          sandColor += out.color;
+          sandRoughness += out.roughness;
+          sandOcclusion += out.occlusion;
+        } else {
+          plateColor += out.color;
+          plateRoughness += out.roughness;
+          plateOcclusion += out.occlusion;
+        }
+      }
+    const plateCount = size * size - sandCount,
+      analyticAt = (reach: number) => {
+        let covered = 0;
+        for (let i = 0; i < size * size; i++)
+          covered += Number(distance[i] < reach * p.width);
+        return covered / (size * size);
+      };
+    const mirrored = [0, 0, 0];
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+        if (sand[y * size + x]) {
+          mirrored[0] += sand[y * size + (size - 1 - x)];
+          mirrored[1] += sand[(size - 1 - y) * size + x];
+          mirrored[2] += sand[x * size + y];
+        }
+    return {
+      size,
+      sand,
+      color,
+      violations,
+      sandFraction: sandCount / (size * size),
+      narrowFraction: analyticAt(0.34),
+      wideFraction: analyticAt(0.68),
+      sandParts: components(size, (i) => sand[i] === 1),
+      narrowSandParts: components(size, (i) => distance[i] < 0.34 * p.width),
+      wideSandParts: components(size, (i) => distance[i] < 0.68 * p.width),
+      plateParts: components(size, (i) => sand[i] === 0),
+      narrowPlateParts: components(size, (i) => distance[i] > 0.34 * p.width),
+      widePlateParts: components(size, (i) => distance[i] > 0.68 * p.width),
+      mirrored: mirrored.map((count) => count / sandCount),
+      sandColor: sandColor / sandCount,
+      plateColor: plateColor / plateCount,
+      sandRoughness: sandRoughness / sandCount,
+      plateRoughness: plateRoughness / plateCount,
+      sandOcclusion: sandOcclusion / sandCount,
+      plateOcclusion: plateOcclusion / plateCount,
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('chladnifigure', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 4; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 4, j / 256);
+        check(j / 256, k / 4);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let sand = 0,
+      sandRoughness = 0,
+      plateRoughness = 0,
+      plates = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        sand++;
+        sandRoughness += roughness;
+      } else {
+        plates++;
+        plateRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      sandFraction: sand / count,
+      sandRoughness: sandRoughness / sand,
+      plateRoughness: plateRoughness / plates,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'collects sand exactly along the nodal lines of the two-product standing wave at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.violations).toBe(0);
+      expect(o.sandFraction).toBeGreaterThan(0.02);
+      expect(o.sandFraction).toBeLessThan(0.4);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps the nodal domain count, sand network pieces and sand area of the analytic standing wave at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.plateParts).toBeGreaterThan(
+        Math.min(o.narrowPlateParts, o.widePlateParts) - 1,
+      );
+      expect(o.plateParts).toBeLessThan(
+        Math.max(o.narrowPlateParts, o.widePlateParts) + 1,
+      );
+      expect(o.sandParts).toBeGreaterThan(
+        Math.min(o.narrowSandParts, o.wideSandParts) - 1,
+      );
+      expect(o.sandParts).toBeLessThan(
+        Math.max(o.narrowSandParts, o.wideSandParts) + 1,
+      );
+      expect(o.sandFraction).toBeGreaterThan(o.narrowFraction);
+      expect(o.sandFraction).toBeLessThan(o.wideFraction);
+      expect(o.plateParts).toBeGreaterThan(1);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'mirrors the sand pattern across both tile axes and the diagonal at seed%s',
+    (seed) => {
+      for (const fraction of observed(seed).mirrored)
+        expect(fraction).toBeGreaterThan(0.88);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps pale rough sand over dark glossier non-metallic plate and moves only sand grain with the seed at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.sandColor - o.plateColor).toBeGreaterThan(0.5);
+      expect(o.plateColor).toBeLessThan(0.2);
+      expect(o.sandColor).toBeGreaterThan(0.6);
+      expect(o.sandRoughness - o.plateRoughness).toBeGreaterThan(0.3);
+      expect(o.plateOcclusion - o.sandOcclusion).toBeGreaterThan(0.15);
+      expect(o.dielectric).toBe(0);
+      if (seed !== 0) {
+        const base = observed(0);
+        let flips = 0,
+          largest = 0;
+        for (let i = 0; i < o.sand.length; i++) {
+          flips += Number(o.sand[i] !== base.sand[i]);
+          largest = Math.max(largest, Math.abs(o.color[i] - base.color[i]));
+        }
+        expect(flips / o.sand.length).toBeLessThan(0.03);
+        expect(largest).toBeGreaterThan(0.01);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps seams, nodal lines and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes pale sand lines over dark plate with resolved edge normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('chladnifigure', size, 7, { heightMap: true }),
+      );
+      expect(o.sandFraction).toBeGreaterThan(0.01);
+      expect(o.sandFraction).toBeLessThan(0.4);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.sandRoughness - o.plateRoughness).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(100);
+      expect(o.minLuma).toBeLessThan(70);
+      expect(o.minAO).toBeLessThan(200);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
       } else expect(o.maxTilt).toBeLessThan(0.5);
     },
   );
