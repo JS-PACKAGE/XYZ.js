@@ -528,6 +528,7 @@ try {
     'kisrhombilletiles',
     'chladnifigure',
     'sierpinskicarpet',
+    'moorecurve',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

@@ -3254,6 +3254,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         shoulder: 0.14;
         inset: 0.04;
     }>;
+    moorecurve: Readonly<{
+        dark: readonly [46, 42, 40];
+        light: readonly [228, 220, 202];
+        roughness: 0.45;
+        relief: 0.015;
+        halfWidth: 0.17;
+        shoulder: 0.04;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11020,6 +11028,7 @@ export declare const proceduralTileMeters: Readonly<{
     kisrhombilletiles: 1.2;
     chladnifigure: 0.6;
     sierpinskicarpet: 0.81;
+    moorecurve: 0.64;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

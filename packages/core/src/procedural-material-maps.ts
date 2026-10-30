@@ -25897,6 +25897,84 @@ export function createSurfaceSampler(
           occlusion = 0.96 - 0.5 * holes;
         };
       }
+      case 'moorecurve': {
+        const p = proceduralMaterialPresets.moorecurve,
+          // Order-3 Moore curve: the closed loop of four rotated order-2 Hilbert curves on an 8 x 8 cell tile.
+          // Bit 1 right, 2 up, 4 left, 8 down mark which neighbors the path links each cell to.
+          links = new Uint8Array(64),
+          path = new Uint8Array(128),
+          grainField = cachedNoise(128, 128, seed ^ 0x4d0c),
+          inverseShoulder = 1 / p.shoulder;
+        for (let d = 0; d < 64; d++) {
+          let hx = 0,
+            hy = 0,
+            t = d & 15;
+          for (let s = 1; s < 4; s *= 2) {
+            const rx = 1 & (t >> 1),
+              ry = 1 & (t ^ rx);
+            if (ry === 0) {
+              if (rx === 1) {
+                hx = s - 1 - hx;
+                hy = s - 1 - hy;
+              }
+              const swap = hx;
+              hx = hy;
+              hy = swap;
+            }
+            hx += s * rx;
+            hy += s * ry;
+            t >>= 2;
+          }
+          const quadrant = d >> 4;
+          path[d * 2] = quadrant < 2 ? 3 - hy : 4 + hy;
+          path[d * 2 + 1] =
+            quadrant === 0
+              ? hx
+              : quadrant === 1
+                ? 4 + hx
+                : quadrant === 2
+                  ? 7 - hx
+                  : 3 - hx;
+        }
+        for (let d = 0; d < 64; d++) {
+          const x = path[d * 2],
+            y = path[d * 2 + 1],
+            next = (d + 1) & 63,
+            dx = path[next * 2] - x,
+            dy = path[next * 2 + 1] - y,
+            forward = dx === 1 ? 1 : dx === -1 ? 4 : dy === 1 ? 2 : 8,
+            backward = dx === 1 ? 4 : dx === -1 ? 1 : dy === 1 ? 8 : 2;
+          links[y * 8 + x] |= forward;
+          links[path[next * 2 + 1] * 8 + path[next * 2]] |= backward;
+        }
+        return () => {
+          const fx = u * 8,
+            fy = v * 8,
+            cx = Math.floor(fx),
+            cy = Math.floor(fy),
+            x = fx - cx - 0.5,
+            y = fy - cy - 0.5,
+            mask = links[cy * 8 + cx],
+            boxX = smooth(clamp((p.halfWidth - Math.abs(x)) * inverseShoulder)),
+            boxY = smooth(clamp((p.halfWidth - Math.abs(y)) * inverseShoulder));
+          let open = 1 - boxX * boxY;
+          if (mask & 1)
+            open *= 1 - boxY * smooth(clamp(x * inverseShoulder + 1));
+          if (mask & 4)
+            open *= 1 - boxY * smooth(clamp(-x * inverseShoulder + 1));
+          if (mask & 2)
+            open *= 1 - boxX * smooth(clamp(y * inverseShoulder + 1));
+          if (mask & 8)
+            open *= 1 - boxX * smooth(clamp(-y * inverseShoulder + 1));
+          const groove = 1 - open,
+            grain = grainField(u, v);
+          mortar = 0;
+          color = 0.7 + 0.1 * grain - groove * (0.56 + 0.1 * grain);
+          height = 0.7 + 0.01 * grain - 0.45 * groove;
+          roughness = p.roughness + (0.9 - p.roughness) * groove;
+          occlusion = 0.96 - 0.5 * groove;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38465,6 +38543,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
     kind === 'kisrhombilletiles' ||

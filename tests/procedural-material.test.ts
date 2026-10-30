@@ -491,6 +491,7 @@ const kinds: ProceduralMaterialKind[] = [
   'kisrhombilletiles',
   'chladnifigure',
   'sierpinskicarpet',
+  'moorecurve',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -97929,6 +97930,499 @@ describe('Sierpinski carpet with four levels of recessed squares in a pale stone
       expect(o.metallicPixels).toBe(0);
       expect(o.holeRoughness - o.faceRoughness).toBeGreaterThan(0.2);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(60);
+      expect(o.minAO).toBeLessThan(160);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Moore curve with a dark groove looping through every cell of a pale 8 x 8 tile', () => {
+  const p = proceduralMaterialPresets.moorecurve;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const cells = 8;
+  // Groove presence at a point of the tile, from the actual sampler.
+  const grooved = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    out: SurfaceSample,
+    u: number,
+    v: number,
+  ): boolean => {
+    sample(u, v, out);
+    return out.height / p.relief < 0.475;
+  };
+  const observe = (seed: number) => {
+    const size = 1024,
+      sample = createSurfaceSampler('moorecurve', seed),
+      out = empty(),
+      groove = new Uint8Array(size * size),
+      colors = new Float64Array(size * size);
+    let grooveColor = 0,
+      faceColor = 0,
+      grooveRoughness = 0,
+      faceRoughness = 0,
+      grooveOcclusion = 0,
+      faceOcclusion = 0,
+      grooveCount = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[i] = out.color;
+        groove[i] = out.height / p.relief < 0.475 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (groove[i]) {
+          grooveCount++;
+          grooveColor += out.color;
+          grooveRoughness += out.roughness;
+          grooveOcclusion += out.occlusion;
+        } else {
+          faceColor += out.color;
+          faceRoughness += out.roughness;
+          faceOcclusion += out.occlusion;
+        }
+      }
+    const parts = (wanted: number) => {
+      const label = new Uint8Array(size * size),
+        queue = new Int32Array(size * size);
+      let count = 0;
+      for (let start = 0; start < size * size; start++) {
+        if (groove[start] !== wanted || label[start]) continue;
+        count++;
+        let head = 0,
+          tail = 0;
+        queue[tail++] = start;
+        label[start] = 1;
+        while (head < tail) {
+          const i = queue[head++],
+            x = i % size,
+            y = (i - x) / size;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (groove[j] === wanted && !label[j]) {
+              label[j] = 1;
+              queue[tail++] = j;
+            }
+          }
+        }
+      }
+      return count;
+    };
+    // Links between neighboring cells, read from the groove at the shared edge midpoint; edge 0 of cell (i, j)
+    // is its right edge, edge 1 its upper edge (the next cell row).
+    const right: boolean[] = [],
+      up: boolean[] = [];
+    let centers = 0,
+      borderLinks = 0;
+    for (let j = 0; j < cells; j++)
+      for (let i = 0; i < cells; i++) {
+        centers += Number(
+          grooved(sample, out, (i + 0.5) / cells, (j + 0.5) / cells),
+        );
+        const r = grooved(sample, out, (i + 1) / cells, (j + 0.5) / cells),
+          t = grooved(sample, out, (i + 0.5) / cells, (j + 1) / cells);
+        right.push(r);
+        up.push(t);
+        if (i === cells - 1) borderLinks += Number(r);
+        if (j === cells - 1) borderLinks += Number(t);
+      }
+    // Walk the measured links from cell (0, 0) and record the visiting order.
+    const neighbors = (i: number, j: number): number[] => {
+      const found: number[] = [];
+      if (i < cells - 1 && right[j * cells + i]) found.push(j * cells + i + 1);
+      if (i > 0 && right[j * cells + i - 1]) found.push(j * cells + i - 1);
+      if (j < cells - 1 && up[j * cells + i]) found.push((j + 1) * cells + i);
+      if (j > 0 && up[(j - 1) * cells + i]) found.push((j - 1) * cells + i);
+      return found;
+    };
+    const degrees = new Int32Array(cells * cells),
+      order: number[] = [];
+    let internalLinks = 0;
+    for (let j = 0; j < cells; j++)
+      for (let i = 0; i < cells; i++) {
+        degrees[j * cells + i] = neighbors(i, j).length;
+        internalLinks += Number(i < cells - 1 && right[j * cells + i]);
+        internalLinks += Number(j < cells - 1 && up[j * cells + i]);
+      }
+    let previous = -1,
+      current = 0;
+    for (let step = 0; step < cells * cells; step++) {
+      order.push(current);
+      const options = neighbors(current % cells, Math.floor(current / cells));
+      const next = options.find((candidate) => candidate !== previous);
+      if (next === undefined) break;
+      previous = current;
+      current = next;
+    }
+    const position = new Int32Array(cells * cells).fill(-1);
+    order.forEach((cell, step) => {
+      if (position[cell] < 0) position[cell] = step;
+    });
+    const closes = current === 0,
+      visited = new Set(order).size;
+    // An aligned block is contiguous when its cells occupy consecutive steps of the cyclic walk.
+    const contiguous = (size: number): boolean => {
+      for (let by = 0; by < cells; by += size)
+        for (let bx = 0; bx < cells; bx += size) {
+          const steps: number[] = [];
+          for (let y = by; y < by + size; y++)
+            for (let x = bx; x < bx + size; x++)
+              steps.push(position[y * cells + x]);
+          steps.sort((a, b) => a - b);
+          let gaps = 0;
+          for (let k = 0; k < steps.length; k++) {
+            const next = steps[(k + 1) % steps.length],
+              span = (next - steps[k] + cells * cells) % (cells * cells);
+            if (span !== 1) gaps++;
+          }
+          if (gaps > 1) return false;
+        }
+      return true;
+    };
+    let mirroredLinks = 0;
+    for (let j = 0; j < cells; j++) {
+      for (let i = 0; i < cells - 1; i++)
+        mirroredLinks += Number(
+          right[j * cells + i] === right[j * cells + (cells - 2 - i)],
+        );
+      for (let i = 0; i < cells; i++)
+        mirroredLinks += Number(
+          up[j * cells + i] === up[j * cells + (cells - 1 - i)],
+        );
+    }
+    let mirroredPixels = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++)
+        mirroredPixels += Number(
+          groove[y * size + x] === groove[y * size + (size - 1 - x)],
+        );
+    return {
+      size,
+      groove,
+      colors,
+      centers,
+      borderLinks,
+      internalLinks,
+      minDegree: Math.min(...degrees),
+      maxDegree: Math.max(...degrees),
+      visited,
+      closes,
+      contiguous2: contiguous(2),
+      contiguous4: contiguous(4),
+      mirroredLinks,
+      mirroredPixels: mirroredPixels / (size * size),
+      grooveParts: parts(1),
+      faceParts: parts(0),
+      grooveFraction: grooveCount / (size * size),
+      grooveColor: grooveColor / grooveCount,
+      faceColor: faceColor / (size * size - grooveCount),
+      grooveRoughness: grooveRoughness / grooveCount,
+      faceRoughness: faceRoughness / (size * size - grooveCount),
+      grooveOcclusion: grooveOcclusion / grooveCount,
+      faceOcclusion: faceOcclusion / (size * size - grooveCount),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('moorecurve', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 8; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 8, j / 256);
+        check(j / 256, k / 8);
+        check((k + 0.5) / 8, j / 256);
+        check(j / 256, (k + 0.5) / 8);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let groove = 0,
+      grooveRoughness = 0,
+      faceRoughness = 0,
+      faces = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.7) {
+        groove++;
+        grooveRoughness += roughness;
+      } else {
+        faces++;
+        faceRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      grooveFraction: groove / count,
+      grooveRoughness: grooveRoughness / groove,
+      faceRoughness: faceRoughness / faces,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  const grooveWidth = 2 * p.halfWidth - p.shoulder;
+  it.each([0, 7, 0xffffffff])(
+    'links every cell of the 8 x 8 tile to exactly two neighbors through a groove that never crosses the tile border at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.centers).toBe(64);
+      expect(o.borderLinks).toBe(0);
+      expect(o.internalLinks).toBe(64);
+      expect(o.minDegree).toBe(2);
+      expect(o.maxDegree).toBe(2);
+      expect(o.grooveParts).toBe(1);
+      expect(o.faceParts).toBe(2);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'closes the groove into one Hamiltonian loop whose aligned 2 and 4 cell blocks are contiguous like a Moore curve at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.visited).toBe(64);
+      expect(o.closes).toBe(true);
+      expect(o.contiguous2).toBe(true);
+      expect(o.contiguous4).toBe(true);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'mirrors the loop across the vertical midline and keeps the groove width at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.mirroredLinks).toBe(7 * 8 + 8 * 8);
+      expect(o.mirroredPixels).toBeGreaterThan(0.99);
+      expect(Math.abs(o.grooveFraction / grooveWidth - 1)).toBeLessThan(0.05);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps a pale smooth face over a darker rougher non-metallic groove and moves only grain with the seed at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.faceColor - o.grooveColor).toBeGreaterThan(0.3);
+      expect(o.grooveRoughness - o.faceRoughness).toBeGreaterThan(0.25);
+      expect(o.faceOcclusion - o.grooveOcclusion).toBeGreaterThan(0.3);
+      expect(o.dielectric).toBe(0);
+      if (seed !== 0) {
+        const base = observed(0);
+        let flips = 0,
+          largest = 0;
+        for (let i = 0; i < o.groove.length; i++) {
+          flips += Number(o.groove[i] !== base.groove[i]);
+          largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+        }
+        expect(flips / o.groove.length).toBeLessThan(0.001);
+        expect(largest).toBeGreaterThan(0.01);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps seams, cell borders, groove edges and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes a dark groove in a pale face with resolved edge normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('moorecurve', size, 7, { heightMap: true }),
+      );
+      expect(o.grooveFraction).toBeGreaterThan(0.1);
+      expect(o.grooveFraction).toBeLessThan(0.6);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.grooveRoughness - o.faceRoughness).toBeGreaterThan(0.25);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(160);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
