@@ -16,7 +16,7 @@ XYZ.js 是以瀏覽器原生 API 打造的 TypeScript 遊戲引擎，不是遊�
 - **雪花黑曜石**：黑色磨光底上大小不一、平齊嵌入的灰白放射晶簇。
 - `fishscaleshingles`：8層各12個半圓下緣瓣的米色魚鱗金屬瓦，每片兩瓣、逐層錯半瓣、上層疊壓並在下層留陰影，片間有窄縫；不透明非金屬作者近似，不含壓花紋理、金屬反射、真實疊壓幾何或規格認證。（與既有`scallopedslate`、`fishscaletiles`同屬扇貝疊壓家族的變體。）
 - `waffleweave`：14×16個固定格的冷灰白圓脊圍出內凹小方格，橫向脊較高、脊交點隆起成小結；不透明非金屬作者近似，不含真實經緯交織、織物物理、吸水性或織物規格認證。（與既有`wafflecloth`同屬華夫格織物家族的較細變體。）
-- `halite`：粗糙淡灰粉鹽底上的乳白立方hopper晶面，外緣為隨機旋轉的正方形，內含兩層同心逐級下陷的正方階面；不透明非金屬作者近似，不含鹽晶尺寸量測、透明／溶蝕物理、完整立方體mesh或礦物認證。
+- `halite`：粗糙淡灰粉鹽底上的乳白立方hopper晶面，外緣為隨機旋轉的正方形，內含兩層同心逐級下陷的正方階面；不透明非金屬作者近似，不含鹽晶尺寸量測、透明／溶蝕物理、完整立方體mesh或礦物認證。（與既有`bismuthhoppers`同屬旋轉巢狀方形hopper家族的非金屬鹽晶變體。）
 - `calcite`：深褐粗糙礦底上的乳白斜方形平板，兩組平行邊約75°並含巢狀平行階面；不透明非金屬作者近似，不含解理角量測、透明／雙折射、完整菱面體mesh或礦物認證。
 - `flangenuts`：圓形錐面法蘭上的削角六角螺帽，含六個直平側與開放圓孔、露出深色粗糙鋼底；整張map為金屬，不含底面鋸齒、完整3D、內螺紋或DIN／ISO認證。
 - `capnuts`：深色粗糙鋼底上的六角蓋形螺帽，含六個直平側、削角角隅與封閉圓形球冠；整張map為金屬，不是Hex Nuts的貫穿孔，也不含完整3D、內螺紋或DIN／ISO認證。
@@ -185,7 +185,7 @@ XYZ.js is a browser-native TypeScript game engine with 2D/3D rendering, scenes, 
 - **Snowflake obsidian**: a polished black face with differently sized, flush gray radial inclusions.
 - `fishscaleshingles`: beige fish-scale metal shingles in eight courses of twelve semicircular lower-edge lobes, two lobes per shingle, half-lobe staggered courses, under-lap shadows and narrow seams; an opaque dielectric authored approximation, without embossing, metallic reflection, real overlap geometry or specification certification. (A variant of the same scalloped-overlap family as the existing `scallopedslate` and `fishscaletiles`.)
 - `waffleweave`: cool grey-white rounded float ridges on a fixed 14×16 lattice enclosing recessed square pockets, with higher weft ridges and small knots at crossings; an opaque dielectric authored approximation, without real warp/weft interlacement, cloth physics, absorbency or fabric specification certification. (A finer variant of the same waffle-cloth family as the existing `wafflecloth`.)
-- `halite`: milky cube hopper faces on a rough pale grey-pink salt host, each with a randomly rotated square rim and two concentric stepped-down square terraces; an opaque dielectric authored approximation, without measured crystal dimensions, transparency/dissolution physics, full cube meshes or mineral certification.
+- `halite`: milky cube hopper faces on a rough pale grey-pink salt host, each with a randomly rotated square rim and two concentric stepped-down square terraces; an opaque dielectric authored approximation, without measured crystal dimensions, transparency/dissolution physics, full cube meshes or mineral certification. (A dielectric salt variant of the same rotated nested-square hopper family as the existing `bismuthhoppers`.)
 - `calcite`: milky oblique rhomb plates on a rough dark mineral host with about 75-degree parallel edges and nested parallel steps; an opaque dielectric authored approximation, without measured cleavage angles, transparency/birefringence, full rhombohedron meshes or mineral certification.
 - `flangenuts`: trimmed hexagonal nuts on circular conical flanges with six straight flats and an open bore over rougher dark steel; the whole map is metallic, without underside serrations, full 3D, internal threads or DIN/ISO certification.
 - `capnuts`: hexagonal cap nuts on rougher dark steel backing with six straight flats, trimmed corners and a closed circular dome; the whole map is metallic, unlike the through-bored Hex Nuts, without full 3D, internal threads or DIN/ISO certification.
@@ -258,7 +258,7 @@ XYZ.js はブラウザーのネイティブ API を使う TypeScript ゲーム�
 - **スノーフレーク・オブシディアン**：黒い研磨面に、大小の灰白色の放射状結晶模様を平らに表現します。
 - `fishscaleshingles`：半円形の下端の丸みを12個ずつ持つ8段のベージュの魚鱗状金属瓦で、1枚が2つの丸みを持ち、段ごとに半分ずらして重ね、下の段に影が落ち、瓦の間に細い継ぎ目があります。不透明な非金属の作者近似で、エンボス・金属反射・実際の重なり形状・規格の認証は含みません。（既存の`scallopedslate`・`fishscaletiles`と同じ扇形重ね貼りの系統に属する変種です。）
 - `waffleweave`：14×16の固定格子に並ぶ冷たい灰白色の丸い浮き糸の畝が、凹んだ小さな正方形のポケットを囲み、横方向の畝がやや高く、交点が小さな結び目のように盛り上がります。不透明な非金属の作者近似で、実際の経緯の交錯・布の物理・吸水性・織物規格の認証は含みません。（既存の`wafflecloth`と同じワッフル織物の系統に属する、より細かい変種です。）
-- `halite`：粗い淡灰桃色の塩地に、ランダムに回転した正方形の縁と、段階的に沈む二つの同心正方形テラスを持つ乳白色のホッパー立方体面を表現します。不透明な非金属の作者近似で、結晶寸法の測定・透明性や溶解の物理・完全な立方体メッシュ・鉱物の認証は含みません。
+- `halite`：粗い淡灰桃色の塩地に、ランダムに回転した正方形の縁と、段階的に沈む二つの同心正方形テラスを持つ乳白色のホッパー立方体面を表現します。不透明な非金属の作者近似で、結晶寸法の測定・透明性や溶解の物理・完全な立方体メッシュ・鉱物の認証は含みません。（既存の`bismuthhoppers`と同じ回転した入れ子正方形ホッパーの系統に属する、非金属の塩結晶の変種です。）
 - `calcite`：粗い暗褐色の鉱物地に、約75度の平行な辺を持つ乳白色の斜方形の板と入れ子状の平行な段を表現します。不透明な非金属の作者近似で、劈開角の測定・透明性や複屈折・完全な菱面体メッシュ・鉱物の認証は含みません。
 - `flangenuts`：円形の円すいフランジの上に、六つの平らな側面を持つ面取り六角ナットと開いた丸穴を表現し、粗い暗色の鋼地が見えます。マップ全体が金属で、座面の鋸歯・完全な3D・内ねじ・DIN／ISO認証は含みません。
 - `capnuts`：粗い暗色の鋼地に、六つの平らな側面・削った角・閉じた円形ドームを持つ六角袋ナットを表現します。Hex Nutsの貫通穴とは異なりマップ全体が金属で、完全な3D・内ねじ・DIN／ISO認証は含みません。

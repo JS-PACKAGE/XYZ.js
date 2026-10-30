@@ -10132,3 +10132,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 量測既有與新增的差異（同一sampler、seed 7、除以各自preset relief）：`wafflecloth`（8×8 cos格、tile 0.096 m、relief 0.0018）縱脊／橫脊／交點／格底為0.7922／0.7875／0.7822／0.1369，也就是縱橫脊只差約0.6%、交點不比脊高、格底平；`waffleweave`（14×16、tile 0.12 m、relief 0.012）為0.5002／0.5822／0.6802／0.1830，橫脊比縱脊高約0.08、交點比橫脊高約0.10、格底為碗形。`scallopedslate`為4欄×6列、1.2 m tile、每片單一圓尾、片間無縫；`fishscaletiles`為4欄×8列、0.4 m tile的共平面釉面馬賽克；`fishscaleshingles`為12瓣×8層、1.75 m tile、每片兩瓣並有縫。這些差異是實際量到的，但概念上仍屬相同家族。
 - 處理：沒有revert或改寫已提交歷史，也沒有改任何runtime程式、preset、測試或dist；只在兩個種類的README（中／英／日）、PLAN、DESIGN、CURRENT、TECHNICAL、TECHNICAL-zh、USAGE與USAGE-zh條目補上與既有材質的家族關係說明，明確把它們定位為變體而非全新類別。是否保留或revert`e929e40c`／`cc3da373`由使用者決定。
 - 驗證範圍：本次只有文件與ACCEPTANCE變更，已跑Prettier與format:check；未重跑lint、typecheck、build或Vitest，也沒有重新驗證runtime。之後選題改為先用概念關鍵字搜尋README／PLAN／CURRENT與preset／kernel，再決定是否值得新增。
+
+## 2026-10-30 文件補充：Halite與既有bismuthhoppers的關係
+
+- 前一條「Waffleweave與Fishscaleshingles」文件修正之後，我又用概念關鍵字檢查halite，發現既有`bismuthhoppers`（4×4個旋轉方形晶面、文件描述為六層金屬階面、preset含五個`stepHalves`、外半寬0.34、金紫色、tile 0.16 m、整體金屬平均約0.372）與`halite`（4×4個旋轉方形晶面、兩層階面、半寬0.21–0.27、白色非金屬、tile 0.08 m、金屬平均0）在幾何上屬同一旋轉巢狀方形hopper家族；Halite文件、驗收與提交訊息先前沒有提到它，這同樣是篩選失誤。
+- 處理同上：不revert、不改runtime、preset、測試或dist，只在Halite的README（中／英／日）、PLAN、DESIGN、CURRENT、TECHNICAL、TECHNICAL-zh、USAGE與USAGE-zh條目補上家族關係說明，定位為非金屬鹽晶變體；是否保留`38e043ca`由使用者決定。已跑Prettier與format:check；未重跑lint、typecheck、build或Vitest，也沒有重新驗證runtime。
+- 影響評估：最近四個新增（Calcite、Halite、Waffleweave、Fishscaleshingles）中，後三者都有已存在的同家族材質；Calcite未在本次重新檢查，不能由此推定它沒有重複。之後新增前先用概念關鍵字與數值搜尋README／PLAN／CURRENT與preset／kernel，再決定是否值得做。
