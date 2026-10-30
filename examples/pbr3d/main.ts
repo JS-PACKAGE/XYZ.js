@@ -518,6 +518,7 @@ try {
     'flangenuts',
     'calcite',
     'halite',
+    'waffleweave',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

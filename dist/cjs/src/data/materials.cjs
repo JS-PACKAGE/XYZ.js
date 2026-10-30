@@ -6730,6 +6730,30 @@ var proceduralMaterialPresets = Object.freeze({
 		terraceVariation: .06,
 		terraceDepth: .08
 	}),
+	waffleweave: Object.freeze({
+		dark: [
+			116,
+			120,
+			126
+		],
+		light: [
+			238,
+			238,
+			233
+		],
+		roughness: .88,
+		relief: .012,
+		columns: 14,
+		rows: 16,
+		pocketX: .2,
+		pocketY: .18,
+		verticalRise: .7,
+		horizontalRise: .9,
+		floor: .18,
+		rise: .4,
+		bowl: .08,
+		knot: .12
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18183,6 +18207,7 @@ var proceduralTileMeters = Object.freeze({
 	flangenuts: .08,
 	calcite: .1,
 	halite: .08,
+	waffleweave: .12,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

@@ -481,6 +481,7 @@ const kinds: ProceduralMaterialKind[] = [
   'flangenuts',
   'calcite',
   'halite',
+  'waffleweave',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -92803,6 +92804,470 @@ describe('Halite hopper cube faces with nested square terraces on rough pale sal
         expect(o.maxTilt).toBeLessThan(0.7);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
       } else expect(o.maxTilt).toBeLessThan(0.02);
+    },
+  );
+});
+
+describe('Waffle weave recessed pockets with rounded weft and warp float ridges on a fixed 14 by 16 lattice', () => {
+  const p = proceduralMaterialPresets.waffleweave;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observe = (seed: number) => {
+    const cell = 64,
+      width = p.columns * cell,
+      height = p.rows * cell,
+      sample = createSurfaceSampler('waffleweave', seed),
+      out = empty(),
+      raster = new Float64Array(width * height),
+      at = (u: number, v: number) => {
+        sample(u, v, out);
+        return {
+          height: out.height / p.relief,
+          color: out.color,
+          roughness: out.roughness,
+          occlusion: out.occlusion,
+          metallic: out.metallic,
+          mortar: out.mortar,
+        };
+      };
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        sample((x + 0.5) / width, (y + 0.5) / height, out);
+        raster[y * width + x] = out.height / p.relief;
+      }
+    const cells: {
+      floor: number;
+      vertical: number;
+      horizontal: number;
+      knot: number;
+      floorColor: number;
+      knotColor: number;
+      horizontalColor: number;
+      floorOcclusion: number;
+      knotOcclusion: number;
+      area: number;
+      offsetX: number;
+      offsetY: number;
+      boxWidth: number;
+      boxHeight: number;
+      fill: number;
+      topSpread: number;
+      sideSpread: number;
+    }[] = [];
+    let minRoughness = 1,
+      maxRoughness = 0,
+      dielectric = 0;
+    const threshold = 0.34;
+    for (let r = 0; r < p.rows; r++)
+      for (let c = 0; c < p.columns; c++) {
+        const floor = at((c + 0.5) / p.columns, (r + 0.5) / p.rows),
+          vertical = at(c / p.columns, (r + 0.5) / p.rows),
+          horizontal = at((c + 0.5) / p.columns, r / p.rows),
+          knot = at(c / p.columns, r / p.rows);
+        for (const s of [floor, vertical, horizontal, knot]) {
+          minRoughness = Math.min(minRoughness, s.roughness);
+          maxRoughness = Math.max(maxRoughness, s.roughness);
+          dielectric += Number(s.metallic !== 0 || s.mortar !== 0);
+        }
+        const x0 = c * cell,
+          y0 = r * cell,
+          tops: number[] = [],
+          bottoms: number[] = [],
+          lefts: number[] = [],
+          rights: number[] = [];
+        let count = 0,
+          sx = 0,
+          sy = 0,
+          minX = cell,
+          maxX = -1,
+          minY = cell,
+          maxY = -1;
+        for (let y = 0; y < cell; y++)
+          for (let x = 0; x < cell; x++)
+            if (raster[(y0 + y) * width + x0 + x] < threshold) {
+              count++;
+              sx += x + 0.5;
+              sy += y + 0.5;
+              minX = Math.min(minX, x);
+              maxX = Math.max(maxX, x);
+              minY = Math.min(minY, y);
+              maxY = Math.max(maxY, y);
+            }
+        const boxWidth = maxX - minX + 1,
+          boxHeight = maxY - minY + 1;
+        for (
+          let x = minX + Math.round(boxWidth * 0.25);
+          x <= maxX - Math.round(boxWidth * 0.25);
+          x++
+        ) {
+          let top = -1,
+            bottom = -1;
+          for (let y = 0; y < cell; y++)
+            if (raster[(y0 + y) * width + x0 + x] < threshold) {
+              if (top < 0) top = y;
+              bottom = y;
+            }
+          tops.push(top);
+          bottoms.push(bottom);
+        }
+        for (
+          let y = minY + Math.round(boxHeight * 0.25);
+          y <= maxY - Math.round(boxHeight * 0.25);
+          y++
+        ) {
+          let left = -1,
+            right = -1;
+          for (let x = 0; x < cell; x++)
+            if (raster[(y0 + y) * width + x0 + x] < threshold) {
+              if (left < 0) left = x;
+              right = x;
+            }
+          lefts.push(left);
+          rights.push(right);
+        }
+        const spread = (list: number[]) =>
+          Math.max(...list) - Math.min(...list);
+        cells.push({
+          floor: floor.height,
+          vertical: vertical.height,
+          horizontal: horizontal.height,
+          knot: knot.height,
+          floorColor: floor.color,
+          knotColor: knot.color,
+          horizontalColor: horizontal.color,
+          floorOcclusion: floor.occlusion,
+          knotOcclusion: knot.occlusion,
+          area: count / (cell * cell),
+          offsetX: Math.abs(sx / count / cell - 0.5),
+          offsetY: Math.abs(sy / count / cell - 0.5),
+          boxWidth: boxWidth / cell,
+          boxHeight: boxHeight / cell,
+          fill: count / (boxWidth * boxHeight),
+          topSpread: Math.max(spread(tops), spread(bottoms)) / cell,
+          sideSpread: Math.max(spread(lefts), spread(rights)) / cell,
+        });
+      }
+    return { cells, raster, minRoughness, maxRoughness, dielectric };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('waffleweave', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.columns; k++)
+      for (let j = 0; j <= 256; j++)
+        for (const o of [0, 0.5 - p.pocketX, 0.5 + p.pocketX])
+          check((k + o) / p.columns, j / 256);
+    for (let k = 0; k <= p.rows; k++)
+      for (let j = 0; j <= 256; j++)
+        for (const o of [0, 0.5 - p.pocketY, 0.5 + p.pocketY])
+          check(j / 256, (k + o) / p.rows);
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0,
+      faceRoughness = 0,
+      backingRoughness = 0,
+      faces = 0,
+      backings = 0;
+    const luma = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      luma[i] =
+        0.2126 * maps.baseColor[j] +
+        0.7152 * maps.baseColor[j + 1] +
+        0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma[i]);
+      maxLuma = Math.max(maxLuma, luma[i]);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    const middle = (minLuma + maxLuma) / 2;
+    for (let i = 0; i < count; i++) {
+      const roughness = maps.metallicRoughness[i * 4 + 1] / 255;
+      if (luma[i] > middle) {
+        faces++;
+        faceRoughness += roughness;
+      } else {
+        backings++;
+        backingRoughness += roughness;
+      }
+    }
+    return {
+      face: faces / count,
+      faceRoughness: faceRoughness / faces,
+      backingRoughness: backingRoughness / backings,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'lays identical recessed rounded rectangular pockets on a fixed small lattice at seed%s',
+    (seed) => {
+      expect(p.columns).toBeGreaterThan(9);
+      expect(p.columns).toBeLessThan(21);
+      expect(p.rows).toBeGreaterThan(11);
+      expect(p.rows).toBeLessThan(21);
+      const o = observe(seed);
+      expect(o.cells.length).toBe(p.columns * p.rows);
+      for (const c of o.cells) {
+        expect(c.area).toBeGreaterThan(0.25);
+        expect(c.area).toBeLessThan(0.45);
+        expect(c.offsetX).toBeLessThan(0.02);
+        expect(c.offsetY).toBeLessThan(0.02);
+        expect(c.boxWidth).toBeGreaterThan(0.5);
+        expect(c.boxWidth).toBeLessThan(0.8);
+        expect(c.boxHeight).toBeGreaterThan(0.5);
+        expect(c.boxHeight).toBeLessThan(0.75);
+        expect(c.boxWidth / c.boxHeight).toBeGreaterThan(0.9);
+        expect(c.boxWidth / c.boxHeight).toBeLessThan(1.3);
+        expect(c.fill).toBeGreaterThan(0.75);
+        expect(c.topSpread).toBeLessThan(0.1);
+        expect(c.sideSpread).toBeLessThan(0.1);
+      }
+      const areas = o.cells.map((c) => c.area);
+      expect(Math.max(...areas) - Math.min(...areas)).toBeLessThan(0.02);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'orders pocket floors below warp crests below weft crests below intersection knots with tight repeats at seed%s',
+    (seed) => {
+      const o = observe(seed),
+        range = (pick: (c: (typeof o.cells)[number]) => number) => {
+          const values = o.cells.map(pick);
+          return [Math.min(...values), Math.max(...values)];
+        },
+        floor = range((c) => c.floor),
+        vertical = range((c) => c.vertical),
+        horizontal = range((c) => c.horizontal),
+        knot = range((c) => c.knot);
+      for (const [low, high] of [floor, vertical, horizontal, knot])
+        expect(high - low).toBeLessThan(0.02);
+      expect(floor[0]).toBeGreaterThan(0.1);
+      expect(floor[1]).toBeLessThan(0.25);
+      expect(vertical[0] - floor[1]).toBeGreaterThan(0.25);
+      expect(horizontal[0] - vertical[1]).toBeGreaterThan(0.05);
+      expect(knot[0] - horizontal[1]).toBeGreaterThan(0.07);
+      expect(knot[1]).toBeLessThan(0.8);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps pale ridges, darker deeply occluded pockets and uniformly matte dielectric roughness at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      for (const c of o.cells) {
+        expect(c.knotColor - c.floorColor).toBeGreaterThan(0.25);
+        expect(c.horizontalColor - c.floorColor).toBeGreaterThan(0.2);
+        expect(c.knotOcclusion - c.floorOcclusion).toBeGreaterThan(0.3);
+      }
+      expect(o.minRoughness).toBeGreaterThan(0.78);
+      expect(o.maxRoughness).toBeLessThan(0.97);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it('moves only fine grain between seeds while the pocket lattice stays fixed', () => {
+    const a = observe(0),
+      b = observe(7),
+      pockets = (raster: Float64Array) => raster.map((h) => Number(h < 0.34));
+    const maskA = pockets(a.raster),
+      maskB = pockets(b.raster);
+    let mismatch = 0,
+      difference = 0;
+    for (let i = 0; i < a.raster.length; i++) {
+      mismatch += Number(maskA[i] !== maskB[i]);
+      difference += Math.abs(a.raster[i] - b.raster[i]);
+    }
+    expect(mismatch / a.raster.length).toBeLessThan(0.005);
+    expect(difference / a.raster.length).toBeGreaterThan(1e-5);
+    expect(difference / a.raster.length).toBeLessThan(0.02);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps rounded ridge crests pocket bowls and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes matte pale ridges over darker occluded pockets with resolved weave normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('waffleweave', size, 7, { heightMap: true }),
+      );
+      expect(o.face).toBeGreaterThan(0.15);
+      expect(o.face).toBeLessThan(0.65);
+      expect(o.metallicPixels).toBe(0);
+      expect(Math.abs(o.backingRoughness - o.faceRoughness)).toBeLessThan(0.05);
+      expect(o.faceRoughness).toBeGreaterThan(0.78);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(20);
+      expect(o.minAO).toBeLessThan(160);
+      expect(o.maxAO).toBeGreaterThan(200);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.03);
+        expect(o.maxTilt).toBeLessThan(0.4);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.1);
+      } else expect(o.maxTilt).toBeLessThan(0.01);
     },
   );
 });

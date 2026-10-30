@@ -455,6 +455,7 @@ export type ProceduralMaterialKind =
   | 'flangenuts'
   | 'calcite'
   | 'halite'
+  | 'waffleweave'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1528,6 +1529,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flangenuts',
   'calcite',
   'halite',
+  'waffleweave',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

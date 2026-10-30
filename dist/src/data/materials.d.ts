@@ -3132,6 +3132,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         terraceVariation: 0.06;
         terraceDepth: 0.08;
     }>;
+    waffleweave: Readonly<{
+        dark: readonly [116, 120, 126];
+        light: readonly [238, 238, 233];
+        roughness: 0.88;
+        relief: 0.012;
+        columns: 14;
+        rows: 16;
+        pocketX: 0.2;
+        pocketY: 0.18;
+        verticalRise: 0.7;
+        horizontalRise: 0.9;
+        floor: 0.18;
+        rise: 0.4;
+        bowl: 0.08;
+        knot: 0.12;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10888,6 +10904,7 @@ export declare const proceduralTileMeters: Readonly<{
     flangenuts: 0.08;
     calcite: 0.1;
     halite: 0.08;
+    waffleweave: 0.12;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

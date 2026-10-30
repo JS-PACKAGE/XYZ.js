@@ -25025,6 +25025,35 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'waffleweave': {
+        const p = proceduralMaterialPresets.waffleweave,
+          grainField = cachedNoise(128, 128, seed ^ 0x33111),
+          cloudField = cachedNoise(8, 8, seed ^ 0x33113),
+          inverseX = 1 / (0.5 - p.pocketX),
+          inverseY = 1 / (0.5 - p.pocketY),
+          pocketInverseX = 1 / p.pocketX,
+          pocketInverseY = 1 / p.pocketY;
+        return () => {
+          const uc = u * p.columns,
+            vr = v * p.rows,
+            ax = Math.abs(fract(uc) - 0.5),
+            ay = Math.abs(fract(vr) - 0.5),
+            grain = grainField(u, v),
+            cloud = cloudField(u, v),
+            // Long weft floats rise more than the cross floats; both rounded crests share the cell boundary.
+            bx = p.verticalRise * smooth(clamp((ax - p.pocketX) * inverseX)),
+            by = p.horizontalRise * smooth(clamp((ay - p.pocketY) * inverseY)),
+            ridge = bx + by + (p.knot - 1) * bx * by,
+            bowl =
+              0.5 *
+              (smooth(clamp(ax * pocketInverseX)) +
+                smooth(clamp(ay * pocketInverseY)));
+          color = 0.56 + 0.32 * ridge + 0.04 * cloud + 0.02 * grain;
+          height = p.floor + p.rise * ridge + p.bowl * bowl + 0.004 * grain;
+          roughness = p.roughness + 0.03 * grain;
+          occlusion = 0.5 + 0.4 * ridge + 0.08 * bowl;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37593,6 +37622,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'waffleweave' ||
     kind === 'halite' ||
     kind === 'calcite' ||
     kind === 'azurite' ||
