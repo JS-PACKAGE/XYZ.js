@@ -26020,6 +26020,64 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.2 * edge - 0.67 * hole;
         };
       }
+      case 'ulamspiral': {
+        const p = proceduralMaterialPresets.ulamspiral,
+          // The positive integers written in a square spiral from 1 at the center (2 to the right, then counterclockwise),
+          // 15 × 15 cells holding 1-225; a cell is marked when its integer is prime.
+          size = 15,
+          half = 7,
+          limit = size * size,
+          sieve = new Uint8Array(limit + 1).fill(1),
+          prime = new Uint8Array(limit),
+          grainField = cachedNoise(128, 128, seed ^ 0x5c1a),
+          inverseRadius2 = 1 / (p.domeRadius * p.domeRadius);
+        sieve[0] = sieve[1] = 0;
+        for (let i = 2; i * i <= limit; i++)
+          if (sieve[i]) for (let j = i * i; j <= limit; j += i) sieve[j] = 0;
+        for (let cy = 0; cy < size; cy++)
+          for (let cx = 0; cx < size; cx++) {
+            const x = cx - half,
+              y = half - cy,
+              r = Math.max(Math.abs(x), Math.abs(y)),
+              m = (2 * r + 1) * (2 * r + 1),
+              n =
+                y === -r
+                  ? m - (r - x)
+                  : x === r
+                    ? m - 6 * r - (r - y)
+                    : y === r
+                      ? m - 4 * r - (x + r)
+                      : m - 2 * r - (y + r);
+            prime[cy * size + cx] = sieve[n];
+          }
+        return () => {
+          const gx = u * size,
+            gy = v * size,
+            cx = Math.min(size - 1, Math.floor(gx)),
+            cy = Math.min(size - 1, Math.floor(gy)),
+            px = gx - cx,
+            py = gy - cy,
+            grooveX = smooth(clamp(1 - Math.min(px, 1 - px) / p.groove)),
+            grooveY = smooth(clamp(1 - Math.min(py, 1 - py) / p.groove)),
+            groove = 1 - (1 - grooveX) * (1 - grooveY);
+          let dome = 0,
+            mark = 0;
+          if (prime[cy * size + cx]) {
+            const s2 = ((px - 0.5) ** 2 + (py - 0.5) ** 2) * inverseRadius2;
+            if (s2 < 1) {
+              dome = (1 - s2) * (1 - s2);
+              mark = smooth(clamp(3 * (1 - s2)));
+            }
+          }
+          const grain = grainField(u, v);
+          mortar = 0;
+          color =
+            (0.74 + 0.12 * grain - 0.3 * groove) * (1 - mark) + 0.09 * mark;
+          height = 0.3 - 0.12 * groove + 0.6 * dome;
+          roughness = p.roughness + (p.domeRoughness - p.roughness) * mark;
+          occlusion = 0.97 - 0.32 * groove;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38589,6 +38647,7 @@ export function createSurfaceSampler(
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
     kind === 'papertape' ||
+    kind === 'ulamspiral' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

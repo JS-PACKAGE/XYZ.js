@@ -493,6 +493,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sierpinskicarpet',
   'moorecurve',
   'papertape',
+  'ulamspiral',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -98872,6 +98873,488 @@ describe('Punched paper tape encoding PAPER TAPE in ASCII with sprocket holes ov
       expect(o.holeRoughness - o.paperRoughness).toBeGreaterThan(0.1);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(120);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Ulam prime spiral with glossy dark prime domes on a grooved pale slab', () => {
+  const p = proceduralMaterialPresets.ulamspiral;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const size = 15,
+    half = 7,
+    raster = 1050,
+    cellPixels = raster / size;
+  // Independent reference: walk the integers 1..225 in a square spiral (1 at the center, 2 to its right, then
+  // counterclockwise) and mark a cell when its integer passes trial division.
+  const reference = () => {
+    const isPrime = (n: number): boolean => {
+      if (n < 2) return false;
+      for (let d = 2; d * d <= n; d++) if (n % d === 0) return false;
+      return true;
+    };
+    const walk: { n: number; x: number; y: number; prime: boolean }[] = [];
+    const steps = [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ];
+    let x = 0,
+      y = 0,
+      n = 1,
+      leg = 0;
+    const put = () => walk.push({ n, x, y, prime: isPrime(n) });
+    put();
+    for (let length = 1; n < size * size;) {
+      for (let repeat = 0; repeat < 2 && n < size * size; repeat++, leg++) {
+        const [dx, dy] = steps[leg % 4];
+        for (let i = 0; i < length && n < size * size; i++) {
+          x += dx;
+          y += dy;
+          n++;
+          put();
+        }
+      }
+      length++;
+    }
+    return walk;
+  };
+  const walk = reference();
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('ulamspiral', seed),
+      out = empty(),
+      dome = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let domeColor = 0,
+      slabColor = 0,
+      domeRoughness = 0,
+      slabRoughness = 0,
+      domePixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        dome[i] = out.height / p.relief > 0.45 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (dome[i]) {
+          domePixels++;
+          domeColor += out.color;
+          domeRoughness += out.roughness;
+        } else {
+          slabColor += out.color;
+          slabRoughness += out.roughness;
+        }
+      }
+    // Read every cell center the way a reader would and compare with the independent spiral.
+    let mismatches = 0,
+      marked = 0,
+      oddPrimesOffDiagonal = 0,
+      twoMarked = 0;
+    for (const cell of walk) {
+      sample((cell.x + half + 0.5) / size, (half - cell.y + 0.5) / size, out);
+      const punched = out.height / p.relief > 0.45;
+      marked += Number(punched);
+      mismatches += Number(punched !== cell.prime);
+      if (punched && cell.n === 2) twoMarked++;
+      if (punched && cell.n > 2 && (cell.x + cell.y) % 2 !== 0)
+        oddPrimesOffDiagonal++;
+    }
+    const labels = new Int32Array(raster * raster),
+      queue = new Int32Array(raster * raster),
+      domes: { area: number; cx: number; cy: number }[] = [];
+    for (let start = 0; start < raster * raster; start++) {
+      if (!dome[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        sumX = 0,
+        sumY = 0;
+      const id = domes.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % raster,
+          y = (i - x) / raster;
+        sumX += x + 0.5;
+        sumY += y + 0.5;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j =
+            ((y + dy + raster) % raster) * raster +
+            ((x + dx + raster) % raster);
+          if (dome[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      domes.push({
+        area: tail / (cellPixels * cellPixels),
+        cx: sumX / tail / cellPixels,
+        cy: sumY / tail / cellPixels,
+      });
+    }
+    let misplaced = 0,
+      areas = 0;
+    const cellsHit = new Set<number>();
+    for (const d of domes) {
+      const cx = Math.floor(d.cx),
+        cy = Math.floor(d.cy);
+      cellsHit.add(cy * size + cx);
+      if (Math.hypot(d.cx - cx - 0.5, d.cy - cy - 0.5) > 0.02) misplaced++;
+      areas += d.area;
+    }
+    // Groove: a vertical and a horizontal cell border read at mid-cell, against the slab at the cell corner-free middle.
+    let groove = 0,
+      slab = 0,
+      grooveOcclusion = 0,
+      slabOcclusion = 0,
+      borders = 0;
+    for (let k = 0; k <= size; k++)
+      for (let j = 0; j < size; j++) {
+        sample(k / size, (j + 0.5) / size, out);
+        groove += out.height / p.relief;
+        grooveOcclusion += out.occlusion;
+        sample((k + 0.5) / size, j / size, out);
+        groove += out.height / p.relief;
+        grooveOcclusion += out.occlusion;
+        borders += 2;
+      }
+    let slabCells = 0;
+    for (const cell of walk) {
+      if (cell.prime) continue;
+      sample((cell.x + half + 0.5) / size, (half - cell.y + 0.5) / size, out);
+      slab += out.height / p.relief;
+      slabOcclusion += out.occlusion;
+      slabCells++;
+    }
+    return {
+      raster,
+      dome,
+      colors,
+      mismatches,
+      marked,
+      twoMarked,
+      oddPrimesOffDiagonal,
+      numbers: walk.length,
+      reference: walk,
+      components: domes.length,
+      cellsHit: cellsHit.size,
+      misplaced,
+      meanArea: areas / Math.max(1, domes.length),
+      domeFraction: domePixels / (raster * raster),
+      domeColor: domeColor / domePixels,
+      slabColor: slabColor / (raster * raster - domePixels),
+      domeRoughness: domeRoughness / domePixels,
+      slabRoughness: slabRoughness / (raster * raster - domePixels),
+      grooveHeight: groove / borders,
+      slabHeight: slab / slabCells,
+      grooveOcclusion: grooveOcclusion / borders,
+      slabOcclusion: slabOcclusion / slabCells,
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('ulamspiral', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 15; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 15, j / 256);
+        check(j / 256, k / 15);
+        check((k + 0.5) / 15, j / 256);
+        check(j / 256, (k + 0.5) / 15);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let domes = 0,
+      domeRoughness = 0,
+      slabRoughness = 0,
+      slabs = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness < 0.55) {
+        domes++;
+        domeRoughness += roughness;
+      } else {
+        slabs++;
+        slabRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      domeFraction: domes / count,
+      domeRoughness: domeRoughness / domes,
+      slabRoughness: slabRoughness / slabs,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'marks exactly the primes of a counterclockwise integer spiral from 1 at the center at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.numbers).toBe(225);
+      expect(o.reference.filter((cell) => cell.prime).length).toBe(48);
+      expect(o.mismatches).toBe(0);
+      expect(o.marked).toBe(48);
+      expect(o.twoMarked).toBe(1);
+      expect(o.oddPrimesOffDiagonal).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'places one round dome of the predicted size at every prime cell center at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.components).toBe(48);
+      expect(o.cellsHit).toBe(48);
+      expect(o.misplaced).toBe(0);
+      expect(
+        Math.abs(o.meanArea / (0.5 * Math.PI * p.domeRadius ** 2) - 1),
+      ).toBeLessThan(0.03);
+      expect(o.domeFraction).toBeGreaterThan(0.02);
+      expect(o.domeFraction).toBeLessThan(0.15);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps glossy dark domes on a rougher pale slab with recessed cell grooves at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.slabColor - o.domeColor).toBeGreaterThan(0.4);
+      expect(o.slabRoughness - o.domeRoughness).toBeGreaterThan(0.2);
+      expect(o.slabHeight - o.grooveHeight).toBeGreaterThan(0.08);
+      expect(o.slabOcclusion - o.grooveOcclusion).toBeGreaterThan(0.2);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the slab grain with the seed and never the marked primes at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.dome.length; i++) {
+        flips += Number(o.dome[i] !== base.dome[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.mismatches).toBe(0);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps cell grooves, dome rims and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes glossy dark prime domes on a pale grooved slab with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('ulamspiral', size, 7, { heightMap: true }),
+      );
+      expect(o.domeFraction).toBeGreaterThan(0.05);
+      expect(o.domeFraction).toBeLessThan(0.4);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.slabRoughness - o.domeRoughness).toBeGreaterThan(0.1);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(190);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {

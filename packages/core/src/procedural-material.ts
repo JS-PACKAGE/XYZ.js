@@ -467,6 +467,7 @@ export type ProceduralMaterialKind =
   | 'sierpinskicarpet'
   | 'moorecurve'
   | 'papertape'
+  | 'ulamspiral'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1552,6 +1553,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sierpinskicarpet',
   'moorecurve',
   'papertape',
+  'ulamspiral',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

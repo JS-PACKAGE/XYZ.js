@@ -530,6 +530,7 @@ try {
     'sierpinskicarpet',
     'moorecurve',
     'papertape',
+    'ulamspiral',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
