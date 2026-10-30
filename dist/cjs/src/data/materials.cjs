@@ -7001,6 +7001,23 @@ var proceduralMaterialPresets = Object.freeze({
 		halfWidth: .06,
 		shoulder: .02
 	}),
+	perfectmaze: Object.freeze({
+		dark: [
+			48,
+			42,
+			36
+		],
+		light: [
+			214,
+			204,
+			184
+		],
+		roughness: .55,
+		floorRoughness: .85,
+		relief: .03,
+		halfWidth: .25,
+		shoulder: .05
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18468,6 +18485,7 @@ var proceduralTileMeters = Object.freeze({
 	papertape: .0254,
 	ulamspiral: .375,
 	sevensegment: .2,
+	perfectmaze: .64,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

@@ -26129,6 +26129,89 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.25 * (segment - glow);
         };
       }
+      case 'perfectmaze': {
+        const p = proceduralMaterialPresets.perfectmaze,
+          // A random spanning tree of an 8 × 8 cell grid by randomized depth-first search (the recursive backtracker),
+          // so every cell is reachable and no loop exists; bit 0 = east, 1 = south, 2 = west, 3 = north.
+          size = 8,
+          links = new Uint8Array(size * size),
+          visited = new Uint8Array(size * size),
+          stack = new Uint8Array(size * size),
+          grainField = cachedNoise(128, 128, seed ^ 0x6d1c),
+          inverseShoulder = 1 / p.shoulder;
+        let state = (seed ^ 0x9e3779b9) >>> 0 || 1;
+        const next = (): number => {
+          state ^= state << 13;
+          state ^= state >>> 17;
+          state ^= state << 5;
+          state >>>= 0;
+          return state;
+        };
+        let depth = 0,
+          current = next() % (size * size);
+        visited[current] = 1;
+        stack[depth++] = current;
+        while (depth > 0) {
+          current = stack[depth - 1];
+          const cx = current % size,
+            cy = (current - cx) / size,
+            open = [] as number[];
+          if (cx + 1 < size && !visited[current + 1]) open.push(0);
+          if (cy + 1 < size && !visited[current + size]) open.push(1);
+          if (cx > 0 && !visited[current - 1]) open.push(2);
+          if (cy > 0 && !visited[current - size]) open.push(3);
+          if (open.length === 0) {
+            depth--;
+            continue;
+          }
+          const direction = open[next() % open.length],
+            target =
+              current +
+              (direction === 0
+                ? 1
+                : direction === 1
+                  ? size
+                  : direction === 2
+                    ? -1
+                    : -size);
+          links[current] |= 1 << direction;
+          links[target] |= 1 << ((direction + 2) & 3);
+          visited[target] = 1;
+          stack[depth++] = target;
+        }
+        const interval = (t: number, low: number, high: number): number =>
+          smooth(clamp((t - low) * inverseShoulder)) *
+          smooth(clamp((high - t) * inverseShoulder));
+        return () => {
+          const gx = u * size,
+            gy = v * size,
+            cx = Math.min(size - 1, Math.floor(gx)),
+            cy = Math.min(size - 1, Math.floor(gy)),
+            x = gx - cx - 0.5,
+            y = gy - cy - 0.5,
+            bits = links[cy * size + cx],
+            horizontal =
+              interval(
+                x,
+                bits & 4 ? -2 : -p.halfWidth,
+                bits & 1 ? 2 : p.halfWidth,
+              ) * interval(y, -p.halfWidth, p.halfWidth),
+            vertical =
+              interval(x, -p.halfWidth, p.halfWidth) *
+              interval(
+                y,
+                bits & 8 ? -2 : -p.halfWidth,
+                bits & 2 ? 2 : p.halfWidth,
+              ),
+            floor = 1 - (1 - horizontal) * (1 - vertical),
+            grain = grainField(u, v);
+          mortar = 0;
+          color = (0.8 + 0.1 * grain) * (1 - floor) + 0.2 * floor;
+          height = 0.8 - 0.45 * floor;
+          roughness = p.roughness + (p.floorRoughness - p.roughness) * floor;
+          occlusion = 0.97 - 0.37 * floor;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38700,6 +38783,7 @@ export function createSurfaceSampler(
     kind === 'papertape' ||
     kind === 'ulamspiral' ||
     kind === 'sevensegment' ||
+    kind === 'perfectmaze' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

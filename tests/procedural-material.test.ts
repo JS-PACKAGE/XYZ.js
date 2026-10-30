@@ -495,6 +495,7 @@ const kinds: ProceduralMaterialKind[] = [
   'papertape',
   'ulamspiral',
   'sevensegment',
+  'perfectmaze',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -99869,6 +99870,514 @@ describe('Seven-segment digit panel with lit amber bars, dim ghosts and a dark g
       expect(o.litChroma).toBeGreaterThan(0.3);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(200);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Seeded perfect maze with recessed dark corridors between pale raised walls', () => {
+  const p = proceduralMaterialPresets.perfectmaze;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const size = 8,
+    raster = 1024,
+    floorHeight = 0.575;
+  // Read the maze the way a walker sees it: a cell center or a shared edge midpoint is open when it is recessed floor.
+  const readLinks = (seed: number) => {
+    const sample = createSurfaceSampler('perfectmaze', seed),
+      out = empty(),
+      open = (u: number, v: number): boolean => {
+        sample(u, v, out);
+        return out.height / p.relief < floorHeight;
+      };
+    let centers = 0,
+      borderOpen = 0;
+    const east = new Uint8Array(size * size),
+      south = new Uint8Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        centers += Number(open((x + 0.5) / size, (y + 0.5) / size));
+        if (x + 1 < size)
+          east[y * size + x] = Number(open((x + 1) / size, (y + 0.5) / size));
+        if (y + 1 < size)
+          south[y * size + x] = Number(open((x + 0.5) / size, (y + 1) / size));
+      }
+    for (let k = 0; k < size; k++) {
+      borderOpen += Number(open(0, (k + 0.5) / size));
+      borderOpen += Number(open((k + 0.5) / size, 0));
+    }
+    return { centers, borderOpen, east, south };
+  };
+  const analyze = (seed: number) => {
+    const { centers, borderOpen, east, south } = readLinks(seed),
+      cells = size * size,
+      parent = Array.from({ length: cells }, (_, i) => i),
+      find = (i: number): number =>
+        parent[i] === i ? i : (parent[i] = find(parent[i])),
+      neighbors: number[][] = Array.from({ length: cells }, () => []);
+    let links = 0,
+      cycles = 0;
+    const join = (a: number, b: number) => {
+      links++;
+      neighbors[a].push(b);
+      neighbors[b].push(a);
+      const ra = find(a),
+        rb = find(b);
+      if (ra === rb) cycles++;
+      else parent[ra] = rb;
+    };
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        if (east[i]) join(i, i + 1);
+        if (south[i]) join(i, i + size);
+      }
+    const bfs = (start: number) => {
+      const distance = new Int32Array(cells).fill(-1),
+        order = [start];
+      distance[start] = 0;
+      for (let head = 0; head < order.length; head++)
+        for (const next of neighbors[order[head]])
+          if (distance[next] < 0) {
+            distance[next] = distance[order[head]] + 1;
+            order.push(next);
+          }
+      return { distance, reached: order.length, last: order[order.length - 1] };
+    };
+    const first = bfs(0),
+      second = bfs(first.last),
+      degrees = neighbors.map((list) => list.length);
+    return {
+      centers,
+      borderOpen,
+      links,
+      cycles,
+      reached: first.reached,
+      diameter: Math.max(...second.distance),
+      deadEnds: degrees.filter((d) => d === 1).length,
+      junctions: degrees.filter((d) => d >= 3).length,
+      key: Array.from(east).join('') + Array.from(south).join(''),
+      east,
+      south,
+    };
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('perfectmaze', seed),
+      out = empty(),
+      floor = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let floorColor = 0,
+      wallColor = 0,
+      floorRoughness = 0,
+      wallRoughness = 0,
+      floorOcclusion = 0,
+      wallOcclusion = 0,
+      floorPixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        floor[i] = out.height / p.relief < floorHeight ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (floor[i]) {
+          floorPixels++;
+          floorColor += out.color;
+          floorRoughness += out.roughness;
+          floorOcclusion += out.occlusion;
+        } else {
+          wallColor += out.color;
+          wallRoughness += out.roughness;
+          wallOcclusion += out.occlusion;
+        }
+      }
+    // Count connected components of floor and of wall on the periodic raster.
+    const count = (target: number) => {
+      const seen = new Uint8Array(raster * raster),
+        queue = new Int32Array(raster * raster);
+      let parts = 0;
+      for (let start = 0; start < raster * raster; start++) {
+        if (floor[start] !== target || seen[start]) continue;
+        parts++;
+        let head = 0,
+          tail = 0;
+        queue[tail++] = start;
+        seen[start] = 1;
+        while (head < tail) {
+          const i = queue[head++],
+            x = i % raster,
+            y = (i - x) / raster;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + raster) % raster) * raster +
+              ((x + dx + raster) % raster);
+            if (floor[j] === target && !seen[j]) {
+              seen[j] = 1;
+              queue[tail++] = j;
+            }
+          }
+        }
+      }
+      return parts;
+    };
+    // The tile edge is always wall, so only the stone grain can move these samples between seeds.
+    const wallEdge = new Float64Array(256);
+    for (let j = 0; j < 256; j++) {
+      sample(0.01, (j + 0.5) / 256, out);
+      wallEdge[j] = out.color;
+    }
+    return {
+      raster,
+      floor,
+      colors,
+      wallEdge,
+      floorParts: count(1),
+      wallParts: count(0),
+      floorFraction: floorPixels / (raster * raster),
+      floorColor: floorColor / floorPixels,
+      wallColor: wallColor / (raster * raster - floorPixels),
+      floorRoughness: floorRoughness / floorPixels,
+      wallRoughness: wallRoughness / (raster * raster - floorPixels),
+      floorOcclusion: floorOcclusion / floorPixels,
+      wallOcclusion: wallOcclusion / (raster * raster - floorPixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('perfectmaze', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 8; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 8, j / 256);
+        check(j / 256, k / 8);
+        check((k + 0.5) / 8, j / 256);
+        check(j / 256, (k + 0.5) / 8);
+        for (const edge of [-0.25, 0.25]) {
+          check((k + 0.5 + edge) / 8, j / 256);
+          check(j / 256, (k + 0.5 + edge) / 8);
+        }
+      }
+    // Diagonals through every cell cross the inner corners where corridor boxes meet.
+    for (let cy = 0; cy < 8; cy++)
+      for (let cx = 0; cx < 8; cx++)
+        for (let step = 0; step <= 60; step++) {
+          const t = 0.1 + step * 0.005;
+          for (const [sx, sy] of [
+            [1, 1],
+            [1, -1],
+            [-1, 1],
+            [-1, -1],
+          ])
+            check((cx + 0.5 + sx * t) / 8, (cy + 0.5 + sy * t) / 8);
+        }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let floors = 0,
+      floorRoughness = 0,
+      wallRoughness = 0,
+      walls = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.7) {
+        floors++;
+        floorRoughness += roughness;
+      } else {
+        walls++;
+        wallRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      floorFraction: floors / count,
+      floorRoughness: floorRoughness / floors,
+      wallRoughness: wallRoughness / walls,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  const analyzed = new Map<number, ReturnType<typeof analyze>>();
+  const tree = (seed: number) => {
+    let found = analyzed.get(seed);
+    if (!found) {
+      found = analyze(seed);
+      analyzed.set(seed, found);
+    }
+    return found;
+  };
+  // The 0.5 coverage contour of each corridor box sits half a shoulder inside its nominal edge.
+  const corridor = 2 * p.halfWidth - p.shoulder,
+    predictedFraction =
+      (64 * corridor ** 2 + 63 * (1 - corridor) * corridor) / 64;
+  it.each([0, 7, 0xffffffff])(
+    'reads a perfect maze of 64 reachable cells joined by 63 links without loops at seed%s',
+    (seed) => {
+      const o = tree(seed);
+      expect(o.centers).toBe(64);
+      expect(o.links).toBe(63);
+      expect(o.cycles).toBe(0);
+      expect(o.reached).toBe(64);
+      expect(o.borderOpen).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'draws one connected corridor and one connected wall of the predicted area at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.floorParts).toBe(1);
+      expect(o.wallParts).toBe(1);
+      expect(Math.abs(o.floorFraction / predictedFraction - 1)).toBeLessThan(
+        0.05,
+      );
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps pale rougher raised walls over dark recessed smoother corridors at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.wallColor - o.floorColor).toBeGreaterThan(0.4);
+      expect(o.floorRoughness - o.wallRoughness).toBeGreaterThan(0.2);
+      expect(o.wallOcclusion - o.floorOcclusion).toBeGreaterThan(0.2);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'grows a different but repeatable depth-first maze for every seed at seed%s',
+    (seed) => {
+      const o = tree(seed),
+        base = tree(0),
+        again = analyze(seed);
+      expect(again.key).toBe(o.key);
+      let differing = 0;
+      for (let i = 0; i < o.east.length; i++)
+        differing +=
+          Number(o.east[i] !== base.east[i]) +
+          Number(o.south[i] !== base.south[i]);
+      if (seed === 0) expect(differing).toBe(0);
+      else expect(differing).toBeGreaterThan(20);
+      // Depth-first mazes have few junctions and dead ends and one long winding route; a Prim-like growth
+      // measured 13-21 junctions, 16-24 dead ends and a diameter of 16-26 on eight seeds.
+      expect(o.junctions).toBeLessThan(12);
+      expect(o.deadEnds).toBeLessThan(14);
+      expect(o.diameter).toBeGreaterThan(33);
+      let moved = 0;
+      const edge = observed(seed).wallEdge,
+        baseEdge = observed(0).wallEdge;
+      for (let i = 0; i < edge.length; i++)
+        moved = Math.max(moved, Math.abs(edge[i] - baseEdge[i]));
+      if (seed !== 0) expect(moved).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps corridor edges, junction corners and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes dark recessed maze corridors between pale walls with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('perfectmaze', size, 7, { heightMap: true }),
+      );
+      expect(o.floorFraction).toBeGreaterThan(0.05);
+      expect(o.floorFraction).toBeLessThan(0.7);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.floorRoughness - o.wallRoughness).toBeGreaterThan(0.1);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(170);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {

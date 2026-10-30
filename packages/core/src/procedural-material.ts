@@ -469,6 +469,7 @@ export type ProceduralMaterialKind =
   | 'papertape'
   | 'ulamspiral'
   | 'sevensegment'
+  | 'perfectmaze'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1556,6 +1557,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'papertape',
   'ulamspiral',
   'sevensegment',
+  'perfectmaze',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

@@ -532,6 +532,7 @@ try {
     'papertape',
     'ulamspiral',
     'sevensegment',
+    'perfectmaze',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

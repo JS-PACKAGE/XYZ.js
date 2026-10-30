@@ -3291,6 +3291,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         halfWidth: 0.06;
         shoulder: 0.02;
     }>;
+    perfectmaze: Readonly<{
+        dark: readonly [48, 42, 36];
+        light: readonly [214, 204, 184];
+        roughness: 0.55;
+        floorRoughness: 0.85;
+        relief: 0.03;
+        halfWidth: 0.25;
+        shoulder: 0.05;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11061,6 +11070,7 @@ export declare const proceduralTileMeters: Readonly<{
     papertape: 0.0254;
     ulamspiral: 0.375;
     sevensegment: 0.2;
+    perfectmaze: 0.64;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;
