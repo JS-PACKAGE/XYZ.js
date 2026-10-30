@@ -4196,6 +4196,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         pinHalfLength: 0.38;
         endShoulder: 0.025;
     }>;
+    dowelpins: Readonly<{
+        dark: readonly [26, 32, 38];
+        light: readonly [225, 232, 237];
+        roughness: 0.31;
+        relief: 0.0032;
+        cells: 4;
+        jitter: 0.016;
+        scale: 0.92;
+        scaleVariation: 0.03;
+        shankLeft: -0.36;
+        shankRight: 0.36;
+        shankHalfWidth: 0.095;
+        tipChamfer: 0.018;
+        tipSlope: 0.8;
+        bevel: 0.012;
+        shankCrown: 0.085;
+        endRound: 0.018;
+    }>;
     clevispins: Readonly<{
         dark: readonly [26, 32, 38];
         light: readonly [225, 232, 237];
@@ -10788,6 +10806,7 @@ export declare const proceduralTileMeters: Readonly<{
     cashews: 0.16;
     hinges: 0.4;
     woodruffkeys: 0.08;
+    dowelpins: 0.12;
     clevispins: 0.12;
     gibheadkeys: 0.2;
     parallelkeys: 0.12;

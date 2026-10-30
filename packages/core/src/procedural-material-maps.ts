@@ -20090,15 +20090,25 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dowelpins':
       case 'clevispins': {
-        const p = proceduralMaterialPresets.clevispins,
+        const p = proceduralMaterialPresets[kind],
+          dowel = kind === 'dowelpins',
+          clevis = proceduralMaterialPresets.clevispins,
           poses = new Float64Array(p.cells * p.cells * 6),
           grainField = cachedNoise(96, 96, seed ^ 0x33811),
           inverseBevel = 1 / p.bevel,
-          holeSquared = p.holeRadius * p.holeRadius,
-          inverseHole = 1 / (holeSquared - p.holeCore * p.holeCore),
+          holeSquared = dowel ? 0 : clevis.holeRadius * clevis.holeRadius,
+          inverseHole = dowel
+            ? 0
+            : 1 / (holeSquared - clevis.holeCore * clevis.holeCore),
           inverseShank = 1 / (p.shankHalfWidth * p.shankHalfWidth),
-          inverseHead = 1 / (p.headHalfWidth * p.headHalfWidth);
+          inverseHead = dowel
+            ? 0
+            : 1 / (clevis.headHalfWidth * clevis.headHalfWidth),
+          endCurve = dowel
+            ? proceduralMaterialPresets.dowelpins.endRound * inverseShank
+            : 0;
         for (let row = 0; row < p.cells; row++)
           for (let col = 0; col < p.cells; col++) {
             const at = (row * p.cells + col) * 6,
@@ -20111,7 +20121,7 @@ export function createSurfaceSampler(
               1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x33819));
             poses[at + 5] = hash(col, row, seed ^ 0x3381b);
           }
-        // A head at one end and one cross-hole at the other remain inside each owner.
+        // Headed clevis and solid headless dowel profiles remain inside each owner.
         return () => {
           color = 0.045;
           height = 0.035;
@@ -20126,13 +20136,19 @@ export function createSurfaceSampler(
             dy = fract(vc) - 0.5 - poses[at + 3],
             x = (dx * poses[at] + dy * poses[at + 1]) * poses[at + 4],
             y = (-dx * poses[at + 1] + dy * poses[at]) * poses[at + 4],
-            head =
-              smooth(clamp((x - p.headLeft) * inverseBevel)) *
-              smooth(clamp((p.headRight - x) * inverseBevel)) *
-              smooth(clamp((p.headHalfWidth - y) * inverseBevel)) *
-              smooth(clamp((p.headHalfWidth + y) * inverseBevel)),
+            head = dowel
+              ? 0
+              : smooth(clamp((x - clevis.headLeft) * inverseBevel)) *
+                smooth(clamp((clevis.headRight - x) * inverseBevel)) *
+                smooth(clamp((clevis.headHalfWidth - y) * inverseBevel)) *
+                smooth(clamp((clevis.headHalfWidth + y) * inverseBevel)),
             shank =
-              smooth(clamp((x - p.shankLeft) * inverseBevel)) *
+              smooth(
+                clamp(
+                  (x - p.shankLeft - (dowel ? endCurve * y * y : 0)) *
+                    inverseBevel,
+                ),
+              ) *
               smooth(clamp((p.shankRight - x) * inverseBevel)) *
               smooth(clamp((p.shankHalfWidth - y) * inverseBevel)) *
               smooth(clamp((p.shankHalfWidth + y) * inverseBevel)) *
@@ -20152,19 +20168,22 @@ export function createSurfaceSampler(
                     inverseBevel,
                 ),
               ),
-            silhouette = 1 - (1 - head) * (1 - shank);
+            silhouette = dowel ? shank : 1 - (1 - head) * (1 - shank);
           if (silhouette === 0) return;
-          const hx = x - p.holeX,
-            hole = smooth(clamp((holeSquared - hx * hx - y * y) * inverseHole)),
+          const hx = dowel ? 0 : x - clevis.holeX,
+            hole = dowel
+              ? 0
+              : smooth(clamp((holeSquared - hx * hx - y * y) * inverseHole)),
             face = silhouette * (1 - hole);
           if (face === 0) return;
           const grain = grainField(u, v),
             shankRound = smooth(clamp(1 - y * y * inverseShank)),
-            headRound = smooth(clamp(1 - y * y * inverseHead)),
+            headRound = dowel ? 0 : smooth(clamp(1 - y * y * inverseHead)),
             shankHeight = 0.46 + p.shankCrown * shankRound,
-            metalHeight =
-              shankHeight +
-              head * (0.49 + p.headCrown * headRound - shankHeight);
+            metalHeight = dowel
+              ? shankHeight
+              : shankHeight +
+                head * (0.49 + clevis.headCrown * headRound - shankHeight);
           color += face * (0.65 + 0.13 * poses[at + 5] + 0.025 * grain - color);
           height += face * (metalHeight + 0.003 * grain - height);
           roughness += face * (p.roughness + 0.025 * grain - roughness);
@@ -37152,6 +37171,7 @@ export function createSurfaceSampler(
     kind === 'azurite' ||
     kind === 'celestine' ||
     kind === 'barite' ||
+    kind === 'dowelpins' ||
     kind === 'clevispins' ||
     kind === 'gibheadkeys' ||
     kind === 'woodruffkeys' ||

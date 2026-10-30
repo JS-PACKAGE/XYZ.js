@@ -523,6 +523,7 @@ export type ProceduralMaterialKind =
   | 'rclips'
   | 'linchpins'
   | 'woodruffkeys'
+  | 'dowelpins'
   | 'clevispins'
   | 'gibheadkeys'
   | 'parallelkeys'
@@ -1589,6 +1590,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rclips',
   'linchpins',
   'woodruffkeys',
+  'dowelpins',
   'clevispins',
   'gibheadkeys',
   'parallelkeys',
@@ -2183,6 +2185,7 @@ export class ProceduralMaterial {
         this.kind === 'rclips' ||
         this.kind === 'linchpins' ||
         this.kind === 'woodruffkeys' ||
+        this.kind === 'dowelpins' ||
         this.kind === 'clevispins' ||
         this.kind === 'gibheadkeys' ||
         this.kind === 'parallelkeys' ||

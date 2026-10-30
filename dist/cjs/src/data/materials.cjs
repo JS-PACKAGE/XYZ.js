@@ -8767,6 +8767,32 @@ var proceduralMaterialPresets = Object.freeze({
 		pinHalfLength: .38,
 		endShoulder: .025
 	}),
+	dowelpins: Object.freeze({
+		dark: [
+			26,
+			32,
+			38
+		],
+		light: [
+			225,
+			232,
+			237
+		],
+		roughness: .31,
+		relief: .0032,
+		cells: 4,
+		jitter: .016,
+		scale: .92,
+		scaleVariation: .03,
+		shankLeft: -.36,
+		shankRight: .36,
+		shankHalfWidth: .095,
+		tipChamfer: .018,
+		tipSlope: .8,
+		bevel: .012,
+		shankCrown: .085,
+		endRound: .018
+	}),
 	clevispins: Object.freeze({
 		dark: [
 			26,
@@ -18027,6 +18053,7 @@ var proceduralTileMeters = Object.freeze({
 	cashews: .16,
 	hinges: .4,
 	woodruffkeys: .08,
+	dowelpins: .12,
 	clevispins: .12,
 	gibheadkeys: .2,
 	parallelkeys: .12,

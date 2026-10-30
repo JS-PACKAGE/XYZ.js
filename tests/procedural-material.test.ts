@@ -549,6 +549,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rclips',
   'linchpins',
   'woodruffkeys',
+  'dowelpins',
   'clevispins',
   'gibheadkeys',
   'parallelkeys',
@@ -76975,6 +76976,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'rclips' &&
           kind !== 'linchpins' &&
           kind !== 'woodruffkeys' &&
+          kind !== 'dowelpins' &&
           kind !== 'clevispins' &&
           kind !== 'gibheadkeys' &&
           kind !== 'parallelkeys' &&
@@ -86444,6 +86446,7 @@ describe('procedural preset acquisition and ownership', () => {
     'linchpins',
     'woodruffkeys',
     'tabwashers',
+    'dowelpins',
     'clevispins',
     'gibheadkeys',
     'parallelkeys',
@@ -86553,6 +86556,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'linchpins' ||
           kind === 'woodruffkeys' ||
           kind === 'tabwashers' ||
+          kind === 'dowelpins' ||
           kind === 'clevispins' ||
           kind === 'gibheadkeys' ||
           kind === 'parallelkeys' ||
@@ -89150,6 +89154,470 @@ describe('European Beech fine diffuse longitudinal pores and minute flush ray fl
         expect(o.signed[1]).toBeGreaterThan(0.01);
         expect(o.signed[2]).toBeGreaterThan(0.003);
         expect(o.signed[3]).toBeGreaterThan(0.003);
+      }
+    },
+  );
+});
+
+describe('Dowel Pins solid headless cylindrical side profiles with rounded and entry-beveled ends', () => {
+  const p = proceduralMaterialPresets.dowelpins;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('dowelpins', seed),
+      out = empty(),
+      size = 128,
+      results = [];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const mask = new Uint8Array(size * size),
+          seen = new Uint8Array(mask.length),
+          points = [];
+        let cx = 0,
+          cy = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const px = (x + 0.5) / size,
+              py = (y + 0.5) / size;
+            sample((col + px) / p.cells, (row + py) / p.cells, out);
+            if (out.metallic > 0.5) {
+              mask[y * size + x] = 1;
+              points.push([px, py]);
+              cx += px;
+              cy += py;
+            }
+          }
+        cx /= points.length;
+        cy /= points.length;
+        let xx = 0,
+          yy = 0,
+          xy = 0;
+        for (const [x, y] of points) {
+          xx += (x - cx) ** 2;
+          yy += (y - cy) ** 2;
+          xy += (x - cx) * (y - cy);
+        }
+        let angle = 0.5 * Math.atan2(2 * xy, xx - yy),
+          ax = Math.cos(angle),
+          ay = Math.sin(angle);
+        const read = (t: number, q: number) => {
+          sample(
+            (col + cx + ax * t - ay * q) / p.cells,
+            (row + cy + ay * t + ax * q) / p.cells,
+            out,
+          );
+          return out.metallic > 0.5;
+        };
+        const crossEdge = (t: number, sign: number) => {
+          let lo = 0,
+            hi = 0.25;
+          for (let i = 0; i < 40; i++) {
+            const q = (lo + hi) / 2;
+            if (read(t, sign * q)) lo = q;
+            else hi = q;
+          }
+          return (sign * (lo + hi)) / 2;
+        };
+        for (let round = 0; round < 3; round++) {
+          const left = (crossEdge(-0.18, -1) + crossEdge(-0.18, 1)) / 2,
+            right = (crossEdge(0.18, -1) + crossEdge(0.18, 1)) / 2;
+          angle += Math.atan((right - left) / 0.36);
+          ax = Math.cos(angle);
+          ay = Math.sin(angle);
+          const shift = (crossEdge(0, -1) + crossEdge(0, 1)) / 2;
+          cx -= ay * shift;
+          cy += ax * shift;
+        }
+        const endEdge = (q: number, sign: number) => {
+          let lo = 0,
+            hi = 0.46;
+          for (let i = 0; i < 44; i++) {
+            const t = (lo + hi) / 2;
+            if (read(sign * t, q)) lo = t;
+            else hi = t;
+          }
+          return (lo + hi) / 2;
+        };
+        const halfWidth = (crossEdge(0, 1) - crossEdge(0, -1)) / 2,
+          ends = [endEdge(0, -1), endEdge(0, 1)],
+          widths = [];
+        for (const sign of [-1, 1])
+          for (const f of [0, 0.4, 0.7, 0.85]) {
+            const t = sign * ends[sign === -1 ? 0 : 1] * f;
+            widths.push(crossEdge(t, 1) - crossEdge(t, -1));
+          }
+        const endProfiles = [];
+        for (const sign of [-1, 1]) {
+          const middle = endEdge(0, sign),
+            drops = [0.35, 0.7, 0.9].map(
+              (f) =>
+                middle -
+                (endEdge(f * halfWidth, sign) + endEdge(-f * halfWidth, sign)) /
+                  2,
+            );
+          endProfiles.push(drops);
+        }
+        endProfiles.sort((a, b) => b[0] - a[0]);
+        let crownLow = 1 / 0,
+          crownHigh = -1 / 0,
+          longLow = 1 / 0,
+          longHigh = -1 / 0,
+          metalLow = 1,
+          colorLow = 1,
+          colorHigh = 0,
+          roughLow = 1,
+          roughHigh = 0;
+        for (const t of [-0.18, -0.09, 0, 0.09, 0.18]) {
+          read(t, 0);
+          const center = out.height / p.relief;
+          longLow = Math.min(longLow, center);
+          longHigh = Math.max(longHigh, center);
+          metalLow = Math.min(metalLow, out.metallic);
+          colorLow = Math.min(colorLow, out.color);
+          colorHigh = Math.max(colorHigh, out.color);
+          roughLow = Math.min(roughLow, out.roughness);
+          roughHigh = Math.max(roughHigh, out.roughness);
+          read(t, halfWidth * 0.65);
+          const a = out.height / p.relief;
+          read(t, -halfWidth * 0.65);
+          const crown = center - (a + out.height / p.relief) / 2;
+          crownLow = Math.min(crownLow, crown);
+          crownHigh = Math.max(crownHigh, crown);
+        }
+        let components = 0,
+          holes = 0;
+        for (let start = 0; start < mask.length; start++) {
+          if (seen[start]) continue;
+          const value = mask[start],
+            q = [start];
+          seen[start] = 1;
+          let boundary = false;
+          for (let at = 0; at < q.length; at++) {
+            const index = q[at],
+              x = index % size,
+              y = Math.floor(index / size);
+            boundary ||= x === 0 || y === 0 || x === size - 1 || y === size - 1;
+            for (const [dx, dy] of [
+              [-1, 0],
+              [1, 0],
+              [0, -1],
+              [0, 1],
+            ]) {
+              const a = x + dx,
+                b = y + dy;
+              if (a < 0 || b < 0 || a >= size || b >= size) continue;
+              const n = b * size + a;
+              if (!seen[n] && mask[n] === value) {
+                seen[n] = 1;
+                q.push(n);
+              }
+            }
+          }
+          if (value) components++;
+          else if (!boundary) holes++;
+        }
+        results.push({
+          row,
+          col,
+          coverage: points.length / (size * size),
+          components,
+          holes,
+          length: ends[0] + ends[1],
+          width: 2 * halfWidth,
+          widthSpread: Math.max(...widths) - Math.min(...widths),
+          rounded: endProfiles[0],
+          entry: endProfiles[1],
+          crownLow,
+          crownHigh,
+          longSpan: longHigh - longLow,
+          metalLow,
+          colorLow,
+          colorHigh,
+          roughLow,
+          roughHigh,
+          angle,
+        });
+      }
+    return results;
+  };
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('dowelpins', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.cells, j / 256);
+        check(j / 256, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const n = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let steel = 0,
+      backing = 0,
+      cool = 0,
+      rough = 0,
+      bgRough = 0,
+      maxTilt = 0,
+      invalid = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < n; i++) {
+      const j = i * 4,
+        m = maps.metallicRoughness[j + 2] / 255,
+        r = maps.baseColor[j],
+        g = maps.baseColor[j + 1],
+        b = maps.baseColor[j + 2],
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      if (m > 0.98) {
+        steel++;
+        cool += Number(r > 130 && g > r + 4 && b > g + 2);
+        rough += maps.metallicRoughness[j + 1] / 255;
+      }
+      if (m < 0.01) {
+        backing++;
+        bgRough += maps.metallicRoughness[j + 1] / 255;
+      }
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalid += Number(map[j + 3] !== 255);
+    }
+    return {
+      steel: steel / n,
+      backing: backing / n,
+      cool: cool / steel,
+      rough: rough / steel,
+      bgRough: bgRough / backing,
+      maxTilt,
+      signed: signed.map((x) => x / n),
+      minAO,
+      maxAO,
+      invalid,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps solid uniform-width headless shafts with two distinct end forms and a shallow unthreaded crown at seed%s',
+    (seed) => {
+      const profiles = observe(seed),
+        coverage =
+          profiles.reduce((sum, r) => sum + r.coverage, 0) /
+          (p.cells * p.cells);
+      expect(coverage).toBeGreaterThan(0.08);
+      expect(coverage).toBeLessThan(0.15);
+      let c = 0,
+        s = 0;
+      for (const r of profiles) {
+        expect(r.components).toBe(1);
+        expect(r.holes).toBe(0);
+        expect(r.length).toBeGreaterThan(0.6);
+        expect(r.length).toBeLessThan(0.71);
+        expect(r.width).toBeGreaterThan(0.15);
+        expect(r.width).toBeLessThan(0.19);
+        expect(r.length / r.width).toBeGreaterThan(3.2);
+        expect(r.length / r.width).toBeLessThan(4.8);
+        expect(r.widthSpread).toBeLessThan(0.003);
+        expect(r.rounded[0]).toBeGreaterThan(0.0008);
+        expect(r.rounded[0]).toBeLessThan(0.0045);
+        expect(r.rounded[1] / r.rounded[0]).toBeGreaterThan(3.3);
+        expect(r.rounded[1] / r.rounded[0]).toBeLessThan(5);
+        expect(r.rounded[2] / r.rounded[1]).toBeGreaterThan(1.4);
+        expect(r.rounded[2] / r.rounded[1]).toBeLessThan(2.2);
+        expect(r.rounded[2]).toBeGreaterThan(0.008);
+        expect(r.rounded[2]).toBeLessThan(0.025);
+        expect(Math.abs(r.entry[0])).toBeLessThan(0.0002);
+        expect(Math.abs(r.entry[1])).toBeLessThan(0.0002);
+        expect(r.entry[2]).toBeGreaterThan(0.001);
+        expect(r.entry[2]).toBeLessThan(0.006);
+        expect(r.crownLow).toBeGreaterThan(0.018);
+        expect(r.crownHigh).toBeLessThan(0.045);
+        expect(r.longSpan).toBeLessThan(0.005);
+        expect(r.metalLow).toBe(1);
+        expect(r.colorLow).toBeGreaterThan(0.6);
+        expect(r.colorHigh).toBeLessThan(0.85);
+        expect(r.roughLow).toBeGreaterThan(0.25);
+        expect(r.roughHigh).toBeLessThan(0.39);
+        c += Math.cos(2 * r.angle);
+        s += Math.sin(2 * r.angle);
+      }
+      expect(Math.hypot(c, s) / profiles.length).toBeLessThan(0.7);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed end forms rims crown owner joins grain and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque silver steel above rough nonmetal backing and resolvable normal relief at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('dowelpins', size, 7, { heightMap: true }),
+      );
+      expect(o.steel).toBeGreaterThan(0.075);
+      expect(o.steel).toBeLessThan(0.13);
+      expect(o.backing).toBeGreaterThan(0.84);
+      expect(o.backing).toBeLessThan(0.92);
+      expect(o.cool).toBeGreaterThan(0.98);
+      expect(o.rough).toBeGreaterThan(0.25);
+      expect(o.rough).toBeLessThan(0.39);
+      expect(o.bgRough).toBeGreaterThan(0.86);
+      expect(o.minAO).toBeLessThan(140);
+      expect(o.maxAO).toBeGreaterThan(245);
+      expect(o.invalid).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.12);
+        expect(o.maxTilt).toBeLessThan(0.4);
+        for (const fraction of o.signed)
+          expect(fraction).toBeGreaterThan(0.008);
+      } else {
+        expect(o.maxTilt).toBeGreaterThan(0.0005);
+        expect(o.maxTilt).toBeLessThan(0.01);
       }
     },
   );
