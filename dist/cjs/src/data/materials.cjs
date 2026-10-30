@@ -14175,6 +14175,46 @@ var proceduralMaterialPresets = Object.freeze({
 		weftFibers: 80,
 		weftCrown: .02
 	}),
+	bedfordcord: Object.freeze({
+		dark: [
+			51,
+			47,
+			33
+		],
+		light: [
+			170,
+			160,
+			120
+		],
+		roughness: .9,
+		relief: .0018,
+		ribs: 20,
+		rows: 24,
+		stagger: .5,
+		bodyHalf: .48,
+		ribHalf: .45,
+		dashHalf: .46,
+		bodyShoulder: .04,
+		dashShoulder: .34,
+		grooveTone: .12,
+		bodyTone: .42,
+		dashTone: .66,
+		dashVariation: .04,
+		grainTone: .025,
+		grooveHeight: .1,
+		bodyHeight: .3,
+		dashHeight: .56,
+		dashCrown: .08,
+		alongCrown: .03,
+		grainHeight: .006,
+		grooveRoughness: .98,
+		bodyRoughness: .93,
+		dashRoughness: .86,
+		roughnessGrain: .03,
+		grooveOcclusion: .5,
+		bodyOcclusion: .78,
+		dashOcclusion: .97
+	}),
 	poplin: Object.freeze({
 		dark: [
 			102,
@@ -18281,6 +18321,7 @@ var proceduralTileMeters = Object.freeze({
 	rackgears: .6,
 	grosgrain: .025,
 	faille: .03,
+	bedfordcord: .07,
 	poplin: .016,
 	ooliticlimestone: .024,
 	ogeetiles: .72,

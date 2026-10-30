@@ -783,6 +783,7 @@ try {
     'rackgears',
     'grosgrain',
     'faille',
+    'bedfordcord',
     'poplin',
     'ooliticlimestone',
     'ogeetiles',

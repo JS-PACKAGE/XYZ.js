@@ -7930,6 +7930,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         weftFibers: 80;
         weftCrown: 0.02;
     }>;
+    bedfordcord: Readonly<{
+        dark: readonly [51, 47, 33];
+        light: readonly [170, 160, 120];
+        roughness: 0.9;
+        relief: 0.0018;
+        ribs: 20;
+        rows: 24;
+        stagger: 0.5;
+        bodyHalf: 0.48;
+        ribHalf: 0.45;
+        dashHalf: 0.46;
+        bodyShoulder: 0.04;
+        dashShoulder: 0.34;
+        grooveTone: 0.12;
+        bodyTone: 0.42;
+        dashTone: 0.66;
+        dashVariation: 0.04;
+        grainTone: 0.025;
+        grooveHeight: 0.1;
+        bodyHeight: 0.3;
+        dashHeight: 0.56;
+        dashCrown: 0.08;
+        alongCrown: 0.03;
+        grainHeight: 0.006;
+        grooveRoughness: 0.98;
+        bodyRoughness: 0.93;
+        dashRoughness: 0.86;
+        roughnessGrain: 0.03;
+        grooveOcclusion: 0.5;
+        bodyOcclusion: 0.78;
+        dashOcclusion: 0.97;
+    }>;
     poplin: Readonly<{
         dark: readonly [102, 54, 68];
         light: readonly [236, 181, 192];
@@ -11026,6 +11058,7 @@ export declare const proceduralTileMeters: Readonly<{
     rackgears: 0.6;
     grosgrain: 0.025;
     faille: 0.03;
+    bedfordcord: 0.07;
     poplin: 0.016;
     ooliticlimestone: 0.024;
     ogeetiles: 0.72;

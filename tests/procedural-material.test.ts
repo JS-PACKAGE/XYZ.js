@@ -746,6 +746,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rackgears',
   'grosgrain',
   'faille',
+  'bedfordcord',
   'poplin',
   'ooliticlimestone',
   'ogeetiles',
@@ -90134,6 +90135,468 @@ describe('Staurolite dark-brown 60-degree interpenetrating blunt prisms on a lig
       } else {
         expect(o.maxTilt).toBeGreaterThan(0.0005);
         expect(o.maxTilt).toBeLessThan(0.012);
+      }
+    },
+  );
+});
+
+describe('Bedford cord warp-direction woven ribs with staggered weft dashes and cutting grooves', () => {
+  const p = proceduralMaterialPresets.bedfordcord;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  type RibProfile = {
+    low: number;
+    high: number;
+    count: number;
+    phase: number;
+    spacing: number[];
+    lengths: number[];
+    widths: number[];
+    peakSpread: number;
+    dashColor: number;
+    dashColorSpread: number;
+    dashRoughness: number;
+    gapColor: number;
+    gapRoughness: number;
+    gapLevel: number;
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('bedfordcord', seed),
+      out = empty(),
+      n = 480,
+      height = new Float64Array(n * n),
+      color = new Float64Array(n * n),
+      roughness = new Float64Array(n * n),
+      columns = new Float64Array(n),
+      rows = new Float64Array(n);
+    let metallic = 0,
+      mortar = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample((x + 0.5) / n, (y + 0.5) / n, out);
+        const i = y * n + x;
+        height[i] = out.height / p.relief;
+        color[i] = out.color;
+        roughness[i] = out.roughness;
+        columns[x] += height[i] / n;
+        rows[y] += height[i] / n;
+        metallic = Math.max(metallic, Math.abs(out.metallic));
+        mortar = Math.max(mortar, Math.abs(out.mortar));
+      }
+    const range = (values: Float64Array) =>
+        Math.max(...values) - Math.min(...values),
+      columnRange = range(columns),
+      rowRange = range(rows),
+      level = Math.min(...columns) + 0.25 * columnRange,
+      grooveRuns: number[] = [];
+    const start = columns.findIndex(
+      (value, x) => value > level && columns[(x + 1) % n] <= level,
+    );
+    for (let offset = 0; offset < n; offset++) {
+      const x = (start + 1 + offset) % n;
+      if (columns[x] > level) continue;
+      let length = 0;
+      while (columns[(x + length) % n] <= level) length++;
+      grooveRuns.push((x + (length - 1) / 2) % n);
+      offset += length - 1;
+    }
+    const ribs = grooveRuns.length,
+      pitches = grooveRuns.map(
+        (x, i) => (grooveRuns[(i + 1) % ribs] - x + n) % n,
+      ),
+      ribProfiles: RibProfile[] = [];
+    let grooveSpread = 0,
+      grooveColor = 0,
+      grooveRoughness = 0;
+    for (const x of grooveRuns) {
+      const column = Math.round(x) % n;
+      let low = Infinity,
+        high = -Infinity;
+      for (let y = 0; y < n; y++) {
+        const value = height[y * n + column];
+        low = Math.min(low, value);
+        high = Math.max(high, value);
+        grooveColor += color[y * n + column] / (n * ribs);
+        grooveRoughness += roughness[y * n + column] / (n * ribs);
+      }
+      grooveSpread = Math.max(grooveSpread, high - low);
+    }
+    const grooveHeight =
+      grooveRuns.reduce((sum, x) => sum + height[Math.round(x) % n], 0) /
+      Math.max(1, ribs);
+    for (let rib = 0; rib < ribs; rib++) {
+      const center = Math.round((grooveRuns[rib] + pitches[rib] / 2 + n) % n),
+        values = Array.from({ length: n }, (_, y) => height[y * n + center]);
+      const low = Math.min(...values),
+        high = Math.max(...values),
+        threshold = (low + high) / 2,
+        centers: number[] = [],
+        peaks: number[] = [],
+        lengths: number[] = [],
+        widths: number[] = [],
+        dashColors: number[] = [],
+        dashRoughness: number[] = [],
+        gapColors: number[] = [],
+        gapRoughness: number[] = [],
+        gapLevels: number[] = [];
+      const first = values.findIndex(
+        (value, y) => value <= threshold && values[(y + 1) % n] > threshold,
+      );
+      for (let offset = 0; offset < n; offset++) {
+        const y = (first + 1 + offset) % n;
+        if (values[y] <= threshold) continue;
+        let length = 0,
+          peak = -Infinity;
+        while (values[(y + length) % n] > threshold) {
+          peak = Math.max(peak, values[(y + length) % n]);
+          length++;
+        }
+        const middle = Math.round((y + (length - 1) / 2) % n) % n;
+        centers.push((y + (length - 1) / 2) % n);
+        peaks.push(peak);
+        lengths.push(length);
+        dashColors.push(color[middle * n + center]);
+        dashRoughness.push(roughness[middle * n + center]);
+        let width = 0;
+        for (
+          let k = -Math.floor(pitches[rib] / 2);
+          k < Math.ceil(pitches[rib] / 2);
+          k++
+        )
+          width += Number(
+            height[middle * n + ((center + k + n) % n)] > threshold,
+          );
+        widths.push(width / pitches[rib]);
+        offset += length - 1;
+      }
+      for (let i = 0; i < centers.length; i++) {
+        const next = centers[(i + 1) % centers.length],
+          gap =
+            Math.round((centers[i] + ((next - centers[i] + n) % n) / 2) % n) %
+            n;
+        gapColors.push(color[gap * n + center]);
+        gapRoughness.push(roughness[gap * n + center]);
+        gapLevels.push(height[gap * n + center]);
+      }
+      ribProfiles.push({
+        low,
+        high,
+        count: centers.length,
+        phase: centers[0] / n,
+        spacing: centers.map(
+          (value, i) =>
+            ((centers[(i + 1) % centers.length] - value + n) % n) / n,
+        ),
+        lengths: lengths.map((value) => value / n),
+        widths,
+        peakSpread: Math.max(...peaks) - Math.min(...peaks),
+        dashColor: dashColors.reduce((a, b) => a + b, 0) / dashColors.length,
+        dashColorSpread: Math.max(...dashColors) - Math.min(...dashColors),
+        dashRoughness:
+          dashRoughness.reduce((a, b) => a + b, 0) / dashRoughness.length,
+        gapColor: gapColors.reduce((a, b) => a + b, 0) / gapColors.length,
+        gapRoughness:
+          gapRoughness.reduce((a, b) => a + b, 0) / gapRoughness.length,
+        gapLevel: gapLevels.reduce((a, b) => a + b, 0) / gapLevels.length,
+      });
+    }
+    const staggers = ribProfiles.map((profile, i) => {
+      const next = ribProfiles[(i + 1) % ribs],
+        raw = ((next.phase - profile.phase) * profile.count) % 1;
+      return Math.abs(((raw + 1) % 1) - 0.5);
+    });
+    return {
+      ribs,
+      pitchSpread: Math.max(...pitches) / Math.min(...pitches),
+      rowRatio: rowRange / columnRange,
+      grooveSpread,
+      grooveHeight,
+      grooveColor,
+      grooveRoughness,
+      ribProfiles,
+      staggers,
+      metallic,
+      mortar,
+    };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let light = 0,
+      dark = 0,
+      roughness = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      metallicPixels = 0,
+      minAO = 255,
+      maxAO = 0,
+      minLuma = 255,
+      maxLuma = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        r = maps.baseColor[j],
+        g = maps.baseColor[j + 1],
+        b = maps.baseColor[j + 2],
+        luma = 0.2126 * r + 0.7152 * g + 0.0722 * b,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      roughness += maps.metallicRoughness[j + 1] / 255;
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    const middle = (minLuma + maxLuma) / 2;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      light += Number(luma > middle);
+      dark += Number(luma <= middle);
+    }
+    return {
+      light: light / count,
+      dark: dark / count,
+      roughness: roughness / count,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+      metallicPixels,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('bedfordcord', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.ribs; k++)
+      for (let j = 0; j <= 256; j++) check(k / p.ribs, j / 256);
+    for (let k = 0; k <= p.rows; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(j / 256, k / p.rows);
+        check(j / 256, (k + 0.5) / p.rows);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'keeps continuous grooves staggered weft dashes and raised cord crowns without pile at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.ribs).toBeGreaterThan(15);
+      expect(o.ribs).toBeLessThan(27);
+      expect(o.pitchSpread).toBeLessThan(1.08);
+      expect(o.rowRatio).toBeLessThan(0.4);
+      expect(o.grooveSpread).toBeLessThan(0.03);
+      expect(o.metallic).toBe(0);
+      expect(o.mortar).toBe(0);
+      expect(new Set(o.ribProfiles.map((r) => r.count)).size).toBe(1);
+      for (const stagger of o.staggers) expect(stagger).toBeLessThan(0.12);
+      for (const r of o.ribProfiles) {
+        expect(r.count).toBeGreaterThan(17);
+        expect(r.count).toBeLessThan(33);
+        expect(Math.max(...r.spacing) / Math.min(...r.spacing)).toBeLessThan(
+          1.12,
+        );
+        for (const length of r.lengths) {
+          expect(length * r.count).toBeGreaterThan(0.65);
+          expect(length * r.count).toBeLessThan(0.93);
+        }
+        for (const width of r.widths) {
+          expect(width).toBeGreaterThan(0.7);
+          expect(width).toBeLessThan(0.95);
+        }
+        expect(r.peakSpread).toBeLessThan(0.05);
+        expect(r.dashColorSpread).toBeLessThan(0.1);
+        expect(r.gapLevel - o.grooveHeight).toBeGreaterThan(0.12);
+        expect(r.gapLevel - o.grooveHeight).toBeLessThan(0.36);
+        expect(r.high - r.gapLevel).toBeGreaterThan(0.25);
+        expect(r.high - r.gapLevel).toBeLessThan(0.5);
+        expect(r.dashColor - r.gapColor).toBeGreaterThan(0.17);
+        expect(r.gapColor - o.grooveColor).toBeGreaterThan(0.2);
+        expect(r.gapRoughness - r.dashRoughness).toBeGreaterThan(0.03);
+        expect(o.grooveRoughness - r.gapRoughness).toBeGreaterThan(0.03);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed rib shoulders staggered dash joins grain and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque nonmetal cord maps with resolved light dash contrast matte ribs and normal relief only at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('bedfordcord', size, 7, { heightMap: true }),
+      );
+      expect(o.light).toBeGreaterThan(0.55);
+      expect(o.light).toBeLessThan(0.95);
+      expect(o.roughness).toBeGreaterThan(0.84);
+      expect(o.roughness).toBeLessThan(0.95);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(20);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.metallicPixels).toBe(0);
+      if (size === 512) {
+        expect(o.minAO).toBeLessThan(145);
+        expect(o.maxTilt).toBeGreaterThan(0.025);
+        expect(o.maxTilt).toBeLessThan(0.12);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.06);
+      } else {
+        expect(o.minAO).toBeGreaterThan(170);
+        expect(o.maxTilt).toBeLessThan(0.002);
       }
     },
   );

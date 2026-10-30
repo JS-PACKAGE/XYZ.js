@@ -6285,6 +6285,63 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bedfordcord': {
+        const p = proceduralMaterialPresets.bedfordcord,
+          grainField = cachedNoise(96, 96, seed ^ 0x30011),
+          tones = new Float64Array(p.ribs * p.rows),
+          inverseBody = 1 / p.bodyShoulder,
+          inverseDash = 1 / p.dashShoulder,
+          inverseRib = 1 / (p.ribHalf * p.ribHalf),
+          inverseDashHalf = 1 / (p.dashHalf * p.dashHalf);
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.ribs; col++)
+            tones[row * p.ribs + col] = hash(col, row, seed ^ 0x30013);
+        return () => {
+          const x = u * p.ribs,
+            col = Math.floor(x),
+            fx = x - col - 0.5,
+            y = v * p.rows + ((col & 1) === 0 ? 0 : p.stagger),
+            row = Math.floor(y),
+            fy = y - row - 0.5,
+            ribQ = fx * fx * inverseRib,
+            dashQ = fy * fy * inverseDashHalf,
+            body = smooth(clamp((p.bodyHalf - Math.abs(fx)) * inverseBody)),
+            dash = smooth(clamp((1 - ribQ * ribQ - dashQ) * inverseDash)),
+            tone =
+              tones[
+                (((row % p.rows) + p.rows) % p.rows) * p.ribs +
+                  (((col % p.ribs) + p.ribs) % p.ribs)
+              ],
+            grain = grainField(u, v);
+          // The weft dashes rise from a continuous rib body; narrow cutting grooves separate the ribs.
+          color =
+            p.grooveTone +
+            body * (p.bodyTone - p.grooveTone) +
+            dash * (p.dashTone + p.dashVariation * (tone - 0.5) - p.bodyTone) +
+            p.grainTone * (grain - 0.5);
+          height =
+            p.grooveHeight +
+            body * (p.bodyHeight - p.grooveHeight) +
+            dash *
+              (p.dashHeight -
+                p.bodyHeight +
+                p.dashCrown * (1 - ribQ) +
+                p.alongCrown * (1 - dashQ)) +
+            p.grainHeight * grain;
+          roughness =
+            p.grooveRoughness +
+            body * (p.bodyRoughness - p.grooveRoughness) +
+            dash * (p.dashRoughness - p.bodyRoughness) +
+            p.roughnessGrain * (grain - 0.5);
+          occlusion =
+            p.grooveOcclusion +
+            body * (p.bodyOcclusion - p.grooveOcclusion) +
+            dash * (p.dashOcclusion - p.bodyOcclusion);
+          metallic = 0;
+          mortar = 0;
+          return;
+        };
+      }
       case 'rackgears': {
         const p = proceduralMaterialPresets.rackgears,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -37294,6 +37351,7 @@ export function createSurfaceSampler(
     kind === 'rackgears' ||
     kind === 'grosgrain' ||
     kind === 'faille' ||
+    kind === 'bedfordcord' ||
     kind === 'poplin' ||
     kind === 'whipcord' ||
     kind === 'gabardine' ||
