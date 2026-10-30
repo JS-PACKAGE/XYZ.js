@@ -26289,6 +26289,101 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.1 * dome;
         };
       }
+      case 'ean13label': {
+        const p = proceduralMaterialPresets.ean13label,
+          // An EAN-13 symbol of 95 modules (start 101, six left digits, center 01010, six right digits, end 101)
+          // between quiet zones of 9 modules; the tile is square, so the label is as tall as it is wide.
+          quiet = 9,
+          span = 95 + 2 * quiet,
+          top = 14,
+          barBottom = 84,
+          guardBottom = 89,
+          // L-codes of the digits 0-9; R-codes are their complements and G-codes the R-codes in reverse bit order.
+          lCodes = [
+            '0001101',
+            '0011001',
+            '0010011',
+            '0111101',
+            '0100011',
+            '0110001',
+            '0101111',
+            '0111011',
+            '0110111',
+            '0001011',
+          ],
+          // The first digit selects the L/G pattern of the left group.
+          parities = [
+            'LLLLLL',
+            'LLGLGG',
+            'LLGGLG',
+            'LLGGGL',
+            'LGLLGG',
+            'LGGLLG',
+            'LGGGLL',
+            'LGLGLG',
+            'LGLGGL',
+            'LGGLGL',
+          ],
+          number = '4003994155486',
+          bits = new Uint8Array(span),
+          bottoms = new Float64Array(span).fill(barBottom),
+          edge = p.edge,
+          grainField = cachedNoise(128, 128, seed ^ 0x3e17);
+        let module = quiet;
+        const put = (code: string, guard: boolean): void => {
+          for (const bit of code) {
+            bits[module] = bit === '1' ? 1 : 0;
+            if (guard) bottoms[module] = guardBottom;
+            module++;
+          }
+        };
+        const complement = (code: string): string =>
+          Array.from(code, (bit) => (bit === '1' ? '0' : '1')).join('');
+        put('101', true);
+        for (let d = 1; d < 7; d++) {
+          const code = lCodes[Number(number[d])];
+          put(
+            parities[Number(number[0])][d - 1] === 'L'
+              ? code
+              : Array.from(complement(code)).reverse().join(''),
+            false,
+          );
+        }
+        put('01010', true);
+        for (let d = 7; d < 13; d++)
+          put(complement(lCodes[Number(number[d])]), false);
+        put('101', true);
+        // Ink coverage of one module column, with soft top and bottom edges centered on the bar ends.
+        const column = (index: number, gy: number): number =>
+          bits[index] === 0
+            ? 0
+            : smooth(clamp(0.5 + (gy - top) / (2 * edge))) *
+              smooth(clamp(0.5 - (gy - bottoms[index]) / (2 * edge)));
+        return () => {
+          const gx = u * span,
+            gy = v * span,
+            index = Math.min(span - 1, Math.floor(gx)),
+            t = gx - index;
+          // Bar edges sit on the module boundaries: a smooth blend of the two modules around each boundary.
+          let left = index,
+            right = index,
+            blend = 0;
+          if (t < edge) {
+            left = Math.max(0, index - 1);
+            blend = smooth(0.5 + t / (2 * edge));
+          } else if (t > 1 - edge) {
+            right = Math.min(span - 1, index + 1);
+            blend = smooth(0.5 + (t - 1) / (2 * edge));
+          }
+          const ink =
+            column(left, gy) * (1 - blend) + column(right, gy) * blend;
+          mortar = 0;
+          color = (0.86 + 0.08 * grainField(u, v)) * (1 - ink) + 0.04 * ink;
+          height = 0.4 + 0.3 * ink;
+          roughness = p.roughness + (p.inkRoughness - p.roughness) * ink;
+          occlusion = 0.98 - 0.03 * ink;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38863,6 +38958,7 @@ export function createSurfaceSampler(
     kind === 'perfectmaze' ||
     kind === 'rule30' ||
     kind === 'embossedbraille' ||
+    kind === 'ean13label' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

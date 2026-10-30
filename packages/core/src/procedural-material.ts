@@ -472,6 +472,7 @@ export type ProceduralMaterialKind =
   | 'perfectmaze'
   | 'rule30'
   | 'embossedbraille'
+  | 'ean13label'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1562,6 +1563,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'perfectmaze',
   'rule30',
   'embossedbraille',
+  'ean13label',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

@@ -498,6 +498,7 @@ const kinds: ProceduralMaterialKind[] = [
   'perfectmaze',
   'rule30',
   'embossedbraille',
+  'ean13label',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -101346,6 +101347,656 @@ describe('Embossed braille paper with raised domes spelling the alphabet in 28 c
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.maxTilt).toBeLessThan(3);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('EAN-13 barcode label printing the page example number in 30 bars on white paper', () => {
+  const p = proceduralMaterialPresets.ean13label;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  // The digit encodings, structure table and example the page gives: L-, G- and R-codes of the digits 0-9 as seven areas.
+  const lCode = [
+      '0001101',
+      '0011001',
+      '0010011',
+      '0111101',
+      '0100011',
+      '0110001',
+      '0101111',
+      '0111011',
+      '0110111',
+      '0001011',
+    ],
+    gCode = [
+      '0100111',
+      '0110011',
+      '0011011',
+      '0100001',
+      '0011101',
+      '0111001',
+      '0000101',
+      '0010001',
+      '0001001',
+      '0010111',
+    ],
+    rCode = [
+      '1110010',
+      '1100110',
+      '1101100',
+      '1000010',
+      '1011100',
+      '1001110',
+      '1010000',
+      '1000100',
+      '1001000',
+      '1110100',
+    ],
+    structure = [
+      'LLLLLL',
+      'LLGLGG',
+      'LLGGLG',
+      'LLGGGL',
+      'LGLLGG',
+      'LGGLLG',
+      'LGGGLL',
+      'LGLGLG',
+      'LGLGGL',
+      'LGGLGL',
+    ];
+  // Check digit: positions numbered from the right of the 12 data digits, odd positions weigh 3 and even positions 1.
+  const checkDigit = (data: string): number => {
+    let sum = 0;
+    for (let k = 0; k < data.length; k++) {
+      const position = data.length - k;
+      sum += Number(data[k]) * (position % 2 === 1 ? 3 : 1);
+    }
+    return (10 - (sum % 10)) % 10;
+  };
+  const encode = (number: string): string => {
+    let bits = '101';
+    for (let d = 1; d < 7; d++) {
+      const digit = Number(number[d]);
+      bits +=
+        structure[Number(number[0])][d - 1] === 'L'
+          ? lCode[digit]
+          : gCode[digit];
+    }
+    bits += '01010';
+    for (let d = 7; d < 13; d++) bits += rCode[Number(number[d])];
+    return bits + '101';
+  };
+  // Decode a 95-area bit string the way a scanner does: markers, six left codes with L/G choice, six right codes.
+  const decode = (bits: string) => {
+    if (bits.length !== 95) return { number: '', parity: '', valid: false };
+    if (
+      bits.slice(0, 3) !== '101' ||
+      bits.slice(45, 50) !== '01010' ||
+      bits.slice(92) !== '101'
+    )
+      return { number: '', parity: '', valid: false };
+    let pattern = '',
+      digits = '',
+      parity = '';
+    for (let d = 0; d < 6; d++) {
+      const code = bits.slice(3 + 7 * d, 10 + 7 * d),
+        l = lCode.indexOf(code),
+        g = gCode.indexOf(code);
+      if (l < 0 && g < 0) return { number: '', parity: '', valid: false };
+      pattern += l >= 0 ? 'L' : 'G';
+      digits += String(l >= 0 ? l : g);
+      parity +=
+        Array.from(code).filter((bit) => bit === '1').length % 2 ? 'O' : 'E';
+    }
+    const first = structure.indexOf(pattern);
+    let right = '';
+    for (let d = 0; d < 6; d++) {
+      const r = rCode.indexOf(bits.slice(50 + 7 * d, 57 + 7 * d));
+      if (r < 0) return { number: '', parity: '', valid: false };
+      right += String(r);
+      parity +=
+        Array.from(bits.slice(50 + 7 * d, 57 + 7 * d)).filter(
+          (bit) => bit === '1',
+        ).length % 2
+          ? 'O'
+          : 'E';
+    }
+    const number = String(first) + digits + right;
+    return {
+      number,
+      parity,
+      valid:
+        first >= 0 && checkDigit(number.slice(0, 12)) === Number(number[12]),
+    };
+  };
+  const example = '4003994155486',
+    reference = encode(example),
+    quiet = 9,
+    span = 95 + 2 * quiet,
+    top = 14,
+    barBottom = 84,
+    guardBottom = 89,
+    raster = 1130,
+    unit = raster / span,
+    guardModules = (index: number): boolean =>
+      index < 3 || (index >= 45 && index < 50) || index >= 92;
+  // Runs of black areas are the bars the page speaks of; guard bars are the start, center and end markers.
+  const bars: { left: number; right: number; bottom: number }[] = [];
+  for (let index = 0; index < 95; index++)
+    if (reference[index] === '1') {
+      const last = bars[bars.length - 1];
+      if (last && last.right === quiet + index) {
+        last.right++;
+        continue;
+      }
+      bars.push({
+        left: quiet + index,
+        right: quiet + index + 1,
+        bottom: guardModules(index) ? guardBottom : barBottom,
+      });
+    }
+  const expectedInk =
+    bars.reduce(
+      (sum, bar) => sum + (bar.right - bar.left) * (bar.bottom - top),
+      0,
+    ) /
+    (span * span);
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('ean13label', seed),
+      out = empty(),
+      ink = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let inkColor = 0,
+      paperColor = 0,
+      inkHeight = 0,
+      paperHeight = 0,
+      inkRoughness = 0,
+      paperRoughness = 0,
+      inkPixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        ink[i] = out.color < 0.5 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (ink[i]) {
+          inkPixels++;
+          inkColor += out.color;
+          inkHeight += out.height / p.relief;
+          inkRoughness += out.roughness;
+        } else {
+          paperColor += out.color;
+          paperHeight += out.height / p.relief;
+          paperRoughness += out.roughness;
+        }
+      }
+    // Read the areas at the module centers on three rows through the bars and, below the normal bar ends, a guard row.
+    const rows = [20, 50, 80].map((y) => y / span),
+      guardRow = 86.5 / span;
+    let mismatched = 0,
+      guardMismatched = 0;
+    const read = [rows[0], rows[1], rows[2]].map(() => '');
+    for (let index = 0; index < 95; index++) {
+      const u = (quiet + index + 0.5) / span;
+      rows.forEach((v, k) => {
+        sample(u, v, out);
+        read[k] += out.color < 0.5 ? '1' : '0';
+      });
+      sample(u, guardRow, out);
+      const expectInk = reference[index] === '1' && guardModules(index);
+      guardMismatched += Number(out.color < 0.5 !== expectInk);
+    }
+    for (const row of read)
+      for (let index = 0; index < 95; index++)
+        mismatched += Number(row[index] !== reference[index]);
+    // The step from paper to the first start bar, read as ink coverage through the roughness, which carries no grain.
+    const coverage: number[] = [];
+    for (let k = 0; k <= 400; k++) {
+      sample((quiet - 0.5 + k / 400) / span, 50 / span, out);
+      coverage.push(
+        (out.roughness - p.roughness) / (p.inkRoughness - p.roughness),
+      );
+    }
+    const crossing = (level: number): number => {
+      for (let k = 1; k <= 400; k++)
+        if (coverage[k] >= level)
+          return (
+            quiet -
+            0.5 +
+            (k -
+              1 +
+              (level - coverage[k - 1]) / (coverage[k] - coverage[k - 1])) /
+              400
+          );
+      return NaN;
+    };
+    const labels = new Int32Array(raster * raster),
+      queue = new Int32Array(raster * raster),
+      parts: { left: number; right: number; top: number; bottom: number }[] =
+        [];
+    let outside = 0;
+    for (let start = 0; start < raster * raster; start++) {
+      if (!ink[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        minX = raster,
+        maxX = -1,
+        minY = raster,
+        maxY = -1;
+      const id = parts.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % raster,
+          y = (i - x) / raster;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j =
+            ((y + dy + raster) % raster) * raster +
+            ((x + dx + raster) % raster);
+          if (ink[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      parts.push({
+        left: minX / unit,
+        right: (maxX + 1) / unit,
+        top: minY / unit,
+        bottom: (maxY + 1) / unit,
+      });
+    }
+    for (let i = 0; i < raster * raster; i++) {
+      const x = (i % raster) / unit,
+        y = Math.floor(i / raster) / unit;
+      if (
+        ink[i] &&
+        (x < quiet ||
+          x > span - quiet ||
+          y < top - 0.2 ||
+          y > guardBottom + 0.2)
+      )
+        outside++;
+    }
+    parts.sort((a, b) => a.left - b.left);
+    let misplaced = 0;
+    for (let k = 0; k < Math.max(parts.length, bars.length); k++) {
+      const part = parts[k],
+        bar = bars[k];
+      if (
+        !part ||
+        !bar ||
+        Math.abs(part.left - bar.left) > 0.06 ||
+        Math.abs(part.right - bar.right) > 0.06 ||
+        Math.abs(part.top - top) > 0.06 ||
+        Math.abs(part.bottom - bar.bottom) > 0.06
+      )
+        misplaced++;
+    }
+    return {
+      ink,
+      colors,
+      read,
+      decoded: read.map(decode),
+      mismatched,
+      guardMismatched,
+      edgeCenter: crossing(0.5),
+      edgeWidth: crossing(0.9) - crossing(0.1),
+      parts: parts.length,
+      misplaced,
+      outside,
+      inkFraction: inkPixels / (raster * raster),
+      inkColor: inkColor / inkPixels,
+      paperColor: paperColor / (raster * raster - inkPixels),
+      inkRoughness: inkRoughness / inkPixels,
+      paperRoughness: paperRoughness / (raster * raster - inkPixels),
+      inkHeight: inkHeight / inkPixels,
+      paperHeight: paperHeight / (raster * raster - inkPixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('ean13label', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    // Sweep across every bar edge (module boundaries), the soft ends of the bars and the corners where they meet.
+    const sweep = Array.from({ length: 41 }, (_, i) => (i - 20) * 0.0125),
+      rows = [14, 20, 50, 84, 86.5, 89];
+    for (let k = 0; k <= span; k++) {
+      for (const d of sweep) {
+        for (const y of rows) check((k + d) / span, y / span);
+        for (const y of [top, barBottom, guardBottom]) {
+          check((k + d) / span, (y + d) / span);
+          check((k + d) / span, (y - d) / span);
+          check((k + 0.5) / span, (y + d) / span);
+        }
+      }
+      for (let j = 0; j <= 64; j++) check((k + 0.5) / span, j / 64);
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const luma = (rgb: readonly number[]): number =>
+    0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0],
+      midLuma = (luma(p.dark) + luma(p.light)) / 2;
+    let inks = 0,
+      inkRoughness = 0,
+      paperRoughness = 0,
+      papers = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        pixelLuma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (pixelLuma < midLuma) {
+        inks++;
+        inkRoughness += roughness;
+      } else {
+        papers++;
+        paperRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, pixelLuma);
+      maxLuma = Math.max(maxLuma, pixelLuma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      inkFraction: inks / count,
+      inkRoughness: inkRoughness / Math.max(1, inks),
+      paperRoughness: paperRoughness / Math.max(1, papers),
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  it('follows the structure the page gives for EAN-13 numbers', () => {
+    // 95 areas: 3 + 42 + 5 + 42 + 3, with the page's example 4 003994 155486 and its OEOOEE EEEEEE parity.
+    const encoded = encode(example),
+      decoded = decode(encoded);
+    expect(encoded.length).toBe(95);
+    expect(decoded.number).toBe(example);
+    expect(decoded.parity).toBe('OEOOEE' + 'EEEEEE');
+    expect(structure[4]).toBe('LGLLGG');
+    // R-codes complement the L-codes and G-codes reverse the R-codes; every code has two bars and two spaces.
+    for (let d = 0; d < 10; d++) {
+      expect(rCode[d]).toBe(
+        Array.from(lCode[d], (bit) => (bit === '1' ? '0' : '1')).join(''),
+      );
+      expect(gCode[d]).toBe(Array.from(rCode[d]).reverse().join(''));
+      expect(lCode[d].match(/1+/g)!.length).toBe(2);
+      expect(lCode[d].match(/0+/g)!.length).toBe(2);
+    }
+    // The page's check digit worked example 400638133393x is x = 1 and the weights give 89 for it.
+    expect(checkDigit('400638133393')).toBe(1);
+    expect(checkDigit('400399415548')).toBe(6);
+  });
+  it.each([0, 7, 0xffffffff])(
+    'reads the module bits and decodes the example number from three rows through the bars at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.mismatched).toBe(0);
+      expect(o.guardMismatched).toBe(0);
+      for (const row of o.decoded) {
+        expect(row.valid).toBe(true);
+        expect(row.number).toBe(example);
+        expect(row.parity).toBe('OEOOEE' + 'EEEEEE');
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'prints every bar of the bars-and-spaces code at the module boundaries with longer guard bars at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(bars.length).toBe(30);
+      expect(o.parts).toBe(bars.length);
+      expect(o.misplaced).toBe(0);
+      // The edges are centered on the module boundary and are about a tenth of an area wide: sharp but not a step.
+      expect(Math.abs(o.edgeCenter - quiet)).toBeLessThan(0.02);
+      expect(o.edgeWidth).toBeGreaterThan(0.03);
+      expect(o.edgeWidth).toBeLessThan(0.3);
+      expect(o.outside).toBe(0);
+      expect(Math.abs(o.inkFraction / expectedInk - 1)).toBeLessThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'prints rougher darker ink slightly above smoother paper at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.paperColor - o.inkColor).toBeGreaterThan(0.5);
+      expect(o.inkRoughness - o.paperRoughness).toBeGreaterThan(0.12);
+      expect(o.inkHeight - o.paperHeight).toBeGreaterThan(0.15);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the paper grain with the seed and never the bars at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.ink.length; i++) {
+        flips += Number(o.ink[i] !== base.ink[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.read.join('|')).toBe(base.read.join('|'));
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps bar edges, bar ends, guard corners and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes dark rough raised ink on pale paper with resolved edge normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('ean13label', size, 7, { heightMap: true }),
+      );
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.maxAO).toBeGreaterThan(245);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(100);
+      // At 32 px the bars are narrower than a pixel, so only a sparse sampling of ink and no resolved edge remains.
+      expect(o.inkFraction).toBeGreaterThan(0.05);
+      expect(o.inkFraction).toBeLessThan(0.7);
+      if (size === 512) {
+        expect(Math.abs(o.inkFraction / expectedInk - 1)).toBeLessThan(0.08);
+        expect(o.inkRoughness - o.paperRoughness).toBeGreaterThan(0.12);
+        expect(o.minAO).toBeLessThan(248);
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        // Vertical bar edges tilt the normals sideways over about a tenth of the pixels; the thin bar ends tilt them up and down.
+        expect(Math.min(o.signed[0], o.signed[1])).toBeGreaterThan(0.05);
+        expect(Math.min(o.signed[2], o.signed[3])).toBeGreaterThan(0.001);
       } else expect(o.maxTilt).toBeLessThan(0.5);
     },
   );

@@ -535,6 +535,7 @@ try {
     'perfectmaze',
     'rule30',
     'embossedbraille',
+    'ean13label',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
