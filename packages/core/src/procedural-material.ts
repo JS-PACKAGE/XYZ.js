@@ -478,6 +478,7 @@ export type ProceduralMaterialKind =
   | 'snubtrihexagonaltiles'
   | 'floretpentagonaltiles'
   | 'prismaticpentagonaltiles'
+  | 'apollonianmosaic'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1574,6 +1575,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'snubtrihexagonaltiles',
   'floretpentagonaltiles',
   'prismaticpentagonaltiles',
+  'apollonianmosaic',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

@@ -541,6 +541,7 @@ try {
     'snubtrihexagonaltiles',
     'floretpentagonaltiles',
     'prismaticpentagonaltiles',
+    'apollonianmosaic',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

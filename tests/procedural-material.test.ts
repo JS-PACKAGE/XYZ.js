@@ -504,6 +504,7 @@ const kinds: ProceduralMaterialKind[] = [
   'snubtrihexagonaltiles',
   'floretpentagonaltiles',
   'prismaticpentagonaltiles',
+  'apollonianmosaic',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -105074,6 +105075,515 @@ describe('Prismatic pentagonal V3.3.3.4.4 house-shaped glazed tiles over rough g
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(150);
       expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Apollonian mosaic of finite recursive tangent glazed circles over rough grout', () => {
+  const p = proceduralMaterialPresets.apollonianmosaic;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  type Disk = {
+    cell: number;
+    cx: number;
+    cy: number;
+    radius: number;
+    contour: number;
+    color: number;
+    eccentricity: number;
+  };
+  const observe = (seed: number) => {
+    const size = 512 * p.cells,
+      scale = p.cells / size,
+      sample = createSurfaceSampler('apollonianmosaic', seed),
+      out = empty(),
+      mask = new Uint8Array(size * size),
+      color = new Float64Array(size * size),
+      label = new Int32Array(size * size),
+      queue = new Int32Array(size * size);
+    let tileCount = 0,
+      groutCount = 0,
+      tileRoughness = 0,
+      groutRoughness = 0,
+      tileAO = 0,
+      groutAO = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        const i = y * size + x;
+        mask[i] = out.height / p.relief > 0.41 ? 1 : 0;
+        color[i] = out.color;
+        dielectric += Number(out.metallic !== 0);
+        if (mask[i]) {
+          tileCount++;
+          tileRoughness += out.roughness;
+          tileAO += out.occlusion;
+        } else {
+          groutCount++;
+          groutRoughness += out.roughness;
+          groutAO += out.occlusion;
+        }
+      }
+    const neighbors = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const,
+      disks: Disk[] = [];
+    let count = 0;
+    for (let start = 0; start < size * size; start++) {
+      if (!mask[start] || label[start]) continue;
+      let head = 0,
+        tail = 1,
+        n = 0,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0,
+        sc = 0;
+      count++;
+      queue[0] = start;
+      label[start] = count;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % size,
+          y = (i - x) / size;
+        n++;
+        sx += x + 0.5;
+        sy += y + 0.5;
+        sxx += (x + 0.5) ** 2;
+        syy += (y + 0.5) ** 2;
+        sxy += (x + 0.5) * (y + 0.5);
+        sc += color[i];
+        for (const [dx, dy] of neighbors) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+          const j = ny * size + nx;
+          if (mask[j] && !label[j]) {
+            label[j] = count;
+            queue[tail++] = j;
+          }
+        }
+      }
+      const cx = (sx / n) * scale,
+        cy = (sy / n) * scale,
+        vx = sxx / n - (sx / n) ** 2,
+        vy = syy / n - (sy / n) ** 2,
+        cov = sxy / n - (sx * sy) / n ** 2,
+        contour = Math.sqrt(n / Math.PI) * scale,
+        // The half-height contour is halfway between the outer and core squared radii, not their radii.
+        radius =
+          Math.sqrt(contour ** 2 - 0.25 * p.shoulder ** 2) +
+          p.grout +
+          0.5 * p.shoulder;
+      disks.push({
+        cell: Math.floor(cy) * p.cells + Math.floor(cx),
+        cx: (cx % 1) - 0.5,
+        cy: (cy % 1) - 0.5,
+        radius,
+        contour,
+        color: sc / n,
+        eccentricity: Math.hypot(vx - vy, 2 * cov) / (vx + vy),
+      });
+    }
+    return {
+      disks,
+      groutFraction: groutCount / (size * size),
+      roughnessGap: groutRoughness / groutCount - tileRoughness / tileCount,
+      aoGap: tileAO / tileCount - groutAO / groutCount,
+      dielectric,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let o = observations.get(seed);
+    if (!o) {
+      o = observe(seed);
+      observations.set(seed, o);
+    }
+    return o;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('apollonianmosaic', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 512; j++) {
+        check(k / p.cells, j / 512);
+        check(j / 512, k / p.cells);
+      }
+    for (const d of observed(seed).disks) {
+      const col = d.cell % p.cells,
+        row = Math.floor(d.cell / p.cells);
+      for (let j = 0; j < 32; j++) {
+        const theta = (j * 2 * Math.PI) / 32;
+        for (const off of [-0.5, 0, 0.5]) {
+          const r = d.contour + off * p.shoulder;
+          check(
+            (col + 0.5 + d.cx + r * Math.cos(theta)) / p.cells,
+            (row + 0.5 + d.cy + r * Math.sin(theta)) / p.cells,
+          );
+        }
+      }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      groutRoughness = 0,
+      tileRoughness = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        groutRoughness += roughness;
+      } else {
+        tiles++;
+        tileRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      groutFraction: grout / count,
+      groutRoughness: groutRoughness / grout,
+      tileRoughness: tileRoughness / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'observes nineteen circular faces per bounded motif, not equal-grid pennies or radial sectors, at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.disks.length).toBe(19 * p.cells * p.cells);
+      for (let cell = 0; cell < p.cells * p.cells; cell++) {
+        const disks = o.disks.filter((d) => d.cell === cell);
+        expect(disks.length).toBe(19);
+        for (const d of disks) {
+          expect(d.eccentricity).toBeLessThan(0.12);
+          expect(Math.hypot(d.cx, d.cy) + d.radius - p.radius).toBeLessThan(
+            0.0015,
+          );
+        }
+        const large = [...disks]
+            .sort((a, b) => b.radius - a.radius)
+            .slice(0, 3),
+          r = p.radius * (2 * Math.sqrt(3) - 3);
+        for (const d of large)
+          expect(Math.abs(d.radius / r - 1)).toBeLessThan(0.015);
+        const meanX = large.reduce((s, d) => s + d.cx, 0) / 3,
+          meanY = large.reduce((s, d) => s + d.cy, 0) / 3;
+        expect(Math.hypot(meanX, meanY)).toBeLessThan(0.0015);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains Descartes tangencies without overlaps and bounds every small circle by three contacts at seed%s',
+    (seed) => {
+      const disks = observed(seed).disks,
+        tolerance = 0.0015;
+      for (let cell = 0; cell < p.cells * p.cells; cell++) {
+        const list = disks.filter((d) => d.cell === cell);
+        let edges = 0,
+          boundary = 0;
+        for (let i = 0; i < list.length; i++) {
+          const a = list[i];
+          let contacts = Number(
+            Math.abs(Math.hypot(a.cx, a.cy) + a.radius - p.radius) < tolerance,
+          );
+          boundary += contacts;
+          for (let j = 0; j < list.length; j++)
+            if (i !== j) {
+              const b = list[j],
+                gap =
+                  Math.hypot(a.cx - b.cx, a.cy - b.cy) - a.radius - b.radius;
+              expect(gap).toBeGreaterThan(-tolerance);
+              if (Math.abs(gap) < tolerance) {
+                contacts++;
+                if (j > i) edges++;
+              }
+            }
+          expect(contacts).toBeGreaterThan(2);
+        }
+        expect(edges).toBe(42);
+        expect(boundary).toBe(12);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'resolves both reflection rounds into six radius families and a small central circle at seed%s',
+    (seed) => {
+      // Closed-form bends from Descartes: three initial circles, four first replacements and twelve second replacements.
+      const a = 1 / (2 * Math.sqrt(3) - 3),
+        c = 6 * a + 1,
+        d = 3 * a - 2,
+        e = 2 * c + 3 * a,
+        f = 2 * d + 4 * a + 1,
+        g = a + 2 * d - 2,
+        expected = [
+          ...Array(3).fill(p.radius / e),
+          ...Array(3).fill(p.radius / f),
+          p.radius / c,
+          ...Array(6).fill(p.radius / g),
+          ...Array(3).fill(p.radius / d),
+          ...Array(3).fill(p.radius / a),
+        ].sort((x, y) => x - y);
+      for (let cell = 0; cell < p.cells * p.cells; cell++) {
+        const list = observed(seed)
+          .disks.filter((d) => d.cell === cell)
+          .sort((a, b) => a.radius - b.radius);
+        for (let i = 0; i < expected.length; i++)
+          expect(Math.abs(list[i].radius / expected[i] - 1)).toBeLessThan(0.04);
+        const central = list.reduce((a, b) =>
+          Math.hypot(a.cx, a.cy) < Math.hypot(b.cx, b.cy) ? a : b,
+        );
+        expect(Math.hypot(central.cx, central.cy)).toBeLessThan(0.0015);
+        expect(Math.abs(central.radius / (p.radius / c) - 1)).toBeLessThan(
+          0.04,
+        );
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'glazes differently toned flat disks above rough grout and changes tone without moving the packing at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.roughnessGap).toBeGreaterThan(0.4);
+      expect(o.aoGap).toBeGreaterThan(0.3);
+      expect(o.dielectric).toBe(0);
+      for (let cell = 0; cell < p.cells * p.cells; cell++) {
+        const roots = o.disks
+          .filter((d) => d.cell === cell)
+          .sort((a, b) => b.radius - a.radius)
+          .slice(0, 3)
+          .map((d) => d.color)
+          .sort((a, b) => a - b);
+        expect(roots[1] - roots[0]).toBeGreaterThan(0.25);
+        expect(roots[2] - roots[1]).toBeGreaterThan(0.25);
+      }
+      if (seed !== 0) {
+        const base = observed(0);
+        let movement = 0;
+        for (const d of o.disks) {
+          const nearest = base.disks
+            .filter((b) => b.cell === d.cell)
+            .sort(
+              (a, b) =>
+                Math.hypot(a.cx - d.cx, a.cy - d.cy) -
+                Math.hypot(b.cx - d.cx, b.cy - d.cy),
+            )[0];
+          expect(Math.hypot(nearest.cx - d.cx, nearest.cy - d.cy)).toBeLessThan(
+            0.001,
+          );
+          expect(Math.abs(nearest.radius - d.radius)).toBeLessThan(0.001);
+          movement = Math.max(movement, Math.abs(nearest.color - d.color));
+        }
+        expect(movement).toBeGreaterThan(0.01);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps disk shoulders, tangencies, owner boundaries and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque dielectric circle faces and rough grout with resolved bevel normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('apollonianmosaic', size, 7, {
+          heightMap: true,
+        }),
+      );
+      expect(o.groutFraction).toBeGreaterThan(0.2);
+      expect(o.groutFraction).toBeLessThan(0.7);
+      expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(150);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.metallicPixels).toBe(0);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {
         expect(o.maxTilt).toBeGreaterThan(0.1);

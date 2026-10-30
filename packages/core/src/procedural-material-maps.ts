@@ -26942,6 +26942,91 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'apollonianmosaic': {
+        const p = proceduralMaterialPresets.apollonianmosaic,
+          root3 = Math.sqrt(3),
+          inner = p.radius * (2 * root3 - 3),
+          distance = p.radius - inner,
+          bend = 1 / inner,
+          // Signed bends and bend-weighted centers: the enclosing negative circle is a construction bound, not a tile.
+          quad: [number, number, number][] = [
+            [-1 / p.radius, 0, 0],
+            [bend, 0, -bend * distance],
+            [bend, (bend * root3 * distance) / 2, (bend * distance) / 2],
+            [bend, (-bend * root3 * distance) / 2, (bend * distance) / 2],
+          ],
+          circles = [quad[1], quad[2], quad[3]],
+          grainField = cachedNoise(96, 96, seed ^ 0x3f21),
+          faceTone = [0.1, 0.48, 0.82];
+        const fill = (previous: number, level: number): void => {
+          if (level === 0) return;
+          let b = 0,
+            x = 0,
+            y = 0;
+          for (const q of quad) {
+            b += q[0];
+            x += q[1];
+            y += q[2];
+          }
+          for (let i = 0; i < 4; i++) {
+            if (i === previous) continue;
+            const old = quad[i],
+              next: [number, number, number] = [
+                2 * b - 3 * old[0],
+                2 * x - 3 * old[1],
+                2 * y - 3 * old[2],
+              ];
+            circles.push(next);
+            quad[i] = next;
+            fill(i, level - 1);
+            quad[i] = old;
+          }
+        };
+        fill(-1, p.depth);
+        const count = circles.length,
+          disks = new Float64Array(count * 4),
+          tones = new Float64Array(p.cells * p.cells * count);
+        for (let k = 0; k < count; k++) {
+          const q = circles[k],
+            r = 1 / q[0] - p.grout,
+            core = r - p.shoulder;
+          disks[k * 4] = q[1] / q[0];
+          disks[k * 4 + 1] = q[2] / q[0];
+          disks[k * 4 + 2] = r * r;
+          disks[k * 4 + 3] = 1 / (r * r - core * core);
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let k = 0; k < count; k++)
+              tones[(row * p.cells + col) * count + k] =
+                faceTone[k % 3] +
+                0.1 * hash(col, row, seed ^ (0x3f23 + 0x40 * k));
+        return () => {
+          const ux = u * p.cells,
+            vy = v * p.cells,
+            x = fract(ux) - 0.5,
+            y = fract(vy) - 0.5,
+            at = (Math.floor(vy) * p.cells + Math.floor(ux)) * count;
+          let faces = 0,
+            pigment = 0;
+          for (let k = 0; k < count; k++) {
+            const dx = x - disks[k * 4],
+              dy = y - disks[k * 4 + 1],
+              cover = (disks[k * 4 + 2] - dx * dx - dy * dy) * disks[k * 4 + 3];
+            if (cover <= 0) continue;
+            const face = smooth(clamp(cover));
+            faces += face;
+            pigment += face * tones[at + k];
+          }
+          const grain = faces > 0 ? grainField(u, v) : 0;
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39522,6 +39607,7 @@ export function createSurfaceSampler(
     kind === 'snubtrihexagonaltiles' ||
     kind === 'floretpentagonaltiles' ||
     kind === 'prismaticpentagonaltiles' ||
+    kind === 'apollonianmosaic' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
