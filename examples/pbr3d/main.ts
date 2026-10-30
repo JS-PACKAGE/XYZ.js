@@ -520,6 +520,7 @@ try {
     'halite',
     'waffleweave',
     'fishscaleshingles',
+    'starfish',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

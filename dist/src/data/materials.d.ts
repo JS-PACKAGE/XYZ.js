@@ -3167,6 +3167,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         seamColor: 0.32;
         seamAo: 0.5;
     }>;
+    starfish: Readonly<{
+        dark: readonly [84, 82, 76];
+        light: readonly [244, 148, 56];
+        roughness: 0.66;
+        relief: 0.02;
+        cells: 3;
+        chance: 0.95;
+        radius: 0.4;
+        radiusVariation: 0.05;
+        discRadius: 0.25;
+        baseWidth: 0.1;
+        tipWidth: 0.07;
+        armJitter: 0.1;
+        lengthJitter: 0.06;
+        jitter: 0.03;
+        shoulder: 0.006;
+        ridge: 0.18;
+        dotPitch: 0.05;
+        dotRadius: 0.017;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10925,6 +10945,7 @@ export declare const proceduralTileMeters: Readonly<{
     halite: 0.08;
     waffleweave: 0.12;
     fishscaleshingles: 1.75;
+    starfish: 0.3;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

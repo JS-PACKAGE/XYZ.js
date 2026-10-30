@@ -25149,6 +25149,156 @@ export function createSurfaceSampler(
           roughness = p.roughness + 0.03 * grain;
         };
       }
+      case 'starfish': {
+        const p = proceduralMaterialPresets.starfish,
+          // Per owner: present flag, center x/y, tone, then five arms of axis x/y and length.
+          stride = 5 + 15,
+          poses = new Float64Array(p.cells * p.cells * stride),
+          grainField = cachedNoise(128, 128, seed ^ 0x35111),
+          hostField = cachedNoise(16, 16, seed ^ 0x35113),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride;
+            if (hash(col, row, seed ^ 0x35115) >= p.chance) continue;
+            const turn = TAU * hash(col, row, seed ^ 0x35117),
+              radius =
+                p.radius *
+                (1 +
+                  p.radiusVariation * (2 * hash(col, row, seed ^ 0x35119) - 1));
+            poses[i] = 1;
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3511b) - 1);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3511d) - 1);
+            poses[i + 3] = hash(col, row, seed ^ 0x3511f);
+            poses[i + 4] = radius;
+            for (let arm = 0; arm < 5; arm++) {
+              const angle =
+                  turn +
+                  (TAU * arm) / 5 +
+                  p.armJitter *
+                    (2 * hash(col * 5 + arm, row, seed ^ 0x35121) - 1),
+                length =
+                  radius *
+                  (1 +
+                    p.lengthJitter *
+                      (2 * hash(col * 5 + arm, row, seed ^ 0x35123) - 1));
+              poses[i + 5 + arm * 3] = Math.cos(angle);
+              poses[i + 6 + arm * 3] = Math.sin(angle);
+              poses[i + 7 + arm * 3] = length;
+            }
+          }
+        return () => {
+          const grain = grainField(u, v),
+            host = hostField(u, v),
+            i =
+              (Math.floor(v * p.cells) * p.cells + Math.floor(u * p.cells)) *
+              stride;
+          color = 0.2 + 0.05 * host + 0.02 * grain;
+          height = 0.1 + 0.02 * host + 0.004 * grain;
+          roughness = 0.92 + 0.03 * host + 0.01 * grain;
+          occlusion = 0.62;
+          if (poses[i] === 0) return;
+          const x = fract(u * p.cells) - poses[i + 1],
+            y = fract(v * p.cells) - poses[i + 2];
+          // Each point belongs to the arm axis with the largest projection, so no angle trig is needed.
+          let best = 0,
+            along = -2;
+          for (let arm = 0; arm < 5; arm++) {
+            const projection =
+              x * poses[i + 5 + arm * 3] + y * poses[i + 6 + arm * 3];
+            if (projection > along) {
+              along = projection;
+              best = arm;
+            }
+          }
+          const ax = poses[i + 5 + best * 3],
+            ay = poses[i + 6 + best * 3],
+            length = poses[i + 7 + best * 3],
+            across = x * ay - y * ax,
+            lateral = Math.abs(across),
+            clamped = Math.min(Math.max(along, 0), length),
+            halfWidth =
+              (p.baseWidth +
+                (p.tipWidth - p.baseWidth) * smooth(clamped / length)) *
+              poses[i + 4],
+            distance = Math.hypot(along - clamped, lateral),
+            discRadius = p.discRadius * poses[i + 4],
+            centerDistance = Math.hypot(x, y),
+            armCover = smooth(clamp((halfWidth - distance) * inverseShoulder)),
+            discCover = smooth(
+              clamp((discRadius - centerDistance) * inverseShoulder),
+            ),
+            cover = 1 - (1 - armCover) * (1 - discCover);
+          if (cover === 0) return;
+          // Arm-owned relief starts only outside the fold lines where neighboring arms overlap.
+          const armFade = smooth(
+              clamp(
+                (centerDistance - 0.2 * poses[i + 4]) / (0.05 * poses[i + 4]),
+              ),
+            ),
+            armDome = armFade * smooth(clamp(1 - distance / halfWidth)),
+            discDome = smooth(clamp(1 - centerDistance / (1.25 * discRadius))),
+            dome = 1 - (1 - armDome) * (1 - discDome),
+            fade = smooth(clamp((centerDistance - discRadius) / discRadius)),
+            spine =
+              smooth(clamp(1 - lateral / (0.4 * halfWidth))) * fade * armCover,
+            phase = along / p.dotPitch,
+            middle = (fract(phase) - 0.5) * p.dotPitch,
+            sideA = (fract(phase + 0.5) - 0.5) * p.dotPitch,
+            rowOffset = 0.55 * halfWidth,
+            dotMiddle = smooth(
+              clamp(
+                1 -
+                  (middle * middle + across * across) /
+                    (p.dotRadius * p.dotRadius),
+              ),
+            ),
+            dotLeft = smooth(
+              clamp(
+                1 -
+                  (sideA * sideA + (across - rowOffset) ** 2) /
+                    (p.dotRadius * p.dotRadius),
+              ),
+            ),
+            dotRight = smooth(
+              clamp(
+                1 -
+                  (sideA * sideA + (across + rowOffset) ** 2) /
+                    (p.dotRadius * p.dotRadius),
+              ),
+            ),
+            dots =
+              (1 - (1 - dotMiddle) * (1 - dotLeft) * (1 - dotRight)) *
+              fade *
+              armCover,
+            edge =
+              1 -
+              armFade *
+                (1 - smooth(clamp((halfWidth - distance) / (0.6 * halfWidth))));
+          color +=
+            cover *
+            (0.56 +
+              0.1 * poses[i + 3] +
+              0.1 * dots +
+              0.04 * spine +
+              0.03 * grain -
+              0.12 * (1 - edge) -
+              color);
+          height +=
+            cover *
+            (0.18 +
+              0.32 * dome +
+              p.ridge * spine +
+              0.08 * dots +
+              0.006 * grain -
+              height);
+          roughness +=
+            cover * (p.roughness + 0.04 * dots - 0.03 * grain - roughness);
+          occlusion += cover * (0.6 + 0.3 * dome + 0.1 * dots - occlusion);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37717,6 +37867,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'starfish' ||
     kind === 'fishscaleshingles' ||
     kind === 'waffleweave' ||
     kind === 'halite' ||

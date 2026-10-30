@@ -6781,6 +6781,34 @@ var proceduralMaterialPresets = Object.freeze({
 		seamColor: .32,
 		seamAo: .5
 	}),
+	starfish: Object.freeze({
+		dark: [
+			84,
+			82,
+			76
+		],
+		light: [
+			244,
+			148,
+			56
+		],
+		roughness: .66,
+		relief: .02,
+		cells: 3,
+		chance: .95,
+		radius: .4,
+		radiusVariation: .05,
+		discRadius: .25,
+		baseWidth: .1,
+		tipWidth: .07,
+		armJitter: .1,
+		lengthJitter: .06,
+		jitter: .03,
+		shoulder: .006,
+		ridge: .18,
+		dotPitch: .05,
+		dotRadius: .017
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18236,6 +18264,7 @@ var proceduralTileMeters = Object.freeze({
 	halite: .08,
 	waffleweave: .12,
 	fishscaleshingles: 1.75,
+	starfish: .3,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,
