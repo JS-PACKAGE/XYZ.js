@@ -533,6 +533,7 @@ try {
     'ulamspiral',
     'sevensegment',
     'perfectmaze',
+    'rule30',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

@@ -3324,6 +3324,15 @@ export const proceduralMaterialPresets = Object.freeze({
     halfWidth: 0.25,
     shoulder: 0.05,
   }),
+  rule30: Object.freeze({
+    dark: [20, 22, 30] as const,
+    light: [226, 222, 208] as const,
+    roughness: 0.8,
+    onRoughness: 0.3,
+    relief: 0.03,
+    halfSize: 0.42,
+    shoulder: 0.05,
+  }),
   orbicularjasper: Object.freeze({
     dark: [24, 68, 47] as const,
     light: [231, 225, 171] as const,
@@ -11242,6 +11251,7 @@ export const proceduralTileMeters = Object.freeze({
   ulamspiral: 0.375,
   sevensegment: 0.2,
   perfectmaze: 0.64,
+  rule30: 0.66,
   orbicularjasper: 0.12,
   acornbarnacles: 0.12,
   circularpavers: 1.6,

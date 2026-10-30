@@ -26212,6 +26212,41 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.37 * floor;
         };
       }
+      case 'rule30': {
+        const p = proceduralMaterialPresets.rule30,
+          // Wolfram's elementary cellular automaton Rule 30 grown from a single 1 in the middle of the top row, time
+          // running down: the new state is bit (4 * left + 2 * center + right) of the rule number 30.
+          size = 33,
+          cells = new Uint8Array(size * size),
+          grainField = cachedNoise(128, 128, seed ^ 0x30c5),
+          inverseShoulder = 1 / p.shoulder;
+        cells[size >> 1] = 1;
+        for (let row = 1; row < size; row++)
+          for (let x = 0; x < size; x++) {
+            const above = (row - 1) * size + x,
+              left = x > 0 ? cells[above - 1] : 0,
+              right = x + 1 < size ? cells[above + 1] : 0;
+            cells[row * size + x] =
+              (30 >> (left * 4 + cells[above] * 2 + right)) & 1;
+          }
+        const interval = (t: number): number =>
+          smooth(clamp((p.halfSize + t) * inverseShoulder)) *
+          smooth(clamp((p.halfSize - t) * inverseShoulder));
+        return () => {
+          const gx = u * size,
+            gy = v * size,
+            cx = Math.min(size - 1, Math.floor(gx)),
+            cy = Math.min(size - 1, Math.floor(gy)),
+            tile = interval(gx - cx - 0.5) * interval(gy - cy - 0.5),
+            on = cells[cy * size + cx],
+            grain = grainField(u, v);
+          mortar = 0;
+          color = 0.35 * (1 - tile) + tile * (on ? 0.1 : 0.7 + 0.08 * grain);
+          height = 0.3 + tile * (0.1 + 0.5 * on);
+          roughness = p.roughness + (p.onRoughness - p.roughness) * tile * on;
+          occlusion = 0.97 - 0.3 * (1 - tile);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38784,6 +38819,7 @@ export function createSurfaceSampler(
     kind === 'ulamspiral' ||
     kind === 'sevensegment' ||
     kind === 'perfectmaze' ||
+    kind === 'rule30' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

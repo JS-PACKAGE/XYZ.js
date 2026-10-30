@@ -470,6 +470,7 @@ export type ProceduralMaterialKind =
   | 'ulamspiral'
   | 'sevensegment'
   | 'perfectmaze'
+  | 'rule30'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1558,6 +1559,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ulamspiral',
   'sevensegment',
   'perfectmaze',
+  'rule30',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

@@ -496,6 +496,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ulamspiral',
   'sevensegment',
   'perfectmaze',
+  'rule30',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -100378,6 +100379,498 @@ describe('Seeded perfect maze with recessed dark corridors between pale raised w
       expect(o.floorRoughness - o.wallRoughness).toBeGreaterThan(0.1);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(170);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Rule 30 cellular automaton triangle of raised dark cells on pale lower cells', () => {
+  const p = proceduralMaterialPresets.rule30;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const size = 33,
+    raster = 1000,
+    cellPixels = raster / size,
+    onRoughness = (p.roughness + p.onRoughness) / 2;
+  // Independent reference: Wolfram's Rule 30 from the rule table printed on the Wikipedia page, one 1 in the middle of
+  // the top row and 0 outside the array.
+  const ruleTable: Record<string, number> = {
+    '111': 0,
+    '110': 0,
+    '101': 0,
+    '100': 1,
+    '011': 1,
+    '010': 1,
+    '001': 1,
+    '000': 0,
+  };
+  const reference = () => {
+    const rowsOut: number[][] = [
+      Array.from({ length: size }, (_, x) => Number(x === size >> 1)),
+    ];
+    for (let row = 1; row < size; row++) {
+      const above = rowsOut[row - 1];
+      rowsOut.push(
+        above.map((center, x) => {
+          const left = x > 0 ? above[x - 1] : 0,
+            right = x + 1 < size ? above[x + 1] : 0;
+          return ruleTable[`${left}${center}${right}`];
+        }),
+      );
+    }
+    return rowsOut;
+  };
+  const expected = reference();
+  // Black cells per generation printed on the page (OEIS A070952); rows up to 16 are not clipped by the 33 columns.
+  const pageCounts = [
+    1, 3, 3, 6, 4, 9, 5, 12, 7, 12, 11, 14, 12, 19, 13, 22, 15,
+  ];
+  const readCells = (seed: number) => {
+    const sample = createSurfaceSampler('rule30', seed),
+      out = empty(),
+      rowsRead: number[][] = [];
+    for (let row = 0; row < size; row++) {
+      const line: number[] = [];
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (row + 0.5) / size, out);
+        line.push(out.roughness < onRoughness ? 1 : 0);
+      }
+      rowsRead.push(line);
+    }
+    return rowsRead;
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('rule30', seed),
+      out = empty(),
+      on = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let onColor = 0,
+      offColor = 0,
+      onRoughnessSum = 0,
+      offRoughnessSum = 0,
+      onHeight = 0,
+      offHeight = 0,
+      onPixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        on[i] = out.roughness < onRoughness ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (on[i]) {
+          onPixels++;
+          onColor += out.color;
+          onRoughnessSum += out.roughness;
+          onHeight += out.height / p.relief;
+        } else {
+          offColor += out.color;
+          offRoughnessSum += out.roughness;
+          offHeight += out.height / p.relief;
+        }
+      }
+    const rowsRead = readCells(seed);
+    let mismatches = 0,
+      total = 0,
+      asymmetric = 0;
+    const counts = rowsRead.map((line) =>
+      line.reduce((sum, value) => sum + value, 0),
+    );
+    rowsRead.forEach((line, row) =>
+      line.forEach((value, x) => {
+        mismatches += Number(value !== expected[row][x]);
+        total += value;
+        asymmetric += Number(value !== line[size - 1 - x]);
+      }),
+    );
+    const labels = new Int32Array(raster * raster),
+      queue = new Int32Array(raster * raster),
+      parts: { area: number; cx: number; cy: number }[] = [];
+    for (let start = 0; start < raster * raster; start++) {
+      if (!on[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        sumX = 0,
+        sumY = 0;
+      const id = parts.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % raster,
+          y = (i - x) / raster;
+        sumX += x + 0.5;
+        sumY += y + 0.5;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j =
+            ((y + dy + raster) % raster) * raster +
+            ((x + dx + raster) % raster);
+          if (on[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      parts.push({
+        area: tail / (cellPixels * cellPixels),
+        cx: sumX / tail / cellPixels,
+        cy: sumY / tail / cellPixels,
+      });
+    }
+    let misplaced = 0,
+      areas = 0;
+    const hit = new Set<number>();
+    for (const part of parts) {
+      const cx = Math.floor(part.cx),
+        cy = Math.floor(part.cy);
+      hit.add(cy * size + cx);
+      if (Math.hypot(part.cx - cx - 0.5, part.cy - cy - 0.5) > 0.03)
+        misplaced++;
+      areas += part.area;
+    }
+    return {
+      raster,
+      on,
+      colors,
+      counts,
+      mismatches,
+      total,
+      asymmetric,
+      parts: parts.length,
+      distinct: hit.size,
+      misplaced,
+      meanArea: areas / Math.max(1, parts.length),
+      onFraction: onPixels / (raster * raster),
+      onColor: onColor / onPixels,
+      offColor: offColor / (raster * raster - onPixels),
+      onRoughness: onRoughnessSum / onPixels,
+      offRoughness: offRoughnessSum / (raster * raster - onPixels),
+      onHeight: onHeight / onPixels,
+      offHeight: offHeight / (raster * raster - onPixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('rule30', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 33; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 33, j / 256);
+        check(j / 256, k / 33);
+        check((k + 0.5) / 33, j / 256);
+        check(j / 256, (k + 0.5) / 33);
+        for (const edge of [-0.42, -0.4, 0.4, 0.42]) {
+          check((k + 0.5 + edge) / 33, j / 256);
+          check(j / 256, (k + 0.5 + edge) / 33);
+        }
+      }
+    // Diagonals through every cell cross the rounded corners where the two interval factors trade places.
+    for (let cy = 0; cy < 33; cy++)
+      for (let cx = 0; cx < 33; cx++)
+        for (let step = 0; step <= 20; step++) {
+          const t = 0.3 + step * 0.01;
+          for (const [sx, sy] of [
+            [1, 1],
+            [1, -1],
+            [-1, 1],
+            [-1, -1],
+          ])
+            check((cx + 0.5 + sx * t) / 33, (cy + 0.5 + sy * t) / 33);
+        }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let ons = 0,
+      onRoughness = 0,
+      offRoughness = 0,
+      offs = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness < 0.55) {
+        ons++;
+        onRoughness += roughness;
+      } else {
+        offs++;
+        offRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      onFraction: ons / count,
+      onRoughness: onRoughness / ons,
+      offRoughness: offRoughness / offs,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  const expectedTotal = expected.flat().reduce((sum, value) => sum + value, 0),
+    // The 0.5 coverage contour of each interval sits half a shoulder inside its nominal edge.
+    side = 2 * p.halfSize - p.shoulder;
+  it('lists the Rule 30 table from the page as p xor (q or r)', () => {
+    for (const [pattern, next] of Object.entries(ruleTable)) {
+      const [left, center, right] = pattern.split('').map(Number);
+      expect(next).toBe(left ^ (center | right));
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'reads the Rule 30 triangle from a single cell with the page generation counts at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.mismatches).toBe(0);
+      expect(o.total).toBe(expectedTotal);
+      expect(o.counts.slice(0, pageCounts.length).join(',')).toBe(
+        pageCounts.join(','),
+      );
+      expect(o.asymmetric).toBeGreaterThan(100);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'places one square tile of the predicted size at every black cell at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.parts).toBe(expectedTotal);
+      expect(o.distinct).toBe(expectedTotal);
+      expect(o.misplaced).toBe(0);
+      expect(Math.abs(o.meanArea / side ** 2 - 1)).toBeLessThan(0.03);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps glossy dark raised black cells over pale rougher lower white cells at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.offColor - o.onColor).toBeGreaterThan(0.3);
+      expect(o.offRoughness - o.onRoughness).toBeGreaterThan(0.2);
+      expect(o.onHeight - o.offHeight).toBeGreaterThan(0.3);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the white-cell grain with the seed and never the pattern at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.on.length; i++) {
+        flips += Number(o.on[i] !== base.on[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.mismatches).toBe(0);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps cell tiles, grooves and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes dark raised black cells and pale lower white cells with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('rule30', size, 7, { heightMap: true }),
+      );
+      expect(o.onFraction).toBeGreaterThan(0.05);
+      expect(o.onFraction).toBeLessThan(0.4);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.offRoughness - o.onRoughness).toBeGreaterThan(0.1);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minLuma).toBeLessThan(70);
+      expect(o.minAO).toBeLessThan(190);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {
