@@ -727,6 +727,7 @@ try {
     'solderlessbreadboard',
     'kyaniteblades',
     'wulfenite',
+    'staurolite',
     'azurite',
     'celestine',
     'barite',

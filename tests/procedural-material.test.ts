@@ -690,6 +690,7 @@ const kinds: ProceduralMaterialKind[] = [
   'solderlessbreadboard',
   'kyaniteblades',
   'wulfenite',
+  'staurolite',
   'azurite',
   'celestine',
   'barite',
@@ -89618,6 +89619,521 @@ describe('Dowel Pins solid headless cylindrical side profiles with rounded and e
       } else {
         expect(o.maxTilt).toBeGreaterThan(0.0005);
         expect(o.maxTilt).toBeLessThan(0.01);
+      }
+    },
+  );
+});
+
+describe('Staurolite dark-brown 60-degree interpenetrating blunt prisms on a light rough mineral host', () => {
+  const p = proceduralMaterialPresets.staurolite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('staurolite', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.cells, j / 256);
+        check(j / 256, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('staurolite', seed),
+      out = empty(),
+      n = 32,
+      rayCount = 720,
+      profiles = [];
+    let total = 0,
+      orientationX = 0,
+      orientationY = 0;
+    const countComponents = (
+      mask: Uint8Array,
+      value: number,
+      interiorOnly: boolean,
+    ): number => {
+      const seen = new Uint8Array(n * n),
+        queue = new Int32Array(n * n),
+        stepX = [-1, 1, 0, 0, -1, 1, -1, 1],
+        stepY = [0, 0, -1, 1, -1, -1, 1, 1];
+      let count = 0;
+      const flood = (start: number): void => {
+        let first = 0,
+          last = 1;
+        queue[0] = start;
+        seen[start] = 1;
+        while (first < last) {
+          const at = queue[first++],
+            x = at % n,
+            y = Math.floor(at / n);
+          // Dual connectivity keeps diagonal background gaps from becoming false holes.
+          for (
+            let direction = 0;
+            direction < (interiorOnly ? 8 : 4);
+            direction++
+          ) {
+            const nx = x + stepX[direction],
+              ny = y + stepY[direction];
+            if (nx < 0 || nx >= n || ny < 0 || ny >= n) continue;
+            const next = ny * n + nx;
+            if (!seen[next] && mask[next] === value) {
+              seen[next] = 1;
+              queue[last++] = next;
+            }
+          }
+        }
+      };
+      if (interiorOnly)
+        for (let k = 0; k < n; k++)
+          for (const at of [k, (n - 1) * n + k, k * n, k * n + n - 1])
+            if (!seen[at] && mask[at] === value) flood(at);
+      for (let at = 0; at < mask.length; at++)
+        if (!seen[at] && mask[at] === value) {
+          count++;
+          flood(at);
+        }
+      return count;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const mask = new Uint8Array(n * n);
+        let count = 0,
+          cx = 0,
+          cy = 0,
+          border = 0;
+        const at = (x: number, y: number) => {
+          sample((col + x) / p.cells, (row + y) / p.cells, out);
+          return out;
+        };
+        const inside = (x: number, y: number) => at(x, y).color < 0.4;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++)
+            if (inside((x + 0.5) / n, (y + 0.5) / n)) {
+              mask[y * n + x] = 1;
+              count++;
+              cx += (x + 0.5) / n;
+              cy += (y + 0.5) / n;
+              if (x === 0 || y === 0 || x === n - 1 || y === n - 1) border++;
+            }
+        total += count;
+        cx = count ? cx / count : 0.5;
+        cy = count ? cy / count : 0.5;
+        let bounded = true;
+        const edge = (
+          ox: number,
+          oy: number,
+          dx: number,
+          dy: number,
+          limit: number,
+          firstExit: boolean = false,
+        ) => {
+          let lo = 0,
+            hi = limit;
+          if (firstExit) {
+            let found = false;
+            for (let step = 1; step <= 64; step++) {
+              const distance = (limit * step) / 64;
+              if (!inside(ox + dx * distance, oy + dy * distance)) {
+                hi = distance;
+                found = true;
+                break;
+              }
+              lo = distance;
+            }
+            if (!found) bounded = false;
+          } else if (inside(ox + dx * hi, oy + dy * hi)) bounded = false;
+          for (let k = 0; k < 30; k++) {
+            const mid = (lo + hi) / 2;
+            if (inside(ox + dx * mid, oy + dy * mid)) lo = mid;
+            else hi = mid;
+          }
+          return (lo + hi) / 2;
+        };
+        const reaches = [];
+        for (let a = 0; a < rayCount; a++) {
+          const theta = (2 * Math.PI * a) / rayCount;
+          reaches.push(edge(cx, cy, Math.cos(theta), Math.sin(theta), 0.45));
+        }
+        const long = reaches.map((r) => r > 0.235),
+          angles: number[] = [];
+        for (let a = 0; a < rayCount; a++)
+          if (long[a] && !long[(a + rayCount - 1) % rayCount]) {
+            let length = 1;
+            while (length < rayCount && long[(a + length) % rayCount]) length++;
+            angles.push(
+              (((a + (length - 1) / 2) * 2 * Math.PI) / rayCount) %
+                (2 * Math.PI),
+            );
+          }
+        angles.sort((a, b) => a - b);
+        const gaps = angles.map(
+            (a, i) =>
+              (angles[(i + 1) % angles.length] - a + 2 * Math.PI) %
+              (2 * Math.PI),
+          ),
+          widths = [],
+          tipRecessions = [],
+          armHeights = [],
+          armColors = [],
+          armRoughness = [],
+          armMetallic = [];
+        for (let a = 0; a < angles.length; a++) {
+          const theta = angles[a],
+            c = Math.cos(theta),
+            s = Math.sin(theta),
+            byStation = [];
+          for (const along of [0.14, 0.2, 0.25]) {
+            const ox = cx + along * c,
+              oy = cy + along * s;
+            byStation.push(
+              edge(ox, oy, -s, c, 0.13, true) + edge(ox, oy, s, -c, 0.13, true),
+            );
+          }
+          widths.push({
+            minimum: Math.min(...byStation),
+            maximum: Math.max(...byStation),
+            spread: Math.max(...byStation) - Math.min(...byStation),
+          });
+          const halfWidth = byStation[1] / 2,
+            centerEnd = edge(cx, cy, c, s, 0.45);
+          for (const across of [-0.6 * halfWidth, 0.6 * halfWidth])
+            tipRecessions.push(
+              Math.abs(
+                centerEnd - edge(cx - across * s, cy + across * c, c, s, 0.45),
+              ),
+            );
+          const arm = at(cx + 0.2 * c, cy + 0.2 * s);
+          armHeights.push(arm.height / p.relief);
+          armColors.push(arm.color);
+          armRoughness.push(arm.roughness);
+          armMetallic.push(arm.metallic);
+        }
+        const center = { ...at(cx, cy) },
+          host = [];
+        for (const x of [0.03, 0.97])
+          for (const y of [0.03, 0.97]) host.push({ ...at(x, y) });
+        const shortGap = gaps.findIndex((g) => g < Math.PI / 2);
+        if (shortGap >= 0) {
+          const axis = angles[shortGap] + gaps[shortGap] / 2;
+          orientationX += Math.cos(2 * axis);
+          orientationY += Math.sin(2 * axis);
+        }
+        profiles.push({
+          count,
+          components: countComponents(mask, 1, false),
+          holes: countComponents(mask, 0, true),
+          border,
+          centerX: cx,
+          centerY: cy,
+          bounded,
+          angles,
+          gaps,
+          widths,
+          tipRecessions,
+          armHeights,
+          armColors,
+          armRoughness,
+          armMetallic,
+          center,
+          host,
+        });
+      }
+    return {
+      coverage: total / (p.cells * p.cells * n * n),
+      orientationConcentration:
+        Math.hypot(orientationX, orientationY) / profiles.length,
+      profiles,
+    };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let crystal = 0,
+      brown = 0,
+      host = 0,
+      faceRoughness = 0,
+      hostRoughness = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      metallicPixels = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        r = maps.baseColor[j],
+        g = maps.baseColor[j + 1],
+        b = maps.baseColor[j + 2],
+        rough = maps.metallicRoughness[j + 1] / 255,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      if (r < 120 && g < 105 && b < 90) {
+        crystal++;
+        brown += Number(r > g + 8 && g > b + 5);
+        faceRoughness += rough;
+      }
+      if (r > 170 && g > 160 && b > 140) {
+        host++;
+        hostRoughness += rough;
+      }
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      crystal: crystal / count,
+      brown: brown / crystal,
+      host: host / count,
+      faceRoughness: faceRoughness / crystal,
+      hostRoughness: hostRoughness / host,
+      maxTilt,
+      signed: signed.map((x) => x / count),
+      minAO,
+      maxAO,
+      invalidAlpha,
+      metallicPixels,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps connected four-arm blunt straight prisms with observed 60/120-degree gaps and an unstacked dark-brown top at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.coverage).toBeGreaterThan(0.09);
+      expect(o.coverage).toBeLessThan(0.17);
+      expect(o.orientationConcentration).toBeLessThan(0.7);
+      for (const r of o.profiles) {
+        expect(r.count).toBeGreaterThan(80);
+        expect(r.count).toBeLessThan(190);
+        expect(r.components).toBe(1);
+        expect(r.holes).toBe(0);
+        expect(r.border).toBe(0);
+        expect(r.bounded).toBe(true);
+        expect(r.centerX).toBeGreaterThan(0.4);
+        expect(r.centerX).toBeLessThan(0.6);
+        expect(r.centerY).toBeGreaterThan(0.4);
+        expect(r.centerY).toBeLessThan(0.6);
+        expect(r.angles.length).toBe(4);
+        const gaps = [...r.gaps].sort((a, b) => a - b);
+        for (let i = 0; i < 4; i++) {
+          expect((gaps[i] * 180) / Math.PI).toBeGreaterThan(i < 2 ? 50 : 110);
+          expect((gaps[i] * 180) / Math.PI).toBeLessThan(i < 2 ? 70 : 130);
+        }
+        for (const width of r.widths) {
+          expect(width.minimum).toBeGreaterThan(0.105);
+          expect(width.maximum).toBeLessThan(0.145);
+          expect(width.spread).toBeLessThan(0.005);
+        }
+        for (const recession of r.tipRecessions)
+          expect(recession).toBeLessThan(0.008);
+        expect(r.center.height / p.relief).toBeGreaterThan(0.5);
+        expect(r.center.height / p.relief).toBeLessThan(0.63);
+        expect(r.center.color).toBeGreaterThan(0.1);
+        expect(r.center.color).toBeLessThan(0.32);
+        for (const height of r.armHeights)
+          expect(Math.abs(height - r.center.height / p.relief)).toBeLessThan(
+            0.012,
+          );
+        for (const color of r.armColors) {
+          expect(color).toBeGreaterThan(0.1);
+          expect(color).toBeLessThan(0.32);
+        }
+        for (const roughness of r.armRoughness) {
+          expect(roughness).toBeGreaterThan(0.33);
+          expect(roughness).toBeLessThan(0.57);
+        }
+        for (const metallic of r.armMetallic) expect(metallic).toBe(0);
+        for (const host of r.host) {
+          expect(host.color).toBeGreaterThan(0.74);
+          expect(host.color).toBeLessThan(0.95);
+          expect(host.height / p.relief).toBeGreaterThan(0.08);
+          expect(host.height / p.relief).toBeLessThan(0.18);
+          expect(host.roughness).toBeGreaterThan(0.8);
+          expect(host.roughness).toBeLessThan(0.98);
+          expect(host.metallic).toBe(0);
+          expect(host.mortar).toBe(0);
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed twin shoulders intersection owner joins grain and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque nonmetal brown crystals on a light rough mineral host and resolves shallow normal relief at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('staurolite', size, 7, { heightMap: true }),
+      );
+      expect(o.crystal).toBeGreaterThan(0.09);
+      expect(o.crystal).toBeLessThan(0.17);
+      expect(o.brown).toBeGreaterThan(0.98);
+      expect(o.host).toBeGreaterThan(0.8);
+      expect(o.host).toBeLessThan(0.91);
+      expect(o.faceRoughness).toBeGreaterThan(0.33);
+      expect(o.faceRoughness).toBeLessThan(0.57);
+      expect(o.hostRoughness).toBeGreaterThan(0.8);
+      expect(o.hostRoughness).toBeLessThan(0.98);
+      expect(o.minAO).toBeGreaterThan(135);
+      expect(o.minAO).toBeLessThan(165);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.maxAO).toBeLessThan(253);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.metallicPixels).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.12);
+        expect(o.maxTilt).toBeLessThan(0.45);
+        for (const fraction of o.signed)
+          expect(fraction).toBeGreaterThan(0.009);
+      } else {
+        expect(o.maxTilt).toBeGreaterThan(0.0005);
+        expect(o.maxTilt).toBeLessThan(0.012);
       }
     },
   );

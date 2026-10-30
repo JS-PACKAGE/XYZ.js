@@ -10717,6 +10717,71 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'staurolite': {
+        const p = proceduralMaterialPresets.staurolite,
+          poses = new Float64Array(p.cells * p.cells * 8),
+          grainField = cachedNoise(128, 128, seed ^ 0x20011),
+          inverseSide = 1 / p.sideShoulder,
+          inverseEnd = 1 / p.endShoulder,
+          twinAngle = (Math.PI * p.twinDegrees) / 180,
+          twinCos = Math.cos(twinAngle),
+          twinSin = Math.sin(twinAngle);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 8,
+              angle = TAU * hash(col, row, seed ^ 0x20015),
+              c = Math.cos(angle),
+              s = Math.sin(angle);
+            poses[i] = c;
+            poses[i + 1] = s;
+            poses[i + 2] = c * twinCos - s * twinSin;
+            poses[i + 3] = s * twinCos + c * twinSin;
+            poses[i + 4] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20017) - 1);
+            poses[i + 5] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20019) - 1);
+            poses[i + 6] =
+              1 / (p.scale + p.scaleVariation * hash(col, row, seed ^ 0x2001b));
+            poses[i + 7] = hash(col, row, seed ^ 0x2001d);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 8,
+            dx = (fract(uc) - poses[i + 4]) * poses[i + 6],
+            dy = (fract(vc) - poses[i + 5]) * poses[i + 6],
+            along0 = dx * poses[i] + dy * poses[i + 1],
+            across0 = dy * poses[i] - dx * poses[i + 1],
+            along1 = dx * poses[i + 2] + dy * poses[i + 3],
+            across1 = dy * poses[i + 2] - dx * poses[i + 3],
+            face0 =
+              smooth(clamp((p.halfLength - Math.abs(along0)) * inverseEnd)) *
+              smooth(clamp((p.halfWidth - Math.abs(across0)) * inverseSide)),
+            face1 =
+              smooth(clamp((p.halfLength - Math.abs(along1)) * inverseEnd)) *
+              smooth(clamp((p.halfWidth - Math.abs(across1)) * inverseSide)),
+            face = 1 - (1 - face0) * (1 - face1),
+            grain = grainField(u, v);
+          color = p.hostTone + p.hostToneVariation * grain;
+          height = p.hostHeight + p.hostGrainHeight * grain;
+          roughness = p.hostRoughness + p.hostRoughnessVariation * grain;
+          occlusion = p.hostOcclusion;
+          metallic = 0;
+          mortar = 0;
+          if (face === 0) return;
+          // Interpenetrating prisms share one top, not a double-height stacked crossing.
+          color +=
+            face *
+            (p.faceTone +
+              p.faceToneVariation * poses[i + 7] +
+              p.grainTone * grain -
+              color);
+          height += face * (p.faceHeight + p.faceGrainHeight * grain - height);
+          roughness +=
+            face * (p.roughness + p.faceRoughnessVariation * grain - roughness);
+          occlusion += face * (p.faceOcclusion - occlusion);
+        };
+      }
       case 'azurite':
       case 'celestine':
       case 'barite':
@@ -37168,6 +37233,7 @@ export function createSurfaceSampler(
     kind === 'solderlessbreadboard' ||
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
+    kind === 'staurolite' ||
     kind === 'azurite' ||
     kind === 'celestine' ||
     kind === 'barite' ||
