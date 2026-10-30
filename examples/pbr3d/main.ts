@@ -523,6 +523,7 @@ try {
     'starfish',
     'snubsquaretiles',
     'rhombitrihexagonaltiles',
+    'elongatedtriangulartiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
