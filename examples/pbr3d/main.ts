@@ -515,6 +515,7 @@ try {
     'cardboardedge',
     'hexnuts',
     'capnuts',
+    'flangenuts',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

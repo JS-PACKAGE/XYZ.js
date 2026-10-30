@@ -478,6 +478,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cardboardedge',
   'hexnuts',
   'capnuts',
+  'flangenuts',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -76874,6 +76875,7 @@ describe('periodic procedural material fields', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'capnuts' ||
+          kind === 'flangenuts' ||
           kind === 'wingnuts' ||
           kind === 'circlips' ||
           kind === 'fivebarplate' ||
@@ -86436,6 +86438,7 @@ describe('procedural preset acquisition and ownership', () => {
     'splitlockwashers',
     'hexnuts',
     'capnuts',
+    'flangenuts',
     'wingnuts',
     'circlips',
     'eclips',
@@ -86547,6 +86550,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'splitlockwashers' ||
           kind === 'hexnuts' ||
           kind === 'capnuts' ||
+          kind === 'flangenuts' ||
           kind === 'wingnuts' ||
           kind === 'circlips' ||
           kind === 'eclips' ||
@@ -91121,6 +91125,510 @@ describe('Cap nuts with six chamfered straight flats and a closed circular dome'
       expect(o.maxAO).toBeGreaterThan(240);
       expect(o.invalidAlpha).toBe(0);
       expect(o.maxTilt).toBeGreaterThan(0.1);
+      expect(o.maxTilt).toBeLessThan(0.99);
+      for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.1);
+    },
+  );
+});
+
+describe('Flange nuts with six trimmed flats, a circular conical flange and an open circular bore', () => {
+  const p = proceduralMaterialPresets.flangenuts;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('flangenuts', seed),
+      out = empty(),
+      rays = 720,
+      cells: {
+        flange: number[];
+        bore: number[];
+        hexEdges: number[];
+        flat: number;
+        corner: number;
+        corners: number[];
+        gaps: number[];
+        flatSpread: number;
+        hexTop: number;
+        flangeRim: number;
+        coneRise: number;
+        boreFloor: number;
+        backing: number;
+        wallOcclusion: number;
+        rimOcclusion: number;
+        faceRoughness: number;
+        backingRoughness: number;
+        faceColor: number;
+        backingColor: number;
+        phase: number;
+      }[] = [];
+    let metallic = 1;
+    const read = (col: number, row: number, x: number, y: number) => {
+      sample((col + x) / p.cells, (row + y) / p.cells, out);
+      metallic = Math.min(metallic, out.metallic);
+      return out;
+    };
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++) {
+        const inside = (x: number, y: number) =>
+            read(col, row, x, y).color > 0.35,
+          at = (angle: number, distance: number) =>
+            read(
+              col,
+              row,
+              0.5 + Math.cos(angle) * distance,
+              0.5 + Math.sin(angle) * distance,
+            ),
+          heights = (angle: number, distance: number) =>
+            at(angle, distance).height / p.relief,
+          bisect = (
+            angle: number,
+            lo: number,
+            hi: number,
+            wantInside: boolean,
+          ) => {
+            for (let step = 0; step < 30; step++) {
+              const mid = (lo + hi) / 2;
+              if (
+                inside(
+                  0.5 + Math.cos(angle) * mid,
+                  0.5 + Math.sin(angle) * mid,
+                ) === wantInside
+              )
+                lo = mid;
+              else hi = mid;
+            }
+            return (lo + hi) / 2;
+          },
+          flange: number[] = [],
+          bore: number[] = [],
+          angles = Array.from(
+            { length: rays },
+            (_, i) => (2 * Math.PI * i) / rays,
+          );
+        expect(inside(0.5 + 0.33, 0.5)).toBe(true);
+        for (const angle of angles) {
+          flange.push(bisect(angle, 0.33, 0.49, true));
+          bore.push(bisect(angle, 0.0, 0.33, false));
+        }
+        const boreMean = bore.reduce((sum, value) => sum + value, 0) / rays,
+          flangeMean = flange.reduce((sum, value) => sum + value, 0) / rays,
+          hexTop =
+            angles.reduce(
+              (sum, angle) => sum + heights(angle, 1.25 * boreMean),
+              0,
+            ) / rays,
+          flangeRim =
+            angles.reduce(
+              (sum, angle) => sum + heights(angle, 0.97 * flangeMean),
+              0,
+            ) / rays,
+          level = (hexTop + flangeRim) / 2,
+          hexEdges: number[] = [];
+        for (const angle of angles) {
+          let lo = 1.25 * boreMean,
+            hi = 0.97 * flangeMean;
+          for (let step = 0; step < 30; step++) {
+            const mid = (lo + hi) / 2;
+            if (heights(angle, mid) > level) lo = mid;
+            else hi = mid;
+          }
+          hexEdges.push((lo + hi) / 2);
+        }
+        const flat = Math.min(...hexEdges),
+          corner = Math.max(...hexEdges),
+          threshold = (flat + corner) / 2,
+          lobes: number[] = [],
+          first = hexEdges.findIndex(
+            (value, i) =>
+              value > threshold && hexEdges[(i + rays - 1) % rays] <= threshold,
+          );
+        expect(first).toBeGreaterThan(-1);
+        for (let offset = 0; offset < rays; offset++) {
+          const start = (first + offset) % rays;
+          if (hexEdges[start] <= threshold) continue;
+          let length = 0;
+          while (hexEdges[(start + length) % rays] > threshold) length++;
+          lobes.push(
+            (((start + (length - 1) / 2) * 2 * Math.PI) / rays) % (2 * Math.PI),
+          );
+          offset += length - 1;
+        }
+        lobes.sort((a, b) => a - b);
+        expect(lobes.length).toBe(6);
+        const gaps = lobes.map(
+          (angle, i) =>
+            (lobes[(i + 1) % lobes.length] - angle + 2 * Math.PI) %
+            (2 * Math.PI),
+        );
+        let flatSpread = 0;
+        for (let i = 0; i < lobes.length; i++) {
+          const flatAngle = lobes[i] + gaps[i] / 2,
+            values: number[] = [];
+          for (let offset = -15; offset <= 15; offset += 5) {
+            const index =
+              Math.round(
+                (((flatAngle + (offset * Math.PI) / 180) * rays) /
+                  (2 * Math.PI) +
+                  rays) %
+                  rays,
+              ) % rays;
+            values.push(hexEdges[index] * Math.cos((offset * Math.PI) / 180));
+          }
+          flatSpread = Math.max(
+            flatSpread,
+            Math.max(...values) - Math.min(...values),
+          );
+        }
+        const wallOcclusions: number[] = [],
+          rimOcclusions: number[] = [],
+          coneRises: number[] = [];
+        for (const angle of angles.filter((_, i) => i % 20 === 0)) {
+          const edge =
+            hexEdges[Math.round((angle * rays) / (2 * Math.PI)) % rays];
+          let minimum = Infinity;
+          for (let step = 0; step <= 12; step++)
+            minimum = Math.min(
+              minimum,
+              at(angle, edge + ((flangeMean - edge) * step) / 24).occlusion,
+            );
+          wallOcclusions.push(minimum);
+          rimOcclusions.push(at(angle, 0.97 * flangeMean).occlusion);
+          coneRises.push(
+            heights(angle, edge * 1.04) - heights(angle, 0.97 * flangeMean),
+          );
+        }
+        cells.push({
+          flange,
+          bore,
+          hexEdges,
+          flat,
+          corner,
+          corners: lobes,
+          gaps,
+          flatSpread,
+          hexTop,
+          flangeRim,
+          coneRise:
+            coneRises.reduce((sum, value) => sum + value, 0) / coneRises.length,
+          boreFloor: heights(0, 0.0),
+          backing: read(col, row, 0.01, 0.01).height / p.relief,
+          wallOcclusion:
+            wallOcclusions.reduce((sum, value) => sum + value, 0) /
+            wallOcclusions.length,
+          rimOcclusion:
+            rimOcclusions.reduce((sum, value) => sum + value, 0) /
+            rimOcclusions.length,
+          faceRoughness: at(0.3, 0.5 * (flat + boreMean)).roughness,
+          backingRoughness: read(col, row, 0.01, 0.01).roughness,
+          faceColor: at(0.3, 0.5 * (flat + boreMean)).color,
+          backingColor: read(col, row, 0.01, 0.01).color,
+          phase: lobes[0] % (Math.PI / 3),
+        });
+      }
+    return { cells, metallic };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let minLuma = 255,
+      maxLuma = 0,
+      nonMetal = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0,
+      faceRoughness = 0,
+      backingRoughness = 0,
+      faces = 0,
+      backings = 0;
+    const luma = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      luma[i] =
+        0.2126 * maps.baseColor[j] +
+        0.7152 * maps.baseColor[j + 1] +
+        0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma[i]);
+      maxLuma = Math.max(maxLuma, luma[i]);
+      nonMetal += Number(maps.metallicRoughness[j + 2] !== 255);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    const middle = (minLuma + maxLuma) / 2;
+    for (let i = 0; i < count; i++) {
+      const roughness = maps.metallicRoughness[i * 4 + 1] / 255;
+      if (luma[i] > middle) {
+        faces++;
+        faceRoughness += roughness;
+      } else {
+        backings++;
+        backingRoughness += roughness;
+      }
+    }
+    return {
+      face: faces / count,
+      faceRoughness: faceRoughness / faces,
+      backingRoughness: backingRoughness / backings,
+      nonMetal,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('flangenuts', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.cells, j / 256);
+        check(j / 256, k / p.cells);
+      }
+    const radii = [
+      p.boreRadius - p.boreBevel,
+      p.boreRadius,
+      p.inradius - p.outerBevel,
+      p.inradius,
+      p.cornerRadius - p.cornerBevel,
+      p.cornerRadius,
+      p.cornerRadius + p.wallWidth,
+      p.flangeRadius - p.flangeBevel,
+      p.flangeRadius,
+    ];
+    for (let row = 0; row < p.cells; row++)
+      for (let col = 0; col < p.cells; col++)
+        for (const radius of radii)
+          for (let degree = 0; degree < 360; degree++) {
+            const angle = (degree * Math.PI) / 180;
+            check(
+              (col + 0.5 + radius * Math.cos(angle)) / p.cells,
+              (row + 0.5 + radius * Math.sin(angle)) / p.cells,
+            );
+          }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'keeps a circular conical flange around six straight flats and an open circular bore with level owners at seed%s',
+    (seed) => {
+      const o = observe(seed);
+      expect(o.metallic).toBeGreaterThan(0.99);
+      expect(o.cells.length).toBe(p.cells * p.cells);
+      let sin = 0,
+        cos = 0;
+      for (const cell of o.cells) {
+        expect(cell.corners.length).toBe(6);
+        for (const gap of cell.gaps) {
+          expect((gap * 180) / Math.PI).toBeGreaterThan(55);
+          expect((gap * 180) / Math.PI).toBeLessThan(65);
+        }
+        expect(cell.flat).toBeGreaterThan(0.2);
+        expect(cell.flat).toBeLessThan(0.4);
+        expect(cell.corner / cell.flat).toBeGreaterThan(1.05);
+        expect(cell.corner / cell.flat).toBeLessThan(1.15);
+        expect(cell.flatSpread).toBeLessThan(0.006);
+        expect(
+          Math.max(...cell.flange) / Math.min(...cell.flange),
+        ).toBeLessThan(1.03);
+        expect(Math.min(...cell.flange) / cell.flat).toBeGreaterThan(1.25);
+        expect(Math.min(...cell.flange) / cell.flat).toBeLessThan(1.6);
+        expect(Math.min(...cell.flange) / cell.corner).toBeGreaterThan(1.1);
+        expect(Math.max(...cell.bore) / Math.min(...cell.bore)).toBeLessThan(
+          1.03,
+        );
+        expect(Math.min(...cell.bore) / cell.flat).toBeGreaterThan(0.45);
+        expect(Math.max(...cell.bore) / cell.flat).toBeLessThan(0.85);
+        expect(Math.abs(cell.boreFloor - cell.backing)).toBeLessThan(0.02);
+        expect(cell.hexTop - cell.flangeRim).toBeGreaterThan(0.2);
+        expect(cell.hexTop - cell.flangeRim).toBeLessThan(0.5);
+        expect(cell.flangeRim - cell.backing).toBeGreaterThan(0.15);
+        expect(cell.flangeRim - cell.backing).toBeLessThan(0.4);
+        expect(cell.coneRise).toBeGreaterThan(0.03);
+        expect(cell.coneRise).toBeLessThan(0.15);
+        expect(cell.rimOcclusion - cell.wallOcclusion).toBeGreaterThan(0.06);
+        expect(cell.backingRoughness - cell.faceRoughness).toBeGreaterThan(
+          0.13,
+        );
+        expect(cell.faceColor - cell.backingColor).toBeGreaterThan(0.4);
+        sin += Math.sin(6 * cell.phase);
+        cos += Math.cos(6 * cell.phase);
+      }
+      expect(Math.hypot(sin, cos) / o.cells.length).toBeLessThan(0.75);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps observed hex bevels corner trims bore skirts flange rims and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque steel flange faces over rougher steel backing with conical normal relief at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('flangenuts', size, 7, { heightMap: true }),
+      );
+      expect(o.face).toBeGreaterThan(0.25);
+      expect(o.face).toBeLessThan(0.6);
+      expect(o.nonMetal).toBe(0);
+      expect(o.backingRoughness - o.faceRoughness).toBeGreaterThan(0.12);
+      expect(o.faceRoughness).toBeGreaterThan(0.2);
+      expect(o.faceRoughness).toBeLessThan(0.4);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(70);
+      expect(o.minAO).toBeLessThan(130);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.maxTilt).toBeGreaterThan(0.02);
       expect(o.maxTilt).toBeLessThan(0.99);
       for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.1);
     },

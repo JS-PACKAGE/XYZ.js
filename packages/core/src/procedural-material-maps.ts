@@ -1273,6 +1273,7 @@ export function createSurfaceSampler(
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
     kind === 'capnuts' ||
+    kind === 'flangenuts' ||
     kind === 'wingnuts' ||
     kind === 'circlips' ||
     kind === 'fivebarplate' ||
@@ -24793,6 +24794,72 @@ export function createSurfaceSampler(
             p.neckOcclusion * neck;
         };
       }
+      case 'flangenuts': {
+        const p = proceduralMaterialPresets.flangenuts,
+          planes = new Float64Array(p.cells * p.cells * 12),
+          grainField = cachedNoise(96, 96, seed ^ 0x50011),
+          inverseCone = 1 / (p.flangeRadius - p.inradius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x50013);
+            for (let side = 0; side < 6; side++) {
+              const i = (row * p.cells + col) * 12 + side * 2,
+                angle = phase + (TAU * side) / 6;
+              planes[i] = Math.cos(angle);
+              planes[i + 1] = Math.sin(angle);
+            }
+          }
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells,
+            i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 12,
+            x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5,
+            radius = Math.hypot(x, y);
+          let hex = 1;
+          for (let side = 0; side < 6; side++) {
+            const j = i + side * 2;
+            hex *= smooth(
+              clamp(
+                (p.inradius - x * planes[j] - y * planes[j + 1]) / p.outerBevel,
+              ),
+            );
+          }
+          // A thin conical flange surrounds the trimmed hex body; the bore is open steel backing.
+          const bore = smooth(clamp((radius - p.boreRadius) / p.boreBevel)),
+            flange =
+              smooth(clamp((p.flangeRadius - radius) / p.flangeBevel)) * bore,
+            body =
+              hex *
+              smooth(clamp((p.cornerRadius - radius) / p.cornerBevel)) *
+              bore,
+            cone = smooth(clamp((p.flangeRadius - radius) * inverseCone)),
+            wall =
+              flange *
+              (1 - body) *
+              smooth(
+                clamp((p.cornerRadius + p.wallWidth - radius) / p.wallWidth),
+              ),
+            grain = grainField(u, v);
+          color =
+            p.backingColor +
+            flange * (p.flangeColor - p.backingColor) +
+            body * (p.hexColor - p.flangeColor) +
+            p.grainColor * (grain - 0.5) * (0.4 + flange);
+          height =
+            p.backingHeight +
+            flange * (p.flangeHeight - p.backingHeight) +
+            flange * (1 - body) * p.coneRise * cone +
+            body * (p.hexHeight - p.flangeHeight) +
+            p.grainHeight * grain * flange;
+          roughness +=
+            p.grainRoughness * grain + p.backingRoughness * (1 - flange);
+          occlusion =
+            p.backingOcclusion +
+            p.faceOcclusion * flange -
+            p.wallOcclusion * wall;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37224,6 +37291,7 @@ export function createSurfaceSampler(
     kind === 'cardboardedge' ||
     kind === 'hexnuts' ||
     kind === 'capnuts' ||
+    kind === 'flangenuts' ||
     kind === 'orbicularjasper' ||
     kind === 'acornbarnacles' ||
     kind === 'circularpavers' ||

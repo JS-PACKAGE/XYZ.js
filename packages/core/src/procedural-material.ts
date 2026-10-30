@@ -452,6 +452,7 @@ export type ProceduralMaterialKind =
   | 'cardboardedge'
   | 'hexnuts'
   | 'capnuts'
+  | 'flangenuts'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1522,6 +1523,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cardboardedge',
   'hexnuts',
   'capnuts',
+  'flangenuts',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -2178,6 +2180,7 @@ export class ProceduralMaterial {
         this.kind === 'splitlockwashers' ||
         this.kind === 'hexnuts' ||
         this.kind === 'capnuts' ||
+        this.kind === 'flangenuts' ||
         this.kind === 'wingnuts' ||
         this.kind === 'circlips' ||
         this.kind === 'eclips' ||

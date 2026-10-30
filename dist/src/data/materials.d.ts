@@ -3069,6 +3069,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         neckOcclusion: 0.14;
         neckWidth: 0.05;
     }>;
+    flangenuts: Readonly<{
+        dark: readonly [57, 64, 70];
+        light: readonly [217, 224, 229];
+        roughness: 0.28;
+        relief: 0.03;
+        cells: 4;
+        inradius: 0.3;
+        outerBevel: 0.025;
+        cornerRadius: 0.332;
+        cornerBevel: 0.02;
+        flangeRadius: 0.413;
+        flangeBevel: 0.015;
+        boreRadius: 0.185;
+        boreBevel: 0.03;
+        backingColor: 0.15;
+        flangeColor: 0.55;
+        hexColor: 0.66;
+        grainColor: 0.05;
+        backingHeight: 0.05;
+        flangeHeight: 0.27;
+        hexHeight: 0.62;
+        coneRise: 0.08;
+        grainHeight: 0.004;
+        backingRoughness: 0.18;
+        grainRoughness: 0.015;
+        backingOcclusion: 0.45;
+        faceOcclusion: 0.53;
+        wallOcclusion: 0.12;
+        wallWidth: 0.05;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10822,6 +10852,7 @@ export declare const proceduralTileMeters: Readonly<{
     cardboardedge: 0.024;
     hexnuts: 0.08;
     capnuts: 0.08;
+    flangenuts: 0.08;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;
