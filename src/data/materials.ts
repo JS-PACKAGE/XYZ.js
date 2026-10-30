@@ -3211,6 +3211,15 @@ export const proceduralMaterialPresets = Object.freeze({
     dotPitch: 0.05,
     dotRadius: 0.017,
   }),
+  snubsquaretiles: Object.freeze({
+    dark: [34, 64, 98] as const,
+    light: [238, 226, 192] as const,
+    roughness: 0.3,
+    relief: 0.012,
+    cells: 3,
+    grout: 0.035,
+    shoulder: 0.02,
+  }),
   orbicularjasper: Object.freeze({
     dark: [24, 68, 47] as const,
     light: [231, 225, 171] as const,
@@ -11117,6 +11126,7 @@ export const proceduralTileMeters = Object.freeze({
   waffleweave: 0.12,
   fishscaleshingles: 1.75,
   starfish: 0.3,
+  snubsquaretiles: 0.6,
   orbicularjasper: 0.12,
   acornbarnacles: 0.12,
   circularpavers: 1.6,

@@ -6809,6 +6809,23 @@ var proceduralMaterialPresets = Object.freeze({
 		dotPitch: .05,
 		dotRadius: .017
 	}),
+	snubsquaretiles: Object.freeze({
+		dark: [
+			34,
+			64,
+			98
+		],
+		light: [
+			238,
+			226,
+			192
+		],
+		roughness: .3,
+		relief: .012,
+		cells: 3,
+		grout: .035,
+		shoulder: .02
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18265,6 +18282,7 @@ var proceduralTileMeters = Object.freeze({
 	waffleweave: .12,
 	fishscaleshingles: 1.75,
 	starfish: .3,
+	snubsquaretiles: .6,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

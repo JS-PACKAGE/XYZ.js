@@ -521,6 +521,7 @@ try {
     'waffleweave',
     'fishscaleshingles',
     'starfish',
+    'snubsquaretiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

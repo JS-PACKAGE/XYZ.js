@@ -3187,6 +3187,15 @@ export declare const proceduralMaterialPresets: Readonly<{
         dotPitch: 0.05;
         dotRadius: 0.017;
     }>;
+    snubsquaretiles: Readonly<{
+        dark: readonly [34, 64, 98];
+        light: readonly [238, 226, 192];
+        roughness: 0.3;
+        relief: 0.012;
+        cells: 3;
+        grout: 0.035;
+        shoulder: 0.02;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10946,6 +10955,7 @@ export declare const proceduralTileMeters: Readonly<{
     waffleweave: 0.12;
     fishscaleshingles: 1.75;
     starfish: 0.3;
+    snubsquaretiles: 0.6;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

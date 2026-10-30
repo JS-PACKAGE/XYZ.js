@@ -25299,6 +25299,107 @@ export function createSurfaceSampler(
           occlusion += cover * (0.6 + 0.3 * dome + 0.1 * dots - occlusion);
         };
       }
+      case 'snubsquaretiles': {
+        const p = proceduralMaterialPresets.snubsquaretiles,
+          // Snub square tiling 3.3.4.3.4 with unit edges: lattice constant (1 + sqrt(3)) / sqrt(2);
+          // squares sit on lattice nodes (+15 degrees) and cell centers (-15 degrees), and the four
+          // triangles are the outward equilateral caps on the node square's edges.
+          root3 = Math.sqrt(3),
+          lattice = (1 + root3) / Math.SQRT2,
+          cap = root3 / 6,
+          turnCos = Math.cos(Math.PI / 12),
+          turnSin = Math.sin(Math.PI / 12),
+          edgeCounts = [4, 4, 3, 3, 3, 3],
+          apothems = [0.5, 0.5, cap, cap, cap, cap],
+          reach = [0.5, 0.5, 1 / 3, 1 / 3, 1 / 3, 1 / 3],
+          centers = new Float64Array(12),
+          normals = new Float64Array(6 * 4 * 2),
+          tones = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x3611),
+          inverseShoulder = 1 / p.shoulder;
+        normals.set([
+          turnCos,
+          turnSin,
+          -turnSin,
+          turnCos,
+          -turnCos,
+          -turnSin,
+          turnSin,
+          -turnCos,
+          turnCos,
+          -turnSin,
+          turnSin,
+          turnCos,
+          -turnCos,
+          turnSin,
+          -turnSin,
+          -turnCos,
+        ]);
+        centers[2] = 0.5 * lattice;
+        centers[3] = 0.5 * lattice;
+        for (let j = 0; j < 4; j++) {
+          const ax = -normals[j * 2],
+            ay = -normals[j * 2 + 1],
+            at = (2 + j) * 8;
+          centers[(2 + j) * 2] = -(0.5 + cap) * ax;
+          centers[(2 + j) * 2 + 1] = -(0.5 + cap) * ay;
+          normals[at] = ax;
+          normals[at + 1] = ay;
+          normals[at + 2] = -0.5 * ax - 0.5 * root3 * ay;
+          normals[at + 3] = 0.5 * root3 * ax - 0.5 * ay;
+          normals[at + 4] = -0.5 * ax + 0.5 * root3 * ay;
+          normals[at + 5] = -0.5 * root3 * ax - 0.5 * ay;
+        }
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let k = 0; k < 6; k++) {
+              const tone = hash(col, row, seed ^ (0x3613 + 0x40 * k));
+              tones[(row * p.cells + col) * 6 + k] =
+                k < 2 ? 0.1 + 0.12 * tone : 0.78 + 0.14 * tone;
+            }
+        return () => {
+          const x = u * p.cells * lattice,
+            y = v * p.cells * lattice,
+            nodeX = Math.round(x / lattice),
+            nodeY = Math.round(y / lattice);
+          let faces = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = nodeX + ox,
+                cy = nodeY + oy,
+                col = ((cx % p.cells) + p.cells) % p.cells,
+                row = ((cy % p.cells) + p.cells) % p.cells;
+              for (let k = 0; k < 6; k++) {
+                const dx = x - cx * lattice - centers[k * 2],
+                  dy = y - cy * lattice - centers[k * 2 + 1];
+                if (dx * dx + dy * dy >= reach[k]) continue;
+                let face = 1;
+                for (let e = 0; e < edgeCounts[k] && face > 0; e++) {
+                  const at = (k * 4 + e) * 2;
+                  face *= smooth(
+                    clamp(
+                      (apothems[k] -
+                        normals[at] * dx -
+                        normals[at + 1] * dy -
+                        p.grout) *
+                        inverseShoulder,
+                    ),
+                  );
+                }
+                faces += face;
+                pigment += face * tones[(row * p.cells + col) * 6 + k];
+              }
+            }
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = pigment + 0.5 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37867,6 +37968,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'snubsquaretiles' ||
     kind === 'starfish' ||
     kind === 'fishscaleshingles' ||
     kind === 'waffleweave' ||

@@ -458,6 +458,7 @@ export type ProceduralMaterialKind =
   | 'waffleweave'
   | 'fishscaleshingles'
   | 'starfish'
+  | 'snubsquaretiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1534,6 +1535,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'waffleweave',
   'fishscaleshingles',
   'starfish',
+  'snubsquaretiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
