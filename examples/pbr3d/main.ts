@@ -525,6 +525,7 @@ try {
     'rhombitrihexagonaltiles',
     'elongatedtriangulartiles',
     'truncatedtrihexagonaltiles',
+    'kisrhombilletiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
