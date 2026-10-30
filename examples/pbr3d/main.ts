@@ -517,6 +517,7 @@ try {
     'capnuts',
     'flangenuts',
     'calcite',
+    'halite',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

@@ -3116,6 +3116,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         stepOffset: 0.2;
         stepRise: 0.07;
     }>;
+    halite: Readonly<{
+        dark: readonly [128, 110, 104];
+        light: readonly [247, 243, 235];
+        roughness: 0.42;
+        relief: 0.004;
+        cells: 4;
+        chance: 0.92;
+        halfMinimum: 0.21;
+        halfVariation: 0.06;
+        jitter: 0.045;
+        shoulder: 0.012;
+        terraceOne: 0.74;
+        terraceTwo: 0.44;
+        terraceVariation: 0.06;
+        terraceDepth: 0.08;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -10871,6 +10887,7 @@ export declare const proceduralTileMeters: Readonly<{
     capnuts: 0.08;
     flangenuts: 0.08;
     calcite: 0.1;
+    halite: 0.08;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

@@ -24953,6 +24953,78 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'halite': {
+        const p = proceduralMaterialPresets.halite,
+          poses = new Float64Array(p.cells * p.cells * 9),
+          grainField = cachedNoise(128, 128, seed ^ 0x32111),
+          hostField = cachedNoise(16, 16, seed ^ 0x32113),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            if (hash(col, row, seed ^ 0x32115) >= p.chance) continue;
+            const i = (row * p.cells + col) * 9,
+              angle = TAU * hash(col, row, seed ^ 0x32117),
+              half =
+                p.halfMinimum +
+                p.halfVariation * hash(col, row, seed ^ 0x32119);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3211b) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x3211d) - 1);
+            poses[i + 4] = half;
+            poses[i + 5] =
+              half *
+              (p.terraceOne +
+                p.terraceVariation * (2 * hash(col, row, seed ^ 0x3211f) - 1));
+            poses[i + 6] =
+              half *
+              (p.terraceTwo +
+                p.terraceVariation * (2 * hash(col, row, seed ^ 0x32121) - 1));
+            poses[i + 7] = hash(col, row, seed ^ 0x32123);
+            poses[i + 8] = 1;
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 9,
+            grain = grainField(u, v),
+            host = hostField(u, v);
+          color = 0.4 + 0.08 * host + 0.015 * grain;
+          height = 0.12 + 0.02 * host + 0.003 * grain;
+          roughness = 0.9 + 0.04 * host + 0.01 * grain;
+          occlusion = 0.6;
+          if (poses[i + 8] === 0) return;
+          const dx = fract(uc) - poses[i + 2],
+            dy = fract(vc) - poses[i + 3],
+            x = Math.abs(dx * poses[i] + dy * poses[i + 1]),
+            y = Math.abs(dy * poses[i] - dx * poses[i + 1]),
+            face =
+              smooth(clamp((poses[i + 4] - x) * inverseShoulder)) *
+              smooth(clamp((poses[i + 4] - y) * inverseShoulder));
+          if (face === 0) return;
+          const first =
+              face *
+              smooth(clamp((poses[i + 5] - x) * inverseShoulder)) *
+              smooth(clamp((poses[i + 5] - y) * inverseShoulder)),
+            second =
+              face *
+              smooth(clamp((poses[i + 6] - x) * inverseShoulder)) *
+              smooth(clamp((poses[i + 6] - y) * inverseShoulder));
+          // Hopper terraces step inward from a flush cube rim, so each lower floor is nested in the previous one.
+          color +=
+            face * (0.86 + 0.05 * poses[i + 7] + 0.02 * grain - color) -
+            0.05 * (first + second);
+          height +=
+            face * (0.56 + 0.004 * grain - height) -
+            p.terraceDepth * (first + second);
+          roughness += face * (p.roughness + 0.02 * grain - roughness);
+          occlusion +=
+            face * (0.97 + 0.02 * grain - occlusion) - 0.14 * (first + second);
+          return;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37521,6 +37593,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'halite' ||
     kind === 'calcite' ||
     kind === 'azurite' ||
     kind === 'celestine' ||
