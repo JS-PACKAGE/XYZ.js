@@ -3343,6 +3343,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.014;
         shoulder: 0.01;
     }>;
+    snubtrihexagonaltiles: Readonly<{
+        dark: readonly [24, 60, 86];
+        light: readonly [244, 226, 170];
+        roughness: 0.3;
+        relief: 0.012;
+        columns: 7;
+        rows: 4;
+        grout: 0.012;
+        shoulder: 0.008;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11119,6 +11129,7 @@ export declare const proceduralTileMeters: Readonly<{
     ean13label: 0.0373;
     soroban: 0.056;
     deltoidaltrihexagonaltiles: 0.84;
+    snubtrihexagonaltiles: 0.84;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

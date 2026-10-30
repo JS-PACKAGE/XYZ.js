@@ -475,6 +475,7 @@ export type ProceduralMaterialKind =
   | 'ean13label'
   | 'soroban'
   | 'deltoidaltrihexagonaltiles'
+  | 'snubtrihexagonaltiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1568,6 +1569,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ean13label',
   'soroban',
   'deltoidaltrihexagonaltiles',
+  'snubtrihexagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

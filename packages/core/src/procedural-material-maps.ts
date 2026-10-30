@@ -26587,6 +26587,187 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'snubtrihexagonaltiles': {
+        const p = proceduralMaterialPresets.snubtrihexagonaltiles,
+          // Snub trihexagonal (3.3.3.3.6) tiling: hexagons of side 1 / sqrt(7) turned by atan(sqrt(3) / 5) on a
+          // triangular lattice of pitch 1, with six triangles on the sides of each hexagon and two triangles between
+          // three hexagons. Only this chiral hand is drawn; its mirror image would turn the hexagons the other way.
+          root3 = Math.sqrt(3),
+          rowHeight = 0.5 * root3,
+          nodeRows = 2 * p.rows,
+          side = 1 / Math.sqrt(7),
+          turn = Math.atan(root3 / 5),
+          stride = 22,
+          faceData = new Float64Array(9 * stride),
+          faceTone = [0.08, 0.88, 0.88, 0.88, 0.88, 0.88, 0.88, 0.62, 0.62],
+          tones = new Float64Array(p.columns * nodeRows * 9),
+          grainField = cachedNoise(96, 96, seed ^ 0x3c21),
+          inverseShoulder = 1 / p.shoulder;
+        {
+          // Hexagon corners of the 5 x 5 lattice block around the origin, and the triangles between corners one side apart.
+          const vx: number[] = [],
+            vy: number[] = [],
+            vc: number[] = [],
+            near: number[][] = [];
+          for (let j = -2; j <= 2; j++)
+            for (let i = -2; i <= 2; i++)
+              for (let k = 0; k < 6; k++) {
+                vx.push(
+                  i + 0.5 * j + side * Math.cos(turn + (k * Math.PI) / 3),
+                );
+                vy.push(
+                  j * rowHeight + side * Math.sin(turn + (k * Math.PI) / 3),
+                );
+                vc.push((j + 2) * 5 + i + 2);
+                near.push([]);
+              }
+          for (let a = 0; a < vx.length; a++)
+            for (let b = a + 1; b < vx.length; b++)
+              if (
+                Math.abs(Math.hypot(vx[a] - vx[b], vy[a] - vy[b]) - side) < 1e-9
+              ) {
+                near[a].push(b);
+                near[b].push(a);
+              }
+          const sideTriangles: number[][] = [],
+            freeTriangles: number[][] = [];
+          for (let a = 0; a < vx.length; a++)
+            for (const b of near[a])
+              if (b > a)
+                for (const c of near[b])
+                  if (c > b && near[a].includes(c)) {
+                    const cx = (vx[a] + vx[b] + vx[c]) / 3,
+                      cy = (vy[a] + vy[b] + vy[c]) / 3,
+                      beta = cy / rowHeight,
+                      alpha = cx - 0.5 * beta;
+                    // Keep the triangles whose center lies in the lattice cell around the origin.
+                    if (
+                      alpha < -0.5 - 1e-9 ||
+                      alpha >= 0.5 - 1e-9 ||
+                      beta < -0.5 - 1e-9 ||
+                      beta >= 0.5 - 1e-9
+                    )
+                      continue;
+                    (new Set([vc[a], vc[b], vc[c]]).size === 2
+                      ? sideTriangles
+                      : freeTriangles
+                    ).push([a, b, c]);
+                  }
+          const angleOf = (t: number[]): number =>
+            Math.atan2(
+              (vy[t[0]] + vy[t[1]] + vy[t[2]]) / 3,
+              (vx[t[0]] + vx[t[1]] + vx[t[2]]) / 3,
+            );
+          sideTriangles.sort((a, b) => angleOf(a) - angleOf(b));
+          freeTriangles.sort((a, b) => angleOf(a) - angleOf(b));
+          const polygons: number[][][] = [
+            Array.from({ length: 6 }, (_, k) => [
+              side * Math.cos(turn + (k * Math.PI) / 3),
+              side * Math.sin(turn + (k * Math.PI) / 3),
+            ]),
+            ...[...sideTriangles, ...freeTriangles].map((t) =>
+              t.map((i) => [vx[i], vy[i]]),
+            ),
+          ];
+          polygons.forEach((corners, f) => {
+            const n = corners.length,
+              cx = corners.reduce((sum, q) => sum + q[0], 0) / n,
+              cy = corners.reduce((sum, q) => sum + q[1], 0) / n;
+            let area = 0,
+              radius2 = 0;
+            corners.forEach((q, k) => {
+              const r = corners[(k + 1) % n];
+              area += q[0] * r[1] - r[0] * q[1];
+              radius2 = Math.max(radius2, (q[0] - cx) ** 2 + (q[1] - cy) ** 2);
+            });
+            if (area < 0) corners.reverse();
+            faceData[f * stride] = cx;
+            faceData[f * stride + 1] = cy;
+            faceData[f * stride + 2] = radius2 + 1e-6;
+            faceData[f * stride + 3] = n;
+            // Inward unit normals and offsets of the sides of the counterclockwise polygon.
+            corners.forEach((q, k) => {
+              const r = corners[(k + 1) % n],
+                length = Math.hypot(r[0] - q[0], r[1] - q[1]),
+                nx = (q[1] - r[1]) / length,
+                ny = (r[0] - q[0]) / length;
+              faceData[f * stride + 4 + k * 3] = nx;
+              faceData[f * stride + 5 + k * 3] = ny;
+              faceData[f * stride + 6 + k * 3] = nx * q[0] + ny * q[1];
+            });
+          });
+        }
+        for (let row = 0; row < nodeRows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let f = 0; f < 9; f++)
+              tones[(row * p.columns + col) * 9 + f] =
+                faceTone[f] + 0.1 * hash(col, row, seed ^ (0x3c23 + 0x40 * f));
+        return () => {
+          const x = u * p.columns,
+            y = v * nodeRows * rowHeight,
+            row = Math.round(y / rowHeight),
+            col = Math.round(x - 0.5 * row);
+          let best = Infinity,
+            centerI = col,
+            centerJ = row;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const j = row + oy,
+                i = col + ox,
+                dx = x - i - 0.5 * j,
+                dy = y - j * rowHeight,
+                distance = dx * dx + dy * dy;
+              if (distance < best) {
+                best = distance;
+                centerI = i;
+                centerJ = j;
+              }
+            }
+          let faces = 0,
+            pigment = 0;
+          // The face under the point belongs to the nearest lattice point or one of its neighbors.
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const j = centerJ + oy,
+                i = centerI + ox,
+                cycle = Math.floor(j / nodeRows),
+                qx = x - i - 0.5 * j,
+                qy = y - j * rowHeight,
+                toneAt =
+                  ((j - cycle * nodeRows) * p.columns +
+                    ((((i + cycle * p.rows) % p.columns) + p.columns) %
+                      p.columns)) *
+                  9;
+              for (let f = 0; f < 9; f++) {
+                const at = f * stride,
+                  dx = qx - faceData[at],
+                  dy = qy - faceData[at + 1];
+                if (dx * dx + dy * dy > faceData[at + 2]) continue;
+                let face = 1;
+                for (let k = 0; k < faceData[at + 3] && face > 0; k++) {
+                  const distance =
+                    faceData[at + 4 + k * 3] * qx +
+                    faceData[at + 5 + k * 3] * qy -
+                    faceData[at + 6 + k * 3] -
+                    p.grout;
+                  face *=
+                    distance > 0
+                      ? smooth(clamp(distance * inverseShoulder))
+                      : 0;
+                }
+                faces += face;
+                pigment += face * tones[toneAt + f];
+              }
+            }
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39164,6 +39345,7 @@ export function createSurfaceSampler(
     kind === 'ean13label' ||
     kind === 'soroban' ||
     kind === 'deltoidaltrihexagonaltiles' ||
+    kind === 'snubtrihexagonaltiles' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

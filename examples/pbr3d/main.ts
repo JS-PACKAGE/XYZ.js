@@ -538,6 +538,7 @@ try {
     'ean13label',
     'soroban',
     'deltoidaltrihexagonaltiles',
+    'snubtrihexagonaltiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
