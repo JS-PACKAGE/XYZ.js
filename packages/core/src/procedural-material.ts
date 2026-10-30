@@ -464,6 +464,7 @@ export type ProceduralMaterialKind =
   | 'truncatedtrihexagonaltiles'
   | 'kisrhombilletiles'
   | 'chladnifigure'
+  | 'sierpinskicarpet'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1546,6 +1547,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'truncatedtrihexagonaltiles',
   'kisrhombilletiles',
   'chladnifigure',
+  'sierpinskicarpet',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

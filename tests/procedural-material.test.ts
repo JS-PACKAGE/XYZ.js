@@ -490,6 +490,7 @@ const kinds: ProceduralMaterialKind[] = [
   'truncatedtrihexagonaltiles',
   'kisrhombilletiles',
   'chladnifigure',
+  'sierpinskicarpet',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -97476,6 +97477,460 @@ describe('Chladni figure with pale sand collected on the nodal lines of a dark v
       expect(o.minLuma).toBeLessThan(70);
       expect(o.minAO).toBeLessThan(200);
       expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Sierpinski carpet with four levels of recessed squares in a pale stone tile', () => {
+  const p = proceduralMaterialPresets.sierpinskicarpet;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const blocks = [81, 27, 9, 3];
+  // Level 0..3 of the recess that removes cell (i, j), or -1 when the cell survives. A cell is removed at the
+  // most significant base-3 digit position where both coordinates have digit 1.
+  const removedLevel = (i: number, j: number): number => {
+    for (let level = 0; level < 4; level++) {
+      const scale = 3 ** (3 - level);
+      if (Math.floor(i / scale) % 3 === 1 && Math.floor(j / scale) % 3 === 1)
+        return level;
+    }
+    return -1;
+  };
+  const observe = (seed: number) => {
+    const cell = 9,
+      size = 81 * cell,
+      sample = createSurfaceSampler('sierpinskicarpet', seed),
+      out = empty(),
+      hole = new Uint8Array(size * size),
+      heights = new Float64Array(size * size),
+      colors = new Float64Array(size * size);
+    let holeColor = 0,
+      faceColor = 0,
+      holeRoughness = 0,
+      faceRoughness = 0,
+      holeOcclusion = 0,
+      faceOcclusion = 0,
+      holePixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        heights[i] = out.height / p.relief;
+        colors[i] = out.color;
+        hole[i] = heights[i] < 0.45 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (hole[i]) {
+          holePixels++;
+          holeColor += out.color;
+          holeRoughness += out.roughness;
+          holeOcclusion += out.occlusion;
+        } else {
+          faceColor += out.color;
+          faceRoughness += out.roughness;
+          faceOcclusion += out.occlusion;
+        }
+      }
+    const label = (includes: (index: number) => boolean) => {
+      const labels = new Int32Array(size * size),
+        queue = new Int32Array(size * size),
+        areas: number[] = [0],
+        sumX: number[] = [0],
+        sumY: number[] = [0];
+      let count = 0;
+      for (let start = 0; start < size * size; start++) {
+        if (!includes(start) || labels[start]) continue;
+        count++;
+        areas.push(0);
+        sumX.push(0);
+        sumY.push(0);
+        let head = 0,
+          tail = 0;
+        queue[tail++] = start;
+        labels[start] = count;
+        while (head < tail) {
+          const i = queue[head++],
+            x = i % size,
+            y = (i - x) / size;
+          areas[count]++;
+          sumX[count] += x;
+          sumY[count] += y;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (includes(j) && !labels[j]) {
+              labels[j] = count;
+              queue[tail++] = j;
+            }
+          }
+        }
+      }
+      return { count, areas, sumX, sumY };
+    };
+    const holes = label((i) => hole[i] === 1),
+      faces = label((i) => hole[i] === 0),
+      levels = [0, 0, 0, 0],
+      areaByLevel = [0, 0, 0, 0],
+      floorByLevel = [0, 0, 0, 0],
+      misplaced = { count: 0 };
+    for (let id = 1; id <= holes.count; id++) {
+      const cx = holes.sumX[id] / holes.areas[id],
+        cy = holes.sumY[id] / holes.areas[id],
+        level = removedLevel(Math.floor(cx / cell), Math.floor(cy / cell));
+      if (level < 0) {
+        misplaced.count++;
+        continue;
+      }
+      levels[level]++;
+      areaByLevel[level] += holes.areas[id] / (cell * cell);
+      floorByLevel[level] += heights[Math.round(cy) * size + Math.round(cx)];
+    }
+    let wrongCells = 0,
+      removedCells = 0;
+    for (let j = 0; j < 81; j++)
+      for (let i = 0; i < 81; i++) {
+        const expected = removedLevel(i, j) >= 0,
+          measured =
+            hole[(j * cell + (cell >> 1)) * size + i * cell + (cell >> 1)] ===
+            1;
+        removedCells += Number(expected);
+        wrongCells += Number(expected !== measured);
+      }
+    return {
+      size,
+      cell,
+      hole,
+      colors,
+      holeParts: holes.count,
+      faceParts: faces.count,
+      levels,
+      meanArea: areaByLevel.map(
+        (area, level) => area / Math.max(1, levels[level]),
+      ),
+      meanFloor: floorByLevel.map(
+        (floor, level) => floor / Math.max(1, levels[level]),
+      ),
+      misplaced: misplaced.count,
+      wrongCells,
+      removedCells,
+      holeFraction: holePixels / (size * size),
+      holeColor: holeColor / holePixels,
+      faceColor: faceColor / (size * size - holePixels),
+      holeRoughness: holeRoughness / holePixels,
+      faceRoughness: faceRoughness / (size * size - holePixels),
+      holeOcclusion: holeOcclusion / holePixels,
+      faceOcclusion: faceOcclusion / (size * size - holePixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('sierpinskicarpet', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 9; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 9, j / 256);
+        check(j / 256, k / 9);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let holes = 0,
+      holeRoughness = 0,
+      faceRoughness = 0,
+      faces = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.75) {
+        holes++;
+        holeRoughness += roughness;
+      } else {
+        faces++;
+        faceRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      holeFraction: holes / count,
+      holeRoughness: holeRoughness / holes,
+      faceRoughness: faceRoughness / faces,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  // Side of a level's recess in cells: a third of its block, less the inset on both sides and half a shoulder.
+  const predictedSide = (level: number): number =>
+    blocks[level] / 3 - 2 * p.inset - p.shoulder;
+  it.each([0, 7, 0xffffffff])(
+    'recesses 1, 8, 64 and 512 squares at the four carpet levels with the predicted sizes at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.misplaced).toBe(0);
+      expect(o.holeParts).toBe(585);
+      for (let level = 0; level < 4; level++) {
+        expect(o.levels[level]).toBe(8 ** level);
+        expect(
+          Math.abs(o.meanArea[level] / predictedSide(level) ** 2 - 1),
+        ).toBeLessThan(level === 3 ? 0.2 : 0.05);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'puts every 1/81 tile cell where the base-3 carpet rule removes it and keeps the recess area at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.removedCells).toBe(81 * 81 - 64 * 64);
+      expect(o.wrongCells).toBe(0);
+      let predicted = 0;
+      for (let level = 0; level < 4; level++)
+        predicted += 8 ** level * predictedSide(level) ** 2;
+      expect(Math.abs((o.holeFraction * 81 * 81) / predicted - 1)).toBeLessThan(
+        0.06,
+      );
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps one connected surface and recesses the larger squares deeper at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.faceParts).toBe(1);
+      for (let level = 0; level < 3; level++)
+        expect(o.meanFloor[level]).toBeLessThan(o.meanFloor[level + 1]);
+      expect(o.meanFloor[3]).toBeLessThan(0.45);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps pale rough stone over darker rougher recesses and moves only grain with the seed at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.faceColor - o.holeColor).toBeGreaterThan(0.25);
+      expect(o.holeRoughness - o.faceRoughness).toBeGreaterThan(0.2);
+      expect(o.faceOcclusion - o.holeOcclusion).toBeGreaterThan(0.3);
+      expect(o.dielectric).toBe(0);
+      if (seed !== 0) {
+        const base = observed(0);
+        let flips = 0,
+          largest = 0;
+        for (let i = 0; i < o.hole.length; i++) {
+          flips += Number(o.hole[i] !== base.hole[i]);
+          largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+        }
+        expect(flips).toBe(0);
+        expect(largest).toBeGreaterThan(0.01);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps seams, recess edges and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes recessed carpet squares with resolved edge normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('sierpinskicarpet', size, 7, {
+          heightMap: true,
+        }),
+      );
+      expect(o.holeFraction).toBeGreaterThan(0.1);
+      expect(o.holeFraction).toBeLessThan(0.5);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.holeRoughness - o.faceRoughness).toBeGreaterThan(0.2);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(60);
+      expect(o.minAO).toBeLessThan(160);
+      expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {
         expect(o.maxTilt).toBeGreaterThan(0.1);

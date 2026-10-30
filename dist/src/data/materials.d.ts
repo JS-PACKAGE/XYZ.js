@@ -3246,6 +3246,14 @@ export declare const proceduralMaterialPresets: Readonly<{
         width: 0.012;
         gradientFloor: 3;
     }>;
+    sierpinskicarpet: Readonly<{
+        dark: readonly [62, 52, 44];
+        light: readonly [218, 200, 168];
+        roughness: 0.55;
+        relief: 0.02;
+        shoulder: 0.14;
+        inset: 0.04;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11011,6 +11019,7 @@ export declare const proceduralTileMeters: Readonly<{
     truncatedtrihexagonaltiles: 1.6;
     kisrhombilletiles: 1.2;
     chladnifigure: 0.6;
+    sierpinskicarpet: 0.81;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

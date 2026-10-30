@@ -25844,6 +25844,59 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.25 * sand;
         };
       }
+      case 'sierpinskicarpet': {
+        const p = proceduralMaterialPresets.sierpinskicarpet,
+          // Four levels of the Sierpinski carpet on an 81 x 81 cell tile: the central third of every surviving
+          // block is recessed, at 27, 9, 3 and 1 cell squares. A block survives while no base-3 digit pair is (1, 1).
+          blocks = [81, 27, 9, 3],
+          floorHeights = [0.1, 0.17, 0.24, 0.31],
+          floorTones = [0.14, 0.2, 0.26, 0.32],
+          grainField = cachedNoise(128, 128, seed ^ 0x6b21),
+          inverseShoulder = 1 / p.shoulder;
+        return () => {
+          const x = u * 81,
+            y = v * 81;
+          let holes = 0,
+            floorHeight = 0,
+            floorTone = 0;
+          for (let level = 0; level < 4; level++) {
+            const block = blocks[level],
+              bi = Math.floor(x / block),
+              bj = Math.floor(y / block);
+            let removed = false;
+            for (
+              let m = bi, n = bj;
+              (m > 0 || n > 0) && !removed;
+              m = Math.floor(m / 3), n = Math.floor(n / 3)
+            )
+              removed = m % 3 === 1 && n % 3 === 1;
+            if (removed) break;
+            const half = block / 6 - p.inset,
+              hole =
+                smooth(
+                  clamp(
+                    (half - Math.abs(x - (bi + 0.5) * block)) * inverseShoulder,
+                  ),
+                ) *
+                smooth(
+                  clamp(
+                    (half - Math.abs(y - (bj + 0.5) * block)) * inverseShoulder,
+                  ),
+                );
+            holes += hole;
+            floorHeight += hole * floorHeights[level];
+            floorTone += hole * floorTones[level];
+          }
+          const grain = grainField(u, v),
+            face = 1 - holes;
+          mortar = 0;
+          color =
+            face * (0.58 + 0.12 * grain) + floorTone + 0.03 * grain * holes;
+          height = face * (0.7 + 0.01 * grain) + floorHeight;
+          roughness = p.roughness + (0.88 - p.roughness) * holes;
+          occlusion = 0.96 - 0.5 * holes;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38412,6 +38465,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
     kind === 'kisrhombilletiles' ||
     kind === 'truncatedtrihexagonaltiles' ||
