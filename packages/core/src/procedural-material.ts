@@ -474,6 +474,7 @@ export type ProceduralMaterialKind =
   | 'embossedbraille'
   | 'ean13label'
   | 'soroban'
+  | 'deltoidaltrihexagonaltiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1566,6 +1567,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'embossedbraille',
   'ean13label',
   'soroban',
+  'deltoidaltrihexagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

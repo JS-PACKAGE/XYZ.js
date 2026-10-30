@@ -537,6 +537,7 @@ try {
     'embossedbraille',
     'ean13label',
     'soroban',
+    'deltoidaltrihexagonaltiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

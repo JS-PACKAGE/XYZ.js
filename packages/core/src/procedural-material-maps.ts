@@ -26495,6 +26495,98 @@ export function createSurfaceSampler(
           occlusion = shade;
         };
       }
+      case 'deltoidaltrihexagonaltiles': {
+        const p = proceduralMaterialPresets.deltoidaltrihexagonaltiles,
+          // Deltoidal trihexagonal (V3.4.6.4) tiling on a triangular lattice of pitch 1: the hexagon of points nearest
+          // to each lattice point is cut into six kites by spokes to the midpoints of its sides. The kites around a
+          // point take three tones in turn, which also gives the three kites of every lattice triangle three tones, and
+          // every straight edge lies on one of six parallel line families 30 degrees apart.
+          root3 = Math.sqrt(3),
+          rowHeight = 0.5 * root3,
+          nodeRows = 2 * p.rows,
+          spokes = new Float64Array(14),
+          tones = new Float64Array(p.columns * nodeRows * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x3b21),
+          inverseShoulder = 1 / p.shoulder;
+        for (let s = 0; s < 7; s++) {
+          spokes[s * 2] = Math.cos((s * Math.PI) / 3);
+          spokes[s * 2 + 1] = Math.sin((s * Math.PI) / 3);
+        }
+        for (let row = 0; row < nodeRows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let s = 0; s < 6; s++) {
+              const tone = hash(col, row, seed ^ (0x3b23 + 0x40 * s));
+              tones[(row * p.columns + col) * 6 + s] =
+                [0.1, 0.48, 0.82][s % 3] + 0.12 * tone;
+            }
+        return () => {
+          const x = u * p.columns,
+            y = v * nodeRows * rowHeight,
+            row = Math.round(y / rowHeight),
+            col = Math.round(x - 0.5 * row);
+          let best = Infinity,
+            localX = 0,
+            localY = 0,
+            toneAt = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const j = row + oy,
+                i = col + ox,
+                cycle = Math.floor(j / nodeRows),
+                dx = x - i - 0.5 * j,
+                dy = y - j * rowHeight,
+                distance = dx * dx + dy * dy;
+              if (distance < best) {
+                best = distance;
+                localX = dx;
+                localY = dy;
+                toneAt =
+                  ((j - cycle * nodeRows) * p.columns +
+                    ((((i + cycle * p.rows) % p.columns) + p.columns) %
+                      p.columns)) *
+                  6;
+              }
+            }
+          let faces = 0,
+            pigment = 0;
+          for (let s = 0; s < 6; s++) {
+            // Kite s lies between the spokes at 60 s and 60 (s + 1) degrees; its outer sides are the two hexagon
+            // sides whose normals point along those spokes.
+            const from =
+                localY * spokes[s * 2] - localX * spokes[s * 2 + 1] - p.grout,
+              to =
+                localX * spokes[s * 2 + 3] -
+                localY * spokes[s * 2 + 2] -
+                p.grout;
+            if (from <= 0 || to <= 0) continue;
+            const sideA =
+                0.5 -
+                localX * spokes[s * 2] -
+                localY * spokes[s * 2 + 1] -
+                p.grout,
+              sideB =
+                0.5 -
+                localX * spokes[s * 2 + 2] -
+                localY * spokes[s * 2 + 3] -
+                p.grout;
+            if (sideA <= 0 || sideB <= 0) continue;
+            const face =
+              smooth(clamp(from * inverseShoulder)) *
+              smooth(clamp(to * inverseShoulder)) *
+              smooth(clamp(sideA * inverseShoulder)) *
+              smooth(clamp(sideB * inverseShoulder));
+            faces += face;
+            pigment += face * tones[toneAt + s];
+          }
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39071,6 +39163,7 @@ export function createSurfaceSampler(
     kind === 'embossedbraille' ||
     kind === 'ean13label' ||
     kind === 'soroban' ||
+    kind === 'deltoidaltrihexagonaltiles' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
