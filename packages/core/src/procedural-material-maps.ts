@@ -26860,6 +26860,88 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'prismaticpentagonaltiles': {
+        const p = proceduralMaterialPresets.prismaticpentagonaltiles,
+          root3 = Math.sqrt(3),
+          rise = root3 / 2,
+          period = 2 + root3,
+          // Centers of the regular faces around each elongated-triangular vertex bound a house-shaped pentagon.
+          // Three 120-degree and two adjacent 90-degree corners; the four types alternate up/down in each period.
+          centers = new Float64Array([
+            0,
+            0,
+            0,
+            1,
+            0.5,
+            1 + rise,
+            0.5,
+            2 + rise,
+          ]),
+          normals = new Float64Array([
+            0,
+            1,
+            -1,
+            0,
+            -0.5,
+            -rise,
+            0.5,
+            -rise,
+            1,
+            0,
+          ]),
+          tones = new Float64Array(p.columns * p.rows * 4),
+          faceTone = [0.1, 0.48, 0.82],
+          grainField = cachedNoise(96, 96, seed ^ 0x3e21),
+          inverseShoulder = 1 / p.shoulder;
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++)
+            for (let f = 0; f < 4; f++)
+              tones[(row * p.columns + col) * 4 + f] =
+                faceTone[(col + f) % 3] +
+                0.1 * hash(col, row, seed ^ (0x3e23 + 0x40 * f));
+        return () => {
+          const x = u * p.columns,
+            y = v * p.rows * period,
+            cellX = Math.floor(x),
+            cellY = Math.floor(y / period);
+          let faces = 0,
+            pigment = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = cellX + ox,
+                cy = cellY + oy,
+                col = ((cx % p.columns) + p.columns) % p.columns,
+                row = ((cy % p.rows) + p.rows) % p.rows;
+              for (let f = 0; f < 4; f++) {
+                const dx = x - cx - centers[f * 2],
+                  dy =
+                    (f % 2 ? 1 : -1) * (y - cy * period - centers[f * 2 + 1]);
+                if (dx * dx + dy * dy > 0.5) continue;
+                let face = 1;
+                for (let k = 0; k < 5 && face > 0; k++) {
+                  const distance =
+                    0.5 +
+                    normals[k * 2] * dx +
+                    normals[k * 2 + 1] * dy -
+                    p.grout;
+                  face *=
+                    distance > 0
+                      ? smooth(clamp(distance * inverseShoulder))
+                      : 0;
+                }
+                faces += face;
+                pigment += face * tones[(row * p.columns + col) * 4 + f];
+              }
+            }
+          const grain = grainField(u, v);
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39439,6 +39521,7 @@ export function createSurfaceSampler(
     kind === 'deltoidaltrihexagonaltiles' ||
     kind === 'snubtrihexagonaltiles' ||
     kind === 'floretpentagonaltiles' ||
+    kind === 'prismaticpentagonaltiles' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

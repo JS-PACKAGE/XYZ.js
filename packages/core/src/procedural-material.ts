@@ -477,6 +477,7 @@ export type ProceduralMaterialKind =
   | 'deltoidaltrihexagonaltiles'
   | 'snubtrihexagonaltiles'
   | 'floretpentagonaltiles'
+  | 'prismaticpentagonaltiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1572,6 +1573,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'deltoidaltrihexagonaltiles',
   'snubtrihexagonaltiles',
   'floretpentagonaltiles',
+  'prismaticpentagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

@@ -540,6 +540,7 @@ try {
     'deltoidaltrihexagonaltiles',
     'snubtrihexagonaltiles',
     'floretpentagonaltiles',
+    'prismaticpentagonaltiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
