@@ -531,6 +531,7 @@ try {
     'moorecurve',
     'papertape',
     'ulamspiral',
+    'sevensegment',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

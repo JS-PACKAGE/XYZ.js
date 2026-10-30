@@ -26078,6 +26078,57 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.32 * groove;
         };
       }
+      case 'sevensegment': {
+        const p = proceduralMaterialPresets.sevensegment,
+          // Digits 0-9 on a 5 × 2 grid in reading order; each digit lights the segments of the common seven-segment
+          // patterns (bit 0 = a ... bit 6 = g). Segment slots are in units of the digit cell width, y running down.
+          patterns = [
+            0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f,
+          ],
+          slotX = [0, 0.34, 0.34, 0, -0.34, -0.34, 0],
+          slotY = [-0.8, -0.4, 0.4, 0.8, 0.4, -0.4, 0],
+          horizontal = [1, 0, 0, 1, 0, 0, 1],
+          grainField = cachedNoise(128, 128, seed ^ 0x2b7e),
+          inverseShoulder = 1 / p.shoulder,
+          chamfer = Math.SQRT1_2 * inverseShoulder;
+        return () => {
+          const cellX = Math.min(4, Math.floor(u * 5)),
+            cellY = Math.min(1, Math.floor(v * 2)),
+            x = u * 5 - cellX - 0.5,
+            y = (v * 2 - cellY - 0.5) * 2.5,
+            pattern = patterns[cellY * 5 + cellX];
+          let panel = 1,
+            lit = 1;
+          for (let s = 0; s < 7; s++) {
+            const dx = x - slotX[s],
+              dy = y - slotY[s],
+              along = Math.abs(horizontal[s] ? dx : dy),
+              across = horizontal[s] ? dy : dx;
+            if (
+              along > p.halfLength + p.shoulder ||
+              Math.abs(across) > p.halfWidth + p.shoulder
+            )
+              continue;
+            // Two side planes and two chamfer planes multiplied (the sign of the offset along the bar is folded), so the pointed tips stay C1.
+            const reach = p.halfLength - along,
+              cover =
+                smooth(clamp((p.halfWidth - across) * inverseShoulder)) *
+                smooth(clamp((p.halfWidth + across) * inverseShoulder)) *
+                smooth(clamp((reach - across) * chamfer)) *
+                smooth(clamp((reach + across) * chamfer));
+            panel *= 1 - cover;
+            if ((pattern >> s) & 1) lit *= 1 - cover;
+          }
+          const segment = 1 - panel,
+            glow = 1 - lit,
+            grain = grainField(u, v);
+          mortar = 0;
+          color = 0.05 + 0.02 * grain + 0.15 * segment + 0.75 * glow;
+          height = 0.6 - 0.1 * segment;
+          roughness = p.roughness + (p.litRoughness - p.roughness) * glow;
+          occlusion = 0.97 - 0.25 * (segment - glow);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38648,6 +38699,7 @@ export function createSurfaceSampler(
     kind === 'staurolite' ||
     kind === 'papertape' ||
     kind === 'ulamspiral' ||
+    kind === 'sevensegment' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

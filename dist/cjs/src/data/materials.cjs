@@ -6983,6 +6983,24 @@ var proceduralMaterialPresets = Object.freeze({
 		domeRadius: .38,
 		groove: .05
 	}),
+	sevensegment: Object.freeze({
+		dark: [
+			14,
+			10,
+			10
+		],
+		light: [
+			255,
+			150,
+			40
+		],
+		roughness: .45,
+		litRoughness: .2,
+		relief: .03,
+		halfLength: .3,
+		halfWidth: .06,
+		shoulder: .02
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18449,6 +18467,7 @@ var proceduralTileMeters = Object.freeze({
 	moorecurve: .64,
 	papertape: .0254,
 	ulamspiral: .375,
+	sevensegment: .2,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

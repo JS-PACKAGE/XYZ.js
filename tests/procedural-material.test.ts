@@ -494,6 +494,7 @@ const kinds: ProceduralMaterialKind[] = [
   'moorecurve',
   'papertape',
   'ulamspiral',
+  'sevensegment',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -99355,6 +99356,519 @@ describe('Ulam prime spiral with glossy dark prime domes on a grooved pale slab'
       expect(o.slabRoughness - o.domeRoughness).toBeGreaterThan(0.1);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(190);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Seven-segment digit panel with lit amber bars, dim ghosts and a dark glass face', () => {
+  const p = proceduralMaterialPresets.sevensegment;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  // Digit patterns exactly as listed on the Wikipedia seven-segment page, as sets of the segment letters a-g.
+  const digitSegments = [
+    'abcdef',
+    'bc',
+    'abdeg',
+    'abcdg',
+    'bcfg',
+    'acdfg',
+    'acdefg',
+    'abc',
+    'abcdefg',
+    'abcdfg',
+  ];
+  const letters = 'abcdefg',
+    slotX = [0, 0.34, 0.34, 0, -0.34, -0.34, 0],
+    slotY = [-0.8, -0.4, 0.4, 0.8, 0.4, -0.4, 0],
+    columns = 5,
+    rows = 2,
+    litTone = 0.5;
+  const slotUV = (digit: number, segment: number): [number, number] => [
+    ((digit % columns) + 0.5 + slotX[segment]) / columns,
+    (Math.floor(digit / columns) + 0.5 + slotY[segment] / 2.5) / rows,
+  ];
+  const observe = (seed: number) => {
+    const size = 1000,
+      unit = size / columns,
+      sample = createSurfaceSampler('sevensegment', seed),
+      out = empty(),
+      lit = new Uint8Array(size * size),
+      shape = new Uint8Array(size * size),
+      colors = new Float64Array(size * size);
+    let litColor = 0,
+      panelColor = 0,
+      litRoughness = 0,
+      panelRoughness = 0,
+      litPixels = 0,
+      shapePixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[i] = out.color;
+        lit[i] = out.roughness < (p.roughness + p.litRoughness) / 2 ? 1 : 0;
+        shape[i] = out.height / p.relief < 0.55 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (lit[i]) {
+          litPixels++;
+          litColor += out.color;
+          litRoughness += out.roughness;
+        } else if (!shape[i]) {
+          panelColor += out.color;
+          panelRoughness += out.roughness;
+        }
+        shapePixels += shape[i];
+      }
+    // Read the display the way a person does: which of the seven slots of every digit is lit?
+    let decoded = '',
+      litSlots = 0,
+      ghostSlots = 0,
+      wrongBytes = 0,
+      ghostMin = 1,
+      ghostMax = 0;
+    for (let digit = 0; digit < columns * rows; digit++) {
+      let set = '',
+        code = 0;
+      for (let s = 0; s < 7; s++) {
+        const [u, v] = slotUV(digit, s);
+        sample(u, v, out);
+        if (out.color > litTone) {
+          set += letters[s];
+          code |= 1 << s;
+          litSlots++;
+        } else {
+          ghostSlots++;
+          ghostMin = Math.min(ghostMin, out.color);
+          ghostMax = Math.max(ghostMax, out.color);
+        }
+      }
+      const found = digitSegments.indexOf(set);
+      decoded += found < 0 ? '?' : String(found);
+      // gfedcba byte of 1 is 0x06 and of 8 is 0x7f.
+      if (digit === 1 && code !== 0x06) wrongBytes++;
+      if (digit === 8 && code !== 0x7f) wrongBytes++;
+    }
+    const label = (mask: Uint8Array) => {
+      const labels = new Int32Array(size * size),
+        queue = new Int32Array(size * size),
+        parts: { area: number; cx: number; cy: number }[] = [];
+      for (let start = 0; start < size * size; start++) {
+        if (!mask[start] || labels[start]) continue;
+        let head = 0,
+          tail = 0,
+          sumX = 0,
+          sumY = 0;
+        const id = parts.length + 1;
+        queue[tail++] = start;
+        labels[start] = id;
+        while (head < tail) {
+          const i = queue[head++],
+            x = i % size,
+            y = (i - x) / size;
+          sumX += x + 0.5;
+          sumY += y + 0.5;
+          for (const [dx, dy] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]) {
+            const j =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (mask[j] && !labels[j]) {
+              labels[j] = id;
+              queue[tail++] = j;
+            }
+          }
+        }
+        parts.push({
+          area: tail / (unit * unit),
+          cx: sumX / tail / size,
+          cy: sumY / tail / size,
+        });
+      }
+      return parts;
+    };
+    const litParts = label(lit),
+      shapeParts = label(shape);
+    // Every component must sit on one of the 70 segment slots.
+    const slots: [number, number][] = [];
+    for (let digit = 0; digit < columns * rows; digit++)
+      for (let s = 0; s < 7; s++) slots.push(slotUV(digit, s));
+    const offSlot = (parts: { cx: number; cy: number }[]) => {
+      let worst = 0;
+      const used = new Set<number>();
+      for (const part of parts) {
+        let best = Infinity,
+          bestIndex = -1;
+        slots.forEach(([u, v], index) => {
+          const d = Math.hypot(
+            part.cx - u,
+            (part.cy - v) * (rows / columns) * 2.5,
+          );
+          if (d < best) {
+            best = d;
+            bestIndex = index;
+          }
+        });
+        used.add(bestIndex);
+        worst = Math.max(worst, best);
+      }
+      return { worst, distinct: used.size };
+    };
+    const litSlotFit = offSlot(litParts),
+      shapeSlotFit = offSlot(shapeParts);
+    return {
+      size,
+      lit,
+      colors,
+      decoded,
+      litSlots,
+      ghostSlots,
+      wrongBytes,
+      ghostMin,
+      ghostMax,
+      litParts: litParts.length,
+      shapeParts: shapeParts.length,
+      litMeanArea:
+        litParts.reduce((sum, part) => sum + part.area, 0) /
+        Math.max(1, litParts.length),
+      shapeMeanArea:
+        shapeParts.reduce((sum, part) => sum + part.area, 0) /
+        Math.max(1, shapeParts.length),
+      litWorst: litSlotFit.worst,
+      litDistinct: litSlotFit.distinct,
+      shapeWorst: shapeSlotFit.worst,
+      shapeDistinct: shapeSlotFit.distinct,
+      litFraction: litPixels / (size * size),
+      litColor: litColor / litPixels,
+      panelColor: panelColor / (size * size - shapePixels),
+      litRoughness: litRoughness / litPixels,
+      panelRoughness: panelRoughness / (size * size - shapePixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('sevensegment', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 5; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 5, j / 256);
+        check((k + 0.5) / 5, j / 256);
+        for (const slot of [-0.34, 0, 0.34])
+          check((k + 0.5 + slot) / 5, j / 256);
+      }
+    for (let k = 0; k <= 2; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(j / 256, k / 2);
+        check(j / 256, (k + 0.5) / 2);
+        for (const slot of [-0.8, -0.4, 0, 0.4, 0.8])
+          check(j / 256, (k + 0.5 + slot / 2.5) / 2);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let lit = 0,
+      litRoughness = 0,
+      litChroma = 0,
+      panelRoughness = 0,
+      panels = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness < 0.33) {
+        lit++;
+        litRoughness += roughness;
+        litChroma +=
+          (Math.max(
+            maps.baseColor[j],
+            maps.baseColor[j + 1],
+            maps.baseColor[j + 2],
+          ) -
+            Math.min(
+              maps.baseColor[j],
+              maps.baseColor[j + 1],
+              maps.baseColor[j + 2],
+            )) /
+          255;
+      } else {
+        panels++;
+        panelRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      litFraction: lit / count,
+      litRoughness: litRoughness / lit,
+      litChroma: litChroma / lit,
+      panelRoughness: panelRoughness / panels,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  // The 0.5 coverage contour sits half a shoulder inside the nominal bar; its chamfer is 1/0.7071 times farther along the axis.
+  const expectedSegments = 49,
+    inset = p.shoulder / 2,
+    barArea =
+      4 * (p.halfLength - inset * Math.SQRT2) * (p.halfWidth - inset) -
+      2 * (p.halfWidth - inset) ** 2;
+  it.each([0, 7, 0xffffffff])(
+    'reads 0123456789 from the seven-segment patterns of the 5 by 2 digit grid at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.decoded).toBe('0123456789');
+      expect(o.litSlots).toBe(expectedSegments);
+      expect(o.ghostSlots).toBe(70 - expectedSegments);
+      expect(o.wrongBytes).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates 70 chamfered bars on their segment slots with 49 of them lit at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.shapeParts).toBe(70);
+      expect(o.litParts).toBe(expectedSegments);
+      expect(o.shapeDistinct).toBe(70);
+      expect(o.litDistinct).toBe(expectedSegments);
+      expect(o.shapeWorst).toBeLessThan(0.015);
+      expect(o.litWorst).toBeLessThan(0.015);
+      expect(Math.abs(o.litMeanArea / barArea - 1)).toBeLessThan(0.03);
+      expect(Math.abs(o.shapeMeanArea / barArea - 1)).toBeLessThan(0.03);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps bright glossy lit bars over dim unlit ghosts on a dark panel at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.litColor - o.ghostMax).toBeGreaterThan(0.4);
+      expect(o.ghostMin - o.panelColor).toBeGreaterThan(0.05);
+      expect(o.ghostMax).toBeLessThan(0.5);
+      expect(o.panelRoughness - o.litRoughness).toBeGreaterThan(0.1);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the panel grain with the seed and never the lit digits at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.lit.length; i++) {
+        flips += Number(o.lit[i] !== base.lit[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.decoded).toBe(base.decoded);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.005);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps segment edges, tips and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes lit amber digits over dim ghosts on a dark panel with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('sevensegment', size, 7, { heightMap: true }),
+      );
+      expect(o.litFraction).toBeGreaterThan(0.02);
+      expect(o.litFraction).toBeLessThan(0.4);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.panelRoughness - o.litRoughness).toBeGreaterThan(0.1);
+      expect(o.litChroma).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(200);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {
