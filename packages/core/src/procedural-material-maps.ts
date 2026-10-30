@@ -1272,6 +1272,7 @@ export function createSurfaceSampler(
     kind === 'guilloche' ||
     kind === 'splitlockwashers' ||
     kind === 'hexnuts' ||
+    kind === 'capnuts' ||
     kind === 'wingnuts' ||
     kind === 'circlips' ||
     kind === 'fivebarplate' ||
@@ -24725,6 +24726,73 @@ export function createSurfaceSampler(
           occlusion = 0.45 + 0.53 * face;
         };
       }
+      case 'capnuts': {
+        const p = proceduralMaterialPresets.capnuts,
+          planes = new Float64Array(p.cells * p.cells * 12),
+          grainField = cachedNoise(96, 96, seed ^ 0x40011),
+          inverseDomeSquared = 1 / (p.domeRadius * p.domeRadius);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const phase = TAU * hash(col, row, seed ^ 0x40013);
+            for (let side = 0; side < 6; side++) {
+              const i = (row * p.cells + col) * 12 + side * 2,
+                angle = phase + (TAU * side) / 6;
+              planes[i] = Math.cos(angle);
+              planes[i + 1] = Math.sin(angle);
+            }
+          }
+        return () => {
+          const uCell = u * p.cells,
+            vCell = v * p.cells,
+            i = (Math.floor(vCell) * p.cells + Math.floor(uCell)) * 12,
+            x = fract(uCell) - 0.5,
+            y = fract(vCell) - 0.5,
+            radius = Math.hypot(x, y);
+          let hex = 1;
+          for (let side = 0; side < 6; side++) {
+            const j = i + side * 2;
+            hex *= smooth(
+              clamp(
+                (p.inradius - x * planes[j] - y * planes[j + 1]) / p.outerBevel,
+              ),
+            );
+          }
+          // Chamfered corners remain a 30-degree trim; a closed dome replaces the bore.
+          const outer =
+              hex * smooth(clamp((p.cornerRadius - radius) / p.cornerBevel)),
+            dome = smooth(clamp((p.domeRadius - radius) / p.domeShoulder)),
+            chamfer =
+              outer *
+              (1 - dome) *
+              smooth(clamp((radius - p.chamferStart) / p.chamferWidth)),
+            neck =
+              outer *
+              (1 - dome) *
+              smooth(
+                clamp((p.domeRadius + p.neckWidth - radius) / p.neckWidth),
+              ),
+            cap = clamp(1 - radius * radius * inverseDomeSquared),
+            grain = grainField(u, v);
+          color =
+            p.backingColor +
+            outer * (p.hexColor - p.backingColor) +
+            dome * outer * (p.domeColor - p.hexColor) -
+            chamfer * (p.hexColor - p.chamferColor) +
+            p.grainColor * (grain - 0.5) * (0.4 + outer);
+          height =
+            p.backingHeight +
+            outer * (p.hexHeight - p.backingHeight) +
+            dome * outer * (p.domeBase - p.hexHeight + p.domeCrown * cap) -
+            chamfer * p.chamferDrop +
+            p.grainHeight * grain * outer;
+          roughness +=
+            p.grainRoughness * grain + p.backingRoughness * (1 - outer);
+          occlusion =
+            p.backingOcclusion +
+            p.faceOcclusion * outer -
+            p.neckOcclusion * neck;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -37155,6 +37223,7 @@ export function createSurfaceSampler(
     kind === 'lotusroot' ||
     kind === 'cardboardedge' ||
     kind === 'hexnuts' ||
+    kind === 'capnuts' ||
     kind === 'orbicularjasper' ||
     kind === 'acornbarnacles' ||
     kind === 'circularpavers' ||

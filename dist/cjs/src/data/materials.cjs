@@ -6603,6 +6603,46 @@ var proceduralMaterialPresets = Object.freeze({
 		boreBevel: .035,
 		machining: 96
 	}),
+	capnuts: Object.freeze({
+		dark: [
+			57,
+			64,
+			70
+		],
+		light: [
+			217,
+			224,
+			229
+		],
+		roughness: .28,
+		relief: .03,
+		cells: 4,
+		inradius: .38,
+		outerBevel: .04,
+		cornerRadius: .421,
+		cornerBevel: .025,
+		domeRadius: .365,
+		domeShoulder: .025,
+		chamferStart: .37,
+		chamferWidth: .05,
+		backingColor: .15,
+		hexColor: .62,
+		domeColor: .78,
+		chamferColor: .54,
+		grainColor: .05,
+		backingHeight: .05,
+		hexHeight: .5,
+		domeBase: .55,
+		domeCrown: .42,
+		chamferDrop: .07,
+		grainHeight: .004,
+		backingRoughness: .18,
+		grainRoughness: .015,
+		backingOcclusion: .45,
+		faceOcclusion: .53,
+		neckOcclusion: .14,
+		neckWidth: .05
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18052,6 +18092,7 @@ var proceduralTileMeters = Object.freeze({
 	lotusroot: .24,
 	cardboardedge: .024,
 	hexnuts: .08,
+	capnuts: .08,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,
