@@ -505,6 +505,7 @@ const kinds: ProceduralMaterialKind[] = [
   'floretpentagonaltiles',
   'prismaticpentagonaltiles',
   'apollonianmosaic',
+  'ichinghexagrams',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -105589,6 +105590,493 @@ describe('Apollonian mosaic of finite recursive tangent glazed circles over roug
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.maxTilt).toBeLessThan(3);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('I Ching hexagrams with all sixty-four bottom-up line figures in authored binary order', () => {
+  const p = proceduralMaterialPresets.ichinghexagrams;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  type Bar = {
+    cell: number;
+    line: number;
+    cx: number;
+    cy: number;
+    width: number;
+    height: number;
+    fill: number;
+    color: number;
+  };
+  const observe = (seed: number) => {
+    const size = 128 * p.cells,
+      scale = p.cells / size,
+      sample = createSurfaceSampler('ichinghexagrams', seed),
+      out = empty(),
+      mask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size),
+      bars: Bar[] = [];
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        mask[y * size + x] = Number(out.height / p.relief > 0.44);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+      }
+    for (let start = 0; start < mask.length; start++) {
+      if (mask[start] !== 1) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        minX = size,
+        maxX = 0,
+        minY = size,
+        maxY = 0;
+      queue[0] = start;
+      mask[start] = 2;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        sx += x + 0.5;
+        sy += y + 0.5;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+        for (const next of [
+          x > 0 ? at - 1 : -1,
+          x + 1 < size ? at + 1 : -1,
+          y > 0 ? at - size : -1,
+          y + 1 < size ? at + size : -1,
+        ])
+          if (next >= 0 && mask[next] === 1) {
+            mask[next] = 2;
+            queue[write++] = next;
+          }
+      }
+      const gx = (sx / write) * scale,
+        gy = (sy / write) * scale,
+        col = Math.floor(gx),
+        row = Math.floor(gy),
+        cx = gx - col,
+        cy = gy - row;
+      sample(gx / p.cells, gy / p.cells, out);
+      bars.push({
+        cell: row * p.cells + col,
+        line: Math.round((cy - 0.5) / p.linePitch + 2.5),
+        cx,
+        cy,
+        width: (maxX - minX + 1) * scale,
+        height: (maxY - minY + 1) * scale,
+        fill: write / ((maxX - minX + 1) * (maxY - minY + 1)),
+        color: out.color,
+      });
+    }
+    return { bars, invalid };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let o = observations.get(seed);
+    if (!o) {
+      o = observe(seed);
+      observations.set(seed, o);
+    }
+    return o;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('ichinghexagrams', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      shifted = empty(),
+      // Larger steps measure finite smooth-bevel curvature rather than a derivative jump.
+      h = 1e-10;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const probe = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ]) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y < 128; y++)
+      for (let x = 0; x < 128; x++) probe((x + 0.37) / 128, (y + 0.61) / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        probe(k / p.cells, j / 256);
+        probe(j / 256, k / p.cells);
+      }
+    for (const bar of observed(seed).bars) {
+      const col = bar.cell % p.cells,
+        row = Math.floor(bar.cell / p.cells),
+        u = (col + bar.cx) / p.cells,
+        v = (row + bar.cy) / p.cells;
+      sample((col + 0.02) / p.cells, (row + 0.02) / p.cells, b);
+      const baseline = b.height;
+      for (let axis = 0; axis < 2; axis++)
+        for (const sign of [-1, 1]) {
+          let lo = 0,
+            hi = (axis ? p.linePitch * 0.5 : bar.width * 0.8) / p.cells;
+          for (let step = 0; step < 36; step++) {
+            const mid = (lo + hi) / 2;
+            sample(u + (axis ? 0 : sign * mid), v + (axis ? sign * mid : 0), b);
+            if (b.height > baseline + p.relief * 1e-12) lo = mid;
+            else hi = mid;
+          }
+          probe(
+            u + (axis ? 0 : (sign * (lo + hi)) / 2),
+            v + (axis ? (sign * (lo + hi)) / 2 : 0),
+          );
+        }
+    }
+    for (let i = 0; i < 4096; i++) {
+      const u = ((i * 0.61803398875) % 1) * 6 - 3,
+        v = ((i * 0.41421356237) % 1) * 6 - 3;
+      sample(u, v, b);
+      sample(u + 3, v - 2, shifted);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(b[key] - shifted[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'decodes every bottom-up solid/broken figure in the authored sixty-four-cell order at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('ichinghexagrams', seed),
+        out = empty(),
+        decoded = new Set<number>();
+      let solid = 0,
+        broken = 0;
+      for (let cell = 0; cell < 64; cell++) {
+        const col = cell % 8,
+          row = Math.floor(cell / 8);
+        let code = 0;
+        for (let line = 0; line < 6; line++) {
+          const v = (row + 0.5 + (2.5 - line) * p.linePitch) / 8;
+          sample((col + 0.5) / 8, v, out);
+          const on = out.height / p.relief > 0.5;
+          if (on) {
+            code += 2 ** line;
+            solid++;
+            expect(out.height / p.relief).toBeGreaterThan(0.7);
+          } else {
+            broken++;
+            expect(out.height / p.relief).toBeLessThan(0.14);
+          }
+          for (const x of [0.25, 0.75]) {
+            sample((col + x) / 8, v, out);
+            expect(out.height / p.relief).toBeGreaterThan(0.7);
+          }
+        }
+        expect(code).toBe(cell);
+        decoded.add(code);
+      }
+      expect(decoded.size).toBe(64);
+      expect(solid).toBe(192);
+      expect(broken).toBe(192);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'observes six aligned rows per glyph with connected yang and equally split yin bars at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        solidWidth =
+          2 *
+          Math.sqrt((p.halfWidth ** 2 + (p.halfWidth - p.shoulder) ** 2) / 2),
+        half = (p.halfWidth - p.halfGap) / 2,
+        brokenWidth = 2 * Math.sqrt((half ** 2 + (half - p.shoulder) ** 2) / 2),
+        barHeight =
+          2 *
+          Math.sqrt((p.halfHeight ** 2 + (p.halfHeight - p.shoulder) ** 2) / 2),
+        tol = 2.1 / 128;
+      expect(o.bars.length).toBe(576);
+      expect(o.invalid).toBe(0);
+      for (let cell = 0; cell < 64; cell++)
+        for (let line = 0; line < 6; line++) {
+          const bars = o.bars
+              .filter((b) => b.cell === cell && b.line === line)
+              .sort((a, b) => a.cx - b.cx),
+            solid = Number(Boolean((cell >> (5 - line)) & 1));
+          expect(bars.length).toBe(solid ? 1 : 2);
+          for (const b of bars) {
+            expect(
+              Math.abs(b.cy - (0.5 + (line - 2.5) * p.linePitch)),
+            ).toBeLessThan(0.008);
+            expect(Math.abs(b.height - barHeight)).toBeLessThan(tol);
+            expect(
+              Math.abs(b.width - (solid ? solidWidth : brokenWidth)),
+            ).toBeLessThan(tol);
+            expect(b.fill).toBeGreaterThan(0.8);
+          }
+          if (solid) expect(Math.abs(bars[0].cx - 0.5)).toBeLessThan(0.008);
+          else {
+            expect(Math.abs((bars[0].cx + bars[1].cx) / 2 - 0.5)).toBeLessThan(
+              0.008,
+            );
+            expect(Math.abs(bars[0].width - bars[1].width)).toBeLessThan(0.008);
+            const gap =
+              bars[1].cx - bars[0].cx - (bars[0].width + bars[1].width) / 2;
+            expect(gap).toBeGreaterThan(0.1);
+            expect(gap).toBeLessThan(0.25);
+          }
+        }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'raises darker smoother dielectric lines with recessed edge AO on pale backing at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('ichinghexagrams', seed),
+        top = empty(),
+        back = empty(),
+        rim = empty();
+      for (let cell = 0; cell < 64; cell++) {
+        const col = cell % 8,
+          row = Math.floor(cell / 8),
+          u = (col + 0.25) / 8,
+          v = (row + 0.5 - 2.5 * p.linePitch) / 8;
+        sample(u, v, top);
+        sample((col + 0.02) / 8, (row + 0.02) / 8, back);
+        expect(back.color - top.color).toBeGreaterThan(0.6);
+        expect(back.roughness - top.roughness).toBeGreaterThan(0.4);
+        expect((top.height - back.height) / p.relief).toBeGreaterThan(0.6);
+        let lo = 0,
+          hi = 0.055 / 8;
+        for (let j = 0; j < 36; j++) {
+          const mid = (lo + hi) / 2;
+          sample(u, v + mid, rim);
+          if (rim.height > (top.height + back.height) / 2) lo = mid;
+          else hi = mid;
+        }
+        sample(u, v + (lo + hi) / 2, rim);
+        expect(top.occlusion - rim.occlusion).toBeGreaterThan(0.2);
+        expect(back.occlusion - rim.occlusion).toBeGreaterThan(0.25);
+      }
+    },
+  );
+  it('changes glyph finish with seeds without relocating or changing any of the sixty-four figures', () => {
+    const base = observed(0);
+    for (const seed of [7, 0xffffffff]) {
+      const other = observed(seed);
+      let tone = 0;
+      expect(other.bars.length).toBe(base.bars.length);
+      for (let i = 0; i < base.bars.length; i++) {
+        const a = base.bars[i],
+          b = other.bars[i];
+        expect(a.cell).toBe(b.cell);
+        expect(a.line).toBe(b.line);
+        expect(Math.hypot(a.cx - b.cx, a.cy - b.cy)).toBeLessThan(0.001);
+        expect(Math.abs(a.width - b.width)).toBeLessThan(0.008);
+        expect(Math.abs(a.height - b.height)).toBeLessThan(0.008);
+        tone = Math.max(tone, Math.abs(a.color - b.color));
+      }
+      expect(tone).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps line ends, broken centers, row gaps, glyph boundaries and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let backing = 0,
+      backingRoughness = 0,
+      glyphRoughness = 0,
+      glyphs = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (maps.height![j] < 128) {
+        backing++;
+        backingRoughness += roughness;
+      } else {
+        glyphs++;
+        glyphRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      backingFraction: backing / count,
+      backingRoughness: backingRoughness / backing,
+      glyphRoughness: glyphRoughness / glyphs,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  it.each([32, 512])(
+    'writes opaque dark raised lines with edge AO and generated normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('ichinghexagrams', size, 7, { heightMap: true }),
+      );
+      expect(o.backingFraction).toBeGreaterThan(0.6);
+      expect(o.backingFraction).toBeLessThan(0.95);
+      expect(o.backingRoughness - o.glyphRoughness).toBeGreaterThan(
+        size === 512 ? 0.3 : 0.15,
+      );
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(size === 512 ? 80 : 30);
+      // Minimum resolution samples partial strokes, not necessarily their narrow AO rims.
+      expect(o.minAO).toBeLessThan(size === 512 ? 190 : 250);
+      expect(o.maxAO).toBeGreaterThan(250);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.04);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const f of o.signed) expect(f).toBeGreaterThan(0.005);
       } else expect(o.maxTilt).toBeLessThan(0.5);
     },
   );

@@ -27027,6 +27027,56 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'ichinghexagrams': {
+        const p = proceduralMaterialPresets.ichinghexagrams,
+          grainField = cachedNoise(96, 96, seed ^ 0x4021),
+          tones = new Float64Array(p.cells * p.cells),
+          brokenHalf = (p.halfWidth - p.halfGap) / 2,
+          brokenCenter = (p.halfWidth + p.halfGap) / 2,
+          solidRadius2 = p.halfWidth * p.halfWidth,
+          brokenRadius2 = brokenHalf * brokenHalf,
+          verticalRadius2 = p.halfHeight * p.halfHeight,
+          inverseSolid =
+            1 / (p.halfWidth ** 2 - (p.halfWidth - p.shoulder) ** 2),
+          inverseBroken =
+            1 / (brokenHalf ** 2 - (brokenHalf - p.shoulder) ** 2),
+          inverseVertical =
+            1 / (p.halfHeight ** 2 - (p.halfHeight - p.shoulder) ** 2);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x4023);
+        return () => {
+          const gx = u * p.cells,
+            gy = v * p.cells,
+            col = Math.min(p.cells - 1, Math.floor(gx)),
+            row = Math.min(p.cells - 1, Math.floor(gy)),
+            index = row * p.cells + col,
+            x = gx - col - 0.5,
+            y = gy - row - 0.5,
+            // Authored ascending binary order, not King Wen numbering: bit zero is the bottom line.
+            line = Math.max(0, Math.min(5, Math.floor(y / p.linePitch + 3))),
+            solid = (index >> (5 - line)) & 1,
+            dx = solid ? x : Math.abs(x) - brokenCenter,
+            dy = y - (line - 2.5) * p.linePitch,
+            horizontal = smooth(
+              clamp(
+                ((solid ? solidRadius2 : brokenRadius2) - dx * dx) *
+                  (solid ? inverseSolid : inverseBroken),
+              ),
+            ),
+            vertical = smooth(
+              clamp((verticalRadius2 - dy * dy) * inverseVertical),
+            ),
+            glyph = horizontal * vertical,
+            grain = grainField(u, v),
+            backing = 0.86 + 0.025 * grain;
+          mortar = 0;
+          color = backing + glyph * (0.1 + 0.08 * tones[index] - backing);
+          height = 0.12 + glyph * (0.64 + 0.004 * grain);
+          roughness = 0.9 + glyph * (p.roughness - 0.9 + 0.03 * grain);
+          occlusion = 1 - 0.08 * glyph - 1.36 * glyph * (1 - glyph);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39608,6 +39658,7 @@ export function createSurfaceSampler(
     kind === 'floretpentagonaltiles' ||
     kind === 'prismaticpentagonaltiles' ||
     kind === 'apollonianmosaic' ||
+    kind === 'ichinghexagrams' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

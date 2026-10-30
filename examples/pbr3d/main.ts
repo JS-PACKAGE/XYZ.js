@@ -542,6 +542,7 @@ try {
     'floretpentagonaltiles',
     'prismaticpentagonaltiles',
     'apollonianmosaic',
+    'ichinghexagrams',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

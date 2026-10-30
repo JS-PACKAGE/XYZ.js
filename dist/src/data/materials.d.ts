@@ -3384,6 +3384,18 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.0015;
         shoulder: 0.003;
     }>;
+    ichinghexagrams: Readonly<{
+        dark: readonly [28, 34, 30];
+        light: readonly [226, 216, 178];
+        roughness: 0.3;
+        relief: 0.003;
+        cells: 8;
+        linePitch: 0.1;
+        halfWidth: 0.36;
+        halfGap: 0.08;
+        halfHeight: 0.032;
+        shoulder: 0.012;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11164,6 +11176,7 @@ export declare const proceduralTileMeters: Readonly<{
     floretpentagonaltiles: 0.84;
     prismaticpentagonaltiles: 0.6;
     apollonianmosaic: 0.24;
+    ichinghexagrams: 0.32;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;
