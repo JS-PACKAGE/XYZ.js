@@ -497,6 +497,7 @@ const kinds: ProceduralMaterialKind[] = [
   'sevensegment',
   'perfectmaze',
   'rule30',
+  'embossedbraille',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -100874,6 +100875,474 @@ describe('Rule 30 cellular automaton triangle of raised dark cells on pale lower
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Embossed braille paper with raised domes spelling the alphabet in 28 cells', () => {
+  const p = proceduralMaterialPresets.embossedbraille;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  // The page lists a-j as these cells; k-t add dot 3 and u v x y z (the last decade, w left out) are a-e with dots 3 and 6.
+  const firstDecade = '⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚',
+    dotBits = (cell: string): number => cell.codePointAt(0)! - 0x2800,
+    decade = Array.from(firstDecade, dotBits),
+    reference = [
+      ...decade,
+      ...decade.map((bits) => bits | 0x04),
+      ...decade.slice(0, 5).map((bits) => bits | 0x24),
+      0,
+      0,
+      0,
+    ],
+    letters = 'abcdefghijklmnopqrstuvxyz   ',
+    cellsAcross = 7,
+    lines = 4,
+    pitchX = 2.4,
+    pitchY = 4.2,
+    unitsWide = cellsAcross * pitchX,
+    raster = 1000,
+    unit = raster / unitsWide,
+    midRoughness = (p.roughness + p.domeRoughness) / 2;
+  const dotUV = (cell: number, dot: number): [number, number] => {
+    const column = dot < 3 ? 0 : 1,
+      row = (dot % 3) - 1,
+      cx = cell % cellsAcross,
+      cy = (cell - cx) / cellsAcross;
+    return [
+      (cx + 0.5) / cellsAcross + (column ? 0.5 : -0.5) / unitsWide,
+      (cy + 0.5) / lines + row / unitsWide,
+    ];
+  };
+  const observe = (seed: number) => {
+    const sample = createSurfaceSampler('embossedbraille', seed),
+      out = empty(),
+      dome = new Uint8Array(raster * raster),
+      colors = new Float64Array(raster * raster);
+    let domeColor = 0,
+      flatColor = 0,
+      domeHeight = 0,
+      flatHeight = 0,
+      domeRoughness = 0,
+      flatRoughness = 0,
+      domePixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < raster; y++)
+      for (let x = 0; x < raster; x++) {
+        const i = y * raster + x;
+        sample((x + 0.5) / raster, (y + 0.5) / raster, out);
+        colors[i] = out.color;
+        dome[i] = out.roughness < midRoughness ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (dome[i]) {
+          domePixels++;
+          domeColor += out.color;
+          domeHeight += out.height / p.relief;
+          domeRoughness += out.roughness;
+        } else {
+          flatColor += out.color;
+          flatHeight += out.height / p.relief;
+          flatRoughness += out.roughness;
+        }
+      }
+    // Read every cell the way a finger does: which of its six dot positions is raised?
+    let decoded = '',
+      mismatched = 0,
+      raised = 0;
+    const read: number[] = [];
+    for (let cell = 0; cell < cellsAcross * lines; cell++) {
+      let bits = 0;
+      for (let dot = 0; dot < 6; dot++) {
+        const [u, v] = dotUV(cell, dot);
+        sample(u, v, out);
+        if (out.roughness < midRoughness) bits |= 1 << dot;
+      }
+      read.push(bits);
+      mismatched += Number(bits !== reference[cell]);
+      for (let dot = 0; dot < 6; dot++) raised += (bits >> dot) & 1;
+      const found = reference.indexOf(bits);
+      decoded += bits === 0 ? ' ' : found >= 0 ? letters[found] : '?';
+    }
+    const labels = new Int32Array(raster * raster),
+      queue = new Int32Array(raster * raster),
+      parts: { area: number; cx: number; cy: number }[] = [];
+    for (let start = 0; start < raster * raster; start++) {
+      if (!dome[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        sumX = 0,
+        sumY = 0;
+      const id = parts.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % raster,
+          y = (i - x) / raster;
+        sumX += x + 0.5;
+        sumY += y + 0.5;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j =
+            ((y + dy + raster) % raster) * raster +
+            ((x + dx + raster) % raster);
+          if (dome[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      parts.push({
+        area: tail / (unit * unit),
+        cx: sumX / tail / unit,
+        cy: sumY / tail / unit,
+      });
+    }
+    // Every raised dot must sit on the dot grid: columns at +-0.5 and rows at -1, 0, 1 around each cell center.
+    let offGrid = 0,
+      areas = 0;
+    for (const part of parts) {
+      const cellX = Math.floor(part.cx / pitchX),
+        cellY = Math.floor(part.cy / pitchY),
+        lx = part.cx - (cellX + 0.5) * pitchX,
+        ly = part.cy - (cellY + 0.5) * pitchY,
+        gridX = lx < 0 ? -0.5 : 0.5,
+        gridY = Math.round(ly);
+      if (Math.hypot(lx - gridX, ly - gridY) > 0.03) offGrid++;
+      areas += part.area;
+    }
+    return {
+      raster,
+      dome,
+      colors,
+      decoded,
+      mismatched,
+      raised,
+      referenceDots: reference.reduce((sum, bits) => {
+        let n = 0;
+        for (let dot = 0; dot < 6; dot++) n += (bits >> dot) & 1;
+        return sum + n;
+      }, 0),
+      parts: parts.length,
+      offGrid,
+      meanArea: areas / Math.max(1, parts.length),
+      domeFraction: domePixels / (raster * raster),
+      domeColor: domeColor / domePixels,
+      flatColor: flatColor / (raster * raster - domePixels),
+      domeRoughness: domeRoughness / domePixels,
+      flatRoughness: flatRoughness / (raster * raster - domePixels),
+      domeHeight: domeHeight / domePixels,
+      flatHeight: flatHeight / (raster * raster - domePixels),
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('embossedbraille', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 7; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 7, j / 256);
+        check((k + 0.5) / 7, j / 256);
+        for (const dot of [-0.5, 0.5])
+          check((k + 0.5 + dot / 2.4) / 7, j / 256);
+      }
+    for (let k = 0; k <= 4; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(j / 256, k / 4);
+        check(j / 256, (k + 0.5) / 4);
+        for (const dot of [-1, 0, 1]) check(j / 256, (k + 0.5 + dot / 4.2) / 4);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let dots = 0,
+      dotRoughness = 0,
+      flatRoughness = 0,
+      flats = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness < (p.roughness + p.domeRoughness) / 2) {
+        dots++;
+        dotRoughness += roughness;
+      } else {
+        flats++;
+        flatRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      dotFraction: dots / count,
+      dotRoughness: dotRoughness / dots,
+      flatRoughness: flatRoughness / flats,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  // The dome profile (1 - s^2)^2 passes through one half at s^2 = 1 - sqrt(1/2); the mask is the half-roughness contour.
+  const footprint = Math.PI * p.domeRadius ** 2 * (1 - Math.SQRT1_2);
+  it('uses the dot patterns the page gives for the letters a to j, k to t and u to z', () => {
+    // dot pattern 1-3-4 is the letter m (the page's example), and a-j never use dots 3 and 6.
+    expect(dotBits('⠍')).toBe(0b001101);
+    for (const bits of decade) expect(bits & 0b100100).toBe(0);
+    expect(reference[12]).toBe(dotBits('⠍'));
+    expect(reference[16]).toBe(dotBits('⠟'));
+    expect(reference[20]).toBe(dotBits('⠥'));
+    expect(reference[24]).toBe(dotBits('⠵'));
+  });
+  it.each([0, 7, 0xffffffff])(
+    'reads abcdefghijklmnopqrstuvxyz from the raised dots of 28 braille cells at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.decoded).toBe(letters);
+      expect(o.mismatched).toBe(0);
+      expect(o.raised).toBe(o.referenceDots);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'places one round dome of the predicted size on the dot grid for every raised dot at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.parts).toBe(o.referenceDots);
+      expect(o.offGrid).toBe(0);
+      expect(Math.abs(o.meanArea / footprint - 1)).toBeLessThan(0.05);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps smoother raised embossed dots on rougher flat paper at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.flatRoughness - o.domeRoughness).toBeGreaterThan(0.08);
+      expect(o.flatColor - o.domeColor).toBeGreaterThan(0.05);
+      expect(o.domeHeight - o.flatHeight).toBeGreaterThan(0.2);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the paper grain with the seed and never the raised dots at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.dome.length; i++) {
+        flips += Number(o.dome[i] !== base.dome[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.decoded).toBe(base.decoded);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps cell centers, dot rows and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes smoother raised embossed dots on flat paper with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('embossedbraille', size, 7, { heightMap: true }),
+      );
+      expect(o.dotFraction).toBeLessThan(0.1);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      // At 32 px every dot is far below one pixel and falls between pixel centers, so only the paper remains.
+      if (size === 512) {
+        expect(o.dotFraction).toBeGreaterThan(0.003);
+        expect(o.flatRoughness - o.dotRoughness).toBeGreaterThan(0.1);
+        expect(o.maxLuma - o.minLuma).toBeGreaterThan(12);
+        expect(o.minAO).toBeLessThan(240);
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.maxTilt).toBeLessThan(3);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);

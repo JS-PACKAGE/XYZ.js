@@ -7035,6 +7035,22 @@ var proceduralMaterialPresets = Object.freeze({
 		halfSize: .42,
 		shoulder: .05
 	}),
+	embossedbraille: Object.freeze({
+		dark: [
+			168,
+			152,
+			128
+		],
+		light: [
+			244,
+			236,
+			216
+		],
+		roughness: .85,
+		domeRoughness: .7,
+		relief: .03,
+		domeRadius: .3
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18504,6 +18520,7 @@ var proceduralTileMeters = Object.freeze({
 	sevensegment: .2,
 	perfectmaze: .64,
 	rule30: .66,
+	embossedbraille: .042,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

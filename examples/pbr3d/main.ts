@@ -534,6 +534,7 @@ try {
     'sevensegment',
     'perfectmaze',
     'rule30',
+    'embossedbraille',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

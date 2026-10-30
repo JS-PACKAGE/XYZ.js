@@ -26247,6 +26247,48 @@ export function createSurfaceSampler(
           occlusion = 0.97 - 0.3 * (1 - tile);
         };
       }
+      case 'embossedbraille': {
+        const p = proceduralMaterialPresets.embossedbraille,
+          // Braille cells of 2 columns by 3 rows of dots (dots 1-3 down the left column and 4-6 down the right; in the
+          // Unicode Braille Patterns block dot n is bit n - 1), 7 cells per line and 4 lines, in units of the dot spacing.
+          cellsAcross = 7,
+          lines = 4,
+          pitchX = 2.4,
+          pitchY = 4.2,
+          width = cellsAcross * pitchX,
+          depth = lines * pitchY,
+          // The letters a-g, h-n, o-u and v x y z followed by three blank cells.
+          text = '⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠭⠽⠵⠀⠀⠀',
+          codes = Uint8Array.from(
+            text,
+            (cell) => cell.codePointAt(0)! - 0x2800,
+          ),
+          grainField = cachedNoise(128, 128, seed ^ 0x4b2d),
+          inverseRadius2 = 1 / (p.domeRadius * p.domeRadius);
+        return () => {
+          const gx = u * width,
+            gy = v * depth,
+            cx = Math.min(cellsAcross - 1, Math.floor(gx / pitchX)),
+            cy = Math.min(lines - 1, Math.floor(gy / pitchY)),
+            lx = gx - (cx + 0.5) * pitchX,
+            ly = gy - (cy + 0.5) * pitchY,
+            column = lx < 0 ? 0 : 1,
+            row = Math.max(-1, Math.min(1, Math.round(ly)));
+          let dome = 0;
+          if ((codes[cy * cellsAcross + cx] >> (column * 3 + row + 1)) & 1) {
+            const dx = lx - (column ? 0.5 : -0.5),
+              dy = ly - row,
+              s2 = (dx * dx + dy * dy) * inverseRadius2;
+            if (s2 < 1) dome = (1 - s2) * (1 - s2);
+          }
+          const grain = grainField(u, v);
+          mortar = 0;
+          color = 0.82 + 0.1 * grain - 0.12 * dome;
+          height = 0.4 + 0.6 * dome;
+          roughness = p.roughness + (p.domeRoughness - p.roughness) * dome;
+          occlusion = 0.97 - 0.1 * dome;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38820,6 +38862,7 @@ export function createSurfaceSampler(
     kind === 'sevensegment' ||
     kind === 'perfectmaze' ||
     kind === 'rule30' ||
+    kind === 'embossedbraille' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
