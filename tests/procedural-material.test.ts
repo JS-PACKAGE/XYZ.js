@@ -492,6 +492,7 @@ const kinds: ProceduralMaterialKind[] = [
   'chladnifigure',
   'sierpinskicarpet',
   'moorecurve',
+  'papertape',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -98424,6 +98425,453 @@ describe('Moore curve with a dark groove looping through every cell of a pale 8 
       expect(o.grooveRoughness - o.faceRoughness).toBeGreaterThan(0.25);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
       expect(o.minAO).toBeLessThan(160);
+      expect(o.maxAO).toBeGreaterThan(230);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Punched paper tape encoding PAPER TAPE in ASCII with sprocket holes over dark backing', () => {
+  const p = proceduralMaterialPresets.papertape;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const text = 'PAPER TAPE',
+    rows = 10,
+    // Track 4 is the sprocket row; tracks 1-3 carry bits 0-2 and tracks 5-9 carry bits 3-7.
+    trackOfBit = (bit: number): number => (bit < 3 ? bit + 1 : bit + 2);
+  const observe = (seed: number) => {
+    const size = 1000,
+      pitch = size / rows,
+      sample = createSurfaceSampler('papertape', seed),
+      out = empty(),
+      hole = new Uint8Array(size * size),
+      colors = new Float64Array(size * size);
+    let holeColor = 0,
+      paperColor = 0,
+      holeRoughness = 0,
+      paperRoughness = 0,
+      holeOcclusion = 0,
+      paperOcclusion = 0,
+      holePixels = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        colors[i] = out.color;
+        hole[i] = out.height / p.relief < 0.4 ? 1 : 0;
+        dielectric += Number(out.metallic !== 0);
+        if (hole[i]) {
+          holePixels++;
+          holeColor += out.color;
+          holeRoughness += out.roughness;
+          holeOcclusion += out.occlusion;
+        } else {
+          paperColor += out.color;
+          paperRoughness += out.roughness;
+          paperOcclusion += out.occlusion;
+        }
+      }
+    // Read the tape the way a reader would: one sample at each of the nine track centers of every row.
+    let decoded = '',
+      oddRows = 0,
+      sprockets = 0,
+      dataHoles = 0;
+    for (let row = 0; row < rows; row++) {
+      let code = 0,
+        ones = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        sample((row + 0.5) / rows, trackOfBit(bit) / rows, out);
+        const punched = out.height / p.relief < 0.4 ? 1 : 0;
+        code |= punched << bit;
+        ones += punched;
+      }
+      sample((row + 0.5) / rows, 4 / rows, out);
+      sprockets += Number(out.height / p.relief < 0.4);
+      dataHoles += ones;
+      oddRows += ones % 2;
+      decoded += String.fromCharCode(code & 0x7f);
+    }
+    const labels = new Int32Array(size * size),
+      queue = new Int32Array(size * size),
+      holes: { area: number; cx: number; cy: number }[] = [];
+    for (let start = 0; start < size * size; start++) {
+      if (!hole[start] || labels[start]) continue;
+      let head = 0,
+        tail = 0,
+        sumX = 0,
+        sumY = 0;
+      const id = holes.length + 1;
+      queue[tail++] = start;
+      labels[start] = id;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % size,
+          y = (i - x) / size;
+        sumX += x + 0.5;
+        sumY += y + 0.5;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (hole[j] && !labels[j]) {
+            labels[j] = id;
+            queue[tail++] = j;
+          }
+        }
+      }
+      holes.push({
+        area: tail / (pitch * pitch),
+        cx: sumX / tail / pitch,
+        cy: sumY / tail / pitch,
+      });
+    }
+    let misplaced = 0,
+      sprocketAreas = 0,
+      sprocketCount = 0,
+      dataAreas = 0,
+      dataCount = 0;
+    for (const h of holes) {
+      const track = Math.round(h.cy),
+        row = Math.floor(h.cx),
+        off = Math.hypot(h.cx - row - 0.5, h.cy - track);
+      if (off > 0.02 || track < 1 || track > 9) misplaced++;
+      if (track === 4) {
+        sprocketAreas += h.area;
+        sprocketCount++;
+      } else {
+        dataAreas += h.area;
+        dataCount++;
+      }
+    }
+    // Tape edge seam: compare the first pixel row with a paper row inside the tape, away from every hole.
+    let edge = 0,
+      inside = 0;
+    for (let x = 0; x < size; x++) {
+      edge += colors[x];
+      inside += colors[Math.round(0.05 * size) * size + x];
+    }
+    return {
+      size,
+      hole,
+      colors,
+      decoded,
+      oddRows,
+      sprockets,
+      dataHoles,
+      holeParts: holes.length,
+      misplaced,
+      sprocketCount,
+      dataCount,
+      sprocketArea: sprocketAreas / Math.max(1, sprocketCount),
+      dataArea: dataAreas / Math.max(1, dataCount),
+      sprocketRow: holes.filter((h) => Math.round(h.cy) === 4).map((h) => h.cy),
+      holeFraction: holePixels / (size * size),
+      holeColor: holeColor / holePixels,
+      paperColor: paperColor / (size * size - holePixels),
+      holeRoughness: holeRoughness / holePixels,
+      paperRoughness: paperRoughness / (size * size - holePixels),
+      holeOcclusion: holeOcclusion / holePixels,
+      paperOcclusion: paperOcclusion / (size * size - holePixels),
+      seamDrop: (inside - edge) / size,
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('papertape', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= 10; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / 10, j / 256);
+        check(j / 256, k / 10);
+        check((k + 0.5) / 10, j / 256);
+        check(j / 256, (k + 0.5) / 10);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let holes = 0,
+      holeRoughness = 0,
+      paperRoughness = 0,
+      papers = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.85) {
+        holes++;
+        holeRoughness += roughness;
+      } else {
+        papers++;
+        paperRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      holeFraction: holes / count,
+      holeRoughness: holeRoughness / holes,
+      paperRoughness: paperRoughness / papers,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  const dataArea = Math.PI * (p.dataRadius - p.shoulder / 2) ** 2,
+    sprocketArea = Math.PI * (p.sprocketRadius - p.shoulder / 2) ** 2;
+  it.each([0, 7, 0xffffffff])(
+    'reads PAPER TAPE in 8-bit ASCII with even parity and one sprocket hole per row at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.decoded).toBe(text);
+      expect(o.oddRows).toBe(0);
+      expect(o.sprockets).toBe(10);
+      expect(o.dataHoles).toBeGreaterThan(20);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'punches round holes on a 0.1 inch grid with a smaller sprocket row nearer the narrow edge at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.holeParts).toBe(10 + o.dataHoles);
+      expect(o.misplaced).toBe(0);
+      expect(o.sprocketCount).toBe(10);
+      expect(o.dataCount).toBe(o.dataHoles);
+      expect(Math.abs(o.dataArea / dataArea - 1)).toBeLessThan(0.03);
+      expect(Math.abs(o.sprocketArea / sprocketArea - 1)).toBeLessThan(0.03);
+      for (const y of o.sprocketRow) expect(Math.abs(y - 4)).toBeLessThan(0.02);
+      expect(o.dataArea / o.sprocketArea).toBeGreaterThan(1.8);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps pale rougher paper over dark backing in the holes with a darker tape edge at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.paperColor - o.holeColor).toBeGreaterThan(0.5);
+      expect(o.holeRoughness - o.paperRoughness).toBeGreaterThan(0.1);
+      expect(o.paperOcclusion - o.holeOcclusion).toBeGreaterThan(0.5);
+      expect(o.seamDrop).toBeGreaterThan(0.05);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'moves only the paper fibres with the seed and never the punched code at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        base = observed(0);
+      let flips = 0,
+        largest = 0;
+      for (let i = 0; i < o.hole.length; i++) {
+        flips += Number(o.hole[i] !== base.hole[i]);
+        largest = Math.max(largest, Math.abs(o.colors[i] - base.colors[i]));
+      }
+      expect(flips).toBe(0);
+      expect(o.decoded).toBe(base.decoded);
+      if (seed !== 0) expect(largest).toBeGreaterThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps seams, hole rims, tape edges and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes dark punched holes in pale tape with resolved rim normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('papertape', size, 7, { heightMap: true }),
+      );
+      expect(o.holeFraction).toBeGreaterThan(0.05);
+      expect(o.holeFraction).toBeLessThan(0.4);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.holeRoughness - o.paperRoughness).toBeGreaterThan(0.1);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(120);
       expect(o.maxAO).toBeGreaterThan(230);
       expect(o.invalidAlpha).toBe(0);
       if (size === 512) {

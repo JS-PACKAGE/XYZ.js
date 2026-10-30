@@ -3262,6 +3262,16 @@ export declare const proceduralMaterialPresets: Readonly<{
         halfWidth: 0.17;
         shoulder: 0.04;
     }>;
+    papertape: Readonly<{
+        dark: readonly [58, 48, 38];
+        light: readonly [236, 224, 196];
+        roughness: 0.75;
+        relief: 0.008;
+        dataRadius: 0.36;
+        sprocketRadius: 0.23;
+        shoulder: 0.05;
+        edge: 0.012;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11029,6 +11039,7 @@ export declare const proceduralTileMeters: Readonly<{
     chladnifigure: 0.6;
     sierpinskicarpet: 0.81;
     moorecurve: 0.64;
+    papertape: 0.0254;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

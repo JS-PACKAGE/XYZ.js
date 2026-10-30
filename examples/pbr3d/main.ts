@@ -529,6 +529,7 @@ try {
     'chladnifigure',
     'sierpinskicarpet',
     'moorecurve',
+    'papertape',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

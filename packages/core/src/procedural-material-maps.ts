@@ -25975,6 +25975,51 @@ export function createSurfaceSampler(
           occlusion = 0.96 - 0.5 * groove;
         };
       }
+      case 'papertape': {
+        const p = proceduralMaterialPresets.papertape,
+          // One inch of eight-level punched tape: ten 0.1 inch character rows of "PAPER TAPE" in ASCII with even
+          // parity in bit 7, holes where bits are 1. Tracks 1-3 (bits 0-2) sit on the narrow side of the sprocket row.
+          text = 'PAPER TAPE',
+          bytes = new Uint8Array(10),
+          grainField = cachedNoise(128, 128, seed ^ 0x7a3e),
+          inverseShoulder = 1 / p.shoulder;
+        for (let i = 0; i < 10; i++) {
+          const code = text.charCodeAt(i);
+          let parity = code;
+          parity ^= parity >> 4;
+          parity ^= parity >> 2;
+          parity ^= parity >> 1;
+          bytes[i] = code | ((parity & 1) << 7);
+        }
+        return () => {
+          const row = Math.min(9, Math.floor(u * 10)),
+            x = u * 10 - row - 0.5,
+            t = v * 10,
+            track = Math.min(9, Math.max(1, Math.round(t))),
+            y = t - track,
+            radius =
+              track === 4
+                ? p.sprocketRadius
+                : (bytes[row] >> (track < 4 ? track - 1 : track - 2)) & 1
+                  ? p.dataRadius
+                  : 0;
+          let hole = 0;
+          if (radius > 0) {
+            const d2 = x * x + y * y,
+              reach = radius + p.shoulder;
+            if (d2 < reach * reach)
+              hole = smooth(clamp((radius - Math.sqrt(d2)) * inverseShoulder));
+          }
+          const grain = grainField(u, v),
+            edge = smooth(clamp(1 - Math.min(v, 1 - v) / p.edge));
+          mortar = 0;
+          color =
+            (0.72 + 0.14 * grain - 0.25 * edge) * (1 - hole) + 0.08 * hole;
+          height = 0.7 * (1 - hole) + 0.1 * hole - 0.15 * edge * (1 - hole);
+          roughness = p.roughness + (0.92 - p.roughness) * hole;
+          occlusion = 0.97 - 0.2 * edge - 0.67 * hole;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -38543,6 +38588,7 @@ export function createSurfaceSampler(
     kind === 'kyaniteblades' ||
     kind === 'wulfenite' ||
     kind === 'staurolite' ||
+    kind === 'papertape' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
