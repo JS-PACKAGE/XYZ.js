@@ -485,6 +485,7 @@ const kinds: ProceduralMaterialKind[] = [
   'fishscaleshingles',
   'starfish',
   'snubsquaretiles',
+  'rhombitrihexagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -94847,6 +94848,555 @@ describe('Snub square tiling with alternately rotated squares and equilateral tr
       expect(o.metallicPixels).toBe(0);
       expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.4);
       expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(150);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.02);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Rhombitrihexagonal 3.4.6.4 tiling with hexagons, turned squares and triangles in beveled glazed tiles over rough grout', () => {
+  const p = proceduralMaterialPresets.rhombitrihexagonaltiles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed pin contours and crown instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const pitch = 1 + Math.sqrt(3),
+    nodeRows = 2 * p.rows,
+    cellArea = (pitch * pitch * Math.sqrt(3)) / 2;
+  type Tile = {
+    id: number;
+    area: number;
+    cx: number;
+    cy: number;
+    corners: number;
+    angle: number;
+    cls: number;
+    neighbors: number[];
+    color: number;
+  };
+  const observe = (seed: number) => {
+    const size = 768,
+      edge = Math.sqrt(
+        (size / (p.columns * pitch)) * (size / (p.rows * pitch * Math.sqrt(3))),
+      ),
+      sample = createSurfaceSampler('rhombitrihexagonaltiles', seed),
+      out = empty(),
+      mask = new Uint8Array(size * size),
+      color = new Float64Array(size * size),
+      roughness = new Float64Array(size * size),
+      occlusion = new Float64Array(size * size),
+      label = new Int32Array(size * size);
+    let dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        const i = y * size + x;
+        mask[i] = out.height / p.relief > 0.41 ? 1 : 0;
+        color[i] = out.color;
+        roughness[i] = out.roughness;
+        occlusion[i] = out.occlusion;
+        dielectric += Number(out.metallic !== 0);
+      }
+    const wrap = (value: number) => ((value % size) + size) % size,
+      near = (value: number) => wrap(value + size / 2) - size / 2;
+    const queue = new Int32Array(size * size),
+      refX: number[] = [0],
+      refY: number[] = [0];
+    let count = 0;
+    for (let start = 0; start < size * size; start++) {
+      if (!mask[start] || label[start]) continue;
+      count++;
+      refX.push(start % size);
+      refY.push(Math.floor(start / size));
+      let head = 0,
+        tail = 0;
+      queue[tail++] = start;
+      label[start] = count;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % size,
+          y = (i - x) / size;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = wrap(y + dy) * size + wrap(x + dx);
+          if (mask[j] && !label[j]) {
+            label[j] = count;
+            queue[tail++] = j;
+          }
+        }
+      }
+    }
+    const area = new Float64Array(count + 1),
+      sx = new Float64Array(count + 1),
+      sy = new Float64Array(count + 1),
+      sc = new Float64Array(count + 1);
+    let groutCount = 0,
+      groutRoughness = 0,
+      tileRoughness = 0,
+      tileCount = 0,
+      groutOcclusion = 0,
+      tileOcclusion = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x,
+          id = label[i];
+        if (id) {
+          area[id]++;
+          sx[id] += near(x - refX[id]);
+          sy[id] += near(y - refY[id]);
+          sc[id] += color[i];
+          tileRoughness += roughness[i];
+          tileOcclusion += occlusion[i];
+          tileCount++;
+        } else {
+          groutCount++;
+          groutRoughness += roughness[i];
+          groutOcclusion += occlusion[i];
+        }
+      }
+    const rays = 720,
+      window = 40,
+      tiles: Tile[] = [];
+    for (let id = 1; id <= count; id++) {
+      const cx = wrap(refX[id] + sx[id] / area[id]),
+        cy = wrap(refY[id] + sy[id] / area[id]),
+        radii = new Float64Array(rays),
+        at = (angle: number, r: number) =>
+          label[
+            wrap(Math.floor(cy + r * Math.sin(angle))) * size +
+              wrap(Math.floor(cx + r * Math.cos(angle)))
+          ];
+      for (let k = 0; k < rays; k++) {
+        const angle = (k * 2 * Math.PI) / rays;
+        let last = 0;
+        for (let r = 0; r < 1.1 * edge; r += 0.25)
+          if (at(angle, r) === id) last = r;
+        radii[k] = last;
+      }
+      const maxRadius = Math.max(...radii),
+        peaks: number[] = [];
+      for (let k = 0; k < rays; k++) {
+        let peak = radii[k] > 0.8 * maxRadius;
+        for (let j = -window; j <= window && peak; j++)
+          if (radii[(k + j + rays) % rays] > radii[k]) peak = false;
+        if (peak) {
+          const last = peaks[peaks.length - 1];
+          if (last !== undefined && k - last < 20) continue;
+          peaks.push(k);
+        }
+      }
+      if (peaks.length > 1 && peaks[0] + rays - peaks[peaks.length - 1] < 20)
+        peaks.pop();
+      const degrees = peaks.length ? (peaks[0] * 360) / rays : 0,
+        period = peaks.length === 4 ? 90 : peaks.length === 3 ? 120 : 60,
+        angle = degrees % period;
+      tiles.push({
+        id,
+        area: area[id] / (edge * edge),
+        cx,
+        cy,
+        corners: peaks.length,
+        angle,
+        cls:
+          peaks.length === 4
+            ? Math.max(0, Math.min(2, Math.round((angle - 15) / 30)))
+            : peaks.length === 3
+              ? Number(angle > 60)
+              : 0,
+        neighbors: [],
+        color: sc[id] / area[id],
+      });
+      const tile = tiles[tiles.length - 1];
+      for (let i = 0; i < peaks.length; i++) {
+        const from = peaks[i],
+          to = peaks[(i + 1) % peaks.length],
+          mid = (from + ((to - from + rays) % rays) / 2) % rays,
+          direction = (mid * 2 * Math.PI) / rays;
+        let found = 0;
+        for (let r = 0; r < 1.6 * edge && !found; r += 0.25) {
+          const hit = at(direction, r);
+          if (hit && hit !== id) found = hit;
+        }
+        tile.neighbors.push(found);
+      }
+    }
+    return {
+      size,
+      edge,
+      tiles,
+      groutFraction: groutCount / (size * size),
+      groutRoughness: groutRoughness / groutCount,
+      tileRoughness: tileRoughness / tileCount,
+      groutOcclusion: groutOcclusion / groutCount,
+      tileOcclusion: tileOcclusion / tileCount,
+      dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('rhombitrihexagonaltiles', seed),
+      a = empty(),
+      b = empty(),
+      c = empty();
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      const h = 1e-10;
+      for (let axis = 0; axis < 2; axis++) {
+        const du = axis ? 0 : h,
+          dv = axis ? h : 0;
+        sample(u - du, v - dv, a);
+        sample(u, v, b);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              h /
+              (key === 'height' ? p.relief : 1),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.columns; k++)
+      for (let j = 0; j <= 256; j++) check(k / p.columns, j / 256);
+    for (let k = 0; k <= nodeRows; k++)
+      for (let j = 0; j <= 256; j++) check(j / 256, k / nodeRows);
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { seed, worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      groutRoughness = 0,
+      tileRoughness = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        groutRoughness += roughness;
+      } else {
+        tiles++;
+        tileRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      groutFraction: grout / count,
+      groutRoughness: groutRoughness / grout,
+      tileRoughness: tileRoughness / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let found = observations.get(seed);
+    if (!found) {
+      found = observe(seed);
+      observations.set(seed, found);
+    }
+    return found;
+  };
+  const inset = p.grout + 0.5 * p.shoulder,
+    hexagonArea = 2 * Math.sqrt(3) * (Math.sqrt(3) / 2 - inset) ** 2,
+    squareArea = (1 - 2 * inset) ** 2,
+    triangleArea = 3 * Math.sqrt(3) * (Math.sqrt(3) / 6 - inset) ** 2;
+  it.each([0, 7, 0xffffffff])(
+    'tiles the plane with unit-edge hexagons, squares and triangles in a 1:3:2 count at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        hexagons = o.tiles.filter((t) => t.corners === 6),
+        squares = o.tiles.filter((t) => t.corners === 4),
+        triangles = o.tiles.filter((t) => t.corners === 3),
+        nodes = p.columns * nodeRows;
+      expect(o.tiles.length).toBe(
+        hexagons.length + squares.length + triangles.length,
+      );
+      expect(hexagons.length).toBe(nodes);
+      expect(squares.length).toBe(3 * nodes);
+      expect(triangles.length).toBe(2 * nodes);
+      for (const t of hexagons)
+        expect(Math.abs(t.area / hexagonArea - 1)).toBeLessThan(0.05);
+      for (const t of squares)
+        expect(Math.abs(t.area / squareArea - 1)).toBeLessThan(0.05);
+      for (const t of triangles)
+        expect(Math.abs(t.area / triangleArea - 1)).toBeLessThan(0.05);
+      const expectedGrout =
+        1 - (hexagonArea + 3 * squareArea + 2 * triangleArea) / cellArea;
+      expect(Math.abs(o.groutFraction - expectedGrout)).toBeLessThan(0.012);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'turns squares 60 degrees apart, alternates triangle directions and keeps hexagons on a triangular lattice at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        hexagons = o.tiles.filter((t) => t.corners === 6),
+        squares = o.tiles.filter((t) => t.corners === 4),
+        triangles = o.tiles.filter((t) => t.corners === 3),
+        nodes = p.columns * nodeRows,
+        near = (d: number) =>
+          ((((d + o.size / 2) % o.size) + o.size) % o.size) - o.size / 2;
+      for (let cls = 0; cls < 3; cls++)
+        expect(squares.filter((t) => t.cls === cls).length).toBe(nodes);
+      for (const t of squares)
+        expect(Math.abs(t.angle - (15 + 30 * t.cls))).toBeLessThan(5);
+      for (let cls = 0; cls < 2; cls++)
+        expect(triangles.filter((t) => t.cls === cls).length).toBe(nodes);
+      for (const t of triangles)
+        expect(Math.abs(t.angle - (t.cls ? 90 : 30))).toBeLessThan(5);
+      for (const t of hexagons) {
+        expect(Math.abs(t.angle - 30)).toBeLessThan(5);
+        const around = hexagons
+          .filter((s) => s !== t)
+          .map((s) => Math.hypot(near(s.cx - t.cx), near(s.cy - t.cy)) / o.edge)
+          .sort((a, b) => a - b)
+          .slice(0, 6);
+        for (const d of around)
+          expect(Math.abs(d / pitch - 1)).toBeLessThan(0.03);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps vertex type 3.4.6.4 so hexagons touch six squares, squares alternate hexagon and triangle sides and triangles touch three squares at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        byId = new Map(o.tiles.map((t) => [t.id, t] as const)),
+        label = (id: number) => {
+          const t = byId.get(id);
+          return t
+            ? t.corners === 6
+              ? 'H'
+              : t.corners === 4
+                ? 'S'
+                : 'T'
+            : '-';
+        };
+      for (const t of o.tiles) {
+        const around = t.neighbors.map(label);
+        if (t.corners === 6) expect(around.join('')).toBe('SSSSSS');
+        else if (t.corners === 3) expect(around.join('')).toBe('SSS');
+        else {
+          expect(around.length).toBe(4);
+          expect(
+            around[0] === around[2] &&
+              around[1] === around[3] &&
+              around[0] !== around[1],
+          ).toBe(true);
+          expect([around[0], around[1]].sort().join('')).toBe('HT');
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates cream hexagons from slate squares and navy triangles over rougher grout and moves only tone with the seed at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        hexagons = o.tiles.filter((t) => t.corners === 6),
+        squares = o.tiles.filter((t) => t.corners === 4),
+        triangles = o.tiles.filter((t) => t.corners === 3),
+        mean = (list: typeof squares) =>
+          list.reduce((sum, t) => sum + t.color, 0) / list.length;
+      expect(mean(hexagons) - mean(squares)).toBeGreaterThan(0.4);
+      expect(mean(squares) - mean(triangles)).toBeGreaterThan(0.1);
+      expect(Math.min(...hexagons.map((t) => t.color))).toBeGreaterThan(0.7);
+      expect(Math.max(...triangles.map((t) => t.color))).toBeLessThan(0.3);
+      expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.4);
+      expect(o.tileOcclusion - o.groutOcclusion).toBeGreaterThan(0.3);
+      expect(o.dielectric).toBe(0);
+      if (seed !== 0) {
+        const base = observed(0),
+          near = (d: number) =>
+            ((((d + o.size / 2) % o.size) + o.size) % o.size) - o.size / 2;
+        for (let i = 0; i < o.tiles.length; i++)
+          expect(
+            Math.hypot(
+              near(o.tiles[i].cx - base.tiles[i].cx),
+              near(o.tiles[i].cy - base.tiles[i].cy),
+            ),
+          ).toBeLessThan(0.5);
+        expect(
+          Math.max(
+            ...o.tiles.map((t, i) => Math.abs(t.color - base.tiles[i].color)),
+          ),
+        ).toBeGreaterThan(0.01);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps tile edges vertices and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes bevelled glazed tiles over rough grout with resolved edge normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('rhombitrihexagonaltiles', size, 7, {
+          heightMap: true,
+        }),
+      );
+      expect(o.groutFraction).toBeGreaterThan(0.04);
+      expect(o.groutFraction).toBeLessThan(0.35);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.4);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(120);
       expect(o.minAO).toBeLessThan(150);
       expect(o.maxAO).toBeGreaterThan(240);
       expect(o.invalidAlpha).toBe(0);

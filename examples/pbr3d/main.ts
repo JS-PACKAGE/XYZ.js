@@ -522,6 +522,7 @@ try {
     'fishscaleshingles',
     'starfish',
     'snubsquaretiles',
+    'rhombitrihexagonaltiles',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

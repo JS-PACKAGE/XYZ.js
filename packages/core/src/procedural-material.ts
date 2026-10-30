@@ -459,6 +459,7 @@ export type ProceduralMaterialKind =
   | 'fishscaleshingles'
   | 'starfish'
   | 'snubsquaretiles'
+  | 'rhombitrihexagonaltiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1536,6 +1537,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fishscaleshingles',
   'starfish',
   'snubsquaretiles',
+  'rhombitrihexagonaltiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
