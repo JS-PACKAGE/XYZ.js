@@ -15600,6 +15600,86 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'castellatedboards': {
+        const p = proceduralMaterialPresets.castellatedboards,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x1e001),
+          inverseBody = 1 / p.bodyBevel,
+          inversePitch = 1 / p.pitch,
+          halfBank = (p.contactsPerSide - 1) / 2,
+          bankEnd = halfBank * p.pitch + p.landRadius,
+          holeSquared = p.holeRadius * p.holeRadius,
+          holeCore = p.holeRadius - p.holeBevel,
+          inverseHole = 1 / (holeSquared - holeCore * holeCore),
+          landSquared = p.landRadius * p.landRadius,
+          landCore = p.landRadius - p.landBevel,
+          inverseLand = 1 / (landSquared - landCore * landCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1e003);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1e005) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1e007) - 1);
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i + 2],
+            dy = vc - row - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfSize || ay >= p.halfSize) return;
+          let body =
+              smooth(clamp((p.halfSize - ax) * inverseBody)) *
+              smooth(clamp((p.halfSize - ay) * inverseBody)),
+            metal = 0;
+          // Corner and row-tie clearances keep the finite half-hole support on one edge.
+          const sideX = ax > ay,
+            normal = sideX ? ax : ay,
+            along = sideX ? y : x;
+          if (normal > p.halfSize - p.landRadius && Math.abs(along) < bankEnd) {
+            const owner = Math.round(along * inversePitch + halfBank);
+            if (owner >= 0 && owner < p.contactsPerSide) {
+              const across = along - (owner - halfBank) * p.pitch,
+                inward = normal - p.halfSize,
+                q = inward * inward + across * across,
+                hole = smooth(clamp((holeSquared - q) * inverseHole)),
+                land = smooth(clamp((landSquared - q) * inverseLand));
+              body *= 1 - hole;
+              metal = body * land;
+            }
+          }
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (p.bodyTone + p.bodyGrainTone * grain - color);
+          height += body * (p.bodyHeight + p.grainHeight * grain - height);
+          roughness +=
+            body * (p.bodyRoughness + p.bodyGrainRoughness * grain - roughness);
+          occlusion += body * (p.bodyAO - occlusion);
+          color += metal * (p.metalTone + p.metalGrainTone * grain - color);
+          height += metal * (p.landHeight + p.grainHeight * grain - height);
+          roughness +=
+            metal * (p.roughness + p.metalGrainRoughness * grain - roughness);
+          occlusion +=
+            metal * (p.metalAO - occlusion) - p.contactAO * metal * (1 - metal);
+          metallic = metal;
+          return;
+        };
+      }
       case 'qfnlandpads': {
         const p = proceduralMaterialPresets.qfnlandpads,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41038,6 +41118,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'castellatedboards' ||
     kind === 'qfnlandpads' ||
     kind === 'bgasolderballs' ||
     kind === 'ballbearingfaces' ||

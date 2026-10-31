@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'castellatedboards',
   'qfnlandpads',
   'bgasolderballs',
   'ballbearingfaces',
@@ -76967,6 +76968,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'castellatedboards' &&
           kind !== 'qfnlandpads' &&
           kind !== 'bgasolderballs' &&
           kind !== 'ballbearingfaces' &&
@@ -86432,6 +86434,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'castellatedboards',
     'qfnlandpads',
     'bgasolderballs',
     'ballbearingfaces',
@@ -86548,6 +86551,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'castellatedboards' ||
           kind === 'qfnlandpads' ||
           kind === 'bgasolderballs' ||
           kind === 'ballbearingfaces' ||
@@ -115862,6 +115866,878 @@ describe('QFN undersides with four finite flat-land banks and one separate expos
       expect(fraction).toBeGreaterThan(0.03);
       expect(fraction).toBeLessThan(0.3);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('PCB castellations with edge-open half holes and separate face lands', () => {
+  const p = proceduralMaterialPresets.castellatedboards;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+
+  const measure = (seed: number) => {
+    const sample = createSurfaceSampler('castellatedboards', seed),
+      size = Math.max(768, 384 * p.cells),
+      n = size * size,
+      surface = empty(),
+      heights = new Float32Array(n),
+      raised = new Uint8Array(n),
+      metalMask = new Uint8Array(n),
+      background = new Uint8Array(n),
+      labels = new Int32Array(n),
+      queue = new Int32Array(n);
+    let invalid = 0,
+      minimum = Infinity,
+      maximum = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, surface);
+        for (const key of keys)
+          invalid += Number(!Number.isFinite(surface[key]));
+        const at = y * size + x,
+          height = surface.height / p.relief;
+        heights[at] = height;
+        minimum = Math.min(minimum, height);
+        maximum = Math.max(maximum, height);
+        metalMask[at] = Number(surface.metallic > 0.5);
+      }
+    const level = minimum + 0.1 * (maximum - minimum);
+    for (let at = 0; at < n; at++) {
+      raised[at] = Number(heights[at] > level);
+      background[at] = 1 - raised[at];
+    }
+    const footprints = regions(raised, size, queue, labels, 1),
+      metals = regions(metalMask, size, queue, labels, -1),
+      backgroundRegions = regions(background, size, queue, labels, 1),
+      assigned = footprints.map(() => [] as number[]);
+    for (let id = 0; id < metals.length; id++) {
+      const region = metals[id];
+      let closest = -1,
+        distance = Infinity;
+      for (let j = 0; j < footprints.length; j++) {
+        const d =
+          (region.cx - footprints[j].cx) ** 2 +
+          (region.cy - footprints[j].cy) ** 2;
+        if (d < distance) {
+          distance = d;
+          closest = j;
+        }
+      }
+      if (closest >= 0) assigned[closest].push(id);
+    }
+    const pca = (r: { xx: number; yy: number; xy: number }) => {
+      const angle = 0.5 * Math.atan2(2 * r.xy, r.xx - r.yy);
+      return { c: Math.cos(angle), s: Math.sin(angle) };
+    };
+    const h = (x: number, y: number) => {
+      sample(x, y, surface);
+      return surface.height / p.relief;
+    };
+    const firstBoundary = (
+      x: number,
+      y: number,
+      dx: number,
+      dy: number,
+      extent: number,
+      leaving: boolean,
+    ) => {
+      const start = h(x, y);
+      if (start > level !== leaving) return NaN;
+      let low = 0,
+        high = NaN;
+      for (let step = 1; step <= 128; step++) {
+        const distance = (extent * step) / 128;
+        if (h(x + dx * distance, y + dy * distance) > level !== leaving) {
+          high = distance;
+          break;
+        }
+        low = distance;
+      }
+      if (!Number.isFinite(high)) return NaN;
+      for (let step = 0; step < 28; step++) {
+        const middle = (low + high) / 2;
+        if (h(x + dx * middle, y + dy * middle) > level === leaving)
+          low = middle;
+        else high = middle;
+      }
+      return (low + high) / 2;
+    };
+    const parts = footprints.map((footprint, wi) => {
+      const ids = assigned[wi],
+        result = {
+          contacts: ids.length,
+          bankCounts: [] as number[],
+          ungrouped: ids.length,
+          axisStrength: 0,
+          pitchCV: 0,
+          lineResidual: 0,
+          bankAreaCV: 0,
+          bankRadiusCV: 0,
+          bankAngleCV: 0,
+          bankCentering: 0,
+          edgeSpread: 0,
+          contourMisses: 0,
+          circleError: 0,
+          centerEdgeOffset: 0,
+          minRadiusPitch: Infinity,
+          maxRadiusPitch: 0,
+          minNotchDepthPitch: Infinity,
+          maxNotchDepthPitch: 0,
+          throatMetal: 0,
+          throatHeight: 0,
+          minRayMetal: 1,
+          flatness: 0,
+          coplanarRange: 0,
+          boardMetal: 0,
+          boardLift: 0,
+          color: Infinity,
+          finish: Infinity,
+          meanCoreMetal: 1,
+        };
+      if (ids.length !== 4 * p.contactsPerSide) return result;
+      const remaining = ids.slice();
+      let nearest = Infinity;
+      for (let i = 0; i < ids.length; i++)
+        for (let j = i + 1; j < ids.length; j++)
+          nearest = Math.min(
+            nearest,
+            Math.hypot(
+              metals[ids[i]].cx - metals[ids[j]].cx,
+              metals[ids[i]].cy - metals[ids[j]].cy,
+            ),
+          );
+      const tolerance = nearest * 0.08,
+        toleranceSquared = tolerance * tolerance,
+        banks = [] as {
+          ids: number[];
+          cx: number;
+          cy: number;
+          c: number;
+          s: number;
+          pitch: number;
+          projected: number[];
+        }[];
+      while (remaining.length >= 3) {
+        let bestA = -1,
+          bestB = -1,
+          bestCount = 2,
+          bestError = Infinity;
+        for (let i = 0; i < remaining.length; i++)
+          for (let j = i + 1; j < remaining.length; j++) {
+            const a = metals[remaining[i]],
+              b = metals[remaining[j]],
+              dx = b.cx - a.cx,
+              dy = b.cy - a.cy,
+              squared = dx * dx + dy * dy;
+            let minCross = Infinity,
+              maxCross = -Infinity;
+            // A true edge bank supports the convex hull; diagonal coincidences cannot become false banks when only three contacts are present.
+            for (const id of ids) {
+              const r = metals[id],
+                cross =
+                  ((r.cx - a.cx) * dy - (r.cy - a.cy) * dx) /
+                  Math.sqrt(squared);
+              minCross = Math.min(minCross, cross);
+              maxCross = Math.max(maxCross, cross);
+            }
+            if (minCross < -tolerance && maxCross > tolerance) continue;
+            let count = 0,
+              error = 0;
+            for (const id of remaining) {
+              const r = metals[id],
+                cross = (r.cx - a.cx) * dy - (r.cy - a.cy) * dx,
+                q = (cross * cross) / squared;
+              if (q <= toleranceSquared) {
+                count++;
+                error += q;
+              }
+            }
+            if (
+              count > bestCount ||
+              (count === bestCount && error < bestError)
+            ) {
+              bestA = remaining[i];
+              bestB = remaining[j];
+              bestCount = count;
+              bestError = error;
+            }
+          }
+        if (bestA < 0) break;
+        const a = metals[bestA],
+          b = metals[bestB],
+          dx = b.cx - a.cx,
+          dy = b.cy - a.cy,
+          squared = dx * dx + dy * dy,
+          members = [] as number[];
+        let write = 0;
+        for (const id of remaining) {
+          const r = metals[id],
+            cross = (r.cx - a.cx) * dy - (r.cy - a.cy) * dx;
+          if (cross * cross <= toleranceSquared * squared) members.push(id);
+          else remaining[write++] = id;
+        }
+        remaining.length = write;
+        let cx = 0,
+          cy = 0;
+        for (const id of members) {
+          cx += metals[id].cx;
+          cy += metals[id].cy;
+        }
+        cx /= members.length;
+        cy /= members.length;
+        let xx = 0,
+          yy = 0,
+          xy = 0;
+        for (const id of members) {
+          const x = metals[id].cx - cx,
+            y = metals[id].cy - cy;
+          xx += x * x;
+          yy += y * y;
+          xy += x * y;
+        }
+        const axis = pca({ xx, yy, xy }),
+          projected = members
+            .map(
+              (id) =>
+                (metals[id].cx - cx) * axis.c + (metals[id].cy - cy) * axis.s,
+            )
+            .sort((a, b) => a - b),
+          gaps = projected.slice(1).map((value, i) => value - projected[i]),
+          pitch = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+        const meanArea =
+          members.reduce((sum, id) => sum + metals[id].area, 0) /
+          members.length;
+        result.pitchCV = Math.max(
+          result.pitchCV,
+          Math.sqrt(
+            gaps.reduce((sum, gap) => sum + (gap - pitch) ** 2, 0) /
+              gaps.length,
+          ) / pitch,
+        );
+        result.bankAreaCV = Math.max(
+          result.bankAreaCV,
+          Math.sqrt(
+            members.reduce(
+              (sum, id) => sum + (metals[id].area - meanArea) ** 2,
+              0,
+            ) / members.length,
+          ) / meanArea,
+        );
+        for (const id of members) {
+          const r = metals[id];
+          result.lineResidual = Math.max(
+            result.lineResidual,
+            Math.abs((r.cx - cx) * axis.s - (r.cy - cy) * axis.c) / pitch,
+          );
+        }
+        banks.push({
+          ids: members,
+          cx,
+          cy,
+          c: axis.c,
+          s: axis.s,
+          pitch,
+          projected,
+        });
+      }
+      result.bankCounts = banks.map((bank) => bank.ids.length);
+      result.ungrouped = remaining.length;
+      let ac = 0,
+        as = 0,
+        meanRadius = 0,
+        radiusSquared = 0,
+        centerX = 0,
+        centerY = 0;
+      const angles = [] as number[];
+      for (const bank of banks) {
+        const angle = Math.atan2(bank.s, bank.c),
+          dx = bank.cx - footprint.cx,
+          dy = bank.cy - footprint.cy,
+          radius = Math.hypot(dx, dy);
+        ac += Math.cos(4 * angle);
+        as += Math.sin(4 * angle);
+        meanRadius += radius;
+        radiusSquared += radius * radius;
+        centerX += bank.cx;
+        centerY += bank.cy;
+        angles.push(Math.atan2(dy, dx));
+      }
+      if (banks.length) {
+        ac /= banks.length;
+        as /= banks.length;
+        meanRadius /= banks.length;
+        centerX /= banks.length;
+        centerY /= banks.length;
+      }
+      result.axisStrength = Math.hypot(ac, as);
+      result.bankRadiusCV = meanRadius
+        ? Math.sqrt(
+            Math.max(0, radiusSquared / banks.length - meanRadius * meanRadius),
+          ) / meanRadius
+        : Infinity;
+      result.bankCentering = meanRadius
+        ? Math.hypot(centerX - footprint.cx, centerY - footprint.cy) /
+          meanRadius
+        : Infinity;
+      angles.sort((a, b) => a - b);
+      const angleStep = (2 * Math.PI) / angles.length;
+      let angleVariance = 0;
+      for (let i = 0; i < angles.length; i++) {
+        let gap = angles[(i + 1) % angles.length] - angles[i];
+        if (gap <= 0) gap += 2 * Math.PI;
+        angleVariance += (gap - angleStep) ** 2;
+      }
+      result.bankAngleCV = angles.length
+        ? Math.sqrt(angleVariance / angles.length) / angleStep
+        : Infinity;
+      const board = empty();
+      sample(footprint.cx, footprint.cy, board);
+      result.boardMetal = board.metallic;
+      result.boardLift =
+        (board.height / p.relief - minimum) / (maximum - minimum);
+      let minPlane = Infinity,
+        maxPlane = -Infinity;
+      for (const bank of banks) {
+        let nx = -bank.s,
+          ny = bank.c;
+        if (nx * (bank.cx - footprint.cx) + ny * (bank.cy - footprint.cy) < 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        const radius =
+            nx * (bank.cx - footprint.cx) + ny * (bank.cy - footprint.cy),
+          edgeDistances = [] as number[];
+        for (let k = 0; k + 1 < bank.projected.length; k++) {
+          const along = (bank.projected[k] + bank.projected[k + 1]) / 2,
+            x = bank.cx + along * bank.c - radius * nx,
+            y = bank.cy + along * bank.s - radius * ny;
+          const distance = firstBoundary(
+            x,
+            y,
+            nx,
+            ny,
+            radius + 2 * bank.pitch,
+            true,
+          );
+          if (Number.isFinite(distance)) edgeDistances.push(distance);
+        }
+        if (edgeDistances.length !== bank.ids.length - 1) {
+          result.contourMisses++;
+          continue;
+        }
+        const edge =
+          edgeDistances.reduce((a, b) => a + b, 0) / edgeDistances.length;
+        result.edgeSpread = Math.max(
+          result.edgeSpread,
+          (Math.max(...edgeDistances) - Math.min(...edgeDistances)) /
+            bank.pitch,
+        );
+        for (const id of bank.ids) {
+          const region = metals[id],
+            ex = region.cx + nx * (edge - radius),
+            ey = region.cy + ny * (edge - radius),
+            depth = firstBoundary(ex, ey, -nx, -ny, bank.pitch, false);
+          if (!Number.isFinite(depth)) {
+            result.contourMisses++;
+            continue;
+          }
+          result.minNotchDepthPitch = Math.min(
+            result.minNotchDepthPitch,
+            depth / bank.pitch,
+          );
+          result.maxNotchDepthPitch = Math.max(
+            result.maxNotchDepthPitch,
+            depth / bank.pitch,
+          );
+          const ox = ex - nx * depth * 0.15,
+            oy = ey - ny * depth * 0.15,
+            points = [] as { x: number; y: number }[];
+          for (const angle of [
+            0,
+            Math.PI / 3,
+            -Math.PI / 3,
+            Math.PI / 6,
+            -Math.PI / 6,
+          ]) {
+            const dx = -nx * Math.cos(angle) + bank.c * Math.sin(angle),
+              dy = -ny * Math.cos(angle) + bank.s * Math.sin(angle),
+              distance = firstBoundary(ox, oy, dx, dy, 3 * depth, false);
+            if (!Number.isFinite(distance)) break;
+            points.push({ x: ox + dx * distance, y: oy + dy * distance });
+          }
+          if (points.length !== 5) {
+            result.contourMisses++;
+            continue;
+          }
+          const a = points[0],
+            ax = points[1].x - a.x,
+            ay = points[1].y - a.y,
+            bx = points[2].x - a.x,
+            by = points[2].y - a.y,
+            determinant = 2 * (ax * by - ay * bx),
+            qa = ax * ax + ay * ay,
+            qb = bx * bx + by * by;
+          if (Math.abs(determinant) < 1e-15) {
+            result.contourMisses++;
+            continue;
+          }
+          const cx = a.x + (qa * by - qb * ay) / determinant,
+            cy = a.y + (ax * qb - bx * qa) / determinant,
+            r = Math.hypot(cx - a.x, cy - a.y);
+          result.centerEdgeOffset = Math.max(
+            result.centerEdgeOffset,
+            Math.abs((cx - ex) * nx + (cy - ey) * ny) / r,
+          );
+          result.minRadiusPitch = Math.min(
+            result.minRadiusPitch,
+            r / bank.pitch,
+          );
+          result.maxRadiusPitch = Math.max(
+            result.maxRadiusPitch,
+            r / bank.pitch,
+          );
+          for (const point of points)
+            result.circleError = Math.max(
+              result.circleError,
+              Math.abs(Math.hypot(point.x - cx, point.y - cy) / r - 1),
+            );
+          sample(cx - nx * r * 0.2, cy - ny * r * 0.2, surface);
+          result.throatMetal = Math.max(result.throatMetal, surface.metallic);
+          result.throatHeight = Math.max(
+            result.throatHeight,
+            (surface.height / p.relief - minimum) / (maximum - minimum),
+          );
+          sample(cx + nx * r * 0.6, cy + ny * r * 0.6, surface);
+          result.throatMetal = Math.max(result.throatMetal, surface.metallic);
+          result.throatHeight = Math.max(
+            result.throatHeight,
+            (surface.height / p.relief - minimum) / (maximum - minimum),
+          );
+          // A crescent's centroid can lie in its empty notch; find actual M1 cores on independently fitted contour rays instead.
+          let lowPlane = Infinity,
+            highPlane = -Infinity,
+            plane = 0,
+            coreCount = 0;
+          for (const angle of [
+            0,
+            Math.PI / 3,
+            -Math.PI / 3,
+            Math.PI / 6,
+            -Math.PI / 6,
+          ]) {
+            const dx = -nx * Math.cos(angle) + bank.c * Math.sin(angle),
+              dy = -ny * Math.cos(angle) + bank.s * Math.sin(angle);
+            let peakMetal = 0;
+            for (let k = 0; k <= 96; k++) {
+              const distance = r * (1 + (1.5 * k) / 96);
+              sample(cx + dx * distance, cy + dy * distance, surface);
+              peakMetal = Math.max(peakMetal, surface.metallic);
+              if (surface.metallic > 0.9999) {
+                const height = surface.height / p.relief;
+                lowPlane = Math.min(lowPlane, height);
+                highPlane = Math.max(highPlane, height);
+                plane += height;
+                coreCount++;
+                result.meanCoreMetal = Math.min(
+                  result.meanCoreMetal,
+                  surface.metallic,
+                );
+                result.color = Math.min(
+                  result.color,
+                  surface.color - board.color,
+                );
+                result.finish = Math.min(
+                  result.finish,
+                  board.roughness - surface.roughness,
+                );
+              }
+            }
+            result.minRayMetal = Math.min(result.minRayMetal, peakMetal);
+          }
+          if (coreCount < 5) {
+            result.contourMisses++;
+            continue;
+          }
+          result.flatness = Math.max(result.flatness, highPlane - lowPlane);
+          plane /= coreCount;
+          minPlane = Math.min(minPlane, plane);
+          maxPlane = Math.max(maxPlane, plane);
+        }
+      }
+      result.coplanarRange = Number.isFinite(minPlane)
+        ? maxPlane - minPlane
+        : Infinity;
+      return result;
+    });
+    return {
+      invalid,
+      boards: footprints.length,
+      metals: metals.length,
+      backgroundRegions: backgroundRegions.length,
+      parts,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = cache.get(seed);
+    if (!result) {
+      result = measure(seed);
+      cache.set(seed, result);
+    }
+    return result;
+  };
+
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('castellatedboards', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'retains separate boards with four complete finite banks and edge-open background (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.boards).toBe(p.cells * p.cells);
+      expect(m.metals).toBe(p.cells * p.cells * 4 * p.contactsPerSide);
+      expect(m.backgroundRegions).toBe(1);
+      expect(m.parts.length).toBe(p.cells * p.cells);
+      for (const part of m.parts) {
+        expect(part.contacts).toBe(4 * p.contactsPerSide);
+        expect(part.bankCounts.length).toBe(4);
+        for (const count of part.bankCounts)
+          expect(count).toBe(p.contactsPerSide);
+        expect(part.ungrouped).toBe(0);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps orthogonal uniformly pitched banks and circular notches centered on finite board edges (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.axisStrength).toBeGreaterThan(0.98);
+        expect(part.pitchCV).toBeLessThan(0.04);
+        expect(part.lineResidual).toBeLessThan(0.03);
+        expect(part.bankAreaCV).toBeLessThan(0.1);
+        expect(part.bankRadiusCV).toBeLessThan(0.04);
+        expect(part.bankAngleCV).toBeLessThan(0.04);
+        expect(part.bankCentering).toBeLessThan(0.04);
+        expect(part.edgeSpread).toBeLessThan(0.04);
+        expect(part.contourMisses).toBe(0);
+        expect(part.circleError).toBeLessThan(0.03);
+        expect(part.centerEdgeOffset).toBeLessThan(0.25);
+        expect(part.minRadiusPitch).toBeGreaterThan(0.1);
+        expect(part.maxRadiusPitch).toBeLessThan(0.49);
+        expect(part.minNotchDepthPitch).toBeGreaterThan(0.08);
+        expect(part.maxNotchDepthPitch).toBeLessThan(0.5);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps open dielectric throats, flat coplanar metallic crescent cores and a contrasting dielectric board (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.contourMisses).toBe(0);
+        expect(part.throatMetal).toBeLessThan(0.001);
+        expect(part.throatHeight).toBeLessThan(0.02);
+        expect(part.minRayMetal).toBeGreaterThan(0.999);
+        expect(part.meanCoreMetal).toBeGreaterThan(0.999);
+        expect(part.flatness).toBeLessThan(0.012);
+        expect(part.coplanarRange).toBeLessThan(0.012);
+        expect(part.boardMetal).toBeLessThan(0.001);
+        expect(part.boardLift).toBeGreaterThan(0.5);
+        expect(part.color).toBeGreaterThan(0.3);
+        expect(part.finish).toBeGreaterThan(0.15);
+      }
+    },
+  );
+  it('moves the actual metallic edge-land footprints across seeds, not just their pigments', () => {
+    const a = createSurfaceSampler('castellatedboards', 0),
+      s = empty(),
+      t = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const b = createSurfaceSampler('castellatedboards', seed);
+      let different = 0;
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.6180339887498949) % 1,
+          v = (i * 0.4142135623730951) % 1;
+        a(u, v, s);
+        b(u, v, t);
+        different += Number(s.metallic > 0.5 !== t.metallic > 0.5);
+      }
+      expect(different / 8192).toBeGreaterThan(0.01);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'retains C1 finite-edge, hole, land and signed-UV joins (seed %s)',
+    (seed) => {
+      const c = continuity(seed);
+      expect(c.worst).toBeLessThan(0.1);
+      expect(c.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'packs mixed phases and opaque unit-facing nonflat normals at size %s',
+    (size) => {
+      const maps = generateProceduralMaps('castellatedboards', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.005);
+      expect(m.metallicPixels / (size * size)).toBeLessThan(0.15);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(80);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);

@@ -6145,6 +6145,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribGap: 0.32;
         ribRadius: 0.095;
     }>;
+    castellatedboards: Readonly<{
+        dark: readonly [8, 32, 26];
+        light: readonly [231, 238, 235];
+        roughness: 0.27;
+        relief: 0.006;
+        cells: 2;
+        jitter: 0.016;
+        halfSize: 0.315;
+        bodyBevel: 0.005;
+        contactsPerSide: 7;
+        pitch: 0.075;
+        holeRadius: 0.02;
+        holeBevel: 0.0025;
+        landRadius: 0.033;
+        landBevel: 0.0025;
+        backingTone: 0.012;
+        bodyTone: 0.17;
+        metalTone: 0.94;
+        backingHeight: 0.025;
+        bodyHeight: 0.52;
+        landHeight: 0.535;
+        grainHeight: 0.0006;
+        bodyGrainTone: 0.018;
+        metalGrainTone: 0.025;
+        backingRoughness: 0.97;
+        bodyRoughness: 0.76;
+        bodyGrainRoughness: 0.02;
+        metalGrainRoughness: 0.018;
+        backingAO: 0.36;
+        bodyAO: 0.94;
+        metalAO: 0.99;
+        contactAO: 0.3;
+    }>;
     qfnlandpads: Readonly<{
         dark: readonly [8, 12, 16];
         light: readonly [234, 237, 241];
@@ -11769,6 +11802,7 @@ export declare const proceduralTileMeters: Readonly<{
     lathplaster: 0.8;
     ceramiccapacitors: 0.12;
     fennelseeds: 0.096;
+    castellatedboards: 0.06;
     qfnlandpads: 0.02;
     bgasolderballs: 0.05;
     ballbearingfaces: 0.16;
