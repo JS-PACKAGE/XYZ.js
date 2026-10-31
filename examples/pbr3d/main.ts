@@ -543,6 +543,7 @@ try {
     'prismaticpentagonaltiles',
     'apollonianmosaic',
     'ichinghexagrams',
+    'pythagorastree',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

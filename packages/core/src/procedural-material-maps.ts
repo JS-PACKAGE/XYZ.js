@@ -27077,6 +27077,83 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.08 * glyph - 1.36 * glyph * (1 - glyph);
         };
       }
+      case 'pythagorastree': {
+        const p = proceduralMaterialPresets.pythagorastree,
+          count = 2 ** (p.depth + 1) - 1,
+          squares = new Float64Array(count * 7),
+          tones = new Float64Array(count * p.cells * p.cells),
+          grainField = cachedNoise(96, 96, seed ^ 0x4121);
+        let next = 0;
+        const grow = (
+          ax: number,
+          ay: number,
+          ex: number,
+          ey: number,
+          level: number,
+        ): void => {
+          const index = next++,
+            at = index * 7,
+            length = Math.sqrt(ex * ex + ey * ey),
+            half = (p.scale * length) / 2 - p.grout,
+            half2 = half * half,
+            core = half - p.shoulder;
+          squares[at] = p.scale * (ax + (ex - ey) / 2);
+          squares[at + 1] = -p.scale * (ay + (ey + ex) / 2);
+          squares[at + 2] = ex / length;
+          squares[at + 3] = -ey / length;
+          squares[at + 4] = half2;
+          squares[at + 5] = 1 / (half2 - core * core);
+          squares[at + 6] = 2 * half2;
+          for (let row = 0; row < p.cells; row++)
+            for (let col = 0; col < p.cells; col++)
+              tones[(row * p.cells + col) * count + index] =
+                0.12 +
+                0.17 * level +
+                0.08 * hash(col, row, seed ^ (0x4123 + 0x40 * index));
+          if (level === p.depth) return;
+          // Erect the child squares on the legs of the isosceles right triangle above this square.
+          const tx = ax - ey,
+            ty = ay + ex,
+            bx = tx + ex,
+            by = ty + ey,
+            px = (tx + bx - ey) / 2,
+            py = (ty + by + ex) / 2;
+          grow(tx, ty, px - tx, py - ty, level + 1);
+          grow(px, py, bx - px, by - py, level + 1);
+        };
+        grow(-0.5, -p.centerY, 1, 0, 0);
+        return () => {
+          const gx = u * p.cells,
+            gy = v * p.cells,
+            col = Math.min(p.cells - 1, Math.floor(gx)),
+            row = Math.min(p.cells - 1, Math.floor(gy)),
+            lx = gx - col - 0.5,
+            ly = gy - row - 0.5,
+            toneStart = (row * p.cells + col) * count;
+          let faces = 0,
+            pigment = 0;
+          for (let index = 0; index < count; index++) {
+            const at = index * 7,
+              dx = lx - squares[at],
+              dy = ly - squares[at + 1];
+            if (dx * dx + dy * dy > squares[at + 6]) continue;
+            const x = dx * squares[at + 2] + dy * squares[at + 3],
+              y = dy * squares[at + 2] - dx * squares[at + 3],
+              face =
+                smooth(clamp((squares[at + 4] - x * x) * squares[at + 5])) *
+                smooth(clamp((squares[at + 4] - y * y) * squares[at + 5]));
+            faces += face;
+            pigment += face * tones[toneStart + index];
+          }
+          const grain = faces > 0 ? grainField(u, v) : 0;
+          mortar = 1 - faces;
+          color = pigment + 0.56 * mortar + 0.015 * grain * faces;
+          height = 0.1 + faces * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * faces;
+          occlusion = 0.5 + 0.48 * faces;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39659,6 +39736,7 @@ export function createSurfaceSampler(
     kind === 'prismaticpentagonaltiles' ||
     kind === 'apollonianmosaic' ||
     kind === 'ichinghexagrams' ||
+    kind === 'pythagorastree' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

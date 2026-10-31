@@ -506,6 +506,7 @@ const kinds: ProceduralMaterialKind[] = [
   'prismaticpentagonaltiles',
   'apollonianmosaic',
   'ichinghexagrams',
+  'pythagorastree',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -106077,6 +106078,615 @@ describe('I Ching hexagrams with all sixty-four bottom-up line figures in author
         expect(o.maxTilt).toBeGreaterThan(0.04);
         expect(o.maxTilt).toBeLessThan(3);
         for (const f of o.signed) expect(f).toBeGreaterThan(0.005);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Pythagoras tree of thirty-one finite branching glazed squares over rough grout', () => {
+  const p = proceduralMaterialPresets.pythagorastree;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  type Square = {
+    cell: number;
+    cx: number;
+    cy: number;
+    side: number;
+    angle: number;
+    fourfold: number;
+    aspect: number;
+    color: number;
+  };
+  const observe = (seed: number) => {
+    const size = 512 * p.cells,
+      scale = p.cells / size,
+      sample = createSurfaceSampler('pythagorastree', seed),
+      out = empty(),
+      mask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size),
+      squares: Square[] = [];
+    const neighbors = [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as const;
+    let tileCount = 0,
+      groutCount = 0,
+      tileRoughness = 0,
+      groutRoughness = 0,
+      tileAO = 0,
+      groutAO = 0,
+      invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        mask[y * size + x] = Number(out.height / p.relief > 0.41);
+        invalid += Number(out.metallic !== 0);
+        if (mask[y * size + x]) {
+          tileCount++;
+          tileRoughness += out.roughness;
+          tileAO += out.occlusion;
+        } else {
+          groutCount++;
+          groutRoughness += out.roughness;
+          groutAO += out.occlusion;
+        }
+      }
+    for (let start = 0; start < mask.length; start++) {
+      if (mask[start] !== 1) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0;
+      queue[0] = start;
+      mask[start] = 2;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        sx += x + 0.5;
+        sy += y + 0.5;
+        for (const [dx, dy] of neighbors) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (mask[next] === 1) {
+            mask[next] = 2;
+            queue[write++] = next;
+          }
+        }
+      }
+      const gx = (sx / write) * scale,
+        gy = (sy / write) * scale,
+        col = Math.floor(gx),
+        row = Math.floor(gy);
+      let real = 0,
+        imag = 0,
+        weight = 0;
+      for (let i = 0; i < write; i++) {
+        const x = ((queue[i] % size) + 0.5) * scale - gx,
+          y = (Math.floor(queue[i] / size) + 0.5) * scale - gy,
+          xx = x * x,
+          yy = y * y;
+        real += xx * xx - 6 * xx * yy + yy * yy;
+        imag += 4 * x * y * (xx - yy);
+        weight += (xx + yy) * (xx + yy);
+      }
+      const angle = Math.atan2(-imag, -real) / 4,
+        axisX = Math.cos(angle),
+        axisY = Math.sin(angle),
+        step = Math.sqrt(write * scale * scale) / 128;
+      let sumRadius = 0,
+        xSpan = 0,
+        ySpan = 0;
+      for (let direction = 0; direction < 4; direction++) {
+        const dx = direction < 2 ? axisX : -axisY,
+          dy = direction < 2 ? axisY : axisX,
+          sign = direction % 2 ? -1 : 1;
+        let lo = 0,
+          hi = 0;
+        for (let i = 1; i <= 256; i++) {
+          sample(
+            (gx + sign * dx * i * step) / p.cells,
+            (gy + sign * dy * i * step) / p.cells,
+            out,
+          );
+          if (out.height / p.relief <= 0.41) {
+            lo = (i - 1) * step;
+            hi = i * step;
+            break;
+          }
+        }
+        if (hi === 0)
+          throw new Error('Observed square ray never leaves its face.');
+        for (let i = 0; i < 28; i++) {
+          const mid = (lo + hi) / 2;
+          sample(
+            (gx + sign * dx * mid) / p.cells,
+            (gy + sign * dy * mid) / p.cells,
+            out,
+          );
+          if (out.height / p.relief > 0.41) lo = mid;
+          else hi = mid;
+        }
+        const radius = (lo + hi) / 2;
+        sumRadius += radius;
+        if (direction < 2) xSpan += radius;
+        else ySpan += radius;
+      }
+      const radius = sumRadius / 4,
+        side =
+          2 *
+          (p.grout +
+            p.shoulder / 2 +
+            Math.sqrt(radius * radius - (p.shoulder * p.shoulder) / 4));
+      sample(gx / p.cells, gy / p.cells, out);
+      squares.push({
+        cell: row * p.cells + col,
+        cx: gx - col - 0.5,
+        cy: gy - row - 0.5,
+        side,
+        angle,
+        fourfold: Math.hypot(real, imag) / weight,
+        aspect: Math.abs(xSpan - ySpan) / ((xSpan + ySpan) / 2),
+        color: out.color,
+      });
+    }
+    return {
+      squares,
+      invalid,
+      roughnessGap: groutRoughness / groutCount - tileRoughness / tileCount,
+      aoGap: tileAO / tileCount - groutAO / groutCount,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let o = observations.get(seed);
+    if (!o) {
+      o = observe(seed);
+      observations.set(seed, o);
+    }
+    return o;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('pythagorastree', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    const directions = [
+      [h, 0],
+      [0, h],
+      [h, h],
+      [h, -h],
+    ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 256; j++) {
+        check(k / p.cells, j / 256);
+        check(j / 256, k / p.cells);
+      }
+    for (const s of observed(seed).squares) {
+      const col = s.cell % p.cells,
+        row = Math.floor(s.cell / p.cells),
+        ax = Math.cos(s.angle),
+        ay = Math.sin(s.angle),
+        half = s.side / 2 - p.grout;
+      for (let axis = 0; axis < 2; axis++)
+        for (const sign of [-1, 1])
+          for (const offset of [-0.5, 0, 0.5])
+            for (const along of [-1, -0.5, 0, 0.5, 1]) {
+              const x = axis
+                  ? along * half
+                  : sign * (half + offset * p.shoulder),
+                y = axis ? sign * (half + offset * p.shoulder) : along * half;
+              check(
+                (col + 0.5 + s.cx + ax * x - ay * y) / p.cells,
+                (row + 0.5 + s.cy + ay * x + ax * y) / p.cells,
+              );
+            }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      check(u, v);
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      groutRoughness = 0,
+      tileRoughness = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        groutRoughness += roughness;
+      } else {
+        tiles++;
+        tileRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      groutFraction: grout / count,
+      groutRoughness: groutRoughness / grout,
+      tileRoughness: tileRoughness / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      invalidAlpha,
+    };
+  };
+  const levels = (list: Square[]) => {
+    const sorted = [...list].sort((a, b) => b.side - a.side);
+    return Array.from({ length: 5 }, (_, d) =>
+      sorted.slice(2 ** d - 1, 2 ** (d + 1) - 1),
+    );
+  };
+  it.each([0, 7, 0xffffffff])(
+    'observes thirty-one true squares in five size families with conserved nominal level area at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.squares.length).toBe(124);
+      expect(o.invalid).toBe(0);
+      for (let cell = 0; cell < 4; cell++) {
+        const groups = levels(o.squares.filter((s) => s.cell === cell)),
+          root = groups[0][0];
+        expect(Math.abs(root.side / p.scale - 1)).toBeLessThan(0.02);
+        expect(
+          Math.hypot(root.cx, root.cy - p.scale * (p.centerY - 0.5)),
+        ).toBeLessThan(0.003);
+        for (let d = 0; d < 5; d++) {
+          expect(groups[d].length).toBe(2 ** d);
+          for (const s of groups[d]) {
+            expect(s.fourfold).toBeGreaterThan(0.25);
+            expect(s.fourfold).toBeLessThan(0.6);
+            expect(s.aspect).toBeLessThan(0.03);
+            expect(
+              Math.abs(
+                Math.atan2(
+                  Math.sin(4 * (s.angle - (d * Math.PI) / 4)),
+                  Math.cos(4 * (s.angle - (d * Math.PI) / 4)),
+                ),
+              ) / 4,
+            ).toBeLessThan((3 * Math.PI) / 180);
+            expect(
+              Math.abs(s.side / (root.side * 2 ** (-d / 2)) - 1),
+            ).toBeLessThan(0.03);
+            const extent =
+              (s.side *
+                (Math.abs(Math.cos(s.angle)) + Math.abs(Math.sin(s.angle)))) /
+              2;
+            expect(Math.abs(s.cx) + extent).toBeLessThan(0.495);
+            expect(Math.abs(s.cy) + extent).toBeLessThan(0.495);
+          }
+          expect(
+            Math.abs(
+              groups[d].reduce((a, s) => a + s.side * s.side, 0) /
+                (root.side * root.side) -
+                1,
+            ),
+          ).toBeLessThan(0.03);
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'recovers every isosceles-right fork from observed parent and child centers instead of a private pose table at seed%s',
+    (seed) => {
+      for (let cell = 0; cell < 4; cell++) {
+        const groups = levels(
+            observed(seed).squares.filter((s) => s.cell === cell),
+          ),
+          used = new Set<Square>([groups[0][0]]);
+        let frontier = [{ square: groups[0][0], ax: 1, ay: 0 }];
+        for (let d = 0; d < 4; d++) {
+          const next: typeof frontier = [];
+          for (const parent of frontier) {
+            const { square: s, ax, ay } = parent,
+              nx = ay,
+              ny = -ax,
+              children: Square[] = [];
+            for (const sign of [-1, 1]) {
+              const x = s.cx + s.side * (nx + sign * 0.5 * ax),
+                y = s.cy + s.side * (ny + sign * 0.5 * ay),
+                child = groups[d + 1]
+                  .filter((c) => !used.has(c))
+                  .sort(
+                    (a, b) =>
+                      Math.hypot(a.cx - x, a.cy - y) -
+                      Math.hypot(b.cx - x, b.cy - y),
+                  )[0];
+              expect(Boolean(child)).toBe(true);
+              expect(Math.hypot(child.cx - x, child.cy - y)).toBeLessThan(
+                0.003,
+              );
+              used.add(child);
+              children.push(child);
+              next.push({
+                square: child,
+                ax: (ax - sign * nx) * Math.SQRT1_2,
+                ay: (ay - sign * ny) * Math.SQRT1_2,
+              });
+            }
+            expect(
+              Math.abs(
+                (children[0].side ** 2 + children[1].side ** 2) /
+                  (s.side * s.side) -
+                  1,
+              ),
+            ).toBeLessThan(0.03);
+          }
+          frontier = next;
+        }
+        expect(used.size).toBe(31);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps all nominal squares disjoint with forty-six restored edge/corner contacts per finite tree at seed%s',
+    (seed) => {
+      for (let cell = 0; cell < 4; cell++) {
+        const squares = observed(seed).squares.filter((s) => s.cell === cell);
+        let contacts = 0;
+        for (let i = 0; i < squares.length; i++)
+          for (let j = i + 1; j < squares.length; j++) {
+            const a = squares[i],
+              b = squares[j],
+              ax = Math.cos(a.angle),
+              ay = Math.sin(a.angle),
+              bx = Math.cos(b.angle),
+              by = Math.sin(b.angle);
+            let gap = -Infinity;
+            for (const [qx, qy] of [
+              [ax, ay],
+              [-ay, ax],
+              [bx, by],
+              [-by, bx],
+            ]) {
+              const ra =
+                  (a.side *
+                    (Math.abs(ax * qx + ay * qy) +
+                      Math.abs(-ay * qx + ax * qy))) /
+                  2,
+                rb =
+                  (b.side *
+                    (Math.abs(bx * qx + by * qy) +
+                      Math.abs(-by * qx + bx * qy))) /
+                  2;
+              gap = Math.max(
+                gap,
+                Math.abs((a.cx - b.cx) * qx + (a.cy - b.cy) * qy) - ra - rb,
+              );
+            }
+            expect(gap).toBeGreaterThan(-0.0025);
+            if (Math.abs(gap) < 0.0025) contacts++;
+          }
+        expect(contacts).toBe(46);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'glazes five progressively lighter square generations above rough grout without seed-dependent branching at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.roughnessGap).toBeGreaterThan(0.4);
+      expect(o.aoGap).toBeGreaterThan(0.3);
+      expect(o.invalid).toBe(0);
+      const means = Array.from({ length: 5 }, (_, d) => {
+        const group = Array.from(
+          { length: 4 },
+          (_, cell) => levels(o.squares.filter((s) => s.cell === cell))[d],
+        ).flat();
+        return group.reduce((a, s) => a + s.color, 0) / group.length;
+      });
+      for (let d = 1; d < 5; d++)
+        expect(means[d] - means[d - 1]).toBeGreaterThan(0.09);
+      if (seed !== 0) {
+        let movement = 0;
+        for (const s of o.squares) {
+          const base = observed(0)
+            .squares.filter((b) => b.cell === s.cell)
+            .sort(
+              (a, b) =>
+                Math.hypot(a.cx - s.cx, a.cy - s.cy) -
+                Math.hypot(b.cx - s.cx, b.cy - s.cy),
+            )[0];
+          expect(Math.hypot(base.cx - s.cx, base.cy - s.cy)).toBeLessThan(
+            0.001,
+          );
+          expect(Math.abs(base.side - s.side)).toBeLessThan(0.001);
+          movement = Math.max(movement, Math.abs(base.color - s.color));
+        }
+        expect(movement).toBeGreaterThan(0.02);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps rotated square shoulders, nominal contacts, motif boundaries and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque dielectric branching-square faces and rough grout with generated normals at size%s',
+    (size) => {
+      const o = observePixels(
+        generateProceduralMaps('pythagorastree', size, 7, { heightMap: true }),
+      );
+      expect(o.groutFraction).toBeGreaterThan(0.6);
+      expect(o.groutFraction).toBeLessThan(0.95);
+      expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(150);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      if (size === 512) {
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.maxTilt).toBeLessThan(3);
+        for (const f of o.signed) expect(f).toBeGreaterThan(0.02);
       } else expect(o.maxTilt).toBeLessThan(0.5);
     },
   );
