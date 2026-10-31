@@ -488,6 +488,7 @@ export type ProceduralMaterialKind =
   | 'pallasite'
   | 'cuttlebone'
   | 'watermelontourmaline'
+  | 'leafstomata'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1594,6 +1595,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pallasite',
   'cuttlebone',
   'watermelontourmaline',
+  'leafstomata',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

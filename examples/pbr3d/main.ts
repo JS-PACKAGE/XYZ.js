@@ -551,6 +551,7 @@ try {
     'pallasite',
     'cuttlebone',
     'watermelontourmaline',
+    'leafstomata',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

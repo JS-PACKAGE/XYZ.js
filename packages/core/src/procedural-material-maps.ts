@@ -27773,6 +27773,89 @@ export function createSurfaceSampler(
           mortar += face * (band - mortar);
         };
       }
+      case 'leafstomata': {
+        const p = proceduralMaterialPresets.leafstomata,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1b611),
+          skinField = cachedNoise(p.skinCells, p.skinCells, seed ^ 0x1b613),
+          inverseOuterX = 1 / (p.outerX * p.outerX),
+          inverseOuterY = 1 / (p.outerY * p.outerY),
+          inversePoreY = 1 / (p.poreY * p.poreY),
+          inverseSeam = 1 / (p.seamWidth * p.seamWidth),
+          inverseShoulder = 1 / p.shoulder,
+          inversePoreShoulder = 1 / p.poreShoulder;
+        // Default rotated support plus jitter is 0.448 cell, inside its owner.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              angle = TAU * hash(col, row, seed ^ 0x1b615),
+              scale =
+                p.scaleMinimum +
+                p.scaleVariation * hash(col, row, seed ^ 0x1b617),
+              pore = p.poreX + p.poreVariation * hash(col, row, seed ^ 0x1b619),
+              inverseScale = 1 / scale;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b61b) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b61d) - 1);
+            poses[i + 2] = Math.cos(angle) * inverseScale;
+            poses[i + 3] = Math.sin(angle) * inverseScale;
+            poses[i + 4] = 1 / (pore * pore);
+            poses[i + 5] =
+              p.guardToneVariation * hash(col, row, seed ^ 0x1b61f);
+          }
+        return () => {
+          const grain = grainField(u, v),
+            skin = skinField(u, v),
+            uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 6,
+            dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            xx = x * x,
+            yy = y * y,
+            outerQ = xx * inverseOuterX + yy * inverseOuterY,
+            outer = smooth(clamp((1 - outerQ) * inverseShoulder));
+          color = p.skinTone + p.skinColor * skin + p.grainColor * grain;
+          height =
+            p.skinHeight + p.skinHeightVariation * skin + p.grainHeight * grain;
+          roughness = p.roughness + p.skinGrainRoughness * grain;
+          occlusion = p.skinOcclusion;
+          if (outer === 0) return;
+          const poreQ = xx * poses[i + 4] + yy * inversePoreY,
+            pore = smooth(clamp((1 - poreQ) * inversePoreShoulder)),
+            guard = outer * (1 - pore);
+          color -= p.poreDarkening * pore;
+          height -= p.poreDepth * pore;
+          roughness += pore * (p.poreRoughness - roughness);
+          occlusion += pore * (p.poreOcclusion - occlusion);
+          if (guard === 0) return;
+          // Inside the full pore guard is zero, so the radial coordinate is nonsingular.
+          const t = clamp((1 - outerQ) / (poreQ - outerQ)),
+            product = t * (1 - t),
+            dome = 16 * product * product,
+            seam = smooth(clamp(1 - xx * inverseSeam));
+          // Polar cell contacts dip but remain above the epidermis; only the pore is recessed.
+          color +=
+            guard *
+            (p.guardTone +
+              poses[i + 5] +
+              p.domeColor * dome -
+              p.seamDarkening * seam);
+          height +=
+            guard * (p.guardLift + p.domeLift * dome - p.seamDepth * seam);
+          roughness +=
+            guard *
+            (p.guardRoughness +
+              p.guardGrainRoughness * grain +
+              p.seamRoughness * seam -
+              roughness);
+          occlusion +=
+            guard * (p.guardOcclusion - p.seamOcclusion * seam - occlusion);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40363,6 +40446,7 @@ export function createSurfaceSampler(
     kind === 'pallasite' ||
     kind === 'cuttlebone' ||
     kind === 'watermelontourmaline' ||
+    kind === 'leafstomata' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
