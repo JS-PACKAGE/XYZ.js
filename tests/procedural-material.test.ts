@@ -509,6 +509,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pythagorastree',
   'pentominotiles',
   'langtonsant',
+  'vogelspiral',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -107892,6 +107893,587 @@ describe('Langton ant 1024-step reversible snapshot with raised ink cells and a 
         expect(countFaces(maps, resolution)).toBe(123);
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.minAO).toBeLessThan(190);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      }
+    },
+  );
+});
+
+describe('Vogel golden-angle disk mosaic with affine radial-square spacing', () => {
+  const p = proceduralMaterialPresets.vogelspiral;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  type Disk = {
+    cx: number;
+    cy: number;
+    radius: number;
+    contour: number;
+    color: number;
+    eccentricity: number;
+  };
+  const observe = (seed: number) => {
+    const size = 1024,
+      scale = 1 / size,
+      sample = createSurfaceSampler('vogelspiral', seed),
+      out = empty(),
+      mask = new Uint8Array(size * size),
+      color = new Float64Array(size * size),
+      label = new Int32Array(size * size),
+      queue = new Int32Array(size * size);
+    let tileCount = 0,
+      groutCount = 0,
+      tileRoughness = 0,
+      groutRoughness = 0,
+      tileAO = 0,
+      groutAO = 0,
+      dielectric = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        const i = y * size + x;
+        mask[i] = out.height / p.relief > 0.41 ? 1 : 0;
+        color[i] = out.color;
+        dielectric += Number(out.metallic !== 0);
+        if (mask[i]) {
+          tileCount++;
+          tileRoughness += out.roughness;
+          tileAO += out.occlusion;
+        } else {
+          groutCount++;
+          groutRoughness += out.roughness;
+          groutAO += out.occlusion;
+        }
+      }
+    const neighbors = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const,
+      disks: Disk[] = [];
+    let count = 0;
+    for (let start = 0; start < size * size; start++) {
+      if (!mask[start] || label[start]) continue;
+      let head = 0,
+        tail = 1,
+        n = 0,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0,
+        sc = 0;
+      count++;
+      queue[0] = start;
+      label[start] = count;
+      while (head < tail) {
+        const i = queue[head++],
+          x = i % size,
+          y = (i - x) / size;
+        n++;
+        sx += x + 0.5;
+        sy += y + 0.5;
+        sxx += (x + 0.5) ** 2;
+        syy += (y + 0.5) ** 2;
+        sxy += (x + 0.5) * (y + 0.5);
+        sc += color[i];
+        for (const [dx, dy] of neighbors) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue;
+          const j = ny * size + nx;
+          if (mask[j] && !label[j]) {
+            label[j] = count;
+            queue[tail++] = j;
+          }
+        }
+      }
+      const cx = (sx / n) * scale,
+        cy = (sy / n) * scale,
+        vx = sxx / n - (sx / n) ** 2,
+        vy = syy / n - (sy / n) ** 2,
+        cov = sxy / n - (sx * sy) / n ** 2,
+        contour = Math.sqrt(n / Math.PI) * scale,
+        // The half-height contour is halfway between the outer and core squared radii, not their radii.
+        radius =
+          Math.sqrt(contour ** 2 - 0.25 * p.shoulder ** 2) + 0.5 * p.shoulder;
+      disks.push({
+        cx: cx - 0.5,
+        cy: cy - 0.5,
+        radius,
+        contour,
+        color: sc / n,
+        eccentricity: Math.hypot(vx - vy, 2 * cov) / (vx + vy),
+      });
+    }
+    return {
+      disks,
+      groutFraction: groutCount / (size * size),
+      roughnessGap: groutRoughness / groutCount - tileRoughness / tileCount,
+      aoGap: tileAO / tileCount - groutAO / groutCount,
+      dielectric,
+    };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let o = observations.get(seed);
+    if (!o) {
+      o = observe(seed);
+      observations.set(seed, o);
+    }
+    return o;
+  };
+  const geometry = (seed: number) => {
+    const o = observed(seed),
+      disks = [...o.disks].sort(
+        (a, b) => a.cx * a.cx + a.cy * a.cy - b.cx * b.cx - b.cy * b.cy,
+      ),
+      sample = createSurfaceSampler('vogelspiral', seed),
+      out = empty(),
+      r2 = disks.map((d) => d.cx * d.cx + d.cy * d.cy),
+      step = (r2[r2.length - 1] - r2[0]) / (r2.length - 1),
+      golden = Math.PI * (3 - Math.sqrt(5));
+    let annuli = 0,
+      angle = 0,
+      roundness = 0,
+      minRadius = Infinity,
+      maxRadius = 0,
+      minGrout = 1,
+      filled = 0,
+      flatness = 0,
+      unbracketed = 0;
+    for (let i = 0; i < disks.length; i++) {
+      const d = disks[i];
+      annuli = Math.max(annuli, Math.abs(r2[i] - r2[0] - i * step) / step);
+      minRadius = Math.min(minRadius, d.radius);
+      maxRadius = Math.max(maxRadius, d.radius);
+      if (i) {
+        const prev = disks[i - 1],
+          delta = Math.atan2(
+            prev.cx * d.cy - prev.cy * d.cx,
+            prev.cx * d.cx + prev.cy * d.cy,
+          );
+        angle = Math.max(angle, Math.abs(Math.abs(delta) - golden));
+      }
+      sample(d.cx + 0.5, d.cy + 0.5, out);
+      const peak = out.height;
+      filled += Number(out.mortar < 1e-10 && peak / p.relief > 0.65);
+      let min = Infinity,
+        max = 0;
+      for (let ray = 0; ray < 13; ray++) {
+        const a = (ray * Math.PI * 2) / 13,
+          dx = Math.cos(a),
+          dy = Math.sin(a);
+        let low = 0,
+          high = 0.001;
+        for (let step = 1; step <= 60; step++) {
+          high = step * 0.001;
+          sample(d.cx + 0.5 + high * dx, d.cy + 0.5 + high * dy, out);
+          if (out.height / p.relief <= 0.41) break;
+          low = high;
+        }
+        if (low === high) {
+          unbracketed++;
+          continue;
+        }
+        for (let j = 0; j < 28; j++) {
+          const r = (low + high) / 2;
+          sample(d.cx + 0.5 + r * dx, d.cy + 0.5 + r * dy, out);
+          if (out.height / p.relief > 0.41) low = r;
+          else high = r;
+        }
+        min = Math.min(min, (low + high) / 2);
+        max = Math.max(max, (low + high) / 2);
+        sample(
+          d.cx + 0.5 + 0.4 * d.contour * dx,
+          d.cy + 0.5 + 0.4 * d.contour * dy,
+          out,
+        );
+        flatness = Math.max(flatness, Math.abs(out.height - peak) / p.relief);
+      }
+      roundness = Math.max(roundness, (max - min) / max);
+      let closest = -1,
+        distance = Infinity;
+      for (let j = 0; j < disks.length; j++) {
+        if (i === j) continue;
+        const next = disks[j],
+          q = (d.cx - next.cx) ** 2 + (d.cy - next.cy) ** 2;
+        if (q < distance) {
+          distance = q;
+          closest = j;
+        }
+      }
+      const next = disks[closest];
+      sample((d.cx + next.cx) / 2 + 0.5, (d.cy + next.cy) / 2 + 0.5, out);
+      minGrout = Math.min(minGrout, out.mortar);
+    }
+    return {
+      count: disks.length,
+      filled,
+      flatness,
+      unbracketed,
+      annuli,
+      angle,
+      roundness,
+      radiusSpread: (maxRadius - minRadius) / maxRadius,
+      maxEccentricity: Math.max(...disks.map((d) => d.eccentricity)),
+      minGrout,
+      roughnessGap: o.roughnessGap,
+      aoGap: o.aoGap,
+      dielectric: o.dielectric,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('vogelspiral', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.bins; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.bins, j / 2048);
+        check(j / 2048, k / p.bins);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      roughMean = 0,
+      smoothMean = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        roughMean += roughness;
+      } else {
+        tiles++;
+        smoothMean += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      roughFraction: grout / count,
+      roughMean: roughMean / grout,
+      smoothMean: smoothMean / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const countFaces = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+  ) => {
+    const mask = Uint8Array.from({ length: size * size }, (_, i) =>
+        Number(maps.height![i * 4] > 128),
+      ),
+      queue = new Int32Array(size * size);
+    let faces = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      faces++;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+    }
+    return faces;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'resolves all 97 equal filled circular pieces with flat cores and no neighbor-crossing contour measurements at seed%s',
+    (seed) => {
+      const m = geometry(seed);
+      expect(m.count).toBe(97);
+      expect(m.filled).toBe(97);
+      expect(m.unbracketed).toBe(0);
+      expect(m.flatness).toBeLessThan(0.0061);
+      expect(m.roundness).toBeLessThan(0.015);
+      expect(m.radiusSpread).toBeLessThan(0.01);
+      expect(m.maxEccentricity).toBeLessThan(0.01);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'recovers affine radial-square annuli and the golden divergence angle rather than spokes, rings or an Archimedean sequence at seed%s',
+    (seed) => {
+      const m = geometry(seed);
+      expect(m.annuli).toBeLessThan(0.06);
+      expect(m.angle).toBeLessThan(0.006);
+      expect(m.minGrout).toBeGreaterThan(1 - 1e-10);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'glazes three separated tone families over darker occluding rough grout at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        colors = o.disks.map((d) => d.color).sort((a, b) => a - b),
+        clusters: number[][] = [[]];
+      for (const color of colors) {
+        const current = clusters[clusters.length - 1];
+        if (current.length && color - current[current.length - 1] > 0.15)
+          clusters.push([color]);
+        else current.push(color);
+      }
+      expect(clusters.length).toBe(3);
+      const counts = clusters.map((c) => c.length).sort((a, b) => a - b);
+      expect(counts.join(',')).toBe('32,32,33');
+      expect(o.roughnessGap).toBeGreaterThan(0.4);
+      expect(o.aoGap).toBeGreaterThan(0.35);
+      expect(o.dielectric).toBe(0);
+    },
+  );
+  it('changes seeded glaze finish without rotating, scaling, shifting or rearranging the golden-angle disk field', () => {
+    const ordered = (disks: Disk[]) =>
+        [...disks]
+          .sort((a, b) => a.cx * a.cx + a.cy * a.cy - b.cx * b.cx - b.cy * b.cy)
+          .map((d) => d.color),
+      base = ordered(observed(0).disks),
+      sample0 = createSurfaceSampler('vogelspiral', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = ordered(observed(seed).disks),
+        sample = createSurfaceSampler('vogelspiral', seed);
+      let color = 0,
+        shape = 0;
+      for (let i = 0; i < base.length; i++)
+        color = Math.max(color, Math.abs(base[i] - other[i]));
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        sample0(u, v, a);
+        sample(u, v, b);
+        shape = Math.max(shape, Math.abs(a.height - b.height) / p.relief);
+      }
+      expect(color).toBeGreaterThan(0.02);
+      expect(shape).toBeLessThan(0.0060000001);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps circular shoulders, lookup bucket transitions and signed UV seams C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes contrasting opaque dielectric maps with quantized unit normals and resolved circular seams at size%s',
+    (resolution) => {
+      const maps = generateProceduralMaps('vogelspiral', resolution, 7, {
+          heightMap: true,
+        }),
+        o = observePixels(maps);
+      expect(o.roughFraction).toBeGreaterThan(0.4);
+      expect(o.roughFraction).toBeLessThan(0.9);
+      expect(o.roughMean - o.smoothMean).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(180);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.normalLengthError).toBeLessThan(0.014);
+      expect(o.backFacing).toBe(0);
+      if (resolution === 512) {
+        expect(countFaces(maps, resolution)).toBe(97);
+        expect(o.maxTilt).toBeGreaterThan(0.1);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
       }
     },

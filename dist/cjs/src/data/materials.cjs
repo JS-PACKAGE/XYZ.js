@@ -7313,6 +7313,34 @@ var proceduralMaterialPresets = Object.freeze({
 			1
 		]
 	}),
+	vogelspiral: Object.freeze({
+		dark: [
+			24,
+			78,
+			99
+		],
+		light: [
+			238,
+			225,
+			174
+		],
+		roughness: .3,
+		relief: .008,
+		count: 97,
+		radialStep: .044,
+		radialOffset: .5,
+		angle: Math.PI * (3 - Math.sqrt(5)),
+		rotation: 0,
+		radius: .033,
+		shoulder: .003,
+		bins: 8,
+		tones: [
+			.1,
+			.46,
+			.82
+		],
+		toneVariation: .06
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18794,6 +18822,7 @@ var proceduralTileMeters = Object.freeze({
 	pythagorastree: .4,
 	pentominotiles: .6,
 	langtonsant: .32,
+	vogelspiral: .5,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

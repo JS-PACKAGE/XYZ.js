@@ -3438,6 +3438,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         rows: readonly [0, 0, 0, 0, 0, 0, 384, 196800, 6592672, 9599776, 29636672, 25050176, 236320, 7924768, 4129312, 1361696, 1260064, 1306656, 396864, 2160000, 2890752, 1591296, 798720, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         ant: readonly [8, 8, 0, 1];
     }>;
+    vogelspiral: Readonly<{
+        dark: readonly [24, 78, 99];
+        light: readonly [238, 225, 174];
+        roughness: 0.3;
+        relief: 0.008;
+        count: 97;
+        radialStep: 0.044;
+        radialOffset: 0.5;
+        angle: number;
+        rotation: 0;
+        radius: 0.033;
+        shoulder: 0.003;
+        bins: 8;
+        tones: readonly [0.1, 0.46, 0.82];
+        toneVariation: 0.06;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11222,6 +11238,7 @@ export declare const proceduralTileMeters: Readonly<{
     pythagorastree: 0.4;
     pentominotiles: 0.6;
     langtonsant: 0.32;
+    vogelspiral: 0.5;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

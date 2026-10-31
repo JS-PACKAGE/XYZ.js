@@ -27305,6 +27305,83 @@ export function createSurfaceSampler(
           occlusion = 0.68 + 0.3 * tile + 0.02 * arrow;
         };
       }
+      case 'vogelspiral': {
+        const p = proceduralMaterialPresets.vogelspiral,
+          disks = new Float64Array(p.count * 3),
+          offsets = new Uint16Array(p.bins * p.bins + 1),
+          grainField = cachedNoise(96, 96, seed ^ 0x7441),
+          radiusSquared = p.radius * p.radius,
+          inverseShoulder = 1 / (radiusSquared - (p.radius - p.shoulder) ** 2);
+        for (let k = 0; k < p.count; k++) {
+          const r = p.radialStep * Math.sqrt(k + p.radialOffset),
+            angle = k * p.angle + p.rotation,
+            x = r * Math.cos(angle),
+            y = r * Math.sin(angle),
+            x0 = Math.max(0, Math.floor((x - p.radius + 0.5) * p.bins)),
+            x1 = Math.min(
+              p.bins - 1,
+              Math.floor((x + p.radius + 0.5) * p.bins),
+            ),
+            y0 = Math.max(0, Math.floor((y - p.radius + 0.5) * p.bins)),
+            y1 = Math.min(
+              p.bins - 1,
+              Math.floor((y + p.radius + 0.5) * p.bins),
+            );
+          disks[k * 3] = x;
+          disks[k * 3 + 1] = y;
+          disks[k * 3 + 2] =
+            p.tones[k % 3] + p.toneVariation * hash(k, 0, seed ^ 0x7443);
+          for (let row = y0; row <= y1; row++)
+            for (let col = x0; col <= x1; col++) offsets[row * p.bins + col]++;
+        }
+        for (let i = 1; i < offsets.length; i++) offsets[i] += offsets[i - 1];
+        const references = new Uint16Array(offsets[offsets.length - 1]);
+        // Prefix ends become starts while filling backward, so no second cursor array is needed.
+        for (let k = 0; k < p.count; k++) {
+          const x = disks[k * 3],
+            y = disks[k * 3 + 1],
+            x0 = Math.max(0, Math.floor((x - p.radius + 0.5) * p.bins)),
+            x1 = Math.min(
+              p.bins - 1,
+              Math.floor((x + p.radius + 0.5) * p.bins),
+            ),
+            y0 = Math.max(0, Math.floor((y - p.radius + 0.5) * p.bins)),
+            y1 = Math.min(
+              p.bins - 1,
+              Math.floor((y + p.radius + 0.5) * p.bins),
+            );
+          for (let row = y0; row <= y1; row++)
+            for (let col = x0; col <= x1; col++)
+              references[--offsets[row * p.bins + col]] = k;
+        }
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            bin =
+              Math.min(p.bins - 1, Math.floor(v * p.bins)) * p.bins +
+              Math.min(p.bins - 1, Math.floor(u * p.bins));
+          let face = 0,
+            tone = 0;
+          for (let i = offsets[bin]; i < offsets[bin + 1]; i++) {
+            const at = references[i] * 3,
+              dx = x - disks[at],
+              dy = y - disks[at + 1],
+              cover = (radiusSquared - dx * dx - dy * dy) * inverseShoulder;
+            if (cover <= 0) continue;
+            // The authored disks do not overlap; only one positive support can contain a point.
+            face = smooth(clamp(cover));
+            tone = disks[at + 2];
+            break;
+          }
+          const grain = face > 0 ? grainField(u, v) : 0;
+          mortar = 1 - face;
+          color = 0.56 * mortar + face * (tone + 0.015 * grain);
+          height = 0.1 + face * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * face;
+          occlusion = 0.5 + 0.48 * face;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39890,6 +39967,7 @@ export function createSurfaceSampler(
     kind === 'pythagorastree' ||
     kind === 'pentominotiles' ||
     kind === 'langtonsant' ||
+    kind === 'vogelspiral' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
