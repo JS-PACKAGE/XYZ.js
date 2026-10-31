@@ -15600,6 +15600,214 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'xlrfemalefaces': {
+        const p = proceduralMaterialPresets.xlrfemalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22301),
+          bodyStraightX = p.halfWidth - p.bodyCorner,
+          bodyStraightY = p.halfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          mountSquared = p.mountRadius * p.mountRadius,
+          mountCore = p.mountRadius - p.mountBevel,
+          inverseMount = 1 / (mountSquared - mountCore * mountCore),
+          rimSquared = p.rimRadius * p.rimRadius,
+          rimCore = p.rimRadius - p.rimBevel,
+          inverseRim = 1 / (rimSquared - rimCore * rimCore),
+          cavitySquared = p.cavityRadius * p.cavityRadius,
+          cavityCore = p.cavityRadius - p.cavityBevel,
+          inverseCavity = 1 / (cavitySquared - cavityCore * cavityCore),
+          faceSquared = p.faceRadius * p.faceRadius,
+          faceCore = p.faceRadius - p.faceBevel,
+          inverseFace = 1 / (faceSquared - faceCore * faceCore),
+          collarSquared = p.collarRadius * p.collarRadius,
+          collarCore = p.collarRadius - p.collarBevel,
+          inverseCollar = 1 / (collarSquared - collarCore * collarCore),
+          innerSquared = p.collarInnerRadius * p.collarInnerRadius,
+          innerCore = p.collarInnerRadius - p.collarInnerBevel,
+          innerCoreSquared = innerCore * innerCore,
+          inverseInner = 1 / (innerSquared - innerCoreSquared),
+          inverseGapSide = 1 / p.gapSideBevel,
+          keyStraightX = p.keyHalfWidth - p.keyCorner,
+          keyStraightY = p.keyHalfHeight - p.keyCorner,
+          keySquared = p.keyCorner * p.keyCorner,
+          keyCore = p.keyCorner - p.keyBevel,
+          inverseKey = 1 / (keySquared - keyCore * keyCore),
+          latchStraightX = p.latchHalfWidth - p.latchCorner,
+          latchStraightY = p.latchHalfHeight - p.latchCorner,
+          latchSquared = p.latchCorner * p.latchCorner,
+          latchCore = p.latchCorner - p.latchBevel,
+          inverseLatch = 1 / (latchSquared - latchCore * latchCore),
+          socketSquared = p.socketRadius * p.socketRadius,
+          socketCore = p.socketRadius - p.socketBevel,
+          inverseSocket = 1 / (socketSquared - socketCore * socketCore),
+          rowJoin = (p.upperY + p.lowerY) * 0.5,
+          metalTone = p.metalTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          rimHeight = p.rimHeight - p.bodyHeight,
+          rimRoughness = p.rimRoughness - p.roughness,
+          rimAO = p.rimAO - p.bodyAO,
+          cavityTone = p.cavityTone - p.metalTone,
+          cavityHeight = p.cavityHeight - p.rimHeight,
+          cavityRoughness = p.cavityRoughness - p.rimRoughness,
+          cavityAO = p.cavityAO - p.rimAO,
+          faceTone = p.faceTone - p.cavityTone,
+          faceHeight = p.faceHeight - p.cavityHeight,
+          faceRoughness = p.faceRoughness - p.cavityRoughness,
+          faceAO = p.faceAO - p.cavityAO,
+          collarTone = p.metalTone - p.cavityTone,
+          collarHeight = p.collarHeight - p.cavityHeight,
+          collarRoughness = p.collarRoughness - p.cavityRoughness,
+          collarAO = p.collarAO - p.cavityAO,
+          keyTone = p.metalTone - p.faceTone,
+          keyHeight = p.keyHeight - p.faceHeight,
+          keyRoughness = p.keyRoughness - p.faceRoughness,
+          keyAO = p.keyAO - p.faceAO,
+          latchHeight = p.latchHeight - p.bodyHeight,
+          latchRoughness = p.latchRoughness - p.roughness,
+          latchAO = p.latchAO - p.bodyAO,
+          socketTone = p.socketTone - p.faceTone,
+          socketHeight = p.socketHeight - p.faceHeight,
+          socketRoughness = p.socketRoughness - p.faceRoughness,
+          socketAO = p.socketAO - p.faceAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22303),
+              angle = TAU * hash(col, row, seed ^ 0x22305);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22307) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22309) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfWidth || ay >= p.halfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            mx = x - (y < 0 ? -p.mountX : p.mountX),
+            my = y - (y < 0 ? -p.mountY : p.mountY),
+            mount = smooth(
+              clamp((mountSquared - mx * mx - my * my) * inverseMount),
+            ),
+            body =
+              (1 - mount) *
+              smooth(clamp((bodySquared - bx * bx - by * by) * inverseBody));
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (metalTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          metallic = body;
+          const ly = Math.abs(y - p.latchY);
+          if (ax < p.latchHalfWidth && ly < p.latchHalfHeight) {
+            const lx = Math.max(0, ax - latchStraightX),
+              ldy = Math.max(0, ly - latchStraightY),
+              latch = smooth(
+                clamp((latchSquared - lx * lx - ldy * ldy) * inverseLatch),
+              );
+            height += latch * latchHeight;
+            roughness += latch * latchRoughness;
+            occlusion += latch * latchAO - p.edgeAO * latch * (1 - latch);
+          }
+          const fy = y - p.faceY,
+            q = x * x + fy * fy;
+          if (q >= rimSquared) return;
+          const rim = smooth(clamp((rimSquared - q) * inverseRim));
+          height += rim * rimHeight;
+          roughness += rim * rimRoughness;
+          occlusion += rim * rimAO - p.edgeAO * rim * (1 - rim);
+          const cavity = smooth(clamp((cavitySquared - q) * inverseCavity));
+          if (cavity === 0) return;
+          color += cavity * cavityTone;
+          height += cavity * cavityHeight;
+          roughness += cavity * cavityRoughness;
+          occlusion += cavity * cavityAO - p.edgeAO * cavity * (1 - cavity);
+          metallic -= cavity;
+          if (q >= collarSquared) return;
+          // The top-gap midline switch has x support wholly inside the collar void.
+          const face =
+              q < faceSquared
+                ? smooth(clamp((faceSquared - q) * inverseFace))
+                : 0,
+            collar =
+              q <= innerCoreSquared
+                ? 0
+                : (smooth(clamp((collarSquared - q) * inverseCollar)) -
+                    smooth(clamp((innerSquared - q) * inverseInner))) *
+                  (1 -
+                    (fy < 0
+                      ? smooth(clamp((p.gapHalfWidth - ax) * inverseGapSide))
+                      : 0));
+          color += face * faceTone;
+          height += face * faceHeight;
+          roughness += face * faceRoughness;
+          occlusion += face * faceAO - p.edgeAO * face * (1 - face);
+          if (collar > 0) {
+            color += collar * (collarTone - face * faceTone);
+            height += collar * (collarHeight - face * faceHeight);
+            roughness += collar * (collarRoughness - face * faceRoughness);
+            occlusion +=
+              collar *
+                (collarAO - face * faceAO + p.edgeAO * face * (1 - face)) -
+              p.edgeAO * collar * (1 - collar);
+            metallic += collar;
+          }
+          if (face === 0) return;
+          const ky = Math.abs(fy - p.keyY);
+          if (ax < p.keyHalfWidth && ky < p.keyHalfHeight) {
+            const kx = Math.max(0, ax - keyStraightX),
+              kdy = Math.max(0, ky - keyStraightY),
+              key = smooth(
+                clamp((keySquared - kx * kx - kdy * kdy) * inverseKey),
+              );
+            if (key > 0) {
+              color += key * keyTone;
+              height += key * keyHeight;
+              roughness += key * keyRoughness;
+              occlusion += key * keyAO - p.edgeAO * key * (1 - key);
+              metallic += key;
+              return;
+            }
+          }
+          const upper = fy < rowJoin,
+            sx = upper ? Math.abs(ax - p.socketX) : ax,
+            sy = Math.abs(fy - (upper ? p.upperY : p.lowerY));
+          if (sx >= p.socketRadius || sy >= p.socketRadius) return;
+          const socket = smooth(
+            clamp((socketSquared - sx * sx - sy * sy) * inverseSocket),
+          );
+          if (socket === 0) return;
+          color += socket * socketTone;
+          height += socket * socketHeight;
+          roughness += socket * socketRoughness;
+          occlusion += socket * socketAO - p.edgeAO * socket * (1 - socket);
+          return;
+        };
+      }
       case 'bncfemalefaces': {
         const p = proceduralMaterialPresets.bncfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41758,6 +41966,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'xlrfemalefaces' ||
     kind === 'bncfemalefaces' ||
     kind === 'iecc14inlets' ||
     kind === 'dsubsocketfaces' ||
