@@ -482,6 +482,7 @@ export type ProceduralMaterialKind =
   | 'ichinghexagrams'
   | 'pythagorastree'
   | 'pentominotiles'
+  | 'langtonsant'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1582,6 +1583,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'ichinghexagrams',
   'pythagorastree',
   'pentominotiles',
+  'langtonsant',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

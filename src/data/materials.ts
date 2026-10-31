@@ -3458,6 +3458,28 @@ export const proceduralMaterialPresets = Object.freeze({
       'KKIIFF',
     ] as const,
   }),
+  langtonsant: Object.freeze({
+    dark: [22, 33, 47] as const,
+    light: [238, 217, 153] as const,
+    roughness: 0.76,
+    relief: 0.006,
+    halfSize: 0.46,
+    shoulder: 0.08,
+    inkRoughness: 0.28,
+    arrowRoughness: 0.23,
+    arrowTip: 0.36,
+    arrowTail: 0.3,
+    arrowHalfWidth: 0.28,
+    arrowShoulder: 0.04,
+    // Offline 1,024-step snapshot, white turns left/black right, origin (16,16) facing up.
+    // Row bit x is the logical black state; the compass triangle records the final cell and heading.
+    rows: [
+      0, 0, 0, 0, 0, 0, 384, 196800, 6592672, 9599776, 29636672, 25050176,
+      236320, 7924768, 4129312, 1361696, 1260064, 1306656, 396864, 2160000,
+      2890752, 1591296, 798720, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ] as const,
+    ant: [8, 8, 0, 1] as const,
+  }),
   orbicularjasper: Object.freeze({
     dark: [24, 68, 47] as const,
     light: [231, 225, 171] as const,
@@ -11388,6 +11410,7 @@ export const proceduralTileMeters = Object.freeze({
   ichinghexagrams: 0.32,
   pythagorastree: 0.4,
   pentominotiles: 0.6,
+  langtonsant: 0.32,
   orbicularjasper: 0.12,
   acornbarnacles: 0.12,
   circularpavers: 1.6,

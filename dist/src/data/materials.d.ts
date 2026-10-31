@@ -3422,6 +3422,22 @@ export declare const proceduralMaterialPresets: Readonly<{
         toneVariation: 0.06;
         layout: readonly ["BBLEEE", "BLLLCE", "BDLCCE", "BDJJCA", "DDGJCA", "DGGJJA", "GGHHHA", "KKIHFA", "KIIHFF", "KKIIFF"];
     }>;
+    langtonsant: Readonly<{
+        dark: readonly [22, 33, 47];
+        light: readonly [238, 217, 153];
+        roughness: 0.76;
+        relief: 0.006;
+        halfSize: 0.46;
+        shoulder: 0.08;
+        inkRoughness: 0.28;
+        arrowRoughness: 0.23;
+        arrowTip: 0.36;
+        arrowTail: 0.3;
+        arrowHalfWidth: 0.28;
+        arrowShoulder: 0.04;
+        rows: readonly [0, 0, 0, 0, 0, 0, 384, 196800, 6592672, 9599776, 29636672, 25050176, 236320, 7924768, 4129312, 1361696, 1260064, 1306656, 396864, 2160000, 2890752, 1591296, 798720, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        ant: readonly [8, 8, 0, 1];
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11205,6 +11221,7 @@ export declare const proceduralTileMeters: Readonly<{
     ichinghexagrams: 0.32;
     pythagorastree: 0.4;
     pentominotiles: 0.6;
+    langtonsant: 0.32;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

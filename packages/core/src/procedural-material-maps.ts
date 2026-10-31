@@ -27241,6 +27241,70 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * face;
         };
       }
+      case 'langtonsant': {
+        const p = proceduralMaterialPresets.langtonsant,
+          size = p.rows.length,
+          grainField = cachedNoise(96, 96, seed ^ 0x731a),
+          inverseShoulder = 1 / p.shoulder,
+          inverseArrowShoulder = 1 / p.arrowShoulder,
+          arrowSlope = (p.arrowTip + p.arrowTail) / p.arrowHalfWidth,
+          arrowNormal = 1 / Math.sqrt(1 + arrowSlope * arrowSlope),
+          dx = p.ant[2],
+          dy = p.ant[3];
+        const interval = (t: number): number =>
+          smooth(clamp((p.halfSize + t) * inverseShoulder)) *
+          smooth(clamp((p.halfSize - t) * inverseShoulder));
+        return () => {
+          const gx = u * size,
+            gy = v * size,
+            cx = Math.floor(gx),
+            cy = Math.floor(gy),
+            x = gx - cx - 0.5,
+            y = gy - cy - 0.5,
+            tile = interval(x) * interval(y),
+            on = (p.rows[cy] >>> cx) & 1,
+            grain = grainField(u, v);
+          let arrow = 0;
+          if (cx === p.ant[0] && cy === p.ant[1]) {
+            const along = x * dx + y * dy,
+              across = -x * dy + y * dx;
+            arrow =
+              smooth(clamp((along + p.arrowTail) * inverseArrowShoulder)) *
+              smooth(
+                clamp(
+                  (p.arrowTip - along + arrowSlope * across) *
+                    arrowNormal *
+                    inverseArrowShoulder,
+                ),
+              ) *
+              smooth(
+                clamp(
+                  (p.arrowTip - along - arrowSlope * across) *
+                    arrowNormal *
+                    inverseArrowShoulder,
+                ),
+              );
+          }
+          const ink = tile * on;
+          mortar = (1 - tile) * (1 - arrow);
+          color =
+            ((0.5 + 0.01 * grain) * (1 - tile) +
+              tile * (on ? 0.08 + 0.04 * grain : 0.74 + 0.035 * grain)) *
+              (1 - arrow) +
+            arrow;
+          height =
+            (0.26 + tile * (0.09 + 0.45 * on + 0.003 * grain)) * (1 - arrow) +
+            0.98 * arrow;
+          roughness =
+            (p.roughness +
+              (0.92 - p.roughness) * (1 - tile) +
+              (p.inkRoughness - p.roughness) * ink +
+              0.015 * grain * tile) *
+              (1 - arrow) +
+            p.arrowRoughness * arrow;
+          occlusion = 0.68 + 0.3 * tile + 0.02 * arrow;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39825,6 +39889,7 @@ export function createSurfaceSampler(
     kind === 'ichinghexagrams' ||
     kind === 'pythagorastree' ||
     kind === 'pentominotiles' ||
+    kind === 'langtonsant' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

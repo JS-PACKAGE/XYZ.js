@@ -7251,6 +7251,68 @@ var proceduralMaterialPresets = Object.freeze({
 			`KKIIFF`
 		]
 	}),
+	langtonsant: Object.freeze({
+		dark: [
+			22,
+			33,
+			47
+		],
+		light: [
+			238,
+			217,
+			153
+		],
+		roughness: .76,
+		relief: .006,
+		halfSize: .46,
+		shoulder: .08,
+		inkRoughness: .28,
+		arrowRoughness: .23,
+		arrowTip: .36,
+		arrowTail: .3,
+		arrowHalfWidth: .28,
+		arrowShoulder: .04,
+		rows: [
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			384,
+			196800,
+			6592672,
+			9599776,
+			29636672,
+			25050176,
+			236320,
+			7924768,
+			4129312,
+			1361696,
+			1260064,
+			1306656,
+			396864,
+			216e4,
+			2890752,
+			1591296,
+			798720,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0
+		],
+		ant: [
+			8,
+			8,
+			0,
+			1
+		]
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18731,6 +18793,7 @@ var proceduralTileMeters = Object.freeze({
 	ichinghexagrams: .32,
 	pythagorastree: .4,
 	pentominotiles: .6,
+	langtonsant: .32,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

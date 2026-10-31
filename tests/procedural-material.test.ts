@@ -508,6 +508,7 @@ const kinds: ProceduralMaterialKind[] = [
   'ichinghexagrams',
   'pythagorastree',
   'pentominotiles',
+  'langtonsant',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -107241,6 +107242,658 @@ describe('Free pentomino tiles with all twelve five-cell shapes and no internal 
         expect(o.maxTilt).toBeGreaterThan(0.1);
         for (const f of o.signed) expect(f).toBeGreaterThan(0.02);
       } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Langton ant 1024-step reversible snapshot with raised ink cells and a compass triangle', () => {
+  const p = proceduralMaterialPresets.langtonsant;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const size = 32,
+    steps = 1024,
+    origin = size >> 1;
+  const center = (x: number) => (x + 0.5) / size;
+  const directions = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+  ] as const;
+  const decode = (seed: number) => {
+    const sample = createSurfaceSampler('langtonsant', seed),
+      out = empty(),
+      bits = new Uint8Array(size * size),
+      markers: number[] = [],
+      heights = new Float64Array(size * size),
+      colors = new Float64Array(size * size),
+      roughness = new Float64Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x;
+        sample(center(x), center(y), out);
+        heights[at] = out.height / p.relief;
+        colors[at] = out.color;
+        roughness[at] = out.roughness;
+        invalid += Number(
+          keys.some((key) => !Number.isFinite(out[key])) || out.metallic !== 0,
+        );
+        bits[at] = Number(heights[at] > 0.6);
+        if (heights[at] > 0.9) markers.push(at);
+      }
+    for (const at of markers) {
+      sample(
+        center(at % size) + 0.34 / size,
+        center(Math.floor(at / size)) + 0.34 / size,
+        out,
+      );
+      bits[at] = Number(out.height / p.relief > 0.6);
+    }
+    let direction = -1,
+      score = -Infinity,
+      runner = -Infinity;
+    if (markers.length === 1) {
+      const at = markers[0],
+        cx = at % size,
+        cy = Math.floor(at / size);
+      for (let d = 0; d < 4; d++) {
+        const [dx, dy] = directions[d];
+        let vote = 0;
+        for (const side of [-1, 1]) {
+          sample(
+            (cx + 0.5 + 0.2 * dx - 0.12 * dy * side) / size,
+            (cy + 0.5 + 0.2 * dy + 0.12 * dx * side) / size,
+            out,
+          );
+          vote -= Number(out.height / p.relief > 0.9);
+          sample(
+            (cx + 0.5 - 0.2 * dx - 0.12 * dy * side) / size,
+            (cy + 0.5 - 0.2 * dy + 0.12 * dx * side) / size,
+            out,
+          );
+          vote += Number(out.height / p.relief > 0.9);
+        }
+        if (vote > score) {
+          runner = score;
+          score = vote;
+          direction = d;
+        } else runner = Math.max(runner, vote);
+      }
+    }
+    return {
+      sample,
+      bits,
+      markers,
+      heights,
+      colors,
+      roughness,
+      direction,
+      score,
+      runner,
+      invalid,
+    };
+  };
+  const decoded = new Map<number, ReturnType<typeof decode>>();
+  const observed = (seed: number) => {
+    let o = decoded.get(seed);
+    if (!o) {
+      o = decode(seed);
+      decoded.set(seed, o);
+    }
+    return o;
+  };
+  const reverse = (
+    bits: Uint8Array,
+    marker: number,
+    direction: number,
+    hidden = bits[marker],
+  ) => {
+    const state = new Set<number>();
+    for (let i = 0; i < bits.length; i++)
+      if (bits[i] && i !== marker) state.add(i);
+    if (hidden) state.add(marker);
+    let x = marker % size,
+      y = Math.floor(marker / size),
+      d = direction;
+    for (let step = 0; step < steps; step++) {
+      x -= directions[d][0];
+      y -= directions[d][1];
+      if (x < 0 || y < 0 || x >= size || y >= size) return false;
+      const cell = y * size + x,
+        after = state.has(cell);
+      if (after) state.delete(cell);
+      else state.add(cell);
+      d = (d + (after ? 1 : 3)) % 4;
+    }
+    return state.size === 0 && x === origin && y === origin && d === 0;
+  };
+  const squareMetrics = (seed: number) => {
+    const o = observed(seed),
+      a = empty(),
+      b = empty();
+    let mismatch = 0,
+      minSpan = Infinity,
+      maxSpan = 0,
+      cornerLoss = 0,
+      groutPeak = 0;
+    for (let at = 0; at < o.bits.length; at++) {
+      if (!o.bits[at] || o.markers.includes(at)) continue;
+      const x = at % size,
+        y = Math.floor(at / size),
+        spans: number[] = [];
+      for (const [dx, dy] of directions) {
+        let low = 0,
+          high = 0.5;
+        for (let j = 0; j < 32; j++) {
+          const r = (low + high) / 2;
+          o.sample((x + 0.5 + r * dx) / size, (y + 0.5 + r * dy) / size, a);
+          if (a.height / p.relief > 0.53) low = r;
+          else high = r;
+        }
+        spans.push((low + high) / 2);
+      }
+      const sx = spans[1] + spans[3],
+        sy = spans[0] + spans[2];
+      mismatch = Math.max(mismatch, Math.abs(sx - sy) / Math.max(sx, sy));
+      minSpan = Math.min(minSpan, sx, sy);
+      maxSpan = Math.max(maxSpan, sx, sy);
+      for (const dx of [-1, 1])
+        for (const dy of [-1, 1]) {
+          o.sample(
+            (x + 0.5 + 0.42 * sx * dx) / size,
+            (y + 0.5 + 0.42 * sy * dy) / size,
+            a,
+          );
+          cornerLoss = Math.max(
+            cornerLoss,
+            (o.heights[at] - a.height / p.relief) / 0.45,
+          );
+        }
+      for (const [dx, dy] of directions) {
+        o.sample((x + 0.5 + 0.49 * dx) / size, (y + 0.5 + 0.49 * dy) / size, b);
+        groutPeak = Math.max(groutPeak, b.height / p.relief);
+      }
+    }
+    return { mismatch, minSpan, maxSpan, cornerLoss, groutPeak };
+  };
+  const continuity = (seed: number) => {
+    const o = observed(seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      deltas = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(o.sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      o.sample(u, v, b);
+      for (const [du, dv] of deltas) {
+        o.sample(u - du, v - dv, a);
+        o.sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        check(x / size, y / size);
+        for (const r of [p.halfSize, p.halfSize - p.shoulder])
+          for (const sign of [-1, 1]) {
+            check(center(x) + (sign * r) / size, center(y));
+            check(center(x), center(y) + (sign * r) / size);
+          }
+      }
+    if (o.markers.length === 1 && o.direction >= 0) {
+      const at = o.markers[0],
+        x = at % size,
+        y = Math.floor(at / size),
+        [dx, dy] = directions[o.direction],
+        slope = (p.arrowTip + p.arrowTail) / p.arrowHalfWidth,
+        n = 1 / Math.sqrt(1 + slope * slope),
+        edges = [
+          [-p.arrowTail, 0, 1, 0],
+          [
+            (p.arrowTip - p.arrowTail) / 2,
+            p.arrowHalfWidth / 2,
+            -n,
+            -slope * n,
+          ],
+          [
+            (p.arrowTip - p.arrowTail) / 2,
+            -p.arrowHalfWidth / 2,
+            -n,
+            slope * n,
+          ],
+        ];
+      for (const [along, across, na, nb] of edges)
+        for (const offset of [0, p.arrowShoulder]) {
+          const a = along + offset * na,
+            b = across + offset * nb;
+          check(
+            center(x) + (a * dx - b * dy) / size,
+            center(y) + (a * dy + b * dx) / size,
+          );
+        }
+    }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      o.sample(u, v, a);
+      o.sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      roughMean = 0,
+      smoothMean = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        roughMean += roughness;
+      } else {
+        tiles++;
+        smoothMean += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      roughFraction: grout / count,
+      roughMean: roughMean / grout,
+      smoothMean: smoothMean / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const decodePixels = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    resolution: number,
+  ) => {
+    const bits = new Uint8Array(size * size),
+      markers: number[] = [],
+      read = (u: number, v: number) => {
+        const x = Math.min(
+            resolution - 1,
+            Math.max(0, Math.floor(u * resolution)),
+          ),
+          y = Math.min(resolution - 1, Math.max(0, Math.floor(v * resolution)));
+        return maps.height![(y * resolution + x) * 4];
+      };
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x,
+          h = read(center(x), center(y));
+        bits[at] = Number(h > 128);
+        if (h > 245) markers.push(at);
+      }
+    if (resolution >= 512)
+      for (const at of markers)
+        bits[at] = Number(
+          read(
+            center(at % size) + 0.34 / size,
+            center(Math.floor(at / size)) + 0.34 / size,
+          ) > 128,
+        );
+    let direction = -1,
+      score = -Infinity,
+      runner = -Infinity;
+    if (markers.length === 1 && resolution >= 512) {
+      const at = markers[0],
+        x = at % size,
+        y = Math.floor(at / size);
+      for (let d = 0; d < 4; d++) {
+        const [dx, dy] = directions[d];
+        let vote = 0;
+        for (const side of [-1, 1]) {
+          vote -= Number(
+            read(
+              center(x) + (0.2 * dx - 0.12 * dy * side) / size,
+              center(y) + (0.2 * dy + 0.12 * dx * side) / size,
+            ) > 245,
+          );
+          vote += Number(
+            read(
+              center(x) + (-0.2 * dx - 0.12 * dy * side) / size,
+              center(y) + (-0.2 * dy + 0.12 * dx * side) / size,
+            ) > 245,
+          );
+        }
+        if (vote > score) {
+          runner = score;
+          score = vote;
+          direction = d;
+        } else runner = Math.max(runner, vote);
+      }
+    }
+    return { bits, markers, direction, score, runner };
+  };
+  const countFaces = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+  ) => {
+    const mask = Uint8Array.from({ length: size * size }, (_, i) =>
+        Number(maps.height![i * 4] > 128),
+      ),
+      queue = new Int32Array(size * size);
+    let faces = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      faces++;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+    }
+    return faces;
+  };
+  it.each([0, 7, 0xffffffff])(
+    'reverses the observed board and unique compass heading through 1024 turns to the initially white north-facing origin at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.invalid).toBe(0);
+      expect(o.markers.length).toBe(1);
+      expect(o.score - o.runner).toBeGreaterThan(1);
+      expect(o.score).toBe(2);
+      expect(Number(reverse(o.bits, o.markers[0], o.direction))).toBe(1);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps raised ink cells square rather than circular or stretched and isolates their edges with low grout at seed%s',
+    (seed) => {
+      const o = squareMetrics(seed);
+      expect(o.mismatch).toBeLessThan(0.01);
+      expect(o.minSpan).toBeGreaterThan(0.7);
+      expect(o.maxSpan).toBeLessThan(0.96);
+      expect(o.cornerLoss).toBeLessThan(0.08);
+      expect(o.groutPeak).toBeLessThan(0.3);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates dark glossy ink, rough pale tiles and a bright low-roughness compass triangle at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        out = empty();
+      let ink = 0,
+        white = 0;
+      for (let at = 0; at < o.bits.length; at++) {
+        if (o.markers.includes(at)) {
+          expect(o.colors[at]).toBeGreaterThan(0.95);
+          expect(o.roughness[at]).toBeLessThan(0.4);
+          continue;
+        }
+        if (o.bits[at]) {
+          ink++;
+          expect(o.colors[at]).toBeLessThan(0.16);
+          expect(o.roughness[at]).toBeLessThan(0.4);
+          expect(o.heights[at]).toBeGreaterThan(0.79);
+        } else {
+          white++;
+          expect(o.colors[at]).toBeGreaterThan(0.7);
+          expect(o.roughness[at]).toBeGreaterThan(0.65);
+          expect(o.heights[at]).toBeLessThan(0.36);
+        }
+        const x = at % size,
+          y = Math.floor(at / size);
+        o.sample((x + 1) / size, center(y), out);
+        expect(out.height / p.relief).toBeLessThan(0.3);
+        expect(out.roughness - o.roughness[at]).toBeGreaterThan(0.08);
+        expect(out.occlusion).toBeLessThan(0.75);
+        expect(out.mortar).toBeGreaterThan(0.99);
+      }
+      expect(ink).toBe(122);
+      expect(white).toBe(901);
+    },
+  );
+  it('changes only seeded finish rather than the reversible board, compass location or boundary field', () => {
+    const base = observed(0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const o = observed(seed);
+      expect(o.bits.join(',')).toBe(base.bits.join(','));
+      expect(o.markers.join(',')).toBe(base.markers.join(','));
+      expect(o.direction).toBe(base.direction);
+      let color = 0,
+        shape = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        base.sample(u, v, a);
+        o.sample(u, v, b);
+        color = Math.max(color, Math.abs(a.color - b.color));
+        shape = Math.max(shape, Math.abs(a.height - b.height) / p.relief);
+      }
+      expect(color).toBeGreaterThan(0.015);
+      expect(shape).toBeLessThan(0.0030000001);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps square shoulders, triangular compass edges and corners and signed UV seams C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'decodes a reversible snapshot from actual opaque dielectric RGBA height maps with valid normals at size%s',
+    (resolution) => {
+      const maps = generateProceduralMaps('langtonsant', resolution, 7, {
+          heightMap: true,
+        }),
+        o = observePixels(maps),
+        decoded = decodePixels(maps, resolution);
+      expect(decoded.markers.length).toBe(1);
+      let solutions = 0;
+      const candidates =
+        resolution === 512 ? [decoded.direction] : [0, 1, 2, 3];
+      for (const direction of candidates)
+        for (const hidden of resolution === 512
+          ? [decoded.bits[decoded.markers[0]]]
+          : [0, 1])
+          solutions += Number(
+            reverse(decoded.bits, decoded.markers[0], direction, hidden),
+          );
+      expect(solutions).toBe(1);
+      expect(o.roughFraction).toBeGreaterThan(0.7);
+      expect(o.roughFraction).toBeLessThan(0.98);
+      expect(o.roughMean - o.smoothMean).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(100);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.normalLengthError).toBeLessThan(0.014);
+      expect(o.backFacing).toBe(0);
+      if (resolution === 512) {
+        expect(decoded.score).toBe(2);
+        expect(decoded.score - decoded.runner).toBeGreaterThan(1);
+        expect(countFaces(maps, resolution)).toBe(123);
+        expect(o.maxTilt).toBeGreaterThan(0.1);
+        expect(o.minAO).toBeLessThan(190);
+        for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      }
     },
   );
 });

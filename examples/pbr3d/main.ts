@@ -545,6 +545,7 @@ try {
     'ichinghexagrams',
     'pythagorastree',
     'pentominotiles',
+    'langtonsant',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
