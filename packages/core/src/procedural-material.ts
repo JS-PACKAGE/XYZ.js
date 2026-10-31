@@ -641,6 +641,7 @@ export type ProceduralMaterialKind =
   | 'lathplaster'
   | 'ceramiccapacitors'
   | 'fennelseeds'
+  | 'piezodiaphragms'
   | 'castellatedboards'
   | 'qfnlandpads'
   | 'bgasolderballs'
@@ -1756,6 +1757,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'piezodiaphragms',
   'castellatedboards',
   'qfnlandpads',
   'bgasolderballs',
@@ -2255,6 +2257,7 @@ export class ProceduralMaterial {
         this.kind === 'fishhooks' ||
         this.kind === 'barbedwire' ||
         this.kind === 'horseshoes' ||
+        this.kind === 'piezodiaphragms' ||
         this.kind === 'castellatedboards' ||
         this.kind === 'qfnlandpads' ||
         this.kind === 'bgasolderballs' ||

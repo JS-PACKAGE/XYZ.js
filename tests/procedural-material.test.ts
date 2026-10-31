@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'piezodiaphragms',
   'castellatedboards',
   'qfnlandpads',
   'bgasolderballs',
@@ -76968,6 +76969,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'piezodiaphragms' &&
           kind !== 'castellatedboards' &&
           kind !== 'qfnlandpads' &&
           kind !== 'bgasolderballs' &&
@@ -86434,6 +86436,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'piezodiaphragms',
     'castellatedboards',
     'qfnlandpads',
     'bgasolderballs',
@@ -86551,6 +86554,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'piezodiaphragms' ||
           kind === 'castellatedboards' ||
           kind === 'qfnlandpads' ||
           kind === 'bgasolderballs' ||
@@ -116737,6 +116741,651 @@ describe('PCB castellations with edge-open half holes and separate face lands', 
         m = observePixels(maps);
       expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.005);
       expect(m.metallicPixels / (size * size)).toBeLessThan(0.15);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(80);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Piezo diaphragm faces with concentric metal plate, ceramic margin and single metallic electrode', () => {
+  const p = proceduralMaterialPresets.piezodiaphragms;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+
+  const measure = (seed: number) => {
+    const sample = createSurfaceSampler('piezodiaphragms', seed),
+      size = Math.max(768, 384 * p.cells),
+      n = size * size,
+      surface = empty(),
+      heights = new Float32Array(n),
+      raised = new Uint8Array(n),
+      metalMask = new Uint8Array(n),
+      nonmetalMask = new Uint8Array(n),
+      ceramicMask = new Uint8Array(n),
+      labels = new Int32Array(n),
+      queue = new Int32Array(n);
+    let invalid = 0,
+      minimum = Infinity,
+      maximum = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, surface);
+        for (const key of keys)
+          invalid += Number(!Number.isFinite(surface[key]));
+        const at = y * size + x,
+          height = surface.height / p.relief;
+        heights[at] = height;
+        minimum = Math.min(minimum, height);
+        maximum = Math.max(maximum, height);
+        metalMask[at] = Number(surface.metallic > 0.5);
+        nonmetalMask[at] = 1 - metalMask[at];
+        ceramicMask[at] = Number(surface.metallic < 0.01);
+      }
+    const level = minimum + 0.1 * (maximum - minimum);
+    for (let at = 0; at < n; at++) {
+      raised[at] = Number(heights[at] > level || metalMask[at] !== 0);
+      ceramicMask[at] *= raised[at];
+    }
+    const footprints = regions(raised, size, queue, labels, 1),
+      metals = regions(metalMask, size, queue, labels, -1),
+      ceramics = regions(ceramicMask, size, queue, labels, 1),
+      nonmetals = regions(nonmetalMask, size, queue, labels, 1),
+      assigned = footprints.map(() => [] as number[]),
+      assignedCeramics = footprints.map(() => [] as number[]);
+    const assign = (regionsToAssign: typeof metals, targets: number[][]) => {
+      for (let id = 0; id < regionsToAssign.length; id++) {
+        const r = regionsToAssign[id];
+        let best = -1,
+          distance = Infinity;
+        for (let j = 0; j < footprints.length; j++) {
+          const d =
+            (r.cx - footprints[j].cx) ** 2 + (r.cy - footprints[j].cy) ** 2;
+          if (d < distance) {
+            distance = d;
+            best = j;
+          }
+        }
+        if (best >= 0) targets[best].push(id);
+      }
+    };
+    assign(metals, assigned);
+    assign(ceramics, assignedCeramics);
+    const parts = footprints.map((footprint, wi) => {
+      const result = {
+        metalPieces: assigned[wi].length,
+        ceramicPieces: assignedCeramics[wi].length,
+        momentRatio: 0,
+        centering: 0,
+        contourMisses: 0,
+        plateCircularity: 0,
+        ceramicCircularity: 0,
+        electrodeCircularity: 0,
+        minCeramicPlateRatio: Infinity,
+        maxCeramicPlateRatio: 0,
+        minElectrodeCeramicRatio: Infinity,
+        maxElectrodeCeramicRatio: 0,
+        minMarginRatio: Infinity,
+        minRimRatio: Infinity,
+        minMetal: 1,
+        maxCeramicMetal: 0,
+        flatness: 0,
+        ceramicRise: Infinity,
+        electrodeStep: 0,
+        ceramicColor: Infinity,
+        ceramicFinish: Infinity,
+        plateHeight: 0,
+        ceramicHeight: 0,
+        electrodeHeight: 0,
+      };
+      if (result.metalPieces !== 2 || result.ceramicPieces !== 1) return result;
+      const ids = assigned[wi]
+          .slice()
+          .sort(
+            (a, b) =>
+              metals[b].xx + metals[b].yy - (metals[a].xx + metals[a].yy),
+          ),
+        rim = metals[ids[0]],
+        electrode = metals[ids[1]],
+        extent = (1.4 * Math.sqrt(footprint.area / Math.PI)) / size,
+        radii = [[] as number[], [] as number[], [] as number[]],
+        coreSamples = [empty(), empty(), empty()],
+        coreHeights = new Float64Array(3),
+        lows = [Infinity, Infinity, Infinity],
+        highs = [-Infinity, -Infinity, -Infinity],
+        sums = [0, 0, 0],
+        counts = [0, 0, 0];
+      // Annular-region centroids can sit inside the electrode; observed second moments, not centroid samples or area ranking, identify the outer rim.
+      result.momentRatio = (rim.xx + rim.yy) / (electrode.xx + electrode.yy);
+      const core = (layer: number, x: number, y: number) => {
+        const s = coreSamples[layer];
+        sample(x, y, s);
+        const height = s.height / p.relief;
+        coreHeights[layer] = height;
+        lows[layer] = Math.min(lows[layer], height);
+        highs[layer] = Math.max(highs[layer], height);
+        sums[layer] += height;
+        counts[layer]++;
+        if (layer === 1)
+          result.maxCeramicMetal = Math.max(result.maxCeramicMetal, s.metallic);
+        else result.minMetal = Math.min(result.minMetal, s.metallic);
+      };
+      for (let ray = 0; ray < 16; ray++) {
+        const angle = (2 * Math.PI * ray) / 16,
+          c = Math.cos(angle),
+          s = Math.sin(angle),
+          crossings = [] as number[];
+        sample(footprint.cx, footprint.cy, surface);
+        let previous = surface.metallic > 0.5,
+          previousDistance = 0,
+          foundBacking = false;
+        if (!previous) {
+          result.contourMisses++;
+          continue;
+        }
+        for (let step = 1; step <= 256; step++) {
+          const distance = (extent * step) / 256;
+          sample(
+            footprint.cx + c * distance,
+            footprint.cy + s * distance,
+            surface,
+          );
+          const phase = surface.metallic > 0.5,
+            metalAtDistance = surface.metallic,
+            heightAtDistance = surface.height / p.relief;
+          if (phase !== previous) {
+            let low = previousDistance,
+              high = distance;
+            for (let k = 0; k < 28; k++) {
+              const middle = (low + high) / 2;
+              sample(
+                footprint.cx + c * middle,
+                footprint.cy + s * middle,
+                surface,
+              );
+              if (surface.metallic > 0.5 === previous) low = middle;
+              else high = middle;
+            }
+            crossings.push((low + high) / 2);
+          }
+          previous = phase;
+          previousDistance = distance;
+          if (
+            crossings.length === 3 &&
+            !phase &&
+            metalAtDistance < 0.001 &&
+            (heightAtDistance - minimum) / (maximum - minimum) < 0.001
+          ) {
+            foundBacking = true;
+            break;
+          }
+        }
+        if (crossings.length !== 3 || previous || !foundBacking) {
+          result.contourMisses++;
+          continue;
+        }
+        const re = crossings[0],
+          rc = crossings[1],
+          rp = crossings[2];
+        radii[0].push(rp);
+        radii[1].push(rc);
+        radii[2].push(re);
+        result.minCeramicPlateRatio = Math.min(
+          result.minCeramicPlateRatio,
+          rc / rp,
+        );
+        result.maxCeramicPlateRatio = Math.max(
+          result.maxCeramicPlateRatio,
+          rc / rp,
+        );
+        result.minElectrodeCeramicRatio = Math.min(
+          result.minElectrodeCeramicRatio,
+          re / rc,
+        );
+        result.maxElectrodeCeramicRatio = Math.max(
+          result.maxElectrodeCeramicRatio,
+          re / rc,
+        );
+        result.minMarginRatio = Math.min(result.minMarginRatio, (rc - re) / rp);
+        result.minRimRatio = Math.min(result.minRimRatio, (rp - rc) / rp);
+        core(
+          0,
+          footprint.cx + (c * (rc + rp)) / 2,
+          footprint.cy + (s * (rc + rp)) / 2,
+        );
+        core(
+          1,
+          footprint.cx + (c * (re + rc)) / 2,
+          footprint.cy + (s * (re + rc)) / 2,
+        );
+        core(2, footprint.cx + c * re * 0.5, footprint.cy + s * re * 0.5);
+        const metal = coreSamples[0],
+          ceramic = coreSamples[1],
+          center = coreSamples[2];
+        result.ceramicRise = Math.min(
+          result.ceramicRise,
+          coreHeights[1] - coreHeights[0],
+        );
+        result.electrodeStep = Math.max(
+          result.electrodeStep,
+          Math.abs(coreHeights[2] - coreHeights[1]),
+        );
+        result.ceramicColor = Math.min(
+          result.ceramicColor,
+          ceramic.color - metal.color,
+          ceramic.color - center.color,
+        );
+        result.ceramicFinish = Math.min(
+          result.ceramicFinish,
+          ceramic.roughness - metal.roughness,
+          ceramic.roughness - center.roughness,
+        );
+        // Angular samples at one radius cannot establish an annulus is planar: also span the observed radial cores.
+        for (let band = 1; band <= 3; band += 2) {
+          const t = band / 4,
+            rr = rc + (rp - rc) * t,
+            cr = re + (rc - re) * t;
+          core(0, footprint.cx + c * rr, footprint.cy + s * rr);
+          core(1, footprint.cx + c * cr, footprint.cy + s * cr);
+        }
+      }
+      core(2, footprint.cx, footprint.cy);
+      for (let layer = 0; layer < 3; layer++) {
+        const rs = radii[layer],
+          mean = rs.reduce((a, b) => a + b, 0) / rs.length,
+          cv =
+            Math.sqrt(
+              rs.reduce((sum, r) => sum + (r - mean) ** 2, 0) / rs.length,
+            ) / mean; // A dielectric annulus centroid shifts when its inner electrode moves; recover boundary centers from opposite-ray first harmonics instead.
+        let dx = 0,
+          dy = 0;
+        for (let k = 0; k < rs.length; k++) {
+          const angle = (2 * Math.PI * k) / 16;
+          dx += rs[k] * Math.cos(angle);
+          dy += rs[k] * Math.sin(angle);
+        }
+        result.centering = Math.max(
+          result.centering,
+          (2 * Math.hypot(dx, dy)) / rs.length / (extent / 1.4),
+        );
+        if (layer === 0) result.plateCircularity = cv;
+        else if (layer === 1) result.ceramicCircularity = cv;
+        else result.electrodeCircularity = cv;
+        result.flatness = Math.max(result.flatness, highs[layer] - lows[layer]);
+      }
+      result.plateHeight = sums[0] / counts[0];
+      result.ceramicHeight = sums[1] / counts[1];
+      result.electrodeHeight = sums[2] / counts[2];
+      return result;
+    });
+    return {
+      invalid,
+      plates: footprints.length,
+      metals: metals.length,
+      ceramics: ceramics.length,
+      nonmetalRegions: nonmetals.length,
+      parts,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = cache.get(seed);
+    if (!result) {
+      result = measure(seed);
+      cache.set(seed, result);
+    }
+    return result;
+  };
+
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('piezodiaphragms', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'retains isolated round plates with separate metal rims, central electrodes and closed dielectric ceramic margins (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.plates).toBe(p.cells * p.cells);
+      expect(m.metals).toBe(2 * p.cells * p.cells);
+      expect(m.ceramics).toBe(p.cells * p.cells);
+      expect(m.nonmetalRegions).toBe(p.cells * p.cells + 1);
+      expect(m.parts.length).toBe(p.cells * p.cells);
+      for (const part of m.parts) {
+        expect(part.metalPieces).toBe(2);
+        expect(part.ceramicPieces).toBe(1);
+        expect(part.momentRatio).toBeGreaterThan(2);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps all three observed boundaries circular and concentric with distinct ceramic and metal margins (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.contourMisses).toBe(0);
+        expect(part.centering).toBeLessThan(0.04);
+        expect(part.plateCircularity).toBeLessThan(0.025);
+        expect(part.ceramicCircularity).toBeLessThan(0.025);
+        expect(part.electrodeCircularity).toBeLessThan(0.025);
+        expect(part.minCeramicPlateRatio).toBeGreaterThan(0.55);
+        expect(part.maxCeramicPlateRatio).toBeLessThan(0.85);
+        expect(part.minElectrodeCeramicRatio).toBeGreaterThan(0.65);
+        expect(part.maxElectrodeCeramicRatio).toBeLessThan(0.96);
+        expect(part.minMarginRatio).toBeGreaterThan(0.015);
+        expect(part.minRimRatio).toBeGreaterThan(0.08);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps flat metal/ceramic faces, a raised ceramic layer, near-flush electrode and actual M1/M0 phase contrast (seed %s)',
+    (seed) => {
+      const parts = measured(seed).parts;
+      for (const part of parts) {
+        expect(part.contourMisses).toBe(0);
+        expect(part.minMetal).toBeGreaterThan(0.999);
+        expect(part.maxCeramicMetal).toBeLessThan(0.001);
+        expect(part.flatness).toBeLessThan(0.012);
+        expect(part.ceramicRise).toBeGreaterThan(0.1);
+        expect(part.electrodeStep).toBeLessThan(0.04);
+        expect(part.ceramicColor).toBeGreaterThan(0.03);
+        expect(part.ceramicFinish).toBeGreaterThan(0.2);
+      }
+      for (const key of [
+        'plateHeight',
+        'ceramicHeight',
+        'electrodeHeight',
+      ] as const) {
+        const values = parts.map((part) => part[key]);
+        expect(Math.max(...values) - Math.min(...values)).toBeLessThan(0.012);
+      }
+    },
+  );
+  it('moves actual layered metal footprints with seed rather than only pigment or grain', () => {
+    const first = createSurfaceSampler('piezodiaphragms', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('piezodiaphragms', seed);
+      let different = 0;
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.6180339887498949) % 1,
+          v = (i * 0.4142135623730951) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        different += Number(a.metallic > 0.5 !== b.metallic > 0.5);
+      }
+      expect(different / 8192).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'retains C1 layer, compact-support, owner and signed-UV joins (seed %s)',
+    (seed) => {
+      const c = continuity(seed);
+      expect(c.worst).toBeLessThan(0.1);
+      expect(c.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'packs opaque mixed metal/dielectric layers with unit-facing nonflat normals at size %s',
+    (size) => {
+      const maps = generateProceduralMaps('piezodiaphragms', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.15);
+      expect(m.metallicPixels / (size * size)).toBeLessThan(0.7);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(80);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);

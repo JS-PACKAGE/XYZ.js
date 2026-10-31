@@ -15600,6 +15600,85 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'piezodiaphragms': {
+        const p = proceduralMaterialPresets.piezodiaphragms,
+          poses = new Float64Array(p.cells * p.cells * 3),
+          grainField = cachedNoise(96, 96, seed ^ 0x1f001),
+          plateSquared = p.plateRadius * p.plateRadius,
+          plateCore = p.plateRadius - p.plateBevel,
+          inversePlate = 1 / (plateSquared - plateCore * plateCore),
+          ceramicSquared = p.ceramicRadius * p.ceramicRadius,
+          ceramicCore = p.ceramicRadius - p.ceramicBevel,
+          inverseCeramic = 1 / (ceramicSquared - ceramicCore * ceramicCore),
+          electrodeSquared = p.electrodeRadius * p.electrodeRadius,
+          electrodeCore = p.electrodeRadius - p.electrodeBevel,
+          inverseElectrode =
+            1 / (electrodeSquared - electrodeCore * electrodeCore);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 3,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x1f003);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1f005) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1f007) - 1);
+            poses[i + 2] = 1 / (scale * scale);
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 3,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            q = (dx * dx + dy * dy) * poses[i + 2];
+          if (q >= plateSquared) return;
+          const plate = smooth(clamp((plateSquared - q) * inversePlate)),
+            ceramic = smooth(clamp((ceramicSquared - q) * inverseCeramic)),
+            electrode = smooth(
+              clamp((electrodeSquared - q) * inverseElectrode),
+            ),
+            grain = grainField(u, v);
+          color += plate * (p.plateTone + p.plateGrainTone * grain - color);
+          height += plate * (p.plateHeight + p.grainHeight * grain - height);
+          roughness +=
+            plate * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion +=
+            plate * (p.plateAO - occlusion) - p.contactAO * plate * (1 - plate);
+          color +=
+            ceramic * (p.ceramicTone + p.ceramicGrainTone * grain - color);
+          height +=
+            ceramic * (p.ceramicHeight + p.grainHeight * grain - height);
+          roughness +=
+            ceramic *
+            (p.ceramicRoughness + p.grainRoughness * grain - roughness);
+          occlusion +=
+            ceramic * (p.ceramicAO - occlusion) -
+            p.contactAO * ceramic * (1 - ceramic);
+          color +=
+            electrode *
+            (p.electrodeTone + p.electrodeGrainTone * grain - color);
+          height +=
+            electrode * (p.electrodeHeight + p.grainHeight * grain - height);
+          roughness +=
+            electrode *
+            (p.electrodeRoughness + p.grainRoughness * grain - roughness);
+          occlusion +=
+            electrode * (p.electrodeAO - occlusion) -
+            p.contactAO * electrode * (1 - electrode);
+          // Electrode support lies inside the fully covered ceramic core.
+          metallic = plate * (1 - ceramic) + electrode;
+          return;
+        };
+      }
       case 'castellatedboards': {
         const p = proceduralMaterialPresets.castellatedboards,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41118,6 +41197,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'piezodiaphragms' ||
     kind === 'castellatedboards' ||
     kind === 'qfnlandpads' ||
     kind === 'bgasolderballs' ||

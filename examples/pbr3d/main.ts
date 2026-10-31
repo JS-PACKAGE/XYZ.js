@@ -704,6 +704,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'piezodiaphragms',
     'castellatedboards',
     'qfnlandpads',
     'bgasolderballs',
