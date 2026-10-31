@@ -854,6 +854,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tripointscrewheads',
   'septarian',
   'squaresocketheads',
+  'trianglesocketheads',
   'pietersite',
   'bronzite',
   'castorbeans',
@@ -76998,6 +76999,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'utilityblades' &&
           kind !== 'hexsocketheads' &&
           kind !== 'squaresocketheads' &&
+          kind !== 'trianglesocketheads' &&
           kind !== 'twopinscrewheads' &&
           kind !== 'squareholewashers' &&
           kind !== 'tabwashers' &&
@@ -112739,6 +112741,579 @@ describe('Opaque naviculoid external valves with lineolate striae and paired rap
       expect(m.roughFraction).toBeGreaterThan(0.85);
       expect(m.roughFraction).toBeLessThan(0.96);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('TA three-flat blind steel screw sockets on round heads', () => {
+  const p = proceduralMaterialPresets.trianglesocketheads;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let roughPixels = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      roughPixels += Number(maps.metallicRoughness[j + 1] / 255 > 0.6);
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      roughFraction: roughPixels / count,
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const regions = (mask: Uint8Array, size: number, queue: Int32Array) => {
+    const result = [] as { area: number; cx: number; cy: number }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        sx += x;
+        sy += y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      result.push({ area: write, cx: sx / write, cy: sy / write });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = 512,
+      n = 720,
+      sample = createSurfaceSampler('trianglesocketheads', seed),
+      empty = () => ({
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        metallic: 0,
+        mortar: 0,
+      }),
+      s = empty(),
+      a = empty(),
+      b = empty(),
+      headsMask = new Uint8Array(size * size),
+      socketMask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size),
+      radii = new Float64Array(n),
+      level = (p.headHeight + p.socketFloor) / 2;
+    let invalid = 0,
+      backH = 0,
+      backN = 0,
+      missingOwners = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        const at = y * size + x,
+          h = s.height / p.relief;
+        invalid += Number(
+          !Number.isFinite(
+            s.color +
+              s.height +
+              s.roughness +
+              s.occlusion +
+              s.metallic +
+              s.mortar,
+          ),
+        );
+        headsMask[at] = Number(s.metallic > 0.5);
+        socketMask[at] = Number(s.metallic > 0.999 && h < level);
+        if (s.metallic === 0) {
+          backH += h;
+          backN++;
+        }
+      }
+    const heads = regions(headsMask, size, queue),
+      sockets = regions(socketMask, size, queue),
+      rows = [],
+      corners = [] as [number, number][];
+    let orientationX = 0,
+      orientationY = 0;
+    for (const head of heads) {
+      const mine = sockets.filter((socket) => {
+        let best = 1 / 0,
+          result = head;
+        for (const other of heads) {
+          const d = (socket.cx - other.cx) ** 2 + (socket.cy - other.cy) ** 2;
+          if (d < best) {
+            best = d;
+            result = other;
+          }
+        }
+        return result === head;
+      });
+      if (mine.length !== 1) {
+        missingOwners++;
+        continue;
+      }
+      const socket = mine[0],
+        headRadius = Math.sqrt(head.area / Math.PI) / size;
+      let lost = 0;
+      for (let j = 0; j < n; j++) {
+        const theta = (j * 2 * Math.PI) / n,
+          ax = Math.cos(theta),
+          ay = Math.sin(theta);
+        let lo = 0,
+          hi = headRadius,
+          found = false;
+        for (let k = 1; k <= 64; k++) {
+          const t = (headRadius * k) / 64;
+          sample(head.cx + t * ax, head.cy + t * ay, s);
+          if (s.height / p.relief >= level && s.metallic > 0.999) {
+            hi = t;
+            found = true;
+            break;
+          }
+          lo = t;
+        }
+        if (!found) {
+          lost++;
+          radii[j] = NaN;
+          continue;
+        }
+        for (let k = 0; k < 36; k++) {
+          const t = (lo + hi) / 2;
+          sample(head.cx + t * ax, head.cy + t * ay, s);
+          if (s.height / p.relief < level) lo = t;
+          else hi = t;
+        }
+        radii[j] = (lo + hi) / 2;
+      }
+      const minimum = Math.min(...radii),
+        maximum = Math.max(...radii),
+        mean = radii.reduce((a, v) => a + v, 0) / n,
+        peaks = [];
+      let symmetry = 0;
+      for (let j = 0; j < n; j++) {
+        if (
+          radii[j] > (minimum + maximum) / 2 &&
+          radii[j] > radii[(j + n - 1) % n] &&
+          radii[j] >= radii[(j + 1) % n]
+        )
+          peaks.push(j);
+        symmetry = Math.max(
+          symmetry,
+          Math.abs(radii[j] - radii[(j + n / 3) % n]) / mean,
+        );
+      }
+      let flatness = 0,
+        gapError = 0;
+      for (let k = 0; k < peaks.length; k++) {
+        const start = peaks[k],
+          end =
+            peaks[(k + 1) % peaks.length] + (k + 1 === peaks.length ? n : 0),
+          j0 = Math.round(start + 0.25 * (end - start)),
+          j1 = Math.round(start + 0.75 * (end - start)),
+          x0 = radii[j0 % n] * Math.cos((j0 * 2 * Math.PI) / n),
+          y0 = radii[j0 % n] * Math.sin((j0 * 2 * Math.PI) / n),
+          x1 = radii[j1 % n] * Math.cos((j1 * 2 * Math.PI) / n),
+          y1 = radii[j1 % n] * Math.sin((j1 * 2 * Math.PI) / n),
+          dx = x1 - x0,
+          dy = y1 - y0,
+          chord = Math.hypot(dx, dy);
+        gapError = Math.max(
+          gapError,
+          (Math.abs(end - start - n / 3) * 360) / n,
+        );
+        for (let j = j0; j <= j1; j++) {
+          const x = radii[j % n] * Math.cos((j * 2 * Math.PI) / n),
+            y = radii[j % n] * Math.sin((j * 2 * Math.PI) / n);
+          flatness = Math.max(
+            flatness,
+            Math.abs(dx * (y - y0) - dy * (x - x0)) / (chord * mean),
+          );
+        }
+      }
+      for (const j of peaks)
+        corners.push([
+          head.cx + radii[j] * Math.cos((j * 2 * Math.PI) / n),
+          head.cy + radii[j] * Math.sin((j * 2 * Math.PI) / n),
+        ]);
+      if (peaks.length) {
+        orientationX += Math.cos((3 * peaks[0] * 2 * Math.PI) / n);
+        orientationY += Math.sin((3 * peaks[0] * 2 * Math.PI) / n);
+      }
+      let minFloor = 1 / 0,
+        maxFloor = -1 / 0,
+        minMetal = 1 / 0,
+        maxMortar = 0,
+        minDepth = 1 / 0,
+        minColor = 1 / 0,
+        minAO = 1 / 0,
+        finish = 0;
+      for (let j = 0; j < 12; j++) {
+        const theta = (j * 2 * Math.PI) / 12,
+          ax = Math.cos(theta),
+          ay = Math.sin(theta);
+        sample(head.cx + 0.4 * minimum * ax, head.cy + 0.4 * minimum * ay, a);
+        sample(
+          head.cx + 0.9 * headRadius * ax,
+          head.cy + 0.9 * headRadius * ay,
+          b,
+        );
+        minFloor = Math.min(minFloor, a.height / p.relief);
+        maxFloor = Math.max(maxFloor, a.height / p.relief);
+        minMetal = Math.min(minMetal, a.metallic);
+        maxMortar = Math.max(maxMortar, a.mortar);
+        minDepth = Math.min(minDepth, (b.height - a.height) / p.relief);
+        minColor = Math.min(minColor, b.color - a.color);
+        minAO = Math.min(minAO, b.occlusion - a.occlusion);
+        finish += a.roughness - b.roughness;
+      }
+      for (const fraction of [0, 0.2, 0.6])
+        for (let j = 0; j < 12; j++) {
+          const theta = (j * 2 * Math.PI) / 12;
+          sample(
+            head.cx + fraction * minimum * Math.cos(theta),
+            head.cy + fraction * minimum * Math.sin(theta),
+            s,
+          );
+          minFloor = Math.min(minFloor, s.height / p.relief);
+          maxFloor = Math.max(maxFloor, s.height / p.relief);
+          minMetal = Math.min(minMetal, s.metallic);
+          maxMortar = Math.max(maxMortar, s.mortar);
+        }
+      rows.push({
+        centerOffset:
+          Math.hypot(socket.cx - head.cx, socket.cy - head.cy) / headRadius,
+        sockets: mine.length,
+        peaks: peaks.length,
+        lost,
+        ratio: maximum / minimum,
+        symmetry,
+        flatness,
+        gapError,
+        minFloor,
+        maxFloor,
+        minMetal,
+        maxMortar,
+        minDepth,
+        minColor,
+        minAO,
+        finish: finish / 12,
+        floorOverBacking: minFloor - backH / backN,
+      });
+    }
+    const positions = heads.flatMap((head) => [
+        head.cx * p.cells - Math.floor(head.cx * p.cells) - 0.5,
+        head.cy * p.cells - Math.floor(head.cy * p.cells) - 0.5,
+      ]),
+      positionMean = positions.reduce((a, v) => a + v, 0) / positions.length,
+      positionSD = Math.sqrt(
+        positions.reduce((a, v) => a + (v - positionMean) ** 2, 0) /
+          positions.length,
+      );
+    return {
+      seed,
+      invalid,
+      heads: heads.length,
+      sockets: sockets.length,
+      missingOwners,
+      positionSD,
+      orientation: Math.hypot(orientationX, orientationY) / heads.length,
+      rows,
+      corners,
+    };
+  };
+
+  const observations = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = observations.get(seed);
+    if (!result) {
+      result = measure(seed);
+      observations.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('trianglesocketheads', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (const [u, v] of measured(seed).corners) check(u, v);
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps one centered three-flat triangular cavity per round metallic head (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.heads).toBe(p.cells * p.cells);
+      expect(m.sockets).toBe(m.heads);
+      expect(m.missingOwners).toBe(0);
+      for (const row of m.rows) {
+        expect(row.peaks).toBe(3);
+        expect(row.lost).toBe(0);
+        expect(row.centerOffset).toBeLessThan(0.025);
+        expect(row.ratio).toBeGreaterThan(1.7);
+        expect(row.ratio).toBeLessThan(2.15);
+        expect(row.symmetry).toBeLessThan(0.05);
+        expect(row.flatness).toBeLessThan(0.005);
+        expect(row.gapError).toBeLessThan(3);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains lower closed flat steel floors above the backing rather than paint, raised posts or cutouts (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      for (const row of m.rows) {
+        expect(row.minDepth).toBeGreaterThan(0.25);
+        expect(row.floorOverBacking).toBeGreaterThan(0.12);
+        expect(row.maxFloor - row.minFloor).toBeLessThan(0.012);
+        expect(row.minMetal).toBe(1);
+        expect(row.maxMortar).toBe(0);
+        expect(row.minColor).toBeGreaterThan(0.3);
+        expect(row.minAO).toBeGreaterThan(0.35);
+        expect(row.finish).toBeGreaterThan(0.02);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'varies drive orientation and head placement without a repeated fixed stamp (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.positionSD).toBeGreaterThan(0.004);
+      expect(m.orientation).toBeLessThan(0.65);
+    },
+  );
+  it('changes actual recessed footprints across seeds, not just grain or pigment', () => {
+    const first = createSurfaceSampler('trianglesocketheads', 0),
+      a = empty(),
+      b = empty(),
+      level = (p.headHeight + p.socketFloor) / 2;
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('trianglesocketheads', seed);
+      let changed = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(
+          (a.metallic > 0.999 && a.height / p.relief < level) !==
+            (b.metallic > 0.999 && b.height / p.relief < level),
+        );
+      }
+      expect(changed / 4096).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps circular rims, all three socket corners and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.1);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes mixed metallic steel and dielectric backing with opaque geometric unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('trianglesocketheads', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps),
+        count = maps.baseColor.length / 4;
+      expect(m.metallicPixels / count).toBeGreaterThan(0.25);
+      expect(m.metallicPixels / count).toBeLessThan(0.7);
+      expect(m.roughFraction).toBeGreaterThan(0.25);
+      expect(m.roughFraction).toBeLessThan(0.8);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(40);
+      expect(m.maxTilt).toBeGreaterThan(0.01);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);
       expect(m.invalidAlpha).toBe(0);

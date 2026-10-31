@@ -9939,6 +9939,23 @@ export declare const proceduralMaterialPresets: Readonly<{
         floorGrainHeight: 0.002;
         socketShade: 0.42;
     }>;
+    trianglesocketheads: Readonly<{
+        dark: readonly [35, 40, 46];
+        light: readonly [224, 231, 236];
+        roughness: 0.32;
+        relief: 0.03;
+        cells: 5;
+        jitter: 0.025;
+        capRadius: 0.38;
+        fullRadius: 0.33;
+        socketApothem: 0.135;
+        socketBevel: 0.018;
+        headHeight: 0.68;
+        socketFloor: 0.26;
+        headGrainHeight: 0.004;
+        floorGrainHeight: 0.002;
+        socketShade: 0.42;
+    }>;
     bronzite: Readonly<{
         dark: readonly [22, 18, 15];
         light: readonly [201, 162, 99];
@@ -11828,6 +11845,7 @@ export declare const proceduralTileMeters: Readonly<{
     tripointscrewheads: 0.048;
     septarian: 0.12;
     squaresocketheads: 0.06;
+    trianglesocketheads: 0.06;
     pietersite: 0.06;
     bronzite: 0.12;
     castorbeans: 0.064;

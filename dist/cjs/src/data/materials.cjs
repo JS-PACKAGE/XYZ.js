@@ -17161,6 +17161,31 @@ var proceduralMaterialPresets = Object.freeze({
 		floorGrainHeight: .002,
 		socketShade: .42
 	}),
+	trianglesocketheads: Object.freeze({
+		dark: [
+			35,
+			40,
+			46
+		],
+		light: [
+			224,
+			231,
+			236
+		],
+		roughness: .32,
+		relief: .03,
+		cells: 5,
+		jitter: .025,
+		capRadius: .38,
+		fullRadius: .33,
+		socketApothem: .135,
+		socketBevel: .018,
+		headHeight: .68,
+		socketFloor: .26,
+		headGrainHeight: .004,
+		floorGrainHeight: .002,
+		socketShade: .42
+	}),
 	bronzite: Object.freeze({
 		dark: [
 			22,
@@ -19468,6 +19493,7 @@ var proceduralTileMeters = Object.freeze({
 	tripointscrewheads: .048,
 	septarian: .12,
 	squaresocketheads: .06,
+	trianglesocketheads: .06,
 	pietersite: .06,
 	bronzite: .12,
 	castorbeans: .064,

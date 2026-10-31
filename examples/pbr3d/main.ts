@@ -891,6 +891,7 @@ try {
     'tripointscrewheads',
     'septarian',
     'squaresocketheads',
+    'trianglesocketheads',
     'pietersite',
     'bronzite',
     'castorbeans',

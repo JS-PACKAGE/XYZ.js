@@ -4968,15 +4968,21 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'trianglesocketheads':
       case 'twopinscrewheads':
       case 'squaresocketheads':
       case 'hexsocketheads': {
         const twopin = kind === 'twopinscrewheads',
           square = kind === 'squaresocketheads',
+          triangle = kind === 'trianglesocketheads',
           p = proceduralMaterialPresets[kind],
           polygon =
             proceduralMaterialPresets[
-              square ? 'squaresocketheads' : 'hexsocketheads'
+              triangle
+                ? 'trianglesocketheads'
+                : square
+                  ? 'squaresocketheads'
+                  : 'hexsocketheads'
             ],
           poses = new Float64Array(p.cells * p.cells * 5),
           grainField = cachedNoise(128, 128, seed ^ 0x1bb11),
@@ -5033,6 +5039,17 @@ export function createSurfaceSampler(
             socket =
               smooth(clamp((holeSquared - left * left - y2) * inverseHole)) +
               smooth(clamp((holeSquared - right * right - y2) * inverseHole));
+          } else if (triangle) {
+            const hx = 0.5 * x,
+              hy = halfRoot3 * y;
+            // Three signed flats form TA, not six paired flats or a radial Y.
+            socket = smooth(clamp((polygon.socketApothem - x) * inverseSocket));
+            socket *= smooth(
+              clamp((polygon.socketApothem + hx - hy) * inverseSocket),
+            );
+            socket *= smooth(
+              clamp((polygon.socketApothem + hx + hy) * inverseSocket),
+            );
           } else {
             socket = smooth(
               clamp((polygon.socketApothem - Math.abs(x)) * inverseSocket),
@@ -5059,7 +5076,7 @@ export function createSurfaceSampler(
           const grain = grainField(u, v),
             top = p.headHeight + p.headGrainHeight * grain,
             floor = p.socketFloor + p.floorGrainHeight * grain;
-          // Circle shoulders and paired half-plane products retain C1 bevels.
+          // Circle shoulders and signed/paired half-plane products retain C1 bevels.
           // The existing four-/six-flat path keeps its original product order.
           color +=
             face *
@@ -40838,6 +40855,7 @@ export function createSurfaceSampler(
     kind === 'seraphinite' ||
     kind === 'hexsocketheads' ||
     kind === 'squaresocketheads' ||
+    kind === 'trianglesocketheads' ||
     kind === 'twopinscrewheads' ||
     kind === 'amazonite' ||
     kind === 'mungbeans' ||

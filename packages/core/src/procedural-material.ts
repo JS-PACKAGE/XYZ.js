@@ -828,6 +828,7 @@ export type ProceduralMaterialKind =
   | 'tripointscrewheads'
   | 'septarian'
   | 'squaresocketheads'
+  | 'trianglesocketheads'
   | 'pietersite'
   | 'bronzite'
   | 'castorbeans'
@@ -1937,6 +1938,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tripointscrewheads',
   'septarian',
   'squaresocketheads',
+  'trianglesocketheads',
   'pietersite',
   'bronzite',
   'castorbeans',
@@ -2222,6 +2224,7 @@ export class ProceduralMaterial {
         this.kind === 'utilityblades' ||
         this.kind === 'hexsocketheads' ||
         this.kind === 'squaresocketheads' ||
+        this.kind === 'trianglesocketheads' ||
         this.kind === 'twopinscrewheads' ||
         this.kind === 'squareholewashers' ||
         this.kind === 'tabwashers' ||
