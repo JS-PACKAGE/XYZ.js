@@ -11757,6 +11757,49 @@ var proceduralMaterialPresets = Object.freeze({
 		ribGap: .32,
 		ribRadius: .095
 	}),
+	crownprobetips: Object.freeze({
+		dark: [
+			26,
+			22,
+			14
+		],
+		light: [
+			238,
+			210,
+			125
+		],
+		roughness: .26,
+		relief: .0035,
+		cells: 3,
+		jitter: .025,
+		minScale: .95,
+		maxScale: 1.05,
+		radius: .36,
+		bevel: .012,
+		throatRadius: .1,
+		bowlRimRadius: .3,
+		peakStart: .265,
+		peakEnd: .4,
+		sideRadius: .115,
+		backingTone: .018,
+		throatTone: .22,
+		rimTone: .61,
+		peakTone: .9,
+		backingHeight: .02,
+		throatHeight: .18,
+		rimHeight: .39,
+		peakRise: .42,
+		grainHeight: 6e-4,
+		grainTone: .016,
+		grainRoughness: .016,
+		backingRoughness: .97,
+		throatRoughness: .43,
+		backingAO: .37,
+		throatAO: .5,
+		rimAO: .88,
+		peakAO: .99,
+		contactAO: .25
+	}),
 	piezodiaphragms: Object.freeze({
 		dark: [
 			25,
@@ -19535,6 +19578,7 @@ var proceduralTileMeters = Object.freeze({
 	lathplaster: .8,
 	ceramiccapacitors: .12,
 	fennelseeds: .096,
+	crownprobetips: .008,
 	piezodiaphragms: .06,
 	castellatedboards: .06,
 	qfnlandpads: .02,

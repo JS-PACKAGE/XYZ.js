@@ -704,6 +704,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'crownprobetips',
     'piezodiaphragms',
     'castellatedboards',
     'qfnlandpads',

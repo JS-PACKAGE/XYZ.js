@@ -15600,6 +15600,92 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'crownprobetips': {
+        const p = proceduralMaterialPresets.crownprobetips,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x20001),
+          radiusSquared = p.radius * p.radius,
+          fullRadius = p.radius - p.bevel,
+          inverseFace = 1 / (radiusSquared - fullRadius * fullRadius),
+          throatSquared = p.throatRadius * p.throatRadius,
+          inverseBowl = 1 / (p.bowlRimRadius * p.bowlRimRadius - throatSquared),
+          peakStartSquared = p.peakStart * p.peakStart,
+          inversePeak = 1 / (p.peakEnd * p.peakEnd - peakStartSquared),
+          inverseSide = 1 / (p.sideRadius * p.sideRadius),
+          bowlTone = p.rimTone - p.throatTone,
+          peakTone = p.peakTone - p.rimTone,
+          bowlHeight = p.rimHeight - p.throatHeight,
+          bowlRoughness = p.roughness - p.throatRoughness,
+          bowlAO = p.rimAO - p.throatAO,
+          peakAO = p.peakAO - p.rimAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x20003),
+              angle = TAU * hash(col, row, seed ^ 0x20005);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20007) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x20009) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            xx = x * x,
+            yy = y * y,
+            q = xx + yy;
+          if (q >= radiusSquared) return;
+          const face = smooth(clamp((radiusSquared - q) * inverseFace)),
+            bowl = smooth(clamp((q - throatSquared) * inverseBowl)),
+            t = clamp((Math.max(xx, yy) - peakStartSquared) * inversePeak),
+            side = clamp(1 - Math.min(xx, yy) * inverseSide),
+            rise = 4 * t * (1 - t) * side,
+            peak = rise * rise,
+            grain = grainField(u, v);
+          // At the diagonal owner fold, either radial or lateral peak support is zero.
+          color +=
+            face *
+            (p.throatTone +
+              bowlTone * bowl +
+              peakTone * peak +
+              p.grainTone * grain -
+              color);
+          height +=
+            face *
+            (p.throatHeight +
+              bowlHeight * bowl +
+              p.peakRise * peak +
+              p.grainHeight * grain -
+              height);
+          roughness +=
+            face *
+            (p.throatRoughness +
+              bowlRoughness * bowl +
+              p.grainRoughness * grain -
+              roughness);
+          occlusion +=
+            face * (p.throatAO + bowlAO * bowl + peakAO * peak - occlusion) -
+            p.contactAO * face * (1 - face);
+          metallic = face;
+          return;
+        };
+      }
       case 'piezodiaphragms': {
         const p = proceduralMaterialPresets.piezodiaphragms,
           poses = new Float64Array(p.cells * p.cells * 3),
@@ -41197,6 +41283,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'crownprobetips' ||
     kind === 'piezodiaphragms' ||
     kind === 'castellatedboards' ||
     kind === 'qfnlandpads' ||
