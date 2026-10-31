@@ -7360,6 +7360,42 @@ var proceduralMaterialPresets = Object.freeze({
 		bins: 16,
 		directions: `0534001055324543310234312445053400105340012115401053400105532450553245433102321502234312445055324543124454331023433102321154010534001215022343310234312445433102321154012150223431244543124450553245053400105532454331023431244505340010534001211540105340010553245433102343124450534001053400121154012150223211540121154010553245431244505340012115401`
 	}),
+	pallasite: Object.freeze({
+		dark: [
+			43,
+			61,
+			13
+		],
+		light: [
+			206,
+			168,
+			57
+		],
+		roughness: .28,
+		relief: .002,
+		cells: 8,
+		jitter: .25,
+		neighborRadius: 2,
+		candidateRadius: 1,
+		inset: .055,
+		insetVariation: .09,
+		shoulder: .035,
+		metalRoughness: .19,
+		fractureWidth: .012,
+		fractureDepth: .012,
+		grainCells: 96,
+		toneBase: .22,
+		toneVariation: .62,
+		fractureOffset: .16,
+		fractureDarkening: .18,
+		fractureRoughness: .04,
+		fractureOcclusion: .03,
+		grainColor: .025,
+		grainHeight: .002,
+		grainRoughness: .02,
+		baseHeight: .5,
+		baseOcclusion: .99
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18843,6 +18879,7 @@ var proceduralTileMeters = Object.freeze({
 	langtonsant: .32,
 	vogelspiral: .5,
 	gosperinlay: .5,
+	pallasite: .16,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

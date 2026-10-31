@@ -3465,6 +3465,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         bins: 16;
         directions: "0534001055324543310234312445053400105340012115401053400105532450553245433102321502234312445055324543124454331023433102321154010534001215022343310234312445433102321154012150223431244543124450553245053400105532454331023431244505340010534001211540105340010553245433102343124450534001053400121154012150223211540121154010553245431244505340012115401";
     }>;
+    pallasite: Readonly<{
+        dark: readonly [43, 61, 13];
+        light: readonly [206, 168, 57];
+        roughness: 0.28;
+        relief: 0.002;
+        cells: 8;
+        jitter: 0.25;
+        neighborRadius: 2;
+        candidateRadius: 1;
+        inset: 0.055;
+        insetVariation: 0.09;
+        shoulder: 0.035;
+        metalRoughness: 0.19;
+        fractureWidth: 0.012;
+        fractureDepth: 0.012;
+        grainCells: 96;
+        toneBase: 0.22;
+        toneVariation: 0.62;
+        fractureOffset: 0.16;
+        fractureDarkening: 0.18;
+        fractureRoughness: 0.04;
+        fractureOcclusion: 0.03;
+        grainColor: 0.025;
+        grainHeight: 0.002;
+        grainRoughness: 0.02;
+        baseHeight: 0.5;
+        baseOcclusion: 0.99;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11251,6 +11279,7 @@ export declare const proceduralTileMeters: Readonly<{
     langtonsant: 0.32;
     vogelspiral: 0.5;
     gosperinlay: 0.5;
+    pallasite: 0.16;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

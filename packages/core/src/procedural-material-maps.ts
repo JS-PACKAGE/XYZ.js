@@ -93,6 +93,117 @@ function wrappedFeature(
   return Math.sqrt(best) * cells;
 }
 
+/** Compact periodic Voronoi facets; scratch buffers are shared only during construction. */
+function buildPeriodicVoronoiPlanes(
+  sites: Float64Array,
+  stride: number,
+  cells: number,
+  neighborRadius: number,
+  radius: number,
+): Float64Array[] {
+  const siteCount = cells * cells,
+    planes = new Array<Float64Array>(siteCount),
+    neighborCount = (2 * neighborRadius + 1) ** 2 - 1,
+    candidates = new Float64Array(neighborCount * 3),
+    scratchA = new Float64Array((neighborCount + 4) * 2),
+    scratchB = new Float64Array((neighborCount + 4) * 2),
+    labelsA = new Int16Array(neighborCount + 4),
+    labelsB = new Int16Array(neighborCount + 4),
+    seen = new Uint8Array(neighborCount);
+  // Clip once with incoming-edge labels; point samples retain only surviving facet planes.
+  for (let row = 0; row < cells; row++)
+    for (let col = 0; col < cells; col++) {
+      const id = row * cells + col,
+        site = id * stride;
+      let vertices = 4,
+        input = scratchA,
+        output = scratchB,
+        inputLabels = labelsA,
+        outputLabels = labelsB,
+        plane = 0;
+      input[0] = -radius;
+      input[1] = -radius;
+      input[2] = radius;
+      input[3] = -radius;
+      input[4] = radius;
+      input[5] = radius;
+      input[6] = -radius;
+      input[7] = radius;
+      inputLabels.fill(-1, 0, 4);
+      for (let oy = -neighborRadius; oy <= neighborRadius; oy++)
+        for (let ox = -neighborRadius; ox <= neighborRadius; ox++) {
+          if (ox === 0 && oy === 0) continue;
+          const wx = (col + ox + cells) % cells,
+            wy = (row + oy + cells) % cells,
+            other = (wy * cells + wx) * stride,
+            nx = ox + sites[other] - sites[site],
+            ny = oy + sites[other + 1] - sites[site + 1],
+            bound = (nx * nx + ny * ny) * 0.5;
+          candidates[plane * 3] = nx;
+          candidates[plane * 3 + 1] = ny;
+          candidates[plane * 3 + 2] = bound;
+          let count = 0,
+            px = input[(vertices - 1) * 2],
+            py = input[(vertices - 1) * 2 + 1],
+            previous = bound - nx * px - ny * py;
+          for (let j = 0; j < vertices; j++) {
+            const x = input[j * 2],
+              y = input[j * 2 + 1],
+              current = bound - nx * x - ny * y;
+            if (previous >= 0 !== current >= 0) {
+              const t = previous / (previous - current);
+              output[count * 2] =
+                t === 0 ? px : t === 1 ? x : px + t * (x - px);
+              output[count * 2 + 1] =
+                t === 0 ? py : t === 1 ? y : py + t * (y - py);
+              outputLabels[count++] = previous >= 0 ? inputLabels[j] : plane;
+            }
+            if (current >= 0) {
+              output[count * 2] = x;
+              output[count * 2 + 1] = y;
+              outputLabels[count++] = inputLabels[j];
+            }
+            px = x;
+            py = y;
+            previous = current;
+          }
+          vertices = count;
+          const swap = input;
+          input = output;
+          output = swap;
+          const labelSwap = inputLabels;
+          inputLabels = outputLabels;
+          outputLabels = labelSwap;
+          plane++;
+        }
+      seen.fill(0);
+      let count = 0;
+      for (let j = 0; j < vertices; j++) {
+        const label = inputLabels[j],
+          previous = (j + vertices - 1) % vertices,
+          dx = input[j * 2] - input[previous * 2],
+          dy = input[j * 2 + 1] - input[previous * 2 + 1];
+        if (label >= 0 && seen[label] === 0 && dx * dx + dy * dy > 0) {
+          seen[label] = 1;
+          count++;
+        }
+      }
+      const edges = new Float64Array(count * 3);
+      let offset = 0;
+      for (let j = 0; j < neighborCount; j++) {
+        if (seen[j] === 0) continue;
+        const nx = candidates[j * 3],
+          ny = candidates[j * 3 + 1],
+          inverseLength = 1 / Math.sqrt(nx * nx + ny * ny);
+        edges[offset++] = nx * inverseLength;
+        edges[offset++] = ny * inverseLength;
+        edges[offset++] = candidates[j * 3 + 2] * inverseLength;
+      }
+      planes[id] = edges;
+    }
+  return planes;
+}
+
 /** Internal CPU field sampler; coordinates are periodic in both directions. */
 export function createSurfaceSampler(
   kind: ProceduralMaterialKind,
@@ -3339,16 +3450,7 @@ export function createSurfaceSampler(
         const p = proceduralMaterialPresets.septarian,
           siteCount = p.cells * p.cells,
           sites = new Float64Array(siteCount * 3),
-          planes = new Array<Float64Array>(siteCount),
-          neighborCount = (2 * p.neighborRadius + 1) ** 2 - 1,
-          candidates = new Float64Array(neighborCount * 3),
-          scratchA = new Float64Array((neighborCount + 4) * 2),
-          scratchB = new Float64Array((neighborCount + 4) * 2),
-          labelsA = new Int16Array(neighborCount + 4),
-          labelsB = new Int16Array(neighborCount + 4),
-          seen = new Uint8Array(neighborCount),
           radiusSquared = 2 * (0.5 + p.jitter) ** 2,
-          radius = Math.sqrt(radiusSquared),
           cloudX = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1c311),
           cloudY = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1c313),
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1c315),
@@ -3378,98 +3480,13 @@ export function createSurfaceSampler(
               p.hostColor +
               p.hostVariation * (hash(col, row, seed ^ 0x1c31b) - 0.5);
           }
-        // Clip once with incoming-edge labels; point samples retain only surviving facet planes.
-        for (let row = 0; row < p.cells; row++)
-          for (let col = 0; col < p.cells; col++) {
-            const id = row * p.cells + col,
-              site = id * 3;
-            let vertices = 4,
-              input = scratchA,
-              output = scratchB,
-              inputLabels = labelsA,
-              outputLabels = labelsB,
-              plane = 0;
-            input[0] = -radius;
-            input[1] = -radius;
-            input[2] = radius;
-            input[3] = -radius;
-            input[4] = radius;
-            input[5] = radius;
-            input[6] = -radius;
-            input[7] = radius;
-            inputLabels.fill(-1, 0, 4);
-            for (let oy = -p.neighborRadius; oy <= p.neighborRadius; oy++)
-              for (let ox = -p.neighborRadius; ox <= p.neighborRadius; ox++) {
-                if (ox === 0 && oy === 0) continue;
-                const wx = (col + ox + p.cells) % p.cells,
-                  wy = (row + oy + p.cells) % p.cells,
-                  other = (wy * p.cells + wx) * 3,
-                  nx = ox + sites[other] - sites[site],
-                  ny = oy + sites[other + 1] - sites[site + 1],
-                  bound = (nx * nx + ny * ny) * 0.5;
-                candidates[plane * 3] = nx;
-                candidates[plane * 3 + 1] = ny;
-                candidates[plane * 3 + 2] = bound;
-                let count = 0,
-                  px = input[(vertices - 1) * 2],
-                  py = input[(vertices - 1) * 2 + 1],
-                  previous = bound - nx * px - ny * py;
-                for (let j = 0; j < vertices; j++) {
-                  const x = input[j * 2],
-                    y = input[j * 2 + 1],
-                    current = bound - nx * x - ny * y;
-                  if (previous >= 0 !== current >= 0) {
-                    const t = previous / (previous - current);
-                    output[count * 2] =
-                      t === 0 ? px : t === 1 ? x : px + t * (x - px);
-                    output[count * 2 + 1] =
-                      t === 0 ? py : t === 1 ? y : py + t * (y - py);
-                    outputLabels[count++] =
-                      previous >= 0 ? inputLabels[j] : plane;
-                  }
-                  if (current >= 0) {
-                    output[count * 2] = x;
-                    output[count * 2 + 1] = y;
-                    outputLabels[count++] = inputLabels[j];
-                  }
-                  px = x;
-                  py = y;
-                  previous = current;
-                }
-                vertices = count;
-                const swap = input;
-                input = output;
-                output = swap;
-                const labelSwap = inputLabels;
-                inputLabels = outputLabels;
-                outputLabels = labelSwap;
-                plane++;
-              }
-            seen.fill(0);
-            let count = 0;
-            for (let j = 0; j < vertices; j++) {
-              const label = inputLabels[j],
-                previous = (j + vertices - 1) % vertices,
-                dx = input[j * 2] - input[previous * 2],
-                dy = input[j * 2 + 1] - input[previous * 2 + 1];
-              if (label >= 0 && seen[label] === 0 && dx * dx + dy * dy > 0) {
-                seen[label] = 1;
-                count++;
-              }
-            }
-            const edges = new Float64Array(count * 3);
-            let offset = 0;
-            for (let j = 0; j < neighborCount; j++) {
-              if (seen[j] === 0) continue;
-              const nx = candidates[j * 3],
-                ny = candidates[j * 3 + 1],
-                inverseLength = 1 / Math.sqrt(nx * nx + ny * ny);
-              edges[offset++] = nx * inverseLength;
-              edges[offset++] = ny * inverseLength;
-              edges[offset++] = candidates[j * 3 + 2] * inverseLength;
-            }
-            planes[id] = edges;
-          }
+        const planes = buildPeriodicVoronoiPlanes(
+          sites,
+          3,
+          p.cells,
+          p.neighborRadius,
+          Math.sqrt(radiusSquared),
+        );
         return () => {
           const cx = cloudX(u, v),
             cy = cloudY(u, v),
@@ -27488,6 +27505,111 @@ export function createSurfaceSampler(
           metallic = inlay;
         };
       }
+      case 'pallasite': {
+        const p = proceduralMaterialPresets.pallasite,
+          sites = new Float64Array(p.cells * p.cells * 10),
+          radiusSquared = 2 * (0.5 + p.jitter) ** 2,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x7a11),
+          inverseShoulder = 1 / p.shoulder,
+          inverseFracture = 1 / (p.fractureWidth * p.fractureWidth);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 10;
+            sites[i] = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x7a13) - 1);
+            sites[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x7a15) - 1);
+            sites[i + 2] =
+              p.toneBase + p.toneVariation * hash(col, row, seed ^ 0x7a17);
+            sites[i + 3] =
+              p.inset + p.insetVariation * hash(col, row, seed ^ 0x7a19);
+            for (let line = 0; line < 2; line++) {
+              const angle = TAU * hash(col * 2 + line, row, seed ^ 0x7a1b),
+                j = i + 4 + line * 3;
+              sites[j] = Math.cos(angle);
+              sites[j + 1] = Math.sin(angle);
+              sites[j + 2] =
+                p.fractureOffset *
+                (hash(col * 2 + line, row, seed ^ 0x7a1d) - 0.5);
+            }
+          }
+        const planes = buildPeriodicVoronoiPlanes(
+          sites,
+          10,
+          p.cells,
+          p.neighborRadius,
+          Math.sqrt(radiusSquared),
+        );
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            grain = grainField(u, v);
+          let mineral = 0,
+            tone = 0.5,
+            fracture = 0;
+          // Each eroded convex cell lies strictly inside its Voronoi owner; supports cannot overlap.
+          for (
+            let oy = -p.candidateRadius;
+            oy <= p.candidateRadius && mineral === 0;
+            oy++
+          )
+            for (let ox = -p.candidateRadius; ox <= p.candidateRadius; ox++) {
+              const col = ix + ox,
+                row = iy + oy,
+                wx = ((col % p.cells) + p.cells) % p.cells,
+                wy = ((row % p.cells) + p.cells) % p.cells,
+                id = wy * p.cells + wx,
+                at = id * 10,
+                dx = x - col - sites[at],
+                dy = y - row - sites[at + 1];
+              if (dx * dx + dy * dy > radiusSquared) continue;
+              const edges = planes[id];
+              let face = 1;
+              for (let j = 0; j < edges.length; j += 3) {
+                const inward = edges[j + 2] - dx * edges[j] - dy * edges[j + 1];
+                face *= smooth(
+                  clamp((inward - sites[at + 3]) * inverseShoulder),
+                );
+                if (face === 0) break;
+              }
+              if (face === 0) continue;
+              mineral = face;
+              tone = sites[at + 2];
+              let intact = 1;
+              for (let line = 0; line < 2; line++) {
+                const j = at + 4 + line * 3,
+                  d = dx * sites[j] + dy * sites[j + 1] - sites[j + 2];
+                intact *= 1 - smooth(clamp(1 - d * d * inverseFracture));
+              }
+              fracture = 1 - intact;
+              break;
+            }
+          const metal = 1 - mineral;
+          color =
+            0.5 +
+            mineral *
+              (tone +
+                p.grainColor * grain -
+                p.fractureDarkening * fracture -
+                0.5);
+          height =
+            p.baseHeight +
+            p.grainHeight * grain -
+            p.fractureDepth * fracture * mineral;
+          roughness =
+            p.metalRoughness +
+            mineral *
+              (p.roughness -
+                p.metalRoughness +
+                p.fractureRoughness * fracture) +
+            p.grainRoughness * grain;
+          occlusion =
+            p.baseOcclusion - p.fractureOcclusion * fracture * mineral;
+          metallic = metal;
+          mortar = metal;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40075,6 +40197,7 @@ export function createSurfaceSampler(
     kind === 'langtonsant' ||
     kind === 'vogelspiral' ||
     kind === 'gosperinlay' ||
+    kind === 'pallasite' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

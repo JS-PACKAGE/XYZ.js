@@ -511,6 +511,7 @@ const kinds: ProceduralMaterialKind[] = [
   'langtonsant',
   'vogelspiral',
   'gosperinlay',
+  'pallasite',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -76982,6 +76983,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'kintsugiceramic' &&
           kind !== 'cloisonne' &&
           kind !== 'gosperinlay' &&
+          kind !== 'pallasite' &&
           kind !== 'rackgears' &&
           kind !== 'doubleedgerazorblades' &&
           kind !== 'turnbuckles' &&
@@ -86443,6 +86445,7 @@ describe('procedural preset acquisition and ownership', () => {
     'kintsugiceramic',
     'cloisonne',
     'gosperinlay',
+    'pallasite',
     'rackgears',
     'doubleedgerazorblades',
     'turnbuckles',
@@ -86556,6 +86559,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'kintsugiceramic' ||
           kind === 'cloisonne' ||
           kind === 'gosperinlay' ||
+          kind === 'pallasite' ||
           kind === 'rackgears' ||
           kind === 'doubleedgerazorblades' ||
           kind === 'turnbuckles' ||
@@ -109102,6 +109106,541 @@ describe('Gosper brass inlay with one open order-three hexagonal path', () => {
         expect(a.maxTilt).toBeGreaterThan(0.1);
         for (const proportion of a.signed)
           expect(proportion).toBeGreaterThan(0.02);
+      }
+    },
+  );
+});
+
+describe('Opaque polished pallasite olivine inclusions in a connected iron-nickel matrix', () => {
+  const p = proceduralMaterialPresets.pallasite;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observe = (seed: number) => {
+    const size = 512,
+      count = size * size,
+      sample = createSurfaceSampler('pallasite', seed),
+      out = empty(),
+      mask = new Uint8Array(count),
+      full = new Uint8Array(count),
+      colors = new Float32Array(count),
+      heights = new Float32Array(count),
+      rough = new Float32Array(count),
+      queue = new Int32Array(count);
+    let metal = 0,
+      mineral = 0,
+      metalRough = 0,
+      mineralRough = 0,
+      spanLo = Infinity,
+      spanHi = -Infinity,
+      minAO = 1,
+      maxAO = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        mask[i] = Number(out.metallic < 0.5);
+        full[i] = Number(out.metallic < 1e-10);
+        colors[i] = out.color;
+        heights[i] = out.height / p.relief;
+        rough[i] = out.roughness;
+        spanLo = Math.min(spanLo, heights[i]);
+        spanHi = Math.max(spanHi, heights[i]);
+        minAO = Math.min(minAO, out.occlusion);
+        maxAO = Math.max(maxAO, out.occlusion);
+        if (out.metallic > 1 - 1e-10) {
+          metal++;
+          metalRough += out.roughness;
+        }
+        if (full[i]) {
+          mineral++;
+          mineralRough += out.roughness;
+        }
+      }
+    const components: Array<{
+      area: number;
+      cx: number;
+      cy: number;
+      colorRange: number;
+      darkRecess: number;
+      darkRough: number;
+      aspect: number;
+    }> = [];
+    for (let start = 0; start < count; start++) {
+      if (mask[start] !== 1) continue;
+      let read = 0,
+        write = 1,
+        dxSum = 0,
+        dySum = 0,
+        minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity,
+        minC = Infinity,
+        maxC = -Infinity,
+        darkH = 0,
+        brightH = 0,
+        darkR = 0,
+        brightR = 0;
+      const sx = start % size,
+        sy = Math.floor(start / size);
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const i = queue[read++],
+          x = i % size,
+          y = Math.floor(i / size),
+          dx = ((x - sx + size * 1.5) % size) - size * 0.5,
+          dy = ((y - sy + size * 1.5) % size) - size * 0.5;
+        dxSum += dx;
+        dySum += dy;
+        minX = Math.min(minX, dx);
+        maxX = Math.max(maxX, dx);
+        minY = Math.min(minY, dy);
+        maxY = Math.max(maxY, dy);
+        if (full[i]) {
+          if (colors[i] < minC) {
+            minC = colors[i];
+            darkH = heights[i];
+            darkR = rough[i];
+          }
+          if (colors[i] > maxC) {
+            maxC = colors[i];
+            brightH = heights[i];
+            brightR = rough[i];
+          }
+        }
+        for (let direction = 0; direction < 4; direction++) {
+          const nx =
+              direction === 0
+                ? (x + 1) % size
+                : direction === 1
+                  ? (x + size - 1) % size
+                  : x,
+            ny =
+              direction === 2
+                ? (y + 1) % size
+                : direction === 3
+                  ? (y + size - 1) % size
+                  : y,
+            j = ny * size + nx;
+          if (mask[j] !== 1) continue;
+          mask[j] = 0;
+          queue[write++] = j;
+        }
+      }
+      components.push({
+        area: write,
+        cx: ((sx + dxSum / write + 0.5) / size + 1) % 1,
+        cy: ((sy + dySum / write + 0.5) / size + 1) % 1,
+        colorRange: maxC - minC,
+        darkRecess: brightH - darkH,
+        darkRough: darkR - brightR,
+        aspect: Math.max(
+          (maxX - minX + 1) / (maxY - minY + 1),
+          (maxY - minY + 1) / (maxX - minX + 1),
+        ),
+      });
+    }
+    const areas = components.map((c) => c.area),
+      mean = areas.reduce((a, b) => a + b, 0) / areas.length,
+      areaCV =
+        Math.sqrt(
+          areas.reduce((s, a) => s + (a - mean) ** 2, 0) / areas.length,
+        ) / mean;
+    return {
+      components,
+      grains: components.length,
+      areaCV,
+      minArea: Math.min(...areas),
+      maxArea: Math.max(...areas),
+      maxAspect: Math.max(...components.map((c) => c.aspect)),
+      metalFraction: metal / count,
+      mineralFraction: mineral / count,
+      roughGap: mineralRough / mineral - metalRough / metal,
+      heightSpan: spanHi - spanLo,
+      minAO,
+      maxAO,
+      fissured: components.filter(
+        (c) =>
+          c.colorRange > 0.09 && c.darkRecess > 0.004 && c.darkRough > 0.01,
+      ).length,
+    };
+  };
+  const observed = new Map<number, ReturnType<typeof observe>>();
+  const measured = (seed: number) => {
+    let value = observed.get(seed);
+    if (!value) {
+      value = observe(seed);
+      observed.set(seed, value);
+    }
+    return value;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      roughMean = 0,
+      smoothMean = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        roughMean += roughness;
+      } else {
+        tiles++;
+        smoothMean += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      roughFraction: grout / count,
+      roughMean: roughMean / grout,
+      smoothMean: smoothMean / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const countPhase = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+    mineral: boolean,
+  ) => {
+    const mask = Uint8Array.from({ length: size * size }, (_, i) =>
+        Number(maps.metallicRoughness[i * 4 + 2] < 128 === mineral),
+      ),
+      queue = new Int32Array(size * size);
+    let components = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      components++;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (let d = 0; d < 4; d++) {
+          const nx =
+              d === 0 ? (x + 1) % size : d === 1 ? (x + size - 1) % size : x,
+            ny = d === 2 ? (y + 1) % size : d === 3 ? (y + size - 1) % size : y,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+    }
+    return components;
+  };
+  const observeOptics = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4;
+    let metal = 0,
+      mineral = 0,
+      metalChroma = 0,
+      mineralChroma = 0,
+      metalRough = 0,
+      mineralRough = 0,
+      flat = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        m = maps.metallicRoughness[j + 2],
+        chroma = maps.baseColor[j + 1] - maps.baseColor[j + 2],
+        rough = maps.metallicRoughness[j + 1] / 255,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1;
+      if (m > 250) {
+        metal++;
+        metalChroma += chroma;
+        metalRough += rough;
+      }
+      if (m < 5) {
+        mineral++;
+        mineralChroma += chroma;
+        mineralRough += rough;
+      }
+      flat += Number(Math.abs(nx) < 0.05 && Math.abs(ny) < 0.05);
+    }
+    return {
+      metalFraction: metal / count,
+      mineralFraction: mineral / count,
+      chromaGap: mineralChroma / mineral - metalChroma / metal,
+      roughGap: mineralRough / mineral - metalRough / metal,
+      flat: flat / count,
+    };
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('pallasite', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps separated irregular olivine inclusions across periodic boundaries at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.grains).toBe(p.cells * p.cells);
+      expect(m.areaCV).toBeGreaterThan(0.05);
+      expect(m.maxAspect).toBeLessThan(3.5);
+      expect(m.metalFraction).toBeGreaterThan(0.2);
+      expect(m.metalFraction).toBeLessThan(0.65);
+      expect(m.mineralFraction).toBeGreaterThan(0.25);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'polishes both phases nearly coplanar without grout-like cavities or raised stone domes at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.roughGap).toBeGreaterThan(0.04);
+      expect(m.heightSpan).toBeLessThan(0.04);
+      expect(m.minAO).toBeGreaterThan(0.94);
+      expect(m.maxAO).toBeGreaterThan(0.98);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'aligns darker intramineral fissures with slight recess and increased roughness at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.fissured / m.grains).toBeGreaterThan(0.8);
+    },
+  );
+  it('changes crystal placement and size with seed rather than changing only optical grain noise', () => {
+    const first = createSurfaceSampler('pallasite', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('pallasite', seed);
+      let changed = 0,
+        color = 0;
+      for (let j = 0; j < 4096; j++) {
+        const x = (j * 0.61803398875) % 1,
+          y = (j * 0.41421356237) % 1;
+        first(x, y, a);
+        other(x, y, b);
+        changed += Number(a.metallic > 0.5 !== b.metallic > 0.5);
+        color = Math.max(color, Math.abs(a.color - b.color));
+      }
+      expect(changed / 4096).toBeGreaterThan(0.05);
+      expect(color).toBeGreaterThan(0.1);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps mineral shoulders, metallic owner transitions, query patches and signed seams C1 at seed%s',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.04);
+      expect(m.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque olive dielectric grains within a neutral connected metallic matrix at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('pallasite', size, 7, {
+          heightMap: true,
+        }),
+        a = observePixels(maps),
+        m = observeOptics(maps);
+      expect(m.metalFraction).toBeGreaterThan(0.2);
+      expect(m.metalFraction).toBeLessThan(0.65);
+      expect(m.mineralFraction).toBeGreaterThan(0.25);
+      expect(m.chromaGap).toBeGreaterThan(20);
+      expect(m.roughGap).toBeGreaterThan(0.04);
+      expect(m.flat).toBeGreaterThan(0.98);
+      expect(a.maxTilt).toBeLessThan(0.01);
+      expect(a.minAO).toBeGreaterThan(235);
+      expect(a.maxAO).toBeGreaterThan(250);
+      expect(a.invalidAlpha).toBe(0);
+      expect(a.normalLengthError).toBeLessThan(0.014);
+      expect(a.backFacing).toBe(0);
+      if (size === 512) {
+        expect(countPhase(maps, size, true)).toBe(p.cells * p.cells);
+        expect(countPhase(maps, size, false)).toBe(1);
       }
     },
   );

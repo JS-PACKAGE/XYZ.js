@@ -548,6 +548,7 @@ try {
     'langtonsant',
     'vogelspiral',
     'gosperinlay',
+    'pallasite',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
