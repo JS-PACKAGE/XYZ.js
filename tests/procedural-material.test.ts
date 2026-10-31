@@ -515,6 +515,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cuttlebone',
   'watermelontourmaline',
   'leafstomata',
+  'chitonshells',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -111361,6 +111362,738 @@ describe('Opaque schematic eudicot guard-cell pairs with static stomatal pores',
         expect(q.poreContrast).toBeGreaterThan(10);
         expect(q.guardFinish).toBeGreaterThan(0.2);
         expect(q.poreOcclusion).toBeGreaterThan(0.45);
+      }
+    },
+  );
+});
+
+describe('Opaque schematic chiton dorsal armor with eight directional valves', () => {
+  const p = proceduralMaterialPresets.chitonshells;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let roughPixels = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      roughPixels += Number(maps.metallicRoughness[j + 1] / 255 > 0.6);
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      roughFraction: roughPixels / count,
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    hs: Float64Array,
+    queue: Int32Array,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+      px: number;
+      py: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0,
+        peak = -Infinity,
+        peakAt = first;
+      queue[0] = first;
+      mask[first] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        if (hs[at] > peak) {
+          peak = hs[at];
+          peakAt = at;
+        }
+        for (let d = 0; d < 4; d++) {
+          const nx =
+              d === 0 ? (ix + 1) % size : d === 1 ? (ix + size - 1) % size : ix,
+            ny =
+              d === 2 ? (iy + 1) % size : d === 3 ? (iy + size - 1) % size : iy,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+        px: ((peakAt % size) + 0.5) / size,
+        py: (Math.floor(peakAt / size) + 0.5) / size,
+      });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = Math.max(512, 256 * p.cells),
+      sample = createSurfaceSampler('chitonshells', seed),
+      s = empty(),
+      heights = new Float64Array(size * size),
+      bodyMask = new Uint8Array(size * size),
+      faceMask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size),
+      bodyLevel = p.floorHeight + 0.5 * p.girdleLift,
+      underMax = p.floorHeight + p.girdleLift + p.grainHeight + p.underLift,
+      faceLevel = underMax + 0.5 * p.plateLift,
+      shellLevel =
+        p.floorHeight + p.girdleLift + p.grainHeight + 0.5 * p.underLift;
+    let invalidSamples = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        const i = y * size + x,
+          h = s.height / p.relief;
+        invalidSamples += Number(
+          !Number.isFinite(
+            s.color +
+              s.height +
+              s.roughness +
+              s.occlusion +
+              s.metallic +
+              s.mortar,
+          ),
+        );
+        heights[i] = h;
+        bodyMask[i] = Number(h > bodyLevel);
+        faceMask[i] = Number(h > faceLevel);
+      }
+    const bodies = regions(bodyMask, size, heights, queue),
+      faces = regions(faceMask, size, heights, queue),
+      corners = [] as [number, number][],
+      areas: number[] = [],
+      positions: number[] = [],
+      phases: [number, number][] = [];
+    let minAspect = Infinity,
+      maxAspect = 0,
+      minFaces = Infinity,
+      maxFaces = 0,
+      minSections = Infinity,
+      maxSections = 0,
+      minLapAsymmetry = Infinity,
+      minRise = Infinity,
+      consistentLaps = 0,
+      allLaps = 0,
+      minGirdle = Infinity,
+      minColorGap = Infinity,
+      minFinishGap = Infinity,
+      minUnderDepth = Infinity,
+      minUnderLayer = Infinity,
+      minUnderAO = Infinity,
+      minUnderColorGap = Infinity,
+      minBend = Infinity,
+      maxMirror = 0;
+    for (const body of bodies) {
+      const theta = 0.5 * Math.atan2(2 * body.xy, body.xx - body.yy),
+        ax = Math.cos(theta),
+        ay = Math.sin(theta),
+        delta = Math.hypot(body.xx - body.yy, 2 * body.xy),
+        major = (body.xx + body.yy + delta) / 2,
+        minor = (body.xx + body.yy - delta) / 2,
+        span = 2 * Math.sqrt(major);
+      minAspect = Math.min(minAspect, Math.sqrt(major / minor));
+      maxAspect = Math.max(maxAspect, Math.sqrt(major / minor));
+      areas.push(Math.sqrt(body.area));
+      positions.push(
+        body.cx * p.cells - Math.floor(body.cx * p.cells) - 0.5,
+        body.cy * p.cells - Math.floor(body.cy * p.cells) - 0.5,
+      );
+      phases.push([Math.cos(2 * theta), Math.sin(2 * theta)]);
+      const mine = faces.filter((face) => {
+        let best = Infinity,
+          owner = body;
+        for (const other of bodies) {
+          const d = (face.cx - other.cx) ** 2 + (face.cy - other.cy) ** 2;
+          if (d < best) {
+            best = d;
+            owner = other;
+          }
+        }
+        return owner === body;
+      });
+      minFaces = Math.min(minFaces, mine.length);
+      maxFaces = Math.max(maxFaces, mine.length);
+      let faceColor = 0,
+        faceRough = 0;
+      for (const face of mine) {
+        sample(face.px, face.py, s);
+        faceColor += s.color;
+        faceRough += s.roughness;
+        corners.push([face.px, face.py]);
+      }
+      faceColor /= mine.length;
+      faceRough /= mine.length;
+      const read = (t: number) => {
+          sample(body.cx + t * ax, body.cy + t * ay, s);
+          return s.height / p.relief;
+        },
+        sections: [number, number][] = [];
+      let inside = false,
+        start = 0;
+      for (let j = 0; j <= 2048; j++) {
+        const t = -span + (2 * span * j) / 2048,
+          lit = read(t) > faceLevel;
+        if (lit && !inside) {
+          start = t;
+          inside = true;
+        }
+        if (!lit && inside) {
+          sections.push([start, t]);
+          inside = false;
+        }
+      }
+      if (inside) sections.push([start, span]);
+      minSections = Math.min(minSections, sections.length);
+      maxSections = Math.max(maxSections, sections.length);
+      let direction = 0,
+        minValleyColor = Infinity,
+        maxRingColor = -Infinity;
+      const gutters: number[] = [];
+      for (let k = 0; k + 1 < sections.length; k++) {
+        const left = sections[k],
+          right = sections[k + 1];
+        let lo = left[1],
+          hi = right[0];
+        for (let step = 0; step < 56; step++) {
+          const a = lo + (hi - lo) * 0.3819660112501051,
+            b = lo + (hi - lo) * 0.6180339887498949;
+          if (read(a) < read(b)) hi = b;
+          else lo = a;
+        }
+        const at = (lo + hi) / 2,
+          low = read(at);
+        gutters.push(at);
+        let lPeak = -Infinity,
+          rPeak = -Infinity;
+        for (let j = 0; j <= 64; j++) {
+          lPeak = Math.max(
+            lPeak,
+            read(left[0] + ((left[1] - left[0]) * j) / 64),
+          );
+          rPeak = Math.max(
+            rPeak,
+            read(right[0] + ((right[1] - right[0]) * j) / 64),
+          );
+        }
+        const level = low + 0.5 * (Math.min(lPeak, rPeak) - low);
+        const cross = (a: number, b: number, rising: boolean) => {
+          for (let j = 0; j < 40; j++) {
+            const m = (a + b) / 2;
+            if (read(m) > level === rising) b = m;
+            else a = m;
+          }
+          return (a + b) / 2;
+        };
+        read((left[0] + left[1]) / 2);
+        const leftAO = s.occlusion;
+        read((right[0] + right[1]) / 2);
+        const rightAO = s.occlusion;
+        read(at);
+        minValleyColor = Math.min(minValleyColor, s.color);
+        minUnderAO = Math.min(
+          minUnderAO,
+          Math.min(leftAO, rightAO) - s.occlusion,
+        );
+        minUnderDepth = Math.min(minUnderDepth, Math.min(lPeak, rPeak) - low);
+        minUnderLayer = Math.min(
+          minUnderLayer,
+          low - (p.floorHeight + p.girdleLift + p.grainHeight),
+        );
+        const a = cross((left[0] + left[1]) / 2, at, false),
+          b = cross(at, (right[0] + right[1]) / 2, true),
+          dl = at - a,
+          dr = b - at,
+          sign = Math.sign(dr - dl);
+        if (direction === 0) direction = sign;
+        consistentLaps += Number(sign === direction);
+        allLaps++;
+        minLapAsymmetry = Math.min(
+          minLapAsymmetry,
+          Math.max(dl, dr) / Math.min(dl, dr),
+        );
+        for (const t of [a, at, b])
+          corners.push([body.cx + t * ax, body.cy + t * ay]);
+      }
+      for (let k = 2; k + 2 < gutters.length; k++) {
+        const at = gutters[k],
+          pitch = (gutters[k + 1] - gutters[k - 1]) / 2,
+          offset = 0.6 * Math.sqrt(minor);
+        const lowAt = (o: number) => {
+          const readOffset = (t: number) => {
+            sample(body.cx + t * ax - o * ay, body.cy + t * ay + o * ax, s);
+            return s.height / p.relief;
+          };
+          let best = -0.43 * pitch,
+            value = Infinity;
+          const step = (0.86 * pitch) / 256;
+          for (let j = 0; j <= 256; j++) {
+            const t = at - 0.43 * pitch + j * step,
+              h = readOffset(t);
+            if (h < value) {
+              value = h;
+              best = t;
+            }
+          }
+          let a = best - step,
+            b = best + step;
+          for (let j = 0; j < 48; j++) {
+            const l = a + (b - a) * 0.3819660112501051,
+              r = a + (b - a) * 0.6180339887498949;
+            if (readOffset(l) < readOffset(r)) b = r;
+            else a = l;
+          }
+          const t = (a + b) / 2;
+          corners.push([body.cx + t * ax - o * ay, body.cy + t * ay + o * ax]);
+          return t;
+        };
+        const a = lowAt(-offset),
+          b = lowAt(offset);
+        minBend = Math.min(minBend, (-direction * ((a + b) / 2 - at)) / pitch);
+        maxMirror = Math.max(maxMirror, Math.abs(a - b) / pitch);
+      }
+      for (let k = 1; k + 1 < sections.length; k++) {
+        const [a, b] = sections[k];
+        minRise = Math.min(
+          minRise,
+          direction * (read(a + 0.75 * (b - a)) - read(a + 0.25 * (b - a))),
+        );
+      }
+      const radius = (angle: number, level: number) => {
+        const dx = Math.cos(angle),
+          dy = Math.sin(angle);
+        let lo = 0,
+          hi = 0;
+        for (let j = 1; j <= 256; j++) {
+          hi = (0.6 * j) / (256 * p.cells);
+          sample(body.cx + hi * dx, body.cy + hi * dy, s);
+          if (s.height / p.relief <= level) break;
+          lo = hi;
+        }
+        for (let j = 0; j < 36; j++) {
+          const r = (lo + hi) / 2;
+          sample(body.cx + r * dx, body.cy + r * dy, s);
+          if (s.height / p.relief > level) lo = r;
+          else hi = r;
+        }
+        return (lo + hi) / 2;
+      };
+      for (let j = 0; j < 32; j++) {
+        const angle = (j * 2 * Math.PI) / 32,
+          dx = Math.cos(angle),
+          dy = Math.sin(angle),
+          outer = radius(angle, bodyLevel),
+          inner = radius(angle, shellLevel),
+          mid = (outer + inner) / 2;
+        minGirdle = Math.min(minGirdle, (outer - inner) / outer);
+        sample(body.cx + mid * dx, body.cy + mid * dy, s);
+        maxRingColor = Math.max(maxRingColor, s.color);
+        minColorGap = Math.min(minColorGap, faceColor - s.color);
+        minFinishGap = Math.min(minFinishGap, s.roughness - faceRough);
+        for (const r of [inner, outer])
+          corners.push([body.cx + r * dx, body.cy + r * dy]);
+      }
+      minUnderColorGap = Math.min(
+        minUnderColorGap,
+        minValleyColor - maxRingColor,
+      );
+    }
+    const mean = areas.reduce((a, b) => a + b, 0) / areas.length,
+      px = phases.reduce((a, b) => a + b[0], 0) / phases.length,
+      py = phases.reduce((a, b) => a + b[1], 0) / phases.length;
+    return {
+      invalidSamples,
+      bodies: bodies.length,
+      faces: faces.length,
+      minAspect,
+      maxAspect,
+      minFaces,
+      maxFaces,
+      minSections,
+      maxSections,
+      minLapAsymmetry,
+      minRise,
+      consistentLaps: consistentLaps / allLaps,
+      minGirdle,
+      minColorGap,
+      minFinishGap,
+      minUnderDepth,
+      minUnderLayer,
+      minUnderAO,
+      minUnderColorGap,
+      minBend,
+      maxMirror,
+      radiusCV:
+        Math.sqrt(
+          areas.reduce((a, b) => a + (b - mean) ** 2, 0) / areas.length,
+        ) / mean,
+      positionSD: Math.sqrt(
+        positions.reduce((a, b) => a + b * b, 0) / positions.length,
+      ),
+      orientationConcentration: Math.hypot(px, py),
+      corners,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let m = cache.get(seed);
+    if (!m) {
+      m = measure(seed);
+      cache.set(seed, m);
+    }
+    return m;
+  };
+
+  const observePhases = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const size = Math.sqrt(maps.baseColor.length / 4),
+      sample = createSurfaceSampler('chitonshells', 7),
+      surface = empty(),
+      phases = Array.from({ length: 3 }, () => ({ n: 0, luma: 0, rough: 0 })),
+      faceLevel =
+        p.floorHeight +
+        p.girdleLift +
+        p.grainHeight +
+        p.underLift +
+        0.5 * p.plateLift;
+    for (let j = 0; j < maps.baseColor.length; j += 4) {
+      const i = j / 4;
+      sample(
+        ((i % size) + 0.5) / size,
+        (Math.floor(i / size) + 0.5) / size,
+        surface,
+      );
+      const h = surface.height / p.relief,
+        which =
+          h < p.floorHeight + 0.05 * p.girdleLift
+            ? 0
+            : h > faceLevel
+              ? 2
+              : h > p.floorHeight + 0.9 * p.girdleLift &&
+                  h < p.floorHeight + p.girdleLift + p.grainHeight + 0.005
+                ? 1
+                : -1;
+      if (which < 0) continue;
+      const q = phases[which];
+      q.n++;
+      q.luma +=
+        0.2126 * maps.baseColor[j] +
+        0.7152 * maps.baseColor[j + 1] +
+        0.0722 * maps.baseColor[j + 2];
+      q.rough += maps.metallicRoughness[j + 1] / 255;
+    }
+    const mean = phases.map((q) => ({
+      luma: q.luma / q.n,
+      rough: q.rough / q.n,
+    }));
+    return {
+      plateContrast: mean[2].luma - mean[1].luma,
+      girdleContrast: mean[1].luma - mean[0].luma,
+      plateFinish: mean[1].rough - mean[2].rough,
+    };
+  };
+
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('chitonshells', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (const [u, v] of measured(seed).corners) check(u, v);
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'encloses eight exposed valves in an elongated girdled body, not a ribbed single shell, at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalidSamples).toBe(0);
+      expect(m.bodies).toBe(p.cells * p.cells);
+      expect(m.faces).toBe(8 * p.cells * p.cells);
+      expect(m.minFaces).toBe(8);
+      expect(m.maxFaces).toBe(8);
+      expect(m.minSections).toBe(8);
+      expect(m.maxSections).toBe(8);
+      expect(m.minAspect).toBeGreaterThan(1.3);
+      expect(m.maxAspect).toBeLessThan(2.1);
+      expect(m.radiusCV).toBeGreaterThan(0.01);
+      expect(m.positionSD).toBeGreaterThan(0.015);
+      expect(m.orientationConcentration).toBeLessThan(0.9);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps seven consistently directed underlap shoulders and rising exposed faces rather than symmetric incised ribs at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.consistentLaps).toBe(1);
+      expect(m.minLapAsymmetry).toBeGreaterThan(1.7);
+      expect(m.minRise).toBeGreaterThan(0.04);
+      expect(m.minUnderDepth).toBeGreaterThan(0.25);
+      expect(m.minUnderLayer).toBeGreaterThan(0.1);
+      expect(m.minUnderAO).toBeGreaterThan(0.1);
+      expect(m.minBend).toBeGreaterThan(0.12);
+      expect(m.maxMirror).toBeLessThan(0.03);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains a complete darker rougher girdle outside the continuous eight-valve shell core at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.minGirdle).toBeGreaterThan(0.1);
+      expect(m.minColorGap).toBeGreaterThan(0.25);
+      expect(m.minFinishGap).toBeGreaterThan(0.25);
+      expect(m.minUnderColorGap).toBeGreaterThan(0.12);
+    },
+  );
+  it('changes dorsal body footprints with seed rather than changing only plate pigment', () => {
+    const first = createSurfaceSampler('chitonshells', 0),
+      a = empty(),
+      b = empty(),
+      level = p.floorHeight + 0.5 * p.girdleLift;
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('chitonshells', seed);
+      let changed = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(
+          a.height / p.relief > level !== b.height / p.relief > level,
+        );
+      }
+      expect(changed / 4096).toBeGreaterThan(0.05);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps rounded chevrons, directional lap shoulders, terminal caps, owner boundaries and signed seams C1 at seed%s',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.04);
+      expect(m.period).toBeLessThan(5e-10);
+    },
+  );
+
+  it.each([32, 512])(
+    'writes opaque nonmetal dorsal plates with complete girdle contrast and geometric unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('chitonshells', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels).toBe(0);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(40);
+      expect(m.roughFraction).toBeGreaterThan(0.6);
+      expect(m.roughFraction).toBeLessThan(0.95);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+      if (size === 512) {
+        const q = observePhases(maps);
+        expect(q.plateContrast).toBeGreaterThan(35);
+        expect(q.girdleContrast).toBeGreaterThan(10);
+        expect(q.plateFinish).toBeGreaterThan(0.25);
       }
     },
   );

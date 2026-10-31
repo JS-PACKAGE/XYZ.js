@@ -27856,6 +27856,108 @@ export function createSurfaceSampler(
             guard * (p.guardOcclusion - p.seamOcclusion * seam - occlusion);
         };
       }
+      case 'chitonshells': {
+        const p = proceduralMaterialPresets.chitonshells,
+          stride = 4 + p.plates,
+          poses = new Float64Array(p.cells * p.cells * stride),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1c711),
+          inverseOuterX = 1 / (p.outerX * p.outerX),
+          inverseOuterY = 1 / (p.outerY * p.outerY),
+          inverseInnerX = 1 / (p.innerX * p.innerX),
+          inverseInnerY = 1 / (p.innerY * p.innerY),
+          inverseShoulder = 1 / p.shoulder,
+          inverseInnerShoulder = 1 / p.innerShoulder,
+          inversePitch = p.plates / (2 * p.innerY),
+          inverseFront = 1 / p.frontBevel,
+          inverseBack = 1 / p.backBevel,
+          inverseRound = 0.5 / p.chevronRound;
+        // Default rotated support plus jitter fits 0.47335 cell: one owner suffices.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * stride,
+              angle = TAU * hash(col, row, seed ^ 0x1c713),
+              scale =
+                p.scaleMinimum +
+                p.scaleVariation * hash(col, row, seed ^ 0x1c715),
+              invScale = 1 / scale;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c717) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1c719) - 1);
+            poses[i + 2] = Math.cos(angle) * invScale;
+            poses[i + 3] = Math.sin(angle) * invScale;
+            for (let plate = 0; plate < p.plates; plate++)
+              poses[i + 4 + plate] =
+                p.plateVariation *
+                hash(col * p.plates + plate, row, seed ^ 0x1c71b);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * stride,
+            dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            xx = x * x,
+            yy = y * y,
+            body = smooth(
+              clamp(
+                (1 - xx * inverseOuterX - yy * inverseOuterY) * inverseShoulder,
+              ),
+            );
+          color = p.floorTone;
+          height = p.floorHeight;
+          roughness = p.floorRoughness;
+          occlusion = p.floorOcclusion;
+          if (body === 0) return;
+          const grain = grainField(u, v),
+            core = smooth(
+              clamp(
+                (1 - xx * inverseInnerX - yy * inverseInnerY) *
+                  inverseInnerShoulder,
+              ),
+            );
+          color += body * (p.girdleTone + p.grainColor * grain);
+          height += body * (p.girdleLift + p.grainHeight * grain);
+          roughness +=
+            body * (p.girdleRoughness + p.grainRoughness * grain - roughness);
+          occlusion += body * (p.girdleOcclusion - occlusion);
+          if (core === 0) return;
+          color += core * p.underTone;
+          height += core * p.underLift;
+          roughness += core * (p.underRoughness - roughness);
+          occlusion += core * (p.underOcclusion - occlusion);
+          const ax = Math.abs(x),
+            rounded =
+              ax < p.chevronRound
+                ? xx * inverseRound
+                : ax - 0.5 * p.chevronRound,
+            position = (y + p.innerY + p.chevron * rounded) * inversePitch,
+            // Curved coordinates extend past the last interval inside the tail cap.
+            // Keep its valve instead of reading the next owner's tone or undefined.
+            plate = Math.min(p.plates - 1, Math.floor(position)),
+            local = position - plate,
+            front = plate === 0 ? 1 : smooth(clamp(local * inverseFront)),
+            back =
+              plate === p.plates - 1
+                ? 1
+                : smooth(clamp((1 - local) * inverseBack)),
+            face = core * front * back,
+            ramp = smooth(clamp(local)),
+            roof = smooth(clamp(1 - xx * inverseInnerX));
+          color +=
+            face *
+            (p.plateTone +
+              poses[i + 4 + plate] +
+              p.roofColor * roof +
+              p.lapColor * ramp);
+          height += face * (p.plateLift + p.lapRise * ramp + p.roofLift * roof);
+          roughness +=
+            face * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion += face * (p.plateOcclusion - occlusion);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40447,6 +40549,7 @@ export function createSurfaceSampler(
     kind === 'cuttlebone' ||
     kind === 'watermelontourmaline' ||
     kind === 'leafstomata' ||
+    kind === 'chitonshells' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

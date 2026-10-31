@@ -552,6 +552,7 @@ try {
     'cuttlebone',
     'watermelontourmaline',
     'leafstomata',
+    'chitonshells',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',
