@@ -481,6 +481,7 @@ export type ProceduralMaterialKind =
   | 'apollonianmosaic'
   | 'ichinghexagrams'
   | 'pythagorastree'
+  | 'pentominotiles'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1580,6 +1581,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'apollonianmosaic',
   'ichinghexagrams',
   'pythagorastree',
+  'pentominotiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

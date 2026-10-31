@@ -3408,6 +3408,20 @@ export declare const proceduralMaterialPresets: Readonly<{
         grout: 0.002;
         shoulder: 0.003;
     }>;
+    pentominotiles: Readonly<{
+        dark: readonly [28, 55, 103];
+        light: readonly [241, 224, 170];
+        roughness: 0.3;
+        relief: 0.012;
+        repeatX: 5;
+        repeatY: 3;
+        edge: 0.22;
+        grout: 0.15;
+        shoulder: 0.15;
+        tones: readonly [0.13, 0.47, 0.81];
+        toneVariation: 0.06;
+        layout: readonly ["BBLEEE", "BLLLCE", "BDLCCE", "BDJJCA", "DDGJCA", "DGGJJA", "GGHHHA", "KKIHFA", "KIIHFF", "KKIIFF"];
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11190,6 +11204,7 @@ export declare const proceduralTileMeters: Readonly<{
     apollonianmosaic: 0.24;
     ichinghexagrams: 0.32;
     pythagorastree: 0.4;
+    pentominotiles: 0.6;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

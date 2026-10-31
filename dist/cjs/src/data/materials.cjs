@@ -7214,6 +7214,43 @@ var proceduralMaterialPresets = Object.freeze({
 		grout: .002,
 		shoulder: .003
 	}),
+	pentominotiles: Object.freeze({
+		dark: [
+			28,
+			55,
+			103
+		],
+		light: [
+			241,
+			224,
+			170
+		],
+		roughness: .3,
+		relief: .012,
+		repeatX: 5,
+		repeatY: 3,
+		edge: .22,
+		grout: .15,
+		shoulder: .15,
+		tones: [
+			.13,
+			.47,
+			.81
+		],
+		toneVariation: .06,
+		layout: [
+			`BBLEEE`,
+			`BLLLCE`,
+			`BDLCCE`,
+			`BDJJCA`,
+			`DDGJCA`,
+			`DGGJJA`,
+			`GGHHHA`,
+			`KKIHFA`,
+			`KIIHFF`,
+			`KKIIFF`
+		]
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18693,6 +18730,7 @@ var proceduralTileMeters = Object.freeze({
 	apollonianmosaic: .24,
 	ichinghexagrams: .32,
 	pythagorastree: .4,
+	pentominotiles: .6,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

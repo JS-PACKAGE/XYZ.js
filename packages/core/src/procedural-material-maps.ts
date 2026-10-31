@@ -27154,6 +27154,93 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * faces;
         };
       }
+      case 'pentominotiles': {
+        const p = proceduralMaterialPresets.pentominotiles,
+          blockWidth = p.layout[0].length,
+          blockHeight = p.layout.length,
+          columns = blockWidth * p.repeatX,
+          rows = blockHeight * p.repeatY,
+          count = 12 * p.repeatX * p.repeatY,
+          owners = new Uint16Array(columns * rows),
+          tones = new Float64Array(count),
+          grainField = cachedNoise(96, 96, seed ^ 0x4221),
+          inverseBlend = 1 / (2 * p.edge),
+          inverseShoulder = 1 / p.shoulder,
+          core = smooth(clamp((0.5 - p.grout) * inverseShoulder));
+        for (let y = 0; y < blockHeight; y++)
+          for (let x = 0; x < blockWidth; x++) {
+            const type = p.layout[y].charCodeAt(x) - 65;
+            for (let by = 0; by < p.repeatY; by++)
+              for (let bx = 0; bx < p.repeatX; bx++)
+                owners[(by * blockHeight + y) * columns + bx * blockWidth + x] =
+                  (by * p.repeatX + bx) * 12 + type;
+          }
+        for (let by = 0; by < p.repeatY; by++)
+          for (let bx = 0; bx < p.repeatX; bx++)
+            for (let type = 0; type < 12; type++)
+              tones[(by * p.repeatX + bx) * 12 + type] =
+                p.tones[type % 3] +
+                p.toneVariation * hash(bx, by, seed ^ (0x4223 + type * 0x40));
+        return () => {
+          const x = u * columns,
+            y = v * rows,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            bx = ix + Number(x - ix >= 0.5),
+            by = iy + Number(y - iy >= 0.5),
+            tx = smooth(clamp(0.5 + (x - bx) * inverseBlend)),
+            ty = smooth(clamp(0.5 + (y - by) * inverseBlend)),
+            x0 = (bx - 1 + columns) % columns,
+            x1 = bx % columns,
+            y0 = ((by - 1 + rows) % rows) * columns,
+            y1 = (by % rows) * columns;
+          let owner: number, face: number;
+          if ((tx === 0 || tx === 1) && (ty === 0 || ty === 1)) {
+            owner = owners[(ty === 0 ? y0 : y1) + (tx === 0 ? x0 : x1)];
+            face = core;
+          } else {
+            const a = owners[y0 + x0],
+              b = owners[y0 + x1],
+              c = owners[y1 + x0],
+              d = owners[y1 + x1],
+              aa = (1 - tx) * (1 - ty),
+              bb = tx * (1 - ty),
+              cc = (1 - tx) * ty,
+              dd = tx * ty,
+              wa =
+                aa +
+                (b === a ? bb : 0) +
+                (c === a ? cc : 0) +
+                (d === a ? dd : 0),
+              wb = b === a ? 0 : bb + (c === b ? cc : 0) + (d === b ? dd : 0),
+              wc = c === a || c === b ? 0 : cc + (d === c ? dd : 0),
+              wd = d === a || d === b || d === c ? 0 : dd;
+            owner = a;
+            let weight = wa;
+            if (wb > weight) {
+              weight = wb;
+              owner = b;
+            }
+            if (wc > weight) {
+              weight = wc;
+              owner = c;
+            }
+            if (wd > weight) {
+              weight = wd;
+              owner = d;
+            }
+            // Equal piece IDs merge internal grid edges; competing owners tie only inside flat grout.
+            face = smooth(clamp((weight - 0.5 - p.grout) * inverseShoulder));
+          }
+          const grain = face > 0 ? grainField(u, v) : 0;
+          mortar = 1 - face;
+          color = 0.56 * mortar + face * (tones[owner] + 0.015 * grain);
+          height = 0.1 + face * (0.62 + 0.006 * grain);
+          roughness =
+            p.roughness + (0.92 - p.roughness) * mortar + 0.03 * grain * face;
+          occlusion = 0.5 + 0.48 * face;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39737,6 +39824,7 @@ export function createSurfaceSampler(
     kind === 'apollonianmosaic' ||
     kind === 'ichinghexagrams' ||
     kind === 'pythagorastree' ||
+    kind === 'pentominotiles' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

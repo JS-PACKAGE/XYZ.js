@@ -507,6 +507,7 @@ const kinds: ProceduralMaterialKind[] = [
   'apollonianmosaic',
   'ichinghexagrams',
   'pythagorastree',
+  'pentominotiles',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -106686,6 +106687,558 @@ describe('Pythagoras tree of thirty-one finite branching glazed squares over rou
       if (size === 512) {
         expect(o.maxTilt).toBeGreaterThan(0.1);
         expect(o.maxTilt).toBeLessThan(3);
+        for (const f of o.signed) expect(f).toBeGreaterThan(0.02);
+      } else expect(o.maxTilt).toBeLessThan(0.5);
+    },
+  );
+});
+
+describe('Free pentomino tiles with all twelve five-cell shapes and no internal grid seams', () => {
+  const p = proceduralMaterialPresets.pentominotiles;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const columns = p.layout[0].length * p.repeatX,
+    rows = p.layout.length * p.repeatY;
+  const canonical = (cells: number[]) => {
+    const forms: string[] = [];
+    for (const reflection of [-1, 1])
+      for (let rotation = 0; rotation < 4; rotation++) {
+        const points = cells.map((cell) => {
+            let x = (cell % columns) * reflection,
+              y = Math.floor(cell / columns);
+            for (let r = 0; r < rotation; r++) [x, y] = [-y, x];
+            return [x, y];
+          }),
+          minX = Math.min(...points.map((p) => p[0])),
+          minY = Math.min(...points.map((p) => p[1]));
+        forms.push(
+          points
+            .map(([x, y]) => [x - minX, y - minY])
+            .sort((a, b) => a[1] - b[1] || a[0] - b[0])
+            .map((point) => point.join(','))
+            .join(';'),
+        );
+      }
+    return forms.sort()[0];
+  };
+  type Piece = {
+    cells: number[];
+    block: number;
+    key: string;
+    color: number;
+    roughness: number;
+    ao: number;
+    height: number;
+  };
+  const observe = (seed: number) => {
+    const count = columns * rows,
+      sample = createSurfaceSampler('pentominotiles', seed),
+      out = empty(),
+      right = new Uint8Array(count),
+      down = new Uint8Array(count),
+      labels = new Int16Array(count).fill(-1),
+      colors = new Float64Array(count),
+      rough = new Float64Array(count),
+      ao = new Float64Array(count),
+      heights = new Float64Array(count),
+      queue = new Int32Array(count),
+      pieces: Piece[] = [];
+    let invalid = 0,
+      lowCells = 0,
+      internal = 0;
+    const inspect = () => {
+      invalid += Number(
+        keys.some((key) => !Number.isFinite(out[key])) || out.metallic !== 0,
+      );
+    };
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < columns; x++) {
+        const at = y * columns + x;
+        sample((x + 0.5) / columns, (y + 0.5) / rows, out);
+        inspect();
+        colors[at] = out.color;
+        rough[at] = out.roughness;
+        ao[at] = out.occlusion;
+        heights[at] = out.height / p.relief;
+        lowCells += Number(heights[at] < 0.7);
+        sample((x + 1) / columns, (y + 0.5) / rows, out);
+        inspect();
+        right[at] = Number(out.height / p.relief > 0.5);
+        sample((x + 0.5) / columns, (y + 1) / rows, out);
+        inspect();
+        down[at] = Number(out.height / p.relief > 0.5);
+        internal += right[at] + down[at];
+      }
+    for (let start = 0; start < count; start++) {
+      if (labels[start] >= 0) continue;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      labels[start] = pieces.length;
+      const cells: number[] = [];
+      while (read < write) {
+        const at = queue[read++],
+          x = at % columns,
+          y = Math.floor(at / columns),
+          left = y * columns + ((x + columns - 1) % columns),
+          up = ((y + rows - 1) % rows) * columns + x;
+        cells.push(at);
+        const neighbors = [
+          [right[at], y * columns + ((x + 1) % columns)],
+          [down[at], ((y + 1) % rows) * columns + x],
+          [right[left], left],
+          [down[up], up],
+        ];
+        for (const [connected, next] of neighbors)
+          if (connected && labels[next] < 0) {
+            labels[next] = pieces.length;
+            queue[write++] = next;
+          }
+      }
+      cells.sort((a, b) => a - b);
+      const first = cells[0],
+        block =
+          Math.floor(Math.floor(first / columns) / p.layout.length) *
+            p.repeatX +
+          Math.floor((first % columns) / p.layout[0].length),
+        mean = (values: Float64Array) =>
+          cells.reduce((s, c) => s + values[c], 0) / cells.length;
+      pieces.push({
+        cells,
+        block,
+        key: canonical(cells),
+        color: mean(colors),
+        roughness: mean(rough),
+        ao: mean(ao),
+        height: mean(heights),
+      });
+    }
+    return { pieces, right, down, labels, lowCells, invalid, internal };
+  };
+  const observations = new Map<number, ReturnType<typeof observe>>();
+  const observed = (seed: number) => {
+    let o = observations.get(seed);
+    if (!o) {
+      o = observe(seed);
+      observations.set(seed, o);
+    }
+    return o;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('pentominotiles', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let y = 0; y <= rows; y++)
+      for (let x = 0; x <= columns; x++)
+        for (const shift of [-1, -0.5, 0, 0.5, 1]) {
+          check((x + shift * p.edge) / columns, y / rows);
+          check(x / columns, (y + shift * p.edge) / rows);
+        }
+    for (let y = 0; y < rows; y++)
+      for (let x = 0; x < columns; x++)
+        for (let j = 0; j <= 16; j++) {
+          const d = (j / 16 - 0.5) * 0.6;
+          check((x + 1 + d) / columns, (y + 0.5) / rows);
+          check((x + 0.5) / columns, (y + 1 + d) / rows);
+        }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      groutRoughness = 0,
+      tileRoughness = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        groutRoughness += roughness;
+      } else {
+        tiles++;
+        tileRoughness += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      groutFraction: grout / count,
+      groutRoughness: groutRoughness / grout,
+      tileRoughness: tileRoughness / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'decodes twelve distinct free five-cell shapes in every rectangular block from actual height connectivity at seed%s',
+    (seed) => {
+      const o = observed(seed);
+      expect(o.invalid).toBe(0);
+      expect(o.lowCells).toBe(0);
+      expect(o.pieces.length).toBe(180);
+      for (const piece of o.pieces) {
+        expect(piece.cells.length).toBe(5);
+        for (const cell of piece.cells) {
+          const x = cell % columns,
+            y = Math.floor(cell / columns),
+            block = Math.floor(y / 10) * p.repeatX + Math.floor(x / 6);
+          expect(block).toBe(piece.block);
+        }
+      }
+      for (let block = 0; block < p.repeatX * p.repeatY; block++) {
+        const pieces = o.pieces.filter((piece) => piece.block === block);
+        expect(pieces.length).toBe(12);
+        expect(new Set(pieces.map((piece) => piece.key)).size).toBe(12);
+      }
+      const types = new Map<string, number>();
+      for (const piece of o.pieces)
+        types.set(piece.key, (types.get(piece.key) ?? 0) + 1);
+      expect(types.size).toBe(12);
+      for (const count of types.values()) expect(count).toBe(15);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps same-piece cell joins flat and separates different pieces with recessed rough grout at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        sample = createSurfaceSampler('pentominotiles', seed),
+        a = empty(),
+        b = empty();
+      let external = 0;
+      expect(o.internal).toBe(735);
+      for (let y = 0; y < rows; y++)
+        for (let x = 0; x < columns; x++)
+          for (let axis = 0; axis < 2; axis++) {
+            const at = y * columns + x,
+              connected = axis ? o.down[at] : o.right[at],
+              u = (x + (axis ? 0.5 : 1)) / columns,
+              v = (y + (axis ? 1 : 0.5)) / rows;
+            sample(u, v, a);
+            if (connected) {
+              expect(a.height / p.relief).toBeGreaterThan(0.7);
+              expect(a.mortar).toBeLessThan(1e-12);
+              for (const across of [-0.1, 0, 0.1])
+                for (const along of [-0.1, 0, 0.1]) {
+                  sample(
+                    u + (axis ? along : across) / columns,
+                    v + (axis ? across : along) / rows,
+                    b,
+                  );
+                  expect(b.height / p.relief).toBeGreaterThan(0.7);
+                  expect(Math.abs(b.height - a.height) / p.relief).toBeLessThan(
+                    0.0061,
+                  );
+                }
+            } else {
+              external++;
+              expect(a.height / p.relief).toBeLessThan(0.11);
+              expect(a.mortar).toBeGreaterThan(0.99);
+              expect(a.roughness).toBeGreaterThan(0.85);
+              expect(a.occlusion).toBeLessThan(0.6);
+            }
+          }
+      expect(external).toBe(1065);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'glazes all pieces in three separated tone families above darker rough grout at seed%s',
+    (seed) => {
+      const o = observed(seed),
+        colors = o.pieces.map((piece) => piece.color).sort((a, b) => a - b),
+        clusters: number[][] = [[]];
+      for (const color of colors) {
+        const current = clusters[clusters.length - 1];
+        if (current.length && color - current[current.length - 1] > 0.18)
+          clusters.push([color]);
+        else current.push(color);
+      }
+      expect(clusters.length).toBe(3);
+      for (const cluster of clusters) expect(cluster.length).toBe(60);
+      for (const piece of o.pieces) {
+        expect(piece.height).toBeGreaterThan(0.72);
+        expect(0.92 - piece.roughness).toBeGreaterThan(0.4);
+        expect(piece.ao - 0.5).toBeGreaterThan(0.4);
+      }
+    },
+  );
+  it('changes seeded piece finish without moving the boundary field or rearranging the twelve-shape inventory', () => {
+    const base = observed(0),
+      baseSampler = createSurfaceSampler('pentominotiles', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = observed(seed),
+        sample = createSurfaceSampler('pentominotiles', seed);
+      let tone = 0,
+        shapeMovement = 0;
+      for (let i = 0; i < base.pieces.length; i++) {
+        expect(other.pieces[i].cells.join(',')).toBe(
+          base.pieces[i].cells.join(','),
+        );
+        tone = Math.max(
+          tone,
+          Math.abs(base.pieces[i].color - other.pieces[i].color),
+        );
+      }
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        baseSampler(u, v, a);
+        sample(u, v, b);
+        shapeMovement = Math.max(
+          shapeMovement,
+          Math.abs(a.height - b.height) / p.relief,
+        );
+      }
+      expect(shapeMovement).toBeLessThan(0.0060000001);
+      expect(tone).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps concave corners, four-cell junctions, piece ties, internal joins and signed UV wraps C1 at seed%s',
+    (seed) => {
+      const o = continuity(seed);
+      expect(o.worst).toBeLessThan(0.04);
+      expect(o.period).toBeLessThan(5e-10);
+    },
+  );
+  const countFaces = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+  ) => {
+    const mask = Uint8Array.from({ length: size * size }, (_, i) =>
+        Number(maps.height![i * 4] > 128),
+      ),
+      queue = new Int32Array(size * size);
+    let faces = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      faces++;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+    }
+    return faces;
+  };
+  it.each([32, 512])(
+    'writes opaque dielectric polyomino maps with rough grout and resolved raised-piece normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('pentominotiles', size, 7, {
+          heightMap: true,
+        }),
+        o = observePixels(maps);
+      expect(o.groutFraction).toBeGreaterThan(0.05);
+      expect(o.groutFraction).toBeLessThan(0.6);
+      expect(o.groutRoughness - o.tileRoughness).toBeGreaterThan(0.3);
+      expect(o.maxLuma - o.minLuma).toBeGreaterThan(80);
+      expect(o.minAO).toBeLessThan(150);
+      expect(o.maxAO).toBeGreaterThan(240);
+      expect(o.metallicPixels).toBe(0);
+      expect(o.invalidAlpha).toBe(0);
+      expect(o.normalLengthError).toBeLessThan(0.014);
+      expect(o.backFacing).toBe(0);
+      if (size === 512) {
+        expect(countFaces(maps, size)).toBe(180);
+        expect(o.maxTilt).toBeGreaterThan(0.1);
         for (const f of o.signed) expect(f).toBeGreaterThan(0.02);
       } else expect(o.maxTilt).toBeLessThan(0.5);
     },
