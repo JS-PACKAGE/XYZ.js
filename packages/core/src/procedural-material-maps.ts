@@ -15600,6 +15600,232 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'din5femalefaces': {
+        const p = proceduralMaterialPresets.din5femalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22401),
+          bodyStraightX = p.halfWidth - p.bodyCorner,
+          bodyStraightY = p.halfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          mountSquared = p.mountRadius * p.mountRadius,
+          mountCore = p.mountRadius - p.mountBevel,
+          inverseMount = 1 / (mountSquared - mountCore * mountCore),
+          mountJoin = (p.upperMountY + p.lowerMountY) * 0.5,
+          rimSquared = p.rimRadius * p.rimRadius,
+          rimCore = p.rimRadius - p.rimBevel,
+          inverseRim = 1 / (rimSquared - rimCore * rimCore),
+          cavitySquared = p.cavityRadius * p.cavityRadius,
+          cavityCore = p.cavityRadius - p.cavityBevel,
+          inverseCavity = 1 / (cavitySquared - cavityCore * cavityCore),
+          insertSquared = p.insertRadius * p.insertRadius,
+          insertCore = p.insertRadius - p.insertBevel,
+          inverseInsert = 1 / (insertSquared - insertCore * insertCore),
+          keyStraightX = p.keyHalfWidth - p.keyCorner,
+          keyStraightY = p.keyHalfHeight - p.keyCorner,
+          keySquared = p.keyCorner * p.keyCorner,
+          keyCore = p.keyCorner - p.keyBevel,
+          inverseKey = 1 / (keySquared - keyCore * keyCore),
+          webStraightX = p.webHalfWidth - p.webCorner,
+          webStraightY = p.webHalfHeight - p.webCorner,
+          webSquared = p.webCorner * p.webCorner,
+          webCore = p.webCorner - p.webBevel,
+          inverseWeb = 1 / (webSquared - webCore * webCore),
+          upperCos = Math.cos((TAU * p.upperDegrees) / 360),
+          upperSin = Math.sin((TAU * p.upperDegrees) / 360),
+          lowerCos = Math.cos((TAU * p.lowerDegrees) / 360),
+          lowerSin = Math.sin((TAU * p.lowerDegrees) / 360),
+          slotStraightX = p.slotHalfWidth - p.slotCorner,
+          slotStraightY = p.slotHalfHeight - p.slotCorner,
+          slotSquared = p.slotCorner * p.slotCorner,
+          slotCore = p.slotCorner - p.slotBevel,
+          inverseSlot = 1 / (slotSquared - slotCore * slotCore),
+          bulgeSquared = p.bulgeRadius * p.bulgeRadius,
+          bulgeCore = p.bulgeRadius - p.bulgeBevel,
+          inverseBulge = 1 / (bulgeSquared - bulgeCore * bulgeCore),
+          mouthHalfX = Math.max(p.slotHalfWidth, p.bulgeRadius),
+          mouthHalfY = Math.max(p.slotHalfHeight, p.bulgeRadius),
+          projectionNorm = Math.hypot(p.rowSlope, 1),
+          cornerProjection = p.slotCorner * projectionNorm,
+          bulgeProjection = p.bulgeRadius * projectionNorm,
+          upperRowProjection = Math.max(
+            bulgeProjection,
+            slotStraightX * Math.abs(-p.rowSlope * upperCos - upperSin) +
+              slotStraightY * Math.abs(-p.rowSlope * upperSin + upperCos) +
+              cornerProjection,
+          ),
+          lowerRowProjection = Math.max(
+            bulgeProjection,
+            slotStraightX * Math.abs(-p.rowSlope * lowerCos - lowerSin) +
+              slotStraightY * Math.abs(-p.rowSlope * lowerSin + lowerCos) +
+              cornerProjection,
+          ),
+          lowerCenterProjection = Math.max(
+            bulgeProjection,
+            slotStraightX * Math.abs(lowerCos + p.rowSlope * lowerSin) +
+              slotStraightY * Math.abs(lowerSin - p.rowSlope * lowerCos) +
+              cornerProjection,
+          ),
+          bottomCenterProjection = Math.max(
+            bulgeProjection,
+            slotStraightX + slotStraightY * p.rowSlope + cornerProjection,
+          ),
+          rowDivider =
+            0.5 *
+            (p.upperSocketY -
+              p.rowSlope * p.upperSocketX +
+              upperRowProjection +
+              p.lowerSocketY -
+              p.rowSlope * p.lowerSocketX -
+              lowerRowProjection),
+          centerDivider =
+            0.5 *
+            (-p.rowSlope * p.bottomSocketY +
+              bottomCenterProjection +
+              p.lowerSocketX -
+              p.rowSlope * p.lowerSocketY -
+              lowerCenterProjection),
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          rimHeight = p.rimHeight - p.bodyHeight,
+          rimRoughness = p.rimRoughness - p.roughness,
+          rimAO = p.rimAO - p.bodyAO,
+          cavityHeight = p.cavityHeight - p.rimHeight,
+          cavityRoughness = p.cavityRoughness - p.rimRoughness,
+          cavityAO = p.cavityAO - p.rimAO,
+          insertHeight = p.insertHeight - p.cavityHeight,
+          insertRoughness = p.insertRoughness - p.cavityRoughness,
+          insertAO = p.insertAO - p.cavityAO,
+          floorTone = p.floorTone - p.bodyTone,
+          floorHeight = p.floorHeight - p.insertHeight,
+          floorRoughness = p.floorRoughness - p.insertRoughness,
+          floorAO = p.floorAO - p.insertAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22403),
+              angle = TAU * hash(col, row, seed ^ 0x22405);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22407) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22409) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfWidth || ay >= p.halfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            top = y < mountJoin,
+            mx = top ? ax : Math.abs(ax - p.mountX),
+            my = y - (top ? p.upperMountY : p.lowerMountY),
+            mount = smooth(
+              clamp((mountSquared - mx * mx - my * my) * inverseMount),
+            ),
+            body =
+              (1 - mount) *
+              smooth(clamp((bodySquared - bx * bx - by * by) * inverseBody));
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const fy = y - p.faceY,
+            q = x * x + fy * fy;
+          if (q >= rimSquared) return;
+          const rim = smooth(clamp((rimSquared - q) * inverseRim));
+          height += rim * rimHeight;
+          roughness += rim * rimRoughness;
+          occlusion += rim * rimAO - p.edgeAO * rim * (1 - rim);
+          const cavity = smooth(clamp((cavitySquared - q) * inverseCavity));
+          if (cavity === 0) return;
+          height += cavity * cavityHeight;
+          roughness += cavity * cavityRoughness;
+          occlusion += cavity * cavityAO - p.edgeAO * cavity * (1 - cavity);
+          let notch = 0,
+            web = 0;
+          const ky = Math.abs(fy - p.keyY),
+            wy = Math.abs(fy - p.webY);
+          if (ax < p.keyHalfWidth && ky < p.keyHalfHeight) {
+            const kx = Math.max(0, ax - keyStraightX),
+              dy = Math.max(0, ky - keyStraightY);
+            notch = smooth(
+              clamp((keySquared - kx * kx - dy * dy) * inverseKey),
+            );
+          }
+          if (ax < p.webHalfWidth && wy < p.webHalfHeight) {
+            const wx = Math.max(0, ax - webStraightX),
+              dy = Math.max(0, wy - webStraightY);
+            web = smooth(clamp((webSquared - wx * wx - dy * dy) * inverseWeb));
+          }
+          const disc =
+              q < insertSquared
+                ? (1 - notch) *
+                  smooth(clamp((insertSquared - q) * inverseInsert))
+                : 0,
+            insert = disc + cavity * web * (1 - disc);
+          if (insert === 0) return;
+          height += insert * insertHeight;
+          roughness += insert * insertRoughness;
+          occlusion += insert * insertAO - p.edgeAO * insert * (1 - insert);
+          // Projection separators lie in the gaps between full lobed-mouth supports.
+          const center = ax - p.rowSlope * fy < centerDivider,
+            upper = !center && fy - p.rowSlope * ax < rowDivider,
+            sx = center ? ax : ax - (upper ? p.upperSocketX : p.lowerSocketX),
+            sy =
+              fy -
+              (center
+                ? p.bottomSocketY
+                : upper
+                  ? p.upperSocketY
+                  : p.lowerSocketY),
+            c = center ? 1 : upper ? upperCos : lowerCos,
+            s = center ? 0 : upper ? upperSin : lowerSin,
+            hx = sx * c - sy * s,
+            hy = sx * s + sy * c,
+            ahx = Math.abs(hx),
+            ahy = Math.abs(hy);
+          if (ahx >= mouthHalfX || ahy >= mouthHalfY) return;
+          const tx = Math.max(0, ahx - slotStraightX),
+            ty = Math.max(0, ahy - slotStraightY),
+            slot =
+              ahx < p.slotHalfWidth && ahy < p.slotHalfHeight
+                ? smooth(clamp((slotSquared - tx * tx - ty * ty) * inverseSlot))
+                : 0,
+            bulge = smooth(
+              clamp((bulgeSquared - hx * hx - hy * hy) * inverseBulge),
+            ),
+            socket = slot + bulge - slot * bulge;
+          if (socket === 0) return;
+          color += socket * floorTone;
+          height += socket * floorHeight;
+          roughness += socket * floorRoughness;
+          occlusion += socket * floorAO - p.edgeAO * socket * (1 - socket);
+          return;
+        };
+      }
       case 'xlrfemalefaces': {
         const p = proceduralMaterialPresets.xlrfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41966,6 +42192,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'din5femalefaces' ||
     kind === 'xlrfemalefaces' ||
     kind === 'bncfemalefaces' ||
     kind === 'iecc14inlets' ||

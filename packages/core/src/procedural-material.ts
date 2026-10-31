@@ -641,6 +641,7 @@ export type ProceduralMaterialKind =
   | 'lathplaster'
   | 'ceramiccapacitors'
   | 'fennelseeds'
+  | 'din5femalefaces'
   | 'xlrfemalefaces'
   | 'bncfemalefaces'
   | 'iecc14inlets'
@@ -1763,6 +1764,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'din5femalefaces',
   'xlrfemalefaces',
   'bncfemalefaces',
   'iecc14inlets',
