@@ -419,6 +419,7 @@ const kinds: ProceduralMaterialKind[] = [
   'linen',
   'chippedenamel',
   'perforatedleather',
+  'pigskinleather',
   'argyle',
   'chevronparquet',
   'ginkgoleaf',
@@ -113314,6 +113315,534 @@ describe('TA three-flat blind steel screw sockets on round heads', () => {
       expect(m.roughFraction).toBeLessThan(0.8);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(40);
       expect(m.maxTilt).toBeGreaterThan(0.01);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Pigskin leather with irregular triangular groups of three recessed follicles', () => {
+  const p = proceduralMaterialPresets.pigskinleather;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let roughPixels = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      roughPixels += Number(maps.metallicRoughness[j + 1] / 255 > 0.6);
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      roughFraction: roughPixels / count,
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const regions = (mask: Uint8Array, size: number, queue: Int32Array) => {
+    const result = [] as { area: number; cx: number; cy: number }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        sx += x;
+        sy += y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      result.push({ area: write, cx: sx / write, cy: sy / write });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = Math.max(768, 96 * p.cells),
+      sample = createSurfaceSampler('pigskinleather', seed),
+      s = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        metallic: 0,
+        mortar: 0,
+      },
+      mask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        invalid += Number(
+          !Number.isFinite(
+            s.color +
+              s.height +
+              s.roughness +
+              s.occlusion +
+              s.metallic +
+              s.mortar,
+          ),
+        );
+        mask[y * size + x] = Number(s.occlusion < 0.8);
+      }
+    const pores = regions(mask, size, queue),
+      neighbours = new Int32Array(pores.length * 2),
+      seen = new Uint8Array(pores.length),
+      groups = [];
+    for (let i = 0; i < pores.length; i++) {
+      let a = -1,
+        b = -1,
+        da = 1 / 0,
+        db = 1 / 0;
+      for (let j = 0; j < pores.length; j++) {
+        if (i === j) continue;
+        const d =
+          (pores[i].cx - pores[j].cx) ** 2 + (pores[i].cy - pores[j].cy) ** 2;
+        if (d < da) {
+          db = da;
+          b = a;
+          da = d;
+          a = j;
+        } else if (d < db) {
+          db = d;
+          b = j;
+        }
+      }
+      neighbours[2 * i] = a;
+      neighbours[2 * i + 1] = b;
+    }
+    let ungrouped = 0;
+    for (let i = 0; i < pores.length; i++) {
+      if (seen[i]) continue;
+      const j = neighbours[2 * i],
+        k = neighbours[2 * i + 1];
+      if (
+        j < 0 ||
+        k < 0 ||
+        seen[j] ||
+        seen[k] ||
+        !(
+          (neighbours[2 * j] === i && neighbours[2 * j + 1] === k) ||
+          (neighbours[2 * j] === k && neighbours[2 * j + 1] === i)
+        ) ||
+        !(
+          (neighbours[2 * k] === i && neighbours[2 * k + 1] === j) ||
+          (neighbours[2 * k] === j && neighbours[2 * k + 1] === i)
+        )
+      ) {
+        ungrouped++;
+        seen[i] = 1;
+        continue;
+      }
+      seen[i] = seen[j] = seen[k] = 1;
+      const a = pores[i],
+        b = pores[j],
+        c = pores[k],
+        cx = (a.cx + b.cx + c.cx) / 3,
+        cy = (a.cy + b.cy + c.cy) / 3,
+        ab = Math.hypot(a.cx - b.cx, a.cy - b.cy),
+        bc = Math.hypot(b.cx - c.cx, b.cy - c.cy),
+        ca = Math.hypot(c.cx - a.cx, c.cy - a.cy),
+        max = Math.max(ab, bc, ca);
+      let ox = 0,
+        oy = 0,
+        radius = 0;
+      for (const v of [a, b, c]) {
+        const dx = v.cx - cx,
+          dy = v.cy - cy,
+          theta = 3 * Math.atan2(dy, dx);
+        ox += Math.cos(theta);
+        oy += Math.sin(theta);
+        radius += Math.hypot(dx, dy) / 3;
+      }
+      const length = Math.hypot(ox, oy);
+      groups.push({
+        cx,
+        cy,
+        radius,
+        ox: ox / length,
+        oy: oy / length,
+        sideRatio: Math.min(ab, bc, ca) / max,
+        triangularity:
+          Math.abs(
+            (b.cx - a.cx) * (c.cy - a.cy) - (b.cy - a.cy) * (c.cx - a.cx),
+          ) /
+          (max * max),
+      });
+    }
+    const rows = [],
+      heights = new Float64Array(12),
+      colors = new Float64Array(12),
+      rough = new Float64Array(12),
+      ao = new Float64Array(12);
+    for (const pore of pores) {
+      let { cx, cy } = pore,
+        step = (Math.sqrt(pore.area / Math.PI) / size) * 0.5;
+      sample(cx, cy, s);
+      let best = s.occlusion;
+      for (let refine = 0; refine < 24; refine++) {
+        let bx = cx,
+          by = cy;
+        for (let j = -1; j <= 1; j++)
+          for (let i = -1; i <= 1; i++) {
+            const x = cx + i * step,
+              y = cy + j * step;
+            sample(x, y, s);
+            if (s.occlusion < best) {
+              best = s.occlusion;
+              bx = x;
+              by = y;
+            }
+          }
+        cx = bx;
+        cy = by;
+        step *= 0.5;
+      }
+      sample(cx, cy, s);
+      const bottom = s.height / p.relief,
+        {
+          color: pigment,
+          roughness: finish,
+          occlusion,
+          metallic: metal,
+          mortar,
+        } = s,
+        radius = Math.sqrt(pore.area / Math.PI) / size;
+      for (let j = 0; j < 12; j++) {
+        const angle = (j * 2 * Math.PI) / 12,
+          x = Math.cos(angle),
+          y = Math.sin(angle);
+        sample(cx + radius * 2.2 * x, cy + radius * 2.2 * y, s);
+        heights[j] = s.height / p.relief;
+        colors[j] = s.color;
+        rough[j] = s.roughness;
+        ao[j] = s.occlusion;
+      }
+      heights.sort();
+      colors.sort();
+      rough.sort();
+      ao.sort();
+      rows.push({
+        depth: (heights[5] + heights[6]) / 2 - bottom,
+        color: (colors[5] + colors[6]) / 2 - pigment,
+        roughness: finish - (rough[5] + rough[6]) / 2,
+        AO: (ao[5] + ao[6]) / 2 - occlusion,
+        metal,
+        mortar,
+      });
+    }
+    const areas = pores.map((x) => x.area),
+      radii = groups.map((x) => x.radius),
+      positions = groups.flatMap((x) => [
+        ((x.cx * p.cells) % 1) - 0.5,
+        ((x.cy * p.cells) % 1) - 0.5,
+      ]),
+      cv = (xs: number[]) => {
+        const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+        return (
+          Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length) /
+          mean
+        );
+      },
+      pm = positions.reduce((a, b) => a + b, 0) / positions.length;
+    return {
+      seed,
+      invalid,
+      pores: pores.length,
+      groups: groups.length,
+      ungrouped,
+      poreAreaCV: cv(areas),
+      groupRadiusCV: cv(radii),
+      positionSD: Math.sqrt(
+        positions.reduce((a, b) => a + (b - pm) ** 2, 0) / positions.length,
+      ),
+      orientation:
+        Math.hypot(
+          groups.reduce((a, b) => a + b.ox, 0),
+          groups.reduce((a, b) => a + b.oy, 0),
+        ) / groups.length,
+      minSideRatio: Math.min(...groups.map((x) => x.sideRatio)),
+      minTriangularity: Math.min(...groups.map((x) => x.triangularity)),
+      rows,
+    };
+  };
+
+  const observations = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = observations.get(seed);
+    if (!result) {
+      result = measure(seed);
+      observations.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('pigskinleather', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'keeps three separate rounded follicles in each non-collinear local cluster (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.pores).toBe(p.cells * p.cells * 3);
+      expect(m.groups).toBe(p.cells * p.cells);
+      expect(m.ungrouped).toBe(0);
+      expect(m.minSideRatio).toBeGreaterThan(0.65);
+      expect(m.minTriangularity).toBeGreaterThan(0.55);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'makes follicle centers lower, darker, rougher and occluded without metal or grout (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      for (const row of m.rows) {
+        expect(row.depth).toBeGreaterThan(0.22);
+        expect(row.color).toBeGreaterThan(0.3);
+        expect(row.roughness).toBeGreaterThan(0.12);
+        expect(row.AO).toBeGreaterThan(0.35);
+        expect(row.metal).toBe(0);
+        expect(row.mortar).toBe(0);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'varies pore footprints, triplet spacing, placement and orientation rather than repeating one stamp (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.poreAreaCV).toBeGreaterThan(0.1);
+      expect(m.groupRadiusCV).toBeGreaterThan(0.03);
+      expect(m.positionSD).toBeGreaterThan(0.04);
+      expect(m.orientation).toBeLessThan(0.5);
+    },
+  );
+  it('changes follicle footprints across seeds rather than merely dye or background grain', () => {
+    const first = createSurfaceSampler('pigskinleather', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('pigskinleather', seed);
+      let changed = 0;
+      for (let j = 0; j < 16384; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(a.occlusion < 0.8 !== b.occlusion < 0.8);
+      }
+      expect(changed / 16384).toBeGreaterThan(0.006);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps pore shoulders, continuous grain, owner boundaries and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.1);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'encodes opaque dielectric skin and nonflat positive-Z unit normals at size%s',
+    (size) => {
+      const m = observePixels(
+        generateProceduralMaps('pigskinleather', size, 7, { heightMap: true }),
+      );
+      expect(m.metallicPixels).toBe(0);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(35);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);
       expect(m.invalidAlpha).toBe(0);

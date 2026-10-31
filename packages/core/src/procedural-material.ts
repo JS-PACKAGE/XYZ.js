@@ -393,6 +393,7 @@ export type ProceduralMaterialKind =
   | 'linen'
   | 'chippedenamel'
   | 'perforatedleather'
+  | 'pigskinleather'
   | 'argyle'
   | 'chevronparquet'
   | 'ginkgoleaf'
@@ -1503,6 +1504,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'linen',
   'chippedenamel',
   'perforatedleather',
+  'pigskinleather',
   'argyle',
   'chevronparquet',
   'ginkgoleaf',

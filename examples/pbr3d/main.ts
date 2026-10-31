@@ -456,6 +456,7 @@ try {
     'linen',
     'chippedenamel',
     'perforatedleather',
+    'pigskinleather',
     'argyle',
     'chevronparquet',
     'ginkgoleaf',

@@ -5425,6 +5425,36 @@ var proceduralMaterialPresets = Object.freeze({
 		coreRadius: .13,
 		outerRadius: .24
 	}),
+	pigskinleather: Object.freeze({
+		dark: [
+			35,
+			16,
+			8
+		],
+		light: [
+			203,
+			143,
+			90
+		],
+		roughness: .62,
+		relief: .0038,
+		cells: 8,
+		jitter: .22,
+		ringRadius: .12,
+		scaleVariation: .15,
+		localJitter: .004,
+		poreRadius: .045,
+		radiusVariation: .22,
+		aspectVariation: .18,
+		faceTone: .61,
+		grainTone: .1,
+		baseHeight: .52,
+		grainHeight: .04,
+		poreTone: .5,
+		poreDepth: .34,
+		poreRoughness: .22,
+		poreOcclusion: .63
+	}),
 	argyle: Object.freeze({
 		dark: [
 			55,
@@ -19058,6 +19088,7 @@ var proceduralTileMeters = Object.freeze({
 	linen: .04,
 	chippedenamel: .25,
 	perforatedleather: .04,
+	pigskinleather: .028,
 	argyle: .16,
 	chevronparquet: .6,
 	ginkgoleaf: .24,

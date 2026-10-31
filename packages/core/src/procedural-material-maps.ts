@@ -30663,6 +30663,79 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pigskinleather': {
+        const p = proceduralMaterialPresets.pigskinleather,
+          pores = new Float64Array(p.cells * p.cells * 15),
+          grainField = cachedNoise(64, 64, seed ^ 0x1cd11),
+          fineField = cachedNoise(128, 128, seed ^ 0x1cd13);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const angle = TAU * hash(col, row, seed ^ 0x1cd15),
+              radius =
+                p.ringRadius *
+                (1 +
+                  p.scaleVariation * (2 * hash(col, row, seed ^ 0x1cd17) - 1)),
+              cx = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd19) - 1),
+              cy = 0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cd1b) - 1);
+            for (let j = 0; j < 3; j++) {
+              const id = col * 3 + j,
+                i = ((row * p.cells + col) * 3 + j) * 5,
+                phi = angle + (j * TAU) / 3,
+                r =
+                  p.poreRadius *
+                  (1 +
+                    p.radiusVariation *
+                      (2 * hash(id, row, seed ^ 0x1cd1d) - 1)),
+                aspect =
+                  1 +
+                  p.aspectVariation * (2 * hash(id, row, seed ^ 0x1cd1f) - 1),
+                theta = TAU * hash(id, row, seed ^ 0x1cd21),
+                c = Math.cos(theta),
+                s = Math.sin(theta),
+                iy = 1 / (r * r),
+                ix = iy / (aspect * aspect);
+              pores[i] =
+                cx +
+                radius * Math.cos(phi) +
+                p.localJitter * (2 * hash(id, row, seed ^ 0x1cd23) - 1);
+              pores[i + 1] =
+                cy +
+                radius * Math.sin(phi) +
+                p.localJitter * (2 * hash(id, row, seed ^ 0x1cd25) - 1);
+              pores[i + 2] = c * c * ix + s * s * iy;
+              pores[i + 3] = 2 * c * s * (ix - iy);
+              pores[i + 4] = s * s * ix + c * c * iy;
+            }
+          }
+        return () => {
+          const x = u * p.cells,
+            y = v * p.cells,
+            i = (Math.floor(y) * p.cells + Math.floor(x)) * 15,
+            fx = fract(x),
+            fy = fract(y);
+          let pits = 0;
+          for (let j = 0; j < 3; j++) {
+            const at = i + j * 5,
+              dx = fx - pores[at],
+              dy = fy - pores[at + 1],
+              q =
+                pores[at + 2] * dx * dx +
+                pores[at + 3] * dx * dy +
+                pores[at + 4] * dy * dy;
+            if (q < 1) {
+              const support = 1 - q;
+              pits += support * support;
+            }
+          }
+          // Only the three compact pits are owner-local; continuous grain spans cells.
+          const grain = 0.7 * grainField(u, v) + 0.3 * fineField(u, v);
+          color = p.faceTone + p.grainTone * grain - p.poreTone * pits;
+          height = p.baseHeight + p.grainHeight * grain - p.poreDepth * pits;
+          roughness += 0.035 * grain + p.poreRoughness * pits;
+          occlusion = 0.98 - p.poreOcclusion * pits;
+          return;
+        };
+      }
       case 'perforatedleather': {
         const p = proceduralMaterialPresets.perforatedleather;
         const grainField = cachedNoise(64, 64, seed ^ 0x4e17);
@@ -40524,6 +40597,7 @@ export function createSurfaceSampler(
     kind === 'linen' ||
     kind === 'chippedenamel' ||
     kind === 'perforatedleather' ||
+    kind === 'pigskinleather' ||
     kind === 'argyle' ||
     kind === 'chevronparquet' ||
     kind === 'ginkgoleaf' ||

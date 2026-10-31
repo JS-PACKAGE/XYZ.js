@@ -2410,6 +2410,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         coreRadius: 0.13;
         outerRadius: 0.24;
     }>;
+    pigskinleather: Readonly<{
+        dark: readonly [35, 16, 8];
+        light: readonly [203, 143, 90];
+        roughness: 0.62;
+        relief: 0.0038;
+        cells: 8;
+        jitter: 0.22;
+        ringRadius: 0.12;
+        scaleVariation: 0.15;
+        localJitter: 0.004;
+        poreRadius: 0.045;
+        radiusVariation: 0.22;
+        aspectVariation: 0.18;
+        faceTone: 0.61;
+        grainTone: 0.1;
+        baseHeight: 0.52;
+        grainHeight: 0.04;
+        poreTone: 0.5;
+        poreDepth: 0.34;
+        poreRoughness: 0.22;
+        poreOcclusion: 0.63;
+    }>;
     argyle: Readonly<{
         dark: readonly [55, 12, 26];
         light: readonly [239, 207, 194];
@@ -11410,6 +11432,7 @@ export declare const proceduralTileMeters: Readonly<{
     linen: 0.04;
     chippedenamel: 0.25;
     perforatedleather: 0.04;
+    pigskinleather: 0.028;
     argyle: 0.16;
     chevronparquet: 0.6;
     ginkgoleaf: 0.24;
