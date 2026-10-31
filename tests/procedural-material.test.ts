@@ -513,6 +513,7 @@ const kinds: ProceduralMaterialKind[] = [
   'gosperinlay',
   'pallasite',
   'cuttlebone',
+  'watermelontourmaline',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -110179,6 +110180,596 @@ describe('Opaque authored cuttlebone wall–septa section', () => {
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);
       expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Opaque authored watermelon tourmaline cut-slice mosaic', () => {
+  const p = proceduralMaterialPresets.watermelontourmaline;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const components = (mask: Uint8Array, size: number) => {
+    const queue = new Int32Array(mask.length),
+      areas: number[] = [];
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (let d = 0; d < 4; d++) {
+          const nx =
+              d === 0 ? (x + 1) % size : d === 1 ? (x + size - 1) % size : x,
+            ny = d === 2 ? (y + 1) % size : d === 3 ? (y + size - 1) % size : y,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      areas.push(write);
+    }
+    return areas;
+  };
+
+  const measure = (seed: number) => {
+    const sample = createSurfaceSampler('watermelontourmaline', seed),
+      s = empty(),
+      size = 512,
+      n = p.cells * p.cells,
+      hs = new Float64Array(size * size),
+      mass = new Float64Array(n),
+      sx = new Float64Array(n),
+      sy = new Float64Array(n);
+    sample(0, 0, s);
+    const floor = s.height / p.relief;
+    let highest = floor;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const u = (x + 0.5) / size,
+          v = (y + 0.5) / size,
+          owner = Math.floor(v * p.cells) * p.cells + Math.floor(u * p.cells),
+          i = y * size + x;
+        sample(u, v, s);
+        hs[i] = s.height / p.relief;
+        highest = Math.max(highest, hs[i]);
+        const w = Math.max(0, hs[i] - floor);
+        mass[owner] += w;
+        sx[owner] += u * w;
+        sy[owner] += v * w;
+      }
+    const level = (floor + highest) / 2,
+      areas = components(
+        Uint8Array.from(hs, (h) => Number(h > level)),
+        size,
+      ),
+      centers = [] as [number, number][];
+    let minThird = Infinity,
+      maxSecond = 0,
+      maxFourth = 0,
+      maxPeriod = 0,
+      goodRays = 0,
+      rays = 0,
+      maxFaceSpan = 0,
+      maxRoughSpan = 0,
+      minFinishGap = Infinity;
+    const radii: number[] = [],
+      positions: number[] = [],
+      rimPoints: [number, number][] = [],
+      corners: [number, number][] = [],
+      unitPhases: [number, number][] = [];
+    for (let id = 0; id < n; id++) {
+      if (mass[id] === 0) continue;
+      const cx = sx[id] / mass[id],
+        cy = sy[id] / mass[id];
+      centers.push([cx, cy]);
+      positions.push(
+        cx * p.cells - (id % p.cells) - 0.5,
+        cy * p.cells - Math.floor(id / p.cells) - 0.5,
+      );
+      const radius = (angle: number) => {
+          const dx = Math.cos(angle),
+            dy = Math.sin(angle);
+          sample(cx, cy, s);
+          if (s.height / p.relief <= level) return 0;
+          let lo = 0,
+            hi = 0;
+          for (let j = 1; j <= 128; j++) {
+            hi = j / (128 * p.cells);
+            sample(cx + hi * dx, cy + hi * dy, s);
+            if (s.height / p.relief <= level) break;
+            lo = hi;
+          }
+          for (let j = 0; j < 30; j++) {
+            const r = (lo + hi) / 2;
+            sample(cx + r * dx, cy + r * dy, s);
+            if (s.height / p.relief > level) lo = r;
+            else hi = r;
+          }
+          return (lo + hi) / 2;
+        },
+        rs = Array.from({ length: 96 }, (_, j) =>
+          radius((j * 2 * Math.PI) / 96),
+        ),
+        mean = rs.reduce((a, b) => a + b, 0) / 96;
+      radii.push(mean);
+      let re3 = 0,
+        im3 = 0;
+      for (const harmonic of [2, 3, 4]) {
+        let re = 0,
+          im = 0;
+        for (let j = 0; j < 96; j++) {
+          re += rs[j] * Math.cos((harmonic * j * 2 * Math.PI) / 96);
+          im += rs[j] * Math.sin((harmonic * j * 2 * Math.PI) / 96);
+        }
+        const amplitude = Math.hypot(re, im) / (96 * mean);
+        if (harmonic === 3) {
+          minThird = Math.min(minThird, amplitude);
+          re3 = re;
+          im3 = im;
+        } else if (harmonic === 2) maxSecond = Math.max(maxSecond, amplitude);
+        else maxFourth = Math.max(maxFourth, amplitude);
+      }
+      unitPhases.push([re3 / Math.hypot(re3, im3), im3 / Math.hypot(re3, im3)]);
+      for (let j = 0; j < 96; j++)
+        maxPeriod = Math.max(
+          maxPeriod,
+          Math.abs(rs[j] - rs[(j + 32) % 96]) / mean,
+        );
+      let peak = 0;
+      for (let j = 1; j < 96; j++) if (rs[j] > rs[peak]) peak = j;
+      for (let corner = 0; corner < 3; corner++) {
+        const angle = ((peak + corner * 32) * 2 * Math.PI) / 96;
+        let a = angle - (2 * Math.PI) / 96,
+          b = angle + (2 * Math.PI) / 96;
+        for (let k = 0; k < 56; k++) {
+          const l = a + (b - a) * 0.3819660112501051,
+            r = a + (b - a) * 0.6180339887498949;
+          if (radius(l) < radius(r)) a = l;
+          else b = r;
+        }
+        const theta = (a + b) / 2,
+          r = radius(theta);
+        for (const f of [0.94, 0.98, 1, 1.02])
+          corners.push([
+            cx + f * r * Math.cos(theta),
+            cy + f * r * Math.sin(theta),
+          ]);
+      }
+      for (let j = 0; j < 96; j++) {
+        const angle = (j * 2 * Math.PI) / 96,
+          dx = Math.cos(angle),
+          dy = Math.sin(angle),
+          end = 0.9 * rs[j];
+        let stage = 0,
+          minH = Infinity,
+          maxH = -Infinity,
+          minR = Infinity,
+          maxR = 0;
+        for (let k = 0; k <= 256; k++) {
+          const r = (end * k) / 256;
+          sample(cx + r * dx, cy + r * dy, s);
+          const h = s.height / p.relief;
+          minH = Math.min(minH, h);
+          maxH = Math.max(maxH, h);
+          minR = Math.min(minR, s.roughness);
+          maxR = Math.max(maxR, s.roughness);
+          if (stage === 0 && s.mortar < 0.2 && s.color > 0.55) stage = 1;
+          else if (stage === 1 && s.mortar > 0.8) stage = 2;
+          else if (stage === 2 && s.mortar < 0.2 && s.color < 0.2) stage = 3;
+        }
+        rimPoints.push([cx + 0.91 * rs[j] * dx, cy + 0.91 * rs[j] * dy]);
+        rays++;
+        goodRays += Number(stage === 3);
+        maxFaceSpan = Math.max(maxFaceSpan, maxH - minH);
+        maxRoughSpan = Math.max(maxRoughSpan, maxR - minR);
+        minFinishGap = Math.min(minFinishGap, p.backingRoughness - maxR);
+      }
+    }
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length,
+      sd = (a: number[]) => {
+        const m = avg(a);
+        return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length);
+      },
+      phaseRe = unitPhases.reduce((s, z) => s + z[0], 0) / unitPhases.length,
+      phaseIm = unitPhases.reduce((s, z) => s + z[1], 0) / unitPhases.length;
+    return {
+      bodies: areas.length,
+      minThird,
+      maxSecond,
+      maxFourth,
+      maxPeriod,
+      goodRays: goodRays / rays,
+      maxFaceSpan,
+      maxRoughSpan,
+      minFinishGap,
+      radiusCV: sd(radii) / avg(radii),
+      positionSD: sd(positions),
+      orientationConcentration: Math.hypot(phaseRe, phaseIm),
+      corners,
+      centers,
+      rimPoints,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let m = cache.get(seed);
+    if (!m) {
+      m = measure(seed);
+      cache.set(seed, m);
+    }
+    return m;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('watermelontourmaline', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (const [u, v] of measured(seed).corners) check(u, v);
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      roughMean = 0,
+      smoothMean = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        roughMean += roughness;
+      } else {
+        tiles++;
+        smoothMean += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      roughFraction: grout / count,
+      roughMean: roughMean / grout,
+      smoothMean: smoothMean / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const observeZones = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const height = maps.height!,
+      count = height.length / 4;
+    let min = 255,
+      max = 0;
+    for (let j = 0; j < height.length; j += 4) {
+      min = Math.min(min, height[j]);
+      max = Math.max(max, height[j]);
+    }
+    const totals = Array.from({ length: 3 }, () => ({
+      n: 0,
+      luma: 0,
+      height: 0,
+      rough: 0,
+    }));
+    for (let j = 0; j < height.length; j += 4) {
+      if (height[j] < min + 0.9 * (max - min)) continue;
+      const r = maps.baseColor[j],
+        g = maps.baseColor[j + 1],
+        b = maps.baseColor[j + 2],
+        phase =
+          r - g > 35
+            ? 0
+            : g - r > 20
+              ? 1
+              : Math.abs(r - g) < 3 &&
+                  Math.max(r, g, b) - Math.min(r, g, b) < 25
+                ? 2
+                : -1;
+      if (phase < 0) continue;
+      const t = totals[phase];
+      t.n++;
+      t.luma += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      t.height += height[j];
+      t.rough += maps.metallicRoughness[j + 1] / 255;
+    }
+    const means = totals.map((t) => ({
+      luma: t.luma / t.n,
+      height: t.height / t.n,
+      rough: t.rough / t.n,
+    }));
+    return {
+      pink: totals[0].n / count,
+      green: totals[1].n / count,
+      pale: totals[2].n / count,
+      paleContrast: means[2].luma - Math.max(means[0].luma, means[1].luma),
+      heightGap:
+        Math.max(...means.map((t) => t.height)) -
+        Math.min(...means.map((t) => t.height)),
+      roughGap:
+        Math.max(...means.map((t) => t.rough)) -
+        Math.min(...means.map((t) => t.rough)),
+    };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'keeps separate threefold rounded triangular slice silhouettes at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.bodies).toBe(p.cells * p.cells);
+      expect(m.minThird).toBeGreaterThan(0.03);
+      expect(m.maxSecond).toBeLessThan(0.005);
+      expect(m.maxFourth).toBeLessThan(0.005);
+      expect(m.maxPeriod).toBeLessThan(0.004);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'surrounds each pink core by a pale closed zone and green rind on one polished plane at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.goodRays).toBeGreaterThan(0.995);
+      expect(m.maxFaceSpan).toBeLessThan(0.01);
+      expect(m.maxRoughSpan).toBeLessThan(0.03);
+      expect(m.minFinishGap).toBeGreaterThan(0.4);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'varies slice size, position and orientation instead of repeating a fixed gem stamp at seed%s',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.radiusCV).toBeGreaterThan(0.02);
+      expect(m.positionSD).toBeGreaterThan(0.015);
+      expect(m.orientationConcentration).toBeLessThan(0.9);
+    },
+  );
+  it('moves crystal outlines with seed while maintaining concentric color zoning', () => {
+    const first = createSurfaceSampler('watermelontourmaline', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('watermelontourmaline', seed);
+      let changed = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(
+          a.height / p.relief > 0.36 !== b.height / p.relief > 0.36,
+        );
+      }
+      expect(changed / 4096).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps rounded corner products, pigment shoulders, owner boundaries and signed seams C1 at seed%s',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.04);
+      expect(m.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque nonmetal cut-slice maps with geometric unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('watermelontourmaline', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels).toBe(0);
+      expect(m.roughFraction).toBeGreaterThan(0.6);
+      expect(m.roughFraction).toBeLessThan(0.95);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(40);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+      if (size === 512) {
+        const z = observeZones(maps);
+        expect(z.pink).toBeGreaterThan(0.03);
+        expect(z.green).toBeGreaterThan(0.03);
+        expect(z.pale).toBeGreaterThan(0.002);
+        expect(z.paleContrast).toBeGreaterThan(25);
+        expect(z.heightGap).toBeLessThan(4);
+        expect(z.roughGap).toBeLessThan(0.03);
+        const geometry = measured(7);
+        let wrongCore = 0,
+          wrongRim = 0;
+        for (const [u, v] of geometry.centers) {
+          const j = (Math.floor(v * size) * size + Math.floor(u * size)) * 4;
+          wrongCore += Number(maps.baseColor[j] - maps.baseColor[j + 1] <= 35);
+        }
+        for (const [u, v] of geometry.rimPoints) {
+          const j = (Math.floor(v * size) * size + Math.floor(u * size)) * 4;
+          wrongRim += Number(maps.baseColor[j + 1] - maps.baseColor[j] <= 20);
+        }
+        expect(wrongCore).toBe(0);
+        expect(wrongRim).toBe(0);
+      }
     },
   );
 });

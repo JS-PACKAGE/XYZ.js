@@ -3521,6 +3521,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.01;
         grainRoughness: 0.03;
     }>;
+    watermelontourmaline: Readonly<{
+        dark: readonly [28, 89, 45];
+        light: readonly [224, 74, 117];
+        roughness: 0.23;
+        relief: 0.003;
+        cells: 4;
+        jitter: 0.07;
+        radius: 0.28;
+        radiusVariation: 0.06;
+        coreScale: 0.62;
+        coreVariation: 0.1;
+        bandWidth: 0.08;
+        discRadiusSquared: 3;
+        shoulder: 0.2;
+        grainCells: 96;
+        cloudCells: 8;
+        cloudColor: 0.15;
+        coreTone: 0.7;
+        toneVariation: 0.1;
+        rimTone: 0.06;
+        grainColor: 0.012;
+        grainHeight: 0.002;
+        grainRoughness: 0.014;
+        backingTone: 0.02;
+        backingHeight: 0.12;
+        backingRoughness: 0.84;
+        backingOcclusion: 0.83;
+        backingNeutral: 1;
+        faceHeight: 0.6;
+        faceOcclusion: 0.99;
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11309,6 +11340,7 @@ export declare const proceduralTileMeters: Readonly<{
     gosperinlay: 0.5;
     pallasite: 0.16;
     cuttlebone: 0.0024;
+    watermelontourmaline: 0.08;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

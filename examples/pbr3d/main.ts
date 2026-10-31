@@ -550,6 +550,7 @@ try {
     'gosperinlay',
     'pallasite',
     'cuttlebone',
+    'watermelontourmaline',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

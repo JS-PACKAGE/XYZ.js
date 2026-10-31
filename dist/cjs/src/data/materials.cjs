@@ -7432,6 +7432,45 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .01,
 		grainRoughness: .03
 	}),
+	watermelontourmaline: Object.freeze({
+		dark: [
+			28,
+			89,
+			45
+		],
+		light: [
+			224,
+			74,
+			117
+		],
+		roughness: .23,
+		relief: .003,
+		cells: 4,
+		jitter: .07,
+		radius: .28,
+		radiusVariation: .06,
+		coreScale: .62,
+		coreVariation: .1,
+		bandWidth: .08,
+		discRadiusSquared: 3,
+		shoulder: .2,
+		grainCells: 96,
+		cloudCells: 8,
+		cloudColor: .15,
+		coreTone: .7,
+		toneVariation: .1,
+		rimTone: .06,
+		grainColor: .012,
+		grainHeight: .002,
+		grainRoughness: .014,
+		backingTone: .02,
+		backingHeight: .12,
+		backingRoughness: .84,
+		backingOcclusion: .83,
+		backingNeutral: 1,
+		faceHeight: .6,
+		faceOcclusion: .99
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18917,6 +18956,7 @@ var proceduralTileMeters = Object.freeze({
 	gosperinlay: .5,
 	pallasite: .16,
 	cuttlebone: .0024,
+	watermelontourmaline: .08,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,

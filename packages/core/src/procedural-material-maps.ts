@@ -27689,6 +27689,90 @@ export function createSurfaceSampler(
           occlusion += body * (p.faceOcclusion - occlusion);
         };
       }
+      case 'watermelontourmaline': {
+        const p = proceduralMaterialPresets.watermelontourmaline,
+          poses = new Float64Array(p.cells * p.cells * 9),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1b511),
+          cloudField = cachedNoise(p.cloudCells, p.cloudCells, seed ^ 0x1b51f),
+          inverseShoulder = 1 / p.shoulder,
+          discBase = p.discRadiusSquared - 1;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 9,
+              angle = TAU * hash(col, row, seed ^ 0x1b513),
+              radius =
+                p.radius + p.radiusVariation * hash(col, row, seed ^ 0x1b515),
+              core =
+                p.coreScale + p.coreVariation * hash(col, row, seed ^ 0x1b517),
+              inverseRadius = 1 / radius;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b519) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1b51b) - 1);
+            poses[i + 2] = Math.cos(angle) * inverseRadius;
+            poses[i + 3] = Math.sin(angle) * inverseRadius;
+            poses[i + 4] = 1 / core;
+            poses[i + 5] = 1 / (core + p.bandWidth);
+            poses[i + 6] =
+              p.coreTone + p.toneVariation * hash(col, row, seed ^ 0x1b51d);
+            poses[i + 7] = poses[i + 4] * poses[i + 4];
+            poses[i + 8] = poses[i + 5] * poses[i + 5];
+          }
+        // Default support radius plus jitter stays below half an owner cell.
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 9,
+            dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            r2 = x * x + y * y,
+            a = 2 * x,
+            by = 1.7320508075688772 * y,
+            b = -x + by,
+            c = -x - by,
+            outerBase = discBase - r2,
+            // Circle products preserve C1 corners instead of choosing a nearest arc.
+            face =
+              smooth(clamp((outerBase + a) * inverseShoulder)) *
+              smooth(clamp((outerBase + b) * inverseShoulder)) *
+              smooth(clamp((outerBase + c) * inverseShoulder));
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingOcclusion;
+          mortar = p.backingNeutral;
+          if (face === 0) return;
+          const k = poses[i + 4],
+            l = poses[i + 5],
+            coreBase = discBase - poses[i + 7] * r2,
+            paleBase = discBase - poses[i + 8] * r2,
+            core =
+              smooth(clamp((coreBase + k * a) * inverseShoulder)) *
+              smooth(clamp((coreBase + k * b) * inverseShoulder)) *
+              smooth(clamp((coreBase + k * c) * inverseShoulder)),
+            pale =
+              smooth(clamp((paleBase + l * a) * inverseShoulder)) *
+              smooth(clamp((paleBase + l * b) * inverseShoulder)) *
+              smooth(clamp((paleBase + l * c) * inverseShoulder)),
+            band = pale - core,
+            grain = grainField(u, v),
+            cloud = cloudField(u, v);
+          // Concentric pigment zones share one polished plane, not inset grout rings.
+          color +=
+            face *
+            (p.rimTone +
+              core * (poses[i + 6] + p.cloudColor * cloud - p.rimTone) +
+              p.grainColor * grain -
+              color);
+          height += face * (p.faceHeight + p.grainHeight * grain - height);
+          roughness +=
+            face * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion += face * (p.faceOcclusion - occlusion);
+          mortar += face * (band - mortar);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40278,6 +40362,7 @@ export function createSurfaceSampler(
     kind === 'gosperinlay' ||
     kind === 'pallasite' ||
     kind === 'cuttlebone' ||
+    kind === 'watermelontourmaline' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
