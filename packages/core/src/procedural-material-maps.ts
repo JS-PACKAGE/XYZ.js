@@ -15600,6 +15600,88 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'topadjusttrimmers': {
+        const p = proceduralMaterialPresets.topadjusttrimmers,
+          poses = new Float64Array(p.cells * p.cells * 6),
+          grainField = cachedNoise(96, 96, seed ^ 0x21001),
+          inverseBody = 1 / p.bodyBevel,
+          headSquared = p.headRadius * p.headRadius,
+          headCore = p.headRadius - p.headBevel,
+          inverseHead = 1 / (headSquared - headCore * headCore),
+          slotSquared = p.slotHalfWidth * p.slotHalfWidth,
+          slotCore = p.slotHalfWidth - p.slotBevel,
+          inverseSlot = 1 / (slotSquared - slotCore * slotCore),
+          bodyToneDelta = p.bodyTone - p.backingTone,
+          bodyHeightDelta = p.bodyHeight - p.backingHeight,
+          bodyRoughnessDelta = p.bodyRoughness - p.backingRoughness,
+          bodyAODelta = p.bodyAO - p.backingAO,
+          headToneDelta = p.headTone - p.bodyTone,
+          headGrainDelta = p.headGrainTone - p.bodyGrainTone,
+          headHeightDelta = p.headHeight - p.bodyHeight,
+          headRoughnessDelta = p.roughness - p.bodyRoughness,
+          headAODelta = p.headAO - p.bodyAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 6,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x21003),
+              angle = TAU * hash(col, row, seed ^ 0x21005),
+              slotAngle = Math.PI * hash(col, row, seed ^ 0x21007);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x21009) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2100b) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+            poses[i + 4] = Math.cos(slotAngle);
+            poses[i + 5] = Math.sin(slotAngle);
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 6,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            body =
+              smooth(clamp((p.halfWidth - Math.abs(x)) * inverseBody)) *
+              smooth(clamp((p.halfHeight - Math.abs(y)) * inverseBody));
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyToneDelta + p.bodyGrainTone * grain);
+          height += body * (bodyHeightDelta + p.grainHeight * grain);
+          roughness += body * (bodyRoughnessDelta + p.grainRoughness * grain);
+          occlusion += body * bodyAODelta - p.bodyContactAO * body * (1 - body);
+          const hx = x - p.headX,
+            hy = y - p.headY,
+            q = hx * hx + hy * hy;
+          if (q >= headSquared) return;
+          const head = smooth(clamp((headSquared - q) * inverseHead)),
+            across = hx * poses[i + 4] + hy * poses[i + 5],
+            slot = smooth(clamp((slotSquared - across * across) * inverseSlot));
+          // Head support stays inside the full body core, so common grain cancels.
+          // The edge-open slot has an opaque metal floor; it never cuts the metal mask.
+          color +=
+            head *
+            (headToneDelta + headGrainDelta * grain - p.slotToneDrop * slot);
+          height += head * (headHeightDelta - p.slotDepth * slot);
+          roughness += head * (headRoughnessDelta + p.slotRoughness * slot);
+          occlusion +=
+            head * (headAODelta - p.slotAO * slot) -
+            p.headContactAO * head * (1 - head);
+          metallic = head;
+          return;
+        };
+      }
       case 'crownprobetips': {
         const p = proceduralMaterialPresets.crownprobetips,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41283,6 +41365,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'topadjusttrimmers' ||
     kind === 'crownprobetips' ||
     kind === 'piezodiaphragms' ||
     kind === 'castellatedboards' ||

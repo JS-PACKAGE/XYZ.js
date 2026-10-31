@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'topadjusttrimmers',
   'crownprobetips',
   'piezodiaphragms',
   'castellatedboards',
@@ -76970,6 +76971,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'topadjusttrimmers' &&
           kind !== 'crownprobetips' &&
           kind !== 'piezodiaphragms' &&
           kind !== 'castellatedboards' &&
@@ -86438,6 +86440,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'topadjusttrimmers',
     'crownprobetips',
     'piezodiaphragms',
     'castellatedboards',
@@ -86557,6 +86560,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'topadjusttrimmers' ||
           kind === 'crownprobetips' ||
           kind === 'piezodiaphragms' ||
           kind === 'castellatedboards' ||
@@ -117907,6 +117911,687 @@ describe('Four-point crown probe ends with an opaque metallic throat and four ro
         m = observePixels(maps);
       expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.15);
       expect(m.metallicPixels / (size * size)).toBeLessThan(0.7);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(80);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Top-adjust trimmer faces with an offset metal screw and one full-width blind straight slot', () => {
+  const p = proceduralMaterialPresets.topadjusttrimmers;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = Math.max(768, 384 * p.cells),
+      count = size * size,
+      sample = createSurfaceSampler('topadjusttrimmers', seed),
+      probe = empty();
+    sample(0, 0, probe);
+    const bg = { ...probe },
+      heights = new Float64Array(count),
+      colors = new Float64Array(count),
+      finishes = new Float64Array(count),
+      occlusions = new Float64Array(count),
+      metalMask = new Uint8Array(count),
+      nonmetalMask = new Uint8Array(count),
+      coreMask = new Uint8Array(count),
+      queue = new Int32Array(count),
+      bodyLabels = new Int32Array(count),
+      headLabels = new Int32Array(count),
+      workLabels = new Int32Array(count);
+    let invalid = 0,
+      dh = 0,
+      dc = 0,
+      dr = 0,
+      dao = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, probe);
+        for (const key of keys) invalid += Number(!Number.isFinite(probe[key]));
+        heights[i] = probe.height / p.relief;
+        colors[i] = probe.color;
+        finishes[i] = probe.roughness;
+        occlusions[i] = probe.occlusion;
+        metalMask[i] = Number(probe.metallic > 0.5);
+        nonmetalMask[i] = Number(probe.metallic <= 0.5);
+        coreMask[i] = Number(probe.metallic > 0.999);
+        if (probe.metallic < 0.001) {
+          dh = Math.max(dh, Math.abs(probe.height - bg.height) / p.relief);
+          dc = Math.max(dc, Math.abs(probe.color - bg.color));
+          dr = Math.max(dr, Math.abs(probe.roughness - bg.roughness));
+          dao = Math.max(dao, Math.abs(probe.occlusion - bg.occlusion));
+        }
+      }
+    const bodyMask = new Uint8Array(count);
+    for (let i = 0; i < count; i++)
+      bodyMask[i] = Number(
+        metalMask[i] ||
+          Math.abs(heights[i] - bg.height / p.relief) > 0.3 * dh ||
+          Math.abs(colors[i] - bg.color) > 0.3 * dc ||
+          Math.abs(finishes[i] - bg.roughness) > 0.3 * dr ||
+          Math.abs(occlusions[i] - bg.occlusion) > 0.3 * dao,
+      );
+    const bodies = regions(bodyMask, size, queue, bodyLabels, 1),
+      heads = regions(metalMask, size, queue, headLabels, 1),
+      background = regions(nonmetalMask, size, queue, workLabels, -1),
+      axes = bodies.map((body) => {
+        const a = 0.5 * Math.atan2(2 * body.xy, body.xx - body.yy);
+        return { c: Math.cos(a), s: Math.sin(a), long: 0, short: 0 };
+      });
+    for (let i = 0; i < count; i++)
+      if (bodyLabels[i] > 0) {
+        const k = bodyLabels[i] - 1,
+          body = bodies[k],
+          axis = axes[k],
+          x = ((i % size) + 0.5) / size - body.cx,
+          y = (Math.floor(i / size) + 0.5) / size - body.cy;
+        axis.long = Math.max(axis.long, Math.abs(x * axis.c + y * axis.s));
+        axis.short = Math.max(axis.short, Math.abs(y * axis.c - x * axis.s));
+      }
+    const low = new Float64Array(heads.length).fill(Infinity),
+      high = new Float64Array(heads.length).fill(-Infinity);
+    for (let i = 0; i < count; i++)
+      if (coreMask[i] && headLabels[i] > 0) {
+        const k = headLabels[i] - 1;
+        low[k] = Math.min(low[k], heights[i]);
+        high[k] = Math.max(high[k], heights[i]);
+      }
+    const highMask = new Uint8Array(count),
+      lowMask = new Uint8Array(count);
+    for (let i = 0; i < count; i++)
+      if (coreMask[i] && headLabels[i] > 0) {
+        const k = headLabels[i] - 1,
+          span = high[k] - low[k];
+        highMask[i] = Number(heights[i] > low[k] + 0.7 * span);
+        lowMask[i] = Number(heights[i] < low[k] + 0.3 * span);
+      }
+    const lips = regions(highMask, size, queue, workLabels, 1),
+      slots = regions(lowMask, size, queue, workLabels, 1),
+      bodyHeads = bodies.map(() => [] as number[]),
+      headLips = heads.map(() => [] as typeof lips),
+      headSlots = heads.map(() => [] as typeof slots);
+    for (let j = 0; j < heads.length; j++) {
+      let owner = -1,
+        distance = Infinity;
+      for (let i = 0; i < bodies.length; i++) {
+        const d =
+          (heads[j].cx - bodies[i].cx) ** 2 + (heads[j].cy - bodies[i].cy) ** 2;
+        if (d < distance) {
+          distance = d;
+          owner = i;
+        }
+      }
+      if (owner >= 0) bodyHeads[owner].push(j);
+    }
+    for (const [items, groups] of [
+      [lips, headLips],
+      [slots, headSlots],
+    ] as const)
+      for (const item of items) {
+        let owner = -1,
+          distance = Infinity;
+        for (let i = 0; i < heads.length; i++) {
+          const d = (item.cx - heads[i].cx) ** 2 + (item.cy - heads[i].cy) ** 2;
+          if (d < distance) {
+            distance = d;
+            owner = i;
+          }
+        }
+        if (owner >= 0) groups[owner].push(item);
+      }
+    const parts = bodies.map((body, index) => {
+      const axis = axes[index],
+        halfLong = axis.long,
+        halfShort = axis.short,
+        result = {
+          heads: bodyHeads[index].length,
+          highPieces: 0,
+          lowPieces: 0,
+          aspect: halfLong / halfShort,
+          fill: body.area / count / (4 * halfLong * halfShort),
+          longOffset: 0,
+          shortOffset: 0,
+          clearance: -Infinity,
+          headCircularity: Infinity,
+          contourMisses: 0,
+          slotMomentRatio: 0,
+          slotSpread: 0,
+          slotCentering: Infinity,
+          lipSymmetry: Infinity,
+          lipOpposition: Infinity,
+          slotOrthogonality: Infinity,
+          slotStraightness: Infinity,
+          slotProfileMisses: 0,
+          minMetal: 0,
+          bodyMetal: 1,
+          bodyFlatness: Infinity,
+          headLift: -Infinity,
+          slotDepth: -Infinity,
+        };
+      sample(body.cx, body.cy, probe);
+      const bodyHeight = probe.height / p.relief;
+      result.bodyMetal = probe.metallic;
+      let bodyLow = Infinity,
+        bodyHigh = -Infinity;
+      for (let y = -2; y <= 2; y++)
+        for (let x = -2; x <= 2; x++) {
+          const along = x * 0.3 * halfLong,
+            across = y * 0.3 * halfShort;
+          sample(
+            body.cx + along * axis.c - across * axis.s,
+            body.cy + along * axis.s + across * axis.c,
+            probe,
+          );
+          if (probe.metallic < 0.001) {
+            bodyLow = Math.min(bodyLow, probe.height / p.relief);
+            bodyHigh = Math.max(bodyHigh, probe.height / p.relief);
+          }
+        }
+      result.bodyFlatness = bodyHigh - bodyLow;
+      if (bodyHeads[index].length !== 1) return result;
+      const k = bodyHeads[index][0],
+        head = heads[k],
+        radius = Math.sqrt(head.area / count / Math.PI),
+        dx = head.cx - body.cx,
+        dy = head.cy - body.cy,
+        along = Math.abs(dx * axis.c + dy * axis.s),
+        across = Math.abs(dy * axis.c - dx * axis.s);
+      result.longOffset = along / halfLong;
+      result.shortOffset = across / halfShort;
+      result.clearance =
+        Math.min(halfLong - along - radius, halfShort - across - radius) /
+        radius;
+      result.highPieces = headLips[k].length;
+      result.lowPieces = headSlots[k].length;
+      sample(head.cx, head.cy, probe);
+      const floor = probe.height / p.relief;
+      result.minMetal = probe.metallic;
+      const radii = [] as number[];
+      for (let ray = 0; ray < 16; ray++) {
+        const a = (2 * Math.PI * ray) / 16,
+          c = Math.cos(a),
+          s = Math.sin(a);
+        let lo = 0,
+          hi = 1.25 * radius;
+        sample(head.cx + hi * c, head.cy + hi * s, probe);
+        if (probe.metallic > 0.5) {
+          result.contourMisses++;
+          continue;
+        }
+        for (let j = 0; j < 28; j++) {
+          const r = (lo + hi) * 0.5;
+          sample(head.cx + r * c, head.cy + r * s, probe);
+          if (probe.metallic > 0.5) lo = r;
+          else hi = r;
+        }
+        radii.push((lo + hi) * 0.5);
+      }
+      const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+      result.headCircularity =
+        Math.sqrt(
+          radii.reduce((sum, r) => sum + (r - mean) ** 2, 0) / radii.length,
+        ) / mean;
+      if (headLips[k].length === 2) {
+        const [a, b] = headLips[k],
+          ax = a.cx - head.cx,
+          ay = a.cy - head.cy,
+          bx = b.cx - head.cx,
+          by = b.cy - head.cy,
+          ar = Math.hypot(ax, ay),
+          br = Math.hypot(bx, by);
+        result.lipSymmetry = Math.abs(ar - br) / ((ar + br) * 0.5);
+        result.lipOpposition = Math.abs(1 + (ax * bx + ay * by) / (ar * br));
+        let minCrest = Infinity;
+        for (const lip of [a, b]) {
+          sample(lip.cx, lip.cy, probe);
+          result.minMetal = Math.min(result.minMetal, probe.metallic);
+          minCrest = Math.min(minCrest, probe.height / p.relief);
+        }
+        result.headLift = minCrest - bodyHeight;
+        result.slotDepth = minCrest - floor;
+        if (headSlots[k].length === 1) {
+          const slot = headSlots[k][0],
+            trace = slot.xx + slot.yy,
+            gap = Math.hypot(slot.xx - slot.yy, 2 * slot.xy),
+            angle = 0.5 * Math.atan2(2 * slot.xy, slot.xx - slot.yy);
+          result.slotMomentRatio = (trace + gap) / (trace - gap);
+          result.slotSpread = ((trace + gap) * 0.5) / (head.xx + head.yy);
+          result.slotCentering =
+            Math.hypot(slot.cx - head.cx, slot.cy - head.cy) / radius;
+          result.slotOrthogonality = Math.abs(
+            ((a.cx - b.cx) * Math.cos(angle) +
+              (a.cy - b.cy) * Math.sin(angle)) /
+              Math.hypot(a.cx - b.cx, a.cy - b.cy),
+          );
+          const c = Math.cos(angle),
+            s = Math.sin(angle),
+            positions = [] as number[],
+            centers = [] as number[],
+            level = low[k] + 0.3 * (high[k] - low[k]);
+          // A curved slit can have the same moments and opposite lips as a straight one.
+          for (let row = -2; row <= 2; row++) {
+            const along = row * 0.325;
+            let first = -1,
+              last = -1,
+              runs = 0,
+              wasFloor = false;
+            for (let step = 0; step <= 64; step++) {
+              const across = ((1.2 * step) / 64 - 0.6) * radius;
+              sample(
+                head.cx + along * radius * c - across * s,
+                head.cy + along * radius * s + across * c,
+                probe,
+              );
+              const isFloor =
+                probe.metallic > 0.999 && probe.height / p.relief < level;
+              if (isFloor && !wasFloor) runs++;
+              if (isFloor) {
+                if (first < 0) first = step;
+                last = step;
+              }
+              wasFloor = isFloor;
+            }
+            if (runs !== 1 || first <= 0 || last >= 64) {
+              result.slotProfileMisses++;
+              continue;
+            }
+            positions.push(along);
+            centers.push((1.2 * (first + last) * 0.5) / 64 - 0.6);
+          }
+          if (centers.length === 5) {
+            const mean = centers.reduce((a, b) => a + b, 0) / 5,
+              slope =
+                centers.reduce(
+                  (sum, v, j) => sum + positions[j] * (v - mean),
+                  0,
+                ) / positions.reduce((sum, v) => sum + v * v, 0);
+            result.slotStraightness = Math.max(
+              ...centers.map((v, j) =>
+                Math.abs(v - mean - slope * positions[j]),
+              ),
+            );
+          }
+        }
+      }
+      return result;
+    });
+    return {
+      invalid,
+      bodies: bodies.length,
+      heads: heads.length,
+      background: background.length,
+      lips: lips.length,
+      slots: slots.length,
+      parts,
+      highLevel:
+        Math.min(...low) + 0.7 * (Math.max(...high) - Math.min(...low)),
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = cache.get(seed);
+    if (!result) {
+      result = measure(seed);
+      cache.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('topadjusttrimmers', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'retains isolated rectangular dielectric bodies, one complete metal screw and two high lips separated by one blind slot per body (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.bodies).toBe(p.cells * p.cells);
+      expect(m.heads).toBe(p.cells * p.cells);
+      expect(m.background).toBe(1);
+      expect(m.lips).toBe(2 * p.cells * p.cells);
+      expect(m.slots).toBe(p.cells * p.cells);
+      for (const part of m.parts) {
+        expect(part.heads).toBe(1);
+        expect(part.highPieces).toBe(2);
+        expect(part.lowPieces).toBe(1);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps a filled rectangular top and a round screw near one corner rather than a central fastener or an oval housing (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.aspect).toBeGreaterThan(1.25);
+        expect(part.aspect).toBeLessThan(1.85);
+        expect(part.fill).toBeGreaterThan(0.93);
+        expect(part.longOffset).toBeGreaterThan(0.4);
+        expect(part.longOffset).toBeLessThan(0.9);
+        expect(part.shortOffset).toBeGreaterThan(0.25);
+        expect(part.shortOffset).toBeLessThan(0.85);
+        expect(part.clearance).toBeGreaterThan(0.04);
+        expect(part.contourMisses).toBe(0);
+        expect(part.headCircularity).toBeLessThan(0.025);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps a straight centered edge-open slot with an opaque metal floor, opposite raised lips and a flat dielectric body (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.slotMomentRatio).toBeGreaterThan(4);
+        expect(part.slotSpread).toBeGreaterThan(0.35);
+        expect(part.slotCentering).toBeLessThan(0.06);
+        expect(part.slotProfileMisses).toBe(0);
+        expect(part.slotStraightness).toBeLessThan(0.025);
+        expect(part.lipSymmetry).toBeLessThan(0.2);
+        expect(part.lipOpposition).toBeLessThan(0.02);
+        expect(part.slotOrthogonality).toBeLessThan(0.1);
+        expect(part.minMetal).toBeGreaterThan(0.999);
+        expect(part.bodyMetal).toBeLessThan(0.001);
+        expect(part.bodyFlatness).toBeLessThan(0.02);
+        expect(part.headLift).toBeGreaterThan(0.1);
+        expect(part.slotDepth).toBeGreaterThan(0.08);
+      }
+    },
+  );
+  it('varies actual metal-head or high-lip footprints with seed, including slot-only rotation rather than microfinish changes', () => {
+    const first = createSurfaceSampler('topadjusttrimmers', 0),
+      a = empty(),
+      b = empty(),
+      firstLevel = measured(0).highLevel;
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('topadjusttrimmers', seed),
+        otherLevel = measured(seed).highLevel;
+      let different = 0,
+        occupied = 0;
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.6180339887498949) % 1,
+          v = (i * 0.4142135623730951) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        const am = a.metallic > 0.5,
+          bm = b.metallic > 0.5;
+        occupied += Number(am || bm);
+        different += Number(
+          am !== bm ||
+            (a.metallic > 0.999 && a.height / p.relief > firstLevel) !==
+              (b.metallic > 0.999 && b.height / p.relief > otherLevel),
+        );
+      }
+      expect(different / occupied).toBeGreaterThan(0.05);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'retains C1 body, head, blind-slot, owner and signed-UV joins (seed %s)',
+    (seed) => {
+      const c = continuity(seed);
+      expect(c.worst).toBeLessThan(0.1);
+      expect(c.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'packs opaque minority metal screws with dielectric housings and unit-facing nonflat normals at size %s',
+    (size) => {
+      const maps = generateProceduralMaps('topadjusttrimmers', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.005);
+      expect(m.metallicPixels / (size * size)).toBeLessThan(0.08);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(80);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);
