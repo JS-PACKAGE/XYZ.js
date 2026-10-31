@@ -15600,6 +15600,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'qfnlandpads': {
+        const p = proceduralMaterialPresets.qfnlandpads,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x1d011),
+          inverseBody = 1 / p.bodyBevel,
+          inverseBevel = 1 / p.landBevel,
+          inversePitch = 1 / p.pitch,
+          radiusSquared = p.landRadius * p.landRadius,
+          coreRadius = p.landRadius - p.landBevel,
+          inverseShoulder = 1 / (radiusSquared - coreRadius * coreRadius),
+          halfBank = (p.landsPerSide - 1) / 2,
+          bankEnd = halfBank * p.pitch + p.landRadius,
+          innerEnd = p.landCenter - p.landHalfLength,
+          outerEnd = p.landCenter + p.landHalfLength,
+          capCenter = innerEnd + p.landRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1d013);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d015) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d017) - 1);
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i + 2],
+            dy = vc - row - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfSize || ay >= p.halfSize) return;
+          const body =
+            smooth(clamp((p.halfSize - ax) * inverseBody)) *
+            smooth(clamp((p.halfSize - ay) * inverseBody));
+          let metal = 0;
+          // Dielectric clearance separates the central island from every peripheral land.
+          if (ax < p.padHalfSize && ay < p.padHalfSize) {
+            metal =
+              smooth(clamp((p.padHalfSize - ax) * inverseBevel)) *
+              smooth(clamp((p.padHalfSize - ay) * inverseBevel));
+          } else {
+            // Corner clearance makes both banks zero at every nearest-side tie.
+            const sideX = ax > ay,
+              normal = sideX ? ax : ay,
+              along = sideX ? y : x;
+            if (
+              normal > innerEnd &&
+              normal < outerEnd &&
+              Math.abs(along) < bankEnd
+            ) {
+              const owner = Math.round(along * inversePitch + halfBank);
+              if (owner >= 0 && owner < p.landsPerSide) {
+                const across = along - (owner - halfBank) * p.pitch,
+                  cap = Math.min(0, normal - capCenter),
+                  q = cap * cap + across * across;
+                // Squaring the clamped cap coordinate gives a C1 round inner end, not a dome.
+                metal =
+                  smooth(clamp((radiusSquared - q) * inverseShoulder)) *
+                  smooth(clamp((outerEnd - normal) * inverseBevel));
+              }
+            }
+          }
+          const grain = grainField(u, v);
+          color += body * (p.bodyTone + p.bodyGrainTone * grain - color);
+          height += body * (p.bodyHeight + p.grainHeight * grain - height);
+          roughness +=
+            body * (p.bodyRoughness + p.bodyGrainRoughness * grain - roughness);
+          occlusion += body * (p.bodyAO - occlusion);
+          color += metal * (p.metalTone + p.metalGrainTone * grain - color);
+          height += metal * (p.landHeight + p.grainHeight * grain - height);
+          roughness +=
+            metal * (p.roughness + p.metalGrainRoughness * grain - roughness);
+          occlusion +=
+            metal * (p.metalAO - occlusion) - p.contactAO * metal * (1 - metal);
+          metallic = metal;
+          return;
+        };
+      }
       case 'bgasolderballs': {
         const p = proceduralMaterialPresets.bgasolderballs,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -40947,6 +41038,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'qfnlandpads' ||
     kind === 'bgasolderballs' ||
     kind === 'ballbearingfaces' ||
     kind === 'baseballleather' ||

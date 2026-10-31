@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'qfnlandpads',
   'bgasolderballs',
   'ballbearingfaces',
   'baseballleather',
@@ -76966,6 +76967,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'qfnlandpads' &&
           kind !== 'bgasolderballs' &&
           kind !== 'ballbearingfaces' &&
           kind !== 'slottedturners' &&
@@ -86430,6 +86432,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'qfnlandpads',
     'bgasolderballs',
     'ballbearingfaces',
     'slottedturners',
@@ -86545,6 +86548,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'qfnlandpads' ||
           kind === 'bgasolderballs' ||
           kind === 'ballbearingfaces' ||
           kind === 'slottedturners' ||
@@ -115009,6 +115013,854 @@ describe('Radiolarian equatorial cutaways with concentric girdles and outward-gr
         }),
         m = observePixels(maps);
       expect(m.metallicPixels).toBe(0);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('QFN undersides with four finite flat-land banks and one separate exposed center pad', () => {
+  const p = proceduralMaterialPresets.qfnlandpads;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const sample = createSurfaceSampler('qfnlandpads', seed),
+      size = Math.max(768, 384 * p.cells),
+      n = size * size,
+      s = empty(),
+      heights = new Float32Array(n),
+      moldMask = new Uint8Array(n),
+      packageMask = new Uint8Array(n),
+      metalMask = new Uint8Array(n),
+      labels = new Int32Array(n),
+      queue = new Int32Array(n);
+    let invalid = 0,
+      min = Infinity,
+      max = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        for (const key of keys) invalid += Number(!Number.isFinite(s[key]));
+        const h = s.height / p.relief,
+          at = y * size + x;
+        heights[at] = h;
+        min = Math.min(min, h);
+        max = Math.max(max, h);
+        moldMask[at] = Number(s.metallic < 0.01);
+        metalMask[at] = Number(s.metallic > 0.5);
+      }
+    // Segment complete raised footprints before excluding metal: thin pure-polymer fringes need not stay raster-connected.
+    const level = min + 0.06 * (max - min);
+    for (let k = 0; k < n; k++) packageMask[k] = Number(heights[k] > level);
+    const footprints = regions(packageMask, size, queue, labels, 1),
+      metals = regions(metalMask, size, queue, labels, -1),
+      assigned = footprints.map(() => [] as number[]),
+      owners = new Int32Array(metals.length).fill(-1);
+    for (let k = 0; k < metals.length; k++) {
+      const region = metals[k];
+      let best = -1,
+        distance = Infinity;
+      for (let j = 0; j < footprints.length; j++) {
+        const d =
+          (region.cx - footprints[j].cx) ** 2 +
+          (region.cy - footprints[j].cy) ** 2;
+        if (d < distance) {
+          distance = d;
+          best = j;
+        }
+      }
+      if (best >= 0) {
+        assigned[best].push(k);
+        owners[k] = best;
+      }
+    }
+    const pca = (r: { xx: number; yy: number; xy: number }) => {
+      const angle = 0.5 * Math.atan2(2 * r.xy, r.xx - r.yy),
+        d = Math.hypot(r.xx - r.yy, 2 * r.xy),
+        major = Math.sqrt(Math.max(0, (r.xx + r.yy + d) / 2)),
+        minor = Math.sqrt(Math.max(0, (r.xx + r.yy - d) / 2));
+      return {
+        c: Math.cos(angle),
+        s: Math.sin(angle),
+        major,
+        minor,
+        aspect: minor ? major / minor : Infinity,
+      };
+    };
+    const details = footprints.map((footprint, wi) => {
+      const ids = assigned[wi].sort((a, b) => metals[b].area - metals[a].area);
+      if (ids.length !== 4 * p.landsPerSide + 1) return;
+      const central = metals[ids[0]],
+        remaining = ids.slice(1);
+      let nearest = Infinity;
+      for (let i = 0; i < remaining.length; i++)
+        for (let j = i + 1; j < remaining.length; j++)
+          nearest = Math.min(
+            nearest,
+            Math.hypot(
+              metals[remaining[i]].cx - metals[remaining[j]].cx,
+              metals[remaining[i]].cy - metals[remaining[j]].cy,
+            ),
+          );
+      // Fit observed collinear banks, not a distance graph: valid corner neighbors may be closer than the row pitch.
+      const toleranceSquared = (nearest * 0.08) ** 2,
+        banks = [] as {
+          ids: number[];
+          cx: number;
+          cy: number;
+          c: number;
+          s: number;
+          pitch: number;
+          pitchCV: number;
+          residual: number;
+          areaCV: number;
+        }[];
+      while (remaining.length >= 3) {
+        let bestA = -1,
+          bestB = -1,
+          bestCount = 2,
+          bestError = Infinity;
+        for (let i = 0; i < remaining.length; i++)
+          for (let j = i + 1; j < remaining.length; j++) {
+            const a = metals[remaining[i]],
+              b = metals[remaining[j]],
+              dx = b.cx - a.cx,
+              dy = b.cy - a.cy,
+              lengthSquared = dx * dx + dy * dy;
+            let count = 0,
+              error = 0;
+            for (const id of remaining) {
+              const r = metals[id],
+                cross = (r.cx - a.cx) * dy - (r.cy - a.cy) * dx,
+                q = (cross * cross) / lengthSquared;
+              if (q <= toleranceSquared) {
+                count++;
+                error += q;
+              }
+            }
+            if (
+              count > bestCount ||
+              (count === bestCount && error < bestError)
+            ) {
+              bestA = remaining[i];
+              bestB = remaining[j];
+              bestCount = count;
+              bestError = error;
+            }
+          }
+        if (bestA < 0 || bestCount < 3) break;
+        const a = metals[bestA],
+          b = metals[bestB],
+          dx = b.cx - a.cx,
+          dy = b.cy - a.cy,
+          lengthSquared = dx * dx + dy * dy,
+          members = [] as number[];
+        let write = 0;
+        for (const id of remaining) {
+          const r = metals[id],
+            cross = (r.cx - a.cx) * dy - (r.cy - a.cy) * dx;
+          if (cross * cross <= toleranceSquared * lengthSquared)
+            members.push(id);
+          else remaining[write++] = id;
+        }
+        remaining.length = write;
+        let cx = 0,
+          cy = 0;
+        for (const id of members) {
+          cx += metals[id].cx;
+          cy += metals[id].cy;
+        }
+        cx /= members.length;
+        cy /= members.length;
+        let xx = 0,
+          yy = 0,
+          xy = 0;
+        for (const id of members) {
+          const x = metals[id].cx - cx,
+            y = metals[id].cy - cy;
+          xx += x * x;
+          yy += y * y;
+          xy += x * y;
+        }
+        const axis = pca({
+            xx: xx / members.length,
+            yy: yy / members.length,
+            xy: xy / members.length,
+          }),
+          projected = members
+            .map(
+              (id) =>
+                (metals[id].cx - cx) * axis.c + (metals[id].cy - cy) * axis.s,
+            )
+            .sort((a, b) => a - b),
+          gaps = projected.slice(1).map((v, k) => v - projected[k]),
+          pitch = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+        let variance = 0,
+          residual = 0,
+          area = 0,
+          area2 = 0;
+        for (const gap of gaps) variance += (gap - pitch) ** 2;
+        for (const id of members) {
+          const r = metals[id];
+          residual = Math.max(
+            residual,
+            Math.abs((r.cx - cx) * axis.s - (r.cy - cy) * axis.c) / pitch,
+          );
+          area += r.area;
+          area2 += r.area * r.area;
+        }
+        banks.push({
+          ids: members,
+          cx,
+          cy,
+          c: axis.c,
+          s: axis.s,
+          pitch,
+          pitchCV: Math.sqrt(variance / gaps.length) / pitch,
+          residual,
+          areaCV:
+            Math.sqrt(
+              Math.max(
+                0,
+                area2 / members.length - (area / members.length) ** 2,
+              ),
+            ) /
+            (area / members.length),
+        });
+      }
+      let cx = 0,
+        cy = 0,
+        ac = 0,
+        as = 0;
+      for (const bank of banks) {
+        cx += bank.cx;
+        cy += bank.cy;
+        const angle = Math.atan2(bank.s, bank.c);
+        ac += Math.cos(4 * angle);
+        as += Math.sin(4 * angle);
+      }
+      if (banks.length) {
+        cx /= banks.length;
+        cy /= banks.length;
+        ac /= banks.length;
+        as /= banks.length;
+      } else {
+        cx = footprint.cx;
+        cy = footprint.cy;
+      }
+      const angle = 0.25 * Math.atan2(as, ac),
+        c = Math.cos(angle),
+        sn = Math.sin(angle);
+      return {
+        footprint,
+        central,
+        ids,
+        banks,
+        ungrouped: remaining.length,
+        cx,
+        cy,
+        c,
+        s: sn,
+        axisStrength: Math.hypot(ac, as),
+        moldBounds: [Infinity, -Infinity, Infinity, -Infinity],
+        metalBounds: [Infinity, -Infinity, Infinity, -Infinity],
+        moldPeak: -1,
+      };
+    });
+    for (let at = 0; at < n; at++) {
+      const label = labels[at],
+        owner = label > 0 ? label - 1 : label < 0 ? owners[-label - 1] : -1,
+        detail = owner >= 0 ? details[owner] : undefined;
+      if (!detail || (label > 0 && !moldMask[at])) continue;
+      const x = ((at % size) + 0.5) / size - detail.footprint.cx,
+        y = (Math.floor(at / size) + 0.5) / size - detail.footprint.cy,
+        u = x * detail.c + y * detail.s,
+        v = y * detail.c - x * detail.s,
+        bounds = label > 0 ? detail.moldBounds : detail.metalBounds;
+      bounds[0] = Math.min(bounds[0], u);
+      bounds[1] = Math.max(bounds[1], u);
+      bounds[2] = Math.min(bounds[2], v);
+      bounds[3] = Math.max(bounds[3], v);
+      if (
+        label > 0 &&
+        (detail.moldPeak < 0 || heights[at] > heights[detail.moldPeak])
+      )
+        detail.moldPeak = at;
+    }
+    const parts = [] as {
+      contacts: number;
+      bankCounts: number[];
+      ungrouped: number;
+      axisStrength: number;
+      pitchCV: number;
+      lineResidual: number;
+      bankAreaCV: number;
+      bankRadiusCV: number;
+      bankAngleCV: number;
+      bankCentering: number;
+      centralOffset: number;
+      centralAreaRatio: number;
+      centralAspect: number;
+      cornerRatio: number;
+      contourMisses: number;
+      minLandAspect: number;
+      maxLandAspect: number;
+      landAlignment: number;
+      containmentPixels: number;
+      minCoreMetal: number;
+      flatness: number;
+      coplanarRange: number;
+      moldLift: number;
+      color: number;
+      finish: number;
+    }[];
+    for (const detail of details) {
+      if (!detail) continue;
+      const { central, ids, banks, cx, cy, c, s: sn } = detail;
+      let radius = 0,
+        radius2 = 0,
+        bankCentering = 0,
+        landAlignment = 0,
+        minLandAspect = Infinity,
+        maxLandAspect = 0,
+        pitchCV = 0,
+        lineResidual = 0,
+        bankAreaCV = 0;
+      const angles = [] as number[];
+      for (const bank of banks) {
+        const dx = bank.cx - cx,
+          dy = bank.cy - cy,
+          r = Math.hypot(dx, dy);
+        radius += r;
+        radius2 += r * r;
+        angles.push(Math.atan2(dy, dx));
+        bankCentering = Math.max(
+          bankCentering,
+          Math.abs(dx * bank.c + dy * bank.s) / bank.pitch,
+        );
+        pitchCV = Math.max(pitchCV, bank.pitchCV);
+        lineResidual = Math.max(lineResidual, bank.residual);
+        bankAreaCV = Math.max(bankAreaCV, bank.areaCV);
+        for (const id of bank.ids) {
+          const axis = pca(metals[id]);
+          minLandAspect = Math.min(minLandAspect, axis.aspect);
+          maxLandAspect = Math.max(maxLandAspect, axis.aspect);
+          landAlignment = Math.max(
+            landAlignment,
+            Math.abs(axis.c * bank.c + axis.s * bank.s),
+          );
+        }
+      }
+      const meanRadius = banks.length ? radius / banks.length : 0,
+        step = (Math.PI * 2) / angles.length;
+      angles.sort((a, b) => a - b);
+      let error = 0;
+      for (let k = 0; k < angles.length; k++)
+        error +=
+          (angles[(k + 1) % angles.length] -
+            angles[k] +
+            (k === angles.length - 1 ? Math.PI * 2 : 0) -
+            step) **
+          2;
+      const radii = new Float64Array(8),
+        bound = 6 * Math.sqrt(Math.max(0, central.xx + central.yy));
+      let contourMisses = 0;
+      for (let k = 0; k < 8; k++) {
+        const angle = (Math.PI * k) / 4,
+          dx = c * Math.cos(angle) - sn * Math.sin(angle),
+          dy = sn * Math.cos(angle) + c * Math.sin(angle);
+        let inside = 0,
+          outside = -1;
+        for (let j = 1; j <= 256; j++) {
+          const r = (bound * j) / 256;
+          sample(central.cx + r * dx, central.cy + r * dy, s);
+          if (s.metallic <= 0.5) {
+            outside = r;
+            break;
+          }
+          inside = r;
+        }
+        if (outside < 0) {
+          contourMisses++;
+          continue;
+        }
+        for (let j = 0; j < 24; j++) {
+          const r = (inside + outside) / 2;
+          sample(central.cx + r * dx, central.cy + r * dy, s);
+          if (s.metallic > 0.5) inside = r;
+          else outside = r;
+        }
+        radii[k] = (inside + outside) / 2;
+      }
+      const rx = (radii[0] + radii[4]) / 2,
+        ry = (radii[2] + radii[6]) / 2,
+        diag = (radii[1] + radii[3] + radii[5] + radii[7]) / 4,
+        a = empty(),
+        b = empty();
+      let minCoreMetal = 1,
+        flatness = 0,
+        minPlane = Infinity,
+        maxPlane = -Infinity,
+        minColor = Infinity,
+        minFinish = Infinity;
+      sample(
+        ((detail.moldPeak % size) + 0.5) / size,
+        (Math.floor(detail.moldPeak / size) + 0.5) / size,
+        b,
+      );
+      for (let j = 0; j < ids.length; j++) {
+        const region = metals[ids[j]],
+          axis =
+            j === 0
+              ? {
+                  c,
+                  s: sn,
+                  major: Math.sqrt(
+                    Math.max(
+                      0,
+                      c * c * region.xx +
+                        2 * c * sn * region.xy +
+                        sn * sn * region.yy,
+                    ),
+                  ),
+                  minor: Math.sqrt(
+                    Math.max(
+                      0,
+                      sn * sn * region.xx -
+                        2 * c * sn * region.xy +
+                        c * c * region.yy,
+                    ),
+                  ),
+                }
+              : pca(region);
+        let low = Infinity,
+          high = -Infinity;
+        for (let y = -1; y <= 1; y++)
+          for (let x = -1; x <= 1; x++) {
+            sample(
+              region.cx + x * axis.major * axis.c - y * axis.minor * axis.s,
+              region.cy + x * axis.major * axis.s + y * axis.minor * axis.c,
+              a,
+            );
+            minCoreMetal = Math.min(minCoreMetal, a.metallic);
+            low = Math.min(low, a.height / p.relief);
+            high = Math.max(high, a.height / p.relief);
+          }
+        flatness = Math.max(flatness, high - low);
+        sample(region.cx, region.cy, a);
+        minPlane = Math.min(minPlane, a.height / p.relief);
+        maxPlane = Math.max(maxPlane, a.height / p.relief);
+        minColor = Math.min(minColor, a.color - b.color);
+        minFinish = Math.min(minFinish, b.roughness - a.roughness);
+      }
+      const mb = detail.moldBounds,
+        mt = detail.metalBounds,
+        areas = ids
+          .slice(1)
+          .map((id) => metals[id].area)
+          .sort((a, b) => a - b);
+      parts.push({
+        contacts: ids.length - 1,
+        bankCounts: banks.map((b) => b.ids.length),
+        ungrouped: detail.ungrouped,
+        axisStrength: detail.axisStrength,
+        pitchCV,
+        lineResidual,
+        bankAreaCV,
+        bankRadiusCV: meanRadius
+          ? Math.sqrt(
+              Math.max(0, radius2 / banks.length - meanRadius * meanRadius),
+            ) / meanRadius
+          : Infinity,
+        bankAngleCV: angles.length
+          ? Math.sqrt(error / angles.length) / step
+          : Infinity,
+        bankCentering,
+        centralOffset: meanRadius
+          ? Math.hypot(central.cx - cx, central.cy - cy) / meanRadius
+          : Infinity,
+        centralAreaRatio: central.area / areas[areas.length >> 1],
+        centralAspect: Math.min(rx, ry)
+          ? Math.max(rx, ry) / Math.min(rx, ry)
+          : Infinity,
+        cornerRatio: Math.min(rx, ry)
+          ? diag / (Math.SQRT2 * Math.min(rx, ry))
+          : 0,
+        contourMisses,
+        minLandAspect,
+        maxLandAspect,
+        landAlignment,
+        containmentPixels:
+          Math.max(mb[0] - mt[0], mt[1] - mb[1], mb[2] - mt[2], mt[3] - mb[3]) *
+          size,
+        minCoreMetal,
+        flatness,
+        coplanarRange: maxPlane - minPlane,
+        moldLift: b.height / p.relief - min,
+        color: minColor,
+        finish: minFinish,
+      });
+    }
+    return {
+      invalid,
+      packages: footprints.length,
+      metals: metals.length,
+      parts,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = cache.get(seed);
+    if (!result) {
+      result = measure(seed);
+      cache.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('qfnlandpads', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'retains separate molded bodies with four complete finite contact banks and one isolated larger central pad (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.packages).toBe(p.cells * p.cells);
+      expect(m.metals).toBe(p.cells * p.cells * (4 * p.landsPerSide + 1));
+      expect(m.parts.length).toBe(p.cells * p.cells);
+      for (const part of m.parts) {
+        expect(part.contacts).toBe(4 * p.landsPerSide);
+        expect(part.bankCounts.length).toBe(4);
+        for (const count of part.bankCounts) expect(count).toBe(p.landsPerSide);
+        expect(part.ungrouped).toBe(0);
+        expect(part.centralAreaRatio).toBeGreaterThan(5);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps orthogonal uniformly pitched finger banks, corner clearance and an aligned rectangular center island (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.axisStrength).toBeGreaterThan(0.98);
+        expect(part.pitchCV).toBeLessThan(0.04);
+        expect(part.lineResidual).toBeLessThan(0.03);
+        expect(part.bankAreaCV).toBeLessThan(0.1);
+        expect(part.bankRadiusCV).toBeLessThan(0.03);
+        expect(part.bankAngleCV).toBeLessThan(0.04);
+        expect(part.bankCentering).toBeLessThan(0.04);
+        expect(part.centralOffset).toBeLessThan(0.025);
+        expect(part.centralAspect).toBeLessThan(1.5);
+        expect(part.cornerRatio).toBeGreaterThan(0.9);
+        expect(part.cornerRatio).toBeLessThan(1.04);
+        expect(part.contourMisses).toBe(0);
+        expect(part.minLandAspect).toBeGreaterThan(1.4);
+        expect(part.maxLandAspect).toBeLessThan(4);
+        expect(part.landAlignment).toBeLessThan(0.06);
+        expect(part.containmentPixels).toBeLessThan(2);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps smooth metallic attachment faces flat and coplanar above a raised rough dark dielectric mold (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.minCoreMetal).toBeGreaterThan(0.999);
+        expect(part.flatness).toBeLessThan(0.012);
+        expect(part.coplanarRange).toBeLessThan(0.012);
+        expect(part.moldLift).toBeGreaterThan(0.25);
+        expect(part.color).toBeGreaterThan(0.5);
+        expect(part.finish).toBeGreaterThan(0.25);
+      }
+    },
+  );
+  it('changes whole-package contact footprints across seeds without relying only on finish noise', () => {
+    const first = createSurfaceSampler('qfnlandpads', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('qfnlandpads', seed);
+      let changed = 0;
+      for (let j = 0; j < 8192; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(a.metallic > 0.5 !== b.metallic > 0.5);
+      }
+      expect(changed / 8192).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps finite bank ends, nearest-side and row owners, pad bevels and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.1);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'encodes opaque mixed-metal flat lands and nonflat positive-Z unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('qfnlandpads', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps),
+        fraction = m.metallicPixels / (maps.baseColor.length / 4);
+      expect(fraction).toBeGreaterThan(0.03);
+      expect(fraction).toBeLessThan(0.3);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);

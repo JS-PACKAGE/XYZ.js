@@ -11757,6 +11757,48 @@ var proceduralMaterialPresets = Object.freeze({
 		ribGap: .32,
 		ribRadius: .095
 	}),
+	qfnlandpads: Object.freeze({
+		dark: [
+			8,
+			12,
+			16
+		],
+		light: [
+			234,
+			237,
+			241
+		],
+		roughness: .23,
+		relief: .006,
+		cells: 2,
+		jitter: .018,
+		halfSize: .315,
+		bodyBevel: .012,
+		landsPerSide: 7,
+		pitch: .069,
+		landCenter: .275,
+		landHalfLength: .033,
+		landRadius: .0155,
+		landBevel: .003,
+		padHalfSize: .145,
+		backingTone: .025,
+		bodyTone: .08,
+		metalTone: .88,
+		backingHeight: .025,
+		bodyHeight: .52,
+		landHeight: .56,
+		grainHeight: .001,
+		bodyGrainTone: .02,
+		metalGrainTone: .035,
+		backingRoughness: .96,
+		bodyRoughness: .84,
+		bodyGrainRoughness: .025,
+		metalGrainRoughness: .02,
+		backingAO: .35,
+		bodyAO: .93,
+		metalAO: .99,
+		contactAO: .6
+	}),
 	bgasolderballs: Object.freeze({
 		dark: [
 			9,
@@ -19407,6 +19449,7 @@ var proceduralTileMeters = Object.freeze({
 	lathplaster: .8,
 	ceramiccapacitors: .12,
 	fennelseeds: .096,
+	qfnlandpads: .02,
 	bgasolderballs: .05,
 	ballbearingfaces: .16,
 	baseballleather: .24,
