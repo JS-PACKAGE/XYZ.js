@@ -704,6 +704,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'iecc14inlets',
     'dsubsocketfaces',
     'topadjusttrimmers',
     'crownprobetips',

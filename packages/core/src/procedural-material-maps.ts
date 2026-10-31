@@ -15600,6 +15600,109 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'iecc14inlets': {
+        const p = proceduralMaterialPresets.iecc14inlets,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22101),
+          bodyStraightX = p.halfWidth - p.bodyCorner,
+          bodyStraightY = p.halfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          mouthStraightX = p.mouthHalfWidth - p.mouthCorner,
+          mouthStraightY = p.mouthHalfHeight - p.mouthCorner,
+          mouthSquared = p.mouthCorner * p.mouthCorner,
+          mouthCore = p.mouthCorner - p.mouthBevel,
+          inverseMouth = 1 / (mouthSquared - mouthCore * mouthCore),
+          diagonal = p.mouthHalfWidth + p.mouthHalfHeight - p.chamfer,
+          inverseDiagonal = 1 / p.mouthBevel,
+          pinStraightX = p.pinHalfWidth - p.pinCorner,
+          pinStraightY = p.pinHalfHeight - p.pinCorner,
+          pinSquared = p.pinCorner * p.pinCorner,
+          pinCore = p.pinCorner - p.pinBevel,
+          inversePin = 1 / (pinSquared - pinCore * pinCore),
+          rowJoin = (p.topY + p.bottomY) * 0.5,
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          mouthTone = p.mouthTone - p.bodyTone,
+          mouthHeight = p.mouthHeight - p.bodyHeight,
+          mouthRoughness = p.mouthRoughness - p.roughness,
+          mouthAO = p.mouthAO - p.bodyAO,
+          pinTone = p.pinTone - p.mouthTone,
+          pinHeight = p.pinHeight - p.mouthHeight,
+          pinRoughness = p.pinRoughness - p.mouthRoughness,
+          pinAO = p.pinAO - p.mouthAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22103),
+              angle = TAU * hash(col, row, seed ^ 0x22105);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22107) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22109) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.bodyContactAO * body * (1 - body);
+          const mx = Math.max(0, ax - mouthStraightX),
+            my = Math.max(0, ay - mouthStraightY),
+            mouth =
+              smooth(clamp((mouthSquared - mx * mx - my * my) * inverseMouth)) *
+              smooth(clamp((diagonal - ax + y) * inverseDiagonal));
+          if (mouth === 0) return;
+          color += mouth * mouthTone;
+          height += mouth * mouthHeight;
+          roughness += mouth * mouthRoughness;
+          occlusion += mouth * mouthAO - p.mouthContactAO * mouth * (1 - mouth);
+          const top = y < rowJoin,
+            pinAbsX = top ? ax : Math.abs(ax - p.pinX),
+            pinAbsY = Math.abs(y - (top ? p.topY : p.bottomY));
+          if (pinAbsX >= p.pinHalfWidth || pinAbsY >= p.pinHalfHeight) return;
+          const px = Math.max(0, pinAbsX - pinStraightX),
+            py = Math.max(0, pinAbsY - pinStraightY),
+            pin = smooth(clamp((pinSquared - px * px - py * py) * inversePin));
+          if (pin === 0) return;
+          // Three projecting metal blade caps; no rear-terminal perforations or C13 sockets.
+          color += pin * pinTone;
+          height += pin * pinHeight;
+          roughness += pin * pinRoughness;
+          occlusion += pin * pinAO - p.pinContactAO * pin * (1 - pin);
+          metallic = pin;
+          return;
+        };
+      }
       case 'dsubsocketfaces': {
         const p = proceduralMaterialPresets.dsubsocketfaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41509,6 +41612,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'iecc14inlets' ||
     kind === 'dsubsocketfaces' ||
     kind === 'topadjusttrimmers' ||
     kind === 'crownprobetips' ||
