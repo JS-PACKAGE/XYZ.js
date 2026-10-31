@@ -6116,6 +6116,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         ribGap: 0.32;
         ribRadius: 0.095;
     }>;
+    bgasolderballs: Readonly<{
+        dark: readonly [9, 13, 17];
+        light: readonly [231, 236, 240];
+        roughness: 0.27;
+        relief: 0.012;
+        cells: 2;
+        jitter: 0.012;
+        halfSize: 0.34;
+        bodyBevel: 0.018;
+        grid: 13;
+        pitch: 0.04;
+        ballRadius: 0.0125;
+        ballBevel: 0.22;
+        backingTone: 0.025;
+        carrierTone: 0.14;
+        ballTone: 0.84;
+        backingHeight: 0.03;
+        carrierHeight: 0.25;
+        ballRise: 0.55;
+        grainHeight: 0.0015;
+        backingRoughness: 0.94;
+        carrierRoughness: 0.84;
+        backingAO: 0.42;
+        carrierAO: 0.93;
+        contactAO: 0.25;
+    }>;
     ballbearingfaces: Readonly<{
         dark: readonly [17, 20, 25];
         light: readonly [232, 237, 241];
@@ -11679,6 +11705,7 @@ export declare const proceduralTileMeters: Readonly<{
     lathplaster: 0.8;
     ceramiccapacitors: 0.12;
     fennelseeds: 0.096;
+    bgasolderballs: 0.05;
     ballbearingfaces: 0.16;
     baseballleather: 0.24;
     toothbrushheads: 0.12;

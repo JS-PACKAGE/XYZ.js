@@ -15600,6 +15600,87 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bgasolderballs': {
+        const p = proceduralMaterialPresets.bgasolderballs,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(128, 128, seed ^ 0x1ce11),
+          inverseBody = 1 / p.bodyBevel,
+          inversePitch = 1 / p.pitch,
+          inverseBall = 1 / (p.ballRadius * p.ballRadius),
+          inverseBevel = 1 / p.ballBevel,
+          halfGrid = (p.grid - 1) / 2;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              angle = TAU * hash(col, row, seed ^ 0x1ce13);
+            poses[i] = Math.cos(angle);
+            poses[i + 1] = Math.sin(angle);
+            poses[i + 2] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ce15) - 1);
+            poses[i + 3] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1ce17) - 1);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            ownerCol = Math.floor(uc),
+            ownerRow = Math.floor(vc),
+            i = (ownerRow * p.cells + ownerCol) * 4,
+            dx = uc - ownerCol - poses[i + 2],
+            dy = vc - ownerRow - poses[i + 3],
+            x = dx * poses[i] + dy * poses[i + 1],
+            y = dy * poses[i] - dx * poses[i + 1],
+            body =
+              smooth(clamp((p.halfSize - x) * inverseBody)) *
+              smooth(clamp((p.halfSize + x) * inverseBody)) *
+              smooth(clamp((p.halfSize - y) * inverseBody)) *
+              smooth(clamp((p.halfSize + y) * inverseBody));
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          if (body === 0) return;
+          const col = Math.round(x * inversePitch + halfGrid),
+            row = Math.round(y * inversePitch + halfGrid);
+          let ball = 0,
+            dome = 0;
+          if (col >= 0 && col < p.grid && row >= 0 && row < p.grid) {
+            const bx = x - (col - halfGrid) * p.pitch,
+              by = y - (row - halfGrid) * p.pitch,
+              q = (bx * bx + by * by) * inverseBall;
+            if (q < 1) {
+              const support = 1 - q;
+              ball = smooth(clamp(support * inverseBevel));
+              dome = support * support;
+            }
+          }
+          // Ball support ends before each nearest-grid boundary; no ball scan is needed.
+          const grain = grainField(u, v);
+          color +=
+            body *
+            (p.carrierTone +
+              0.015 * grain +
+              ball * (p.ballTone - p.carrierTone + 0.04 * grain) -
+              color);
+          height +=
+            body *
+            (p.carrierHeight +
+              p.ballRise * dome +
+              p.grainHeight * grain -
+              height);
+          roughness +=
+            body *
+            (p.carrierRoughness +
+              0.012 * grain +
+              ball * (p.roughness - p.carrierRoughness + 0.02 * grain) -
+              roughness);
+          occlusion +=
+            body * (p.carrierAO - p.contactAO * ball + 0.3 * dome - occlusion);
+          metallic = body * ball;
+          return;
+        };
+      }
       case 'ballbearingfaces': {
         const p = proceduralMaterialPresets.ballbearingfaces,
           tones = new Float64Array(p.cells * p.cells),
@@ -40728,6 +40809,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'bgasolderballs' ||
     kind === 'ballbearingfaces' ||
     kind === 'baseballleather' ||
     kind === 'toothbrushheads' ||

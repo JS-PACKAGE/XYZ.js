@@ -666,6 +666,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'bgasolderballs',
   'ballbearingfaces',
   'baseballleather',
   'toothbrushheads',
@@ -76964,6 +76965,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'bgasolderballs' &&
           kind !== 'ballbearingfaces' &&
           kind !== 'slottedturners' &&
           kind !== 'dualinlinechips' &&
@@ -86427,6 +86429,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'bgasolderballs',
     'ballbearingfaces',
     'slottedturners',
     'dualinlinechips',
@@ -86541,6 +86544,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'bgasolderballs' ||
           kind === 'ballbearingfaces' ||
           kind === 'slottedturners' ||
           kind === 'dualinlinechips' ||
@@ -113843,6 +113847,598 @@ describe('Pigskin leather with irregular triangular groups of three recessed fol
       expect(m.metallicPixels).toBe(0);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(35);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Fully populated BGA solder-ball matrices on dielectric square carriers', () => {
+  const p = proceduralMaterialPresets.bgasolderballs;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    heights: Float32Array,
+    queue: Int32Array,
+    labels?: Int32Array,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      peak: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        peak = first;
+      queue[0] = first;
+      mask[first] = 0;
+      const id = result.length + 1;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size);
+        sx += (ix + 0.5) / size;
+        sy += (iy + 0.5) / size;
+        if (heights[at] > heights[peak]) peak = at;
+        if (labels) labels[at] = id;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            next = ((iy + oy + size) % size) * size + ((ix + ox + size) % size);
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      result.push({ area: write, cx: sx / write, cy: sy / write, peak });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = 768,
+      sample = createSurfaceSampler('bgasolderballs', seed),
+      s = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        metallic: 0,
+        mortar: 0,
+      },
+      heights = new Float32Array(size * size),
+      metal = new Uint8Array(size * size),
+      body = new Uint8Array(size * size),
+      labels = new Int32Array(size * size),
+      queue = new Int32Array(size * size);
+    let invalid = 0,
+      low = 1 / 0,
+      high = -1 / 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        const at = y * size + x,
+          h = s.height / p.relief;
+        heights[at] = h;
+        metal[at] = Number(s.metallic > 0.5);
+        invalid += Number(
+          !Number.isFinite(
+            s.color +
+              s.height +
+              s.roughness +
+              s.occlusion +
+              s.metallic +
+              s.mortar,
+          ),
+        );
+        if (s.metallic === 0) {
+          low = Math.min(low, h);
+          high = Math.max(high, h);
+        }
+      }
+    const level = (low + high) / 2;
+    for (let at = 0; at < body.length; at++)
+      body[at] = Number(heights[at] > level);
+    const carriers = regions(body, size, heights, queue, labels),
+      balls = regions(metal, size, heights, queue),
+      parts = [],
+      rows = [],
+      ringHeight = new Float64Array(12),
+      ringColor = new Float64Array(12),
+      ringRough = new Float64Array(12);
+    let orphans = 0,
+      clearance = Infinity;
+    const assigned = carriers.map(() => [] as typeof balls);
+    for (const ball of balls) {
+      const owner = labels[ball.peak] - 1;
+      if (owner < 0 || owner >= carriers.length) {
+        orphans++;
+        continue;
+      }
+      assigned[owner].push(ball);
+    }
+    const cv = (values: number[]) => {
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      return (
+        Math.sqrt(
+          values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length,
+        ) / mean
+      );
+    };
+    for (let g = 0; g < carriers.length; g++) {
+      const mine = assigned[g],
+        nearest = new Float64Array(mine.length).fill(1 / 0);
+      for (let i = 0; i < mine.length; i++)
+        for (let j = i + 1; j < mine.length; j++) {
+          const d = Math.hypot(
+            mine[i].cx - mine[j].cx,
+            mine[i].cy - mine[j].cy,
+          );
+          nearest[i] = Math.min(nearest[i], d);
+          nearest[j] = Math.min(nearest[j], d);
+        }
+      nearest.sort();
+      if (nearest.length) clearance = Math.min(clearance, nearest[0]);
+      const pitch = nearest[Math.floor(nearest.length / 2)];
+      let ox = 0,
+        oy = 0,
+        edges = 0;
+      for (let i = 0; i < mine.length; i++)
+        for (let j = i + 1; j < mine.length; j++) {
+          const dx = mine[i].cx - mine[j].cx,
+            dy = mine[i].cy - mine[j].cy,
+            d = Math.hypot(dx, dy);
+          if (d > 0.9 * pitch && d < 1.1 * pitch) {
+            const theta = 4 * Math.atan2(dy, dx);
+            ox += Math.cos(theta);
+            oy += Math.sin(theta);
+            edges++;
+          }
+        }
+      const phi = Math.atan2(oy, ox) / 4,
+        c = Math.cos(phi),
+        a = Math.sin(phi),
+        cx = mine.reduce((a, b) => a + b.cx, 0) / mine.length,
+        cy = mine.reduce((a, b) => a + b.cy, 0) / mine.length,
+        xs = mine.map((b) => (b.cx - cx) * c + (b.cy - cy) * a),
+        ys = mine.map((b) => (b.cy - cy) * c - (b.cx - cx) * a);
+      const levels = (values: number[]) => {
+        values.sort((a, b) => a - b);
+        const groups = [] as { mean: number; count: number }[];
+        for (const value of values) {
+          const last = groups[groups.length - 1];
+          if (!last || value - last.mean > 0.15 * pitch)
+            groups.push({ mean: value, count: 1 });
+          else {
+            last.count++;
+            last.mean += (value - last.mean) / last.count;
+          }
+        }
+        return groups;
+      };
+      const xl = levels(xs.slice()),
+        yl = levels(ys.slice()),
+        xGaps = xl.slice(1).map((x, i) => x.mean - xl[i].mean),
+        yGaps = yl.slice(1).map((x, i) => x.mean - yl[i].mean),
+        xPitch = xGaps.reduce((a, b) => a + b, 0) / xGaps.length,
+        yPitch = yGaps.reduce((a, b) => a + b, 0) / yGaps.length,
+        occupied = new Set();
+      let residual = 0;
+      for (let i = 0; i < mine.length; i++) {
+        let ix = -1,
+          iy = -1,
+          ex = 1 / 0,
+          ey = 1 / 0;
+        for (let j = 0; j < xl.length; j++) {
+          const d = Math.abs(xs[i] - xl[j].mean);
+          if (d < ex) {
+            ex = d;
+            ix = j;
+          }
+        }
+        for (let j = 0; j < yl.length; j++) {
+          const d = Math.abs(ys[i] - yl[j].mean);
+          if (d < ey) {
+            ey = d;
+            iy = j;
+          }
+        }
+        residual = Math.max(residual, ex / pitch, ey / pitch);
+        occupied.add(ix + ':' + iy);
+      }
+      parts.push({
+        balls: mine.length,
+        xLevels: xl.length,
+        yLevels: yl.length,
+        minPopulation: Math.min(
+          ...xl.map((x) => x.count),
+          ...yl.map((x) => x.count),
+        ),
+        maxPopulation: Math.max(
+          ...xl.map((x) => x.count),
+          ...yl.map((x) => x.count),
+        ),
+        occupied: occupied.size,
+        areaCV: cv(mine.map((x) => x.area)),
+        xPitchCV: cv(xGaps),
+        yPitchCV: cv(yGaps),
+        pitchRatio: xPitch / yPitch,
+        axisStrength: Math.hypot(ox, oy) / edges,
+        residual,
+        centering:
+          Math.hypot(cx - carriers[g].cx, cy - carriers[g].cy) /
+          Math.sqrt(carriers[g].area / (Math.PI * size * size)),
+      });
+    }
+    for (const ball of balls) {
+      let cx = ((ball.peak % size) + 0.5) / size,
+        cy = (Math.floor(ball.peak / size) + 0.5) / size,
+        step = (Math.sqrt(ball.area / Math.PI) / size) * 0.5;
+      sample(cx, cy, s);
+      let best = s.height;
+      for (let refine = 0; refine < 24; refine++) {
+        let bx = cx,
+          by = cy;
+        for (let j = -1; j <= 1; j++)
+          for (let i = -1; i <= 1; i++) {
+            const x = cx + i * step,
+              y = cy + j * step;
+            sample(x, y, s);
+            if (s.height > best) {
+              best = s.height;
+              bx = x;
+              by = y;
+            }
+          }
+        cx = bx;
+        cy = by;
+        step *= 0.5;
+      }
+      sample(cx, cy, s);
+      const peak = s.height / p.relief,
+        { color: peakColor, roughness: peakRough, metallic: peakMetal } = s,
+        radius = Math.sqrt(ball.area / Math.PI) / size,
+        matrixRadius = Math.min(1.5 * radius, clearance * 0.5);
+      let minDrop = 1 / 0,
+        minMidRise = 1 / 0,
+        minContact = 1 / 0,
+        maxSubMetal = 0;
+      for (let j = 0; j < 12; j++) {
+        const theta = (j * 2 * Math.PI) / 12,
+          x = Math.cos(theta),
+          y = Math.sin(theta);
+        sample(cx + matrixRadius * x, cy + matrixRadius * y, s);
+        ringHeight[j] = s.height / p.relief;
+        ringColor[j] = s.color;
+        ringRough[j] = s.roughness;
+        maxSubMetal = Math.max(maxSubMetal, s.metallic);
+        const base = s.height / p.relief,
+          baseAO = s.occlusion;
+        sample(cx + 0.5 * radius * x, cy + 0.5 * radius * y, s);
+        minDrop = Math.min(minDrop, peak - s.height / p.relief);
+        minMidRise = Math.min(minMidRise, s.height / p.relief - base);
+        sample(cx + 0.9 * radius * x, cy + 0.9 * radius * y, s);
+        minContact = Math.min(minContact, baseAO - s.occlusion);
+      }
+      ringHeight.sort();
+      ringColor.sort();
+      ringRough.sort();
+      rows.push({
+        rise: peak - (ringHeight[5] + ringHeight[6]) / 2,
+        color: peakColor - (ringColor[5] + ringColor[6]) / 2,
+        finish: (ringRough[5] + ringRough[6]) / 2 - peakRough,
+        carrierLift: (ringHeight[5] + ringHeight[6]) / 2 - low,
+        minDrop,
+        minMidRise,
+        minContact,
+        peakMetal,
+        maxSubMetal,
+      });
+    }
+    return {
+      seed,
+      invalid,
+      carriers: carriers.length,
+      balls: balls.length,
+      orphans,
+      parts,
+      rows,
+    };
+  };
+
+  const observations = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = observations.get(seed);
+    if (!result) {
+      result = measure(seed);
+      observations.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('bgasolderballs', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'retains separate complete ball fields on connected raised carrier footprints (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.carriers).toBe(p.cells * p.cells);
+      expect(m.balls).toBe(p.cells * p.cells * p.grid * p.grid);
+      expect(m.orphans).toBe(0);
+      for (const part of m.parts) {
+        expect(part.balls).toBe(p.grid * p.grid);
+        expect(part.centering).toBeLessThan(0.015);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'keeps every row and column populated on a uniform orthogonal square lattice (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.xLevels).toBe(p.grid);
+        expect(part.yLevels).toBe(p.grid);
+        expect(part.minPopulation).toBe(p.grid);
+        expect(part.maxPopulation).toBe(p.grid);
+        expect(part.occupied).toBe(p.grid * p.grid);
+        expect(part.xPitchCV).toBeLessThan(0.04);
+        expect(part.yPitchCV).toBeLessThan(0.04);
+        expect(part.pitchRatio).toBeGreaterThan(0.95);
+        expect(part.pitchRatio).toBeLessThan(1.05);
+        expect(part.axisStrength).toBeGreaterThan(0.95);
+        expect(part.residual).toBeLessThan(0.04);
+        expect(part.areaCV).toBeLessThan(0.1);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'makes rounded metallic balls rise above rough dielectric carriers with contact shadows (seed %s)',
+    (seed) => {
+      for (const row of measured(seed).rows) {
+        expect(row.rise).toBeGreaterThan(0.3);
+        expect(row.color).toBeGreaterThan(0.5);
+        expect(row.finish).toBeGreaterThan(0.4);
+        expect(row.carrierLift).toBeGreaterThan(0.12);
+        expect(row.minDrop).toBeGreaterThan(0.025);
+        expect(row.minMidRise).toBeGreaterThan(0.12);
+        expect(row.minContact).toBeGreaterThan(0.04);
+        expect(row.peakMetal).toBe(1);
+        expect(row.maxSubMetal).toBe(0);
+      }
+    },
+  );
+  it('changes actual package and solder-ball footprints across seeds, not only finish', () => {
+    const first = createSurfaceSampler('bgasolderballs', 0),
+      a = empty(),
+      b = empty();
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('bgasolderballs', seed);
+      let changed = 0;
+      for (let j = 0; j < 8192; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(a.metallic > 0.5 !== b.metallic > 0.5);
+      }
+      expect(changed / 8192).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps carrier corners, ball contacts, nearest-grid owners and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.1);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'encodes opaque mixed-metal matrices and nonflat positive-Z unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('bgasolderballs', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps),
+        fraction = m.metallicPixels / (maps.baseColor.length / 4);
+      expect(fraction).toBeGreaterThan(0.03);
+      expect(fraction).toBeLessThan(0.2);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
+      expect(m.maxTilt).toBeGreaterThan(0.001);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);
       expect(m.invalidAlpha).toBe(0);

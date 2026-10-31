@@ -703,6 +703,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'bgasolderballs',
     'ballbearingfaces',
     'baseballleather',
     'toothbrushheads',
