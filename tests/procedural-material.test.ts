@@ -667,6 +667,7 @@ const kinds: ProceduralMaterialKind[] = [
   'lathplaster',
   'ceramiccapacitors',
   'fennelseeds',
+  'bncfemalefaces',
   'iecc14inlets',
   'dsubsocketfaces',
   'topadjusttrimmers',
@@ -76973,6 +76974,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'axialresistors' &&
           kind !== 'sewingsnaps' &&
           kind !== 'ceramiccapacitors' &&
+          kind !== 'bncfemalefaces' &&
           kind !== 'iecc14inlets' &&
           kind !== 'dsubsocketfaces' &&
           kind !== 'topadjusttrimmers' &&
@@ -86444,6 +86446,7 @@ describe('procedural preset acquisition and ownership', () => {
     'axialresistors',
     'sewingsnaps',
     'ceramiccapacitors',
+    'bncfemalefaces',
     'iecc14inlets',
     'dsubsocketfaces',
     'topadjusttrimmers',
@@ -86566,6 +86569,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'axialresistors' ||
           kind === 'sewingsnaps' ||
           kind === 'ceramiccapacitors' ||
+          kind === 'bncfemalefaces' ||
           kind === 'iecc14inlets' ||
           kind === 'dsubsocketfaces' ||
           kind === 'topadjusttrimmers' ||
@@ -120346,6 +120350,982 @@ describe('IEC C14 inlet faces with a keyed dielectric shroud and three recessed 
       expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.002);
       expect(m.metallicPixels / (size * size)).toBeLessThan(0.03);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(60);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('BNC female mating faces with paired bayonet studs, dielectric annuli and recessed socket floors', () => {
+  const p = proceduralMaterialPresets.bncfemalefaces;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+    centers: readonly { u: number; v: number }[],
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines + centers.length; line++) {
+        const fixed =
+          line < lines
+            ? (line + 0.37) / lines
+            : axis
+              ? centers[line - lines].u
+              : centers[line - lines].v;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    labels: Int32Array,
+    sign: 1 | -1,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      const label = sign * (result.length + 1);
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        labels[at] = label;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+
+  const measure = (seed: number) => {
+    const size = Math.max(768, 384 * p.cells),
+      total = size * size,
+      sample = createSurfaceSampler('bncfemalefaces', seed),
+      probe = empty(),
+      heights = new Float64Array(total),
+      metalValues = new Float64Array(total),
+      metalMask = new Uint8Array(total),
+      voidMask = new Uint8Array(total),
+      metalLabels = new Int32Array(total),
+      voidLabels = new Int32Array(total),
+      workLabels = new Int32Array(total),
+      queue = new Int32Array(total);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, probe);
+        for (const key of keys) invalid += Number(!Number.isFinite(probe[key]));
+        heights[i] = probe.height / p.relief;
+        invalid += Number(!Number.isFinite(heights[i]));
+        metalValues[i] = probe.metallic;
+        metalMask[i] = Number(probe.metallic > 0.5);
+        voidMask[i] = 1 - metalMask[i];
+      }
+    const metals = regions(metalMask, size, queue, metalLabels, 1),
+      voids = regions(voidMask, size, queue, voidLabels, -1),
+      n = p.cells * p.cells,
+      parts: {
+        whiteCount: number;
+        contactCount: number;
+        floorCount: number;
+        frameCount: number;
+        closed: number;
+        flangeCircularity: number;
+        whiteCircularity: number;
+        contactCircularity: number;
+        floorCircularity: number;
+        centering: number;
+        whiteRatio: number;
+        contactRatio: number;
+        floorRatio: number;
+        profileMisses: number;
+        studs: number;
+        studOpposition: number;
+        studSymmetry: number;
+        minStudExtension: number;
+        maxStudExtension: number;
+        wallRoundness: number;
+        rimRoundness: number;
+        flangeFlatness: number;
+        rimFlatness: number;
+        whiteFlatness: number;
+        contactFlatness: number;
+        floorFlatness: number;
+        studFlatness: number;
+        studRise: number;
+        studBelowRim: number;
+        contactBelowRim: number;
+        whiteBelowRim: number;
+        floorDepth: number;
+        holeDepth: number;
+        whiteContrast: number;
+        floorContrast: number;
+        finishContrast: number;
+        wallMetal: number;
+        wallDepth: number;
+        contactMetal: number;
+        whiteMetal: number;
+        floorMetal: number;
+        rimRadius: number;
+      }[] = [];
+    const boundaries = [] as { u: number; v: number }[];
+    const geometryMask = metalMask;
+    if (invalid || metals.length !== 2 * n || voids.length !== 2 * n + 1)
+      return {
+        invalid,
+        metals: metals.length,
+        voids: voids.length,
+        frames: 0,
+        basins: 0,
+        distinctBasins: 0,
+        size,
+        parts,
+        geometryMask,
+        boundaries,
+      };
+    const order = metals
+        .map((_, i) => i)
+        .sort((a, b) => metals[b].area - metals[a].area),
+      bodyIndices = order.slice(0, n),
+      contactIndices = order.slice(n),
+      bodyOwner = new Int32Array(metals.length).fill(-1),
+      contactOwner = new Int32Array(metals.length).fill(-1),
+      whiteOwner = new Int32Array(voids.length).fill(-1),
+      floorOwner = new Int32Array(voids.length).fill(-1),
+      orderedVoids = voids
+        .map((_, i) => i)
+        .sort((a, b) => voids[b].area - voids[a].area),
+      whites = orderedVoids.slice(1, n + 1),
+      floors = orderedVoids.slice(n + 1),
+      bodies = bodyIndices.map((i) => metals[i]),
+      groups = bodies.map(() => ({
+        whites: [] as number[],
+        contacts: [] as number[],
+        floors: [] as number[],
+        frames: [] as number[],
+      }));
+    const nearest = (r: { cx: number; cy: number }) => {
+      let owner = 0,
+        best = Infinity;
+      for (let k = 0; k < bodies.length; k++) {
+        const d = (r.cx - bodies[k].cx) ** 2 + (r.cy - bodies[k].cy) ** 2;
+        if (d < best) {
+          best = d;
+          owner = k;
+        }
+      }
+      return owner;
+    };
+    bodyIndices.forEach((index, k) => {
+      bodyOwner[index] = k;
+    });
+    for (const index of contactIndices) {
+      const k = nearest(metals[index]);
+      contactOwner[index] = k;
+      groups[k].contacts.push(index);
+    }
+    for (const index of whites) {
+      const k = nearest(voids[index]);
+      whiteOwner[index] = k;
+      groups[k].whites.push(index);
+    }
+    for (const index of floors) {
+      const k = nearest(voids[index]);
+      floorOwner[index] = k;
+      groups[k].floors.push(index);
+    }
+    const metalHeights = bodies.map(() => [] as number[]);
+    for (let i = 0; i < total; i++) {
+      const m = metalLabels[i] - 1,
+        k = m >= 0 ? bodyOwner[m] : -1;
+      if (k >= 0 && metalValues[i] > 0.999) metalHeights[k].push(heights[i]);
+    }
+    const quantile = (v: number[], f: number) =>
+      v[Math.min(v.length - 1, Math.floor(v.length * f))];
+    for (const values of metalHeights) values.sort((a, b) => a - b);
+    const lowLevels = metalHeights.map(
+        (v) =>
+          quantile(v, 0.35) +
+          Math.max(
+            0.03 * (quantile(v, 0.95) - quantile(v, 0.35)),
+            4 * (quantile(v, 0.35) - quantile(v, 0.1)),
+          ),
+      ),
+      levels = metalHeights.map((v, k) => {
+        const g = groups[k],
+          crest = quantile(v, 0.95);
+        if (
+          g.whites.length !== 1 ||
+          g.contacts.length !== 1 ||
+          g.floors.length !== 1
+        )
+          return quantile(v, 0.35) + 0.5 * (crest - quantile(v, 0.35));
+        const w = voids[g.whites[0]],
+          c = metals[g.contacts[0]],
+          h = voids[g.floors[0]],
+          a = w.area + c.area + h.area,
+          cx = (w.area * w.cx + c.area * c.cx + h.area * h.cx) / a,
+          cy = (w.area * w.cy + c.area * c.cy + h.area * h.cy) / a,
+          r = Math.sqrt(a / total / Math.PI);
+        sample(cx + r * 1.1, cy, probe);
+        const wall = probe.height / p.relief;
+        return wall + 0.5 * (crest - wall);
+      }),
+      frameMask = new Uint8Array(total),
+      frameBack = new Uint8Array(total),
+      basinLabels = new Int32Array(total),
+      observedX = new Float64Array(n),
+      observedY = new Float64Array(n),
+      observedRadius = new Float64Array(n);
+    for (let i = 0; i < total; i++) {
+      const m = metalLabels[i] - 1,
+        v = -voidLabels[i] - 1,
+        k = m >= 0 ? bodyOwner[m] : -1,
+        raised = Number(
+          k >= 0 && metalValues[i] > 0.999 && heights[i] > levels[k],
+        );
+      frameMask[i] = raised;
+      frameBack[i] = 1 - raised;
+      geometryMask[i] =
+        Number(k >= 0) |
+        ((v >= 0 && whiteOwner[v] >= 0 ? 1 : 0) << 1) |
+        ((m >= 0 && contactOwner[m] >= 0 ? 1 : 0) << 2) |
+        ((v >= 0 && floorOwner[v] >= 0 ? 1 : 0) << 3) |
+        (raised << 4);
+    }
+    const frames = regions(frameMask, size, queue, workLabels, 1),
+      basins = regions(frameBack, size, queue, basinLabels, -1);
+    for (let i = 0; i < frames.length; i++)
+      groups[nearest(frames[i])].frames.push(i);
+    let exterior = 0;
+    for (let j = 1; j < basins.length; j++)
+      if (basins[j].area > basins[exterior].area) exterior = j;
+    type Region = (typeof metals)[number];
+    const combine = (rs: Region[]) => {
+      const area = rs.reduce((sum, r) => sum + r.area, 0),
+        cx = rs.reduce((sum, r) => sum + r.area * r.cx, 0) / area,
+        cy = rs.reduce((sum, r) => sum + r.area * r.cy, 0) / area;
+      return {
+        area,
+        cx,
+        cy,
+        xx:
+          rs.reduce((sum, r) => sum + r.area * (r.xx + (r.cx - cx) ** 2), 0) /
+          area,
+        yy:
+          rs.reduce((sum, r) => sum + r.area * (r.yy + (r.cy - cy) ** 2), 0) /
+          area,
+        xy:
+          rs.reduce(
+            (sum, r) => sum + r.area * (r.xy + (r.cx - cx) * (r.cy - cy)),
+            0,
+          ) / area,
+      };
+    };
+    const radius = (r: Region) => Math.sqrt(r.area / total / Math.PI),
+      spread = (values: number[]) => Math.max(...values) - Math.min(...values),
+      mean = (values: number[]) =>
+        values.reduce((sum, v) => sum + v, 0) / values.length;
+    const read = (cx: number, cy: number, r: number, angle: number) => {
+      sample(cx + r * Math.cos(angle), cy + r * Math.sin(angle), probe);
+      return {
+        height: probe.height / p.relief,
+        color: probe.color,
+        roughness: probe.roughness,
+        metallic: probe.metallic,
+      };
+    };
+    const trace = (
+      cx: number,
+      cy: number,
+      r: number,
+      mode: 'metal' | 'nonmetal' | 'raised',
+      level: number,
+      angle: number,
+      count: number,
+    ) => {
+      const values = [] as number[];
+      let misses = 0;
+      const inside = (at: number, a: number) => {
+        sample(cx + at * Math.cos(a), cy + at * Math.sin(a), probe);
+        return mode === 'raised'
+          ? probe.metallic > 0.999 && probe.height / p.relief > level
+          : mode === 'metal'
+            ? probe.metallic > 0.5
+            : probe.metallic <= 0.5;
+      };
+      for (let j = 0; j < count; j++) {
+        const a = angle + (2 * Math.PI * j) / count,
+          limit = r * 1.25;
+        let lo = limit,
+          hi = lo,
+          found = false;
+        if (inside(lo, a)) {
+          misses++;
+          continue;
+        }
+        for (let step = 1; step <= 96; step++) {
+          const at = limit * (1 - step / 96);
+          if (inside(at, a)) {
+            lo = at;
+            found = true;
+            break;
+          }
+          hi = at;
+        }
+        if (!found) {
+          misses++;
+          continue;
+        }
+        for (let step = 0; step < 24; step++) {
+          const at = (lo + hi) * 0.5,
+            yes = inside(at, a);
+          if (yes) lo = at;
+          else hi = at;
+        }
+        values.push((lo + hi) * 0.5);
+      }
+      return { values, misses };
+    };
+    const closedLabels = [] as number[];
+    for (let k = 0; k < n; k++) {
+      const g = groups[k],
+        out = {
+          whiteCount: g.whites.length,
+          contactCount: g.contacts.length,
+          floorCount: g.floors.length,
+          frameCount: g.frames.length,
+          closed: 0,
+          flangeCircularity: Infinity,
+          whiteCircularity: Infinity,
+          contactCircularity: Infinity,
+          floorCircularity: Infinity,
+          centering: Infinity,
+          whiteRatio: 0,
+          contactRatio: 0,
+          floorRatio: 0,
+          profileMisses: 0,
+          studs: 0,
+          studOpposition: Infinity,
+          studSymmetry: Infinity,
+          minStudExtension: 0,
+          maxStudExtension: 0,
+          wallRoundness: Infinity,
+          rimRoundness: Infinity,
+          flangeFlatness: Infinity,
+          rimFlatness: Infinity,
+          whiteFlatness: Infinity,
+          contactFlatness: Infinity,
+          floorFlatness: Infinity,
+          studFlatness: Infinity,
+          studRise: 0,
+          studBelowRim: 0,
+          contactBelowRim: 0,
+          whiteBelowRim: 0,
+          floorDepth: 0,
+          holeDepth: 0,
+          whiteContrast: 0,
+          floorContrast: 0,
+          finishContrast: 0,
+          wallMetal: 0,
+          wallDepth: 0,
+          contactMetal: 0,
+          whiteMetal: 1,
+          floorMetal: 1,
+          rimRadius: 0,
+        };
+      parts.push(out);
+      if (
+        g.whites.length !== 1 ||
+        g.contacts.length !== 1 ||
+        g.floors.length !== 1 ||
+        g.frames.length !== 1
+      )
+        continue;
+      const white = voids[g.whites[0]],
+        contact = metals[g.contacts[0]],
+        floor = voids[g.floors[0]],
+        filledContact = combine([contact, floor]),
+        filledWhite = combine([white, contact, floor]),
+        filledBody = combine([bodies[k], white, contact, floor]),
+        rf = radius(filledBody),
+        rw = radius(filledWhite),
+        rc = radius(filledContact),
+        rh = radius(floor),
+        cx = filledBody.cx,
+        cy = filledBody.cy,
+        frame = frames[g.frames[0]],
+        angle = 0.5 * Math.atan2(2 * frame.xy, frame.xx - frame.yy),
+        level = levels[k];
+      boundaries.push({ u: cx, v: cy });
+      const at =
+          Math.floor(filledWhite.cy * size) * size +
+          Math.floor(filledWhite.cx * size),
+        label = -basinLabels[at] - 1;
+      out.closed = Number(label >= 0 && label !== exterior);
+      if (out.closed) closedLabels.push(label);
+      out.centering =
+        Math.max(
+          Math.hypot(filledWhite.cx - cx, filledWhite.cy - cy),
+          Math.hypot(filledContact.cx - cx, filledContact.cy - cy),
+          Math.hypot(floor.cx - cx, floor.cy - cy),
+        ) / rf;
+      out.whiteRatio = rw / rf;
+      out.contactRatio = rc / rf;
+      out.floorRatio = rh / rc;
+      const contours = [
+        trace(cx, cy, rf, 'metal', 0, 0, 32),
+        trace(cx, cy, rw, 'nonmetal', 0, 0, 32),
+        trace(cx, cy, rc, 'metal', 0, 0, 32),
+        trace(cx, cy, rh, 'nonmetal', 0, 0, 32),
+      ];
+      out.profileMisses += contours.reduce((sum, t) => sum + t.misses, 0);
+      if (contours.some((t) => t.values.length !== 32)) continue;
+      [
+        out.flangeCircularity,
+        out.whiteCircularity,
+        out.contactCircularity,
+        out.floorCircularity,
+      ] = contours.map((t) => spread(t.values) / mean(t.values));
+      const head = trace(cx, cy, rf, 'raised', lowLevels[k], angle, 64);
+      out.profileMisses += head.misses;
+      if (head.values.length !== 64) continue;
+      const sorted = head.values.slice().sort((a, b) => a - b),
+        base = quantile(sorted, 0.5),
+        extended = head.values.map((r) => r > base * 1.035),
+        bands = [] as number[][];
+      out.rimRadius = base;
+      for (let j = 0; j < 64; j++)
+        if (extended[j] && !extended[(j + 63) % 64]) {
+          const band = [] as number[];
+          let at = j;
+          do {
+            band.push(at);
+            at = (at + 1) % 64;
+          } while (extended[at] && at !== j);
+          bands.push(band);
+        }
+      out.studs = bands.length;
+      const plain = head.values.filter((_, j) => !extended[j]);
+      out.wallRoundness = spread(plain) / base;
+      observedX[k] = cx;
+      observedY[k] = cy;
+      observedRadius[k] = base * 1.035;
+      if (bands.length !== 2) continue;
+      const peaks = bands.map((band) => {
+        let x = 0,
+          y = 0;
+        for (const j of band) {
+          const w = head.values[j] - base,
+            a = angle + (2 * Math.PI * j) / 64;
+          x += w * Math.cos(a);
+          y += w * Math.sin(a);
+        }
+        return {
+          angle: Math.atan2(y, x),
+          peak: Math.max(...band.map((j) => head.values[j])),
+        };
+      });
+      for (const peak of peaks) {
+        const r = (base + peak.peak) * 0.5;
+        boundaries.push({
+          u: cx + r * Math.cos(peak.angle),
+          v: cy + r * Math.sin(peak.angle),
+        });
+      }
+      out.studOpposition = Math.abs(
+        1 + Math.cos(peaks[0].angle - peaks[1].angle),
+      );
+      out.studSymmetry = Math.abs(peaks[0].peak - peaks[1].peak) / base;
+      out.minStudExtension = Math.min(...peaks.map((v) => v.peak / base));
+      out.maxStudExtension = Math.max(...peaks.map((v) => v.peak / base));
+      const rimOuter = trace(cx, cy, rf, 'raised', level, angle, 32);
+      out.profileMisses += rimOuter.misses;
+      if (rimOuter.values.length !== 32) continue;
+      const rimBase = quantile(
+          rimOuter.values.slice().sort((a, b) => a - b),
+          0.5,
+        ),
+        innerValues = [] as number[];
+      for (let j = 0; j < 16; j++) {
+        const a = (2 * Math.PI * j) / 16;
+        let lo = rw * 1.02,
+          hi = rimBase,
+          found = false;
+        for (let step = 1; step <= 96; step++) {
+          const r = rw * 1.02 + ((rimBase - rw * 1.02) * step) / 96,
+            v = read(cx, cy, r, a);
+          if (v.metallic > 0.999 && v.height > level) {
+            hi = r;
+            found = true;
+            break;
+          }
+          lo = r;
+        }
+        if (!found) {
+          out.profileMisses++;
+          continue;
+        }
+        for (let step = 0; step < 24; step++) {
+          const r = (lo + hi) * 0.5,
+            v = read(cx, cy, r, a);
+          if (v.metallic > 0.999 && v.height > level) hi = r;
+          else lo = r;
+        }
+        innerValues.push((lo + hi) * 0.5);
+      }
+      if (innerValues.length !== 16) continue;
+      out.rimRoundness = spread(innerValues) / mean(innerValues);
+      const rims = [] as ReturnType<typeof read>[],
+        flanges = [] as ReturnType<typeof read>[],
+        whiteSamples = [] as ReturnType<typeof read>[],
+        contacts = [] as ReturnType<typeof read>[],
+        floorSamples = [] as ReturnType<typeof read>[];
+      for (let j = 0; j < 16; j++) {
+        const a = (2 * Math.PI * j) / 16;
+        const inner = mean(innerValues),
+          outer = mean(contours[0].values),
+          headEnd = Math.max(...head.values);
+        for (const f of [1 / 3, 0.5, 2 / 3])
+          rims.push(read(cx, cy, inner + (rimBase - inner) * f, a));
+        for (const f of [0.25, 0.5, 0.65])
+          flanges.push(read(cx, cy, headEnd + (outer - headEnd) * f, a));
+        for (const f of [0.3, 0.5, 0.7]) {
+          whiteSamples.push(read(cx, cy, rc + (rw - rc) * f, a));
+          contacts.push(read(cx, cy, rh + (rc - rh) * f, a));
+        }
+        for (const f of [0.2, 0.4, 0.6])
+          floorSamples.push(read(cx, cy, rh * f, a));
+      }
+      const studs = peaks.flatMap((v) =>
+          [0.35, 0.5, 0.65].map((f) =>
+            read(cx, cy, base + (v.peak - base) * f, v.angle),
+          ),
+        ),
+        rimHeight = mean(rims.map((v) => v.height)),
+        whiteHeight = mean(whiteSamples.map((v) => v.height)),
+        contactHeight = mean(contacts.map((v) => v.height)),
+        floorHeight = mean(floorSamples.map((v) => v.height));
+      out.flangeFlatness = spread(flanges.map((v) => v.height));
+      out.rimFlatness = spread(rims.map((v) => v.height));
+      out.whiteFlatness = spread(whiteSamples.map((v) => v.height));
+      out.contactFlatness = spread(contacts.map((v) => v.height));
+      out.floorFlatness = spread(floorSamples.map((v) => v.height));
+      out.studFlatness = spread(studs.map((v) => v.height));
+      out.studRise =
+        Math.min(...studs.map((v) => v.height)) -
+        mean(flanges.map((v) => v.height));
+      out.studBelowRim = rimHeight - Math.max(...studs.map((v) => v.height));
+      out.contactBelowRim = rimHeight - contactHeight;
+      out.whiteBelowRim = rimHeight - whiteHeight;
+      out.floorDepth = whiteHeight - floorHeight;
+      out.holeDepth = contactHeight - floorHeight;
+      out.whiteContrast =
+        mean(whiteSamples.map((v) => v.color)) - mean(rims.map((v) => v.color));
+      out.floorContrast =
+        mean(whiteSamples.map((v) => v.color)) -
+        mean(floorSamples.map((v) => v.color));
+      out.finishContrast =
+        mean(whiteSamples.map((v) => v.roughness)) -
+        mean(rims.map((v) => v.roughness));
+      const wall = read(cx, cy, rw * 1.1, 0);
+      out.wallMetal = wall.metallic;
+      out.wallDepth = rimHeight - wall.height;
+      out.contactMetal = Math.min(...contacts.map((v) => v.metallic));
+      out.whiteMetal = Math.max(...whiteSamples.map((v) => v.metallic));
+      out.floorMetal = Math.max(...floorSamples.map((v) => v.metallic));
+    }
+    for (let i = 0; i < total; i++)
+      if (metalLabels[i] > 0 && metalValues[i] > 0.999) {
+        const k = bodyOwner[metalLabels[i] - 1];
+        if (k < 0 || observedRadius[k] === 0 || heights[i] <= lowLevels[k])
+          continue;
+        const dx = ((i % size) + 0.5) / size - observedX[k],
+          dy = (Math.floor(i / size) + 0.5) / size - observedY[k];
+        if (dx * dx + dy * dy > observedRadius[k] * observedRadius[k])
+          geometryMask[i] |= 32;
+      }
+    return {
+      invalid,
+      metals: metals.length,
+      voids: voids.length,
+      frames: frames.length,
+      basins: basins.length,
+      distinctBasins: new Set(closedLabels).size,
+      size,
+      parts,
+      geometryMask,
+      boundaries,
+    };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let value = cache.get(seed);
+    if (!value) {
+      value = measure(seed);
+      cache.set(seed, value);
+    }
+    return value;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('bncfemalefaces', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief, measured(seed).boundaries),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+
+  it.each([0, 7, 0xffffffff])(
+    'retains one closed high barrel rim, a dielectric annulus and one metal contact ring with a low socket floor per face (seed %s)',
+    (seed) => {
+      const m = measured(seed),
+        n = p.cells * p.cells;
+      expect(m.invalid).toBe(0);
+      expect(m.metals).toBe(2 * n);
+      expect(m.voids).toBe(2 * n + 1);
+      expect(m.frames).toBe(n);
+      expect(m.basins).toBe(n + 1);
+      expect(m.distinctBasins).toBe(n);
+      expect(m.parts.length).toBe(n);
+      for (const part of m.parts) {
+        expect(part.whiteCount).toBe(1);
+        expect(part.contactCount).toBe(1);
+        expect(part.floorCount).toBe(1);
+        expect(part.frameCount).toBe(1);
+        expect(part.closed).toBe(1);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains concentric circular flange, dielectric and socket contours plus exactly two equal opposed bayonet-stud projections (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        for (const value of [
+          part.flangeCircularity,
+          part.whiteCircularity,
+          part.contactCircularity,
+          part.floorCircularity,
+        ])
+          expect(value).toBeLessThan(0.025);
+        expect(part.centering).toBeLessThan(0.015);
+        expect(part.whiteRatio).toBeGreaterThan(0.4);
+        expect(part.whiteRatio).toBeLessThan(0.62);
+        expect(part.contactRatio).toBeGreaterThan(0.1);
+        expect(part.contactRatio).toBeLessThan(0.22);
+        expect(part.floorRatio).toBeGreaterThan(0.3);
+        expect(part.floorRatio).toBeLessThan(0.7);
+        expect(part.profileMisses).toBe(0);
+        expect(part.studs).toBe(2);
+        expect(part.studOpposition).toBeLessThan(0.02);
+        expect(part.studSymmetry).toBeLessThan(0.03);
+        expect(part.minStudExtension).toBeGreaterThan(1.08);
+        expect(part.maxStudExtension).toBeLessThan(1.35);
+        expect(part.wallRoundness).toBeLessThan(0.04);
+        expect(part.rimRoundness).toBeLessThan(0.025);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains low flat mounting metal, raised studs below the barrel rim, a rough white insulator and a recessed conductive female lip above a low opaque stand-in floor (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        for (const value of [
+          part.flangeFlatness,
+          part.rimFlatness,
+          part.whiteFlatness,
+          part.contactFlatness,
+          part.floorFlatness,
+          part.studFlatness,
+        ])
+          expect(value).toBeLessThan(0.015);
+        expect(part.studRise).toBeGreaterThan(
+          Math.max(0.03, 10 * part.flangeFlatness),
+        );
+        expect(part.studBelowRim).toBeGreaterThan(
+          Math.max(0.02, 10 * part.rimFlatness),
+        );
+        expect(part.contactBelowRim).toBeGreaterThan(
+          Math.max(0.03, 10 * part.rimFlatness),
+        );
+        expect(part.whiteBelowRim).toBeGreaterThan(
+          Math.max(0.03, 10 * part.rimFlatness),
+        );
+        expect(part.floorDepth).toBeGreaterThan(
+          Math.max(0.02, 10 * part.whiteFlatness),
+        );
+        expect(part.holeDepth).toBeGreaterThan(
+          Math.max(0.02, 10 * part.contactFlatness),
+        );
+        expect(part.whiteContrast).toBeGreaterThan(0.18);
+        expect(part.floorContrast).toBeGreaterThan(0.6);
+        expect(part.finishContrast).toBeGreaterThan(0.2);
+        expect(part.wallDepth).toBeGreaterThan(
+          Math.max(0.03, 10 * part.rimFlatness),
+        );
+        expect(part.wallMetal).toBeGreaterThan(0.999);
+        expect(part.contactMetal).toBeGreaterThan(0.999);
+        expect(part.whiteMetal).toBeLessThan(0.001);
+        expect(part.floorMetal).toBeLessThan(0.001);
+      }
+    },
+  );
+  it('varies observed flange, insulator, contact, socket-floor, raised-head or minority-stud footprints with seed rather than only finish', () => {
+    const first = measured(0);
+    for (const seed of [7, 0xffffffff]) {
+      const other = measured(seed),
+        changed = [0, 0, 0, 0, 0, 0],
+        occupied = [0, 0, 0, 0, 0, 0];
+      for (let i = 0; i < first.geometryMask.length; i++)
+        for (let stream = 0; stream < 6; stream++) {
+          const bit = 1 << stream,
+            a = !!(first.geometryMask[i] & bit),
+            b = !!(other.geometryMask[i] & bit);
+          changed[stream] += Number(a !== b);
+          occupied[stream] += Number(a || b);
+        }
+      expect(
+        Math.max(...changed.map((value, j) => value / occupied[j])),
+      ).toBeGreaterThan(0.05);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'retains C1 flange, stud-body, barrel recess, dielectric, contact, socket-floor and signed-UV joins (seed %s)',
+    (seed) => {
+      const c = continuity(seed);
+      expect(c.worst).toBeLessThan(0.1);
+      expect(c.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'packs opaque mixed metal and dielectric faces with contrasting recessed sockets and unit-facing nonflat normals at size %s',
+    (size) => {
+      const maps = generateProceduralMaps('bncfemalefaces', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels / (size * size)).toBeGreaterThan(0.2);
+      expect(m.metallicPixels / (size * size)).toBeLessThan(0.4);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
       expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);

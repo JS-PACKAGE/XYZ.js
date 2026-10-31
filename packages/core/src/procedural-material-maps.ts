@@ -15600,6 +15600,152 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'bncfemalefaces': {
+        const p = proceduralMaterialPresets.bncfemalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22201),
+          flangeSquared = p.flangeRadius * p.flangeRadius,
+          flangeCore = p.flangeRadius - p.flangeBevel,
+          inverseFlange = 1 / (flangeSquared - flangeCore * flangeCore),
+          bodySquared = p.bodyRadius * p.bodyRadius,
+          bodyCore = p.bodyRadius - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          studStraightX = p.studHalfWidth - p.studCorner,
+          studStraightY = p.studHalfHeight - p.studCorner,
+          studSquared = p.studCorner * p.studCorner,
+          studCore = p.studCorner - p.studBevel,
+          inverseStud = 1 / (studSquared - studCore * studCore),
+          cavitySquared = p.cavityRadius * p.cavityRadius,
+          cavityCore = p.cavityRadius - p.cavityBevel,
+          inverseCavity = 1 / (cavitySquared - cavityCore * cavityCore),
+          insulatorSquared = p.insulatorRadius * p.insulatorRadius,
+          insulatorCore = p.insulatorRadius - p.insulatorBevel,
+          inverseInsulator =
+            1 / (insulatorSquared - insulatorCore * insulatorCore),
+          contactSquared = p.contactRadius * p.contactRadius,
+          contactCore = p.contactRadius - p.contactBevel,
+          inverseContact = 1 / (contactSquared - contactCore * contactCore),
+          holeSquared = p.holeRadius * p.holeRadius,
+          holeCore = p.holeRadius - p.holeBevel,
+          inverseHole = 1 / (holeSquared - holeCore * holeCore),
+          metalTone = p.metalTone - p.backingTone,
+          flangeHeight = p.flangeHeight - p.backingHeight,
+          flangeRoughness = p.flangeRoughness - p.backingRoughness,
+          flangeAO = p.flangeAO - p.backingAO,
+          bodyHeight = p.bodyHeight - p.flangeHeight,
+          bodyRoughness = p.roughness - p.flangeRoughness,
+          bodyAO = p.bodyAO - p.flangeAO,
+          studHeight = p.studHeight - p.flangeHeight,
+          studRoughness = p.studRoughness - p.flangeRoughness,
+          studAO = p.studAO - p.flangeAO,
+          cavityHeight = p.cavityHeight - p.bodyHeight,
+          cavityRoughness = p.cavityRoughness - p.roughness,
+          cavityAO = p.cavityAO - p.bodyAO,
+          insulatorTone = p.insulatorTone - p.metalTone,
+          insulatorHeight = p.insulatorHeight - p.cavityHeight,
+          insulatorRoughness = p.insulatorRoughness - p.cavityRoughness,
+          insulatorAO = p.insulatorAO - p.cavityAO,
+          contactTone = p.contactTone - p.insulatorTone,
+          contactHeight = p.contactHeight - p.insulatorHeight,
+          contactRoughness = p.contactRoughness - p.insulatorRoughness,
+          contactAO = p.contactAO - p.insulatorAO,
+          holeTone = p.holeTone - p.contactTone,
+          holeHeight = p.holeHeight - p.contactHeight,
+          holeRoughness = p.holeRoughness - p.contactRoughness,
+          holeAO = p.holeAO - p.contactAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22203),
+              angle = TAU * hash(col, row, seed ^ 0x22205);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22207) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22209) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            q = x * x + y * y;
+          if (q >= flangeSquared) return;
+          const flange = smooth(clamp((flangeSquared - q) * inverseFlange)),
+            grain = grainField(u, v);
+          color += flange * (metalTone + p.grainTone * grain);
+          height += flange * (flangeHeight + p.grainHeight * grain);
+          roughness += flange * (flangeRoughness + p.grainRoughness * grain);
+          occlusion += flange * flangeAO - p.edgeAO * flange * (1 - flange);
+          metallic = flange;
+          const body =
+              q < bodySquared
+                ? smooth(clamp((bodySquared - q) * inverseBody))
+                : 0,
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            sx = Math.abs(ax - p.studCenter);
+          let stud = 0;
+          if (sx < p.studHalfWidth && ay < p.studHalfHeight) {
+            const tx = Math.max(0, sx - studStraightX),
+              ty = Math.max(0, ay - studStraightY);
+            stud =
+              (1 - body) *
+              smooth(clamp((studSquared - tx * tx - ty * ty) * inverseStud));
+          }
+          if (body === 0 && stud === 0) return;
+          const raised = body + stud;
+          height += body * bodyHeight + stud * studHeight;
+          roughness += body * bodyRoughness + stud * studRoughness;
+          occlusion +=
+            body * bodyAO + stud * studAO - p.edgeAO * raised * (1 - raised);
+          if (body === 0) return;
+          const cavity = smooth(clamp((cavitySquared - q) * inverseCavity));
+          if (cavity === 0) return;
+          height += cavity * cavityHeight;
+          roughness += cavity * cavityRoughness;
+          occlusion += cavity * cavityAO - p.edgeAO * cavity * (1 - cavity);
+          const insulator = smooth(
+            clamp((insulatorSquared - q) * inverseInsulator),
+          );
+          if (insulator === 0) return;
+          color += insulator * insulatorTone;
+          height += insulator * insulatorHeight;
+          roughness += insulator * insulatorRoughness;
+          occlusion +=
+            insulator * insulatorAO - p.edgeAO * insulator * (1 - insulator);
+          metallic -= insulator;
+          const contact = smooth(clamp((contactSquared - q) * inverseContact));
+          if (contact === 0) return;
+          color += contact * contactTone;
+          height += contact * contactHeight;
+          roughness += contact * contactRoughness;
+          occlusion += contact * contactAO - p.edgeAO * contact * (1 - contact);
+          metallic += contact;
+          const hole = smooth(clamp((holeSquared - q) * inverseHole));
+          if (hole === 0) return;
+          color += hole * holeTone;
+          height += hole * holeHeight;
+          roughness += hole * holeRoughness;
+          occlusion += hole * holeAO - p.edgeAO * hole * (1 - hole);
+          metallic -= hole;
+          // Opaque recessed socket floor, not a male pin or a transmissive hole.
+          return;
+        };
+      }
       case 'iecc14inlets': {
         const p = proceduralMaterialPresets.iecc14inlets,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -41612,6 +41758,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'bncfemalefaces' ||
     kind === 'iecc14inlets' ||
     kind === 'dsubsocketfaces' ||
     kind === 'topadjusttrimmers' ||
