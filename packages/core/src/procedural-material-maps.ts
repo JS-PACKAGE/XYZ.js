@@ -15600,6 +15600,124 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'iecc8inlets': {
+        const p = proceduralMaterialPresets.iecc8inlets,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22501),
+          bodyStraightX = p.halfWidth - p.bodyCorner,
+          bodyStraightY = p.halfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          hoodSquared = p.hoodRadius * p.hoodRadius,
+          hoodCore = p.hoodRadius - p.hoodBevel,
+          inverseHood = 1 / (hoodSquared - hoodCore * hoodCore),
+          mouthSquared = p.mouthRadius * p.mouthRadius,
+          mouthCore = p.mouthRadius - p.mouthBevel,
+          inverseMouth = 1 / (mouthSquared - mouthCore * mouthCore),
+          waistOffset = p.waistRound - p.waistTipY,
+          waistSquared = p.waistRound * p.waistRound,
+          waistOuter = p.waistRound + p.waistBevel,
+          inverseWaist = 1 / (waistOuter * waistOuter - waistSquared),
+          waistSlopeSquared = p.waistSlope * p.waistSlope,
+          pinSquared = p.pinRadius * p.pinRadius,
+          pinCore = p.pinRadius - p.pinBevel,
+          inversePin = 1 / (pinSquared - pinCore * pinCore),
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          hoodHeight = p.hoodHeight - p.bodyHeight,
+          hoodRoughness = p.hoodRoughness - p.roughness,
+          hoodAO = p.hoodAO - p.bodyAO,
+          mouthHeight = p.mouthHeight - p.hoodHeight,
+          mouthRoughness = p.mouthRoughness - p.hoodRoughness,
+          mouthAO = p.mouthAO - p.hoodAO,
+          pinTone = p.pinTone - p.bodyTone,
+          pinHeight = p.pinHeight - p.mouthHeight,
+          pinRoughness = p.pinRoughness - p.mouthRoughness,
+          pinAO = p.pinAO - p.mouthAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22503),
+              angle = TAU * hash(col, row, seed ^ 0x22505);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22507) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22509) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          if (ax >= p.halfWidth || ay >= p.halfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const px = ax - p.pinX,
+            cx = Math.max(0, px),
+            yy = y * y,
+            q = cx * cx + yy;
+          if (q >= hoodSquared) return;
+          const hood = smooth(clamp((hoodSquared - q) * inverseHood));
+          height += hood * hoodHeight;
+          roughness += hood * hoodRoughness;
+          occlusion += hood * hoodAO - p.edgeAO * hood * (1 - hood);
+          if (q >= mouthSquared) return;
+          const wy = ay + waistOffset,
+            // A rounded V waist, not a union of two circular bores.
+            waist =
+              ay > p.waistTipY
+                ? smooth(
+                    clamp(
+                      (wy * wy - waistSlopeSquared * x * x - waistSquared) *
+                        inverseWaist,
+                    ),
+                  )
+                : 0,
+            mouth =
+              (1 - waist) * smooth(clamp((mouthSquared - q) * inverseMouth));
+          if (mouth === 0) return;
+          height += mouth * mouthHeight;
+          roughness += mouth * mouthRoughness;
+          occlusion += mouth * mouthAO - p.edgeAO * mouth * (1 - mouth);
+          // The two circular pin supports are disjoint across the abs(x) fold.
+          const pin = smooth(clamp((pinSquared - px * px - yy) * inversePin));
+          if (pin === 0) return;
+          color += pin * pinTone;
+          height += pin * pinHeight;
+          roughness += pin * pinRoughness;
+          occlusion += pin * pinAO - p.edgeAO * pin * (1 - pin);
+          metallic = pin;
+          return;
+        };
+      }
       case 'din5femalefaces': {
         const p = proceduralMaterialPresets.din5femalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -42192,6 +42310,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'iecc8inlets' ||
     kind === 'din5femalefaces' ||
     kind === 'xlrfemalefaces' ||
     kind === 'bncfemalefaces' ||

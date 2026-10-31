@@ -704,6 +704,7 @@ try {
     'lathplaster',
     'ceramiccapacitors',
     'fennelseeds',
+    'iecc8inlets',
     'din5femalefaces',
     'xlrfemalefaces',
     'bncfemalefaces',
