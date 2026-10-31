@@ -484,6 +484,7 @@ export type ProceduralMaterialKind =
   | 'pentominotiles'
   | 'langtonsant'
   | 'vogelspiral'
+  | 'gosperinlay'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1586,6 +1587,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pentominotiles',
   'langtonsant',
   'vogelspiral',
+  'gosperinlay',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -2198,6 +2200,7 @@ export class ProceduralMaterial {
         this.kind === 'woodenclothespins' ||
         this.kind === 'kintsugiceramic' ||
         this.kind === 'cloisonne' ||
+        this.kind === 'gosperinlay' ||
         this.kind === 'rackgears' ||
         this.kind === 'doubleedgerazorblades' ||
         this.kind === 'brakediscs' ||

@@ -510,6 +510,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pentominotiles',
   'langtonsant',
   'vogelspiral',
+  'gosperinlay',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -76980,6 +76981,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'woodenclothespins' &&
           kind !== 'kintsugiceramic' &&
           kind !== 'cloisonne' &&
+          kind !== 'gosperinlay' &&
           kind !== 'rackgears' &&
           kind !== 'doubleedgerazorblades' &&
           kind !== 'turnbuckles' &&
@@ -86440,6 +86442,7 @@ describe('procedural preset acquisition and ownership', () => {
     'woodenclothespins',
     'kintsugiceramic',
     'cloisonne',
+    'gosperinlay',
     'rackgears',
     'doubleedgerazorblades',
     'turnbuckles',
@@ -86552,6 +86555,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'woodenclothespins' ||
           kind === 'kintsugiceramic' ||
           kind === 'cloisonne' ||
+          kind === 'gosperinlay' ||
           kind === 'rackgears' ||
           kind === 'doubleedgerazorblades' ||
           kind === 'turnbuckles' ||
@@ -108475,6 +108479,629 @@ describe('Vogel golden-angle disk mosaic with affine radial-square spacing', () 
         expect(countFaces(maps, resolution)).toBe(97);
         expect(o.maxTilt).toBeGreaterThan(0.1);
         for (const fraction of o.signed) expect(fraction).toBeGreaterThan(0.01);
+      }
+    },
+  );
+});
+
+describe('Gosper brass inlay with one open order-three hexagonal path', () => {
+  const p = proceduralMaterialPresets.gosperinlay;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed bevel transitions instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  }; // Independent public L-system definition; production uses an authored direction word instead.
+  const reference = () => {
+    const productions = { A: 'A-B--B+A++AA+B-', B: '+A-BB--B-A++A+B' },
+      directions = [
+        [1, 0],
+        [0, 1],
+        [-1, 1],
+        [-1, 0],
+        [0, -1],
+        [1, -1],
+      ] as const,
+      vertices: Array<[number, number]> = [[0, 0]],
+      edges = new Set<string>();
+    let q = 0,
+      r = 0,
+      heading = 0;
+    const key = (a: number, b: number) => (a < b ? a + ':' + b : b + ':' + a);
+    const expand = (symbol: string, depth: number): void => {
+      if (symbol === '+') {
+        heading = (heading + 1) % 6;
+        return;
+      }
+      if (symbol === '-') {
+        heading = (heading + 5) % 6;
+        return;
+      }
+      if (depth) {
+        for (const next of productions[symbol as 'A' | 'B'])
+          expand(next, depth - 1);
+        return;
+      }
+      const d = directions[heading];
+      q += d[0];
+      r += d[1];
+      vertices.push([q, r]);
+      edges.add(key(vertices.length - 2, vertices.length - 1));
+    };
+    expand('A', 3);
+    const raw = vertices.map(
+        ([q, r]) => [q + r / 2, (-r * Math.sqrt(3)) / 2] as const,
+      ),
+      midX =
+        (Math.min(...raw.map((p) => p[0])) +
+          Math.max(...raw.map((p) => p[0]))) /
+        2,
+      midY =
+        (Math.min(...raw.map((p) => p[1])) +
+          Math.max(...raw.map((p) => p[1]))) /
+        2,
+      points = raw.map(
+        ([x, y]) =>
+          [0.5 + (x - midX) * p.step, 0.5 + (y - midY) * p.step] as const,
+      ),
+      ids = new Map(vertices.map((v, i) => [v.join(','), i]));
+    return { vertices, points, ids, edges, directions, key };
+  };
+  const observeGraph = (seed: number) => {
+    const ref = reference(),
+      sample = createSurfaceSampler('gosperinlay', seed),
+      out = empty(),
+      degrees = new Uint8Array(ref.points.length),
+      links: Array<[number, number]> = [];
+    let missing = 0,
+      unexpected = 0,
+      broken = 0,
+      coreVariation = 0,
+      backingLeaks = 0;
+    for (let i = 0; i < ref.vertices.length; i++) {
+      const [q, r] = ref.vertices[i];
+      sample(...ref.points[i], out);
+      missing += Number(out.metallic < 0.999999);
+      for (const [dq, dr] of ref.directions.slice(0, 3)) {
+        const j = ref.ids.get([q + dq, r + dr].join(','));
+        if (j === undefined) continue;
+        const a = ref.points[i],
+          b = ref.points[j],
+          expected = ref.edges.has(ref.key(i, j));
+        sample((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, out);
+        const linked = out.metallic > 0.5;
+        if (linked) {
+          degrees[i]++;
+          degrees[j]++;
+          links.push([i, j]);
+        }
+        unexpected += Number(linked !== expected);
+        if (!expected) continue;
+        for (const t of [0.15, 0.3, 0.5, 0.7, 0.85]) {
+          const x = a[0] + (b[0] - a[0]) * t,
+            y = a[1] + (b[1] - a[1]) * t;
+          sample(x, y, out);
+          broken += Number(out.metallic < 0.999999);
+          coreVariation = Math.max(
+            coreVariation,
+            Math.abs(out.height / p.relief - 0.78),
+          );
+        }
+        const dx = b[0] - a[0],
+          dy = b[1] - a[1];
+        for (const sign of [-1, 1]) {
+          sample(
+            (a[0] + b[0]) / 2 - sign * 0.3 * dy,
+            (a[1] + b[1]) / 2 + sign * 0.3 * dx,
+            out,
+          );
+          backingLeaks += Number(out.metallic > 1e-10);
+        }
+      }
+    }
+    const reached = new Set<number>([0]),
+      pending = [0];
+    while (pending.length) {
+      const i = pending.pop()!;
+      for (const [a, b] of links) {
+        const next = a === i ? b : b === i ? a : -1;
+        if (next >= 0 && !reached.has(next)) {
+          reached.add(next);
+          pending.push(next);
+        }
+      }
+    }
+    return {
+      missing,
+      unexpected,
+      broken,
+      coreVariation,
+      backingLeaks,
+      links: links.length,
+      reached: reached.size,
+      endpoints: Array.from(degrees).filter((n) => n === 1).length,
+      interiors: Array.from(degrees).filter((n) => n === 2).length,
+    };
+  };
+  const observeCaps = (seed: number) => {
+    const { points } = reference(),
+      sample = createSurfaceSampler('gosperinlay', seed),
+      out = empty();
+    let maxSpread = 0,
+      minRadius = Infinity,
+      maxRadius = 0,
+      unbracketed = 0;
+    for (const id of [0, points.length - 1]) {
+      const c = points[id],
+        neighbor = points[id === 0 ? 1 : points.length - 2],
+        angle = Math.atan2(c[1] - neighbor[1], c[0] - neighbor[0]),
+        radii: number[] = [];
+      for (let ray = 0; ray <= 12; ray++) {
+        const theta = angle - Math.PI / 2 + (ray * Math.PI) / 12,
+          dx = Math.cos(theta),
+          dy = Math.sin(theta);
+        let lo = 0,
+          hi = 0;
+        for (let k = 1; k <= 40; k++) {
+          hi = k * 0.001;
+          sample(c[0] + hi * dx, c[1] + hi * dy, out);
+          if (out.metallic < 0.5) break;
+          lo = hi;
+        }
+        if (lo === hi) {
+          unbracketed++;
+          continue;
+        }
+        for (let k = 0; k < 28; k++) {
+          const m = (lo + hi) / 2;
+          sample(c[0] + m * dx, c[1] + m * dy, out);
+          if (out.metallic > 0.5) lo = m;
+          else hi = m;
+        }
+        radii.push((lo + hi) / 2);
+      }
+      const low = Math.min(...radii),
+        high = Math.max(...radii);
+      maxSpread = Math.max(maxSpread, (high - low) / high);
+      minRadius = Math.min(minRadius, low);
+      maxRadius = Math.max(maxRadius, high);
+    }
+    return { maxSpread, minRadius, maxRadius, unbracketed };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      signed = [0, 0, 0, 0];
+    let grout = 0,
+      roughMean = 0,
+      smoothMean = 0,
+      tiles = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0,
+      minAO = 255,
+      maxAO = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        roughness = maps.metallicRoughness[j + 1] / 255,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (roughness > 0.6) {
+        grout++;
+        roughMean += roughness;
+      } else {
+        tiles++;
+        smoothMean += roughness;
+      }
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      signed[0] += Number(nx > 0.05);
+      signed[1] += Number(nx < -0.05);
+      signed[2] += Number(ny > 0.05);
+      signed[3] += Number(ny < -0.05);
+      minAO = Math.min(minAO, maps.occlusion[j]);
+      maxAO = Math.max(maxAO, maps.occlusion[j]);
+      for (const map of Object.values(maps))
+        invalidAlpha += Number(map[j + 3] !== 255);
+    }
+    return {
+      roughFraction: grout / count,
+      roughMean: roughMean / grout,
+      smoothMean: smoothMean / tiles,
+      metallicPixels,
+      maxTilt,
+      signed: signed.map((value) => value / count),
+      minAO,
+      maxAO,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const countFaces = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+  ) => {
+    const mask = Uint8Array.from({ length: size * size }, (_, i) =>
+        Number(maps.height![i * 4] > 128),
+      ),
+      queue = new Int32Array(size * size);
+    let faces = 0;
+    for (let start = 0; start < mask.length; start++) {
+      if (!mask[start]) continue;
+      faces++;
+      let read = 0,
+        write = 1;
+      queue[0] = start;
+      mask[start] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+    }
+    return faces;
+  };
+  const observeMetalPixels = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+  ) => {
+    let full = 0,
+      backing = 0,
+      transition = 0,
+      metalRough = 0,
+      backRough = 0,
+      metalLuma = 0,
+      backLuma = 0,
+      registration = 0;
+    const count = maps.baseColor.length / 4;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        m = maps.metallicRoughness[j + 2],
+        r = maps.metallicRoughness[j + 1] / 255,
+        l =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      if (m > 250) {
+        full++;
+        metalRough += r;
+        metalLuma += l;
+      }
+      if (m === 0) {
+        backing++;
+        backRough += r;
+        backLuma += l;
+      }
+      if (m > 0 && m < 255) transition++;
+      registration = Math.max(registration, Math.abs(m - maps.height![j]));
+    }
+    return {
+      full: full / count,
+      backing: backing / count,
+      transition: transition / count,
+      roughGap: backRough / backing - metalRough / full,
+      lumaGap: metalLuma / full - backLuma / backing,
+      registration,
+    };
+  };
+  const observedNormalAlignment = (
+    maps: ReturnType<typeof generateProceduralMaps>,
+    size: number,
+  ) => {
+    const { points } = reference();
+    let minimum = 1;
+    for (let i = 0; i < points.length - 1; i += 11) {
+      const a = points[i],
+        b = points[i + 1],
+        nx = -(b[1] - a[1]) / p.step,
+        ny = (b[0] - a[0]) / p.step;
+      for (const sign of [-1, 1]) {
+        const x = (a[0] + b[0]) / 2 + sign * nx * (p.radius - p.shoulder / 2),
+          y = (a[1] + b[1]) / 2 + sign * ny * (p.radius - p.shoulder / 2),
+          ix = Math.round(x * size - 0.5),
+          iy = Math.round(y * size - 0.5),
+          j = (iy * size + ix) * 4,
+          dx = maps.normal[j] / 127.5 - 1,
+          dy = maps.normal[j + 1] / 127.5 - 1;
+        minimum = Math.min(minimum, sign * (dx * nx + dy * ny));
+      }
+    }
+    return minimum;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('gosperinlay', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.bins; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.bins, j / 2048);
+        check(j / 2048, k / p.bins);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'observes all 343 canonical Gosper links and rejects shortcut connections at seed%s',
+    (seed) => {
+      const m = observeGraph(seed);
+      expect(m.missing).toBe(0);
+      expect(m.unexpected).toBe(0);
+      expect(m.broken).toBe(0);
+      expect(m.backingLeaks).toBe(0);
+      expect(m.links).toBe(343);
+      expect(m.reached).toBe(344);
+      expect(m.endpoints).toBe(2);
+      expect(m.interiors).toBe(342);
+      expect(m.coreVariation).toBeLessThan(0.0061);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains two round non-butt endpoints without disturbing the open topology at seed%s',
+    (seed) => {
+      const m = observeCaps(seed);
+      expect(m.unbracketed).toBe(0);
+      expect(m.maxSpread).toBeLessThan(0.015);
+      expect(m.minRadius).toBeGreaterThan(p.radius - p.shoulder);
+      expect(m.maxRadius).toBeLessThan(p.radius);
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates polished brass metal from matte navy dielectric backing at seed%s',
+    (seed) => {
+      const sample = createSurfaceSampler('gosperinlay', seed),
+        a = empty(),
+        b = empty(),
+        { points } = reference();
+      let minMetal = 1,
+        maxBacking = 0,
+        roughGap = Infinity,
+        colorGap = Infinity,
+        aoGap = Infinity;
+      for (let i = 0; i < points.length - 1; i += 7) {
+        const x = (points[i][0] + points[i + 1][0]) / 2,
+          y = (points[i][1] + points[i + 1][1]) / 2;
+        sample(x, y, a);
+        sample(0.02 + (i % 13) * 0.07, 0.02, b);
+        minMetal = Math.min(minMetal, a.metallic);
+        maxBacking = Math.max(maxBacking, b.metallic);
+        roughGap = Math.min(roughGap, b.roughness - a.roughness);
+        colorGap = Math.min(colorGap, a.color - b.color);
+        aoGap = Math.min(aoGap, a.occlusion - b.occlusion);
+      }
+      expect(minMetal).toBeGreaterThan(0.999999);
+      expect(maxBacking).toBe(0);
+      expect(roughGap).toBeGreaterThan(0.35);
+      expect(colorGap).toBeGreaterThan(0.8);
+      expect(aoGap).toBeGreaterThan(0.3);
+    },
+  );
+  it('changes seeded finish without moving the path or changing its metal classification', () => {
+    const a = empty(),
+      b = empty(),
+      first = createSurfaceSampler('gosperinlay', 0);
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('gosperinlay', seed);
+      let color = 0,
+        shape = 0,
+        metal = 0;
+      for (let i = 0; i < 4096; i++) {
+        const x = (i * 0.61803398875) % 1,
+          y = (i * 0.41421356237) % 1;
+        first(x, y, a);
+        other(x, y, b);
+        color = Math.max(color, Math.abs(a.color - b.color));
+        shape = Math.max(shape, Math.abs(a.height - b.height) / p.relief);
+        metal = Math.max(metal, Math.abs(a.metallic - b.metallic));
+      }
+      expect(color).toBeGreaterThan(0.003);
+      expect(shape).toBeLessThan(0.0061);
+      expect(metal).toBe(0);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps rounded joins, shoulders, bins and signed tile seams C1 at seed%s',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.04);
+      expect(m.period).toBeLessThan(5e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes registered opaque mixed-metal maps with forward unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('gosperinlay', size, 7, {
+          heightMap: true,
+        }),
+        a = observePixels(maps),
+        m = observeMetalPixels(maps);
+      expect(m.full).toBeGreaterThan(0.06);
+      expect(m.full).toBeLessThan(0.24);
+      expect(m.backing).toBeGreaterThan(0.65);
+      expect(m.transition).toBeGreaterThan(0.01);
+      expect(m.transition).toBeLessThan(0.12);
+      expect(m.roughGap).toBeGreaterThan(0.35);
+      expect(m.lumaGap).toBeGreaterThan(80);
+      expect(m.registration).toBeLessThan(4);
+      expect(a.minAO).toBeLessThan(180);
+      expect(a.maxAO).toBeGreaterThan(240);
+      expect(a.invalidAlpha).toBe(0);
+      expect(a.normalLengthError).toBeLessThan(0.014);
+      expect(a.backFacing).toBe(0);
+      if (size === 512) {
+        expect(observedNormalAlignment(maps, size)).toBeGreaterThan(0.08);
+        expect(countFaces(maps, size)).toBe(1);
+        const inverse = {
+          ...maps,
+          height: Uint8ClampedArray.from(maps.height!, (value) => 255 - value),
+        };
+        expect(countFaces(inverse, size)).toBe(1);
+        expect(a.maxTilt).toBeGreaterThan(0.1);
+        for (const proportion of a.signed)
+          expect(proportion).toBeGreaterThan(0.02);
       }
     },
   );

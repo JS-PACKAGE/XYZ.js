@@ -27382,6 +27382,112 @@ export function createSurfaceSampler(
           occlusion = 0.5 + 0.48 * face;
         };
       }
+      case 'gosperinlay': {
+        const p = proceduralMaterialPresets.gosperinlay,
+          count = p.directions.length,
+          segments = new Float64Array(count * 4),
+          offsets = new Uint16Array(p.bins * p.bins + 1),
+          grainField = cachedNoise(96, 96, seed ^ 0x6a0f),
+          verticalStep = (Math.sqrt(3) / 2) * p.step,
+          inverseStepSquared = 1 / (p.step * p.step),
+          radius2 = p.radius * p.radius,
+          inverseShoulder = 1 / (radius2 - (p.radius - p.shoulder) ** 2);
+        // Offline order-3 Gosper A-word; a single open path with 343 equal links.
+        // Axial directions are not an L-system interpreter in the pixel hot path.
+        let ax = 0.5 - 0.5 * p.step,
+          ay = 0.5 - 12 * verticalStep;
+        for (let i = 0; i < count; i++) {
+          const d = p.directions.charCodeAt(i) - 48,
+            dx =
+              (d === 0 ? 1 : d === 3 ? -1 : d === 1 || d === 5 ? 0.5 : -0.5) *
+              p.step,
+            dy = (d === 0 || d === 3 ? 0 : d < 3 ? -1 : 1) * verticalStep,
+            bx = ax + dx,
+            by = ay + dy,
+            j = i * 4,
+            x0 = Math.max(
+              0,
+              Math.floor((Math.min(ax, bx) - p.radius) * p.bins),
+            ),
+            x1 = Math.min(
+              p.bins - 1,
+              Math.floor((Math.max(ax, bx) + p.radius) * p.bins),
+            ),
+            y0 = Math.max(
+              0,
+              Math.floor((Math.min(ay, by) - p.radius) * p.bins),
+            ),
+            y1 = Math.min(
+              p.bins - 1,
+              Math.floor((Math.max(ay, by) + p.radius) * p.bins),
+            );
+          segments[j] = ax;
+          segments[j + 1] = ay;
+          segments[j + 2] = dx;
+          segments[j + 3] = dy;
+          ax = bx;
+          ay = by;
+          for (let row = y0; row <= y1; row++)
+            for (let col = x0; col <= x1; col++) offsets[row * p.bins + col]++;
+        }
+        for (let i = 1; i < offsets.length; i++) offsets[i] += offsets[i - 1];
+        const references = new Uint16Array(offsets[offsets.length - 1]);
+        // Prefix ends become starts in place, as for vogelspiral.
+        for (let i = 0; i < count; i++) {
+          const j = i * 4,
+            bx = segments[j] + segments[j + 2],
+            by = segments[j + 1] + segments[j + 3],
+            x0 = Math.max(
+              0,
+              Math.floor((Math.min(segments[j], bx) - p.radius) * p.bins),
+            ),
+            x1 = Math.min(
+              p.bins - 1,
+              Math.floor((Math.max(segments[j], bx) + p.radius) * p.bins),
+            ),
+            y0 = Math.max(
+              0,
+              Math.floor((Math.min(segments[j + 1], by) - p.radius) * p.bins),
+            ),
+            y1 = Math.min(
+              p.bins - 1,
+              Math.floor((Math.max(segments[j + 1], by) + p.radius) * p.bins),
+            );
+          for (let row = y0; row <= y1; row++)
+            for (let col = x0; col <= x1; col++)
+              references[--offsets[row * p.bins + col]] = i;
+        }
+        return () => {
+          const bin =
+            Math.min(p.bins - 1, Math.floor(v * p.bins)) * p.bins +
+            Math.min(p.bins - 1, Math.floor(u * p.bins));
+          let outside = 1;
+          for (let slot = offsets[bin]; slot < offsets[bin + 1]; slot++) {
+            const j = references[slot] * 4,
+              dx = u - segments[j],
+              dy = v - segments[j + 1],
+              t = clamp(
+                (dx * segments[j + 2] + dy * segments[j + 3]) *
+                  inverseStepSquared,
+              ),
+              qx = dx - t * segments[j + 2],
+              qy = dy - t * segments[j + 3];
+            outside *=
+              1 -
+              smooth(clamp((radius2 - qx * qx - qy * qy) * inverseShoulder));
+            if (outside === 0) break;
+          }
+          const inlay = 1 - outside,
+            grain = grainField(u, v);
+          mortar = 0;
+          color = 0.08 + 0.84 * inlay + 0.025 * grain;
+          height = 0.16 + 0.62 * inlay + 0.006 * grain;
+          roughness =
+            p.roughness + (0.82 - p.roughness) * (1 - inlay) + 0.02 * grain;
+          occlusion = 0.65 + 0.33 * inlay;
+          metallic = inlay;
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -39968,6 +40074,7 @@ export function createSurfaceSampler(
     kind === 'pentominotiles' ||
     kind === 'langtonsant' ||
     kind === 'vogelspiral' ||
+    kind === 'gosperinlay' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

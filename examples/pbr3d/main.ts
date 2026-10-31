@@ -547,6 +547,7 @@ try {
     'pentominotiles',
     'langtonsant',
     'vogelspiral',
+    'gosperinlay',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

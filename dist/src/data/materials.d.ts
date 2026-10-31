@@ -3454,6 +3454,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         tones: readonly [0.1, 0.46, 0.82];
         toneVariation: 0.06;
     }>;
+    gosperinlay: Readonly<{
+        dark: readonly [15, 27, 38];
+        light: readonly [222, 172, 70];
+        roughness: 0.26;
+        relief: 0.003;
+        step: 0.04;
+        radius: 0.0065;
+        shoulder: 0.0018;
+        bins: 16;
+        directions: "0534001055324543310234312445053400105340012115401053400105532450553245433102321502234312445055324543124454331023433102321154010534001215022343310234312445433102321154012150223431244543124450553245053400105532454331023431244505340010534001211540105340010553245433102343124450534001053400121154012150223211540121154010553245431244505340012115401";
+    }>;
     orbicularjasper: Readonly<{
         dark: readonly [24, 68, 47];
         light: readonly [231, 225, 171];
@@ -11239,6 +11250,7 @@ export declare const proceduralTileMeters: Readonly<{
     pentominotiles: 0.6;
     langtonsant: 0.32;
     vogelspiral: 0.5;
+    gosperinlay: 0.5;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;
     circularpavers: 1.6;

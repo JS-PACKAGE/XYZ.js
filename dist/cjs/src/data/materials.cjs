@@ -7341,6 +7341,25 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		toneVariation: .06
 	}),
+	gosperinlay: Object.freeze({
+		dark: [
+			15,
+			27,
+			38
+		],
+		light: [
+			222,
+			172,
+			70
+		],
+		roughness: .26,
+		relief: .003,
+		step: .04,
+		radius: .0065,
+		shoulder: .0018,
+		bins: 16,
+		directions: `0534001055324543310234312445053400105340012115401053400105532450553245433102321502234312445055324543124454331023433102321154010534001215022343310234312445433102321154012150223431244543124450553245053400105532454331023431244505340010534001211540105340010553245433102343124450534001053400121154012150223211540121154010553245431244505340012115401`
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18823,6 +18842,7 @@ var proceduralTileMeters = Object.freeze({
 	pentominotiles: .6,
 	langtonsant: .32,
 	vogelspiral: .5,
+	gosperinlay: .5,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,
