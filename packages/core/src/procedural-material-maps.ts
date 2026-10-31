@@ -27610,6 +27610,85 @@ export function createSurfaceSampler(
           mortar = metal;
         };
       }
+      case 'cuttlebone': {
+        const p = proceduralMaterialPresets.cuttlebone,
+          walls = new Float64Array(p.rows * p.columns * 2),
+          layers = new Float64Array(p.rows + 1),
+          scales = new Float64Array(p.rows * 2),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1b411),
+          wallSquared = p.wallWidth * p.wallWidth,
+          inverseWallShoulder = 1 / (wallSquared - p.wallCore * p.wallCore),
+          septumSquared = p.septumWidth * p.septumWidth,
+          inverseSeptumShoulder =
+            1 / (septumSquared - p.septumCore * p.septumCore),
+          inverseColumns = 1 / p.columns;
+        // Bounded interface offsets need at most one neighboring row.
+        for (let row = 0; row <= p.rows; row++)
+          layers[row] =
+            row === 0
+              ? 0
+              : row === p.rows
+                ? 1
+                : (row +
+                    p.layerJitter * (2 * hash(0, row, seed ^ 0x1b417) - 1)) /
+                  p.rows;
+        for (let row = 0; row < p.rows; row++) {
+          scales[row * 2] = 1 / (layers[row + 1] - layers[row]);
+          scales[row * 2 + 1] = scales[row * 2] * inverseColumns;
+        }
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 2;
+            walls[i] = p.jitter * (2 * hash(col, row, seed ^ 0x1b413) - 1);
+            walls[i + 1] =
+              (hash(col, row, seed ^ 0x1b419) < 0.5 ? -1 : 1) *
+              p.wave *
+              (1 -
+                p.waveVariation +
+                2 * p.waveVariation * hash(col, row, seed ^ 0x1b415));
+          }
+        return () => {
+          let row = Math.floor(v * p.rows);
+          if (v < layers[row]) row--;
+          else if (v >= layers[row + 1]) row++;
+          const uc = u * p.columns,
+            t = (v - layers[row]) * scales[row * 2],
+            dy = Math.min(t, 1 - t),
+            septum = smooth(
+              clamp((septumSquared - dy * dy) * inverseSeptumShoulder),
+            );
+          let body = septum;
+          if (septum < 1) {
+            // Preset support bounds keep each wall inside its column.
+            const i = (row * p.columns + Math.floor(uc)) * 2,
+              product = t * (1 - t),
+              shape = 16 * product * product * (2 * t - 1),
+              derivative = 32 * product * (5 * product - 1),
+              gradient = 1 + p.waveSkew * (t - 0.5),
+              amplitude = walls[i + 1],
+              dx = fract(uc) - 0.5 - walls[i] - amplitude * shape * gradient,
+              slope =
+                amplitude *
+                (derivative * gradient + shape * p.waveSkew) *
+                scales[row * 2 + 1],
+              q = (dx * dx) / (1 + slope * slope),
+              wall = smooth(clamp((wallSquared - q) * inverseWallShoulder));
+            // Flat septa hide row ownership changes; product union keeps joints C1.
+            body = 1 - (1 - septum) * (1 - wall);
+          }
+          color = p.floorTone;
+          height = p.floorHeight;
+          roughness = p.floorRoughness;
+          occlusion = p.floorOcclusion;
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (p.faceTone + p.grainColor * grain - color);
+          height += body * (p.faceHeight + p.grainHeight * grain - height);
+          roughness +=
+            body * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion += body * (p.faceOcclusion - occlusion);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40198,6 +40277,7 @@ export function createSurfaceSampler(
     kind === 'vogelspiral' ||
     kind === 'gosperinlay' ||
     kind === 'pallasite' ||
+    kind === 'cuttlebone' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||

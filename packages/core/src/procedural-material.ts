@@ -486,6 +486,7 @@ export type ProceduralMaterialKind =
   | 'vogelspiral'
   | 'gosperinlay'
   | 'pallasite'
+  | 'cuttlebone'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1590,6 +1591,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'vogelspiral',
   'gosperinlay',
   'pallasite',
+  'cuttlebone',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

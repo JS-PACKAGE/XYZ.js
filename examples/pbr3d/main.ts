@@ -549,6 +549,7 @@ try {
     'vogelspiral',
     'gosperinlay',
     'pallasite',
+    'cuttlebone',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

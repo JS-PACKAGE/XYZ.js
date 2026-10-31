@@ -7396,6 +7396,42 @@ var proceduralMaterialPresets = Object.freeze({
 		baseHeight: .5,
 		baseOcclusion: .99
 	}),
+	cuttlebone: Object.freeze({
+		dark: [
+			38,
+			36,
+			32
+		],
+		light: [
+			242,
+			239,
+			224
+		],
+		roughness: .83,
+		relief: .004,
+		rows: 6,
+		columns: 24,
+		layerJitter: .12,
+		jitter: .17,
+		wave: .45,
+		waveVariation: .35,
+		waveSkew: .7,
+		wallWidth: .045,
+		wallCore: .025,
+		septumWidth: .025,
+		septumCore: .0125,
+		grainCells: 96,
+		floorTone: .04,
+		floorHeight: .05,
+		floorRoughness: .96,
+		floorOcclusion: .2,
+		faceTone: .88,
+		faceHeight: .7,
+		faceOcclusion: .97,
+		grainColor: .04,
+		grainHeight: .01,
+		grainRoughness: .03
+	}),
 	orbicularjasper: Object.freeze({
 		dark: [
 			24,
@@ -18880,6 +18916,7 @@ var proceduralTileMeters = Object.freeze({
 	vogelspiral: .5,
 	gosperinlay: .5,
 	pallasite: .16,
+	cuttlebone: .0024,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
 	circularpavers: 1.6,
