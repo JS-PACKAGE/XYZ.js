@@ -15600,6 +15600,150 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'dsubsocketfaces': {
+        const p = proceduralMaterialPresets.dsubsocketfaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22001),
+          plateStraightX = p.halfWidth - p.plateCorner,
+          plateStraightY = p.halfHeight - p.plateCorner,
+          plateSquared = p.plateCorner * p.plateCorner,
+          plateCore = p.plateCorner - p.plateBevel,
+          inversePlate = 1 / (plateSquared - plateCore * plateCore),
+          inverseShell = 1 / p.shellBevel,
+          inverseFace = 1 / p.faceBevel,
+          inversePitch = 1 / p.pitch,
+          topCenter = (p.topSockets - 1) * 0.5,
+          bottomCenter = (p.bottomSockets - 1) * 0.5,
+          socketSquared = p.socketRadius * p.socketRadius,
+          socketCore = p.socketRadius - p.socketBevel,
+          inverseSocket = 1 / (socketSquared - socketCore * socketCore),
+          collarSquared = p.mountCollarRadius * p.mountCollarRadius,
+          collarCore = p.mountCollarRadius - p.mountCollarBevel,
+          inverseCollar = 1 / (collarSquared - collarCore * collarCore),
+          mountSquared = p.mountRadius * p.mountRadius,
+          mountCore = p.mountRadius - p.mountBevel,
+          inverseMount = 1 / (mountSquared - mountCore * mountCore),
+          mountStart = p.mountX - p.mountCollarRadius,
+          plateTone = p.plateTone - p.backingTone,
+          plateHeight = p.plateHeight - p.backingHeight,
+          plateRoughness = p.roughness - p.backingRoughness,
+          plateAO = p.plateAO - p.backingAO,
+          shellTone = p.shellTone - p.plateTone,
+          shellHeight = p.shellHeight - p.plateHeight,
+          shellRoughness = p.shellRoughness - p.roughness,
+          shellAO = p.shellAO - p.plateAO,
+          faceTone = p.faceTone - p.shellTone,
+          faceHeight = p.faceHeight - p.shellHeight,
+          faceRoughness = p.faceRoughness - p.shellRoughness,
+          faceAO = p.faceAO - p.shellAO,
+          socketTone = p.socketTone - p.faceTone,
+          socketHeight = p.socketHeight - p.faceHeight,
+          socketRoughness = p.socketRoughness - p.faceRoughness,
+          socketAO = p.socketAO - p.faceAO,
+          collarTone = p.collarTone - p.plateTone,
+          collarHeight = p.collarHeight - p.plateHeight,
+          collarRoughness = p.collarRoughness - p.roughness,
+          collarAO = p.collarAO - p.plateAO,
+          mountTone = p.mountTone - p.collarTone,
+          mountHeight = p.mountHeight - p.collarHeight,
+          mountRoughness = p.mountRoughness - p.collarRoughness,
+          mountAO = p.mountAO - p.collarAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22003),
+              angle = TAU * hash(col, row, seed ^ 0x22005);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22007) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22009) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            px = Math.max(0, ax - plateStraightX),
+            py = Math.max(0, ay - plateStraightY),
+            plate = smooth(
+              clamp((plateSquared - px * px - py * py) * inversePlate),
+            );
+          if (plate === 0) return;
+          const grain = grainField(u, v);
+          color += plate * (plateTone + p.grainTone * grain);
+          height += plate * (plateHeight + p.grainHeight * grain);
+          roughness += plate * (plateRoughness + p.grainRoughness * grain);
+          occlusion += plate * plateAO - p.plateContactAO * plate * (1 - plate);
+          metallic = plate;
+          if (ax > mountStart) {
+            const mx = ax - p.mountX,
+              q = mx * mx + y * y;
+            if (q < collarSquared) {
+              const collar = smooth(clamp((collarSquared - q) * inverseCollar)),
+                mount = smooth(clamp((mountSquared - q) * inverseMount));
+              color += collar * collarTone + mount * mountTone;
+              height += collar * collarHeight + mount * mountHeight;
+              roughness += collar * collarRoughness + mount * mountRoughness;
+              occlusion += collar * collarAO + mount * mountAO;
+              metallic -= mount;
+            }
+          }
+          const shell =
+            smooth(clamp((p.shellHalfHeight - ay) * inverseShell)) *
+            smooth(clamp((p.shellHalfWidth - p.taper * y - ax) * inverseShell));
+          if (shell === 0) return;
+          color += shell * shellTone;
+          height += shell * shellHeight;
+          roughness += shell * shellRoughness;
+          occlusion += shell * shellAO - p.shellContactAO * shell * (1 - shell);
+          const face =
+            smooth(clamp((p.faceHalfHeight - ay) * inverseFace)) *
+            smooth(clamp((p.faceHalfWidth - p.taper * y - ax) * inverseFace));
+          if (face === 0) return;
+          // Nested supports stay inside full cores; common finish grain cancels.
+          color += face * faceTone;
+          height += face * faceHeight;
+          roughness += face * faceRoughness;
+          occlusion += face * faceAO - p.faceContactAO * face * (1 - face);
+          metallic -= face;
+          const sy = ay - p.rowY;
+          // Both sides of row/column owner joins lie outside every socket's support.
+          if (Math.abs(sy) < p.socketRadius) {
+            const top = y < 0,
+              count = top ? p.topSockets : p.bottomSockets,
+              center = top ? topCenter : bottomCenter,
+              owner = Math.floor(x * inversePitch + center + 0.5);
+            if (owner >= 0 && owner < count) {
+              const sx = x - (owner - center) * p.pitch,
+                socket = smooth(
+                  clamp((socketSquared - sx * sx - sy * sy) * inverseSocket),
+                );
+              // Opaque floors depict unresolved interiors, not visible gold contacts.
+              color += socket * socketTone;
+              height += socket * socketHeight;
+              roughness += socket * socketRoughness;
+              occlusion += socket * socketAO;
+            }
+          }
+          return;
+        };
+      }
       case 'topadjusttrimmers': {
         const p = proceduralMaterialPresets.topadjusttrimmers,
           poses = new Float64Array(p.cells * p.cells * 6),
@@ -41365,6 +41509,7 @@ export function createSurfaceSampler(
     kind === 'lathplaster' ||
     kind === 'ceramiccapacitors' ||
     kind === 'fennelseeds' ||
+    kind === 'dsubsocketfaces' ||
     kind === 'topadjusttrimmers' ||
     kind === 'crownprobetips' ||
     kind === 'piezodiaphragms' ||
