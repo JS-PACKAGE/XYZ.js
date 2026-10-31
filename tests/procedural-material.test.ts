@@ -517,6 +517,7 @@ const kinds: ProceduralMaterialKind[] = [
   'watermelontourmaline',
   'leafstomata',
   'chitonshells',
+  'radiolariandiscs',
   'diatomvalves',
   'orbicularjasper',
   'acornbarnacles',
@@ -114439,6 +114440,577 @@ describe('Fully populated BGA solder-ball matrices on dielectric square carriers
       expect(fraction).toBeLessThan(0.2);
       expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
       expect(m.maxTilt).toBeGreaterThan(0.001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
+    },
+  );
+});
+
+describe('Radiolarian equatorial cutaways with concentric girdles and outward-growing annular septa', () => {
+  const p = proceduralMaterialPresets.radiolariandiscs;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const regions = (
+    mask: Uint8Array,
+    size: number,
+    queue: Int32Array,
+    heights: Float32Array,
+    diagonal: boolean,
+  ) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      peak: number;
+      xMin: number;
+      xMax: number;
+      yMin: number;
+      yMax: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        peak = first,
+        xMin = 1,
+        xMax = 0,
+        yMin = 1,
+        yMax = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        sx += x;
+        sy += y;
+        xMin = Math.min(xMin, x);
+        xMax = Math.max(xMax, x);
+        yMin = Math.min(yMin, y);
+        yMax = Math.max(yMax, y);
+        if (heights[at] > heights[peak]) peak = at;
+        for (let d = 0; d < (diagonal ? 8 : 4); d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      result.push({
+        area: write,
+        cx: sx / write,
+        cy: sy / write,
+        peak,
+        xMin,
+        xMax,
+        yMin,
+        yMax,
+      });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const sample = createSurfaceSampler('radiolariandiscs', seed),
+      size = 768,
+      s = empty(),
+      heights = new Float32Array(size * size),
+      queue = new Int32Array(size * size);
+    let invalid = 0,
+      min = Infinity,
+      max = -Infinity;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        for (const key of keys) invalid += Number(!Number.isFinite(s[key]));
+        const h = s.height / p.relief;
+        heights[y * size + x] = h;
+        min = Math.min(min, h);
+        max = Math.max(max, h);
+      }
+    const level = (min + max) / 2,
+      wallMask = new Uint8Array(heights.length),
+      voidMask = new Uint8Array(heights.length);
+    for (let k = 0; k < heights.length; k++) {
+      wallMask[k] = Number(heights[k] > level);
+      voidMask[k] = 1 - wallMask[k];
+    }
+    // Foreground-8 / background-4 is the dual digital topology; do not leak voids through diagonal wall contacts.
+    const walls = regions(wallMask, size, queue, heights, true),
+      voids = regions(voidMask, size, queue, heights, false)
+        .sort((a, b) => b.area - a.area)
+        .slice(1),
+      assigned = walls.map(() => [] as typeof voids);
+    for (const hole of voids) {
+      let best = -1,
+        distance = Infinity;
+      for (let k = 0; k < walls.length; k++) {
+        const d = (hole.cx - walls[k].cx) ** 2 + (hole.cy - walls[k].cy) ** 2;
+        if (d < distance) {
+          distance = d;
+          best = k;
+        }
+      }
+      if (best >= 0) assigned[best].push(hole);
+    }
+    const parts = [] as {
+      chambers: number;
+      rows: {
+        count: number;
+        radialCV: number;
+        angularCV: number;
+        areaCV: number;
+      }[];
+      spines: number;
+      spineCV: number;
+      missingRays: number;
+      circularity: number;
+      centering: number;
+      rise: number;
+      color: number;
+      finish: number;
+      shadow: number;
+    }[];
+    for (let wi = 0; wi < walls.length; wi++) {
+      const cavities = assigned[wi],
+        wall = walls[wi];
+      if (!cavities.length) continue;
+      cavities.sort(
+        (a, b) =>
+          (a.cx - wall.cx) ** 2 +
+          (a.cy - wall.cy) ** 2 -
+          ((b.cx - wall.cx) ** 2 + (b.cy - wall.cy) ** 2),
+      );
+      const central = cavities[0],
+        cx = central.cx,
+        cy = central.cy,
+        polar = cavities
+          .slice(1)
+          .map((h) => ({
+            area: h.area,
+            r: Math.hypot(h.cx - cx, h.cy - cy),
+            angle: Math.atan2(h.cy - cy, h.cx - cx),
+          }))
+          .sort((a, b) => a.r - b.r),
+        groups = [] as { members: typeof polar; sum: number }[];
+      const outer = polar.length ? polar[polar.length - 1].r : 0;
+      for (const cell of polar) {
+        const last = groups[groups.length - 1];
+        if (!last || cell.r - last.sum / last.members.length > outer * 0.08)
+          groups.push({ members: [cell], sum: cell.r });
+        else {
+          last.members.push(cell);
+          last.sum += cell.r;
+        }
+      }
+      const rows = groups.map((group) => {
+        const members = group.members,
+          n = members.length,
+          mean = group.sum / n,
+          step = (Math.PI * 2) / n;
+        let rr = 0,
+          aa = 0,
+          area = 0,
+          area2 = 0;
+        members.sort((a, b) => a.angle - b.angle);
+        for (let k = 0; k < n; k++) {
+          const cell = members[k],
+            next = members[(k + 1) % n];
+          rr += (cell.r - mean) ** 2;
+          area += cell.area;
+          area2 += cell.area * cell.area;
+          const delta =
+            next.angle - cell.angle + (k === n - 1 ? Math.PI * 2 : 0);
+          aa += (delta - step) ** 2;
+        }
+        return {
+          count: n,
+          radialCV: Math.sqrt(rr / n) / mean,
+          angularCV: Math.sqrt(aa / n) / step,
+          areaCV:
+            Math.sqrt(Math.max(0, area2 / n - (area / n) ** 2)) / (area / n),
+        };
+      });
+      let bound = 0;
+      for (const x of [wall.xMin, wall.xMax])
+        for (const y of [wall.yMin, wall.yMax])
+          bound = Math.max(bound, Math.hypot(x - cx, y - cy));
+      bound += 2 / size;
+      const n = 720,
+        profile = new Float64Array(n);
+      let missingRays = 0;
+      for (let k = 0; k < n; k++) {
+        const angle = (Math.PI * 2 * k) / n,
+          dx = Math.cos(angle),
+          dy = Math.sin(angle);
+        let outside = bound,
+          inside = -1;
+        for (let j = 1; j <= 512; j++) {
+          const r = bound * (1 - j / 512);
+          sample(cx + r * dx, cy + r * dy, s);
+          if (s.height / p.relief > level) {
+            inside = r;
+            break;
+          }
+          outside = r;
+        }
+        if (inside < 0) {
+          missingRays++;
+          continue;
+        }
+        for (let j = 0; j < 20; j++) {
+          const r = (inside + outside) / 2;
+          sample(cx + r * dx, cy + r * dy, s);
+          if (s.height / p.relief > level) inside = r;
+          else outside = r;
+        }
+        profile[k] = (inside + outside) / 2;
+      }
+      const sorted = profile.slice().sort(),
+        base = sorted[n >> 1],
+        cut = base * 1.04,
+        peaks = [] as number[];
+      for (let k = 0; k < n; k++)
+        if (profile[k] > cut && profile[(k + n - 1) % n] <= cut) {
+          let best = k;
+          for (let j = 1; j < n && profile[(k + j) % n] > cut; j++) {
+            const at = (k + j) % n;
+            if (profile[at] > profile[best]) best = at;
+          }
+          peaks.push((best * Math.PI * 2) / n);
+        }
+      peaks.sort((a, b) => a - b);
+      const spines = peaks.length,
+        step = (Math.PI * 2) / spines;
+      let angularError = 0;
+      for (let k = 0; k < spines; k++)
+        angularError +=
+          (peaks[(k + 1) % spines] -
+            peaks[k] +
+            (k === spines - 1 ? Math.PI * 2 : 0) -
+            step) **
+          2;
+      const spineCV = spines
+        ? Math.sqrt(angularError / spines) / step
+        : Infinity;
+      const a = empty(),
+        b = empty();
+      sample(
+        ((wall.peak % size) + 0.5) / size,
+        (Math.floor(wall.peak / size) + 0.5) / size,
+        a,
+      );
+      sample(cx, cy, b);
+      parts.push({
+        chambers: cavities.length,
+        rows,
+        spines,
+        spineCV,
+        missingRays,
+        circularity: base
+          ? (sorted[Math.floor(n * 0.8)] - sorted[Math.floor(n * 0.2)]) / base
+          : Infinity,
+        centering: base
+          ? Math.hypot(cx - wall.cx, cy - wall.cy) / base
+          : Infinity,
+        rise: (a.height - b.height) / p.relief,
+        color: a.color - b.color,
+        finish: b.roughness - a.roughness,
+        shadow: a.occlusion - b.occlusion,
+      });
+    }
+    return { invalid, discs: walls.length, voids: voids.length, parts };
+  };
+  const cache = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = cache.get(seed);
+    if (!result) {
+      result = measure(seed);
+      cache.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('radiolariandiscs', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps a central chamber and complete outward-growing annular chamber rows inside separate skeletal discs (seed %s)',
+    (seed) => {
+      const m = measured(seed),
+        chambers = 1 + p.axesBase * (p.rings - 1) * p.rings;
+      expect(m.invalid).toBe(0);
+      expect(m.discs).toBe(p.cells * p.cells);
+      expect(m.voids).toBe(p.cells * p.cells * chambers);
+      expect(m.parts.length).toBe(p.cells * p.cells);
+      for (const part of m.parts) {
+        expect(part.chambers).toBe(chambers);
+        expect(part.rows.length).toBe(p.rings - 1);
+        for (let k = 0; k < part.rows.length; k++)
+          expect(part.rows[k].count).toBe(2 * p.axesBase * (k + 1));
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'retains concentric circular chamber rows and evenly spaced short marginal spines (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.spines).toBe(2 * p.axesBase);
+        expect(part.spineCV).toBeLessThan(0.06);
+        expect(part.missingRays).toBe(0);
+        expect(part.circularity).toBeLessThan(0.02);
+        expect(part.centering).toBeLessThan(0.025);
+        for (const row of part.rows) {
+          expect(row.radialCV).toBeLessThan(0.04);
+          expect(row.angularCV).toBeLessThan(0.08);
+          expect(row.areaCV).toBeLessThan(0.1);
+        }
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'raises pale smoother mineral skeletons above dark rough shadowed cutaway chambers (seed %s)',
+    (seed) => {
+      for (const part of measured(seed).parts) {
+        expect(part.rise).toBeGreaterThan(0.35);
+        expect(part.color).toBeGreaterThan(0.5);
+        expect(part.finish).toBeGreaterThan(0.15);
+        expect(part.shadow).toBeGreaterThan(0.25);
+      }
+    },
+  );
+  it('changes skeletal silhouettes and chamber footprints across seeds rather than only their finish', () => {
+    const first = createSurfaceSampler('radiolariandiscs', 0),
+      a = empty(),
+      b = empty(),
+      level = (p.backingHeight + p.wallHeight) * 0.5;
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('radiolariandiscs', seed);
+      let changed = 0;
+      for (let j = 0; j < 8192; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(
+          a.height / p.relief > level !== b.height / p.relief > level,
+        );
+      }
+      expect(changed / 8192).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps annular supports, septum joins, axis owners, tapered tips and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.1);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'encodes opaque dielectric skeletons and nonflat positive-Z unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('radiolariandiscs', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels).toBe(0);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(100);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
       expect(m.normalLengthError).toBeLessThan(0.014);
       expect(m.backFacing).toBe(0);
       expect(m.invalidAlpha).toBe(0);

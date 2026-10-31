@@ -554,6 +554,7 @@ try {
     'watermelontourmaline',
     'leafstomata',
     'chitonshells',
+    'radiolariandiscs',
     'diatomvalves',
     'orbicularjasper',
     'acornbarnacles',

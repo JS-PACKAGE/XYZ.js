@@ -3035,6 +3035,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         centralRadius: 0.055;
         wallShoulder: 0.35;
     }>;
+    radiolariandiscs: Readonly<{
+        dark: readonly [28, 31, 34];
+        light: readonly [235, 232, 218];
+        roughness: 0.65;
+        relief: 0.0022;
+        cells: 2;
+        jitter: 0.025;
+        scaleMin: 0.94;
+        scaleVariation: 0.12;
+        rings: 4;
+        firstRadius: 0.055;
+        ringSpacing: 0.085;
+        ringWidth: 0.0125;
+        axesBase: 3;
+        stagger: 0.5;
+        ribWidth: 0.009;
+        joinWidth: 0.012;
+        spineLength: 0.4;
+        backingTone: 0.03;
+        wallTone: 0.84;
+        backingHeight: 0.04;
+        wallHeight: 0.65;
+        grainHeight: 0.004;
+        grainTone: 0.03;
+        grainRoughness: 0.02;
+        backingRoughness: 0.94;
+        backingAO: 0.45;
+        wallAO: 0.96;
+    }>;
     diatomvalves: Readonly<{
         dark: readonly [31, 35, 36];
         light: readonly [232, 225, 207];
@@ -11556,6 +11585,7 @@ export declare const proceduralTileMeters: Readonly<{
     watermelontourmaline: 0.08;
     leafstomata: 0.00025;
     chitonshells: 0.12;
+    radiolariandiscs: 0.00024;
     diatomvalves: 0.00012;
     orbicularjasper: 0.12;
     acornbarnacles: 0.12;

@@ -28056,6 +28056,144 @@ export function createSurfaceSampler(
           occlusion += face * (p.plateOcclusion - occlusion);
         };
       }
+      case 'radiolariandiscs': {
+        const p = proceduralMaterialPresets.radiolariandiscs,
+          count = p.rings - 1,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          rings = new Float64Array(p.rings * 3),
+          girdles = new Float64Array(count * 4),
+          axes = new Float64Array(p.axesBase * count * (count + 1)),
+          grainField = cachedNoise(96, 96, seed ^ 0x1cf11),
+          lastRadius = p.firstRadius + count * p.ringSpacing,
+          lastSquared = lastRadius * lastRadius,
+          inverseRib = 1 / (p.ribWidth * p.ribWidth),
+          inverseSpineTip = 1 / (p.spineLength - lastRadius),
+          inverseSpineRoot = 1 / (2 * lastRadius * p.joinWidth),
+          supportSquared = Math.max(
+            p.spineLength * p.spineLength + p.ribWidth * p.ribWidth,
+            lastSquared + 2 * lastRadius * p.ringWidth,
+          );
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.scaleMin + p.scaleVariation * hash(col, row, seed ^ 0x1cf13),
+              angle = TAU * hash(col, row, seed ^ 0x1cf15);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf17) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1cf19) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        let offset = 0;
+        for (let ring = 0; ring < p.rings; ring++) {
+          const radius = p.firstRadius + ring * p.ringSpacing,
+            band = 2 * radius * p.ringWidth;
+          rings[ring * 3] = radius * radius;
+          rings[ring * 3 + 1] = 1 / (band * band);
+          rings[ring * 3 + 2] = (radius + p.ringSpacing * 0.5) ** 2;
+          if (ring < count) {
+            const n = p.axesBase * (ring + 1),
+              base = ring * 4;
+            girdles[base] = offset;
+            girdles[base + 1] = n;
+            girdles[base + 2] = 1 / (2 * radius * p.joinWidth);
+            girdles[base + 3] =
+              1 / (2 * (radius + p.ringSpacing) * p.joinWidth);
+            for (let axis = 0; axis < n; axis++) {
+              const angle = (Math.PI * (axis + (ring & 1 ? 0 : p.stagger))) / n;
+              axes[offset++] = Math.cos(angle);
+              axes[offset++] = Math.sin(angle);
+            }
+          }
+        }
+        const spineBase = girdles[(count - 1) * 4],
+          spineStride = count * 2;
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            r2 = x * x + y * y;
+          if (r2 >= supportSquared) return;
+          // Girdle ownership changes on a full zero-slope ring; both septal gates vanish there.
+          let girdle = 0;
+          while (girdle < count && r2 > rings[(girdle + 1) * 3]) girdle++;
+          const ring =
+              girdle < count && r2 > rings[girdle * 3 + 2]
+                ? girdle + 1
+                : girdle,
+            delta = r2 - rings[ring * 3],
+            rq = delta * delta * rings[ring * 3 + 1];
+          let cover = rq < 1 ? (1 - rq) * (1 - rq) : 0;
+          if (girdle < count && r2 > rings[girdle * 3]) {
+            const base = girdle * 4,
+              first = girdles[base],
+              n = girdles[base + 1],
+              gate =
+                smooth(clamp((r2 - rings[girdle * 3]) * girdles[base + 2])) *
+                smooth(
+                  clamp((rings[(girdle + 1) * 3] - r2) * girdles[base + 3]),
+                );
+            // Nearest-axis ties lie outside both compact ribs, keeping the owner switch C1.
+            let closest = first,
+              best = -1;
+            for (let axis = 0; axis < n; axis++) {
+              const at = first + axis * 2,
+                projection = Math.abs(x * axes[at] + y * axes[at + 1]);
+              if (projection > best) {
+                best = projection;
+                closest = at;
+              }
+            }
+            const cross = x * axes[closest + 1] - y * axes[closest],
+              q = cross * cross * inverseRib,
+              rib = q < 1 ? (1 - q) * (1 - q) * gate : 0;
+            cover += rib * (1 - cover);
+          }
+          if (r2 > lastSquared) {
+            let closest = spineBase,
+              best = -1;
+            for (let axis = 0; axis < p.axesBase; axis++) {
+              const at = spineBase + axis * spineStride,
+                projection = Math.abs(x * axes[at] + y * axes[at + 1]);
+              if (projection > best) {
+                best = projection;
+                closest = at;
+              }
+            }
+            const cross = x * axes[closest + 1] - y * axes[closest],
+              q = cross * cross * inverseRib,
+              spine =
+                q < 1
+                  ? (1 - q) *
+                    (1 - q) *
+                    smooth(clamp((p.spineLength - best) * inverseSpineTip)) *
+                    smooth(clamp((r2 - lastSquared) * inverseSpineRoot))
+                  : 0;
+            cover += spine * (1 - cover);
+          }
+          if (cover === 0) return;
+          const grain = grainField(u, v);
+          color += cover * (p.wallTone + p.grainTone * grain - color);
+          height += cover * (p.wallHeight + p.grainHeight * grain - height);
+          roughness +=
+            cover * (p.roughness + p.grainRoughness * grain - roughness);
+          occlusion += cover * (p.wallAO - occlusion);
+          return;
+        };
+      }
       case 'diatomvalves': {
         const p = proceduralMaterialPresets.diatomvalves,
           poses = new Float64Array(p.cells * p.cells * 5),
@@ -40899,6 +41037,7 @@ export function createSurfaceSampler(
     kind === 'watermelontourmaline' ||
     kind === 'leafstomata' ||
     kind === 'chitonshells' ||
+    kind === 'radiolariandiscs' ||
     kind === 'diatomvalves' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||

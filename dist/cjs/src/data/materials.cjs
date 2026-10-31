@@ -6593,6 +6593,43 @@ var proceduralMaterialPresets = Object.freeze({
 		centralRadius: .055,
 		wallShoulder: .35
 	}),
+	radiolariandiscs: Object.freeze({
+		dark: [
+			28,
+			31,
+			34
+		],
+		light: [
+			235,
+			232,
+			218
+		],
+		roughness: .65,
+		relief: .0022,
+		cells: 2,
+		jitter: .025,
+		scaleMin: .94,
+		scaleVariation: .12,
+		rings: 4,
+		firstRadius: .055,
+		ringSpacing: .085,
+		ringWidth: .0125,
+		axesBase: 3,
+		stagger: .5,
+		ribWidth: .009,
+		joinWidth: .012,
+		spineLength: .4,
+		backingTone: .03,
+		wallTone: .84,
+		backingHeight: .04,
+		wallHeight: .65,
+		grainHeight: .004,
+		grainTone: .03,
+		grainRoughness: .02,
+		backingRoughness: .94,
+		backingAO: .45,
+		wallAO: .96
+	}),
 	diatomvalves: Object.freeze({
 		dark: [
 			31,
@@ -19220,6 +19257,7 @@ var proceduralTileMeters = Object.freeze({
 	watermelontourmaline: .08,
 	leafstomata: 25e-5,
 	chitonshells: .12,
+	radiolariandiscs: 24e-5,
 	diatomvalves: 12e-5,
 	orbicularjasper: .12,
 	acornbarnacles: .12,
