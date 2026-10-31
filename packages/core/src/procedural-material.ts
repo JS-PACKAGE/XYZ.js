@@ -490,6 +490,7 @@ export type ProceduralMaterialKind =
   | 'watermelontourmaline'
   | 'leafstomata'
   | 'chitonshells'
+  | 'diatomvalves'
   | 'orbicularjasper'
   | 'acornbarnacles'
   | 'circularpavers'
@@ -1598,6 +1599,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'watermelontourmaline',
   'leafstomata',
   'chitonshells',
+  'diatomvalves',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',

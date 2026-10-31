@@ -516,6 +516,7 @@ const kinds: ProceduralMaterialKind[] = [
   'watermelontourmaline',
   'leafstomata',
   'chitonshells',
+  'diatomvalves',
   'orbicularjasper',
   'acornbarnacles',
   'circularpavers',
@@ -112095,6 +112096,652 @@ describe('Opaque schematic chiton dorsal armor with eight directional valves', (
         expect(q.girdleContrast).toBeGreaterThan(10);
         expect(q.plateFinish).toBeGreaterThan(0.25);
       }
+    },
+  );
+});
+
+describe('Opaque naviculoid external valves with lineolate striae and paired raphes', () => {
+  const p = proceduralMaterialPresets.diatomvalves;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const refineCurvature = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    relief: number,
+  ): number => {
+    const n = 512,
+      lines = 8,
+      values = new Float64Array((n + 1) * keys.length),
+      scores = new Float64Array(n + 1),
+      probes = [empty(), empty(), empty(), empty(), empty()];
+    let worst = 0;
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let score = 0;
+      for (const key of keys)
+        score = Math.max(
+          score,
+          Math.abs(c[key] - 2 * b[key] + a[key]) /
+            (key === 'height' ? relief : 1),
+        );
+      return score;
+    };
+    for (let axis = 0; axis < 2; axis++)
+      for (let line = 0; line < lines; line++) {
+        const fixed = (line + 0.37) / lines;
+        const read = (x: number, out: SurfaceSample): void => {
+          sample(axis ? fixed : x, axis ? x : fixed, out);
+        };
+        for (let i = 0; i <= n; i++) {
+          read(i / n, probes[0]);
+          for (let k = 0; k < keys.length; k++)
+            values[k * (n + 1) + i] =
+              probes[0][keys[k]] / (keys[k] === 'height' ? relief : 1);
+        }
+        scores.fill(0);
+        for (let i = 1; i < n; i++)
+          for (let k = 0; k < keys.length; k++) {
+            const at = k * (n + 1) + i;
+            scores[i] = Math.max(
+              scores[i],
+              Math.abs(values[at + 1] - 2 * values[at] + values[at - 1]),
+            );
+          }
+        // Refine observed shoulders instead of copying private seeded poses.
+        for (let i = 2; i < n - 1; i++) {
+          if (
+            scores[i] < scores[i - 1] ||
+            scores[i] < scores[i + 1] ||
+            scores[i] < 1e-5
+          )
+            continue;
+          let lo = (i - 1) / n,
+            span = 2 / n,
+            at = 0,
+            h = 0;
+          for (let step = 0; step < 24; step++) {
+            const q = span / 4;
+            for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+            const s0 = curvature(probes[0], probes[1], probes[2]),
+              s1 = curvature(probes[1], probes[2], probes[3]),
+              s2 = curvature(probes[2], probes[3], probes[4]);
+            let j = s1 > s0 ? 2 : 1;
+            if (s2 > Math.max(s0, s1)) j = 3;
+            at = lo + j * q;
+            h = q;
+            lo += (j - 1) * q;
+            span = 2 * q;
+          }
+          const u = axis ? fixed : at,
+            v = axis ? at : fixed;
+          for (let direction = 0; direction < 2; direction++) {
+            const du = direction ? 0 : h,
+              dv = direction ? h : 0;
+            sample(u - du, v - dv, probes[0]);
+            sample(u, v, probes[1]);
+            sample(u + du, v + dv, probes[2]);
+            worst = Math.max(
+              worst,
+              curvature(probes[0], probes[1], probes[2]) / h,
+            );
+          }
+        }
+      }
+    return worst;
+  };
+  const observePixels = (maps: ReturnType<typeof generateProceduralMaps>) => {
+    const count = maps.baseColor.length / 4,
+      buffers = Object.values(maps);
+    let roughPixels = 0,
+      minLuma = 255,
+      maxLuma = 0,
+      metallicPixels = 0,
+      maxTilt = 0,
+      normalLengthError = 0,
+      backFacing = 0,
+      invalidAlpha = 0;
+    for (let i = 0; i < count; i++) {
+      const j = i * 4,
+        nx = maps.normal[j] / 127.5 - 1,
+        ny = maps.normal[j + 1] / 127.5 - 1,
+        nz = maps.normal[j + 2] / 127.5 - 1,
+        luma =
+          0.2126 * maps.baseColor[j] +
+          0.7152 * maps.baseColor[j + 1] +
+          0.0722 * maps.baseColor[j + 2];
+      roughPixels += Number(maps.metallicRoughness[j + 1] / 255 > 0.6);
+      minLuma = Math.min(minLuma, luma);
+      maxLuma = Math.max(maxLuma, luma);
+      metallicPixels += Number(maps.metallicRoughness[j + 2] !== 0);
+      maxTilt = Math.max(maxTilt, nx * nx + ny * ny);
+      normalLengthError = Math.max(
+        normalLengthError,
+        Math.abs(nx * nx + ny * ny + nz * nz - 1),
+      );
+      backFacing += Number(nz <= 0);
+      for (const buffer of buffers)
+        invalidAlpha += Number(buffer[j + 3] !== 255);
+    }
+    return {
+      roughFraction: roughPixels / count,
+      metallicPixels,
+      maxTilt,
+      minLuma,
+      maxLuma,
+      normalLengthError,
+      backFacing,
+      invalidAlpha,
+    };
+  };
+  const regions = (mask: Uint8Array, size: number, queue: Int32Array) => {
+    const result = [] as {
+      area: number;
+      cx: number;
+      cy: number;
+      xx: number;
+      yy: number;
+      xy: number;
+    }[];
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first]) continue;
+      let read = 0,
+        write = 1,
+        sx = 0,
+        sy = 0,
+        sxx = 0,
+        syy = 0,
+        sxy = 0;
+      queue[0] = first;
+      mask[first] = 0;
+      while (read < write) {
+        const at = queue[read++],
+          ix = at % size,
+          iy = Math.floor(at / size),
+          x = (ix + 0.5) / size,
+          y = (iy + 0.5) / size;
+        sx += x;
+        sy += y;
+        sxx += x * x;
+        syy += y * y;
+        sxy += x * y;
+        for (let d = 0; d < 8; d++) {
+          const ox = d < 4 ? (d === 0 ? 1 : d === 1 ? -1 : 0) : d % 2 ? 1 : -1,
+            oy = d < 4 ? (d === 2 ? 1 : d === 3 ? -1 : 0) : d < 6 ? -1 : 1,
+            nx = (ix + ox + size) % size,
+            ny = (iy + oy + size) % size,
+            next = ny * size + nx;
+          if (mask[next]) {
+            mask[next] = 0;
+            queue[write++] = next;
+          }
+        }
+      }
+      const cx = sx / write,
+        cy = sy / write;
+      result.push({
+        area: write,
+        cx,
+        cy,
+        xx: sxx / write - cx * cx,
+        yy: syy / write - cy * cy,
+        xy: sxy / write - cx * cy,
+      });
+    }
+    return result;
+  };
+  const measure = (seed: number) => {
+    const size = Math.max(768, 384 * p.cells),
+      sample = createSurfaceSampler('diatomvalves', seed),
+      s = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        metallic: 0,
+        mortar: 0,
+      },
+      hs = new Float64Array(size * size),
+      cs = new Float64Array(size * size),
+      bodyMask = new Uint8Array(size * size),
+      holeMask = new Uint8Array(size * size),
+      queue = new Int32Array(size * size);
+    let invalid = 0;
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, s);
+        const at = y * size + x,
+          h = s.height / p.relief;
+        invalid += Number(
+          !Number.isFinite(
+            s.color +
+              s.height +
+              s.roughness +
+              s.occlusion +
+              s.metallic +
+              s.mortar,
+          ),
+        );
+        hs[at] = h;
+        cs[at] = s.color;
+        bodyMask[at] = Number(h > p.floorHeight + 0.045);
+      }
+    const bodies = regions(bodyMask, size, queue).map((b) => {
+      const theta = 0.5 * Math.atan2(2 * b.xy, b.xx - b.yy),
+        ax = Math.cos(theta),
+        ay = Math.sin(theta),
+        delta = Math.hypot(b.xx - b.yy, 2 * b.xy),
+        major = (b.xx + b.yy + delta) / 2,
+        minor = (b.xx + b.yy - delta) / 2;
+      return {
+        ...b,
+        ax,
+        ay,
+        major,
+        minor,
+        aspect: Math.sqrt(major / minor),
+        length: 0,
+        width: 0,
+      };
+    });
+    for (const b of bodies) {
+      const exit = (ax: number, ay: number) => {
+        let inside = 0,
+          outside = 1 / p.cells;
+        for (let j = 1; j <= 256; j++) {
+          const t = j / (256 * p.cells);
+          sample(b.cx + t * ax, b.cy + t * ay, s);
+          if (s.height / p.relief <= p.floorHeight + 0.045) {
+            outside = t;
+            break;
+          }
+          inside = t;
+        }
+        for (let j = 0; j < 40; j++) {
+          const t = (inside + outside) / 2;
+          sample(b.cx + t * ax, b.cy + t * ay, s);
+          if (s.height / p.relief > p.floorHeight + 0.045) inside = t;
+          else outside = t;
+        }
+        return (inside + outside) / 2;
+      };
+      b.length = exit(b.ax, b.ay) + exit(-b.ax, -b.ay);
+      b.width = exit(-b.ay, b.ax) + exit(b.ay, -b.ax);
+    }
+    const owner = (x: number, y: number) => {
+      let best = 1 / 0,
+        result = bodies[0];
+      for (const b of bodies) {
+        const d = (x - b.cx) ** 2 + (y - b.cy) ** 2;
+        if (d < best) {
+          best = d;
+          result = b;
+        }
+      }
+      return result;
+    };
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const at = y * size + x;
+        if (hs[at] <= p.floorHeight + 0.045) continue;
+        const b = owner((x + 0.5) / size, (y + 0.5) / size);
+        const d = 0.045 * b.width,
+          u = (x + 0.5) / size,
+          v = (y + 0.5) / size;
+        sample(u - d * b.ay, v + d * b.ax, s);
+        const left = s.color;
+        sample(u + d * b.ay, v - d * b.ax, s);
+        holeMask[at] = Number(left > cs[at] + 0.1 && s.color > cs[at] + 0.1);
+      }
+    const holes = regions(holeMask, size, queue),
+      rows = [];
+    const median = (values: number[]) =>
+      values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
+    const probes = [empty(), empty(), empty()];
+    for (const b of bodies) {
+      const mine = holes.filter((h) => owner(h.cx, h.cy) === b),
+        stats = mine.map((h) => {
+          const vl =
+              b.ax * b.ax * h.xx + 2 * b.ax * b.ay * h.xy + b.ay * b.ay * h.yy,
+            vs =
+              b.ay * b.ay * h.xx - 2 * b.ax * b.ay * h.xy + b.ax * b.ax * h.yy;
+          return {
+            ...h,
+            long: Math.sqrt(Math.max(0, vl)),
+            aspect:
+              vs > 0.000000000000000001 ? Math.sqrt(Math.max(0, vl) / vs) : 0,
+            t: (h.cx - b.cx) * b.ax + (h.cy - b.cy) * b.ay,
+            z: -(h.cx - b.cx) * b.ay + (h.cy - b.cy) * b.ax,
+          };
+        }),
+        raphes = stats.filter((h) => h.long > 0.06 * b.length),
+        areolae = stats.filter((h) => h.long <= 0.06 * b.length),
+        aspects = areolae.map((h) => h.aspect).sort((a, b) => a - b);
+      const clusters = [] as {
+        mean: number;
+        items: typeof stats;
+      }[];
+      for (const h of areolae.sort((a, b) => a.t - b.t)) {
+        let group = clusters.at(-1);
+        if (!group || h.t - group.mean > 0.012 * b.length) {
+          group = { mean: h.t, items: [] };
+          clusters.push(group);
+        }
+        group.items.push(h);
+        group.mean =
+          group.items.reduce((a, r) => a + r.t, 0) / group.items.length;
+      }
+      const profile = [];
+      for (let j = 0; j <= 512; j++) {
+        const t = (-0.55 + (j / 512) * 1.1) * b.length;
+        let count = 0,
+          sz = 0;
+        for (let k = 0; k <= 64; k++) {
+          const z = (-0.35 + (k / 64) * 0.7) * Math.sqrt(b.minor),
+            x = b.cx + t * b.ax - z * b.ay,
+            y = b.cy + t * b.ay + z * b.ax;
+          sample(x, y, s);
+          const center = s.color,
+            d = 0.045 * b.width,
+            centerH = s.height / p.relief;
+          sample(x - d * b.ay, y + d * b.ax, s);
+          const left = s.color;
+          sample(x + d * b.ay, y - d * b.ax, s);
+          if (
+            centerH > p.floorHeight + 0.045 &&
+            left > center + 0.1 &&
+            s.color > center + 0.1
+          ) {
+            count++;
+            sz += z;
+          }
+        }
+        profile.push({ t, z: count ? sz / count : 0, lit: count > 0 });
+      }
+      const segments = [];
+      let start = -1;
+      for (let j = 0; j <= profile.length; j++) {
+        if (j < profile.length && profile[j].lit) {
+          if (start < 0) start = j;
+        } else if (start >= 0) {
+          segments.push(profile.slice(start, j));
+          start = -1;
+        }
+      }
+      const hooks = segments.map((seg) => {
+        const n = seg.length,
+          center = seg.filter((_, i) => i > n * 0.35 && i < n * 0.6),
+          near =
+            seg[0].t < 0
+              ? seg.slice(0, Math.ceil(n * 0.1))
+              : seg.slice(Math.floor(n * 0.9));
+        return (
+          (near.reduce((a, r) => a + r.z, 0) / near.length -
+            center.reduce((a, r) => a + r.z, 0) / center.length) /
+          b.width
+        );
+      });
+      const colors: number[] = [],
+        depths: number[] = [],
+        finishes: number[] = [],
+        aos: number[] = [];
+      for (const h of areolae) {
+        const d = 0.045 * b.width;
+        sample(h.cx, h.cy, probes[0]);
+        sample(h.cx - d * b.ay, h.cy + d * b.ax, probes[1]);
+        sample(h.cx + d * b.ay, h.cy - d * b.ax, probes[2]);
+        colors.push((probes[1].color + probes[2].color) / 2 - probes[0].color);
+        depths.push(
+          ((probes[1].height + probes[2].height) / 2 - probes[0].height) /
+            p.relief,
+        );
+        finishes.push(
+          probes[0].roughness - (probes[1].roughness + probes[2].roughness) / 2,
+        );
+        aos.push(
+          (probes[1].occlusion + probes[2].occlusion) / 2 - probes[0].occlusion,
+        );
+      }
+      const spacing = clusters
+          .slice(1)
+          .map((g, i) =>
+            g.mean * clusters[i].mean > 0 ? g.mean - clusters[i].mean : 0,
+          )
+          .filter((value) => value > 0),
+        meanSpacing = spacing.reduce((a, v) => a + v, 0) / spacing.length;
+      rows.push({
+        centralPores: areolae.filter(
+          (h) =>
+            Math.abs(h.t) < 0.05 * b.length && Math.abs(h.z) < 0.2 * b.width,
+        ).length,
+        spacingCV:
+          Math.sqrt(
+            spacing.reduce((a, v) => a + (v - meanSpacing) ** 2, 0) /
+              spacing.length,
+          ) / meanSpacing,
+        poreColor: median(colors),
+        poreDepth: median(depths),
+        poreFinish: median(finishes),
+        poreAO: median(aos),
+        area: b.area,
+        aspect: b.aspect,
+        holes: mine.length,
+        raphes: raphes.length,
+        areolae: areolae.length,
+        areolaMedian: aspects[Math.floor(aspects.length / 2)],
+        elongatedFraction:
+          aspects.filter((a) => a > 1.5).length / aspects.length,
+        striae: clusters.length,
+        pairedFraction:
+          clusters.filter(
+            (g) => g.items.some((h) => h.z < 0) && g.items.some((h) => h.z > 0),
+          ).length / clusters.length,
+        axisSegments: segments.length,
+        centralGap:
+          segments.length === 2
+            ? (segments[1][0].t - segments[0][segments[0].length - 1].t) /
+              b.length
+            : 0,
+        hooks,
+      });
+    }
+    const radii = bodies.map((b) => Math.sqrt(b.area)),
+      meanRadius = radii.reduce((a, v) => a + v, 0) / radii.length,
+      positions = bodies.flatMap((b) => [
+        b.cx * p.cells - Math.floor(b.cx * p.cells) - 0.5,
+        b.cy * p.cells - Math.floor(b.cy * p.cells) - 0.5,
+      ]),
+      meanPosition = positions.reduce((a, v) => a + v, 0) / positions.length;
+    const radiusCV =
+        Math.sqrt(
+          radii.reduce((a, v) => a + (v - meanRadius) ** 2, 0) / radii.length,
+        ) / meanRadius,
+      positionSD = Math.sqrt(
+        positions.reduce((a, v) => a + (v - meanPosition) ** 2, 0) /
+          positions.length,
+      ),
+      orientation =
+        Math.hypot(
+          bodies.reduce((a, b) => a + b.ax * b.ax - b.ay * b.ay, 0),
+          bodies.reduce((a, b) => a + 2 * b.ax * b.ay, 0),
+        ) / bodies.length;
+    return {
+      seed,
+      size,
+      invalid,
+      bodies: bodies.length,
+      holes: holes.length,
+      rows,
+      radiusCV,
+      positionSD,
+      orientation,
+      corners: holes.map((h) => [h.cx, h.cy] as [number, number]),
+    };
+  };
+
+  const observations = new Map<number, ReturnType<typeof measure>>();
+  const measured = (seed: number) => {
+    let result = observations.get(seed);
+    if (!result) {
+      result = measure(seed);
+      observations.set(seed, result);
+    }
+    return result;
+  };
+  const continuity = (seed: number) => {
+    const sample = createSurfaceSampler('diatomvalves', seed),
+      a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10,
+      directions = [
+        [h, 0],
+        [0, h],
+        [h, h],
+        [h, -h],
+      ] as const;
+    let worst = refineCurvature(sample, p.relief),
+      period = 0;
+    const check = (u: number, v: number) => {
+      sample(u, v, b);
+      for (const [du, dv] of directions) {
+        sample(u - du, v - dv, a);
+        sample(u + du, v + dv, c);
+        for (const key of keys)
+          worst = Math.max(
+            worst,
+            Math.abs(c[key] - 2 * b[key] + a[key]) /
+              (h * (key === 'height' ? p.relief : 1)),
+          );
+      }
+    };
+    for (const [u, v] of measured(seed).corners) check(u, v);
+    for (let y = 0; y <= 128; y++)
+      for (let x = 0; x <= 128; x++) check(x / 128, y / 128);
+    for (let k = 0; k <= p.cells; k++)
+      for (let j = 0; j <= 2048; j++) {
+        check(k / p.cells, j / 2048);
+        check(j / 2048, k / p.cells);
+      }
+    for (let j = 0; j < 4096; j++) {
+      const u = (j * 0.61803398875) % 1,
+        v = (j * 0.41421356237) % 1;
+      sample(u, v, a);
+      sample(u - 2, v + 3, b);
+      for (const key of keys)
+        period = Math.max(
+          period,
+          Math.abs(a[key] - b[key]) / (key === 'height' ? p.relief : 1),
+        );
+    }
+    return { worst, period };
+  };
+  it.each([0, 7, 0xffffffff])(
+    'keeps separate finite lanceolate valves with seeded dimensions, placement and orientation (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      expect(m.invalid).toBe(0);
+      expect(m.bodies).toBe(p.cells * p.cells);
+      expect(m.radiusCV).toBeGreaterThan(0.01);
+      expect(m.positionSD).toBeGreaterThan(0.003);
+      expect(m.orientation).toBeLessThan(0.9);
+      for (const row of m.rows) {
+        expect(row.aspect).toBeGreaterThan(2.8);
+        expect(row.aspect).toBeLessThan(4.5);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'places elongated apical lineolae in paired regular transapical striae around a clear center (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      for (const row of m.rows) {
+        expect(row.areolae).toBeGreaterThan(30);
+        expect(row.areolaMedian).toBeGreaterThan(1.8);
+        expect(row.elongatedFraction).toBeGreaterThan(0.85);
+        expect(row.striae).toBeGreaterThan(14);
+        expect(row.pairedFraction).toBeGreaterThan(0.8);
+        expect(row.spacingCV).toBeLessThan(0.12);
+        expect(row.centralPores).toBe(0);
+      }
+    },
+  );
+  it.each([0, 7, 0xffffffff])(
+    'separates the paired raphes at the center with same-sided terminal bends and genuine recessed rough occluded pores (seed %s)',
+    (seed) => {
+      const m = measured(seed);
+      for (const row of m.rows) {
+        expect(row.raphes).toBe(2);
+        expect(row.axisSegments).toBe(2);
+        expect(row.centralGap).toBeGreaterThan(0.04);
+        expect(row.centralGap).toBeLessThan(0.16);
+        expect(Math.min(...row.hooks.map(Math.abs))).toBeGreaterThan(0.0015);
+        expect(row.hooks[0] * row.hooks[1]).toBeGreaterThan(0);
+        expect(row.poreColor).toBeGreaterThan(0.35);
+        expect(row.poreDepth).toBeGreaterThan(0.18);
+        expect(row.poreFinish).toBeGreaterThan(0.18);
+        expect(row.poreAO).toBeGreaterThan(0.35);
+      }
+    },
+  );
+  it('changes valve footprints across seeds rather than changing only pigment or grain', () => {
+    const first = createSurfaceSampler('diatomvalves', 0),
+      a = empty(),
+      b = empty(),
+      level = p.floorHeight + 0.045;
+    for (const seed of [7, 0xffffffff]) {
+      const other = createSurfaceSampler('diatomvalves', seed);
+      let changed = 0;
+      for (let j = 0; j < 4096; j++) {
+        const u = (j * 0.61803398875) % 1,
+          v = (j * 0.41421356237) % 1;
+        first(u, v, a);
+        other(u, v, b);
+        changed += Number(
+          a.height / p.relief > level !== b.height / p.relief > level,
+        );
+      }
+      expect(changed / 4096).toBeGreaterThan(0.02);
+    }
+  });
+  it.each([0, 7, 0xffffffff])(
+    'keeps valve rims, raphe caps, lineolae and signed UV wraps C1 (seed %s)',
+    (seed) => {
+      const m = continuity(seed);
+      expect(m.worst).toBeLessThan(0.15);
+      expect(m.period).toBeLessThan(1e-10);
+    },
+  );
+  it.each([32, 512])(
+    'writes opaque dielectric valve contrast and geometric unit normals at size%s',
+    (size) => {
+      const maps = generateProceduralMaps('diatomvalves', size, 7, {
+          heightMap: true,
+        }),
+        m = observePixels(maps);
+      expect(m.metallicPixels).toBe(0);
+      expect(m.maxLuma - m.minLuma).toBeGreaterThan(40);
+      expect(m.roughFraction).toBeGreaterThan(0.85);
+      expect(m.roughFraction).toBeLessThan(0.96);
+      expect(m.maxTilt).toBeGreaterThan(0.0001);
+      expect(m.normalLengthError).toBeLessThan(0.014);
+      expect(m.backFacing).toBe(0);
+      expect(m.invalidAlpha).toBe(0);
     },
   );
 });

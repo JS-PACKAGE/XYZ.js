@@ -553,6 +553,7 @@ try {
     'watermelontourmaline',
     'leafstomata',
     'chitonshells',
+    'diatomvalves',
     'orbicularjasper',
     'acornbarnacles',
     'circularpavers',

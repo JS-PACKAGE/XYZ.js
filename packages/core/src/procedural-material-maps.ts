@@ -27958,6 +27958,182 @@ export function createSurfaceSampler(
           occlusion += face * (p.plateOcclusion - occlusion);
         };
       }
+      case 'diatomvalves': {
+        const p = proceduralMaterialPresets.diatomvalves,
+          poses = new Float64Array(p.cells * p.cells * 5),
+          // Row bounds keep whole lineolae outside the expanded central area.
+          rows = new Float64Array(p.rows * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x1d1a1),
+          inverseX = 1 / (p.radiusX * p.radiusX),
+          inverseY = 1 / (p.radiusY * p.radiusY),
+          inverseShoulder = 1 / p.shoulder,
+          pitch = (2 * p.rowExtent) / p.rows,
+          inversePitch = 1 / pitch,
+          inverseRowExtent = 1 / (p.rowExtent * p.rowExtent),
+          inverseColumnPitch = 1 / p.columnPitch,
+          inverseHoleX = 1 / (p.holeX * p.holeX),
+          inverseHoleY = 1 / (p.holeY * p.holeY),
+          inverseHoleShoulder = 1 / p.holeShoulder,
+          inverseCentralX = 1 / (p.centralX * p.centralX),
+          inverseCentralY = 1 / (p.centralY * p.centralY),
+          inverseRapheX = 1 / (p.rapheX * p.rapheX),
+          inverseRapheCap = 1 / p.rapheCap,
+          inverseRapheShoulder = 1 / p.rapheShoulder,
+          inverseProximalSpan = 1 / p.proximalSpan,
+          inverseHookSpan = 1 / (p.rapheEnd - p.hookStart),
+          inverseSternumX = 1 / (p.sternumX * p.sternumX),
+          inverseSternumShoulder = 1 / p.sternumShoulder;
+        for (let row = 0; row < p.rows; row++) {
+          const i = row * 4,
+            y = (row + 0.5) * pitch - p.rowExtent,
+            safeY = Math.abs(y) + p.curveFraction * pitch + p.holeY,
+            safeX =
+              p.radiusX * (1 - safeY * safeY * inverseY) - p.border - p.holeX;
+          rows[i] = y;
+          rows[i + 1] =
+            Math.sign(y) *
+            (1 - 2 * y * y * inverseRowExtent) *
+            p.curveFraction *
+            pitch;
+          const columns = Math.max(
+              0,
+              Math.min(
+                p.columns,
+                1 + Math.floor((safeX - p.firstHole) * inverseColumnPitch),
+              ),
+            ),
+            nearY = Math.max(
+              0,
+              Math.abs(y) - p.curveFraction * pitch - p.holeY,
+            );
+          let first = 0;
+          while (first < columns) {
+            const nearX = Math.max(
+              0,
+              p.firstHole + first * p.columnPitch - p.holeX,
+            );
+            if (
+              nearX * nearX * inverseCentralX +
+                nearY * nearY * inverseCentralY >
+              1
+            )
+              break;
+            first++;
+          }
+          rows[i + 2] = first;
+          rows[i + 3] = columns;
+        }
+        // Maximum default radius plus jitter is 0.47070 cell: one owner suffices.
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 5,
+              angle = TAU * hash(col, row, seed ^ 0x1d1a3),
+              scale =
+                p.scaleMinimum +
+                p.scaleVariation * hash(col, row, seed ^ 0x1d1a5),
+              invScale = 1 / scale;
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d1a7) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x1d1a9) - 1);
+            poses[i + 2] = Math.cos(angle) * invScale;
+            poses[i + 3] = Math.sin(angle) * invScale;
+            poses[i + 4] = p.valveVariation * hash(col, row, seed ^ 0x1d1ab);
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            i = (Math.floor(vc) * p.cells + Math.floor(uc)) * 5,
+            dx = fract(uc) - poses[i],
+            dy = fract(vc) - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y),
+            xx = x * x,
+            yy = y * y,
+            taper = 1 - yy * inverseY,
+            body =
+              ay < p.radiusY
+                ? smooth(
+                    clamp((taper * taper - xx * inverseX) * inverseShoulder),
+                  )
+                : 0;
+          color = p.floorTone;
+          height = p.floorHeight;
+          roughness = p.floorRoughness;
+          occlusion = p.floorOcclusion;
+          if (body === 0) return;
+          // Hole support stays inside its nearest-row and nearest-column intervals.
+          let pores = 0;
+          const row = Math.floor((y + p.rowExtent) * inversePitch),
+            column = Math.floor((ax - p.firstHole) * inverseColumnPitch + 0.5),
+            rowOffset = row * 4;
+          if (
+            row >= 0 &&
+            row < p.rows &&
+            column >= rows[rowOffset + 2] &&
+            column < rows[rowOffset + 3]
+          ) {
+            const hx = ax - p.firstHole - column * p.columnPitch,
+              hy = y - rows[rowOffset] - rows[rowOffset + 1] * xx * inverseX;
+            pores = smooth(
+              clamp(
+                (1 - hx * hx * inverseHoleX - hy * hy * inverseHoleY) *
+                  inverseHoleShoulder,
+              ),
+            );
+          }
+          const proximal = smooth(
+              clamp((p.rapheStart + p.proximalSpan - ay) * inverseProximalSpan),
+            ),
+            terminal = smooth(clamp((ay - p.hookStart) * inverseHookSpan)),
+            rx = x - p.proximalShift * proximal - p.hookShift * terminal,
+            ry =
+              (ay < p.rapheStart
+                ? ay - p.rapheStart
+                : ay > p.rapheEnd
+                  ? ay - p.rapheEnd
+                  : 0) * inverseRapheCap,
+            raphe = smooth(
+              clamp(
+                (1 - rx * rx * inverseRapheX - ry * ry) * inverseRapheShoulder,
+              ),
+            ),
+            sternum = smooth(
+              clamp((1 - xx * inverseSternumX) * inverseSternumShoulder),
+            ),
+            grain = grainField(u, v);
+          color +=
+            body *
+            (p.valveTone +
+              poses[i + 4] +
+              p.sternumTone * sternum +
+              p.grainColor * grain -
+              p.poreTone * pores -
+              p.rapheTone * raphe);
+          height +=
+            body *
+            (p.valveLift +
+              p.sternumLift * sternum +
+              p.grainHeight * grain -
+              p.poreDepth * pores -
+              p.rapheDepth * raphe);
+          roughness +=
+            body *
+            (p.roughness +
+              p.grainRoughness * grain +
+              p.poreRoughness * pores +
+              p.rapheRoughness * raphe -
+              roughness);
+          occlusion +=
+            body *
+            (p.valveOcclusion -
+              p.poreOcclusion * pores -
+              p.rapheOcclusion * raphe -
+              occlusion);
+        };
+      }
       case 'cardboardedge': {
         const p = proceduralMaterialPresets.cardboardedge;
         const phases = new Float64Array(p.rows);
@@ -40550,6 +40726,7 @@ export function createSurfaceSampler(
     kind === 'watermelontourmaline' ||
     kind === 'leafstomata' ||
     kind === 'chitonshells' ||
+    kind === 'diatomvalves' ||
     kind === 'moorecurve' ||
     kind === 'sierpinskicarpet' ||
     kind === 'chladnifigure' ||
