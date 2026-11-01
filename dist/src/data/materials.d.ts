@@ -12859,6 +12859,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.16;
     }>;
+    buffaloplaid: Readonly<{
+        dark: readonly [20, 6, 6];
+        light: readonly [214, 30, 28];
+        roughness: 0.86;
+        relief: 0.004;
+        checks: 4;
+        edgeSharpness: 5;
+        twillLines: 96;
+        threadCells: 192;
+        seedSalt: 45311;
+        baseTone: 0.92;
+        stripeDrop: 0.42;
+        twillTone: 0.05;
+        threadTone: 0.06;
+        twillHeight: 0.5;
+        threadHeight: 0.3;
+        overlapHeight: 0.1;
+        overlapRoughness: 0.04;
+        stripeOcclusion: 0.12;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14164,4 +14184,5 @@ export declare const proceduralTileMeters: Readonly<{
     cauliflowercurd: 0.12;
     amberbubbles: 0.12;
     jarrah: 0.18;
+    buffaloplaid: 0.25;
 }>;

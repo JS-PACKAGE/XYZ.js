@@ -11810,3 +11810,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Jarrah|jarrah|kinds|catalog|distinct|periodic"`定向測試，**2139項通過／3652項未選**。
 - 補記（瀏覽器gallery）：從乾淨worktree啟動的vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一選取raindropripples、europeanyew、coirdoormat、citruspeel、pumpkinskin、pomegranatearils、bubinga、cauliflowercurd與amberbubbles，並等待readout出現`Material <kind> `，**9種全部成功**，狀態列為「925 procedural material presets + plain」，`errors()`為空。第一次執行時因同時在跑完整suite造成CPU競爭，webgl2分頁的`#material`選取逾時；放寬等待（初始readout 240秒、每種60秒）後重跑兩條路徑皆通過。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質視覺比對或跨瀏覽器／GPU驗證；jarrah本身尚未納入。
 - 本功能未重跑完整179檔suite（amberbubbles commit的完整suite仍在凍結worktree執行，結果另記）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：水牛格紋（buffaloplaid）
+
+- 目錄926→927，含plain的gallery為928項。紅布上橫向與縱向各4條寬條紋（整數相位，隨tile wrap）：單向使布面變暗紅、兩向重疊處最暗近黑，形成經典的紅黑大格；布面帶斜向2/2斜紋脊（96條）與逐紗線雜訊。這是作者依一般水牛格紋襯衫布外觀所作示意，**沒有**引用特定來源，不宣稱符合任何織物規格或配色，也不含真實織紋結構、縫線或毛邊。
+- 專用sampler：條紋`0.5+0.5·tanh(5·sin(2π·4u))`（平滑方波，C∞）；顏色`0.92−0.42·(橫條紋+縱條紋)`加斜紋`cos(2π·96·(u+v))`與192²紗線雜訊（36,864 Float64／294,912 B）；重疊處roughness 0.86→0.90、AO 0.12。預設0.25 m tile、0.004 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版height式為`… − 0.1·重疊`，探測到重疊處height為−0.022 relief（超出[0,1]），改為`+ 0.1·(1 − 重疊)`；首版baseTone 0.96依推算（0.96＋斜紋0.025＋紗線0.03）無條紋處color可能超過1（此為推算、未實測），故改為0.92。我的探測腳本第一次以相位0.0625取樣各格中心，取到的並非條紋峰值（三種區域的平均都偏暗），改用相位0.25／0.75（正弦的峰／谷）後才得到正確結果。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）各格中心16點平均——雙向重疊0.081、單向0.502、無條紋0.921；整體color 0.026–0.973、平均約0.500；roughness 0.86（重疊0.90）、重疊AO 0.88；seed只改變紗線雜訊，seed 0與1取樣色差平均僅0.0114；seed7的512² r／g／b平均約(117,18,17)、r<70占23.6%、r>170占22.6%、法線max tilt²約0.460。以Bun產生512 seed7四圖並實看：整齊的紅黑大格與斜紋法線。
+- 新增5項永久測試（`Buffalo plaid`：三seed四種格區的平均色／roughness／AO、三seed整體範圍、seed只改紗線雜訊、含格緣／斜紋／紗線格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選10項通過（6.22s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Buffalo plaid|buffaloplaid|kinds|catalog|distinct|periodic"`定向測試，**2143項通過／3658項未選**。
+- 本功能未重跑完整179檔suite（amberbubbles commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（jarrah與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

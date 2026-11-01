@@ -38028,6 +38028,41 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'buffaloplaid': {
+        const p = proceduralMaterialPresets.buffaloplaid,
+          threads = cachedNoise(
+            p.threadCells,
+            p.threadCells,
+            seed ^ p.seedSalt,
+          );
+        return () => {
+          // Wide checks: tanh of a sine is a smooth square wave (C-infinity, integer
+          // checks wrap with the tile). A horizontal and a vertical stripe family each
+          // darken the cloth, so the overlap is darkest. A diagonal 2/2-twill ridge
+          // (integer line count) and per-thread noise add the weave.
+          const stripeU =
+              0.5 +
+              0.5 * Math.tanh(p.edgeSharpness * Math.sin(TAU * p.checks * u)),
+            stripeV =
+              0.5 +
+              0.5 * Math.tanh(p.edgeSharpness * Math.sin(TAU * p.checks * v)),
+            twill = 0.5 + 0.5 * Math.cos(TAU * p.twillLines * (u + v)),
+            thread = threads(u, v),
+            stripes = p.stripeDrop * (stripeU + stripeV);
+          color =
+            p.baseTone -
+            stripes +
+            p.twillTone * (twill - 0.5) +
+            p.threadTone * (thread - 0.5);
+          height =
+            p.twillHeight * twill +
+            p.threadHeight * thread +
+            p.overlapHeight * (1 - stripeU * stripeV);
+          roughness += p.overlapRoughness * stripeU * stripeV;
+          occlusion = 1 - p.stripeOcclusion * stripeU * stripeV;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45642,6 +45677,7 @@ export function createSurfaceSampler(
     kind === 'amberbubbles' ||
     kind === 'bubinga' ||
     kind === 'jarrah' ||
+    kind === 'buffaloplaid' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

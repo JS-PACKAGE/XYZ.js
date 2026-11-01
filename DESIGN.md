@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`buffaloplaid`（水牛格紋）使目前目錄926→927種，含plain的gallery為928項。紅布上橫向與縱向各4條寬條紋（相位為整數，隨tile wrap），單一方向的條紋使布面變成暗紅，兩方向重疊處最暗近黑，形成經典的紅黑大格；布面帶斜向2/2斜紋脊（96條）與逐紗線的雜訊。不是真實織紋結構、每條紗線的幾何、縫線、毛邊或褪色。
+
+此材質是作者依一般水牛格紋（buffalo plaid）襯衫布外觀所作示意，沒有引用特定來源文件、照片或量測；格數、條紋柔邊、斜紋線數、紅與近黑的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際織物規格或配色。
+
+新增專用sampler：條紋 = `0.5 + 0.5·tanh(5·sin(2π·4u))`（平滑方波，C∞，整數格數隨tile wrap），縱向同理；顏色 = `0.92 − 0.42·(橫條紋 + 縱條紋)`，加上斜紋`cos(2π·96·(u+v))`（整數線數）與192²逐紗線值雜訊（36,864 Float64／294,912 B lattice算術預算，非總RAM）；斜紋與紗線決定height，重疊處roughness略升（0.86→0.90）並帶AO 0.12。顏色是顏料，金屬factor為0、無mortar。預設0.25 m nominal tile與0.004 UV-relative relief（非公尺位移）皆作者設定。實作中修正兩處：首版baseTone 0.96，依推算（0.96＋斜紋0.025＋紗線0.03）無條紋處的color最高可能超過1（此為推算、未實測），故改為0.92；首版height含`− 0.1·重疊`，使重疊處height為負（−0.022 relief，超出[0,1]），改為`+ 0.1·(1 − 重疊)`。三seed（0／1／0xffffffff）量測：各格中心的16點平均——雙向重疊0.081、單向0.502、無條紋0.921；整體color 0.026–0.973、平均約0.500；roughness 0.86／重疊0.90；重疊處AO 0.88；seed只改變紗線雜訊，seed 0與1的取樣色差平均僅0.0114；seed7的512² r／g／b平均約(117,18,17)、r<70占23.6%、r>170占22.6%、法線max tilt²約0.460。我實看了四圖：整齊的紅黑大格與斜紋法線。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `jarrah`（賈拉木／澳洲桉）使目前目錄925→926種，含plain的gallery為927項。近似Eucalyptus marginata未塗裝縱向木面：磚紅偏棕的底色、中到粗的質地、2條很淡的暗紅褐起伏帶、縱向纖維與散布的細暗導管短痕（約0.65%）。不是淡黃至粉紅的窄邊材、膠囊／膠線（gum pockets）、捲曲紋、交錯／波浪紋或塗層。
 
 外觀依據實際閱讀的[Wood Database Jarrah](https://www.wood-database.com/jarrah/)（Color／Appearance：心材由淡紅或棕到較深的磚紅、見光變深；窄邊材為淡黃到粉紅；Grain／Texture：交錯或波浪紋、中到粗質地，可能有膠囊或膠線瑕疵）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/jarrah-s-400x400.jpg)（磚紅偏紫灰的均勻面、極淡的縱向色變與零星暗點）；僅作配色與紋理形態參考，**不**重現邊材、膠線、捲曲或交錯紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

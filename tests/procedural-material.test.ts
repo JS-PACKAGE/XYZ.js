@@ -968,6 +968,7 @@ const kinds: ProceduralMaterialKind[] = [
   'cauliflowercurd',
   'amberbubbles',
   'jarrah',
+  'buffaloplaid',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -142073,5 +142074,228 @@ describe('Brick-red brown Jarrah with medium-coarse texture and fine dark vessel
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Buffalo plaid with wide red and black checks on a twill-woven cloth with darkest overlaps', () => {
+  const p = proceduralMaterialPresets.buffaloplaid;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Stripe peaks sit at phase 1/4 of each check period and troughs at 3/4.
+  const patch = (
+    seed: number,
+    cu: number,
+    cv: number,
+  ): { color: number; roughness: number; occlusion: number } => {
+    const sample = createSurfaceSampler('buffaloplaid', seed),
+      out = empty();
+    let color = 0,
+      roughness = 0,
+      occlusion = 0,
+      count = 0;
+    for (let i = 0; i < p.checks; i++)
+      for (let j = 0; j < p.checks; j++)
+        for (let t = 0; t < 16; t++) {
+          sample(
+            (i + cu) / p.checks + ((t % 4) - 1.5) * 0.004,
+            (j + cv) / p.checks + (Math.floor(t / 4) - 1.5) * 0.004,
+            out,
+          );
+          color += out.color;
+          roughness += out.roughness;
+          occlusion += out.occlusion;
+          count++;
+        }
+    return {
+      color: color / count,
+      roughness: roughness / count,
+      occlusion: occlusion / count,
+    };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'darkens the cloth once per stripe family and most where they overlap, with rougher occluded overlaps for seed %s',
+    (seed) => {
+      const both = patch(seed, 0.25, 0.25),
+        horizontal = patch(seed, 0.25, 0.75),
+        vertical = patch(seed, 0.75, 0.25),
+        none = patch(seed, 0.75, 0.75);
+      expect(both.color).toBeGreaterThan(0.06);
+      expect(both.color).toBeLessThan(0.11);
+      expect(horizontal.color).toBeGreaterThan(0.47);
+      expect(horizontal.color).toBeLessThan(0.53);
+      expect(Math.abs(horizontal.color - vertical.color)).toBeLessThan(0.03);
+      expect(none.color).toBeGreaterThan(0.89);
+      expect(none.color).toBeLessThan(0.95);
+      expect(none.color - horizontal.color).toBeGreaterThan(0.38);
+      expect(horizontal.color - both.color).toBeGreaterThan(0.38);
+      expect(both.roughness).toBeCloseTo(p.roughness + p.overlapRoughness, 3);
+      expect(none.roughness).toBeCloseTo(p.roughness, 3);
+      expect(both.occlusion).toBeCloseTo(1 - p.stripeOcclusion, 3);
+      expect(none.occlusion).toBeCloseTo(1, 3);
+    },
+  );
+  it.each([0, 1, 0xffffffff])(
+    'keeps every channel finite and in range with a half-bright, half-red-black color distribution for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('buffaloplaid', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        mean = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeGreaterThan(0.02);
+      expect(low).toBeLessThan(0.04);
+      expect(high).toBeGreaterThan(0.96);
+      expect(high).toBeLessThan(0.99);
+      expect(mean / 65536).toBeGreaterThan(0.49);
+      expect(mean / 65536).toBeLessThan(0.51);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('changes only the thread noise with the seed, leaving the check layout fixed', () => {
+    const first = createSurfaceSampler('buffaloplaid', 0),
+      second = createSurfaceSampler('buffaloplaid', 1),
+      a = empty(),
+      b = empty();
+    let difference = 0,
+      samples = 0;
+    for (let y = 0; y < 128; y++)
+      for (let x = 0; x < 128; x++) {
+        first((x + 0.5) / 128, (y + 0.5) / 128, a);
+        second((x + 0.5) / 128, (y + 0.5) / 128, b);
+        difference += Math.abs(a.color - b.color);
+        samples++;
+      }
+    expect(difference / samples).toBeGreaterThan(0.005);
+    expect(difference / samples).toBeLessThan(0.03);
+    expect(patch(0, 0.25, 0.25).color).toBeCloseTo(
+      patch(1, 0.25, 0.25).color,
+      1,
+    );
+  });
+  it('keeps check edges, twill ridges and thread noise C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('buffaloplaid', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.checks, 4 * p.checks, p.twillLines, p.threadCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 red and black dielectric maps with about a quarter near-black overlaps and strong twill normals', () => {
+    const maps = generateProceduralMaps('buffaloplaid', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      dark = 0,
+      bright = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      dark += Number(maps.baseColor[i] < 70);
+      bright += Number(maps.baseColor[i] > 170);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(110);
+    expect(red / (512 * 512)).toBeLessThan(125);
+    expect(green / (512 * 512)).toBeGreaterThan(16);
+    expect(green / (512 * 512)).toBeLessThan(20);
+    expect(blue / (512 * 512)).toBeGreaterThan(15);
+    expect(blue / (512 * 512)).toBeLessThan(19);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.2);
+    expect(dark / (512 * 512)).toBeLessThan(0.27);
+    expect(bright / (512 * 512)).toBeGreaterThan(0.19);
+    expect(bright / (512 * 512)).toBeLessThan(0.26);
+    expect(maxTilt).toBeGreaterThan(0.38);
+    expect(maxTilt).toBeLessThan(0.55);
+    expect(invalid).toBe(0);
   });
 });
