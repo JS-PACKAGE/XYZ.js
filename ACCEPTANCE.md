@@ -11929,3 +11929,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與固定的縫佈局、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Raspberry with|raspberry"`通過（該filter也會命中一個既有的Eudialyte描述中含「Raspberry-red」的describe，所以通過項數比新增項多）。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Raspberry with|raspberry|kinds|catalog|distinct|periodic"`定向測試**2164項通過／3708項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：燕麥穀物脆片（granola）
+
+- 範圍：新增`granola`（目前目錄936→937種，含plain的gallery 938項）：蜂蜜褐色底面上兩層任意旋轉、邊緣被40×40週期雜訊擾動的橢圓塊（燕麥片9×9格、堅果／果乾14×14格），每個像素依固定順序合成3×3鄰格的塊（遮罩為C1），底面外露處AO降到0.6；預設0.2 m nominal tile、0.008 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**。
+- 外觀限制（誠實紀錄）：我實看預覽後認為它只是「勉強像」——不規則的奶油色塊與暗色小塊散在褐底上，也很像迷彩圖樣，比真實脆片平坦許多；第一版（正橢圓、邊緣光滑）像豆子或藥丸，加入邊緣雜訊後才採用。另外第一版的淡色塊色調變化（±0.2）讓最亮值達0.995，離1.0太近、換seed可能超出[0,1]，因此把變化降為±0.16（最亮約0.945–0.957）後才寫測試。
+- 實測（工具實跑）：三seed 512²取樣底面外露（AO<0.61）占37.0–39.7%（seed 7為41.1%）、淡色塊（color>0.5）占39.2–40.7%、深色塊（color<0.2）占0.49–0.58%、color 0.142–0.957、平均0.461–0.477、roughness恆為0.78、最低AO 0.6、height至多0.993–0.996 relief；seed 0與1的覆蓋遮罩48.0%像素不同；seed 7的512²maps平均r／g／b約(141, 116, 78)、AO<200占47.9%、法線tilt²最大約0.722、z分量最小196。
+- 測試：新增7項（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Granola|granola"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Granola|granola|kinds|catalog|distinct|periodic"`定向測試**2159項通過／3720項未選**。
+- 工作環境註記：我原本用來跑完整suite的凍結worktree `/private/tmp/xyz-suite`在這段期間被其他程序改動（`.git`連結不見、`node_modules`連結改指向另一個worktree，`git worktree list`標為prunable），我對該次suite的啟動因此失敗（`not a git repository`），沒有產生結果；我改建新的worktree `/private/tmp/xyz-ct-suite`重跑。更早在`50bbdf7da`取得的完整suite結果（9,747項通過）是在該目錄被改動之前完成的，不受影響。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

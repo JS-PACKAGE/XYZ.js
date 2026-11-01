@@ -38460,6 +38460,136 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'granola': {
+        const p = proceduralMaterialPresets.granola,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          edgeField = cachedNoise(
+            p.edgeCells,
+            p.edgeCells,
+            seed ^ (p.seedSalt + 2),
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          // Two layers of rotated elliptical pieces: pale oat flakes, then dark
+          // chunks of nut and dried fruit on top of them.
+          makeLayer = (
+            cells: number,
+            chance: number,
+            sizeMinimum: number,
+            sizeVariation: number,
+            stretch: number,
+            jitter: number,
+            tone: number,
+            toneVariation: number,
+            salt: number,
+          ) => {
+            const count = cells * cells,
+              layer = {
+                cells,
+                x: new Float64Array(count),
+                y: new Float64Array(count),
+                size: new Float64Array(count),
+                stretch: new Float64Array(count),
+                cos: new Float64Array(count),
+                sin: new Float64Array(count),
+                tone: new Float64Array(count),
+              };
+            for (let row = 0; row < cells; row++)
+              for (let col = 0; col < cells; col++) {
+                const i = row * cells + col,
+                  angle = Math.PI * hash(col, row, salt + 4);
+                layer.x[i] = jitter * 2 * (hash(col, row, salt) - 0.5);
+                layer.y[i] = jitter * 2 * (hash(col, row, salt + 1) - 0.5);
+                // A zero size means no piece is owned by this cell.
+                layer.size[i] =
+                  hash(col, row, salt + 2) < chance
+                    ? sizeMinimum + sizeVariation * hash(col, row, salt + 3)
+                    : 0;
+                layer.stretch[i] =
+                  1 + stretch * 2 * (hash(col, row, salt + 5) - 0.5);
+                layer.cos[i] = Math.cos(angle);
+                layer.sin[i] = Math.sin(angle);
+                layer.tone[i] =
+                  tone + toneVariation * 2 * (hash(col, row, salt + 6) - 0.5);
+              }
+            return layer;
+          },
+          flakes = makeLayer(
+            p.flakeCells,
+            p.flakeChance,
+            p.flakeSizeMinimum,
+            p.flakeSizeVariation,
+            p.flakeStretch,
+            p.flakeJitter,
+            p.flakeTone,
+            p.flakeToneVariation,
+            seed ^ p.seedSalt,
+          ),
+          chunks = makeLayer(
+            p.chunkCells,
+            p.chunkChance,
+            p.chunkSizeMinimum,
+            p.chunkSizeVariation,
+            p.chunkStretch,
+            p.chunkJitter,
+            p.chunkTone,
+            p.chunkToneVariation,
+            seed ^ (p.seedSalt + 0x40),
+          );
+        let shade = 0,
+          lift = 0,
+          rest = 1;
+        // Composite the pieces of one layer over what is already painted, in a fixed
+        // 3x3 order: value = value * (1 - m) + piece * m, with m a smooth mask of a
+        // smooth(1 - q) rotated ellipse, so overlaps stay C1.
+        const paint = (layer: typeof flakes, u: number, v: number): void => {
+          const wobble = 1 + p.edgeNoise * 2 * (edgeField(u, v) - 0.5),
+            n = layer.cells,
+            fx = fract(u) * n,
+            fy = fract(v) * n,
+            col = Math.floor(fx),
+            row = Math.floor(fy);
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++) {
+              const i = ((row + dr + n) % n) * n + ((col + dc + n) % n),
+                size = layer.size[i];
+              if (!size) continue;
+              const dx = fx - (col + dc) - 0.5 - layer.x[i],
+                dy = fy - (row + dr) - 0.5 - layer.y[i],
+                along =
+                  (dx * layer.cos[i] + dy * layer.sin[i]) /
+                  (size * layer.stretch[i]),
+                across =
+                  (dy * layer.cos[i] - dx * layer.sin[i]) /
+                  (size * (2 - layer.stretch[i])),
+                q = (along * along + across * across) * wobble,
+                mask = smooth(clamp((1 - q) * inverseSoft)),
+                dome = smooth(clamp(1 - q));
+              shade =
+                shade * (1 - mask) + (layer.tone[i] + p.domeTone * dome) * mask;
+              lift = lift * (1 - mask) + dome * mask;
+              rest *= 1 - mask;
+            }
+        };
+        return () => {
+          shade = 0;
+          lift = 0;
+          rest = 1;
+          paint(flakes, u, v);
+          paint(chunks, u, v);
+          const grain = grainField(u, v);
+          color =
+            p.groundTone * rest +
+            shade * (1 - rest) +
+            p.grainTone * (grain - 0.5);
+          height = p.domeHeight * lift + p.grainHeight * grain;
+          occlusion = 1 - p.groundOcclusion * rest;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46204,6 +46334,7 @@ export function createSurfaceSampler(
     kind === 'baconstrips' ||
     kind === 'salami' ||
     kind === 'raspberry' ||
+    kind === 'granola' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
