@@ -8469,6 +8469,39 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.74;
     }>;
+    sundialplate: Readonly<{
+        dark: readonly [30, 24, 16];
+        light: readonly [214, 176, 108];
+        roughness: 0.4;
+        relief: 0.003;
+        latitudeMin: 25;
+        latitudeSpan: 30;
+        plateRadius: 0.475;
+        lineOuter: 0.385;
+        lineInner: 0.03;
+        labelRadius: 0.405;
+        labelRadiusOuter: 0.447;
+        ringRadii: readonly [0.2, 0.3, 0.385];
+        digitPixel: 0.008;
+        lineHalf: 0.0034;
+        noonHalf: 0.0052;
+        ringHalf: 0.0016;
+        hubRadius: 0.014;
+        edgeSoft: 0.0012;
+        grainCells: 256;
+        plateTone: 0.62;
+        matTone: 0.28;
+        inkTone: 0.08;
+        hubTone: 0.9;
+        grainTone: 0.06;
+        inkHeight: 0.35;
+        plateHeight: 0.55;
+        hubHeight: 0.95;
+        matHeight: 0.15;
+        plateRoughness: 0.35;
+        inkRoughness: 0.55;
+        matRoughness: 0.85;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14954,6 +14987,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    sundialplate: 0.4;
     ledgersheet: 0.3;
     louvershutter: 0.4;
     chesterfieldtufting: 0.5;

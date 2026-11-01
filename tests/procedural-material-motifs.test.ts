@@ -9476,3 +9476,153 @@ describe('ledgersheet: the running balance adds up', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sundialplate: horizontal sundial hour lines follow the latitude formula', () => {
+  const p = proceduralMaterialPresets.sundialplate;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+  // Angle (radians, clockwise from straight up) of the hour line h hours from noon at a latitude.
+  const hourAngle = (h: number, latitude: number): number =>
+    Math.abs(h) === 6
+      ? (Math.sign(h) * Math.PI) / 2
+      : Math.atan(Math.sin(latitude) * Math.tan((h * Math.PI) / 12));
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'puts the thirteen hour lines at atan(sin(latitude) * tan(15 degrees * h)) (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sundialplate', seed),
+        out = empty(),
+        steps = 40000,
+        radius = 0.25;
+      // Scan a circle (clockwise from straight up) for dark runs: the hour lines.
+      const values: number[] = [];
+      for (let i = 0; i < steps; i++) {
+        const angle = ((i + 0.5) / steps) * Math.PI * 2;
+        sample(
+          0.5 + radius * Math.sin(angle),
+          0.5 - radius * Math.cos(angle),
+          out,
+        );
+        values.push(out.color);
+      }
+      // Hour lines only lie on the upper half of the plate; the lower half is blank.
+      const centers: number[] = [];
+      let start = -1;
+      for (let i = 0; i <= steps; i++) {
+        const dark = i < steps && values[i] < 0.3;
+        if (dark && start < 0) start = i;
+        if (!dark && start >= 0) {
+          centers.push((((start + i - 1) / 2 + 0.5) / steps) * 360);
+          start = -1;
+        }
+      }
+      // The noon line is straight up and straddles the start: merge its two halves.
+      const merged = centers.filter((angle) => angle > 1 && angle < 359);
+      merged.push(0);
+      merged.sort((a, b) => a - b);
+      const signed = merged
+        .map((angle) => (angle > 180 ? angle - 360 : angle))
+        .sort((a, b) => a - b);
+      expect(signed.length).toBe(13);
+      // Fit the latitude from the line one hour after noon, then check all thirteen lines.
+      const first = signed[7] * (Math.PI / 180),
+        latitude = Math.asin(Math.tan(first) / Math.tan(Math.PI / 12));
+      expect(latitude * (180 / Math.PI)).toBeGreaterThan(p.latitudeMin - 0.5);
+      expect(latitude * (180 / Math.PI)).toBeLessThan(
+        p.latitudeMin + p.latitudeSpan + 0.5,
+      );
+      for (let h = -6; h <= 6; h++)
+        expect(
+          Math.abs(signed[h + 6] - (hourAngle(h, latitude) * 180) / Math.PI),
+        ).toBeLessThan(0.15);
+      // Numerals: the clock hour printed beyond the end of each line (12 at noon).
+      for (let h = -6; h <= 6; h++) {
+        const angle = hourAngle(h, latitude),
+          // Numerals of neighbouring hours sit at alternating distances so they do not collide.
+          labelAt = h % 2 === 0 ? p.labelRadius : p.labelRadiusOuter,
+          cx = 0.5 + Math.sin(angle) * labelAt,
+          cy = 0.5 - Math.cos(angle) * labelAt,
+          expected = h === 0 ? 12 : h < 0 ? 12 + h : h,
+          digits = expected >= 10 ? 2 : 1,
+          read = (left: number): number => {
+            const bits: string[] = [];
+            for (let y = 0; y < 5; y++) {
+              let text = '';
+              for (let x = 0; x < 3; x++) {
+                sample(
+                  left + (x + 0.5) * p.digitPixel,
+                  cy + (y - 2) * p.digitPixel,
+                  out,
+                );
+                text += out.color < 0.3 ? '#' : '.';
+              }
+              bits.push(text);
+            }
+            return art.findIndex((rows) =>
+              rows.every((text, i) => text === bits[i]),
+            );
+          },
+          left = cx - ((digits * 4 - 1) / 2) * p.digitPixel;
+        const value =
+          digits === 2
+            ? read(left) * 10 + read(left + 4 * p.digitPixel)
+            : read(left);
+        expect(value).toBe(expected);
+      }
+      // The lower half of the circle (between 95 and 265 degrees from straight up) carries no lines.
+      let stray = 0;
+      for (let i = 0; i < steps; i++) {
+        const degrees = ((i + 0.5) / steps) * 360;
+        if (degrees > 95 && degrees < 265) stray += Number(values[i] < 0.3);
+      }
+      expect(stray).toBe(0);
+    },
+    30000,
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sundialplate', 0),
+      b = createSurfaceSampler('sundialplate', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

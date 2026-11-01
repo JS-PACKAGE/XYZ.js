@@ -14838,6 +14838,51 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .4,
 		paperRoughness: .74
 	}),
+	sundialplate: Object.freeze({
+		dark: [
+			30,
+			24,
+			16
+		],
+		light: [
+			214,
+			176,
+			108
+		],
+		roughness: .4,
+		relief: .003,
+		latitudeMin: 25,
+		latitudeSpan: 30,
+		plateRadius: .475,
+		lineOuter: .385,
+		lineInner: .03,
+		labelRadius: .405,
+		labelRadiusOuter: .447,
+		ringRadii: [
+			.2,
+			.3,
+			.385
+		],
+		digitPixel: .008,
+		lineHalf: .0034,
+		noonHalf: .0052,
+		ringHalf: .0016,
+		hubRadius: .014,
+		edgeSoft: .0012,
+		grainCells: 256,
+		plateTone: .62,
+		matTone: .28,
+		inkTone: .08,
+		hubTone: .9,
+		grainTone: .06,
+		inkHeight: .35,
+		plateHeight: .55,
+		hubHeight: .95,
+		matHeight: .15,
+		plateRoughness: .35,
+		inkRoughness: .55,
+		matRoughness: .85
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23519,6 +23564,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	sundialplate: .4,
 	ledgersheet: .3,
 	louvershutter: .4,
 	chesterfieldtufting: .5,

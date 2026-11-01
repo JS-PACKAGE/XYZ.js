@@ -22630,6 +22630,119 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sundialplate': {
+        const p = proceduralMaterialPresets.sundialplate,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28a01),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          latitude =
+            ((p.latitudeMin + p.latitudeSpan * hash(1, 2, seed ^ 0x28a03)) *
+              Math.PI) /
+            180,
+          // Horizontal sundial: the hour line for h hours from noon makes the angle
+          // atan(sin(latitude) * tan(15 degrees * h)) with the noon line (the vertical in the tile);
+          // the lines for -6 and +6 hours are the horizontal ones.
+          hourAngles: number[] = [],
+          labels: number[] = [];
+        for (let h = -6; h <= 6; h++) {
+          hourAngles.push(
+            Math.abs(h) === 6
+              ? (Math.sign(h) * Math.PI) / 2
+              : Math.atan(Math.sin(latitude) * Math.tan((h * Math.PI) / 12)),
+          );
+          labels.push(h === 0 ? 12 : h < 0 ? 12 + h : h);
+        }
+        // Noon is the line pointing up; the label of the line for h hours from noon is that clock hour.
+        const segmentDistance = (
+          x: number,
+          y: number,
+          angle: number,
+        ): number => {
+          // Distance from (x, y) to the ray from the origin in direction (sin angle, -cos angle),
+          // limited to the line radii.
+          const dx = Math.sin(angle),
+            dy = -Math.cos(angle),
+            t = x * dx + y * dy,
+            clamped = Math.min(p.lineOuter, Math.max(p.lineInner, t));
+          return Math.hypot(x - dx * clamped, y - dy * clamped);
+        };
+        return () => {
+          const x = u - 0.5,
+            y = v - 0.5,
+            radius = Math.hypot(x, y),
+            plate = cover(p.plateRadius - radius),
+            hub = cover(p.hubRadius - radius);
+          let ink = 0;
+          if (radius < p.plateRadius) {
+            for (let i = 0; i < hourAngles.length; i++) {
+              const half = i === 6 ? p.noonHalf : p.lineHalf;
+              ink = Math.max(
+                ink,
+                cover(half - segmentDistance(x, y, hourAngles[i])),
+              );
+            }
+            for (const ring of p.ringRadii)
+              ink = Math.max(ink, cover(p.ringHalf - Math.abs(radius - ring)));
+            // Hour numerals at the outer end of each line.
+            for (let i = 0; i < hourAngles.length; i++) {
+              const label = labels[i],
+                digits = label >= 10 ? 2 : 1,
+                labelAt = i % 2 === 0 ? p.labelRadius : p.labelRadiusOuter,
+                cx = Math.sin(hourAngles[i]) * labelAt,
+                cy = -Math.cos(hourAngles[i]) * labelAt,
+                left = cx - ((digits * 4 - 1) / 2) * p.digitPixel,
+                top = cy - 2.5 * p.digitPixel,
+                px = Math.floor((x - left) / p.digitPixel),
+                py = Math.floor((y - top) / p.digitPixel);
+              if (
+                px >= 0 &&
+                px < digits * 4 - 1 &&
+                px % 4 !== 3 &&
+                py >= 0 &&
+                py < 5
+              ) {
+                const value =
+                  digits === 2
+                    ? px < 3
+                      ? Math.floor(label / 10)
+                      : label % 10
+                    : label;
+                if (glyphs[value][py * 3 + (px % 4)] === '1') ink = 1;
+              }
+            }
+          }
+          const face = p.plateTone + p.grainTone * (grainField(u, v) - 0.5),
+            marked = face + (p.inkTone - face) * ink,
+            lit = marked + (p.hubTone - marked) * hub;
+          color = clamp(p.matTone + (lit - p.matTone) * plate);
+          height = clamp(
+            p.matHeight +
+              (p.plateHeight - p.matHeight) * plate +
+              (p.inkHeight - p.plateHeight) * ink * plate +
+              (p.hubHeight - p.plateHeight) * hub,
+          );
+          roughness =
+            p.matRoughness +
+            (p.plateRoughness +
+              (p.inkRoughness - p.plateRoughness) * ink -
+              p.matRoughness) *
+              plate;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50159,6 +50272,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sundialplate' ||
     kind === 'ledgersheet' ||
     kind === 'louvershutter' ||
     kind === 'chesterfieldtufting' ||

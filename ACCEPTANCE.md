@@ -11940,3 +11940,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`五百二十二項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×8列：以測試端獨立的3×5字型逐像素解碼列號、右對齊的金額（試三位數）與餘額（先試四位數，其左側必須是空白，否則退回三位數），列號等於列序、金額在100至999之間，且每列的餘額嚴格等於前面所有金額的累計總和；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "ledgersheet|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 完整測試的補記：在quasicrystalwaves提交（`9ee096f9a`）的狀態，以`git archive`匯出乾淨副本（`/private/tmp/xyz-suite`，執行期間不受我繼續編輯的影響），對它跑完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`：`2 passed`、**6064項全過**（約1392 s）。這一份取代前面「約該狀態」的5962項記錄，是對一個確定commit的完整驗證；其後新增的tallymarks、polargraphpaper、chesterfieldtufting、louvershutter與本材質仍只做了定向測試。
 - 真實dev server的pbr3d頁（WebGPU）選取`ledgersheet`：option 960個、status為959 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的帳簿。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：日晷盤面（sundialplate）
+
+- 目錄959→960，含plain的gallery為961項。每tile一面水平日晷盤面：青銅圓盤（半徑0.475 tile）、中心晷針根部小圓、13條時刻線（第h小時線與正午線夾角 atan(sin φ·tan(15°·h))，h = −6至6，緯度φ依seed在25°至55°之間）、三個同心環與時刻數字（6、7、…、12、1、…、6）。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。只畫盤面；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正（測試先失敗）：第一版的時刻數字全放在同一個半徑（0.435）上，緯度較低時（約25°）正午附近相鄰的10、11、12之間角距只有約6.5°，弧長約0.049，小於兩位數的寬度，數字會互相重疊——時刻線的角度測試全部通過，但數字解碼在seed 0與5失敗（11被讀成9）。改為相鄰時刻交錯放在兩個半徑（0.405與0.447）並把點陣像素由0.0095縮為0.008，重跑後全部通過，預覽中也不再重疊。另外，我第一版測試的「下半盤沒有雜線」寫成了永遠通過的空迴圈（`stray`從不累加），在發現後改為實際檢查掃描圈上95°至265°之間沒有暗線。
+- 測試設計：緯度φ由seed決定、測試端不知道，所以先由「正午後1小時線」的角度反推緯度（asin(tan θ₁ / tan 15°)，並檢查落在25°至55°之間），再用測試端獨立寫的公式檢查全部13條線（誤差＜0.15°）。
+- 實測：`tests/procedural-material-motifs.test.ts`五百三十二項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：沿半徑0.25的圓以40000點掃描，數到13條時刻線，角度與公式相差＜0.15°；每條線末端外側的數字以測試端獨立的0至9字型逐像素解碼，等於對應的時鐘整點（正午為12、午前11至6、午後1至6）；圓上下半部（95°至265°）沒有暗線；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sundialplate|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`sundialplate`：option 961個、status為960 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的日晷盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
