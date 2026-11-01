@@ -953,6 +953,7 @@ const kinds: ProceduralMaterialKind[] = [
   'topographicmap',
   'barcodelabel',
   'ledmatrix',
+  'tapemeasure',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -139193,6 +139194,186 @@ describe('LED dot-matrix panel with glossy red-orange LED lenses on a black plat
     expect(occluded / (512 * 512)).toBeLessThan(0.75);
     expect(maxTilt).toBeGreaterThan(0.35);
     expect(maxTilt).toBeLessThan(0.5);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Yellow tape measure with millimetre, five-millimetre and centimetre ticks on a concave glossy tape', () => {
+  const p = proceduralMaterialPresets.tapemeasure;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'prints a ten-centimetre scale with 100 millimetre, 20 five-millimetre and 10 centimetre ticks of decreasing count by length for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('tapemeasure', seed),
+        out = empty();
+      const dark = (offset: number): number => {
+        let count = 0;
+        for (let k = 0; k < p.millimeters; k++) {
+          sample(k / p.millimeters, p.tickTop + offset, out);
+          count += Number(out.color < 0.2);
+        }
+        return count;
+      };
+      expect(dark(0.5 * p.millimeterLength)).toBe(p.millimeters);
+      expect(dark(0.5 * (p.millimeterLength + p.fiveLength))).toBe(
+        p.millimeters / p.fiveEvery,
+      );
+      expect(dark(0.5 * (p.fiveLength + p.tenLength))).toBe(
+        p.millimeters / p.tenEvery,
+      );
+      expect(dark(p.tenLength + 0.05)).toBe(0);
+      expect(dark(-0.03)).toBe(0);
+      for (let k = 0; k < p.millimeters; k++) {
+        sample((k + 0.5) / p.millimeters, p.tickTop + 0.1, out);
+        expect(out.color).toBeGreaterThan(0.85);
+        sample(k / p.millimeters, p.tickTop + 0.1, out);
+        expect(out.color).toBeLessThan(0.05);
+        expect(out.roughness).toBeGreaterThan(0.45);
+      }
+    },
+  );
+  it('keeps a yellow glossy concave bow with raised rims, no metal and in-range channels', () => {
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tapemeasure', seed),
+        a = empty();
+      let low = 1,
+        high = 0,
+        heightLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, a);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          heightLow = Math.min(heightLow, a.height);
+          heightHigh = Math.max(heightHigh, a.height);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion < 1 - p.edgeOcclusion - 1e-9 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(low).toBeLessThan(0.03);
+      expect(high).toBeGreaterThan(0.9);
+      expect(high).toBeLessThan(0.93);
+      expect(heightHigh - heightLow).toBeGreaterThan(0.5 * p.relief);
+      expect(invalid).toBe(0);
+      const rim = empty(),
+        centre = empty();
+      sample(0.5 / p.millimeters, 0, rim);
+      sample(0.5 / p.millimeters, 0.5, centre);
+      expect(rim.height - centre.height).toBeGreaterThan(
+        0.5 * p.curveDepth * p.relief,
+      );
+      expect(centre.occlusion).toBeCloseTo(1, 12);
+      expect(rim.occlusion).toBeLessThan(0.76);
+    }
+  });
+  it('keeps tick edges, tick ownership seams, the bow and grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('tapemeasure', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.millimeters, 2 * p.millimeters, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const offset of [0, p.verticalRamp, p.millimeterLength, p.tenLength])
+        for (let i = 0; i < 4096; i++) check(i / 4096, p.tickTop + offset);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 yellow dielectric maps with a few percent black tick ink and a lengthwise bow normal', () => {
+    const maps = generateProceduralMaps('tapemeasure', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let yellow = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      yellow += Number(r > 180 && g > 150 && b < 70);
+      ink += Number(r < 100);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 240,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(yellow / (512 * 512)).toBeGreaterThan(0.9);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.03);
+    expect(ink / (512 * 512)).toBeLessThan(0.06);
+    expect(maxTilt).toBeGreaterThan(0.08);
+    expect(maxTilt).toBeLessThan(0.15);
     expect(invalid).toBe(0);
   });
 });

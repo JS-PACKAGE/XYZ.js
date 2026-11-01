@@ -11658,3 +11658,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 補記（完整suite）：在凍結worktree於rosewood commit `f6b828f76`實跑完整`vitest run`，**179檔／9,591項全部通過**（1407.42s，wall約23.5分）；該commit之後的topographicmap、barcodelabel與本功能沒有重跑完整suite，僅有各自的定向測試與gates（topographicmap在其section另有瀏覽器gallery選取檢查）。
 - 補記（捨棄的嘗試）：本輪在barcodelabel之後曾嘗試「fingerprintwhorl（指紋渦紋）」，以週期距離代理`sin²(2πd)/(2π)²`產生2×2個渦紋；實看渲染後發現是同心菱形的op-art圖案而非指紋，也在鞍點處出現過寬的脊，所以整個捨棄、未提交（以`git checkout`丟棄我自己尚未提交的變更），不計入目錄。
 - 未開瀏覽器gallery（barcodelabel與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：捲尺（tapemeasure）
+
+- 目錄911→912，含plain的gallery為913項。一個tile是黃色捲尺的100 mm段：100條毫米刻線、每5 mm較長、每10 mm最長而較粗，近黑刻線印在黃色塗層上，橫截面為兩緣升起、中央下凹的餘弦弧。這是作者依一般公制捲尺外觀所作示意，**沒有**引用特定來源，不宣稱符合任何捲尺標準或精度等級，也不含數字、英制刻度、端鉤、外殼或磨損。
+- 專用sampler：`k=round(u·100)`找最近刻線並依1／5／10 mm階層決定長度，墨`smooth(1−d²/w²)`乘上下0.004斜坡，超出寬度即為0（半毫米處擁有權切換不跳變）；凹弧`0.1+0.55·(0.5+0.5cos 2πv)`兩緣斜率為0，跨tile C1，緣部帶AO。cache為64² grain（4,096 Float64／32,768 B）。預設0.1 m tile（對應100 mm）、0.03 UV-relative relief（非公尺位移）、metallic factor0（塗裝）；不新增API或依賴。
+- 開發中實際修正：首版relief 0.01，實看四圖後發現法線幾乎全平，改為0.03後重新探測並寫測試。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）在v=tickTop+0.1處100條刻線全暗（color 0.016–0.043）、刻線之間color≥0.886；在長度0.25／0.35處分別有20／10條暗刻線，超過最長刻線則0；整體color 0.016–0.915、height 0.100–0.653 relief、AO 0.75–1、roughness 0.375–0.544；seed7的512² r／g／b平均約(217,185,35)、黃色像素（r>180、g>150、b<70）占94.3%、r<100占4.3%、法線max tilt²約0.111。以Bun產生512 seed7四圖並實看：置頂的整齊刻線階層、黃色底、roughness圖有刻線細節；法線圖是縱向弧面，刻線不改變法線。
+- 新增4項永久測試（`Yellow tape measure`：三seed 100／20／10條階層與刻線／間隙色幅、凹弧與緣部高度／AO與通道範圍、含刻線端與ownership縫的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（8.60s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Yellow tape measure|tapemeasure|kinds|catalog|distinct|periodic"`定向測試，**2114項通過／3579項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery（barcodelabel、ledmatrix與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

@@ -12506,6 +12506,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         lensRoughness: -0.45;
         plateOcclusion: 0.45;
     }>;
+    tapemeasure: Readonly<{
+        dark: readonly [18, 18, 16];
+        light: readonly [250, 212, 38];
+        roughness: 0.4;
+        relief: 0.03;
+        millimeters: 100;
+        fiveEvery: 5;
+        tenEvery: 10;
+        tickTop: 0.08;
+        millimeterLength: 0.2;
+        fiveLength: 0.3;
+        tenLength: 0.42;
+        millimeterWidth: 0.0014;
+        tenWidth: 0.0021;
+        verticalRamp: 0.004;
+        grainCells: 64;
+        paperTone: 0.9;
+        inkTone: 0.03;
+        grainTone: 0.03;
+        curveDepth: 0.55;
+        curveBase: 0.1;
+        inkHeight: 0.04;
+        inkRoughness: 0.12;
+        grainRoughness: 0.05;
+        edgeOcclusion: 0.25;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13796,4 +13822,5 @@ export declare const proceduralTileMeters: Readonly<{
     topographicmap: 0.3;
     barcodelabel: 0.14;
     ledmatrix: 0.16;
+    tapemeasure: 0.1;
 }>;

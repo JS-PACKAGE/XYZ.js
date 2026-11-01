@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`tapemeasure`（捲尺）使目前目錄911→912種，含plain的gallery為913項。一個tile是黃色捲尺的100 mm段：100條毫米刻度（長0.2 tile高）、每5 mm一條較長（0.3）、每10 mm一條最長而較粗（0.42）的近黑刻線，從帶邊下方0.08起向下垂；橫截面是兩緣升起、中央下凹的餘弦弧，光滑塗層因此在縱向有法線梯度。沒有數字、英制刻度、端鉤、捲尺外殼或磨損。
+
+此材質是作者依一般公制捲尺外觀所作示意，沒有引用特定來源文件、照片或量測；刻線長度與寬度、黃色、凹弧深度、roughness與0.1 m nominal tile（正好對應100 mm段）皆作者設定，不宣稱符合任何實際捲尺標準或精度等級。
+
+新增專用sampler：以`k = round(u·100)`找最近刻線，長度依k的1／5／10 mm階層決定，墨 = `smooth(1 − d²/w²)`乘以上下0.004斜坡，超出刻線寬度即為0，因此最近刻線擁有權在半毫米處切換時不會跳變；凹弧高度 = `0.1 + 0.55·(0.5+0.5cos 2πv)`，兩緣斜率為0，故跨tile C1，緣部並帶AO（至多0.25）。cache只有64²紙／塗層grain（4,096 Float64／32,768 B lattice算術預算，非總RAM）。顏色是顏料，墨線height 0.04 relief；金屬factor為0（塗裝捲尺）、無mortar。預設0.1 m nominal tile與0.03 UV-relative relief（非公尺位移）皆作者設定；我先用0.01，實看後發現法線過平，改為0.03。三seed（0／1／0xffffffff）量測：v = tickTop + 0.1處100條刻線全暗（color 0.016–0.043）、刻線之間color≥0.886；在長度0.25／0.35處分別有20／10條暗刻線、超過最長刻線則為0；整體color 0.016–0.915、height 0.100–0.653 relief、AO 0.75–1、roughness 0.375–0.544；seed7的512²中r／g／b平均約(217,185,35)、黃色像素（r>180、g>150、b<70）占94.3%、r<100占4.3%、法線max tilt²約0.111。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `ledmatrix`（LED點陣面板）使目前目錄910→911種，含plain的gallery為912項。48×48顆圓形LED，分成8×6個字元格（每格5×7顆LED加一欄一列空白）；每格隨seed點亮2–4條隨機的水平、垂直或斜向短筆畫（偽字形，不是字型），亮的LED為紅橘色高亮、暗的為暗紅，LED透鏡光滑而略凸，黑色底板較粗糙、帶AO。不是真實字型或可讀文字、捲動動畫、發光（emission）、混色或RGB子像素。
 
 此材質是作者依一般LED點陣顯示面板結構所作示意，沒有引用特定來源文件、照片或量測；LED數、字元格大小、筆畫產生規則、色調、roughness、AO與0.16 m nominal tile皆作者設定，不宣稱符合任何實際產品。

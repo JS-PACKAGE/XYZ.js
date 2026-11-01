@@ -20481,6 +20481,40 @@ var proceduralMaterialPresets = Object.freeze({
 		lensRoughness: -.45,
 		plateOcclusion: .45
 	}),
+	tapemeasure: Object.freeze({
+		dark: [
+			18,
+			18,
+			16
+		],
+		light: [
+			250,
+			212,
+			38
+		],
+		roughness: .4,
+		relief: .03,
+		millimeters: 100,
+		fiveEvery: 5,
+		tenEvery: 10,
+		tickTop: .08,
+		millimeterLength: .2,
+		fiveLength: .3,
+		tenLength: .42,
+		millimeterWidth: .0014,
+		tenWidth: .0021,
+		verticalRamp: .004,
+		grainCells: 64,
+		paperTone: .9,
+		inkTone: .03,
+		grainTone: .03,
+		curveDepth: .55,
+		curveBase: .1,
+		inkHeight: .04,
+		inkRoughness: .12,
+		grainRoughness: .05,
+		edgeOcclusion: .25
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21889,7 +21923,8 @@ var proceduralTileMeters = Object.freeze({
 	eastindianrosewood: .18,
 	topographicmap: .3,
 	barcodelabel: .14,
-	ledmatrix: .16
+	ledmatrix: .16,
+	tapemeasure: .1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

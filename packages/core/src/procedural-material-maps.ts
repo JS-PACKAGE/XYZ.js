@@ -37408,6 +37408,46 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'tapemeasure': {
+        const p = proceduralMaterialPresets.tapemeasure,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x7a7e);
+        return () => {
+          // One tile is 100 mm of a yellow tape: tick k sits at u = k / 100 and its
+          // length follows the 1 / 5 / 10 mm hierarchy. Ink = smooth(1 - d^2 / w^2) is
+          // zero beyond the tick width, so the nearest-tick ownership switch at half a
+          // millimetre never shows. The cross-section is concave (a cosine bow that is
+          // flat at both rims), which makes the glossy coat pick up a lengthwise normal
+          // gradient the way a curved steel tape does.
+          const scaled = fract(u) * p.millimeters,
+            nearest = Math.round(scaled),
+            distance = (scaled - nearest) / p.millimeters,
+            k = ((nearest % p.millimeters) + p.millimeters) % p.millimeters,
+            major = k % p.tenEvery === 0,
+            half = k % p.fiveEvery === 0,
+            length = major
+              ? p.tenLength
+              : half
+                ? p.fiveLength
+                : p.millimeterLength,
+            width = major ? p.tenWidth : p.millimeterWidth,
+            across = distance * distance,
+            tickV = fract(v) - p.tickTop,
+            vertical =
+              smooth(clamp(tickV / p.verticalRamp)) *
+              smooth(clamp((length - tickV) / p.verticalRamp)),
+            ink = smooth(clamp(1 - across / (width * width))) * vertical,
+            bow = 0.5 + 0.5 * Math.cos(TAU * fract(v)),
+            grain = grainField(u, v);
+          color =
+            p.paperTone +
+            p.grainTone * (grain - 0.5) -
+            (p.paperTone - p.inkTone) * ink;
+          height = p.curveBase + p.curveDepth * bow + p.inkHeight * ink;
+          roughness += p.inkRoughness * ink + p.grainRoughness * (grain - 0.5);
+          occlusion = 1 - p.edgeOcclusion * bow * bow * bow * bow;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45006,6 +45046,7 @@ export function createSurfaceSampler(
     kind === 'topographicmap' ||
     kind === 'barcodelabel' ||
     kind === 'ledmatrix' ||
+    kind === 'tapemeasure' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||
