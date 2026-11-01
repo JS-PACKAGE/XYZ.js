@@ -24052,6 +24052,90 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'cantordust': {
+        const p = proceduralMaterialPresets.cantordust,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29801),
+          barCells = 3 ** p.barDigits,
+          dustCells = 3 ** p.dustDigits,
+          // The middle third (base-3 digit 1) is removed at every step.
+          removed = 1,
+          // Leading base-3 digits of the cell index, most significant first.
+          kept = (index: number, digits: number, count: number): boolean => {
+            let divisor = 3 ** (digits - 1);
+            for (let i = 0; i < count; i++) {
+              if (Math.floor(index / divisor) % 3 === removed) return false;
+              divisor /= 3;
+            }
+            return true;
+          },
+          barWidth = 1 - 2 * p.margin,
+          rowHeight = 0.5 / p.rows,
+          dustCell = p.dustSide / dustCells,
+          dustLeft = 0.5 - p.dustSide / 2,
+          dustTop = 0.5 + (0.5 - p.dustSide) / 2,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          let tone: number = p.backgroundTone,
+            level: number = p.backgroundHeight,
+            rough: number = p.backgroundRoughness;
+          if (v < 0.5) {
+            // Rows 0 to rows-1: the Cantor set after that many removal steps.
+            const row = Math.min(p.rows - 1, Math.floor(v / rowHeight)),
+              lx = u - p.margin,
+              inRow =
+                Math.abs(v - (row + 0.5) * rowHeight) <
+                (rowHeight * p.barFill) / 2;
+            if (lx >= 0 && lx < barWidth && inRow) {
+              const index = Math.min(
+                barCells - 1,
+                Math.floor((lx / barWidth) * barCells),
+              );
+              if (kept(index, p.barDigits, row)) {
+                tone =
+                  p.firstTone +
+                  ((p.lastTone - p.firstTone) * row) / (p.rows - 1);
+                level = p.barHeight;
+                rough = p.barRoughness;
+              } else {
+                tone = p.guideTone;
+                level = p.guideHeight;
+              }
+            }
+          } else {
+            const lx = u - dustLeft,
+              ly = v - dustTop;
+            if (lx >= 0 && lx < p.dustSide && ly >= 0 && ly < p.dustSide) {
+              const x = Math.min(dustCells - 1, Math.floor(lx / dustCell)),
+                y = Math.min(dustCells - 1, Math.floor(ly / dustCell)),
+                fx = lx - x * dustCell,
+                fy = ly - y * dustCell,
+                inner = Math.min(
+                  cover(Math.min(fx, dustCell - fx) - dustCell * 0.08),
+                  cover(Math.min(fy, dustCell - fy) - dustCell * 0.08),
+                );
+              if (
+                kept(x, p.dustDigits, p.dustDigits) &&
+                kept(y, p.dustDigits, p.dustDigits)
+              ) {
+                tone = p.guideTone + (p.dustTone - p.guideTone) * inner;
+                level = p.guideHeight + (p.barHeight - p.guideHeight) * inner;
+                rough =
+                  p.backgroundRoughness +
+                  (p.barRoughness - p.backgroundRoughness) * inner;
+              } else {
+                tone = p.guideTone;
+                level = p.guideHeight;
+              }
+            }
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51581,6 +51665,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'cantordust' ||
     kind === 'dragoncurve' ||
     kind === 'pascalmodulo' ||
     kind === 'gameoflife' ||

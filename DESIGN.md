@@ -1461,6 +1461,10 @@
 
 這是作者設計的示意：龍形曲線只有一條，不隨seed變動形狀（只改變方向與鏡射）；曲線只佔tile中央，四周是平坦背景，並非鋪滿；線寬約為格距的0.34，11階時格距約0.02 tile，在512 px只有約3.5 px寬；11階曲線的線段從不重疊，但在頂點會相接（接點方塊所以看起來有時是交叉）。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`cantordust`（康托爾塵）使目前目錄973→974種，含plain的gallery為975項。tile的上半是六列由上往下的康托爾集：第k列（k=0至5）有243格，保留的是三進位表示的前k位數字都不是1的格子（第0列整條，第1列去掉中間三分之一，依此類推），保留的段由暗到亮漸變（0.42至0.92）。下半是三步的康托爾塵：27×27格，只有行號與列號的三進位數字都不含1的格子（8×8=64個）亮起，周圍是較淺的底色方塊。背景為深藍黑色，帶淡淡的顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：康托爾集只做到第5步（243格，每格寬在1024 px約4 px）、康托爾塵只做3步（27×27）——真正的康托爾集是無窮步的極限；總是去掉中間三分之一（我曾讓seed決定去掉哪一個數字，但去掉2時康托爾塵整個縮到角落看不清，所以固定為1），seed只改變顆粒；它不是分形的視覺化證明。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

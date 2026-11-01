@@ -12041,3 +12041,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`六百五十一項（本材質十項）全過，第一次執行即通過。測試端以另一種公式重新產生曲線（第k個轉彎：把k寫成2^j·m，m為奇數，m mod 4 = 1則左轉），因此不依賴取樣器的倍增遞迴；對八種方向（四個旋轉×鏡射，也涵蓋了左右手定義的差別）逐一檢查：曲線的2048條邊的中點都必須有墨（亮度＞0.25），且包圍盒內其餘所有格線邊的中點都必須是背景，恰好有一種方向全部吻合；吻合時起點邊亮度＜0.5、終點邊＞0.9。九個seed（0、7、4294967295、1至6）都通過。另有通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "dragoncurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 效能：512×512單次建立約109 ms（Bun、單次量測；每像素只檢查周圍四條格線邊與四個接點，路徑資料在建立取樣器時一次產生），不代表瀏覽器或Worker下的表現。
 - 真實dev server的pbr3d頁（WebGPU）選取`dragoncurve`：option 974個、status為973 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：康托爾塵（cantordust）
+
+- 目錄973→974，含plain的gallery為975項。上半六列康托爾集（第k列保留243格中三進位前k位不含1者，亮度逐列漸變），下半三步康托爾塵（27×27格中行列三進位數字都不含1的64格亮起）。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版讓seed決定去掉哪個三進位數字（0、1或2）。看圖發現seed 7選到去掉2，康托爾塵的亮格全縮在左上角，畫面幾乎空；同時四步的康托爾塵單點只有約3 px。改為固定去掉1（經典的中間三分之一，此時seed只改變顆粒），並把塵降為三步（27×27）使每個亮點約8 px；也因此「seed改變結構」的功能被取消，不再宣稱。
+- 實測：`tests/procedural-material-motifs.test.ts`六百六十一項（本材質十項）全過。測試中的一處累贅式（`4 ** n === 256 ? 256 : …`）在送交verify前已簡化為`(2 ** n) ** 2`。九個seed（0、7、4294967295、1至6）：六列各243格逐格讀取，保留與否必須恰等於「三進位前k位不含1」（以`toString(3)`字串判斷，與取樣器的除法／取餘寫法不同），每列保留的格數為2^k·3^(5−k)；27×27的塵逐格讀取，必須恰等於行列都不含1，亮格數為64；通道範圍、metallic／mortar 0、wrap與seed差異（差異只來自顆粒）。`tests/procedural-material.test.ts`以`-t "cantordust|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`cantordust`：option 975個、status為974 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

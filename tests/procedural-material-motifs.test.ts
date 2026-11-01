@@ -11119,3 +11119,92 @@ describe('dragoncurve: the lattice path follows the regular paper-folding turn s
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('cantordust: bars and dust keep exactly the ternary digits that are not 1', () => {
+  const p = proceduralMaterialPresets.cantordust;
+  const barCells = 3 ** p.barDigits;
+  const dustCells = 3 ** p.dustDigits;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'row k keeps the cells whose first k base-3 digits avoid 1, and the dust is the product set (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('cantordust', seed),
+        out = empty(),
+        isInk = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color > 0.3;
+        },
+        rowHeight = 0.5 / p.rows,
+        width = 1 - 2 * p.margin;
+      for (let row = 0; row < p.rows; row++) {
+        let filled = 0;
+        for (let x = 0; x < barCells; x++) {
+          const digits = x.toString(3).padStart(p.barDigits, '0'),
+            expected = !digits.slice(0, row).includes('1');
+          expect(
+            isInk(
+              p.margin + ((x + 0.5) / barCells) * width,
+              (row + 0.5) * rowHeight,
+            ),
+          ).toBe(expected);
+          filled += Number(expected);
+        }
+        // 2^k of the 3^k leading-digit blocks survive, each covering 3^(5-k) cells.
+        expect(filled).toBe(2 ** row * 3 ** (p.barDigits - row));
+      }
+      // Cantor dust: a cell is lit when neither its column nor its row index has a base-3 digit 1.
+      const left = 0.5 - p.dustSide / 2,
+        top = 0.5 + (0.5 - p.dustSide) / 2,
+        cell = p.dustSide / dustCells;
+      let lit = 0;
+      for (let y = 0; y < dustCells; y++)
+        for (let x = 0; x < dustCells; x++) {
+          const noOnes = (index: number): boolean =>
+              !index.toString(3).padStart(p.dustDigits, '0').includes('1'),
+            expected = noOnes(x) && noOnes(y);
+          expect(isInk(left + (x + 0.5) * cell, top + (y + 0.5) * cell)).toBe(
+            expected,
+          );
+          lit += Number(expected);
+        }
+      // 2^3 surviving indices per axis.
+      expect(lit).toBe((2 ** p.dustDigits) ** 2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('cantordust', 0),
+      b = createSurfaceSampler('cantordust', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
