@@ -12685,6 +12685,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRoughness: 0.03;
         shadowOcclusion: 0.45;
     }>;
+    citruspeel: Readonly<{
+        dark: readonly [150, 66, 8];
+        light: readonly [255, 168, 32];
+        roughness: 0.42;
+        relief: 0.006;
+        cells: 48;
+        seedSalt: 49530;
+        jitter: 0.3;
+        presence: 0.92;
+        radius: 0.55;
+        depthMinimum: 0.5;
+        mottleCells: 6;
+        baseTone: 0.86;
+        mottleTone: 0.14;
+        pitTone: 0.26;
+        grainCells: 128;
+        grainTone: 0.04;
+        peelHeight: 0.7;
+        pitDepth: 0.55;
+        grainHeight: 0.1;
+        pitRoughness: 0.12;
+        pitOcclusion: 0.35;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13983,4 +14006,5 @@ export declare const proceduralTileMeters: Readonly<{
     raindropripples: 0.4;
     europeanyew: 0.18;
     coirdoormat: 0.3;
+    citruspeel: 0.12;
 }>;

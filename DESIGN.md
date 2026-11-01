@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`citruspeel`（柑橘果皮）使目前目錄919→920種，含plain的gallery為921項。明亮橙色果皮，48×48格、約九成格有一個抖動位置的油胞凹點（隨機深度），相鄰凹點可重疊，約四成面積落在凹點中（凹點較暗、較低、較粗糙並帶AO），另有柔和的6×6低頻色斑與細grain。不是橘瓣紋、果蒂、果皮厚度、白色內皮、油珠或傷痕。
+
+此材質是作者依一般橙子果皮（油胞凹點）外觀所作示意，沒有引用特定來源文件、照片或量測；凹點密度與半徑、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何柑橘品種。
+
+新增專用sampler：每格存3個Float64（抖動位置x、y與深度；缺凹點時深度0），48²格共6,912 Float64，加6×6色斑雜訊（36 Float64）與128²細grain（16,384 Float64），合計23,332 Float64／186,656 B lattice算術預算（非總RAM）。凹點以加總處理：每個是`smooth(1 − q/r²)`碗（r = 0.55格、邊緣值與斜率歸零），取3×3鄰格，以`D/(1+D)`飽和後降低color、height並提高roughness與AO遮蔽，因此重疊處仍為C1。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.12 m nominal tile與0.006 UV-relative relief（非公尺位移）皆作者設定。首版baseTone 0.72，渲染後偏暗褐、不像橙色，改為0.86（pitTone 0.26、mottleTone 0.14）並重看。三seed（0／1／0xffffffff）、512²取樣：AO<0.9的凹點占40.9–41.4%、color 0.624–0.941、平均0.799–0.808、roughness 0.420–0.496、高度0.377–0.799 relief、最低AO 0.778–0.783、平地比凹點高約0.172 relief；seed 0與1的凹點遮罩有41.9%像素不同；seed7的512²中r／g／b平均約(234,148,27)、AO<230占40.7%、法線max tilt²約0.170。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `coirdoormat`（椰殼纖維門墊）使目前目錄918→919種，含plain的gallery為920項。深褐到淡褐的粗硬纖維，在5×5低頻分塊中分成四種方向（水平、垂直、兩個斜向），各塊內是細長條狀的纖維紋，塊間以平滑權重交接；整體粗糙、帶些許縫隙陰影（AO最低約0.55）與細小絨毛起伏。不是單根纖維的幾何、編織底布、橡膠框邊、字樣或磨損。
 
 此材質是作者依一般椰殼纖維（coir）門墊外觀所作示意，沒有引用特定來源文件、照片或量測；方向分塊、纖維粗細、色調、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際產品或材質規格。

@@ -20732,6 +20732,37 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRoughness: .03,
 		shadowOcclusion: .45
 	}),
+	citruspeel: Object.freeze({
+		dark: [
+			150,
+			66,
+			8
+		],
+		light: [
+			255,
+			168,
+			32
+		],
+		roughness: .42,
+		relief: .006,
+		cells: 48,
+		seedSalt: 49530,
+		jitter: .3,
+		presence: .92,
+		radius: .55,
+		depthMinimum: .5,
+		mottleCells: 6,
+		baseTone: .86,
+		mottleTone: .14,
+		pitTone: .26,
+		grainCells: 128,
+		grainTone: .04,
+		peelHeight: .7,
+		pitDepth: .55,
+		grainHeight: .1,
+		pitRoughness: .12,
+		pitOcclusion: .35
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22148,7 +22179,8 @@ var proceduralTileMeters = Object.freeze({
 	gamedice: .3,
 	raindropripples: .4,
 	europeanyew: .18,
-	coirdoormat: .3
+	coirdoormat: .3,
+	citruspeel: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

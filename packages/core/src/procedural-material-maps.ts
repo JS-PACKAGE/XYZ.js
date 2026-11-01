@@ -37701,6 +37701,61 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'citruspeel': {
+        const p = proceduralMaterialPresets.citruspeel,
+          pits = new Float64Array(p.cells * p.cells * 3),
+          mottle = cachedNoise(p.mottleCells, p.mottleCells, seed ^ 0xc17b),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xc17c),
+          inverseRadius2 = 1 / (p.radius * p.radius);
+        // Per cell: jittered oil-gland centre (x, y) and depth; a missing gland has
+        // depth 0.
+        for (let cy = 0; cy < p.cells; cy++)
+          for (let cx = 0; cx < p.cells; cx++) {
+            const at = (cy * p.cells + cx) * 3,
+              salt = seed ^ p.seedSalt;
+            pits[at] = p.jitter * (2 * hash(cx, cy * 4, salt) - 1);
+            pits[at + 1] = p.jitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+            pits[at + 2] =
+              hash(cx, cy * 4 + 3, salt) < p.presence
+                ? p.depthMinimum +
+                  (1 - p.depthMinimum) * hash(cx, cy * 4 + 2, salt)
+                : 0;
+          }
+        return () => {
+          // Oil-gland pits are summed smooth(1 - q / r^2) bowls (zero value and slope
+          // at the rim) over the 3 x 3 neighbour cells, so overlapping pits stay C1.
+          // The saturating D / (1 + D) keeps the pitted fraction bounded.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let depth = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx = (((cx + ox) % p.cells) + p.cells) % p.cells,
+                wy = (((cy + oy) % p.cells) + p.cells) % p.cells,
+                at = (wy * p.cells + wx) * 3,
+                amount = pits[at + 2];
+              if (amount === 0) continue;
+              const dx = x - (cx + ox + 0.5 + pits[at]),
+                dy = y - (cy + oy + 0.5 + pits[at + 1]),
+                bowl = smooth(clamp(1 - (dx * dx + dy * dy) * inverseRadius2));
+              depth += amount * bowl;
+            }
+          const pit = depth / (1 + depth),
+            broad = mottle(u, v),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            p.mottleTone * (broad - 0.5) +
+            p.grainTone * (grain - 0.5) -
+            p.pitTone * pit;
+          height = p.peelHeight + p.grainHeight * grain - p.pitDepth * pit;
+          roughness += p.pitRoughness * pit;
+          occlusion = 1 - p.pitOcclusion * pit;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45308,6 +45363,7 @@ export function createSurfaceSampler(
     kind === 'gamedice' ||
     kind === 'raindropripples' ||
     kind === 'coirdoormat' ||
+    kind === 'citruspeel' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

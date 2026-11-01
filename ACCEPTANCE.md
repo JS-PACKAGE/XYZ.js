@@ -11737,3 +11737,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Coir doormat`：三seed色域／粗糙度／AO／無全域方向、seed差異與確定性、含四個方向場格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.18s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Coir doormat|coirdoormat|kinds|catalog|distinct|periodic"`定向測試，**2126項通過／3616項未選**。
 - 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples、europeanyew與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：柑橘果皮（citruspeel）
+
+- 目錄919→920，含plain的gallery為921項。明亮橙色果皮，48×48格中約九成有一個抖動位置、隨機深度的油胞凹點，相鄰凹點可重疊，約四成面積落在凹點中（較暗、較低、較粗糙並帶AO），另有6×6低頻色斑與細grain。這是作者依一般橙子果皮外觀所作示意，**沒有**引用特定來源，不宣稱符合任何柑橘品種；不含橘瓣紋、果蒂、白色內皮或傷痕。
+- 專用sampler：每格3個Float64（48²共6,912）＋6×6色斑（36）＋128² grain（16,384），合計23,332 Float64／186,656 B；凹點以加總處理（`smooth(1−q/r²)`碗、r=0.55格、取3×3鄰格，`D/(1+D)`飽和），重疊處仍為C1。預設0.12 m tile、0.006 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版baseTone 0.72，實看四圖偏暗褐、不像橙色，改為0.86（pitTone 0.26、mottleTone 0.14）並重看。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣凹點（AO<0.9）占40.9–41.4%、color 0.624–0.941、平均0.799–0.808、roughness 0.420–0.496、高度0.377–0.799 relief、最低AO 0.778–0.783、平地比凹點高約0.172 relief；seed 0與1的凹點遮罩有41.9%像素不同；seed7的512² r／g／b平均約(234,148,27)、AO<230占40.7%、法線max tilt²約0.170。
+- 新增4項永久測試（`Citrus peel`：三seed凹點比例與色／粗糙度／AO／高度差、seed移動凹點與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.25s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Citrus peel|citruspeel|kinds|catalog|distinct|periodic"`定向測試，**2128項通過／3621項未選**。
+- 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples、europeanyew、coirdoormat與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
