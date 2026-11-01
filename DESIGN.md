@@ -1457,6 +1457,10 @@
 
 這是作者設計的示意：只列出32列；餘數以亮度表示（不是色相，模5的5種亮度間距約0.185，小尺寸下不易分辨）；餘數0不是「空白」而是較暗的方塊（亮度0.2），空白只在對角線右上方；四個模數各出現一次。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`dragoncurve`（龍形曲線）使目前目錄972→973種，含plain的gallery為974項。每tile是一條11階的龍形曲線（Heighway dragon，即紙條對折11次後展開得到的曲線）：2048條單位長度的格線線段，轉彎序列是正規的紙條對折序列（每一輪保留先前的轉彎，加入一個左轉，再加入先前轉彎反向且左右互換的結果）。曲線畫成沿格線的細線，轉角處補上方形接點，亮度沿路徑由暗橘漸變到亮橘（起點0.42、終點0.96），背景是近黑的深紫色。曲線的旋轉（0至3個四分之一圈）與是否鏡射由seed決定，整條曲線縮放並置中在tile內，四周留邊。Metallic與mortar為0。
+
+這是作者設計的示意：龍形曲線只有一條，不隨seed變動形狀（只改變方向與鏡射）；曲線只佔tile中央，四周是平坦背景，並非鋪滿；線寬約為格距的0.34，11階時格距約0.02 tile，在512 px只有約3.5 px寬；11階曲線的線段從不重疊，但在頂點會相接（接點方塊所以看起來有時是交叉）。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

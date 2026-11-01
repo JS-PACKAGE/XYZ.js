@@ -15360,6 +15360,33 @@ var proceduralMaterialPresets = Object.freeze({
 		tileRoughness: .34,
 		emptyRoughness: .8
 	}),
+	dragoncurve: Object.freeze({
+		dark: [
+			14,
+			10,
+			30
+		],
+		light: [
+			255,
+			170,
+			60
+		],
+		roughness: .4,
+		relief: .003,
+		order: 11,
+		margin: .04,
+		lineHalf: .17,
+		edgeSoft: .07,
+		grainCells: 192,
+		backgroundTone: .05,
+		startTone: .42,
+		endTone: .96,
+		grainTone: .03,
+		lineHeight: .75,
+		backgroundHeight: .15,
+		lineRoughness: .32,
+		backgroundRoughness: .82
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24041,6 +24068,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	dragoncurve: .5,
 	pascalmodulo: .4,
 	gameoflife: .4,
 	oghaminscription: .5,

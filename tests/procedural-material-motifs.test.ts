@@ -10997,3 +10997,125 @@ describe('pascalmodulo: every tile follows the Pascal recurrence modulo its modu
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('dragoncurve: the lattice path follows the regular paper-folding turn sequence', () => {
+  const p = proceduralMaterialPresets.dragoncurve;
+  const segments = 2 ** p.order;
+
+  // Turn after segment k (1-based): write k = 2^j * m with m odd; turn left when m mod 4 is 1.
+  const turnLeft = (k: number): boolean => {
+    let m = k;
+    while (m % 2 === 0) m /= 2;
+    return m % 4 === 1;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws exactly the edges of the curve in one of the eight orientations (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('dragoncurve', seed),
+        out = empty(),
+        raw: [number, number][] = [[0, 0]];
+      let dx = 1,
+        dy = 0;
+      for (let k = 1; k <= segments; k++) {
+        const [x, y] = raw[k - 1];
+        raw.push([x + dx, y + dy]);
+        const left = turnLeft(k);
+        [dx, dy] = left ? [dy, -dx] : [-dy, dx];
+      }
+      let matching = 0;
+      for (let orientation = 0; orientation < 8; orientation++) {
+        const points = raw.map(([x0, y0]) => {
+          let x = x0,
+            y = y0;
+          for (let q = 0; q < orientation % 4; q++) [x, y] = [-y, x];
+          return orientation >= 4 ? [-x, y] : [x, y];
+        });
+        const minX = Math.min(...points.map((q) => q[0])),
+          minY = Math.min(...points.map((q) => q[1])),
+          w = Math.max(...points.map((q) => q[0])) - minX,
+          h = Math.max(...points.map((q) => q[1])) - minY,
+          cell = (1 - 2 * p.margin) / Math.max(w, h),
+          originX = 0.5 - (w * cell) / 2,
+          originY = 0.5 - (h * cell) / 2,
+          used = new Set<string>(),
+          ink = (x: number, y: number): boolean => {
+            sample(originX + x * cell, originY + y * cell, out);
+            return out.color > 0.25;
+          };
+        let good = true;
+        for (let k = 0; k < segments && good; k++) {
+          const x0 = points[k][0] - minX,
+            y0 = points[k][1] - minY,
+            x1 = points[k + 1][0] - minX,
+            y1 = points[k + 1][1] - minY;
+          used.add(
+            `${Math.min(x0, x1)},${Math.min(y0, y1)},${y0 === y1 ? 'h' : 'v'}`,
+          );
+          good = ink((x0 + x1) / 2, (y0 + y1) / 2);
+        }
+        // Every other lattice edge inside the bounding box is bare background.
+        for (let y = 0; y <= h && good; y++)
+          for (let x = 0; x <= w && good; x++) {
+            if (x < w && !used.has(`${x},${y},h`)) good = !ink(x + 0.5, y);
+            if (y < h && good && !used.has(`${x},${y},v`))
+              good = !ink(x, y + 0.5);
+          }
+        if (good) {
+          matching++;
+          // The tone rises along the path: dim at the start, bright at the end.
+          const first = [
+              (points[0][0] + points[1][0]) / 2 - minX,
+              (points[0][1] + points[1][1]) / 2 - minY,
+            ],
+            last = [
+              (points[segments - 1][0] + points[segments][0]) / 2 - minX,
+              (points[segments - 1][1] + points[segments][1]) / 2 - minY,
+            ];
+          sample(originX + first[0] * cell, originY + first[1] * cell, out);
+          const startColor = out.color;
+          sample(originX + last[0] * cell, originY + last[1] * cell, out);
+          expect(startColor).toBeLessThan(0.5);
+          expect(out.color).toBeGreaterThan(0.9);
+        }
+      }
+      expect(matching).toBe(1);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('dragoncurve', 0),
+      b = createSurfaceSampler('dragoncurve', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

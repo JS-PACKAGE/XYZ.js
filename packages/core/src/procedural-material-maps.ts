@@ -23907,6 +23907,151 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'dragoncurve': {
+        const p = proceduralMaterialPresets.dragoncurve,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29701),
+          segments = 2 ** p.order,
+          // Regular paper-folding turns: fold a strip n times and read the creases. Each round keeps
+          // the previous turns, adds one left turn and then the earlier turns reversed and swapped.
+          turns: number[] = [];
+        for (let round = 0; round < p.order; round++) {
+          const count = turns.length;
+          turns.push(1);
+          for (let i = count - 1; i >= 0; i--) turns.push(1 - turns[i]);
+        }
+        // Walk the unit lattice path (left turn = rotate 90 degrees one way) and apply the seed's
+        // rotation and mirroring.
+        const px = new Int32Array(segments + 1),
+          py = new Int32Array(segments + 1),
+          quarter = Math.min(3, Math.floor(hash(1, 1, seed ^ 0x29703) * 4)),
+          mirror = hash(2, 2, seed ^ 0x29705) < 0.5;
+        let dx = 1,
+          dy = 0;
+        for (let k = 0; k < segments; k++) {
+          px[k + 1] = px[k] + dx;
+          py[k + 1] = py[k] + dy;
+          if (k < segments - 1) {
+            const left = turns[k] === 1,
+              nx = left ? dy : -dy,
+              ny = left ? -dx : dx;
+            dx = nx;
+            dy = ny;
+          }
+        }
+        let minX = 0,
+          minY = 0,
+          maxX = 0,
+          maxY = 0;
+        for (let k = 0; k <= segments; k++) {
+          let x = px[k],
+            y = py[k];
+          for (let q = 0; q < quarter; q++) {
+            const t = x;
+            x = -y;
+            y = t;
+          }
+          if (mirror) x = -x;
+          px[k] = x;
+          py[k] = y;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+        const w = maxX - minX,
+          h = maxY - minY,
+          stride = w + 1,
+          // Per lattice edge the position along the path (1 / segments to 1), 0 where there is none.
+          across = new Float32Array((w + 1) * (h + 1)),
+          down = new Float32Array((w + 1) * (h + 1)),
+          cell = (1 - 2 * p.margin) / Math.max(w, h),
+          originX = 0.5 - (w * cell) / 2,
+          originY = 0.5 - (h * cell) / 2,
+          inverseSoft = 1 / p.edgeSoft;
+        for (let k = 0; k < segments; k++) {
+          const x0 = px[k] - minX,
+            y0 = py[k] - minY,
+            x1 = px[k + 1] - minX,
+            y1 = py[k + 1] - minY,
+            value = (k + 1) / segments;
+          if (y0 === y1) across[y0 * stride + Math.min(x0, x1)] = value;
+          else down[Math.min(y0, y1) * stride + x0] = value;
+        }
+        return () => {
+          const gx = (u - originX) / cell,
+            gy = (v - originY) / cell;
+          let along = 0;
+          if (gx > -1 && gx < w + 1 && gy > -1 && gy < h + 1) {
+            const ix = Math.floor(gx),
+              iy = Math.floor(gy);
+            let best = 0;
+            // The four lattice edges around this cell and the four corner joints.
+            for (let ey = iy; ey <= iy + 1; ey++)
+              for (let ex = ix; ex <= ix + 1; ex++) {
+                if (ex < 0 || ey < 0 || ex > w || ey > h) continue;
+                const index = ey * stride + ex;
+                if (ex === ix && ex < w && across[index] > 0) {
+                  const edge = smooth(
+                    clamp((p.lineHalf - Math.abs(gy - ey)) * inverseSoft + 0.5),
+                  );
+                  if (edge > best) {
+                    best = edge;
+                    along = across[index];
+                  }
+                }
+                if (ey === iy && ey < h && down[index] > 0) {
+                  const edge = smooth(
+                    clamp((p.lineHalf - Math.abs(gx - ex)) * inverseSoft + 0.5),
+                  );
+                  if (edge > best) {
+                    best = edge;
+                    along = down[index];
+                  }
+                }
+                // Joint: a square of the line width on every lattice vertex the path visits.
+                const joint = Math.max(
+                  across[index],
+                  down[index],
+                  ex > 0 ? across[index - 1] : 0,
+                  ey > 0 ? down[index - stride] : 0,
+                );
+                if (joint > 0) {
+                  const square = smooth(
+                    clamp(
+                      (p.lineHalf -
+                        Math.max(Math.abs(gx - ex), Math.abs(gy - ey))) *
+                        inverseSoft +
+                        0.5,
+                    ),
+                  );
+                  if (square > best) {
+                    best = square;
+                    along = joint;
+                  }
+                }
+              }
+            const tone = p.startTone + (p.endTone - p.startTone) * along;
+            color = clamp(
+              p.backgroundTone +
+                (tone - p.backgroundTone) * best +
+                p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = clamp(
+              p.backgroundHeight + (p.lineHeight - p.backgroundHeight) * best,
+            );
+            roughness =
+              p.backgroundRoughness +
+              (p.lineRoughness - p.backgroundRoughness) * best;
+          } else {
+            color = clamp(
+              p.backgroundTone + p.grainTone * (grainField(u, v) - 0.5),
+            );
+            height = p.backgroundHeight;
+            roughness = p.backgroundRoughness;
+          }
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51436,6 +51581,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dragoncurve' ||
     kind === 'pascalmodulo' ||
     kind === 'gameoflife' ||
     kind === 'oghaminscription' ||

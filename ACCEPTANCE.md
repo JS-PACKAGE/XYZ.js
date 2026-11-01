@@ -12034,3 +12034,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`六百四十一項（本材質十項）全過。測試第一次失敗九項，原因是測試端：`Math.round`對略小於0的值回傳`-0`，而`toBe(0)`以`Object.is`比較會把`-0`與`0`當成不同；取樣器沒有問題，在測試端加上`+ 0`後通過。九個seed（0、7、4294967295、1至6）× 四個象限：對角線右上方的格子必須是空白底色；以排序後的亮度聚類（間距＞0.05）數出每個象限有幾種餘數＝模數，四個象限的模數排序後必須恰為[2, 3, 4, 5]；把亮度換算回餘數後，第0列為1，其餘每格必須等於上一列左上與正上兩格之和對模數取餘（各象限496格＋第0列一格）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "pascalmodulo|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 完整套件：在`git archive`匯出的`021c6ba08`（slidingpuzzle狀態）上單獨跑`procedural-material`與`procedural-material-motifs`兩檔，6193項全過（1398 s）；之後的kaleidoscope、oghaminscription、gameoflife與本材質只有定向測試加typecheck／eslint／build／API相容／distribution。
 - 真實dev server的pbr3d頁（WebGPU）選取`pascalmodulo`：option 973個、status為972 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的三角形。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：龍形曲線（dragoncurve）
+
+- 目錄972→973，含plain的gallery為974項。每tile一條11階Heighway龍形曲線（2048條格線線段，轉彎為正規紙條對折序列），亮度沿路徑由暗橘漸變到亮橘，旋轉與鏡射由seed決定；曲線置中、四周為平坦背景。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`六百五十一項（本材質十項）全過，第一次執行即通過。測試端以另一種公式重新產生曲線（第k個轉彎：把k寫成2^j·m，m為奇數，m mod 4 = 1則左轉），因此不依賴取樣器的倍增遞迴；對八種方向（四個旋轉×鏡射，也涵蓋了左右手定義的差別）逐一檢查：曲線的2048條邊的中點都必須有墨（亮度＞0.25），且包圍盒內其餘所有格線邊的中點都必須是背景，恰好有一種方向全部吻合；吻合時起點邊亮度＜0.5、終點邊＞0.9。九個seed（0、7、4294967295、1至6）都通過。另有通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "dragoncurve|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 效能：512×512單次建立約109 ms（Bun、單次量測；每像素只檢查周圍四條格線邊與四個接點，路徑資料在建立取樣器時一次產生），不代表瀏覽器或Worker下的表現。
+- 真實dev server的pbr3d頁（WebGPU）選取`dragoncurve`：option 974個、status為973 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的曲線。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

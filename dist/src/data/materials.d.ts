@@ -8795,6 +8795,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         tileRoughness: 0.34;
         emptyRoughness: 0.8;
     }>;
+    dragoncurve: Readonly<{
+        dark: readonly [14, 10, 30];
+        light: readonly [255, 170, 60];
+        roughness: 0.4;
+        relief: 0.003;
+        order: 11;
+        margin: 0.04;
+        lineHalf: 0.17;
+        edgeSoft: 0.07;
+        grainCells: 192;
+        backgroundTone: 0.05;
+        startTone: 0.42;
+        endTone: 0.96;
+        grainTone: 0.03;
+        lineHeight: 0.75;
+        backgroundHeight: 0.15;
+        lineRoughness: 0.32;
+        backgroundRoughness: 0.82;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15280,6 +15299,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    dragoncurve: 0.5;
     pascalmodulo: 0.4;
     gameoflife: 0.4;
     oghaminscription: 0.5;
