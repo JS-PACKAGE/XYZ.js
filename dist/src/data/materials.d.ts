@@ -6837,6 +6837,38 @@ export declare const proceduralMaterialPresets: Readonly<{
         sparkleRoughness: 0.35;
         garnetAO: 0.85;
     }>;
+    topographiccontours: Readonly<{
+        dark: readonly [70, 42, 24];
+        light: readonly [244, 236, 214];
+        roughness: 0.84;
+        relief: 0.0012;
+        coarseCells: 3;
+        mediumCells: 6;
+        fineCells: 12;
+        coarseWeight: 0.5;
+        mediumWeight: 0.3;
+        fineWeight: 0.2;
+        rangeLow: 0.2;
+        rangeHigh: 0.8;
+        levels: 16;
+        indexEvery: 5;
+        minorHalf: 0.0012;
+        indexHalf: 0.0028;
+        lineSoft: 0.0014;
+        gradientStep: 0.0005;
+        minimumGradient: 0.05;
+        fiberCells: 256;
+        paperBase: 0.5;
+        elevationTone: 0.42;
+        fiberTone: 0.03;
+        minorTone: 0.12;
+        indexTone: 0.04;
+        baseHeight: 0.15;
+        elevationHeight: 0.55;
+        lineDepth: 0.1;
+        fiberHeight: 0.03;
+        fiberRoughness: 0.04;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13322,6 +13354,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    topographiccontours: 1;
     garnetschist: 0.4;
     celticplait: 0.5;
     atomicboomerang: 0.6;

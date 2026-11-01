@@ -11507,3 +11507,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際抓到並修正：第一版範圍測試對三個seed各有約1000–1100個像素落在0..1之外——石榴石區塊直接把height與color累加而未clamp（height可達約1.04、color可因facet變異降到負值）。已把石榴石區塊的color／height改為clamp，並把garnetHeight／crownHeight降為.38／.08；重跑後歸零。
 - 實測：`tests/procedural-material-motifs.test.ts`九十四項（本材質四項）全過：三seed 768²取樣，color<0.25的連通區（石榴石；最暗葉理約0.31）每格至多一顆且數量介於8與25，從重心沿360個方向射線取外形半徑，其角向諧波k=2..12中功率最大者必須是6（六邊形，不是用sampler內部參數判斷）；排除石榴石與雲母後，沿v的色差／沿u的色差＞1.8（葉理水平）、雲母亮點像素佔0.002–0.05。壓力影（淺色橢圓）本次沒有獨立量測；因為相對葉理雜訊太弱，測試會不穩，所以不宣稱有測。`tests/procedural-material.test.ts`以`-t "garnetschist|every preset"`定向跑3項通過，沒有重跑該檔其餘5519項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`garnetschist`：option 900個、status為899 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、水平葉理與六角石榴石可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：地形等高線圖（topographiccontours）
+
+- 目錄899→900，含plain的gallery為901項。三層週期value noise（3²／6²／12²，權重0.5／0.3／0.2）合成平滑高程場，每tile 16個等高距，淺米色紙底依高程分層設色（每個等高距0.42/16），等高線寬度由高程差÷梯度（前向差分）求得、不隨坡度變化，每第5條為較粗較深的計曲線；細微紙張纖維。Metallic／mortar為0，預設tile1.0 m、0.0012 UV-relative relief、metallic factor 0。非真實地形資料、無註記／河流／格網，梯度有下限、極陡處等高線會相連；作者設計，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計取捨：原本想用「每條沿u的環繞掃描線，等高線段數必為偶數（f週期，上穿＝下穿）」當獨立不變量，實測三seed只有59%–75%的掃描線為偶數——陡坡處相鄰等高線的間距小於線寬而合併為一段，以及線切近峰頂時的接觸，會破壞奇偶性，所以不把它當測試（也沒有放寬到沒意義的門檻）；改測可獨立量到且穩定的三項。
+- 實測：`tests/procedural-material-motifs.test.ts`九十八項（本材質四項）全過：三seed每條掃描線（64條×4096點）量得 (1) 相鄰色帶中點底色差的中位數÷（elevationTone/levels）＝0.98–1.02（門檻0.7–1.3），即每跨過一條線恰好改變一個等高距；(2) 計曲線占全部線的比例0.19–0.22（期望0.2，門檻0.1–0.32）；(3) 計曲線／一般線的寬度中位數比2.4–2.55（期望2.33，門檻1.7–3.2）；另含通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "topographiccontours|every preset"`定向跑3項通過，沒有重跑該檔其餘5520項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`topographiccontours`：option 901個、status為900 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、計曲線與分層設色可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

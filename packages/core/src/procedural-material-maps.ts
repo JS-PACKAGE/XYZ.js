@@ -17436,6 +17436,55 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - cover * (1 - p.garnetAO) * (1 - crown));
         };
       }
+      case 'topographiccontours': {
+        const p = proceduralMaterialPresets.topographiccontours,
+          coarse = cachedNoise(p.coarseCells, p.coarseCells, seed ^ 0x24e01),
+          medium = cachedNoise(p.mediumCells, p.mediumCells, seed ^ 0x24e03),
+          fine = cachedNoise(p.fineCells, p.fineCells, seed ^ 0x24e05),
+          fiberField = cachedNoise(p.fiberCells, p.fiberCells, seed ^ 0x24e07),
+          inverseRange = 1 / (p.rangeHigh - p.rangeLow),
+          inverseSoft = 1 / p.lineSoft,
+          elevation = (x: number, y: number): number =>
+            (p.coarseWeight * coarse(x, y) +
+              p.mediumWeight * medium(x, y) +
+              p.fineWeight * fine(x, y) -
+              p.rangeLow) *
+            inverseRange;
+        return () => {
+          const f = elevation(u, v),
+            gx = (elevation(u + p.gradientStep, v) - f) / p.gradientStep,
+            gy = (elevation(u, v + p.gradientStep) - f) / p.gradientStep,
+            gradient = Math.max(
+              p.minimumGradient,
+              Math.sqrt(gx * gx + gy * gy),
+            ),
+            level = Math.round(f * p.levels),
+            // Distance to the nearest isoline, in tile units: elevation gap over slope.
+            distance = Math.abs(f - level / p.levels) / gradient,
+            index =
+              ((level % p.indexEvery) + p.indexEvery) % p.indexEvery === 0,
+            half = index ? p.indexHalf : p.minorHalf,
+            line = smooth(clamp((half - distance) * inverseSoft + 0.5)),
+            fiber = fiberField(u, v);
+          // Hypsometric tint: each contour interval changes the base tone by elevationTone / levels.
+          color = clamp(
+            p.paperBase +
+              p.elevationTone * f +
+              p.fiberTone * (fiber - 0.5) +
+              ((index ? p.indexTone : p.minorTone) -
+                p.paperBase -
+                p.elevationTone * f) *
+                line,
+          );
+          height = clamp(
+            p.baseHeight +
+              p.elevationHeight * f -
+              p.lineDepth * line +
+              p.fiberHeight * (fiber - 0.5),
+          );
+          roughness = p.roughness - p.fiberRoughness * (fiber - 0.5);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44965,6 +45014,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'topographiccontours' ||
     kind === 'garnetschist' ||
     kind === 'celticplait' ||
     kind === 'atomicboomerang' ||

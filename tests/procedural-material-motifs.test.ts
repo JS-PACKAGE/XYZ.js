@@ -1864,3 +1864,124 @@ describe('garnetschist: foliated schist with faceted garnets', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('topographiccontours: isolines of a smooth elevation field', () => {
+  const p = proceduralMaterialPresets.topographiccontours;
+  const samples = 4096;
+  type Line = { width: number; depth: number };
+  /** Cyclic scan of one row: line runs and the base tone at the middle of every gap. */
+  const scan = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    v: number,
+  ): { lines: Line[]; gaps: number[] } => {
+    const out = empty(),
+      color: number[] = [];
+    for (let i = 0; i < samples; i++) {
+      sample((i + 0.5) / samples, v, out);
+      color.push(out.color);
+    }
+    const dark = color.map((c) => c < 0.35),
+      start = dark.findIndex((d, i) => !d && dark[(i + 1) % samples]),
+      lines: Line[] = [],
+      gaps: number[] = [];
+    if (start < 0) return { lines, gaps };
+    let run = 0,
+      depth = 1,
+      gapStart = 0;
+    for (let k = 1; k <= samples; k++) {
+      const i = (start + k) % samples;
+      if (dark[i]) {
+        if (run === 0 && k > 1 && k - gapStart > 6) {
+          const mid = Math.floor((gapStart + k) / 2);
+          gaps.push(
+            (color[(start + mid - 1) % samples] +
+              color[(start + mid) % samples] +
+              color[(start + mid + 1) % samples]) /
+              3,
+          );
+        }
+        run++;
+        depth = Math.min(depth, color[i]);
+      } else if (run > 0) {
+        lines.push({ width: run / samples, depth });
+        run = 0;
+        depth = 1;
+        gapStart = k;
+      }
+    }
+    return { lines, gaps };
+  };
+
+  it.each(seeds)(
+    'steps tone by one interval per line and thickens every fifth line (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('topographiccontours', seed),
+        out = empty();
+      let invalid = 0;
+      for (let i = 0; i < 40_000; i++) {
+        sample((i * 0.6180339887) % 1, (i * 0.7548776662) % 1, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+      expect(invalid).toBe(0);
+      const median = (values: number[]): number =>
+        [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+      let index = 0,
+        lineCount = 0;
+      const steps: number[] = [],
+        indexWidth: number[] = [],
+        minorWidth: number[] = [];
+      for (let row = 0; row < 64; row++) {
+        const { lines, gaps } = scan(sample, (row + 0.37) / 64);
+        for (const line of lines) {
+          lineCount++;
+          // Index lines are painted with the darker tone.
+          const isIndex = line.depth < (p.indexTone + p.minorTone) / 2;
+          index += Number(isIndex);
+          (isIndex ? indexWidth : minorWidth).push(line.width);
+        }
+        for (let i = 1; i < gaps.length; i++)
+          steps.push(Math.abs(gaps[i] - gaps[i - 1]));
+      }
+      // About one line in indexEvery is an index line.
+      expect(index / lineCount).toBeGreaterThan(0.5 / p.indexEvery);
+      expect(index / lineCount).toBeLessThan(1.6 / p.indexEvery);
+      expect(median(indexWidth) / median(minorWidth)).toBeGreaterThan(1.7);
+      expect(median(indexWidth) / median(minorWidth)).toBeLessThan(3.2);
+      // Mid-gap tones of neighboring bands differ by about one hypsometric interval.
+      const interval = p.elevationTone / p.levels;
+      expect(steps.length).toBeGreaterThan(200);
+      expect(median(steps) / interval).toBeGreaterThan(0.7);
+      expect(median(steps) / interval).toBeLessThan(1.3);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('topographiccontours', 0),
+      b = createSurfaceSampler('topographiccontours', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
