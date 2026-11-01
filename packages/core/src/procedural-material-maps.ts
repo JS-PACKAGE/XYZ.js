@@ -21198,6 +21198,64 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'lightsoutboard': {
+        const p = proceduralMaterialPresets.lightsoutboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27a01),
+          n = p.size,
+          lit = new Uint8Array(n * n),
+          inverseSoft = 1 / p.edgeSoft,
+          half = 0.5 - p.inset;
+        // The lit pattern is what pressing a random set of buttons produces from the all-off board
+        // (a press toggles the button and its four neighbors), so the board is always solvable.
+        for (let row = 0; row < n; row++)
+          for (let col = 0; col < n; col++)
+            if (hash(col, row, seed ^ 0x27a03) < p.pressDensity) {
+              lit[row * n + col] ^= 1;
+              if (col > 0) lit[row * n + col - 1] ^= 1;
+              if (col < n - 1) lit[row * n + col + 1] ^= 1;
+              if (row > 0) lit[(row - 1) * n + col] ^= 1;
+              if (row < n - 1) lit[(row + 1) * n + col] ^= 1;
+            }
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col - 0.5,
+            fy = gy - row - 0.5,
+            // Signed distance (cell units) to a rounded square: negative inside.
+            qx = Math.abs(fx) - (half - p.corner),
+            qy = Math.abs(fy) - (half - p.corner),
+            distance =
+              Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.corner,
+            button = smooth(clamp(-distance * inverseSoft + 0.5)),
+            on = lit[row * n + col],
+            radial = Math.min(1, Math.hypot(fx, fy) / half),
+            shine = smooth(clamp(1 - Math.hypot(fx + 0.18, fy + 0.18) / 0.25)),
+            face = on
+              ? p.onTone + p.glowTone * (1 - radial) + p.shineTone * shine
+              : p.offTone + p.shineTone * 0.5 * shine;
+          color = clamp(
+            p.frameTone +
+              (face - p.frameTone) * button +
+              p.grainTone * (grainField(u, v) - 0.5),
+          );
+          height = clamp(
+            p.frameHeight +
+              (p.buttonHeight +
+                (on ? -p.onRaise : 0) -
+                p.domeDrop * radial * radial -
+                p.frameHeight) *
+                button,
+          );
+          roughness =
+            p.frameRoughness +
+            ((on ? p.onRoughness : p.offRoughness) - p.frameRoughness) * button;
+          occlusion = clamp(1 - (1 - p.gapAO) * (1 - button));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48727,6 +48785,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'lightsoutboard' ||
     kind === 'nonogrampuzzle' ||
     kind === 'juliacells' ||
     kind === 'spirographrosettes' ||

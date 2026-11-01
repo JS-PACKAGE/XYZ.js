@@ -11823,3 +11823,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正：（1）第一版草稿在寫入前我發現自己留了一堆`void`暫存變數與永遠為假的條件（`&& false`），整個重寫。（2）`let tone = p.paperTone`被推成字面型別0.95而不能指派0.86（TS2322），標為`number`；strict typecheck第一次verify就擋下。（3）分組線測試第一版比較「線的最暗色調」，但粗線與細線的色調相同、只有寬度不同，所以失敗；改為量測沿格列中線橫跨垂直邊的中間色調寬度。（4）改寬度測試時，第一次取樣高度設為格上緣0.02，剛好落在橫向格線上，整段都算成線（801／801）；改取格列中線。這三項都是測試端的錯。（5）清掉一個多餘的`mark = Math.max(ink, 0)`變數（ink已在0至1），行為不變，重跑verify全過。
 - 實測：`tests/procedural-material-motifs.test.ts`三百六十四項（本材質十一項）全過。九個seed（0、7、4294967295、1至6）：從8×8格中心的色調（＜0.3為填色）讀出圖形，由測試端獨立算出每行每列的連續長度，與提示格以測試端獨立寫的0至8字型逐像素解碼的結果逐格比對，包含右／下對齊的空位必須是空白，全部相符（0處錯誤）；填色數介於16至56；左上角空白格為紙色（＞0.9）；每5格的分組線與外框的寬度大於一般格線的1.5倍；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "nonogrampuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`nonogrampuzzle`：option 944個、status為943 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的版面、提示與圖形。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：熄燈遊戲（lightsoutboard）
+
+- 目錄943→944，含plain的gallery為945項。每tile一塊5×5按鈕盤（圓角方形按鈕、深色塑膠框）；亮燈圖樣由全暗盤面按下seed隨機選出的約40%按鈕（每次按下翻轉該鈕與上下左右鄰居）得到，因此必定可解。Metallic／mortar為0，預設tile0.25 m、0.003 UV-relative relief、metallic factor 0。只畫標準5×5靜態局面；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試設計：可解性以測試端獨立寫的GF(2)高斯消去判斷（5×5的熄燈遊戲，一個盤面可解需滿足線性系統一致）。為了確認這個判斷器不是「永遠回答可解」，另有一項測試用固定線性同餘亂數產生200個隨機盤面，要求可解比例落在10%至45%之間（理論約25%）——這項先過、確認判斷器有鑑別力，才用它檢查材質輸出。本次未出現失敗。
+- 實測：`tests/procedural-material-motifs.test.ts`三百八十一項（本材質十七項）全過。十五個seed（0、7、4294967295、1至6、8至13）：25個按鈕中心的色調必須明確落在＜0.3（熄）或＞0.6（亮）之一，亮燈數在2至23之間，解碼出的盤面通過GF(2)可解檢查，按鈕之間的框為暗色（＜0.12）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "lightsoutboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`lightsoutboard`：option 945個、status為944 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的按鈕盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

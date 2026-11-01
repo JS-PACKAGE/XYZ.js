@@ -1329,6 +1329,10 @@
 
 這是作者設計的示意：圖形是隨機填格，不保證有唯一解（真正的數織謎題需要唯一解，這裡只是畫出「已解開的版面」）；固定8×8、最多4個提示（8格最多4段連續區）；數字只有單一位數；顏色是亮度插值（近黑墨＋米白紙），不代表任何印刷色。預設0.36 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約43 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`lightsoutboard`（Lights Out 熄燈遊戲）使目前目錄943→944種，含plain的gallery為945項。每tile一塊5×5的按鈕盤：圓角方形按鈕，亮燈的是帶高光與中心光暈的暖黃色、熄滅的是暗褐色，按鈕之間是深色塑膠框；亮燈的按鈕略為下陷、表面較光滑。亮燈圖樣是從「全暗」開始，按下seed隨機選出的約40%按鈕（每次按下會翻轉該鈕與上下左右鄰居）所得到的結果，所以這個局面必定可解——5×5的熄燈遊戲隨機亂擺的盤面只有四分之一可解。Metallic與mortar為0。
+
+這是作者設計的示意：只有5×5的標準規則（不含其他尺寸或變體），畫的是靜態局面，沒有按鍵順序或解答提示；亮燈的顏色是亮度插值（近黑到暖黃），按鈕沒有對應真實硬體的材質。預設0.25 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（每鈕約51 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

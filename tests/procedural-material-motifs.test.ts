@@ -7503,3 +7503,123 @@ describe('nonogrampuzzle: clues match the solved picture', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('lightsoutboard: a solvable Lights Out position', () => {
+  const p = proceduralMaterialPresets.lightsoutboard;
+  const n = 5;
+  // Solve A x = state over GF(2), where pressing button j toggles j and its orthogonal neighbors.
+  const solvable = (state: number[]): boolean => {
+    const size = n * n,
+      rows: number[][] = [];
+    for (let i = 0; i < size; i++) {
+      const row = new Array<number>(size + 1).fill(0),
+        x = i % n,
+        y = Math.floor(i / n);
+      for (const [dx, dy] of [
+        [0, 0],
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx >= 0 && nx < n && ny >= 0 && ny < n) row[ny * n + nx] = 1;
+      }
+      row[size] = state[i];
+      rows.push(row);
+    }
+    let pivotRow = 0;
+    for (let column = 0; column < size && pivotRow < size; column++) {
+      const found = rows.findIndex(
+        (row, i) => i >= pivotRow && row[column] === 1,
+      );
+      if (found < 0) continue;
+      [rows[pivotRow], rows[found]] = [rows[found], rows[pivotRow]];
+      for (let i = 0; i < size; i++)
+        if (i !== pivotRow && rows[i][column] === 1)
+          for (let k = column; k <= size; k++) rows[i][k] ^= rows[pivotRow][k];
+      pivotRow++;
+    }
+    // Inconsistent if a row has no coefficients left but a nonzero right-hand side.
+    return rows.every(
+      (row) =>
+        row[size] === 0 || row.slice(0, size).some((value) => value === 1),
+    );
+  };
+
+  it('the oracle rejects unsolvable positions (only one in four boards is solvable)', () => {
+    let state = 12345,
+      solved = 0;
+    const trials = 200;
+    for (let t = 0; t < trials; t++) {
+      const board: number[] = [];
+      for (let i = 0; i < n * n; i++) {
+        state = (state * 1664525 + 1013904223) >>> 0;
+        board.push(state >>> 31);
+      }
+      solved += Number(solvable(board));
+    }
+    expect(solved).toBeGreaterThan(trials * 0.1);
+    expect(solved).toBeLessThan(trials * 0.45);
+  });
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13])(
+    'shows a mixed lit pattern that can be pressed back to all off (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('lightsoutboard', seed),
+        out = empty(),
+        board: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample((col + 0.5) / n, (row + 0.5) / n, out);
+          // Lit buttons are bright, unlit ones dark.
+          expect(out.color < 0.3 || out.color > 0.6).toBe(true);
+          board.push(out.color > 0.45 ? 1 : 0);
+        }
+      const lit = board.reduce((a, b) => a + b, 0);
+      expect(lit).toBeGreaterThanOrEqual(2);
+      expect(lit).toBeLessThanOrEqual(n * n - 2);
+      expect(solvable(board)).toBe(true);
+      // The gaps between buttons are dark frame.
+      sample(1 / n, 0.5 / n, out);
+      expect(out.color).toBeLessThan(0.12);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('lightsoutboard', 0),
+      b = createSurfaceSampler('lightsoutboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
