@@ -644,6 +644,7 @@ export type ProceduralMaterialKind =
   | 'rj45femalefaces'
   | 'rcafemalefaces'
   | 'f05opticalfaces'
+  | 'minidin4femalefaces'
   | 'usbcfemalefaces'
   | 'iecc6inlets'
   | 'iecc8inlets'
@@ -1773,6 +1774,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rj45femalefaces',
   'rcafemalefaces',
   'f05opticalfaces',
+  'minidin4femalefaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -2285,6 +2287,7 @@ export class ProceduralMaterial {
         this.kind === 'horseshoes' ||
         this.kind === 'rj45femalefaces' ||
         this.kind === 'rcafemalefaces' ||
+        this.kind === 'minidin4femalefaces' ||
         this.kind === 'usbcfemalefaces' ||
         this.kind === 'iecc6inlets' ||
         this.kind === 'iecc8inlets' ||

@@ -707,6 +707,7 @@ try {
     'rj45femalefaces',
     'rcafemalefaces',
     'f05opticalfaces',
+    'minidin4femalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',

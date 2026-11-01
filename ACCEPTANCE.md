@@ -11135,3 +11135,59 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - Gallery累計errors[]並從raw portal關閉，兩個SDK handles釋放；owned Chrome手動stop後實際exit1。一次實讀stderr仍含allocator、CVDisplayLink -6670、updater missing Crashpad與helper sandbox-resource permission訊息；Metal log實列Apple M5，但不冒充硬體／跨browser認證或warning-free。F05 PDF已close；只清本feature列名暫存與唯一owned profile，保留19660／19662、下一feature私有檔及使用者獨立hunk。未重新認證Node22、其他browser、電氣／光學／音訊／安規或FPS，沒有push。
 
 - 收尾九文件387個relative links實查missing0；12個實際列名F05暫存檔與唯一owned browser profile已移除，下一mini-DIN參考／preview保留。提交只選本feature EOF驗收，使用者先前獨立hunk不納入；未因純文件收尾冒稱重跑runtime。
+
+## 2026-11-01 程序材質：mini-DIN四孔母座、連續接地環與缺口絕緣插芯（minidin4femalefaces）
+
+- 目錄880→881。實讀[Same Sky MD-40S原廠產品頁](https://www.sameskydevices.com/product/interconnect/connectors/din-connectors/md-40s)、正常下載並實際渲染／讀圖五頁[MD-S原廠資料表](https://www.sameskydevices.com/product/resource/md-s.pdf)（394,005B；2024-09-12），以及實際查看[原廠產品照片](https://cdn.sameskydevices.com/products/image/getproductimage/976?typecode=m&width=300)。第2頁四孔正面與共用九孔housing圖分開判讀，不把後者當成四孔排列。
+
+- 原廠body／cover為黑色PBT，earth為鍍錫黃銅，內部接點為鍍銀磷青銅；內部材料不等於正面四個銀色接點圈。照片支持細且連續的亮接地環、暗環形空隙、黑色鍵控插芯與四個暗矩形母孔；頂部缺口只切絕緣插芯，不切外接地環。參考PDF／照片不隨套件打包。
+
+- 四個2×2近方形略寬黑PBT面，各有抬高黑色圓導框、連續亮錫接地環、低暗環槽、頂部開缺口與兩個下側階梯的圓形絕緣插芯。上排兩孔較靠內且直式，下排較寬且橫式；四孔有塑膠導入口，下方另有獨立封閉矩形導鍵井。
+
+- 只有接地環為metallic1；body、bezel、insert、cavity、四孔與導鍵井皆M0。Default metallic1、explicit0只改factor；不是把黑色塑膠整面金屬化。Nominal tile0.04m、relief0.0042UV及所有尺寸／色盤／層高為作者近似，不是公差、實際壁厚或插合校準。
+
+- 這是接頭家族外觀變體，不是新connector／render技術。不建模外屏蔽罩、背部焊腳、PCB、銀色孔圈、字樣、mesh、透明通孔、碰撞、switch、電氣／影像／音訊訊號或EMC／安全認證；無新依賴、別名或公開入口。
+
+- 獨立87-field frozen preset／tile（85 numeric＋兩palette），六組圓角矩形、四組平方circle C1 profiles、兩組smooth gate乘積與32個快取channel差量。四組四欄Float64 poses128B加96² grain73,728B，共73,856B typed payload，非總RAM或FPS；owner支撐界0.4189705149024927<0.5。每點不配置、不hash／trig／sqrt、沒有slot／neighbor loop。
+
+- 公開kind union、central runtime validation、detail bypass、default metallic1與mixed-metal例外、preset／tile及真實gallery selector／preload同步；Root／core、sync、native module Worker、cache、tint／repeats與資源ownership沿既有架構。README中／英／日、PLAN、DESIGN、CURRENT完整881-kind union及TECHNICAL／USAGE雙語同步，歷史基底、日期與測試數保留。
+
+- 最終targeted Vitest：17passed／5419skipped／5436total，2026-11-01 12:59:19開始、5.42s；15個新增callbacks涵蓋三seed topology／native geometry／surface／signed-period與C1、actual seed footprint及32／512 packing，另兩項來自既有generic矩陣。其後lint／format:check／strict typecheck與fresh Node built-ESM15callbacks通過，整鏈wall99.42s。
+
+- 三seed0／7／0xffffffff的768²六channel raster均invalid0：四個metal rings／五個metal voids、八個低solid／25voids、四個raised bezel／五個basins；低／高閾值從實際body／back及insert／bezel樣本學得，不抄preset高度、pose或hash。
+
+- Native反向射線與真實輪廓實測body aspect1.09135659–1.09136049；上孔aspect1.41780434–1.41794500、下孔1.41779556–1.41795728。Earth circle roundness error最大9.5723e-14；頂缺口比例0.75006263–0.75009161、下側階梯0.77282401–0.77481545。四母孔與一導鍵井的封閉性、直橫方向及上窄下寬間距均由實際field回推。
+
+- 所有back／body／bezel／cavity／insert／floors core皆mortar0，只有earth core M1；亮錫roughness約0.27、黑塑膠約0.80以上，暗孔／鍵井AO約0.16、環槽約0.24，接地環高於bezel、insert高於孔／鍵井。952組native boundary lines另加24條whole-field掃描；C1 worst依三seed0.013298579／0.009807403／0.009745715（<0.1），各4096 signed-period probes差異0。
+
+- 完整controls實跑566.99s：174資料變體（85 numeric各低／高，含1／3cells、兩palette、共同height affine、耦合孔尺寸）與5合法source替代（0／π/2朝向、quintic、常grain、有限seed0=7碰撞），179組各15callbacks、共2,685個callbacks全過。26資料＋34source真實故障全部ERR_ASSERTION拒絕、accepted0；39個source替代皆先解析，語法／TypeError／一般例外不當作檢出。
+
+- 故障包含缺一／雙側階梯、缺頂缺口或下鍵井、頂缺口過寬、孔方向／相對間距錯誤、橢圓代矩形孔、填孔／凸出male孔、錯層高／AO／反光角色、白色／鏡面PBT、錯metal mask、僅finish seeding，及11個獨立profile各linear／hard替代。不只檢查參數轉送或複製preset。
+
+- 初輪私有observer曾把外側void當額外孔、以pixel centroid當精確孔心；完整變體又揭露固定零朝向的約0.267pixel中心偏差。改為實際反向邊界兩輪回推中心，再用獨立±0.45離軸截線驗對稱，保留0.08原界、不改producer。缺少native boundary改為斷言實際觀察的存在性，不靠故意throw的一般例外冒充semantic catch；曾中止舊controls，最終全矩陣以上述版本重跑。
+
+- 獨立min-combined側階梯故障保持finite及全部4rings／5metal voids／8solids／25voids／4raised／5basins，卻由C1 worst763.199／780.240／934.723拒絕，確實檢出native step交界的導數接縫。
+
+- 另製造C1 height-only平滑開口：三seed各24,576 signed probes只改height21／17／21點，其他五channel Object.is差異0、invalid0、metal rings與高bezel拓樸不變，952個原native lines C1仍0.013298579／0.010148308／0.010208154<0.1；低voids卻25→21。同fixture以封閉aperture數5≠6的ERR_ASSERTION拒絕，不靠C0或改metal mask。
+
+- 32／512五maps alpha全255、normal Z全正；metallic nonzero18／4903、full14／3363、transition4／1540。Normal length²量化誤差最大0.000768935／0.009504037，tilt²0.000768935／0.129950019，luma13.651–168.5788。32僅粗預覽，不保證四個細孔或鍵井可辨。
+
+- Production gates整鏈117.85s：lint／format:check、strict typecheck、ESM／CJS build、API與distribution皆通過；376JS minify6,107,511→2,854,085B、370CJS modules、vendor不變；API737exports／2810directional contracts、710historical namespaces／5consumers，distribution367exports不變。其後只修改consumer fixture並已重跑target／lint／format／typecheck及fresh Node。
+
+- 2026-11-01完整Vitest：179files／9,365tests全過，13:09:54開始、1128.43s（wall1129.47s）。期間repo source／tests／docs／dist保持不變；下一DC barrel jack只在private artifacts／記憶體與本機原廠reference／preview準備，沒有混入本feature。其後只補本驗收及文件格式，不冒稱重新跑runtime。
+
+- Fresh Node v26.7.0真正執行最終built ESM15callbacks，釘選e504acd3：舊880種×4seed×7points＝24,640samples／147,840channel值Object.is差異0，880preset／tile與相對順序保留。F05／RCA／RJ45／USB-C／C6／C8／DIN5／XLR／BNC／C14／Dsub／trimmer／rectangle共13近似種類，32／512三seed共78sets／390buffers逐byte差異0。
+
+- Private prototype／final ESM／CJS三方73,728 signed samples／442,368channel triplets差異0；新prototype六sets／30buffers相同，新加13近似種類84sets／420ESM-CJS buffers相同，兩制881preset／tile相同。所有樣本／buffer數為actual runtime結果，不沿用舊標籤。
+
+- Owned正常security HeadlessChrome156／19750，無unsafe GPU、no-sandbox、TLS、RAF或visibility bypass。同一真實gallery page先WebGL2再fresh導航WebGPU，各3個native RAF、animate off、新kind、881＋plain共882選項與25球；兩PNG均實際讀圖。Native GL draw30且未lost、GPUQueue.submit1；CSS960×540、DPR1.25、backing1200×675，不冒稱normal OS window、Canvas2D3D或FPS。
+
+- 實讀published-root404的完整default-none／script-self／worker-self CSP及nosniff；真正callable跑512／seed7／tint[.9,1,1.1]／height／repeats3：sync、single原生module Worker及cache-hit五streams各1,048,576B逐byte相同、三preset textures兩兩隔離，default metallic1／explicit0，stored mask257,241zero／3363full／1540transition，五UV transforms均[3,0,0,3,0,0]。
+
+- Cache1entry／5,242,880B、hit1／miss1；pool1worker／completed1，其餘running／queued／admittedBytes／cancelled／failed全0。三preset destroyed後同借用pool32／seed8完成completed2／failed0，borrowed preset亦destroy；cache clear後0／0B、明確caller-owned pool.destroy。32／seed123、124 public factory實見661個baseColor bytes不同並cleanup；另實際讀取published-root1024²四panel maps並destroy preset。
+
+- Strict底頁為故意不存在的404 smoke harness，不是假冒發佈UI。原生console保留1條404 resource error，之後沒有新增app／Worker error或pageerror；不冒稱零console錯誤。Gallery從raw portal關閉、累計errors[]，兩SDK handles釋放；owned Chrome手動stop後實際exit1。一次實讀stderr仍含allocator、CVDisplayLink -6670及updater missing Crashpad，沒有隱藏訊息、借用前feature的Metal／sandbox紀錄或冒稱warning-free。
+
+- Mini-DIN PDF已close；14個實際列名owned暫存檔與唯一owned browser profile已移除，保留19660／19662、下一DC私有參考／控制檔及使用者獨立hunk。未重新認證Node22、其他browser、實體硬體、電氣／影像／音訊／安規／CAD／插合或FPS，沒有push。
+
+- 收尾九文件387個relative links實查missing0；只選本feature EOF驗收進commit，保留使用者先前獨立hunk未提交。文件收尾只檢查格式，不冒稱又重跑runtime。

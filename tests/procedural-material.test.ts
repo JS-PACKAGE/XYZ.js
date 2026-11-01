@@ -670,6 +670,7 @@ const kinds: ProceduralMaterialKind[] = [
   'rj45femalefaces',
   'rcafemalefaces',
   'f05opticalfaces',
+  'minidin4femalefaces',
   'usbcfemalefaces',
   'iecc6inlets',
   'iecc8inlets',
@@ -76986,6 +76987,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'bncfemalefaces' &&
           kind !== 'rj45femalefaces' &&
           kind !== 'rcafemalefaces' &&
+          kind !== 'minidin4femalefaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
           kind !== 'iecc8inlets' &&
@@ -86463,6 +86465,7 @@ describe('procedural preset acquisition and ownership', () => {
     'rj45femalefaces',
     'rcafemalefaces',
     'f05opticalfaces',
+    'minidin4femalefaces',
     'usbcfemalefaces',
     'iecc6inlets',
     'iecc8inlets',
@@ -86595,6 +86598,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'bncfemalefaces' ||
           kind === 'rj45femalefaces' ||
           kind === 'rcafemalefaces' ||
+          kind === 'minidin4femalefaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||
           kind === 'iecc8inlets' ||
@@ -129496,6 +129500,878 @@ describe('F05 optical receiver faces with dielectric keyed guides, paired rails 
       expect(p.minLuma).toBeLessThan(50);
       expect(p.maxLuma).toBeGreaterThan(40);
       expect(p.maxLuma).toBeLessThan(130);
+    },
+  );
+});
+describe('mini-DIN four-female faces: native earth rings, keyed inserts and dielectric sockets', () => {
+  const preset = proceduralMaterialPresets.minidin4femalefaces;
+  const seeds = [0, 7, 0xffffffff] as const;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  type Point = { u: number; v: number };
+  type Region = Point & { area: number; pixels: number[] };
+  type Line = { a: Point; b: Point };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const distance = (a: Point, b: Point): number =>
+    Math.hypot(a.u - b.u, a.v - b.v);
+  const mix = (a: Point, b: Point, t: number): Point => ({
+    u: a.u + (b.u - a.u) * t,
+    v: a.v + (b.v - a.v) * t,
+  });
+  const components = (
+    source: Uint8Array,
+    size: number,
+    value: number,
+    collectPixels = false,
+  ): Region[] => {
+    const seen = new Uint8Array(source.length),
+      queue = new Int32Array(source.length),
+      out: Region[] = [];
+    for (let first = 0; first < source.length; first++) {
+      if (seen[first] || source[first] !== value) continue;
+      let read = 0,
+        count = 1,
+        u = 0,
+        v = 0;
+      const pixels: number[] = [];
+      queue[0] = first;
+      seen[first] = 1;
+      while (read < count) {
+        const at = queue[read++],
+          x = at % size,
+          y = Math.floor(at / size);
+        if (collectPixels) pixels.push(at);
+        u += (x + 0.5) / size;
+        v += (y + 0.5) / size;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const next =
+              ((y + dy + size) % size) * size + ((x + dx + size) % size);
+            if (!seen[next] && source[next] === value) {
+              seen[next] = 1;
+              queue[count++] = next;
+            }
+          }
+      }
+      out.push({ u: u / count, v: v / count, area: count, pixels });
+    }
+    return out.sort((a, b) => b.area - a.area);
+  };
+  const observe = (seed: number) => {
+    const size = Math.max(768, 384 * preset.cells),
+      sample = createSurfaceSampler('minidin4femalefaces', seed);
+    const at = (p: Point): SurfaceSample => {
+      const out = empty();
+      sample(p.u, p.v, out);
+      out.height /= preset.relief;
+      return out;
+    };
+    const heights = new Float64Array(size * size),
+      metals = new Uint8Array(size * size);
+    let invalid = 0;
+    const raw = empty();
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        sample((x + 0.5) / size, (y + 0.5) / size, raw);
+        for (const key of keys) {
+          const value = raw[key] / (key === 'height' ? preset.relief : 1);
+          invalid += Number(!Number.isFinite(value) || value < 0 || value > 1);
+        }
+        heights[i] = raw.height / preset.relief;
+        metals[i] = Number(raw.metallic > 0.5);
+      }
+    const rings = components(metals, size, 1, true),
+      metalVoids = components(metals, size, 0);
+    // Native roots, rather than ring thickness or authoring radii, determine scale.
+    const root = (
+      a: Point,
+      b: Point,
+      read: (p: Point) => number,
+      threshold: number,
+    ): Point => {
+      const side = read(a) > threshold;
+      let lo = a,
+        hi = b;
+      expect(read(b) > threshold !== side).toBe(true);
+      for (let i = 0; i < 42; i++) {
+        const mid = mix(lo, hi, 0.5);
+        if (read(mid) > threshold === side) lo = mid;
+        else hi = mid;
+      }
+      return mix(lo, hi, 0.5);
+    };
+    const ringData = rings.map((ring) => {
+      let far = 0;
+      for (const i of ring.pixels)
+        far = Math.max(
+          far,
+          distance(ring, {
+            u: ((i % size) + 0.5) / size,
+            v: (Math.floor(i / size) + 0.5) / size,
+          }),
+        );
+      const crossing = (angle: number, outer: boolean): Point => {
+        const p = (r: number): Point => ({
+          u: ring.u + Math.cos(angle) * r,
+          v: ring.v + Math.sin(angle) * r,
+        });
+        // Locate a metal core on the ray before independently refining each contour.
+        let core = 0;
+        for (let i = 1; i <= 256; i++)
+          if (at(p((far * 1.1 * i) / 256)).metallic > 0.5) {
+            core = (far * 1.1 * i) / 256;
+            break;
+          }
+        expect(core).toBeGreaterThan(0);
+        return root(
+          p(core),
+          p(outer ? far * 1.2 : 0),
+          (q) => at(q).metallic,
+          0.5,
+        );
+      };
+      const outer = Array.from({ length: 32 }, (_, i) =>
+        crossing((i * Math.PI) / 16, true),
+      );
+      const inner = Array.from({ length: 32 }, (_, i) =>
+        crossing((i * Math.PI) / 16, false),
+      );
+      const center = {
+        u: (outer[0].u + outer[16].u) / 2,
+        v: (outer[8].v + outer[24].v) / 2,
+      };
+      const radius =
+        outer.reduce((sum, p) => sum + distance(p, center), 0) / outer.length;
+      const innerRadius =
+        inner.reduce((sum, p) => sum + distance(p, center), 0) / inner.length;
+      const radial = (angle: number, r: number): Point => ({
+        u: center.u + Math.cos(angle) * r,
+        v: center.v + Math.sin(angle) * r,
+      });
+      // The carrier plateau and backing are learned on an observed ring-relative ray.
+      const body = Array.from({ length: 32 }, (_, i) =>
+        at(radial((i * Math.PI) / 16, radius * 1.17)),
+      ).sort((a, b) => a.height - b.height)[16];
+      const back = at(radial(0, radius * 1.95));
+      const insert = at(center);
+      const bezel = at(radial(0, radius * 1.02));
+      const earth = at(radial(0, (radius + innerRadius) / 2));
+      const cavity = at(radial(0, innerRadius * 0.91));
+      return {
+        center,
+        radius,
+        innerRadius,
+        outer,
+        inner,
+        radial,
+        body,
+        back,
+        insert,
+        bezel,
+        earth,
+        cavity,
+      };
+    });
+    expect(ringData.length).toBe(preset.cells * preset.cells);
+    const mean = (read: (r: (typeof ringData)[number]) => number): number =>
+      ringData.reduce((sum, r) => sum + read(r), 0) / ringData.length;
+    const low = mean((r) => (r.body.height + r.back.height) / 2);
+    const high = mean((r) => (r.insert.height + r.bezel.height) / 2);
+    const lowMask = Uint8Array.from(heights, (h) => Number(h > low));
+    const highMask = Uint8Array.from(heights, (h) => Number(h > high));
+    const solids = components(lowMask, size, 1),
+      voids = components(lowMask, size, 0);
+    const raised = components(highMask, size, 1),
+      basins = components(highMask, size, 0);
+    const lines: Line[] = [];
+    const faces = ringData.map((r) => {
+      // The exterior's centroid can coincide with an owner in one- or three-cell layouts.
+      const nearby = voids
+        .slice(1)
+        .filter((h) => distance(h, r.center) < r.innerRadius * 0.9)
+        .sort((a, b) => a.area - b.area);
+      // Five closed apertures are smaller than the surrounding annular moat.
+      expect(nearby.length).toBe(6);
+      const holes = nearby.slice(0, 5),
+        key = [...holes].sort((a, b) => b.area - a.area)[0];
+      const norm = distance(key, r.center),
+        ey = { u: (key.u - r.center.u) / norm, v: (key.v - r.center.v) / norm };
+      const ex = { u: ey.v, v: -ey.u };
+      const world = (x: number, y: number): Point => ({
+        u: r.center.u + ex.u * x + ey.u * y,
+        v: r.center.v + ex.v * x + ey.v * y,
+      });
+      const local = (p: Point): { x: number; y: number } => ({
+        x: (p.u - r.center.u) * ex.u + (p.v - r.center.v) * ex.v,
+        y: (p.u - r.center.u) * ey.u + (p.v - r.center.v) * ey.v,
+      });
+      const holeData = holes.map((h) => {
+        let center: Point = { u: h.u, v: h.v },
+          pos = local(center);
+        const extent = (
+          axis: 'x' | 'y',
+          sign: number,
+          level: number,
+          offset = 0,
+        ): number => {
+          const start = world(
+            pos.x + (axis === 'y' ? offset : 0),
+            pos.y + (axis === 'x' ? offset : 0),
+          );
+          let previous = start;
+          let edge: Point | undefined;
+          for (let i = 1; i <= 256; i++) {
+            const delta = (sign * r.radius * 0.36 * i) / 256;
+            const p = world(
+              pos.x + (axis === 'x' ? delta : offset),
+              pos.y + (axis === 'y' ? delta : offset),
+            );
+            if (at(p).height > level) {
+              edge = root(previous, p, (q) => at(q).height, level);
+              break;
+            }
+            previous = p;
+          }
+          expect(edge !== undefined).toBe(true);
+          return distance(start, edge!);
+        };
+        // Pixel centroids only seed the search; actual opposed edges recover the center.
+        for (let pass = 0; pass < 2; pass++) {
+          const level = (at(center).height + r.insert.height) / 2,
+            left = extent('x', -1, level),
+            right = extent('x', 1, level),
+            top = extent('y', -1, level),
+            bottom = extent('y', 1, level);
+          center = world(
+            pos.x + (right - left) / 2,
+            pos.y + (bottom - top) / 2,
+          );
+          pos = local(center);
+        }
+        const floor = at(center),
+          threshold = (floor.height + r.insert.height) / 2;
+        const left = extent('x', -1, threshold),
+          right = extent('x', 1, threshold),
+          top = extent('y', -1, threshold),
+          bottom = extent('y', 1, threshold);
+        const hw = (left + right) / 2,
+          hh = (top + bottom) / 2;
+        // Independent off-axis sections are not the same rays used to center the hole.
+        const symmetryX = Math.max(
+            ...[-0.45, 0.45].map((f) =>
+              Math.abs(
+                extent('x', -1, threshold, f * hh) -
+                  extent('x', 1, threshold, f * hh),
+              ),
+            ),
+          ),
+          symmetryY = Math.max(
+            ...[-0.45, 0.45].map((f) =>
+              Math.abs(
+                extent('y', -1, threshold, f * hw) -
+                  extent('y', 1, threshold, f * hw),
+              ),
+            ),
+          );
+        const outside = at(world(pos.x + hw * 1.3, pos.y));
+        const leadLevel = (r.insert.height + outside.height) / 2;
+        const leadW =
+          h === key
+            ? hw
+            : (extent('x', -1, leadLevel) + extent('x', 1, leadLevel)) / 2;
+        const leadH =
+          h === key
+            ? hh
+            : (extent('y', -1, leadLevel) + extent('y', 1, leadLevel)) / 2;
+        // Visit each native inner and outer rectangle, including near-corner joins.
+        const span = Math.max(leadW, leadH) * 1.5;
+        for (const [w, h] of [
+          [hw, hh],
+          [leadW, leadH],
+        ])
+          for (const axis of ['x', 'y'] as const)
+            for (const offset of [-1.12, -0.98, -0.85, 0, 0.85, 0.98, 1.12]) {
+              const fixed = offset * (axis === 'x' ? h : w);
+              lines.push({
+                a: world(
+                  pos.x + (axis === 'x' ? -span : fixed),
+                  pos.y + (axis === 'y' ? -span : fixed),
+                ),
+                b: world(
+                  pos.x + (axis === 'x' ? span : fixed),
+                  pos.y + (axis === 'y' ? span : fixed),
+                ),
+              });
+            }
+        const diagonal = at(world(pos.x + hw * 0.72, pos.y + hh * 0.72));
+        return {
+          h,
+          pos,
+          floor,
+          hw,
+          hh,
+          symmetryX,
+          symmetryY,
+          diagonal,
+          outside,
+          isKey: h === key,
+        };
+      });
+      const sockets = holeData
+        .filter((h) => !h.isKey)
+        .sort((a, b) => a.pos.y - b.pos.y);
+      const upper = sockets.slice(0, 2).sort((a, b) => a.pos.x - b.pos.x),
+        lower = sockets.slice(2).sort((a, b) => a.pos.x - b.pos.x);
+      const halfCarrier = (axis: 'x' | 'y', sign: number): number => {
+        const start = world(
+          axis === 'x' ? (sign * (r.radius + r.innerRadius)) / 2 : 0,
+          axis === 'y' ? (sign * (r.radius + r.innerRadius)) / 2 : 0,
+        );
+        const end = world(
+          axis === 'x' ? sign * r.radius * 1.8 : 0,
+          axis === 'y' ? sign * r.radius * 1.8 : 0,
+        );
+        return distance(
+          r.center,
+          root(start, end, (p) => at(p).height, low),
+        );
+      };
+      const width = halfCarrier('x', -1) + halfCarrier('x', 1),
+        height = halfCarrier('y', -1) + halfCarrier('y', 1);
+      // Recover the outermost insert crossing on each ray; internal holes cannot substitute for its silhouette.
+      const silhouette = (
+        x: number,
+        y: number,
+        dx: number,
+        dy: number,
+      ): Point => {
+        let previous = world(x, y),
+          old = at(previous).height > low;
+        let crossing: Point | undefined;
+        for (let i = 1; i <= 512; i++) {
+          const p = world(x + (dx * i) / 512, y + (dy * i) / 512),
+            current = at(p).height > low;
+          if (!old && current) {
+            crossing = root(previous, p, (q) => at(q).height, low);
+            break;
+          }
+          old = current;
+          previous = p;
+        }
+        expect(crossing !== undefined).toBe(true);
+        return crossing!;
+      };
+      const side = silhouette(
+        r.innerRadius * 0.94,
+        0,
+        -r.innerRadius * 0.94,
+        0,
+      );
+      const insertRadius = local(side).x;
+      const notch = silhouette(
+        0,
+        -r.innerRadius * 0.94,
+        0,
+        r.innerRadius * 0.94,
+      );
+      const notchY = local(notch).y;
+      const stepRows = [0.57, 0.68].map((f) => {
+        const y = insertRadius * f;
+        return [-1, 1].map(
+          (sign) =>
+            local(
+              silhouette(
+                sign * r.innerRadius * 0.94,
+                y,
+                -sign * r.innerRadius * 0.94,
+                0,
+              ),
+            ).x,
+        );
+      });
+      const upperSides = [-1, 1].map(
+        (sign) =>
+          local(
+            silhouette(
+              sign * r.innerRadius * 0.94,
+              -insertRadius * 0.57,
+              -sign * r.innerRadius * 0.94,
+              0,
+            ),
+          ).x,
+      );
+      const notchSides = [-1, 1].map(
+        (sign) =>
+          local(
+            silhouette(
+              0,
+              notchY - insertRadius * 0.1,
+              sign * insertRadius * 0.7,
+              0,
+            ),
+          ).x,
+      );
+      for (const fraction of [
+        -0.97, -0.8, -0.6, -0.1, 0, 0.1, 0.45, 0.55, 0.65, 0.8, 0.97,
+      ]) {
+        lines.push({
+          a: world(-r.radius * 1.5, insertRadius * fraction),
+          b: world(r.radius * 1.5, insertRadius * fraction),
+        });
+        lines.push({
+          a: world(insertRadius * fraction, -r.radius * 1.5),
+          b: world(insertRadius * fraction, r.radius * 1.5),
+        });
+      }
+      for (const p of [...r.inner, ...r.outer]) {
+        const q = local(p);
+        lines.push({
+          a: world(q.x * 0.96, q.y * 0.96),
+          b: world(q.x * 1.04, q.y * 1.04),
+        });
+      }
+      // Explicit line families through the measured open-notch and step intersections.
+      for (const x of [...notchSides, ...stepRows[0]])
+        for (const delta of [-0.002, 0, 0.002])
+          lines.push({
+            a: world(x + delta * r.radius, -insertRadius * 1.05),
+            b: world(x + delta * r.radius, insertRadius * 1.05),
+          });
+      return {
+        ...r,
+        world,
+        local,
+        holes: holeData,
+        upper,
+        lower,
+        width,
+        height,
+        insertRadius,
+        notchY,
+        stepRows,
+        upperSides,
+        notchSides,
+      };
+    });
+    return {
+      sample,
+      at,
+      root,
+      size,
+      invalid,
+      metals,
+      lowMask,
+      highMask,
+      rings,
+      metalVoids,
+      solids,
+      voids,
+      raised,
+      basins,
+      faces,
+      lines,
+      low,
+    };
+  };
+  interface Hole {
+    h: Region;
+    pos: { x: number; y: number };
+    floor: SurfaceSample;
+    hw: number;
+    hh: number;
+    symmetryX: number;
+    symmetryY: number;
+    diagonal: SurfaceSample;
+    outside: SurfaceSample;
+    isKey: boolean;
+  }
+  interface Face {
+    center: Point;
+    radius: number;
+    innerRadius: number;
+    outer: Point[];
+    inner: Point[];
+    radial: (angle: number, radius: number) => Point;
+    body: SurfaceSample;
+    back: SurfaceSample;
+    insert: SurfaceSample;
+    bezel: SurfaceSample;
+    earth: SurfaceSample;
+    cavity: SurfaceSample;
+    world: (x: number, y: number) => Point;
+    local: (p: Point) => { x: number; y: number };
+    holes: Hole[];
+    upper: Hole[];
+    lower: Hole[];
+    width: number;
+    height: number;
+    insertRadius: number;
+    notchY: number;
+    stepRows: number[][];
+    upperSides: number[];
+    notchSides: number[];
+  }
+  interface Observation {
+    sample: (u: number, v: number, out: SurfaceSample) => void;
+    at: (p: Point) => SurfaceSample;
+    size: number;
+    invalid: number;
+    low: number;
+    metals: Uint8Array;
+    lowMask: Uint8Array;
+    highMask: Uint8Array;
+    rings: Region[];
+    metalVoids: Region[];
+    solids: Region[];
+    voids: Region[];
+    raised: Region[];
+    basins: Region[];
+    faces: Face[];
+    lines: Line[];
+  }
+  const cache = new Map<number, Observation>();
+  const native = (seed: number): Observation => {
+    let found = cache.get(seed);
+    if (!found) {
+      found = observe(seed);
+      cache.set(seed, found);
+    }
+    return found;
+  };
+  // Follow observed second-difference maxima down to native shoulders. Linear-bevel
+  // derivative jumps survive this refinement; smooth cubic shoulders converge to zero.
+  const refineCurvature = (d: Observation): number => {
+    const probes = [empty(), empty(), empty(), empty(), empty()];
+    const curvature = (
+      a: SurfaceSample,
+      b: SurfaceSample,
+      c: SurfaceSample,
+    ): number => {
+      let out = 0;
+      for (const key of keys)
+        out = Math.max(
+          out,
+          Math.abs(a[key] - 2 * b[key] + c[key]) /
+            (key === 'height' ? preset.relief : 1),
+        );
+      return out;
+    };
+    let worst = 0;
+    const lines = [...d.lines];
+    for (let axis = 0; axis < 2; axis++)
+      for (let j = 0; j < 12; j++) {
+        const t = (j + 0.37) / 12;
+        lines.push({
+          a: { u: axis ? t : 0, v: axis ? 0 : t },
+          b: { u: axis ? t : 1, v: axis ? 1 : t },
+        });
+      }
+    for (const line of lines) {
+      const n = 128,
+        values: SurfaceSample[] = [],
+        scores = new Float64Array(n + 1),
+        length = distance(line.a, line.b);
+      const read = (t: number, out: SurfaceSample): void => {
+        const p = mix(line.a, line.b, t);
+        d.sample(p.u, p.v, out);
+      };
+      for (let i = 0; i <= n; i++) {
+        const out = empty();
+        read(i / n, out);
+        values.push(out);
+      }
+      for (let i = 1; i < n; i++)
+        scores[i] = curvature(values[i - 1], values[i], values[i + 1]);
+      for (let i = 2; i < n - 1; i++) {
+        if (
+          scores[i] < 1e-5 ||
+          scores[i] < scores[i - 1] ||
+          scores[i] < scores[i + 1]
+        )
+          continue;
+        let lo = (i - 1) / n,
+          span = 2 / n,
+          at = 0,
+          h = 0;
+        for (let step = 0; step < 24; step++) {
+          const q = span / 4;
+          for (let j = 0; j < 5; j++) read(lo + j * q, probes[j]);
+          const s = [
+            curvature(probes[0], probes[1], probes[2]),
+            curvature(probes[1], probes[2], probes[3]),
+            curvature(probes[2], probes[3], probes[4]),
+          ];
+          let best = s[1] > s[0] ? 1 : 0;
+          if (s[2] > s[best]) best = 2;
+          at = lo + (best + 1) * q;
+          h = q;
+          lo += best * q;
+          span = 2 * q;
+        }
+        read(at - h, probes[0]);
+        read(at, probes[1]);
+        read(at + h, probes[2]);
+        worst = Math.max(
+          worst,
+          curvature(probes[0], probes[1], probes[2]) / (h * length),
+        );
+      }
+    }
+    return worst;
+  };
+  it.each(seeds)(
+    'recovers separate continuous earth annuli, isolated inserts and five closed apertures at seed %s',
+    (seed) => {
+      const d = native(seed),
+        n = preset.cells * preset.cells;
+      expect(d.invalid).toBe(0);
+      expect(d.rings.length).toBe(n);
+      expect(d.metalVoids.length).toBe(n + 1);
+      expect(d.solids.length).toBe(2 * n);
+      expect(d.voids.length).toBe(6 * n + 1);
+      expect(d.raised.length).toBe(n);
+      expect(d.basins.length).toBe(n + 1);
+      for (const f of d.faces) {
+        const radii = f.outer.map((p) => distance(p, f.center));
+        expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(
+          f.radius * 0.015,
+        );
+        expect(f.innerRadius).toBeLessThan(f.radius);
+        expect(f.innerRadius).toBeGreaterThan(f.radius * 0.8);
+        for (let i = 0; i < 128; i++) {
+          const p = f.radial(
+            (i * Math.PI) / 64,
+            (f.radius + f.innerRadius) / 2,
+          );
+          expect(d.at(p).metallic).toBeGreaterThan(0.9);
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'reads four orthogonal rectangular female openings, a closed lower key and open notched stepped insert at seed %s',
+    (seed) => {
+      const d = native(seed);
+      for (const f of d.faces) {
+        expect(f.width / f.height).toBeGreaterThan(1.025);
+        expect(f.width / f.height).toBeLessThan(1.3);
+        expect(f.upper.length).toBe(2);
+        expect(f.lower.length).toBe(2);
+        const upperY = (f.upper[0].pos.y + f.upper[1].pos.y) / 2,
+          lowerY = (f.lower[0].pos.y + f.lower[1].pos.y) / 2;
+        expect(upperY).toBeLessThan(0);
+        expect(lowerY).toBeGreaterThan(0);
+        expect(Math.abs(f.upper[0].pos.y - f.upper[1].pos.y)).toBeLessThan(
+          f.radius * 0.025,
+        );
+        expect(Math.abs(f.lower[0].pos.y - f.lower[1].pos.y)).toBeLessThan(
+          f.radius * 0.025,
+        );
+        expect(f.lower[1].pos.x - f.lower[0].pos.x).toBeGreaterThan(
+          (f.upper[1].pos.x - f.upper[0].pos.x) * 1.08,
+        );
+        for (const row of [f.upper, f.lower])
+          expect(Math.abs(row[0].pos.x + row[1].pos.x)).toBeLessThan(
+            f.radius * 0.03,
+          );
+        for (const h of f.upper) expect(h.hh / h.hw).toBeGreaterThan(1.18);
+        for (const h of f.lower) expect(h.hw / h.hh).toBeGreaterThan(1.18);
+        const key = f.holes.find((h) => h.isKey)!;
+        expect(key.pos.y).toBeGreaterThan(lowerY);
+        expect(key.hw / key.hh).toBeGreaterThan(1.2);
+        expect(key.h.area).toBeGreaterThan(
+          Math.max(...[...f.upper, ...f.lower].map((h) => h.h.area)) * 1.5,
+        );
+        for (const h of f.holes) {
+          expect(h.symmetryX).toBeLessThan(h.hw * 0.08);
+          expect(h.symmetryY).toBeLessThan(h.hh * 0.08);
+          expect(h.diagonal.height).toBeLessThan(
+            (h.floor.height + f.insert.height) / 2,
+          );
+        }
+        expect(-f.notchY / f.insertRadius).toBeGreaterThan(0.5);
+        expect(-f.notchY / f.insertRadius).toBeLessThan(0.9);
+        expect(f.notchSides[0]).toBeLessThan(0);
+        expect(f.notchSides[1]).toBeGreaterThan(0);
+        expect(Math.abs(f.notchSides[0] + f.notchSides[1])).toBeLessThan(
+          f.insertRadius * 0.025,
+        );
+        expect(f.notchSides[1] - f.notchSides[0]).toBeLessThan(f.insertRadius);
+        for (let i = 1; i <= 20; i++) {
+          const y = f.notchY - ((f.innerRadius * 0.98 + f.notchY) * i) / 20;
+          expect(d.at(f.world(0, y)).height).toBeLessThan(d.low);
+          expect(d.at(f.world(0, y)).metallic).toBe(0);
+        }
+        for (let side = 0; side < 2; side++) {
+          expect(Math.abs(f.stepRows[0][side])).toBeLessThan(
+            Math.abs(f.upperSides[side]) * 0.9,
+          );
+          expect(
+            Math.abs(f.stepRows[0][side] - f.stepRows[1][side]),
+          ).toBeLessThan(f.insertRadius * 0.035);
+        }
+        // The lower key is enclosed on all four sides, unlike the open upper notch.
+        for (const [dx, dy] of [
+          [-1.3, 0],
+          [1.3, 0],
+          [0, -1.3],
+          [0, 1.3],
+        ])
+          expect(
+            d.at(f.world(key.pos.x + dx * key.hw, key.pos.y + dy * key.hh))
+              .height,
+          ).toBeGreaterThan(d.low);
+      }
+    },
+  );
+  it.each(seeds)(
+    'uses genuine learned plastic, recess and tin core surface relations at seed %s',
+    (seed) => {
+      const d = native(seed);
+      for (const f of d.faces) {
+        const plastics = [
+          f.back,
+          f.body,
+          f.bezel,
+          f.insert,
+          f.cavity,
+          ...f.holes.map((h) => h.floor),
+        ];
+        for (const p of plastics) {
+          expect(p.metallic).toBe(0);
+          expect(p.mortar).toBe(0);
+          expect(p.color).toBeLessThan(0.4);
+          expect(p.roughness).toBeGreaterThan(0.6);
+        }
+        expect(f.earth.metallic).toBeGreaterThan(0.99);
+        expect(f.back.height).toBeLessThan(f.body.height);
+        expect(f.cavity.height).toBeLessThan(f.body.height);
+        expect(f.body.height).toBeLessThan(f.insert.height);
+        expect(f.insert.height).toBeLessThan(f.bezel.height);
+        expect(f.bezel.height).toBeLessThan(f.earth.height);
+        expect(f.earth.color).toBeGreaterThan(
+          Math.max(f.body.color, f.insert.color) + 0.15,
+        );
+        expect(f.earth.roughness).toBeLessThan(
+          Math.min(f.body.roughness, f.insert.roughness) - 0.2,
+        );
+        expect(f.earth.occlusion).toBeGreaterThan(f.cavity.occlusion);
+        expect(f.cavity.color).toBeLessThan(f.insert.color);
+        for (const h of f.holes) {
+          expect(h.floor.height).toBeLessThan(f.cavity.height);
+          expect(h.floor.color).toBeLessThan(f.insert.color);
+          expect(h.floor.occlusion).toBeLessThan(f.insert.occlusion);
+          expect(h.floor.roughness).toBeGreaterThan(f.insert.roughness);
+          if (!h.isKey) {
+            expect(h.outside.height).toBeGreaterThan(h.floor.height);
+            expect(h.outside.height).toBeLessThan(f.insert.height - 0.005);
+            expect(h.outside.metallic).toBe(0);
+          }
+        }
+      }
+    },
+  );
+  it.each(seeds)(
+    'preserves signed periodicity and C1 native rims, corners, notch and stepped joins at seed %s',
+    (seed) => {
+      const d = native(seed),
+        a = empty(),
+        b = empty();
+      let period = 0;
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.7548776662466927) % 1,
+          v = (i * 0.5698402909980532) % 1;
+        d.sample(u, v, a);
+        d.sample(u - 2, v + 3, b);
+        for (const key of keys)
+          period = Math.max(
+            period,
+            Math.abs(a[key] - b[key]) / (key === 'height' ? preset.relief : 1),
+          );
+      }
+      expect(period).toBeLessThan(1e-12);
+      expect(refineCurvature(d)).toBeLessThan(0.1);
+    },
+  );
+  it('changes the actual binary carrier/insert/rim footprint across deterministic seeds, not merely grain', () => {
+    const a = native(7),
+      b = native(0xffffffff);
+    let changed = 0;
+    for (let i = 0; i < a.metals.length; i++)
+      changed += Number(
+        a.metals[i] !== b.metals[i] ||
+          a.lowMask[i] !== b.lowMask[i] ||
+          a.highMask[i] !== b.highMask[i],
+      );
+    expect(changed / a.metals.length).toBeGreaterThan(0.003);
+  });
+  it.each([32, 512])(
+    'packs opaque positive-Z unit normals and earth-only mixed metallic at size %s',
+    (size) => {
+      const maps = generateProceduralMaps('minidin4femalefaces', size, 7, {
+        heightMap: true,
+      });
+      const d = native(7);
+      let invalidAlpha = 0,
+        invalidNormal = 0,
+        maxError = 0,
+        metalPixels = 0,
+        plasticPixels = 0,
+        fullMetal = 0,
+        transitions = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const i = (y * size + x) * 4;
+          for (const buffer of Object.values(maps))
+            invalidAlpha += Number(buffer[i + 3] !== 255);
+          const nx = maps.normal[i] / 127.5 - 1,
+            ny = maps.normal[i + 1] / 127.5 - 1,
+            nz = maps.normal[i + 2] / 127.5 - 1;
+          invalidNormal += Number(!Number.isFinite(nx + ny + nz) || nz <= 0);
+          maxError = Math.max(
+            maxError,
+            Math.abs(nx * nx + ny * ny + nz * nz - 1),
+          );
+          const m = maps.metallicRoughness[i + 2];
+          metalPixels += Number(m > 0);
+          plasticPixels += Number(m === 0);
+          fullMetal += Number(m === 255);
+          transitions += Number(m > 0 && m < 255);
+          // An antialiased pixel may overlap the rim, so use a pixel-footprint distance
+          // from independently observed contours instead of requiring center M=1.
+          if (m > 0) {
+            const p = { u: (x + 0.5) / size, v: (y + 0.5) / size };
+            let nearEarth = false;
+            for (const f of d.faces) {
+              const r = distance(p, f.center);
+              nearEarth ||=
+                r > f.innerRadius - 2 / size && r < f.radius + 2 / size;
+            }
+            expect(nearEarth).toBe(true);
+          }
+        }
+      expect(invalidAlpha).toBe(0);
+      expect(invalidNormal).toBe(0);
+      expect(maxError).toBeLessThan(0.02);
+      expect(metalPixels).toBeGreaterThan(0);
+      expect(plasticPixels).toBeGreaterThan(size * size * 0.8);
+      expect(transitions).toBeGreaterThan(0);
+      if (size === 512) expect(fullMetal).toBeGreaterThan(0);
     },
   );
 });

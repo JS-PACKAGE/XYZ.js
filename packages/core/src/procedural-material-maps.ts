@@ -16028,6 +16028,225 @@ export function createSurfaceSampler(
           // Opaque alignment-well depiction, not a metallic pin, emitting LED or refractive lens.
         };
       }
+      case 'minidin4femalefaces': {
+        const p = proceduralMaterialPresets.minidin4femalefaces,
+          poses = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(96, 96, seed ^ 0x22c01),
+          bodyStraightX = p.bodyHalfWidth - p.bodyCorner,
+          bodyStraightY = p.bodyHalfHeight - p.bodyCorner,
+          bodySquared = p.bodyCorner * p.bodyCorner,
+          bodyCore = p.bodyCorner - p.bodyBevel,
+          inverseBody = 1 / (bodySquared - bodyCore * bodyCore),
+          notchStraightX = p.notchHalfWidth - p.notchCorner,
+          notchStraightY = p.notchHalfHeight - p.notchCorner,
+          notchSquared = p.notchCorner * p.notchCorner,
+          notchCore = p.notchCorner - p.notchBevel,
+          inverseNotch = 1 / (notchSquared - notchCore * notchCore),
+          leadStraightX = p.leadHalfWidth - p.leadCorner,
+          leadStraightY = p.leadHalfHeight - p.leadCorner,
+          leadSquared = p.leadCorner * p.leadCorner,
+          leadCore = p.leadCorner - p.leadBevel,
+          inverseLead = 1 / (leadSquared - leadCore * leadCore),
+          keyStraightX = p.keyHalfWidth - p.keyCorner,
+          keyStraightY = p.keyHalfHeight - p.keyCorner,
+          keySquared = p.keyCorner * p.keyCorner,
+          keyCore = p.keyCorner - p.keyBevel,
+          inverseKey = 1 / (keySquared - keyCore * keyCore),
+          bezelSquared = p.bezelRadius * p.bezelRadius,
+          bezelCore = p.bezelRadius - p.bezelBevel,
+          inverseBezel = 1 / (bezelSquared - bezelCore * bezelCore),
+          earthSquared = p.earthRadius * p.earthRadius,
+          earthCore = p.earthRadius - p.earthBevel,
+          inverseEarth = 1 / (earthSquared - earthCore * earthCore),
+          cavitySquared = p.cavityRadius * p.cavityRadius,
+          cavityCore = p.cavityRadius - p.cavityBevel,
+          inverseCavity = 1 / (cavitySquared - cavityCore * cavityCore),
+          insertSquared = p.insertRadius * p.insertRadius,
+          insertCore = p.insertRadius - p.insertBevel,
+          inverseInsert = 1 / (insertSquared - insertCore * insertCore),
+          upperSlotStraightX = p.upperSlotHalfWidth - p.slotCorner,
+          upperSlotStraightY = p.upperSlotHalfHeight - p.slotCorner,
+          lowerSlotStraightX = p.lowerSlotHalfWidth - p.slotCorner,
+          lowerSlotStraightY = p.lowerSlotHalfHeight - p.slotCorner,
+          slotSquared = p.slotCorner * p.slotCorner,
+          slotCore = p.slotCorner - p.slotBevel,
+          inverseSlot = 1 / (slotSquared - slotCore * slotCore),
+          inverseStep = 1 / p.stepBevel,
+          rowDivider = (p.upperSocketY + p.lowerSocketY) * 0.5,
+          bodyTone = p.bodyTone - p.backingTone,
+          bodyHeight = p.bodyHeight - p.backingHeight,
+          bodyRoughness = p.roughness - p.backingRoughness,
+          bodyAO = p.bodyAO - p.backingAO,
+          bezelTone = p.bezelTone - p.bodyTone,
+          bezelHeight = p.bezelHeight - p.bodyHeight,
+          bezelRoughness = p.bezelRoughness - p.roughness,
+          bezelAO = p.bezelAO - p.bodyAO,
+          earthTone = p.earthTone - p.bezelTone,
+          earthHeight = p.earthHeight - p.bezelHeight,
+          earthRoughness = p.earthRoughness - p.bezelRoughness,
+          earthAO = p.earthAO - p.bezelAO,
+          cavityTone = p.cavityTone - p.earthTone,
+          cavityHeight = p.cavityHeight - p.earthHeight,
+          cavityRoughness = p.cavityRoughness - p.earthRoughness,
+          cavityAO = p.cavityAO - p.earthAO,
+          insertTone = p.insertTone - p.cavityTone,
+          insertHeight = p.insertHeight - p.cavityHeight,
+          insertRoughness = p.insertRoughness - p.cavityRoughness,
+          insertAO = p.insertAO - p.cavityAO,
+          leadTone = p.leadTone - p.insertTone,
+          leadHeight = p.leadHeight - p.insertHeight,
+          leadRoughness = p.leadRoughness - p.insertRoughness,
+          leadAO = p.leadAO - p.insertAO,
+          slotTone = p.slotTone - p.leadTone,
+          slotHeight = p.slotHeight - p.leadHeight,
+          slotRoughness = p.slotRoughness - p.leadRoughness,
+          slotAO = p.slotAO - p.leadAO,
+          keyTone = p.keyTone - p.insertTone,
+          keyHeight = p.keyHeight - p.insertHeight,
+          keyRoughness = p.keyRoughness - p.insertRoughness,
+          keyAO = p.keyAO - p.insertAO;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              scale =
+                p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x22c03),
+              angle = TAU * hash(col, row, seed ^ 0x22c05);
+            poses[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22c07) - 1);
+            poses[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x22c09) - 1);
+            poses[i + 2] = Math.cos(angle) / scale;
+            poses[i + 3] = Math.sin(angle) / scale;
+          }
+        return () => {
+          color = p.backingTone;
+          height = p.backingHeight;
+          roughness = p.backingRoughness;
+          occlusion = p.backingAO;
+          metallic = 0;
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            i = (row * p.cells + col) * 4,
+            dx = uc - col - poses[i],
+            dy = vc - row - poses[i + 1],
+            x = dx * poses[i + 2] + dy * poses[i + 3],
+            y = dy * poses[i + 2] - dx * poses[i + 3],
+            ax = Math.abs(x),
+            ay = Math.abs(y);
+          // Even at arbitrary rotation the carrier support stays inside its owner cell.
+          if (ax >= p.bodyHalfWidth || ay >= p.bodyHalfHeight) return;
+          const bx = Math.max(0, ax - bodyStraightX),
+            by = Math.max(0, ay - bodyStraightY),
+            body = smooth(
+              clamp((bodySquared - bx * bx - by * by) * inverseBody),
+            );
+          if (body === 0) return;
+          const grain = grainField(u, v);
+          color += body * (bodyTone + p.grainTone * grain);
+          height += body * (bodyHeight + p.grainHeight * grain);
+          roughness += body * (bodyRoughness + p.grainRoughness * grain);
+          occlusion += body * bodyAO - p.edgeAO * body * (1 - body);
+          const fy = y - p.faceY,
+            xx = x * x,
+            yy = fy * fy,
+            q = xx + yy;
+          if (q >= bezelSquared) return;
+          const bezel = smooth(clamp((bezelSquared - xx - yy) * inverseBezel));
+          color += bezel * bezelTone;
+          height += bezel * bezelHeight;
+          roughness += bezel * bezelRoughness;
+          occlusion += bezel * bezelAO - p.edgeAO * bezel * (1 - bezel);
+          if (q >= earthSquared) return;
+          const earth = smooth(clamp((earthSquared - xx - yy) * inverseEarth));
+          color += earth * earthTone;
+          height += earth * earthHeight;
+          roughness += earth * earthRoughness;
+          occlusion += earth * earthAO - p.edgeAO * earth * (1 - earth);
+          metallic = earth;
+          if (q >= cavitySquared) return;
+          const cavity = smooth(
+            clamp((cavitySquared - xx - yy) * inverseCavity),
+          );
+          color += cavity * cavityTone;
+          height += cavity * cavityHeight;
+          roughness += cavity * cavityRoughness;
+          occlusion += cavity * cavityAO - p.edgeAO * cavity * (1 - cavity);
+          // The earth ring is continuous: only the inner PBT disc is keyed.
+          metallic -= cavity;
+          if (q >= insertSquared) return;
+          let notch = 0;
+          const ny = Math.abs(fy - p.notchY);
+          if (ax < p.notchHalfWidth && ny < p.notchHalfHeight) {
+            const nx = Math.max(0, ax - notchStraightX),
+              nny = Math.max(0, ny - notchStraightY);
+            notch = smooth(
+              clamp((notchSquared - nx * nx - nny * nny) * inverseNotch),
+            );
+          }
+          // Product gates preserve both smooth joins of the lower-side steps.
+          const step =
+              smooth(clamp((ax - p.stepX) * inverseStep)) *
+              smooth(clamp((fy - p.stepY) * inverseStep)),
+            insert =
+              smooth(clamp((insertSquared - xx - yy) * inverseInsert)) *
+              (1 - notch) *
+              (1 - step);
+          if (insert === 0) return;
+          color += insert * insertTone;
+          height += insert * insertHeight;
+          roughness += insert * insertRoughness;
+          occlusion += insert * insertAO - p.edgeAO * insert * (1 - insert);
+          const ky = Math.abs(fy - p.keyY);
+          if (ax < p.keyHalfWidth && ky < p.keyHalfHeight) {
+            const kx = Math.max(0, ax - keyStraightX),
+              kky = Math.max(0, ky - keyStraightY),
+              key = smooth(
+                clamp((keySquared - kx * kx - kky * kky) * inverseKey),
+              );
+            color += key * keyTone;
+            height += key * keyHeight;
+            roughness += key * keyRoughness;
+            occlusion += key * keyAO - p.edgeAO * key * (1 - key);
+          }
+          // Row selection and the mirror fold lie in zero-support gaps.
+          const upper = fy < rowDivider,
+            sx = Math.abs(ax - (upper ? p.upperSocketX : p.lowerSocketX)),
+            sy = Math.abs(fy - (upper ? p.upperSocketY : p.lowerSocketY));
+          if (sx >= p.leadHalfWidth || sy >= p.leadHalfHeight) return;
+          const lx = Math.max(0, sx - leadStraightX),
+            ly = Math.max(0, sy - leadStraightY),
+            lead = smooth(
+              clamp((leadSquared - lx * lx - ly * ly) * inverseLead),
+            );
+          if (lead === 0) return;
+          color += lead * leadTone;
+          height += lead * leadHeight;
+          roughness += lead * leadRoughness;
+          occlusion += lead * leadAO - p.edgeAO * lead * (1 - lead);
+          const halfX = upper ? p.upperSlotHalfWidth : p.lowerSlotHalfWidth,
+            halfY = upper ? p.upperSlotHalfHeight : p.lowerSlotHalfHeight;
+          if (sx >= halfX || sy >= halfY) return;
+          const hx = Math.max(
+              0,
+              sx - (upper ? upperSlotStraightX : lowerSlotStraightX),
+            ),
+            hy = Math.max(
+              0,
+              sy - (upper ? upperSlotStraightY : lowerSlotStraightY),
+            ),
+            slot = smooth(
+              clamp((slotSquared - hx * hx - hy * hy) * inverseSlot),
+            );
+          color += slot * slotTone;
+          height += slot * slotHeight;
+          roughness += slot * slotRoughness;
+          occlusion += slot * slotAO - p.edgeAO * slot * (1 - slot);
+          // Opaque female wells; internal silver contacts are not visible front annuli.
+        };
+      }
       case 'usbcfemalefaces': {
         const p = proceduralMaterialPresets.usbcfemalefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -43015,6 +43234,7 @@ export function createSurfaceSampler(
     kind === 'rj45femalefaces' ||
     kind === 'rcafemalefaces' ||
     kind === 'f05opticalfaces' ||
+    kind === 'minidin4femalefaces' ||
     kind === 'usbcfemalefaces' ||
     kind === 'iecc6inlets' ||
     kind === 'iecc8inlets' ||
