@@ -8783,3 +8783,124 @@ describe('tictactoegames: positions reachable in a game of noughts and crosses',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('quasicrystalwaves: five plane waves with near five-fold wave vectors', () => {
+  const p = proceduralMaterialPresets.quasicrystalwaves;
+  const n = 64;
+  // Recover the summed wave field from the tone (the tone is 0.5 + 0.5 tanh(gain * sum)).
+  const field = (seed: number): number[] => {
+    const sample = createSurfaceSampler('quasicrystalwaves', seed),
+      out = empty(),
+      values: number[] = [];
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        sample(x / n, y / n, out);
+        values.push(Math.atanh(2 * (out.color - 0.5)) / p.gain);
+      }
+    return values;
+  };
+  // Complex discrete Fourier coefficient of the field at integer frequency (kx, ky), normalised so
+  // that a unit cosine gives 0.5 at its two frequencies.
+  const coefficient = (
+    values: number[],
+    kx: number,
+    ky: number,
+  ): [number, number] => {
+    let re = 0,
+      im = 0;
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const angle = (-2 * Math.PI * (kx * x + ky * y)) / n;
+        re += values[y * n + x] * Math.cos(angle);
+        im += values[y * n + x] * Math.sin(angle);
+      }
+    return [re / (n * n), im / (n * n)];
+  };
+
+  it('the wave vectors are near the five directions of a pentagon with similar lengths', () => {
+    const angles = p.vectors.map(
+        ([x, y]) => (Math.atan2(y, x) * 180) / Math.PI,
+      ),
+      lengths = p.vectors.map(([x, y]) => Math.hypot(x, y));
+    for (let k = 0; k < 5; k++) {
+      const step = (angles[(k + 1) % 5] - angles[k] + 360) % 360;
+      expect(Math.abs(step - 72)).toBeLessThan(10);
+    }
+    expect(Math.max(...lengths) / Math.min(...lengths)).toBeLessThan(1.15);
+  });
+
+  it.each(seeds)(
+    'has spectral peaks of height 0.5 at the five wave vectors and nothing elsewhere (seed %i)',
+    (seed) => {
+      const values = field(seed);
+      const isWave = (kx: number, ky: number): boolean =>
+        p.vectors.some(
+          ([x, y]) => (kx === x && ky === y) || (kx === -x && ky === -y),
+        );
+      let strongest = 0,
+        waves = 0;
+      for (let ky = -10; ky <= 10; ky++)
+        for (let kx = -10; kx <= 10; kx++) {
+          const [re, im] = coefficient(values, kx, ky),
+            magnitude = Math.hypot(re, im);
+          if (isWave(kx, ky)) {
+            waves++;
+            expect(Math.abs(magnitude - 0.5)).toBeLessThan(0.01);
+          } else strongest = Math.max(strongest, magnitude);
+        }
+      expect(waves).toBe(10);
+      expect(strongest).toBeLessThan(0.01);
+    },
+    30000,
+  );
+
+  it('uses different phases for different seeds without changing the wave vectors', () => {
+    const phaseAt = (seed: number): number => {
+      const [re, im] = coefficient(
+        field(seed),
+        p.vectors[1][0],
+        p.vectors[1][1],
+      );
+      return Math.atan2(im, re);
+    };
+    const a = phaseAt(0),
+      b = phaseAt(7);
+    expect(Math.abs(Math.sin((a - b) / 2))).toBeGreaterThan(0.05);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('quasicrystalwaves', 0),
+      b = createSurfaceSampler('quasicrystalwaves', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

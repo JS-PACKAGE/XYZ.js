@@ -14626,6 +14626,31 @@ var proceduralMaterialPresets = Object.freeze({
 		markRoughness: .4,
 		paperRoughness: .72
 	}),
+	quasicrystalwaves: Object.freeze({
+		dark: [
+			10,
+			12,
+			36
+		],
+		light: [
+			250,
+			232,
+			190
+		],
+		roughness: .5,
+		relief: .003,
+		vectors: [
+			[6, 0],
+			[2, 6],
+			[-5, 4],
+			[-5, -4],
+			[2, -6]
+		],
+		gain: .7,
+		heightGain: .9,
+		glossRoughness: .3,
+		roughnessSpan: .3
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23307,6 +23332,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	quasicrystalwaves: .4,
 	tictactoegames: .3,
 	dartboardsectors: .5,
 	featherbarbs: .25,

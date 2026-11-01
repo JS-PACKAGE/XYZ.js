@@ -11897,3 +11897,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄952→953，含plain的gallery為954項。每tile四塊3×3井字棋盤（6×6格），各為一局隨機對弈的局面：X先手、依seed的隨機順序輪流下，遇第一條連線即停，否則3至9手（每塊各自隨機）後停。Metallic／mortar為0，預設tile0.3 m、0.002 UV-relative relief、metallic factor 0。不標出連線與順序，四塊棋盤之間無分隔線；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`四百八十項（本材質十七項）全過，第一次執行即通過。十五個seed（0、7、4294967295、1至6、8至13）×四塊棋盤：由格中心的色調判斷X（中心暗）、O（中心亮、半徑0.29格處暗）、空格（兩處皆亮，且對角探測點也亮）；X的數量等於O或多一、已下子數不少於3手、不會雙方都連成線、X連線時X比O多一、O連線時兩者相等；另一項在40個seed×4塊共160個棋盤中，已分勝負與未分勝負的局面各超過20個（兩種情形都出現）；通道範圍、metallic／mortar 0、wrap與seed差異。注意：這些是局面「可能出現」的必要條件，不是完整的博弈樹驗證（例如沒有檢查「連線者的最後一手是否剛好完成連線」）。`tests/procedural-material.test.ts`以`-t "tictactoegames|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`tictactoegames`：option 954個、status為953 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：準晶波紋（quasicrystalwaves）
+
+- 目錄953→954，含plain的gallery為955項。五個平面波 cos(2π(m·x) + φ) 相加，整數波向量 (6,0)、(2,6)、(−5,4)、(−5,−4)、(2,−6)（近似正五邊形方向），相位依seed，和經 0.5 + 0.5·tanh(0.7·S) 映射成亮度；height與roughness由同一個和導出。因波向量為整數而精確週期。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。這是週期近似、不是真正的準晶；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試設計：因tone是和的單調映射，測試端以atanh反解出波場，再對64×64取樣做離散傅立葉分析（只在整數頻率上計算，範圍±10），驗證頻譜只在預期的位置有峰值：10個頻率（5個向量與其負向量）的振幅各為0.5（容許0.01），其餘所有頻率都小於0.01。另有一項檢查五個向量彼此夾角與72°相差＜10°、長度比＜1.15（它們確實是近似五重對稱，不是任意向量），以及不同seed的相位確實不同。
+- 實測：`tests/procedural-material-motifs.test.ts`四百八十六項（本材質六項）全過，第一次執行即通過；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "quasicrystalwaves|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`quasicrystalwaves`：option 955個、status為954 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的光斑與五角結構。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

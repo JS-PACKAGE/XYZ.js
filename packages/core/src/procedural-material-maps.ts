@@ -22190,6 +22190,28 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'quasicrystalwaves': {
+        const p = proceduralMaterialPresets.quasicrystalwaves,
+          phases = p.vectors.map((_, k) => hash(k, 1, seed ^ 0x28401) * TAU);
+        // Five plane waves whose integer wave vectors point roughly in the five directions of a
+        // regular pentagon. Integer vectors keep the pattern exactly periodic over the tile, while
+        // the near-five-fold arrangement gives the quasicrystal look. The sum is squashed through
+        // tanh, a monotonic map, into the tone.
+        return () => {
+          let sum = 0;
+          for (let k = 0; k < p.vectors.length; k++)
+            sum += Math.cos(
+              TAU * (p.vectors[k][0] * u + p.vectors[k][1] * v) + phases[k],
+            );
+          const squashed = 0.5 + 0.5 * Math.tanh(p.gain * sum);
+          color = clamp(squashed);
+          height = clamp(0.5 + 0.5 * Math.tanh(p.heightGain * sum));
+          roughness = clamp(
+            p.glossRoughness + p.roughnessSpan * (1 - squashed),
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49719,6 +49741,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'quasicrystalwaves' ||
     kind === 'tictactoegames' ||
     kind === 'dartboardsectors' ||
     kind === 'featherbarbs' ||

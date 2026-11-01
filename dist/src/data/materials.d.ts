@@ -8311,6 +8311,17 @@ export declare const proceduralMaterialPresets: Readonly<{
         markRoughness: 0.4;
         paperRoughness: 0.72;
     }>;
+    quasicrystalwaves: Readonly<{
+        dark: readonly [10, 12, 36];
+        light: readonly [250, 232, 190];
+        roughness: 0.5;
+        relief: 0.003;
+        vectors: readonly [readonly [6, 0], readonly [2, 6], readonly [-5, 4], readonly [-5, -4], readonly [2, -6]];
+        gain: 0.7;
+        heightGain: 0.9;
+        glossRoughness: 0.3;
+        roughnessSpan: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14796,6 +14807,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    quasicrystalwaves: 0.4;
     tictactoegames: 0.3;
     dartboardsectors: 0.5;
     featherbarbs: 0.25;

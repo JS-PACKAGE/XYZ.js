@@ -1379,6 +1379,10 @@
 
 這是作者設計的示意：沒有標出勝利連線、下棋順序或對弈者；四塊棋盤之間沒有分隔線，在6×6的格線上會連成一片（每塊棋盤的邊緣格子沒有外框）；X與O的顏色只差0.08的亮度；「可能出現」是依照上述必要條件，不是對每個局面做過完整的博弈樹驗證。預設0.3 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格約85 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`quasicrystalwaves`（準晶波紋）使目前目錄953→954種，含plain的gallery為955項。把五個平面波 cos(2π(m·x) + φ) 相加，波向量 m 取整數 (6, 0)、(2, 6)、(−5, 4)、(−5, −4)、(2, −6)，方向大致落在正五邊形的五個方向（相鄰夾角與72°相差不到10°、長度比小於1.15），相位 φ 由seed決定；和 S 再經 0.5 + 0.5·tanh(0.7·S) 這個單調映射變成亮度（height與roughness也由同一個和導出），畫面呈現近似五重對稱的光斑與五角星結構。因為波向量是整數，整個圖案在tile上精確週期、可無縫重複。Metallic與mortar為0。
+
+這是作者設計的示意：它是「週期近似」而不是真正的準晶——真正的準晶（如Penrose鋪磚）沒有平移週期；這裡的五重對稱只是近似（波向量取整數所造成的角度與長度誤差），在遠處仍會重複；沒有繞射或物理意義上的準晶；顏色是亮度插值（深藍近黑到暖米色），不代表特定配色。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（最高空間頻率約7.2週期／tile）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
