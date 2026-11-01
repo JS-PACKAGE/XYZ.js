@@ -11208,3 +11208,76 @@ describe('cantordust: bars and dust keep exactly the ternary digits that are not
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('eightqueens: every board is a non-attacking placement of eight queens', () => {
+  const p = proceduralMaterialPresets.eightqueens;
+  const n = p.size;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'has one queen per row and column and none on a shared diagonal (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('eightqueens', seed),
+        out = empty(),
+        side = 0.5 - 2 * p.margin,
+        cell = side / n,
+        layouts = new Set<string>();
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const queens: [number, number][] = [];
+        for (let row = 0; row < n; row++)
+          for (let col = 0; col < n; col++) {
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (col + 0.5) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (row + 0.5) * cell,
+              out,
+            );
+            if (out.color > 0.9) queens.push([row, col]);
+          }
+        expect(queens.length).toBe(n);
+        expect(new Set(queens.map(([row]) => row)).size).toBe(n);
+        expect(new Set(queens.map(([, col]) => col)).size).toBe(n);
+        // Two queens on the same diagonal share row - col or row + col.
+        expect(new Set(queens.map(([row, col]) => row - col)).size).toBe(n);
+        expect(new Set(queens.map(([row, col]) => row + col)).size).toBe(n);
+        layouts.add(queens.map(([, col]) => col).join(''));
+      }
+      // The four boards are independent draws; they should not all be the same placement.
+      expect(layouts.size).toBeGreaterThanOrEqual(2);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('eightqueens', 0),
+      b = createSurfaceSampler('eightqueens', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

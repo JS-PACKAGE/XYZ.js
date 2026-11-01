@@ -12048,3 +12048,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版讓seed決定去掉哪個三進位數字（0、1或2）。看圖發現seed 7選到去掉2，康托爾塵的亮格全縮在左上角，畫面幾乎空；同時四步的康托爾塵單點只有約3 px。改為固定去掉1（經典的中間三分之一，此時seed只改變顆粒），並把塵降為三步（27×27）使每個亮點約8 px；也因此「seed改變結構」的功能被取消，不再宣稱。
 - 實測：`tests/procedural-material-motifs.test.ts`六百六十一項（本材質十項）全過。測試中的一處累贅式（`4 ** n === 256 ? 256 : …`）在送交verify前已簡化為`(2 ** n) ** 2`。九個seed（0、7、4294967295、1至6）：六列各243格逐格讀取，保留與否必須恰等於「三進位前k位不含1」（以`toString(3)`字串判斷，與取樣器的除法／取餘寫法不同），每列保留的格數為2^k·3^(5−k)；27×27的塵逐格讀取，必須恰等於行列都不含1，亮格數為64；通道範圍、metallic／mortar 0、wrap與seed差異（差異只來自顆粒）。`tests/procedural-material.test.ts`以`-t "cantordust|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`cantordust`：option 975個、status為974 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：八皇后（eightqueens）
+
+- 目錄974→975，含plain的gallery為976項。每tile 2×2塊8×8棋盤，每塊放八個互不攻擊的皇后（圓身三尖王冠剪影），四塊各自以seed打亂欄序後回溯搜尋得出。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版的皇后只是一個普通的圓盤，看圖發現辨識不出是皇后（且我留了一行乘以0的無效色調混合）；重畫為圓身加三尖王冠的剪影並刪掉無效程式，過程中也修正了一個單位問題——邊緣柔化`edgeSoft`是以tile為單位，而第一版的半徑是以格為單位，沒有乘上格寬，抗鋸齒等於失效。預覽中看到棋盤正中有淡淡的模糊帶，我以格中心取樣與跨格界線的掃描確認取樣器的值正常（格界線處是硬邊，其餘只是顆粒噪聲的緩變），沒有發現缺陷，推測是預覽縮圖與噪聲的視覺效果，未再深究。
+- 實測：`tests/procedural-material-motifs.test.ts`六百七十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 四塊棋盤：以格中心亮度（＞0.9）讀出皇后，必須恰八個、行號與欄號各不相同、row−col與row+col也各不相同（即沒有共用斜線）；四塊棋盤的欄位排列不得全部相同；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "eightqueens|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`eightqueens`：option 976個、status為975 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

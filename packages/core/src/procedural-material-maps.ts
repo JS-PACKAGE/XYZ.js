@@ -24136,6 +24136,101 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'eightqueens': {
+        const p = proceduralMaterialPresets.eightqueens,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29901),
+          n = p.size,
+          side = 0.5 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // One non-attacking placement per quadrant board: the queen's column in each row, found by
+          // backtracking with the column order shuffled per board.
+          boards = [0, 1, 2, 3].map((board) => {
+            const rows = new Array<number>(n).fill(-1),
+              order: number[][] = [];
+            for (let row = 0; row < n; row++)
+              order.push(
+                Array.from({ length: n }, (_, i) => i).sort(
+                  (a, b) =>
+                    hash(a, row * 4 + board, seed ^ 0x29903) -
+                    hash(b, row * 4 + board, seed ^ 0x29903),
+                ),
+              );
+            const place = (row: number): boolean => {
+              if (row === n) return true;
+              for (const column of order[row]) {
+                let free = true;
+                for (let earlier = 0; earlier < row && free; earlier++)
+                  free =
+                    rows[earlier] !== column &&
+                    Math.abs(rows[earlier] - column) !== row - earlier;
+                if (!free) continue;
+                rows[row] = column;
+                if (place(row + 1)) return true;
+              }
+              rows[row] = -1;
+              return false;
+            };
+            place(0);
+            return rows;
+          });
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.squareRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                dx = (lx - (col + 0.5) * cell) / cell,
+                dy = (ly - (row + 0.5) * cell) / cell;
+              tone = (row + col) % 2 === 0 ? p.lightSquare : p.darkSquare;
+              level = p.squareHeight;
+              if (boards[quadrant][row] === col) {
+                // The queen: a round body topped by a three-spike crown, in cell-relative units.
+                const disc = cover(
+                    (p.queenRadius - Math.hypot(dx, dy - 0.1)) * cell,
+                  ),
+                  t = ((dx + p.crownHalf) / (2 * p.crownHalf)) * p.spikes,
+                  zig = Math.abs(2 * (t - Math.floor(t)) - 1),
+                  top = -0.36 + 0.14 * zig,
+                  crown = Math.min(
+                    cover((p.crownHalf - Math.abs(dx)) * cell),
+                    cover((dy - top) * cell),
+                    cover((-0.06 - dy) * cell),
+                  ),
+                  body = Math.max(disc, crown);
+                tone += (p.queenTone - tone) * body;
+                level += (p.queenHeight - level) * body;
+                rough += (p.queenRoughness - rough) * body;
+              }
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51665,6 +51760,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'eightqueens' ||
     kind === 'cantordust' ||
     kind === 'dragoncurve' ||
     kind === 'pascalmodulo' ||
