@@ -38547,7 +38547,8 @@ export function createSurfaceSampler(
           lift = 0,
           rest = 1;
         // Composite the pieces of one layer over what is already painted, in a fixed
-        // 3x3 order: value = value * (1 - m) + piece * m, with m a smooth mask of a
+        // 5x5 order (the largest piece, with maximum stretch and edge perturbation, can
+        // reach a little over one cell past its own, so a 3x3 window could cut it): value = value * (1 - m) + piece * m, with m a smooth mask of a
         // smooth(1 - q) rotated ellipse, so overlaps stay C1.
         const paint = (layer: typeof flakes, u: number, v: number): void => {
           const wobble = 1 + p.edgeNoise * 2 * (edgeField(u, v) - 0.5),
@@ -38556,8 +38557,8 @@ export function createSurfaceSampler(
             fy = fract(v) * n,
             col = Math.floor(fx),
             row = Math.floor(fy);
-          for (let dr = -1; dr <= 1; dr++)
-            for (let dc = -1; dc <= 1; dc++) {
+          for (let dr = -2; dr <= 2; dr++)
+            for (let dc = -2; dc <= 2; dc++) {
               const i = ((row + dr + n) % n) * n + ((col + dc + n) % n),
                 size = layer.size[i];
               if (!size) continue;

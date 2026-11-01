@@ -9944,7 +9944,7 @@ function createSurfaceSampler(t, r) {
 					return u;
 				}, s = makeLayer(n.flakeCells, n.flakeChance, n.flakeSizeMinimum, n.flakeSizeVariation, n.flakeStretch, n.flakeJitter, n.flakeTone, n.flakeToneVariation, r ^ n.seedSalt), c = makeLayer(n.chunkCells, n.chunkChance, n.chunkSizeMinimum, n.chunkSizeVariation, n.chunkStretch, n.chunkJitter, n.chunkTone, n.chunkToneVariation, r ^ n.seedSalt + 64), l = 0, u = 0, d = 1, paint = (e, t, r) => {
 					let i = 1 + n.edgeNoise * 2 * (a(t, r) - .5), s = e.cells, c = fract(t) * s, f = fract(r) * s, p = Math.floor(c), m = Math.floor(f);
-					for (let t = -1; t <= 1; t++) for (let r = -1; r <= 1; r++) {
+					for (let t = -2; t <= 2; t++) for (let r = -2; r <= 2; r++) {
 						let a = (m + t + s) % s * s + (p + r + s) % s, h = e.size[a];
 						if (!h) continue;
 						let g = c - (p + r) - .5 - e.x[a], _ = f - (m + t) - .5 - e.y[a], v = (g * e.cos[a] + _ * e.sin[a]) / (h * e.stretch[a]), y = (_ * e.cos[a] - g * e.sin[a]) / (h * (2 - e.stretch[a])), b = (v * v + y * y) * i, x = smooth(clamp((1 - b) * o)), S = smooth(clamp(1 - b));

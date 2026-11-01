@@ -12001,3 +12001,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（以`granola`的測試為範本改寫數值，三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Tilled soil|tilledsoil"`通過；因為重用sampler，也同時重跑了`Granola`的測試。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Tilled soil|tilledsoil|Granola|kinds|catalog|distinct|periodic"`定向測試**2176項通過／3745項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery（garlicskin、jerky、heatsinkfins亦未做）；不push。
+
+## 2026-11-02 修正：granola與tilledsoil的塊鄰格範圍由3×3擴大為5×5
+
+- 起因：我在為下一個材質（sherpafleece，沿用同一個兩層旋轉橢圓塊sampler）放大塊的尺寸時，C1二階差分測試報出約2.5×10⁹的失敗。檢查後發現：塊的中心可在自己的格內抖動±0.45～0.5格，最大半軸再乘上長寬比（最多1.35～1.45）與邊緣擾動（`q`乘上`1 + 擾動·(雜訊 − 0.5)·2`，最小可到0.5～0.55，使橢圓放大約1.35～1.41倍），一個塊可能越過自己的格超過一格；3×3鄰格的視窗會把這種塊在視窗邊界處切斷，造成**真實的跳變**。
+- 回頭檢查已提交的材質：`granola`的燕麥片（最大半軸0.65×1.35／√0.55 ≈ 1.18格，扣掉抖動餘量0.05後仍約1.13格）與`tilledsoil`的土塊（0.62×1.3／√0.5 ≈ 1.14格）在最壞組合下超過一格，因此兩者在極端情況下嚴格說**不是C1**；先前的C1掃描通過只是因為隨機取樣幾乎不會落在這種罕見組合與視窗邊界上，我在該section與docs寫的C1因此不嚴格成立，是我的疏漏。（我另外檢查了其他用3×3視窗的材質：薩拉米脂肪斑最大約0.585格、覆盆子0.56格、卡翁紋橢圓約0.77格，皆小於一格，不受影響。）
+- 修正：兩個材質共用的sampler把鄰格視窗改為5×5（可涵蓋最多兩格的延伸），不改任何preset。重新實測（工具實跑）：granola三seed（及seed 7）512²的底面外露、淡色塊、color範圍、平均、512 maps統計與修正前逐位相同（顯示的所有位數皆相同），代表這些seed在取樣範圍內本來就沒有發生過截斷；docs內相應的鄰格範圍說明已更正為5×5。`-t "Granola|granola|Tilled soil|tilledsoil"`的測試重跑通過。
+- 限制：現有的C1測試是隨機取樣，**不保證**能抓到這類罕見的截斷；我沒有為此另寫確定性的對抗測試，這個修正是靠閱讀程式與計算最壞情況推導出來的，不是靠新測試證明。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Granola|granola|Tilled soil|tilledsoil|kinds|catalog|distinct|periodic"`定向測試**2176項通過／3745項未選**。本修正未重跑完整suite；不push。
