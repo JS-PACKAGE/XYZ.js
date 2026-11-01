@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`westernredcedar`（北美香柏紅褐直紋）使目前目錄890→891種，含plain的gallery為892項。近似Thuja plicata未塗裝縱向木面：偏紅的金褐色底、細而平行的暗色年輪線，年輪輕微起伏。不是邊材、較暗的紅褐隨機條帶、節疤、塗層或Douglas-fir式大型尖拱，也沒有樹脂道（此樹種原本即無樹脂道）。
+
+外觀依據實際閱讀的[Wood Database Western Red Cedar](https://www.wood-database.com/western-red-cedar/)（Color／Appearance：心材紅到粉褐色且常有更暗的隨機條帶、邊材黃白；Grain／Texture：直紋、粗質地、中等光澤；Resin canals：無）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/thuja-plicata.jpg)（金褐色底配細密平行暗線）；僅作配色與年輪線形態參考，不重現來源的隨機暗帶或邊材，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用`douglasfir`的年輪指標sampler，constructor只選preset：20個ring係數（鏡像後橫跨tile 40條）、很小的縱向拱與skew、窄晚材（start0.7／peak0.92）與低晚材色差，得到細而低對比的線。3個constructor cache為5×5 warp、192×5縱向fiber與128² grain（共17,369 Float64／138,952 B lattice算術預算，非總RAM）；金屬factor為0、無mortar，晚材略抬高、較光滑，早材AO略低。預設0.12 m nominal tile、0.003 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：color<0.5的暗線占12.2–12.5%、color>0.6占81.0–81.7%，橫／縱色差比11.9–12.1，晚材比早材高約0.12 relief；seed7的512²平均base color約(148,100,54)、法線max tilt²約0.012。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `chesterfieldleather`（Chesterfield菱格縫釦棕色皮革）使目前目錄889→890種，含plain的gallery為891項。6×6格的每隔一格中心有一顆小釦（每tile 18顆），釦與釦之間以斜向折線連接，其間為鼓起的菱形軟墊；折線處深暗且AO低，軟墊頂較亮、較光滑。棕色皮革細grain與低頻皺紋。不是真實家具尺寸或特定產品的幾何，沒有釦面金屬、縫線、皮革破裂或透明孔洞。
 
 此材質是作者依一般菱格縫釦（diamond-tufted）皮革外觀所作的示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際家具、釦距、皮革種類或顏色；色彩、roughness、AO、層高與0.5 m nominal tile皆作者設定。

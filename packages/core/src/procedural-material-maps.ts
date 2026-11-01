@@ -37097,11 +37097,9 @@ export function createSurfaceSampler(
         };
       }
       case 'douglasfir':
-      case 'longleafpine': {
-        const p =
-            kind === 'longleafpine'
-              ? proceduralMaterialPresets.longleafpine
-              : proceduralMaterialPresets.douglasfir,
+      case 'longleafpine':
+      case 'westernredcedar': {
+        const p = proceduralMaterialPresets[kind],
           warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25101),
           fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x25103),
           grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25105),
@@ -44264,6 +44262,7 @@ export function createSurfaceSampler(
     kind === 'douglasfir' ||
     kind === 'longleafpine' ||
     kind === 'chesterfieldleather' ||
+    kind === 'westernredcedar' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

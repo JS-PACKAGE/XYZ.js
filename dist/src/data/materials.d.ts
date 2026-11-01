@@ -11999,6 +11999,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.06;
         foldOcclusion: 0.5;
     }>;
+    westernredcedar: Readonly<{
+        dark: readonly [92, 56, 26];
+        light: readonly [182, 126, 70];
+        roughness: 0.66;
+        relief: 0.003;
+        rings: 20;
+        arch: 0.35;
+        archShift: 0.01;
+        skew: 0.12;
+        warpCells: 5;
+        warp: 0.3;
+        latewoodStart: 0.7;
+        latewoodPeak: 0.92;
+        fiberColumns: 192;
+        fiberRows: 5;
+        grainCells: 128;
+        earlyTone: 0.66;
+        lateTone: 0.3;
+        fiberTone: 0.07;
+        grainTone: 0.03;
+        lateHeight: 0.14;
+        grainHeight: 0.006;
+        lateRoughness: -0.03;
+        grainRoughness: 0.04;
+        earlyOcclusion: 0.04;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13268,4 +13294,5 @@ export declare const proceduralTileMeters: Readonly<{
     douglasfir: 0.2;
     longleafpine: 0.12;
     chesterfieldleather: 0.5;
+    westernredcedar: 0.12;
 }>;

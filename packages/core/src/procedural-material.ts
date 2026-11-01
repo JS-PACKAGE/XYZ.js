@@ -905,7 +905,8 @@ export type ProceduralMaterialKind =
   | 'blackwalnut'
   | 'douglasfir'
   | 'longleafpine'
-  | 'chesterfieldleather';
+  | 'chesterfieldleather'
+  | 'westernredcedar';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2045,6 +2046,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'douglasfir',
   'longleafpine',
   'chesterfieldleather',
+  'westernredcedar',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

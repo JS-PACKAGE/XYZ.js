@@ -11456,3 +11456,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility、distribution與`-t "Chesterfield|chesterfieldleather|Longleaf|longleafpine|Douglas-fir|douglasfir|kinds|catalog|distinct|periodic"`定向測試；結果皆實際通過：API compatibility 737 exports／2810 contracts／710 historical namespaces／5 consumers、distribution 367 exports，定向測試**2091項通過／3446項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
 - 補記：先前blackwalnut commit（f7c23bb5b）已在凍結的乾淨worktree實跑完整suite，**179檔／9,445項全部通過（1223.01s，v26.7.0）**；該結果只對應當時HEAD，不涵蓋後續douglasfir／longleafpine／chesterfieldleather。
+
+## 2026-11-02 程序材質：北美香柏紅褐直紋年輪線（westernredcedar）
+
+- 目錄890→891，含plain的gallery為892項。近似Thuja plicata未塗裝縱向木面：偏紅金褐色底與細而平行的低對比暗色年輪線。外觀依據實際閱讀的[Wood Database Western Red Cedar](https://www.wood-database.com/western-red-cedar/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/thuja-plicata.jpg)；僅作配色與年輪線形態參考，不重現來源的隨機暗帶／邊材，也不含節疤、塗層或樹脂道。
+- 直接fallthrough重用`douglasfir`年輪sampler，constructor只選preset（ring係數20、窄晚材start0.7／peak0.92、低晚材色差）；3個cache共17,369 Float64／138,952 B。同時把sampler的preset選取由逐kind三元式改為`proceduralMaterialPresets[kind]`（既有douglasfir／longleafpine輸出不受影響，見定向測試）。預設0.12 m tile、0.003 UV-relative relief（非公尺位移）、metallic factor0；不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color<0.5暗線占12.2–12.5%、color>0.6占81.0–81.7%，橫／縱色差比11.9–12.1，晚材比早材高約0.12 relief，roughness 0.631–0.700、AO最低0.96，metallic／mortar皆0；seed7的512² base color平均約(148,100,54)，g<96占18.8%，法線max tilt²約0.012。以Bun產生512 seed7的2×2排列圖並實看：金褐色底與細密近平行暗線、局部較寬橢圓區，無明顯接縫。
+- 新增4項永久測試（`Western red cedar`：三seed顏色比例／各向異性／高度差、C1、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（5.11s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Western red cedar|westernredcedar|kinds|catalog|distinct|periodic"`定向測試，**2082項通過／3462項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
