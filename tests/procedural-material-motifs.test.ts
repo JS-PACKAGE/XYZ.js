@@ -2558,3 +2558,125 @@ describe('kiwislices: radial-streaked slices with two seed rings', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('mandalaflower: layered rotational-symmetric petals', () => {
+  const p = proceduralMaterialPresets.mandalaflower;
+  const steps = 2880;
+
+  /** Dominant angular harmonic of the color on a circle around the tile center. */
+  const harmonic = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    radius: number,
+  ): number => {
+    const out = empty(),
+      color: number[] = [];
+    for (let i = 0; i < steps; i++) {
+      const a = (2 * Math.PI * (i + 0.5)) / steps;
+      sample(0.5 + radius * Math.cos(a), 0.5 + radius * Math.sin(a), out);
+      color.push(out.color);
+    }
+    let best = 0,
+      bestPower = 0;
+    for (let k = 2; k <= 72; k++) {
+      let re = 0,
+        im = 0;
+      for (let i = 0; i < steps; i++) {
+        re += color[i] * Math.cos((2 * Math.PI * k * i) / steps);
+        im += color[i] * Math.sin((2 * Math.PI * k * i) / steps);
+      }
+      if (re * re + im * im > bestPower) {
+        bestPower = re * re + im * im;
+        best = k;
+      }
+    }
+    return best;
+  };
+
+  it.each(seeds)(
+    'repeats each layer with its authored rotational symmetry (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mandalaflower', seed);
+      // Inner petals, outer petals, dot ring and lotus tips.
+      expect(harmonic(sample, p.innerBase + p.innerDepth * 0.5)).toBe(
+        p.innerCount,
+      );
+      expect(harmonic(sample, p.petalBase + p.petalDepth * 0.8)).toBe(
+        p.petalCount,
+      );
+      expect(harmonic(sample, p.dotRadius)).toBe(p.dotCount);
+      expect(harmonic(sample, p.lotusBase + p.lotusDepth * 0.5)).toBe(
+        p.lotusCount,
+      );
+    },
+  );
+
+  it.each(seeds)(
+    'paints the hub, outlines every layer edge and stays in range (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('mandalaflower', seed),
+        out = empty();
+      let invalid = 0;
+      for (let i = 0; i < 40_000; i++) {
+        sample((i * 0.6180339887) % 1, (i * 0.7548776662) % 1, out);
+        invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+      expect(invalid).toBe(0);
+      sample(0.5, 0.5, out);
+      expect(out.color).toBeLessThan(p.hubTone + 0.06);
+      // Along a ray from the hub, every layer boundary carries a dark outline: a local minimum
+      // well below the tones on both sides (one outline width away). Close dips are one outline.
+      const n = 8000,
+        reach = 0.47,
+        width = Math.round((p.outlineWidth / reach) * n),
+        profile: number[] = [],
+        positions: number[] = [];
+      for (let i = 0; i < n; i++) {
+        sample(0.5 + (reach * (i + 0.5)) / n, 0.5, out);
+        profile.push(out.color);
+      }
+      for (let i = width; i < n - width; i++)
+        if (
+          profile[i] < p.outlineTone + 0.08 &&
+          profile[i] <= profile[i - 1] &&
+          profile[i] < profile[i + 1] &&
+          profile[i - width] > profile[i] + 0.1 &&
+          profile[i + width] > profile[i] + 0.1
+        )
+          positions.push((reach * (i + 0.5)) / n);
+      const dips = positions.filter(
+        (x, i) => i === 0 || x - positions[i - 1] > 0.02,
+      ).length;
+      expect(dips).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('mandalaflower', 0),
+      b = createSurfaceSampler('mandalaflower', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

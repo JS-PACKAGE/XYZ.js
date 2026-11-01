@@ -11542,3 +11542,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 過程記錄：這次批次登錄工具又在「測試清單唯一性檢查」中途中斷（原因是前一次為了新增金屬登錄而重新定義的insert函式，讓核心登錄函式也套用了唯一性檢查，而`'to92packagefaces',`在測試檔中因縮排子字串而出現兩次）；中斷時只完成preset／sampler／type／list，尚未更新測試清單／範例。已檢視git狀態，改成可重複執行（已存在即略過）的登錄函式後補完；沒有重複插入。另外初稿sampler有為了趕工留下的`* 0`／`void p.skinHeight`／`+ 0.0`殘留，已在預覽確認外觀後清理並把skinHeight改為真正有效的0.06。
 - 實測：`tests/procedural-material-motifs.test.ts`一百二十四項（本材質七項）全過。三seed 768²取樣：每片以color>0.2的亮區重心與面積估計果肉半徑，再找「亮區內0.85半徑內color<0.12」的連通區當種子——內圈20±1、外圈28±1顆（以兩個授權半徑的中點分群）、群平均半徑比落在授權值±0.04（相對果肉半徑）；果肉上以半徑0.86×果肉的圓取色彩，角向諧波k=20..120中功率最大者必須是64；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "kiwislices|every preset"`定向跑3項通過，沒有重跑該檔其餘5525項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`kiwislices`：option 905個、status為904 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、種子環與放射纖維可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：曼荼羅花形（mandalaflower）
+
+- 目錄904→905，含plain的gallery為906項。每tile一朵以中心為圓心的花形（seed決定旋轉），由外到內為12瓣大蓮瓣（ρ＝0.30＋0.15·|cos(6θ)|^0.8）、36顆點環（半徑0.27）、24瓣外層花瓣、12瓣內層花瓣與中央圓心；各層為填色區並有深色輪廓線（寬0.008，徑向差，非垂直距離），後層較高。Metallic／mortar為0，預設tile0.6 m、0.0014 UV-relative relief、metallic factor 0。簡化示意，不是任何宗教或傳統的曼荼羅圖樣；作者設計，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實作調整：初稿用一個`[edge, tone, level][]`陣列在每個像素迴圈四個圖層，會每個樣本配置一個陣列；改成constructor內的`paint`閉包後無每點配置。輪廓測試初版用相鄰兩個取樣點判斷「谷底」，但輪廓底部是平的（寬0.008），所以一律0；改為與一個輪廓寬度外的取樣比較並合併相距＜0.02的谷底，三seed沿一條射線都量到3個輪廓（位置依seed旋轉而不同，如0.104／0.130／0.395）。
+- 實測：`tests/procedural-material-motifs.test.ts`一百三十一項（本材質七項）全過：以圓周色彩的角向諧波（k＝2..72功率最大者）驗證三seed下各層的旋轉對稱數——內層花瓣圈＝12、外層花瓣圈＝24、點環（半徑0.27）＝36、蓮瓣圈＝12；中心色接近hub色；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "mandalaflower|every preset"`定向跑3項通過，沒有重跑該檔其餘5526項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`mandalaflower`：option 906個、status為905 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各層花瓣與點環可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -17780,6 +17780,87 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.seedAO) * seed - (1 - p.coreAO) * core);
         };
       }
+      case 'mandalaflower': {
+        const p = proceduralMaterialPresets.mandalaflower,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25301),
+          turn = TAU * hash(0, 0, seed ^ 0x25303),
+          inverseSoft = 1 / p.edgeSoft,
+          // Polar rose edge: the layer fills while rho is below base + depth * |cos(count*theta/2)|^power.
+          rose = (
+            theta: number,
+            count: number,
+            base: number,
+            depth: number,
+            power: number,
+          ): number =>
+            base + depth * Math.abs(Math.cos((count * theta) / 2)) ** power,
+          fill = (edge: number, rho: number): number =>
+            smooth(clamp((edge - rho) * inverseSoft + 0.5)),
+          // Fills one layer and its darker outline over whatever is already painted.
+          paint = (
+            edge: number,
+            rho: number,
+            tone: number,
+            level: number,
+          ): void => {
+            const inside = fill(edge, rho),
+              interior = fill(edge - p.outlineWidth, rho),
+              outline = inside - interior;
+            color +=
+              (tone - color) * interior + (p.outlineTone - color) * outline;
+            height += (level - height) * inside - p.outlineDepth * outline;
+          };
+        return () => {
+          const dx = u - 0.5,
+            dy = v - 0.5,
+            rho = Math.sqrt(dx * dx + dy * dy),
+            theta = Math.atan2(dy, dx) + turn,
+            grain = grainField(u, v);
+          color = p.groundTone;
+          height = p.groundHeight;
+          roughness = p.roughness;
+          occlusion = 1;
+          // Painted back to front: lotus, dot ring, outer petals, inner petals, hub. Each layer
+          // is a filled rose region whose boundary gets a darker outline of authored width.
+          const lotusEdge = rose(
+              theta,
+              p.lotusCount,
+              p.lotusBase,
+              p.lotusDepth,
+              p.lotusPower,
+            ),
+            petalEdge = rose(
+              theta,
+              p.petalCount,
+              p.petalBase,
+              p.petalDepth,
+              p.petalPower,
+            ),
+            innerEdge = rose(
+              theta + Math.PI / p.innerCount,
+              p.innerCount,
+              p.innerBase,
+              p.innerDepth,
+              p.innerPower,
+            );
+          paint(lotusEdge, rho, p.lotusTone, p.lotusHeight);
+          paint(petalEdge, rho, p.petalTone, p.petalHeight);
+          paint(innerEdge, rho, p.innerTone, p.innerHeight);
+          paint(p.hubRadius, rho, p.hubTone, p.hubHeight);
+          // Ring of dots between the lotus tips and the outer petals.
+          const dotStep = TAU / p.dotCount,
+            index = Math.round(theta / dotStep),
+            tangential = p.dotRadius * (theta - index * dotStep),
+            dot = fill(
+              p.dotSize,
+              Math.sqrt((rho - p.dotRadius) ** 2 + tangential ** 2),
+            );
+          color += (p.dotTone - color) * dot;
+          height += (p.dotHeight - height) * dot;
+          color = clamp(color + p.grainTone * (grain - 0.5));
+          height = clamp(height + p.grainHeight * (grain - 0.5));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45309,6 +45390,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'mandalaflower' ||
     kind === 'kiwislices' ||
     kind === 'hazardstripes' ||
     kind === 'radarscope' ||
