@@ -21100,6 +21100,33 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 8,
 		fiberContrast: .14
 	}),
+	windowpane: Object.freeze({
+		dark: [
+			24,
+			26,
+			32
+		],
+		light: [
+			214,
+			214,
+			208
+		],
+		roughness: .88,
+		relief: .004,
+		panes: 3,
+		lineWidth: .06,
+		twillLines: 80,
+		threadCells: 192,
+		seedSalt: 29136,
+		baseTone: .2,
+		lineTone: .55,
+		twillTone: .04,
+		threadTone: .06,
+		lineHeight: .35,
+		twillHeight: .4,
+		threadHeight: .25,
+		lineRoughness: -.04
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22527,7 +22554,8 @@ var proceduralTileMeters = Object.freeze({
 	buffaloplaid: .25,
 	sheetmusic: .25,
 	crosshatchengraving: .25,
-	merbau: .18
+	merbau: .18,
+	windowpane: .3
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

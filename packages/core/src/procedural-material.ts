@@ -945,7 +945,8 @@ export type ProceduralMaterialKind =
   | 'buffaloplaid'
   | 'sheetmusic'
   | 'crosshatchengraving'
-  | 'merbau';
+  | 'merbau'
+  | 'windowpane';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2125,6 +2126,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sheetmusic',
   'crosshatchengraving',
   'merbau',
+  'windowpane',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

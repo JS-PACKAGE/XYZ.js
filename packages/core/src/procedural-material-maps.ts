@@ -38066,6 +38066,40 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'windowpane': {
+        const p = proceduralMaterialPresets.windowpane,
+          threads = cachedNoise(
+            p.threadCells,
+            p.threadCells,
+            seed ^ p.seedSalt,
+          ),
+          inverseWidth2 = 1 / (p.lineWidth * p.lineWidth);
+        return () => {
+          // A pale thin line family in each direction on a dark flannel: a line is
+          // exp(-sin^2(pi n s) / w^2), C-infinity and wrapping at an integer pane
+          // count. The two families join as the union 1 - (1 - a)(1 - b), so lines stay
+          // smooth where they cross. A diagonal 2/2-twill ridge (integer line count)
+          // and per-thread noise add the flannel weave.
+          const sinU = Math.sin(Math.PI * p.panes * u),
+            sinV = Math.sin(Math.PI * p.panes * v),
+            lineU = Math.exp(-sinU * sinU * inverseWidth2),
+            lineV = Math.exp(-sinV * sinV * inverseWidth2),
+            line = 1 - (1 - lineU) * (1 - lineV),
+            twill = 0.5 + 0.5 * Math.cos(TAU * p.twillLines * (u + v)),
+            thread = threads(u, v);
+          color =
+            p.baseTone +
+            p.lineTone * line +
+            p.twillTone * (twill - 0.5) +
+            p.threadTone * (thread - 0.5);
+          height =
+            p.lineHeight * line +
+            p.twillHeight * twill +
+            p.threadHeight * thread;
+          roughness += p.lineRoughness * line;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -45804,6 +45838,7 @@ export function createSurfaceSampler(
     kind === 'sheetmusic' ||
     kind === 'crosshatchengraving' ||
     kind === 'merbau' ||
+    kind === 'windowpane' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

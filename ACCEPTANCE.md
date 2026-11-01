@@ -11867,3 +11867,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計與幾何、C1、actual512 maps、有符號UV週期），`-t "Merbau|merbau"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Merbau|merbau|kinds|catalog|distinct|periodic"`定向測試**2146項通過／3679項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；與真實merbau的外觀比對只有我對一張照片的主觀目視；不push。
+
+## 2026-11-02 新增材質：窗格紋（windowpane）
+
+- 範圍：新增`windowpane`（目前目錄930→931種，含plain的gallery 932項）：暗炭灰藍的斜紋法蘭絨，每tile 3×3格、橫直各一組的淡色細線（單線為`exp(−sin²(π·n·s)/w²)`，兩方向以聯集`1 − (1 − a)(1 − b)`合併，避免`max`折角），加斜向2/2斜紋脊（80條）與192²逐紗線雜訊；預設0.3 m nominal tile、0.004 UV-relative relief。作者示意，沒有引用特定來源。
+- 實測（工具實跑）：三seed 512²取樣color>0.45的線占6.69–6.71%、color 0.150–0.798、平均0.2365–0.2366、格內本體平均0.1999–0.2001、roughness 0.84–0.88、height至多0.994–0.996 relief；沿／橫越斜紋脊色差比約2.25–2.28；線中心平均約0.75、格中心約0.22；seed 0與1的逐點色差平均約0.0146；seed 7的512²maps平均r／g／b約(69, 70, 74)、r>110占6.6%、法線tilt²最大約0.362、z分量最小230。我實看了四格預覽，外觀整齊但單調（正方格＋均勻斜紋），沒有真實窗格紋常見的不等距或雙線變化。
+- 測試：新增8項（三seed統計與斜紋方向性、線位於整數格上、seed差異與同seed決定性、C1二階差分＋有符號UV週期、actual512 maps），`-t "Windowpane|windowpane"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Windowpane|windowpane|kinds|catalog|distinct|periodic"`定向測試**2148項通過／3685項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

@@ -12956,6 +12956,25 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 8;
         fiberContrast: 0.14;
     }>;
+    windowpane: Readonly<{
+        dark: readonly [24, 26, 32];
+        light: readonly [214, 214, 208];
+        roughness: 0.88;
+        relief: 0.004;
+        panes: 3;
+        lineWidth: 0.06;
+        twillLines: 80;
+        threadCells: 192;
+        seedSalt: 29136;
+        baseTone: 0.2;
+        lineTone: 0.55;
+        twillTone: 0.04;
+        threadTone: 0.06;
+        lineHeight: 0.35;
+        twillHeight: 0.4;
+        threadHeight: 0.25;
+        lineRoughness: -0.04;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14265,4 +14284,5 @@ export declare const proceduralTileMeters: Readonly<{
     sheetmusic: 0.25;
     crosshatchengraving: 0.25;
     merbau: 0.18;
+    windowpane: 0.3;
 }>;

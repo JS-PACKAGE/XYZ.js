@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`windowpane`（窗格紋）使目前目錄930→931種，含plain的gallery為932項。暗炭灰藍的斜紋法蘭絨布面，上面是每tile 3×3格、橫直各一組的淡色細線（窗格），線在交叉處平滑相接；布面帶斜向2/2斜紋脊（80條）與逐紗線的雜訊。不是真實的毛織結構、每條紗線的幾何、雙線或不等距格線、縫線、毛邊或褪色。
+
+此材質是作者依一般窗格紋（windowpane check）法蘭絨外觀所作示意，沒有引用特定來源文件、照片或量測；格數（每tile 3）、線寬、底色與線色的色調、斜紋線數、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際織物規格。
+
+新增專用sampler：每個方向一組線，單條線是`exp(−sin²(π·n·s)/w²)`（C∞，隨tile在整數格數wrap），兩個方向以聯集`1 − (1 − a)(1 − b)`合併，使線在交叉處仍平滑；另加斜向2/2斜紋脊（`cos`，整數線數）與192²逐紗線雜訊（36,864個Float64／294,912 B lattice算術預算，非總RAM）。顏色是顏料，淡線略凸起（height 0.35 relief，斜紋0.4、紗線雜訊0.25）、roughness略降0.04；金屬factor為0、無mortar、AO 1。預設0.3 m nominal tile與0.004 UV-relative relief（非公尺位移）。實測（工具實跑，三seed 0／1／0xffffffff，512²取樣）：color>0.45的線占6.69–6.71%，color 0.150–0.798，全圖平均0.2365–0.2366，格內本體（遠離線處）平均0.1999–0.2001、本體色至多約0.250，roughness 0.84–0.88、height至多0.994–0.996 relief；沿斜紋脊方向與橫越脊方向的色差比約2.25–2.28；線中心平均約0.75、格中心平均約0.22；seed 0與1的逐點色差平均約0.0146；seed 7的512²maps平均r／g／b約(69, 70, 74)、r>110占6.6%、法線tilt²最大約0.362。我實看了四格預覽：整齊的炭灰藍法蘭絨與淡色窗格。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `merbau`（印茄木）使目前目錄929→930種，含plain的gallery為931項。近似Intsia spp.未塗裝縱向木面：帶灰調的橙棕底色、粗質地、1條很淡的暗帶、縱向纖維與密集散布的細暗導管短痕（約1.4%）。不是新切時偏橙的鮮明色、黃色礦物沉積（yellow mineral deposits）、交錯紋或塗層。
 
 外觀依據實際閱讀的[Wood Database Merbau](https://www.wood-database.com/merbau/)（Color／Appearance：新切為橙棕色，日久轉為較深的紅棕，板與板之間色差大，並有零星黃色礦物沉積；Grain／Texture：直紋到交錯紋、粗質地，中等光澤；Endgrain：散孔材，導管大到極大但很少）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/merbau.jpg)（帶灰調的暗棕面、許多縱向的細暗短導管痕、極少數黃色細線）；僅作配色與紋理形態參考，**不**重現黃色礦物沉積、交錯紋、板間色差或塗層，不打包來源圖，也不由照片反推真色、roughness或實際尺寸；導管密度為依照片外觀作者設定，不代表Wood Database「導管很少」的端面描述。
