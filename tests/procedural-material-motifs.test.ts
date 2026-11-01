@@ -915,3 +915,176 @@ describe('ammonitestone: logarithmic-spiral fossils in limestone', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('octopussuckers: staggered sucker rims and ridged cups', () => {
+  const p = proceduralMaterialPresets.octopussuckers;
+  const size = 512;
+  type Ring = { u: number; v: number; radius: number };
+  const wrapDelta = (a: number, b: number): number => {
+    const d = a - b;
+    return d - Math.round(d);
+  };
+  const sweep = (seed: number) => {
+    const sample = createSurfaceSampler('octopussuckers', seed),
+      out = empty(),
+      raised = new Uint8Array(size * size);
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) {
+        sample((x + 0.5) / size, (y + 0.5) / size, out);
+        expect(out.metallic).toBe(0);
+        expect(out.mortar).toBe(0);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+        ])
+          if (!(value >= 0 && value <= 1))
+            throw new Error(`octopussuckers channel ${value} out of range`);
+        // Only a rim crest reaches this height; skin and cups stay below.
+        raised[y * size + x] = Number(
+          out.height / p.relief > p.skinHeight + 0.7 * p.rimHeight,
+        );
+      }
+    // Rim crests as wrap-aware components with circular-mean centers.
+    const seen = new Uint8Array(raised.length),
+      rings: Ring[] = [];
+    for (let first = 0; first < raised.length; first++) {
+      if (!raised[first] || seen[first]) continue;
+      const queue = [first],
+        pixels: number[] = [];
+      seen[first] = 1;
+      for (let read = 0; read < queue.length; read++) {
+        const i = queue[read],
+          x = i % size,
+          y = Math.floor(i / size);
+        pixels.push(i);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (raised[j] && !seen[j]) {
+            seen[j] = 1;
+            queue.push(j);
+          }
+        }
+      }
+      let su = 0,
+        cu = 0,
+        sv = 0,
+        cv = 0;
+      for (const i of pixels) {
+        const u = (2 * Math.PI * ((i % size) + 0.5)) / size,
+          v = (2 * Math.PI * (Math.floor(i / size) + 0.5)) / size;
+        su += Math.sin(u);
+        cu += Math.cos(u);
+        sv += Math.sin(v);
+        cv += Math.cos(v);
+      }
+      const u = (Math.atan2(su, cu) / (2 * Math.PI) + 1) % 1,
+        v = (Math.atan2(sv, cv) / (2 * Math.PI) + 1) % 1;
+      let radius = 0;
+      for (const i of pixels)
+        radius += Math.hypot(
+          wrapDelta(((i % size) + 0.5) / size, u),
+          wrapDelta((Math.floor(i / size) + 0.5) / size, v),
+        );
+      rings.push({ u, v, radius: radius / pixels.length });
+    }
+    return { sample, rings };
+  };
+
+  it.each(seeds)(
+    'lays one rim per sucker in staggered rows at the authored pitch (seed %i)',
+    (seed) => {
+      const { sample, rings } = sweep(seed),
+        out = empty();
+      expect(rings.length).toBe(p.columns * p.rows);
+      const tolerance = p.jitter + 0.004;
+      for (const ring of rings) {
+        const row = Math.round(ring.v * p.rows - 0.5);
+        expect(Math.abs(wrapDelta(ring.v, (row + 0.5) / p.rows))).toBeLessThan(
+          tolerance,
+        );
+        // Odd rows are shifted by half a column pitch.
+        const column = ring.u * p.columns - (row & 1) * 0.5;
+        expect(
+          Math.abs(wrapDelta(column, Math.round(column))) / p.columns,
+        ).toBeLessThan(tolerance);
+        // The crest radius lies between the inner foot and the rim edge.
+        expect(ring.radius).toBeGreaterThan(p.rimInner * p.radius * 0.92);
+        expect(ring.radius).toBeLessThan(p.radius);
+        // The enclosed orifice is deep and dark.
+        sample(ring.u, ring.v, out);
+        expect(out.height / p.relief).toBeLessThan(p.skinHeight - 0.25);
+        expect(out.color).toBeLessThan(p.skinTone - 0.3);
+        expect(out.occlusion).toBeLessThan(1 - p.holeAO * 0.5);
+      }
+    },
+  );
+
+  it.each(seeds)(
+    'carries the authored number of radial ridges inside each cup (seed %i)',
+    (seed) => {
+      const { sample, rings } = sweep(seed),
+        out = empty(),
+        steps = 1024;
+      for (const ring of rings) {
+        // Crest radius sits at (rimInner + 1) / 2 of the sucker radius.
+        const radius = (ring.radius / ((p.rimInner + 1) / 2)) * 0.38,
+          color: number[] = [];
+        for (let i = 0; i < steps; i++) {
+          const a = (2 * Math.PI * i) / steps;
+          sample(
+            ring.u + radius * Math.cos(a),
+            ring.v + radius * Math.sin(a),
+            out,
+          );
+          color.push(out.color);
+        }
+        // Dominant angular harmonic above the slow noise (k >= 6) must be the ridge count.
+        let best = 0,
+          bestPower = 0;
+        for (let k = 6; k <= 30; k++) {
+          let re = 0,
+            im = 0;
+          for (let i = 0; i < steps; i++) {
+            re += color[i] * Math.cos((2 * Math.PI * k * i) / steps);
+            im += color[i] * Math.sin((2 * Math.PI * k * i) / steps);
+          }
+          if (re * re + im * im > bestPower) {
+            bestPower = re * re + im * im;
+            best = k;
+          }
+        }
+        expect(best).toBe(p.ridges);
+      }
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('octopussuckers', 0),
+      b = createSurfaceSampler('octopussuckers', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

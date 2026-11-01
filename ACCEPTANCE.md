@@ -11459,3 +11459,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際抓到的缺陷：第一版範圍測試對三個seed皆失敗——height最大約1.08（基質.22＋殼.08＋管.5＋肋.18＋龍骨.1 超過1），由新測試的「所有通道落在0..1」抓出；把tubeHeight／ribHeight／keelHeight降為.42／.14／.06後通過。調整成長比（1.9→2.3）與肋數（22→18）是看512預覽後的外觀決定：原版縫合線像同心環、看不出螺旋。
 - 實測：`tests/procedural-material-motifs.test.ts`五十四項（本材質十項：三seed化石位置／大小與通道範圍、三seed沿三個方向射線上的縫合線半徑比＝生長比±0.2、三seed繞圈肋數＝18±2、wrap／seed差異）全過；化石以高度>0.27的像素重心與面積獨立定位，縫合線用occlusion區域極小值（隨射線方向不同都需出現≥2個外圈縫合線），肋數以環形色彩減去一個肋週期移動平均後的上升零交叉計。`tests/procedural-material.test.ts`以`-t "ammonitestone|every preset"`定向跑3項通過，沒有重跑該檔其餘5512項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`ammonitestone`：option 893個、status為892 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼為16枚（4×4拼貼）螺旋化石且無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：章魚腕吸盤（octopussuckers）
+
+- 目錄892→893，含plain的gallery為894項。4×4個吸盤（奇數列偏移半個欄距，位置與半徑各自微調），每個含高出皮膚的環形邊緣、內縮杯狀凹陷（12條放射隆線）與中央深暗小孔；皮膚濕潤粉灰、帶緩變皺紋與深色斑點。Metallic／mortar為0，預設tile0.4 m、0.0034 UV-relative relief、metallic factor 0。作者設計的示意，非特定種類量測，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 實際抓到並修正的缺陷：第一版在杯緣腳（q＝cupRadius）顏色／粗糙度與皮膚不連續，預覽可見一圈細線；杯內公式改為在邊緣腳收斂到皮膚值並讓隆線以4·cup·(1−cup)窗函數在邊緣與孔處歸零（各通道C1連續）。第一版隆線測試用「去移動平均後的上升零交叉」在seed 0得到14而非12（皮膚皺紋低頻雜訊造成多餘交叉；以授權中心量測也得12–14），所以改用角向諧波：k＝6..30中功率最大者必須等於12；不是放寬容許值。
+- 實測：`tests/procedural-material-motifs.test.ts`六十一項（本材質七項：三seed 16個邊緣環、列／欄偏移與半格位移、環半徑與孔深色、三seed杯內隆線主諧波＝12、wrap／seed差異）全過。邊緣環以height>skin+0.7×rim的像素做wrap八連通區並用圓周平均求中心，不依賴sampler內部pose；半徑落在[0.92×rimInner×radius, radius]。`tests/procedural-material.test.ts`以`-t "octopussuckers|every preset"`定向跑3項通過，沒有重跑該檔其餘5513項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`octopussuckers`：option 894個、status為893 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、杯內隆線可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

@@ -16905,6 +16905,94 @@ export function createSurfaceSampler(
           occlusion = 1 - shell * (1 - p.shellAO) * (1 - tube);
         };
       }
+      case 'octopussuckers': {
+        const p = proceduralMaterialPresets.octopussuckers,
+          count = p.columns * p.rows,
+          poses = new Float64Array(count * 3),
+          wrinkleField = cachedNoise(
+            p.wrinkleCells,
+            p.wrinkleCells,
+            seed ^ 0x24701,
+          ),
+          speckleField = cachedNoise(
+            p.speckleCells,
+            p.speckleCells,
+            seed ^ 0x24703,
+          ),
+          inverseRim = 1 / (1 - p.rimInner),
+          inverseCup = 1 / p.cupRadius,
+          inverseHole = 1 / p.holeRadius;
+        // Per sucker: center jitter in u, in v and the radius scale. Radius .075 is below half
+        // the column pitch (.125) and the row pitch (.083), so only the own row/column matters.
+        for (let row = 0; row < p.rows; row++)
+          for (let col = 0; col < p.columns; col++) {
+            const i = (row * p.columns + col) * 3;
+            poses[i] = p.jitter * (2 * hash(col, row, seed ^ 0x24705) - 1);
+            poses[i + 1] = p.jitter * (2 * hash(col, row, seed ^ 0x24707) - 1);
+            poses[i + 2] =
+              p.radius *
+              (p.minScale +
+                (p.maxScale - p.minScale) * hash(col, row, seed ^ 0x24709));
+          }
+        return () => {
+          const row = Math.floor(v * p.rows),
+            stagger = (row & 1) * 0.5,
+            colF = u * p.columns - stagger,
+            colRaw = Math.round(colF),
+            col = ((colRaw % p.columns) + p.columns) % p.columns,
+            i = (row * p.columns + col) * 3,
+            dx = (colF - colRaw) / p.columns - poses[i],
+            dy = v - (row + 0.5) / p.rows - poses[i + 1],
+            q = Math.sqrt(dx * dx + dy * dy) / poses[i + 2],
+            wrinkle = wrinkleField(u, v),
+            speckle = smooth(
+              clamp((speckleField(u, v) - p.speckleThreshold) * p.speckleSharp),
+            );
+          color =
+            p.skinTone +
+            p.wrinkleTone * (wrinkle - 0.5) -
+            p.speckleTone * speckle;
+          height = p.skinHeight + p.wrinkleHeight * (wrinkle - 0.5);
+          roughness = p.skinRoughness;
+          occlusion = 1;
+          if (q >= 1) return;
+          // Raised torus rim between rimInner and 1 (zero at both ends).
+          const rim =
+              Math.sin(Math.PI * clamp((q - p.rimInner) * inverseRim)) ** 1.4,
+            skinColor = color;
+          if (q >= p.cupRadius) {
+            color = skinColor + rim * (p.rimTone - skinColor);
+            height = p.skinHeight + p.rimHeight * rim;
+            roughness =
+              p.skinRoughness + (p.rimRoughness - p.skinRoughness) * rim;
+            return;
+          }
+          // Cup: the floor rises to the skin level at the rim's inner foot (C1 in every channel),
+          // with radial infundibular ridges and a dark central orifice.
+          const cup = smooth(clamp(q * inverseCup)),
+            hole = 1 - smooth(clamp(q * inverseHole)),
+            // Zero-mean radial ridges, windowed to vanish at the orifice and at the rim foot.
+            ridge =
+              0.5 *
+              Math.cos(p.ridges * Math.atan2(dy, dx)) *
+              4 *
+              cup *
+              (1 - cup);
+          color =
+            p.cupTone +
+            (skinColor - p.cupTone) * cup * cup -
+            (p.cupTone - p.holeTone) * hole +
+            p.ridgeTone * ridge;
+          height =
+            p.cupFloorHeight +
+            (p.skinHeight - p.cupFloorHeight) * cup +
+            p.ridgeHeight * ridge -
+            (p.cupFloorHeight - p.holeHeight) * hole;
+          roughness =
+            p.skinRoughness + (p.cupRoughness - p.skinRoughness) * (1 - cup);
+          occlusion = clamp(1 - (1 - cup) * p.cupAO - hole * p.holeAO);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44434,6 +44522,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'octopussuckers' ||
     kind === 'ammonitestone' ||
     kind === 'amberresin' ||
     kind === 'patchworkquilt' ||
