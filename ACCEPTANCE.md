@@ -11438,3 +11438,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 過程中實際抓到的缺陷：第一版對`tests/procedural-material.test.ts`的通用週期測試`bayerdither is deterministic, seeded, distinct...`失敗——32×32取樣點剛好落在64方塊的邊界（每個樣本都是凹縫），不同seed輸出相同。已加入preset `phase: 0.25`（四分之一方塊的格線相位，仍週期），使2的冪貼圖取樣點落在方塊面內；修正後該測試通過。同時把亮度場由levelCells6／contrast1.9調為3／1.5，因為量測顯示原場在單一8×8 tile內變化太大，看不出有序抖動（中等亮度tile內相鄰亮塊對平均19，修正後約5–11，隨機約28）。
 - 實測：`tests/procedural-material-motifs.test.ts`二十一項（本材質八項：三seed範圍、三seed的Bayer順序與棋盤、方塊內平坦＋凹縫、wrap／seed差異）全過；Bayer順序檢查用獨立的bit-interleave公式（sampler用遞迴建構），相鄰亮暗不同的方塊對中亮塊排序較低者約0.79（隨機約0.5，門檻0.7），中等亮度（26–38亮）tile平均相鄰亮塊對<14。`tests/procedural-material.test.ts`以`-t "bayerdither|every preset"`定向跑3項通過，沒有重跑該檔其餘5509項。strict typecheck、eslint（變更source／test）、build（tsc／minify／vendor／cjs）、API structural compatibility與distribution已實際通過。
 - 真實dev server的pbr3d頁（WebGPU）在修正phase後重新選取`bayerdither`：option 890個、status為889 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼為連續的有序抖動方磚。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：拼布被面（patchworkquilt）
+
+- 目錄889→890，含plain的gallery為891項。4×4塊布片，每片依hash選素色（含印花小圓點）、對角三角、同心方環或三條布帶；拼縫凹縫、每片中央填棉隆起、沿片界內縮0.07的虛線縫線（每邊6段、佔空比0.62）；底層96×96平紋織。Metallic／mortar為0，預設tile0.8 m、0.0042 UV-relative relief、metallic factor 0。作者設計的簡化被面，不取自圖片或特定傳統區塊。仍在獨立worktree分支`materials/more-textures`作業。
+- 原型量測與修正：同心方環的內縫距離第一版以ring+進位計算，使最內方塊中心多出一個假拼縫（圖中央有小點），改為「最近的ring縫、且至少為第1條」。縫線測試先量原型再定門檻：以高度二階差（兩側平均−縫線處）檢測縫線，上邊0.1–0.9的虛線佔空比0.56–0.60、段數6–7（含織紋造成的邊界碎段），所以測試門檻為（duty−0.12, duty+0.08）與5–7段，不是用精確等號。縫線最低點因dome斜率略向邊界偏移（實測約0.062對inset0.07），測試容許0.012。
+- 實測：`tests/procedural-material-motifs.test.ts`三十四項（本材質十三項：三seed範圍、三seed拼縫凹縫與隆起、三seed虛線縫線位置／佔空比、三seed布片色調分散、wrap／seed差異）全過。`tests/procedural-material.test.ts`以`-t "patchworkquilt|every preset"`定向跑3項通過，沒有重跑該檔其餘5510項。strict typecheck、eslint（變更source／test）、build（tsc／minify／vendor／cjs）、API structural compatibility與distribution已實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`patchworkquilt`：option 891個、status為890 presets＋plain，25球渲染且`tab.errors()`空（第一次讀取時頁面仍在載入，因為驗證指令同時在跑；等載入完成後重測才取得上述status）；實看512 seed7 2×2拼貼無接縫、四種設計可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

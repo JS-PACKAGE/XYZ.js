@@ -16624,6 +16624,114 @@ export function createSurfaceSampler(
           occlusion = p.floorAO + face * ((on ? p.onAO : p.offAO) - p.floorAO);
         };
       }
+      case 'patchworkquilt': {
+        const p = proceduralMaterialPresets.patchworkquilt,
+          inverseSeam = 1 / p.seamSoft,
+          inverseStitch = 1 / p.stitchSoft,
+          inverseDome = 1 / p.domeWidth;
+        const pieceTone = (px: number, py: number, salt: number): number =>
+          p.toneLevels[
+            Math.min(
+              p.toneLevels.length - 1,
+              Math.floor(hash(px, py, seed ^ salt) * p.toneLevels.length),
+            )
+          ];
+        return () => {
+          const pu = u * p.patches,
+            pv = v * p.patches,
+            px = Math.floor(pu),
+            py = Math.floor(pv),
+            fx = pu - px,
+            fy = pv - py,
+            cx = fx - 0.5,
+            cy = fy - 0.5,
+            edge = Math.min(fx, 1 - fx, fy, 1 - fy),
+            design = Math.min(
+              p.designs - 1,
+              Math.floor(hash(px, py, seed ^ 0x24401) * p.designs),
+            ),
+            toneA = pieceTone(px, py, 0x24403),
+            toneB = pieceTone(px, py, 0x24405),
+            flip = hash(px, py, seed ^ 0x24407) < 0.5;
+          // Distance to the nearest internal piece seam and the tone of the piece being sewn.
+          let inner = 1,
+            tone = toneA;
+          if (design === 1) {
+            const s = (flip ? cx - cy : cx + cy) * Math.SQRT1_2;
+            inner = Math.abs(s);
+            tone = s > 0 ? toneA : toneB;
+          } else if (design === 2) {
+            const m = Math.max(Math.abs(cx), Math.abs(cy)),
+              ring = Math.floor(m / p.ringWidth);
+            // Nearest ring seam; the innermost square has no seam at its own center.
+            inner = Math.abs(
+              m - Math.max(1, Math.round(m / p.ringWidth)) * p.ringWidth,
+            );
+            tone = (ring & 1) === 0 ? toneA : toneB;
+          } else if (design === 3) {
+            const c = flip ? cx : cy,
+              strip = Math.min(
+                p.stripes - 1,
+                Math.floor((c + 0.5) * p.stripes),
+              ),
+              line = (c + 0.5) * p.stripes - strip;
+            inner = Math.min(line, 1 - line) / p.stripes;
+            tone = (strip & 1) === 0 ? toneA : toneB;
+          }
+          const seam = Math.max(
+              smooth(clamp((p.seamWidth - edge) * inverseSeam + 0.5)),
+              smooth(clamp((p.seamWidth - inner) * inverseSeam + 0.5)),
+            ),
+            dome = smooth(clamp(edge * inverseDome)),
+            // Outline quilting: a dashed running stitch inset from the patch border.
+            along = Math.abs(cx) > Math.abs(cy) ? cy : cx,
+            dash = fract((along + 0.5) * p.stitchDashes) < p.stitchDuty ? 1 : 0,
+            stitch =
+              smooth(
+                clamp(
+                  (p.stitchHalf - Math.abs(edge - p.stitchInset)) *
+                    inverseStitch +
+                    0.5,
+                ),
+              ) * dash,
+            // Printed dots on plain pieces only.
+            dotX = fract(fx / p.dotPitch + 0.5) - 0.5,
+            dotY = fract(fy / p.dotPitch + 0.5) - 0.5,
+            dotDistance = Math.sqrt(dotX * dotX + dotY * dotY) * p.dotPitch,
+            dot =
+              design === 0
+                ? smooth(clamp((p.dotRadius - dotDistance) * inverseSeam + 0.5))
+                : 0,
+            nu = u * p.threads,
+            nv = v * p.threads,
+            ix = Math.floor(nu),
+            iy = Math.floor(nv),
+            a = nu - ix,
+            b = nv - iy,
+            pa = 4 * a * (1 - a),
+            pb = 4 * b * (1 - b),
+            weave = (((ix + iy) & 1) === 0 ? pa : pb) * 0.5 + 0.5 * pa * pb;
+          color = clamp(
+            tone +
+              p.dotLift * dot +
+              (p.threadTone - tone) * stitch -
+              (tone - 0.04) * 0.45 * seam +
+              p.weaveTone * (weave - 0.5),
+          );
+          height = clamp(
+            p.floorHeight +
+              p.puffHeight * dome * (1 - 0.5 * seam) -
+              p.seamDepth * seam -
+              p.stitchDepth * stitch +
+              p.weaveHeight * weave,
+          );
+          roughness =
+            p.roughnessBase + (p.threadRoughness - p.roughnessBase) * stitch;
+          occlusion = clamp(
+            1 - p.seamAO * seam - p.stitchAO * stitch - p.puffAO * (1 - dome),
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44153,6 +44261,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'patchworkquilt' ||
     kind === 'bayerdither' ||
     kind === 'turingpattern' ||
     kind === 'to220packagefaces' ||

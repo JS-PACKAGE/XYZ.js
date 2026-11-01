@@ -418,3 +418,162 @@ describe('bayerdither: ordered-dither pixel tile mosaic', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('patchworkquilt: sewn patches with puffed padding and running stitches', () => {
+  const p = proceduralMaterialPresets.patchworkquilt;
+  const n = p.patches;
+  const heightAt = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    px: number,
+    py: number,
+    x: number,
+    y: number,
+  ): number => {
+    const out = empty();
+    sample((px + x) / n, (py + y) / n, out);
+    return out.height / p.relief;
+  };
+
+  it.each(seeds)(
+    'keeps opaque non-metal channels in range for seed %i',
+    (seed) => {
+      const sample = createSurfaceSampler('patchworkquilt', seed),
+        out = empty();
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, out);
+          expect(out.mortar).toBe(0);
+          expect(out.metallic).toBe(0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            if (!(value >= 0 && value <= 1))
+              throw new Error(`patchworkquilt channel ${value} out of range`);
+        }
+    },
+  );
+
+  it.each(seeds)(
+    'sews a groove on every patch border and puffs each patch (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('patchworkquilt', seed);
+      let grooved = 0,
+        total = 0,
+        centers = 0,
+        borders = 0;
+      for (let k = 0; k < n; k++)
+        for (let i = 0; i < 256; i++) {
+          const t = (i + 0.5) / 256;
+          // Horizontal border k/n, probed 0.04 of a patch inside (clear of stitching).
+          grooved += Number(
+            heightAt(sample, 0, k, t * n, 0) <
+              heightAt(sample, 0, k, t * n, 0.04) - 0.05,
+          );
+          total++;
+        }
+      for (let py = 0; py < n; py++)
+        for (let px = 0; px < n; px++) {
+          centers += heightAt(sample, px, py, 0.5, 0.5);
+          borders += heightAt(sample, px, py, 0.02, 0.5);
+        }
+      expect(grooved / total).toBeGreaterThan(0.9);
+      expect((centers - borders) / (n * n)).toBeGreaterThan(0.3);
+    },
+  );
+
+  it.each(seeds)(
+    'dashes the outline stitch at the authored inset with the authored duty (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('patchworkquilt', seed),
+        samples = 800;
+      for (let py = 0; py < n; py++)
+        for (let px = 0; px < n; px++) {
+          const dips: boolean[] = [];
+          for (let i = 0; i < samples; i++) {
+            const f = 0.1 + (0.8 * i) / samples,
+              // A stitch lowers its own height below both flanks.
+              flank =
+                (heightAt(sample, px, py, f, p.stitchInset - 0.025) +
+                  heightAt(sample, px, py, f, p.stitchInset + 0.025)) /
+                2;
+            dips.push(
+              flank - heightAt(sample, px, py, f, p.stitchInset) > 0.08,
+            );
+          }
+          const lit = dips.filter(Boolean).length / samples;
+          let runs = 0;
+          for (let i = 0; i < samples; i++) if (dips[i] && !dips[i - 1]) runs++;
+          // 0.8 of a side spans 4.8 dash periods.
+          expect(lit).toBeGreaterThan(p.stitchDuty - 0.12);
+          expect(lit).toBeLessThan(p.stitchDuty + 0.08);
+          expect(runs).toBeGreaterThanOrEqual(5);
+          expect(runs).toBeLessThanOrEqual(7);
+          // The lowest point of the cross-section sits at the inset (the dome slope
+          // shifts it slightly toward the border).
+          const dash = dips.indexOf(true, 20),
+            f = 0.1 + (0.8 * (dash + 8)) / samples;
+          let best = 0,
+            low = Infinity;
+          for (let k = 0; k <= 200; k++) {
+            const e = 0.04 + (0.06 * k) / 200,
+              h = heightAt(sample, px, py, f, e);
+            if (h < low) {
+              low = h;
+              best = e;
+            }
+          }
+          expect(Math.abs(best - p.stitchInset)).toBeLessThan(0.012);
+        }
+    },
+  );
+
+  it.each(seeds)(
+    'mixes distinct fabric tones across patches (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('patchworkquilt', seed),
+        out = empty(),
+        means: number[] = [];
+      for (let py = 0; py < n; py++)
+        for (let px = 0; px < n; px++) {
+          let sum = 0;
+          for (let y = 0; y < 8; y++)
+            for (let x = 0; x < 8; x++) {
+              sample((px + 0.1 + x * 0.1) / n, (py + 0.1 + y * 0.1) / n, out);
+              sum += out.color;
+            }
+          means.push(sum / 64);
+        }
+      const mean = means.reduce((a, b) => a + b, 0) / means.length,
+        spread = Math.sqrt(
+          means.reduce((a, b) => a + (b - mean) ** 2, 0) / means.length,
+        );
+      expect(spread).toBeGreaterThan(0.08);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('patchworkquilt', 0),
+      b = createSurfaceSampler('patchworkquilt', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

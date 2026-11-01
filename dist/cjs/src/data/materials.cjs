@@ -12193,6 +12193,55 @@ var proceduralMaterialPresets = Object.freeze({
 		onAO: 1,
 		offAO: .8
 	}),
+	patchworkquilt: Object.freeze({
+		dark: [
+			46,
+			34,
+			58
+		],
+		light: [
+			240,
+			218,
+			178
+		],
+		roughness: .82,
+		relief: .0042,
+		patches: 4,
+		threads: 96,
+		designs: 4,
+		toneLevels: [
+			.12,
+			.3,
+			.5,
+			.7,
+			.88
+		],
+		seamWidth: .02,
+		seamSoft: .008,
+		domeWidth: .3,
+		ringWidth: .125,
+		stripes: 3,
+		dotPitch: .1667,
+		dotRadius: .042,
+		dotLift: .16,
+		stitchInset: .07,
+		stitchHalf: .011,
+		stitchSoft: .006,
+		stitchDashes: 6,
+		stitchDuty: .62,
+		threadTone: .93,
+		floorHeight: .1,
+		puffHeight: .62,
+		seamDepth: .16,
+		stitchDepth: .14,
+		weaveHeight: .06,
+		weaveTone: .035,
+		roughnessBase: .8,
+		threadRoughness: .9,
+		seamAO: .45,
+		stitchAO: .25,
+		puffAO: .2
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -20874,6 +20923,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	patchworkquilt: .8,
 	bayerdither: .32,
 	turingpattern: .4,
 	mudcloth: .5,
