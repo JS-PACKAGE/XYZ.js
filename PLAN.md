@@ -1321,6 +1321,10 @@
 
 這是作者設計的示意：只畫四種固定的環／齒輪比（不是一般的任意R、r），曲線是均勻取t的折線點陣（9000點每圈，並非精確距離場）；顏色是亮度插值（近黑墨＋米白紙），不代表筆的色相。預設0.3 m nominal tile、0.0012 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512至1024；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`juliacells`（Julia集合方格）使目前目錄941→942種，含plain的gallery為943項。每tile四個象限各畫一個填充Julia集合 z → z² + c，c取實數（約−0.4、−0.75、−1.0、−1.25，各依seed在±0.04內抖動；實數c落在[−2, 1/4]時集合連通，且圖形對x、y軸都鏡像對稱）。每格視窗半徑2，等於逃逸半徑，所以格子邊界上的點一開始就逃逸，格與格之間及tile重複處沒有接縫。集合內部（96次疊代仍未逃逸）為近黑，外側依平滑逃逸次數 μ = n + 1 − log₂(ln|z| / ln 2) 以 1 − exp(−μ/9) 發出由暗到亮的光暈；height與roughness隨同一個光暈變化。Metallic與mortar為0。
+
+這是作者設計的示意：只有四個實數參數的Julia集合，沒有Mandelbrot集合或複數c（複數c不鏡像對稱，會在tile邊界產生接縫）；疊代上限96，所以邊界附近緩慢逃逸的點會被畫成內部；顏色是亮度插值（深藍近黑到暖米色），不代表任何特定配色。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

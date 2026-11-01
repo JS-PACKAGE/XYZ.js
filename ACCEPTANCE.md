@@ -11808,3 +11808,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 真實缺陷與修正（測試先失敗）：（1）第一版瓣數測試在半徑0.212的圓上數墨跡弧，得到11而不是5：圓與每個瓣尖相交兩次（瓣的兩側各一次），且相鄰弧可能合併，這個量測方法本身就不對，不是繪圖錯誤；改為對2880個方向各自找「最外側有墨的半徑」，把最外側半徑落在外圈0.004以內的方向連續區段視為一個瓣。（2）改版後又得到6而不是5：環狀掃描的收尾條件（`k === angles`）會把起點那一段多算一次；改為掃描k小於angles、迴圈後再補尚未關閉的區段。兩者都是測試端的錯，取樣器本身未因此修改。
 - 實測：`tests/procedural-material-motifs.test.ts`三百四十八項（本材質五項）全過。三seed（0、7、4294967295）、四個象限：沿2880個方向從外往內找最外側墨跡，沒有任何方向超出外圈0.0035以上；瓣尖區段數等於環半徑R（5／8／7／9），相鄰瓣的角距與2π／R相差＜1%；另以seed 7對每個象限480×480點掃描，最內側墨跡半徑落在由筆距範圍0.37至0.73齒輪半徑推得的區間（容許0.006）內；通道範圍、metallic／mortar 0、wrap與seed差異（不同seed的取樣差異點數＞20，門檻比其他材質低，因為整張圖大部分是紙面）。`tests/procedural-material.test.ts`以`-t "spirographrosettes|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`spirographrosettes`：option 942個、status為941 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四種花紋。512 px的2×2預覽含PNG編碼與取樣器建立約221 ms，是一次性本機量測，不是基準。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：Julia集合方格（juliacells）
+
+- 目錄941→942，含plain的gallery為943項。每tile四個象限各一個填充Julia集合 z → z² + c，c為實數（約−0.4、−0.75、−1.0、−1.25，依seed在±0.04內抖動），視窗半徑2等於逃逸半徑，格間與tile重複處無接縫；外側依平滑逃逸次數μ以1 − exp(−μ/9)發光，疊代上限96。Metallic／mortar為0，預設tile0.4 m、0.0035 UV-relative relief、metallic factor 0。只有實數c、沒有Mandelbrot集合；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與修正：（1）測試第一版的探測點座標以1.9為視窗半徑，但取樣器的視窗半徑是2，導致獨立疊代出現「永不逃逸」（Infinity）而失敗；是測試端寫錯，改為2，取樣器未改。（2）`let best = centre`被TypeScript推成字面型別聯集而無法指派（TS2322），標為`number`；在第一次verify就被strict typecheck擋下，建置未執行。
+- 測試設計：c由seed的hash決定，測試端不知道它的值，所以每個象限先以12個探測點、在preset容許的±0.04範圍內做8001步的一維搜尋，用測試端獨立寫的`z → z² + c`平滑逃逸次數去擬合從色調解碼出的μ（色調對μ單調、可反解），再以擬合得到的c檢查400個探測點全部相符（最大誤差＜0.02）。
+- 實測：`tests/procedural-material-motifs.test.ts`三百五十三項（本材質五項）全過。三seed（0、7、4294967295）×四象限：擬合的c落在容許範圍內且400個探測點與獨立迭代一致；seed 7下x、y兩軸鏡像對稱（每格300個點，無不對稱）、四個格的中心都為內部色（0.02）、格邊界上的點皆為外部（色調＜0.3）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "juliacells|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`juliacells`：option 943個、status為942 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個集合。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

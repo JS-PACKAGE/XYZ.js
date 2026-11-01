@@ -8000,6 +8000,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         paperRoughness: 0.7;
     }>;
+    juliacells: Readonly<{
+        dark: readonly [6, 8, 28];
+        light: readonly [246, 224, 176];
+        roughness: 0.5;
+        relief: 0.0035;
+        centers: readonly [-0.4, -0.75, -1, -1.25];
+        centerJitter: 0.04;
+        viewRadius: 2;
+        bailout: 2;
+        maxIterations: 96;
+        glowScale: 9;
+        insideTone: 0.02;
+        glowTone: 0.97;
+        insideHeight: 0.15;
+        glowHeight: 0.85;
+        insideRoughness: 0.8;
+        glowRoughness: 0.35;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14485,6 +14503,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    juliacells: 0.4;
     spirographrosettes: 0.3;
     sliderulescale: 0.25;
     xylophonebars: 0.4;

@@ -7208,3 +7208,141 @@ describe('spirographrosettes: hypotrochoid rosettes', () => {
     expect(different).toBeGreaterThan(20);
   });
 });
+
+describe('juliacells: filled Julia sets with real parameters', () => {
+  const p = proceduralMaterialPresets.juliacells;
+  // The escape-time glow is monotone in the smooth iteration count, so the count can be recovered
+  // from the tone: glow = (tone - inside) / (glow - inside), mu = -scale * ln(1 - glow).
+  const decodeMu = (tone: number): number =>
+    -p.glowScale *
+    Math.log(1 - (tone - p.insideTone) / (p.glowTone - p.insideTone));
+  // Independent smooth escape-time count for z -> z^2 + c (Infinity when it never escapes).
+  const smoothCount = (x0: number, y0: number, c: number): number => {
+    let x = x0,
+      y = y0,
+      n = 0;
+    while (x * x + y * y <= 4 && n < 96) {
+      [x, y] = [x * x - y * y + c, 2 * x * y];
+      n++;
+    }
+    if (x * x + y * y <= 4) return Infinity;
+    return n + 1 - Math.log2(Math.log(x * x + y * y) / 2 / Math.LN2);
+  };
+
+  it.each(seeds)(
+    'follows z^2 + c for a real c inside the jitter range, in every cell (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('juliacells', seed),
+        out = empty();
+      for (let cell = 0; cell < 4; cell++) {
+        const ox = 0.5 * (cell & 1),
+          oy = 0.5 * (cell >> 1),
+          point = (i: number): [number, number] => [
+            ((0.5 * (i * 0.6180339887 + 0.1)) % 1) * 2 - 1,
+            ((0.5 * (i * 0.7548776662 + 0.3)) % 1) * 2 - 1,
+          ];
+        const probes: { x: number; y: number; mu: number }[] = [];
+        for (let i = 0; probes.length < 400; i++) {
+          const [cx, cy] = point(i);
+          const x = cx * 2,
+            y = cy * 2;
+          sample(ox + (cx + 1) / 4, oy + (cy + 1) / 4, out);
+          // Keep only escaping points whose glow is not yet saturated, where the tone is invertible.
+          if (out.color > p.insideTone + 1e-3 && out.color < 0.9)
+            probes.push({ x, y, mu: decodeMu(out.color) });
+        }
+        // Fit c on a few probes by a 1-D search over the whole range the preset allows.
+        const centre = p.centers[cell];
+        let best: number = centre,
+          bestError = Infinity;
+        for (let k = -4000; k <= 4000; k++) {
+          const c = centre + (k / 4000) * p.centerJitter;
+          let error = 0;
+          for (let i = 0; i < 12; i++) {
+            const mu = smoothCount(probes[i].x, probes[i].y, c);
+            error += Number.isFinite(mu) ? Math.abs(mu - probes[i].mu) : 10;
+          }
+          if (error < bestError) {
+            bestError = error;
+            best = c;
+          }
+        }
+        expect(Math.abs(best - centre)).toBeLessThanOrEqual(
+          p.centerJitter + 1e-9,
+        );
+        // Then every probe must agree with the iteration count of the fitted c.
+        let worst = 0;
+        for (const probe of probes)
+          worst = Math.max(
+            worst,
+            Math.abs(smoothCount(probe.x, probe.y, best) - probe.mu),
+          );
+        expect(worst).toBeLessThan(0.02);
+      }
+    },
+  );
+
+  it('is mirror symmetric in both axes, dark at the cell centers and uniform at the borders', () => {
+    const sample = createSurfaceSampler('juliacells', 7),
+      out = empty(),
+      other = empty();
+    let asymmetric = 0;
+    for (let cell = 0; cell < 4; cell++) {
+      const ox = 0.5 * (cell & 1),
+        oy = 0.5 * (cell >> 1);
+      for (let i = 0; i < 300; i++) {
+        const a = ((i * 0.6180339887) % 1) * 0.5,
+          b = ((i * 0.7548776662) % 1) * 0.5;
+        sample(ox + a, oy + b, out);
+        sample(ox + 0.5 - a, oy + b, other);
+        asymmetric += Number(Math.abs(out.color - other.color) > 1e-9);
+        sample(ox + a, oy + 0.5 - b, other);
+        asymmetric += Number(Math.abs(out.color - other.color) > 1e-9);
+      }
+      sample(ox + 0.25, oy + 0.25, out);
+      expect(out.color).toBeCloseTo(p.insideTone, 6);
+      // Along the cell border every point lies outside the escape circle's reach of the set.
+      for (let i = 0; i < 64; i++) {
+        sample(ox + (i + 0.5) / 128, oy + 0.0001, out);
+        expect(out.color).toBeLessThan(0.3);
+      }
+    }
+    expect(asymmetric).toBe(0);
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('juliacells', 0),
+      b = createSurfaceSampler('juliacells', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

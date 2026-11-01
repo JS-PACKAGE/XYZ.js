@@ -21040,6 +21040,56 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'juliacells': {
+        const p = proceduralMaterialPresets.juliacells,
+          cs = p.centers.map(
+            (c, cell) =>
+              c + p.centerJitter * (2 * hash(cell, 1, seed ^ 0x27801) - 1),
+          ),
+          limit = p.bailout * p.bailout,
+          logBailout = Math.log(p.bailout);
+        // Four filled Julia sets z -> z^2 + c with real c (so each is mirror symmetric in both axes
+        // and, because the view reaches the escape radius, every cell border escapes at once and the
+        // cells and the repeat join without a seam).
+        return () => {
+          const cell = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            c = cs[cell],
+            cu = (u * 2) % 1,
+            cv = (v * 2) % 1;
+          let x = (2 * cu - 1) * p.viewRadius,
+            y = (2 * cv - 1) * p.viewRadius,
+            n = 0,
+            r2 = x * x + y * y;
+          while (r2 <= limit && n < p.maxIterations) {
+            const t = x * x - y * y + c;
+            y = 2 * x * y;
+            x = t;
+            r2 = x * x + y * y;
+            n++;
+          }
+          if (r2 <= limit) {
+            color = p.insideTone;
+            height = p.insideHeight;
+            roughness = p.insideRoughness;
+          } else {
+            // Smooth iteration count: n + 1 - log2(log|z| / log bailout), mapped to a glow that
+            // rises monotonically and saturates below 1.
+            const mu = Math.max(
+                0,
+                n + 1 - Math.log2(Math.log(r2) / 2 / logBailout),
+              ),
+              glow = 1 - Math.exp(-mu / p.glowScale);
+            color = clamp(p.insideTone + (p.glowTone - p.insideTone) * glow);
+            height = clamp(
+              p.insideHeight + (p.glowHeight - p.insideHeight) * glow,
+            );
+            roughness = clamp(
+              p.insideRoughness + (p.glowRoughness - p.insideRoughness) * glow,
+            );
+          }
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -48569,6 +48619,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'juliacells' ||
     kind === 'spirographrosettes' ||
     kind === 'sliderulescale' ||
     kind === 'xylophonebars' ||
