@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`kilimdiamonds`（kilim風格階梯菱形平織）使目前目錄897→898種，含plain的gallery為899項。64×64個緯線格組成的平織場：每個16格的方塊中心與四角各有一個同心階梯菱形，菱形由四個寬2格的環（深褐／奶白／中間灰褐／奶白，角上菱形的色調順序對調）構成；每列有微小的色調差異，每格有一道橫向緯線凸脊與細纖維grain。不是特定地區或部族的圖案，沒有流蘇、邊飾、起絨或斷緯（slit）幾何。
+
+概念依據實際閱讀的[Wikipedia「Kilim」](https://en.wikipedia.org/wiki/Kilim)：kilim是傳統上產於波斯帝國舊地、土耳其與巴爾幹等地的平織（tapestry-woven）地毯。該條目導言未提供具體紋樣或尺寸，因此階梯菱形的圖案、環寬、色調、roughness與0.32 m tile皆為作者設定，**沒有**引用特定來源的紋樣照片或實物，不宣稱忠實再現任何傳統紋樣。
+
+新增專用sampler：constructor先填一個64×64的`Float64Array`格色調表（32,768 B），每格依到最近菱形中心的曼哈頓距離決定環序號（centerTones／cornerTones各4個色調）並加列變異；取樣時以零斜率smoothstep權重在格邊界雙線性混合，邊緣柔和但C1，格索引依64取模，故tile週期。每格一道週期的橫向緯線脊`0.5 − 0.5·cos(2π·64v)`，另有128² grain（共16,384 + 4,096 = 20,480 Float64／163,840 B lattice算術預算，非總RAM）。金屬factor為0、無mortar；預設0.32 m nominal tile（每格5 mm為作者設定）、0.003 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）：每格中心色與預期環色調最大差0.058–0.059，總色域0.042–0.978，緯線脊使格中心比列界高約0.14 relief；seed7的512²中r<80占15.2%、r>180占54.6%、法線max tilt²約0.0056。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `teak`（柚木縱向面）使目前目錄896→897種，含plain的gallery為898項。近似Tectona grandis心材未塗裝縱向木面：金黃到中等棕色底、直而不均勻的粗質地、長而起伏的深棕縱向條紋與散布的短小開放導管凹點。不是已老化的深色柚木、邊材、波浪／交錯紋figure、油亮塗層，也不是導管內淺色矽質沉積。
 
 外觀依據實際閱讀的[Wood Database Teak](https://www.wood-database.com/teak/)（Color／Appearance：心材金黃或中棕、隨年份變深；Grain／Texture：多直紋，偶有波浪或交錯、粗而不均的質地、中到低光澤、未處理表面略帶油脂感；Porosity：ring-porous或semi-ring-porous）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/tectona-grandis.jpg)（棕色面、長深色縱條紋與淺色導管斑點）；僅作配色與紋理形態參考。本preset的導管是深色高度凹陷，不重現照片中的淺色導管斑；不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

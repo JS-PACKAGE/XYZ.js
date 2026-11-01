@@ -11519,3 +11519,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Teak`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.11s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Teak|teak|kinds|catalog|distinct|periodic"`定向測試，**2090項通過／3496項未選**。
 - 補記：凍結worktree在qrcodelabel commit（7588fa745）實跑完整suite，**179檔／9,487項全部通過（1332.42s，v26.7.0）**；該結果涵蓋當時HEAD（含douglasfir、longleafpine、chesterfieldleather、westernredcedar、perforatedhardboard、qrcodelabel），不涵蓋其後laptopkeycaps、golfballdimples、blackcherry與本teak。本功能未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：kilim風格階梯菱形平織（kilimdiamonds）
+
+- 目錄897→898，含plain的gallery為899項。64×64緯線格的平織場：每個16格方塊的中心與四角各有四環同心階梯菱形（深褐／奶白／灰褐／奶白，角上菱形色序對調），每列微小色差、每格橫向緯線脊與細纖維grain。概念依據實際閱讀的[Wikipedia「Kilim」](https://en.wikipedia.org/wiki/Kilim)（平織tapestry地毯）；該條目導言未提供具體紋樣，故圖案、環寬、色彩、0.32 m tile皆作者設定，**未**引用特定紋樣照片，不宣稱再現任何傳統紋樣；無流蘇、邊飾、起絨或斷緯。
+- 專用sampler：constructor填64×64 `Float64Array`格色調表，取樣以零斜率smoothstep權重雙線性混合，邊緣柔和C1，格索引取模；每格一道週期緯線脊；另128² grain，共20,480 Float64／163,840 B。預設0.003 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）每格中心色與預期環色調最大差0.058–0.059，色域0.042–0.978，緯線脊使格中心比列界高約0.14 relief；seed7的512²中r<80占15.2%、r>180占54.6%、法線max tilt²約0.0056。以Bun產生512 seed7四圖並實看：成排的同心階梯菱形、深色中心點與淡色環、逐列緯線脊（height圖在預覽中呈細橫紋）。
+- 新增3組永久測試（`kilim`：三seed逐格環色調與緯線脊、含邊界與混合帶邊緣雙向掃描的C1、actual512五maps含帶號UV週期），並加入通用kinds清單；名稱篩選6項通過（6.17s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "kilim|Kilim|kinds|catalog|distinct|periodic"`定向測試，**2090項通過／3502項未選**。
+- 補記（瀏覽器gallery）：在teak之後、本功能之前，以乾淨worktree的Vite dev server＋spawned Google Chrome（headless new）實跑`/examples/pbr3d/`，頁面列出897種preset＋plain（898個選項）；對blackwalnut、douglasfir、longleafpine、chesterfieldleather、westernredcedar、perforatedhardboard、qrcodelabel、laptopkeycaps、golfballdimples、blackcherry、teak共11種，WebGPU與`?renderer=webgl2`兩個backend都逐一以`input`事件選取並等到readout顯示該材質，頁面`errors()`皆為空；並實看WebGPU的chesterfieldleather、qrcodelabel與WebGL2的畫面（5×5球陣列皆顯示對應材質）。這項瀏覽器驗證**不含**本功能kilimdiamonds，也不擴大到Safari、實機、Canvas2D（本來即無3D）或fps／跨backend像素一致性。先前嘗試共用headless瀏覽器時tab被關閉、以及port 5199被另一程序佔用導致看到無新材質的頁面，均已改用獨立profile與埠5391重做，不計入證據。
+- 本功能未重跑完整179檔suite；不push。

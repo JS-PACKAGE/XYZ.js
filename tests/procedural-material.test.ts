@@ -939,6 +939,7 @@ const kinds: ProceduralMaterialKind[] = [
   'golfballdimples',
   'blackcherry',
   'teak',
+  'kilimdiamonds',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -136569,5 +136570,174 @@ describe('Golden-to-medium brown Teak with straight uneven coarse grain, dark lo
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Flat-woven kilim-style field of concentric stepped lozenges with alternating dark and cream rings', () => {
+  const p = proceduralMaterialPresets.kilimdiamonds;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  // Published layout: each diamond-sized block holds a lozenge centred on its centre and
+  // another centred on each block corner; the ring is the Manhattan distance in ring widths.
+  const expectedTone = (gx: number, gy: number): number => {
+    const x = (gx % p.diamond) + 0.5 - p.diamond / 2,
+      y = (gy % p.diamond) + 0.5 - p.diamond / 2,
+      centre = Math.abs(x) + Math.abs(y),
+      inside = centre <= p.diamond / 2,
+      ring = Math.min(
+        p.centerTones.length - 1,
+        Math.floor(((inside ? centre : p.diamond - centre) - 1) / p.ringWidth),
+      );
+    return (inside ? p.centerTones : p.cornerTones)[ring];
+  };
+  it.each([0, 1, 0xffffffff])(
+    'gives every weft cell the tone of its concentric lozenge ring, with raised weft ridges and no metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('kilimdiamonds', seed),
+        centre = empty(),
+        seam = empty();
+      let invalid = 0,
+        dark = 0,
+        light = 0;
+      for (let gy = 0; gy < p.grid; gy++)
+        for (let gx = 0; gx < p.grid; gx++) {
+          sample((gx + 0.5) / p.grid, (gy + 0.5) / p.grid, centre);
+          sample((gx + 0.5) / p.grid, gy / p.grid, seam);
+          // Row variation and grain stay well below the gap between ring tones.
+          expect(Math.abs(centre.color - expectedTone(gx, gy))).toBeLessThan(
+            0.08,
+          );
+          expect(centre.height - seam.height).toBeGreaterThan(0.1 * p.relief);
+          dark += Number(centre.color < 0.25);
+          light += Number(centre.color > 0.75);
+          invalid += Number(
+            centre.metallic !== 0 ||
+              centre.mortar !== 0 ||
+              centre.occlusion !== 1 ||
+              keys.some(
+                (key) =>
+                  !Number.isFinite(centre[key]) ||
+                  centre[key] < 0 ||
+                  centre[key] > 1,
+              ),
+          );
+        }
+      expect(invalid).toBe(0);
+      // Dark rings and cream rings each cover a substantial share of cells.
+      expect(dark / (p.grid * p.grid)).toBeGreaterThan(0.1);
+      expect(light / (p.grid * p.grid)).toBeGreaterThan(0.3);
+    },
+  );
+  it('keeps soft thread edges, weft ridges and grain C1 across cell boundaries and the tile wrap', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kilimdiamonds', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.grid, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Lines on cell boundaries, centres and blend-band edges, in both directions.
+      for (const row of [0, 7, 8, 33, 63])
+        for (const offset of [
+          0,
+          0.5,
+          0.5 - p.edgeSoft / 2,
+          0.5 + p.edgeSoft / 2,
+        ])
+          for (let i = 0; i < 4096; i++) {
+            check(i / 4096, (row + offset) / p.grid);
+            check((row + offset) / p.grid, i / 4096);
+          }
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 dielectric maps with dark and cream lozenge rings, shallow normals and a periodic tile', () => {
+    const maps = generateProceduralMaps('kilimdiamonds', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let dark = 0,
+      cream = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      dark += Number(maps.baseColor[i] < 80);
+      cream += Number(maps.baseColor[i] > 180);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 240,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(dark / (512 * 512)).toBeGreaterThan(0.12);
+    expect(dark / (512 * 512)).toBeLessThan(0.19);
+    expect(cream / (512 * 512)).toBeGreaterThan(0.5);
+    expect(cream / (512 * 512)).toBeLessThan(0.6);
+    expect(maxTilt).toBeGreaterThan(0.001);
+    expect(maxTilt).toBeLessThan(0.02);
+    expect(invalid).toBe(0);
+    const a = empty(),
+      b = empty();
+    let drift = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('kilimdiamonds', seed);
+      for (let i = 0; i < 4096; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          drift = Math.max(drift, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(drift).toBeLessThan(5e-10);
   });
 });

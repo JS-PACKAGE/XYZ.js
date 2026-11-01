@@ -12166,6 +12166,26 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 10;
         fiberContrast: 0.22;
     }>;
+    kilimdiamonds: Readonly<{
+        dark: readonly [38, 17, 12];
+        light: readonly [226, 208, 172];
+        roughness: 0.86;
+        relief: 0.003;
+        grid: 64;
+        diamond: 16;
+        ringWidth: 2;
+        centerTones: readonly [0.1, 0.82, 0.46, 0.92];
+        cornerTones: readonly [0.82, 0.1, 0.92, 0.46];
+        edgeSoft: 0.22;
+        rowVariation: 0.07;
+        grainCells: 128;
+        grainTone: 0.05;
+        baseHeight: 0.5;
+        weftHeight: 0.14;
+        grainHeight: 0.012;
+        weftRoughness: 0.06;
+        grainRoughness: 0.05;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13442,4 +13462,5 @@ export declare const proceduralTileMeters: Readonly<{
     golfballdimples: 0.028;
     blackcherry: 0.18;
     teak: 0.2;
+    kilimdiamonds: 0.32;
 }>;

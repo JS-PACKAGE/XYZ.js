@@ -37131,6 +37131,60 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'kilimdiamonds': {
+        const p = proceduralMaterialPresets.kilimdiamonds,
+          tones = new Float64Array(p.grid * p.grid),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2b101),
+          inverseSoft = 1 / p.edgeSoft,
+          half = p.diamond / 2;
+        // Every weft cell gets the tone of its concentric lozenge ring. A diamond is
+        // centred on each diamond-sized block centre and another on each block corner
+        // (Manhattan distance to the nearest corner is diamond - d), with swapped tones.
+        for (let gy = 0; gy < p.grid; gy++) {
+          const rowTone = p.rowVariation * (hash(gy, 1, seed ^ 0x2b103) - 0.5);
+          for (let gx = 0; gx < p.grid; gx++) {
+            const x = (gx % p.diamond) + 0.5 - half,
+              y = (gy % p.diamond) + 0.5 - half,
+              centre = Math.abs(x) + Math.abs(y),
+              inside = centre <= half,
+              ring = Math.min(
+                p.centerTones.length - 1,
+                Math.floor(
+                  ((inside ? centre : p.diamond - centre) - 1) / p.ringWidth,
+                ),
+              );
+            tones[gy * p.grid + gx] =
+              (inside ? p.centerTones : p.cornerTones)[ring] + rowTone;
+          }
+        }
+        return () => {
+          // Cell tones are blended with smoothstep weights centred on the cell
+          // boundaries (zero slope at cell centres), so thread edges are soft but C1.
+          const x = fract(u) * p.grid - 0.5,
+            y = fract(v) * p.grid - 0.5,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            wx = smooth(clamp((x - ix - 0.5) * inverseSoft + 0.5)),
+            wy = smooth(clamp((y - iy - 0.5) * inverseSoft + 0.5)),
+            x0 = ((ix % p.grid) + p.grid) % p.grid,
+            y0 = ((iy % p.grid) + p.grid) % p.grid,
+            x1 = (x0 + 1) % p.grid,
+            y1 = (y0 + 1) % p.grid,
+            top =
+              tones[y0 * p.grid + x0] * (1 - wx) + tones[y0 * p.grid + x1] * wx,
+            bottom =
+              tones[y1 * p.grid + x0] * (1 - wx) + tones[y1 * p.grid + x1] * wx,
+            tone = top * (1 - wy) + bottom * wy,
+            // One raised weft ridge per cell row; the profile is periodic in v.
+            weft = 0.5 - 0.5 * Math.cos(TAU * v * p.grid),
+            grain = grainField(u, v);
+          color = tone + p.grainTone * (grain - 0.5);
+          height = p.baseHeight + p.weftHeight * weft + p.grainHeight * grain;
+          roughness +=
+            p.weftRoughness * (weft - 0.5) + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'laptopkeycaps': {
         const p = proceduralMaterialPresets.laptopkeycaps,
           tones = new Float64Array(p.cells * p.cells),
@@ -44460,6 +44514,7 @@ export function createSurfaceSampler(
     kind === 'golfballdimples' ||
     kind === 'blackcherry' ||
     kind === 'teak' ||
+    kind === 'kilimdiamonds' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||
