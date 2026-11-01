@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`sitkaspruce`（北美雲杉／Sitka spruce）使目前目錄902→903種，含plain的gallery為904項。近似Picea sitchensis未塗裝縱向木面：奶白偏淡黃的底色、極細而幾乎筆直的縱向年輪線（對比極低、年輪輕微起伏）與細纖維grain。不是bearclaw紋、粉紅紅色調、樹脂道、節疤、邊材／心材界線或塗層。
+
+外觀依據實際閱讀的[Wood Database Sitka Spruce](https://www.wood-database.com/sitka-spruce/)（Color／Appearance：奶白到黃色，心材偶帶淡粉紅，邊材不明顯分界，部分有bearclaw紋；Grain／Texture：細而均勻的質地、一致的直紋；Endgrain：中型樹脂道）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/sitka-spruce-400x400.jpg)（奶白色面與極細淡色縱線）；僅作配色與年輪線形態參考，不重現bearclaw或粉紅色調，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用`douglasfir`的年輪指標sampler（與`longleafpine`、`westernredcedar`同一路徑），constructor只選preset：22個ring係數（鏡像後橫跨tile 44條）、很小的縱向拱與skew、窄晚材（start 0.7／peak 0.93）與極低晚材色差（lateTone 0.24）。3個constructor cache為5×5 warp、200×5縱向fiber與128² grain（共17,409 Float64／139,272 B lattice算術預算，非總RAM）；金屬factor為0、無mortar，晚材略抬高、較光滑，早材AO略低。預設0.12 m nominal tile與0.002 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：color<0.6的暗線僅占0.47–0.62%、color>0.75占84.1–84.8%，color 0.580–0.882，橫／縱色差比15.0–15.15，roughness 0.462–0.530；seed7的512²平均base color約(244,226,187)、法線max tilt²約0.0027。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `honduranmahogany`（宏都拉斯桃花心木）使目前目錄901→902種，含plain的gallery為903項。近似Swietenia macrophylla未塗裝縱向木面：偏深的紅褐色、中等均勻質地、7條寬而幾乎筆直的低對比緞帶狀條紋（近似徑切的ribbon figure）與極稀疏、短小的開放導管凹點。不是淺粉褐色新切材、經年變深色、交錯／不規則／波浪紋、cathedral紋、閃光（chatoyancy）光學效果或塗層。
 
 外觀依據實際閱讀的[Wood Database Honduran Mahogany](https://www.wood-database.com/honduran-mahogany/)（Color／Appearance：心材由淺粉褐到較深紅褐，隨年份變深，具chatoyancy；Grain／Texture：可直、交錯、不規則或波浪，中等均勻質地、中等光澤；Porosity：diffuse porous，生長輪常因邊緣薄壁組織帶而明顯）、前述實際閱讀的[Wood Database Black Walnut](https://www.wood-database.com/black-walnut/)中「徑切面的mahogany通常有ribbon紋」一句，以及實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/swietenia-macrophylla-alt.jpg)（均勻深紅褐面、細導管線，底部有一處巢狀年輪紋）；僅作配色與紋理形態參考，不重現巢狀年輪或chatoyancy，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

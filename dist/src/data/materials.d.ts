@@ -12294,6 +12294,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 9;
         fiberContrast: 0.1;
     }>;
+    sitkaspruce: Readonly<{
+        dark: readonly [210, 172, 116];
+        light: readonly [252, 238, 204];
+        roughness: 0.5;
+        relief: 0.002;
+        rings: 22;
+        arch: 0.3;
+        archShift: 0.008;
+        skew: 0.1;
+        warpCells: 5;
+        warp: 0.25;
+        latewoodStart: 0.7;
+        latewoodPeak: 0.93;
+        fiberColumns: 200;
+        fiberRows: 5;
+        grainCells: 128;
+        earlyTone: 0.84;
+        lateTone: 0.24;
+        fiberTone: 0.05;
+        grainTone: 0.02;
+        lateHeight: 0.1;
+        grainHeight: 0.004;
+        lateRoughness: -0.04;
+        grainRoughness: 0.03;
+        earlyOcclusion: 0.03;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13575,4 +13601,5 @@ export declare const proceduralTileMeters: Readonly<{
     forgedcarbon: 0.2;
     woodenpalletdeck: 0.4;
     honduranmahogany: 0.18;
+    sitkaspruce: 0.12;
 }>;

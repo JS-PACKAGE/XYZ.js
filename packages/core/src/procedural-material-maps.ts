@@ -37552,7 +37552,8 @@ export function createSurfaceSampler(
       }
       case 'douglasfir':
       case 'longleafpine':
-      case 'westernredcedar': {
+      case 'westernredcedar':
+      case 'sitkaspruce': {
         const p = proceduralMaterialPresets[kind],
           warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25101),
           fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x25103),
@@ -44724,6 +44725,7 @@ export function createSurfaceSampler(
     kind === 'blackcherry' ||
     kind === 'teak' ||
     kind === 'honduranmahogany' ||
+    kind === 'sitkaspruce' ||
     kind === 'kilimdiamonds' ||
     kind === 'popcornceiling' ||
     kind === 'forgedcarbon' ||

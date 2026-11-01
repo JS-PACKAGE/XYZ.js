@@ -20161,6 +20161,40 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 9,
 		fiberContrast: .1
 	}),
+	sitkaspruce: Object.freeze({
+		dark: [
+			210,
+			172,
+			116
+		],
+		light: [
+			252,
+			238,
+			204
+		],
+		roughness: .5,
+		relief: .002,
+		rings: 22,
+		arch: .3,
+		archShift: .008,
+		skew: .1,
+		warpCells: 5,
+		warp: .25,
+		latewoodStart: .7,
+		latewoodPeak: .93,
+		fiberColumns: 200,
+		fiberRows: 5,
+		grainCells: 128,
+		earlyTone: .84,
+		lateTone: .24,
+		fiberTone: .05,
+		grainTone: .02,
+		lateHeight: .1,
+		grainHeight: .004,
+		lateRoughness: -.04,
+		grainRoughness: .03,
+		earlyOcclusion: .03
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21560,7 +21594,8 @@ var proceduralTileMeters = Object.freeze({
 	popcornceiling: .25,
 	forgedcarbon: .2,
 	woodenpalletdeck: .4,
-	honduranmahogany: .18
+	honduranmahogany: .18,
+	sitkaspruce: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

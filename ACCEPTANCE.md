@@ -11566,3 +11566,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Honduran`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.91s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Honduran|honduranmahogany|kinds|catalog|distinct|periodic"`定向測試，**2099項通過／3521項未選**。
 - 補記：凍結worktree在popcornceiling commit（1603438bf）實跑完整suite，**179檔／9,528項全部通過（1234.90s，v26.7.0）**；該結果涵蓋當時HEAD（含kilimdiamonds與popcornceiling），不涵蓋其後forgedcarbon、woodenpalletdeck與本honduranmahogany。本功能未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：Sitka spruce縱向年輪線（sitkaspruce）
+
+- 目錄902→903，含plain的gallery為904項。近似Picea sitchensis未塗裝縱向木面：奶白偏淡黃底、極細而幾乎筆直的極低對比縱向年輪線與細纖維grain。外觀依據實際閱讀的[Wood Database Sitka Spruce](https://www.wood-database.com/sitka-spruce/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/sitka-spruce-400x400.jpg)；僅作配色與年輪線形態參考，不重現bearclaw、粉紅色調、樹脂道、節疤或邊／心材界線。
+- 直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`同路徑），constructor只選新preset（ring係數22、窄晚材start0.7／peak0.93、lateTone 0.24）；3個cache共17,409 Float64／139,272 B。預設0.12 m tile、0.002 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color<0.6暗線占0.47–0.62%、color>0.75占84.1–84.8%，color 0.580–0.882，橫／縱色差比15.0–15.15，roughness 0.462–0.530，高度0.498–0.602 relief，AO最低0.97，metallic／mortar皆0；seed7的512² base color平均約(244,226,187)，法線max tilt²約0.0027。以Bun產生512 seed7的2×2排列圖並實看：奶白底與極淡的細年輪線，整體對比比douglasfir／longleafpine低很多。
+- 新增4項永久測試（`Sitka`：三seed顏色比例／各向異性／高度差、C1、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（7.28s）。首次建立測試時我的字串切片標記寫錯（找不到結尾describe）而腳本中止，修正標記後才完成，未影響其他測試。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Sitka|sitkaspruce|kinds|catalog|distinct|periodic"`定向測試，**2100項通過／3527項未選**。
+- 補記（瀏覽器gallery，第二批）：以乾淨worktree的Vite dev server＋spawned Google Chrome（headless new）實跑`/examples/pbr3d/`，頁面列出903種preset＋plain；kilimdiamonds、popcornceiling、forgedcarbon、woodenpalletdeck、honduranmahogany、sitkaspruce共6種，在WebGPU與`?renderer=webgl2`兩個backend皆逐一以`input`事件選取並等到readout顯示該材質，頁面`errors()`皆為空，並實看WebGPU畫面（5×5球陣列顯示Sitka spruce）。這是這6種的證據，先前11種另有第一批記錄；不擴大到Safari、實機或fps／跨backend像素一致性。
+- 本功能未重跑完整179檔suite（popcornceiling commit的完整suite見上一節）；不宣稱跨瀏覽器／backend或效能驗證；不push。
