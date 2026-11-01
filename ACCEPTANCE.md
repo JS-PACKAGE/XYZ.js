@@ -11885,3 +11885,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Crosswordgrid|crosswordgrid|kinds|catalog|distinct|periodic"`定向測試**2153項通過／3691項未選**。
 - 完整suite（工具實跑，凍結worktree `/private/tmp/xyz-suite`於`50bbdf7da`「Add crosshatch engraving material」，與其後merbau／windowpane／crosswordgrid的gates同時執行因此耗時較長）：**179檔／9,747項全數通過**，Duration 1520.97s。這是`cdff89719`之後第一次完整suite，涵蓋之間的jarrah、buffaloplaid、sheetmusic、sheetmusic／raindropripples／amberbubbles三個smooth修正與crosshatchengraving；merbau、windowpane、crosswordgrid則只有定向測試與gates，尚未跑完整suite。
 - 未驗證：瀏覽器gallery（jarrah起至本材質皆尚未做）；與真實報紙填字格的外觀比對只有我的目視；不push。
+
+## 2026-11-02 瀏覽器gallery驗證：jarrah至crosswordgrid
+
+- 範圍：補做`jarrah`、`buffaloplaid`、`sheetmusic`、`crosshatchengraving`、`merbau`、`windowpane`、`crosswordgrid`七個材質的`/examples/pbr3d/`瀏覽器gallery檢查（先前這些材質只有定向測試與gates，沒有瀏覽器驗證）。
+- 方法（工具實跑）：以spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`fb50d18c4`狀態的乾淨worktree）上的範例頁，等待`Material `讀數出現後，逐一以`#material`的`input`事件選取七個kind並等待讀數更新為`Material <kind> `；WebGPU與`?renderer=webgl2`各跑一次；兩次結束時`tab.errors()`皆為0筆（dropped 0）。狀態列顯示`932 procedural material presets + plain`。
+- 過程紀錄：我第一次跑時誤把`errors()`的回傳（物件，錄有`entries`）當陣列取`length`，所以沒有得到錯誤計數；因此重跑一次並取`entries.length`，才得到上面的0筆；另有一次單獨以WebGPU選取crosswordgrid、windowpane、merbau的檢查，錯誤同樣為空，並截圖得到正常的5×5球陣列。
+- 限制：此檢查只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質的視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；沒有重跑完整suite（最近一次完整suite為`50bbdf7da`的179檔／9,747項通過）；不push。
