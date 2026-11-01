@@ -12379,6 +12379,41 @@ var proceduralMaterialPresets = Object.freeze({
 		cupAO: .5,
 		holeAO: .2
 	}),
+	expandedpolystyrene: Object.freeze({
+		dark: [
+			96,
+			98,
+			102
+		],
+		light: [
+			250,
+			250,
+			246
+		],
+		roughness: .78,
+		relief: .0022,
+		cells: 16,
+		inset: .2,
+		beadRadius: .62,
+		seamWidth: .05,
+		seamSoft: .05,
+		voidSize: .16,
+		voidSoft: .05,
+		grainCells: 192,
+		beadTone: .9,
+		beadVariation: .08,
+		seamTone: .55,
+		voidTone: .12,
+		grainTone: .05,
+		seamHeight: .3,
+		voidHeight: .04,
+		domeHeight: .62,
+		grainHeight: .03,
+		beadRoughness: .78,
+		seamRoughness: .9,
+		seamAO: .7,
+		voidAO: .3
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21060,6 +21095,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	expandedpolystyrene: .12,
 	octopussuckers: .4,
 	ammonitestone: .5,
 	amberresin: .2,

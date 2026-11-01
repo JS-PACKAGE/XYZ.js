@@ -1088,3 +1088,130 @@ describe('octopussuckers: staggered sucker rims and ridged cups', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('expandedpolystyrene: fused domed beads with junction voids', () => {
+  const p = proceduralMaterialPresets.expandedpolystyrene;
+  const size = 768;
+  /** Wrap-aware 4-connected labeling; returns label per pixel (0 = background). */
+  const label = (mask: Uint8Array): { labels: Int32Array; count: number } => {
+    const labels = new Int32Array(mask.length);
+    let count = 0;
+    for (let first = 0; first < mask.length; first++) {
+      if (!mask[first] || labels[first]) continue;
+      count++;
+      const queue = [first];
+      labels[first] = count;
+      for (let read = 0; read < queue.length; read++) {
+        const i = queue[read],
+          x = i % size,
+          y = Math.floor(i / size);
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const j = ((y + dy + size) % size) * size + ((x + dx + size) % size);
+          if (mask[j] && !labels[j]) {
+            labels[j] = count;
+            queue.push(j);
+          }
+        }
+      }
+    }
+    return { labels, count };
+  };
+
+  it.each(seeds)(
+    'has exactly one bead per cell, separated by seams, with voids only at junctions (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('expandedpolystyrene', seed),
+        out = empty(),
+        bead = new Uint8Array(size * size),
+        hole = new Uint8Array(size * size);
+      let invalid = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          // Bead faces rise above the seam floor; voids are the darkest AO.
+          bead[y * size + x] = Number(
+            out.height / p.relief > p.seamHeight + 0.15,
+          );
+          hole[y * size + x] = Number(
+            out.occlusion < (p.seamAO + p.voidAO) / 2,
+          );
+        }
+      expect(invalid).toBe(0);
+      const beads = label(bead),
+        voids = label(hole),
+        cells = p.cells * p.cells;
+      // One connected bead per Voronoi cell: seams always close each cell.
+      expect(beads.count).toBe(cells);
+      // A planar periodic Voronoi diagram has 2 vertices per cell; narrow junctions fade out.
+      expect(voids.count).toBeGreaterThan(cells);
+      expect(voids.count).toBeLessThanOrEqual(2 * cells);
+      // Every void sits where at least three different beads meet.
+      const touching: Set<number>[] = Array.from(
+        { length: voids.count + 1 },
+        () => new Set<number>(),
+      );
+      const reach = 8;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const id = voids.labels[y * size + x];
+          if (!id) continue;
+          for (const [dx, dy] of [
+            [reach, 0],
+            [-reach, 0],
+            [0, reach],
+            [0, -reach],
+            [reach, reach],
+            [-reach, -reach],
+            [reach, -reach],
+            [-reach, reach],
+          ]) {
+            const bead =
+              beads.labels[
+                ((y + dy + size) % size) * size + ((x + dx + size) % size)
+              ];
+            if (bead) touching[id].add(bead);
+          }
+        }
+      let junctions = 0;
+      for (let id = 1; id <= voids.count; id++)
+        junctions += Number(touching[id].size >= 3);
+      expect(junctions / voids.count).toBeGreaterThan(0.95);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('expandedpolystyrene', 0),
+      b = createSurfaceSampler('expandedpolystyrene', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

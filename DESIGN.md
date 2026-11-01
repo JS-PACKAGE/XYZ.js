@@ -1135,6 +1135,10 @@
 
 這是作者設計的示意：吸盤數量、列距、斑點與顏色都不是任何特定種類的量測；未引用或打包外部圖樣。每個吸盤半徑小於半個欄距與半個列距，因此點只屬於自己的列與最近的吸盤。預設0.4 m nominal tile、0.0034 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識杯內隆線，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`expandedpolystyrene`（發泡聚苯乙烯珠粒示意）使目前目錄893→894種，含plain的gallery為895項。每tile 16×16顆珠粒，位置以週期Voronoi的方式（每格一個、距格邊至少0.2格）隨機排列；以最近三個site的距離分出：F1擁有的圓頂珠面（高度隨距珠心而隆起，每顆珠獨立色調微變）、F2−F1小於接縫寬的深灰融合縫，以及F3−F1很小的三顆珠交會處暗色空隙。珠面白色、較粗糙度0.78，接縫0.9，空隙最暗且AO最低。Metallic與mortar皆為0。
+
+這是作者設計的示意：珠的排列、大小、融合縫寬與色彩皆不是任何產品或密度等級的量測；未引用或打包外部圖樣。因為每個site都留在自己格內，3×3鄰格足以包含最近三個site，貼圖在兩軸週期。預設0.12 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上辨識空隙，32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -6657,6 +6657,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         cupAO: 0.5;
         holeAO: 0.2;
     }>;
+    expandedpolystyrene: Readonly<{
+        dark: readonly [96, 98, 102];
+        light: readonly [250, 250, 246];
+        roughness: 0.78;
+        relief: 0.0022;
+        cells: 16;
+        inset: 0.2;
+        beadRadius: 0.62;
+        seamWidth: 0.05;
+        seamSoft: 0.05;
+        voidSize: 0.16;
+        voidSoft: 0.05;
+        grainCells: 192;
+        beadTone: 0.9;
+        beadVariation: 0.08;
+        seamTone: 0.55;
+        voidTone: 0.12;
+        grainTone: 0.05;
+        seamHeight: 0.3;
+        voidHeight: 0.04;
+        domeHeight: 0.62;
+        grainHeight: 0.03;
+        beadRoughness: 0.78;
+        seamRoughness: 0.9;
+        seamAO: 0.7;
+        voidAO: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13142,6 +13169,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    expandedpolystyrene: 0.12;
     octopussuckers: 0.4;
     ammonitestone: 0.5;
     amberresin: 0.2;

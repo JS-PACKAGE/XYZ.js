@@ -16993,6 +16993,83 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - cup) * p.cupAO - hole * p.holeAO);
         };
       }
+      case 'expandedpolystyrene': {
+        const p = proceduralMaterialPresets.expandedpolystyrene,
+          tones = new Float64Array(p.cells * p.cells),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x24801),
+          inverseSeam = 1 / p.seamSoft,
+          inverseVoid = 1 / p.voidSoft,
+          inverseBead = 1 / p.beadRadius;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            tones[row * p.cells + col] = hash(col, row, seed ^ 0x24803) - 0.5;
+        return () => {
+          const ix = Math.floor(u * p.cells),
+            iy = Math.floor(v * p.cells);
+          // Three nearest wrapped sites: F1 owns the bead, F2 - F1 measures the distance to
+          // the seam and F3 - F1 the distance to the three-way junction void. Sites stay inset
+          // from their cell edge so the 3x3 neighborhood contains all three.
+          let d1 = 9,
+            d2 = 9,
+            d3 = 9,
+            owner = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                wx = ((cx % p.cells) + p.cells) % p.cells,
+                wy = ((cy % p.cells) + p.cells) % p.cells,
+                dx =
+                  u * p.cells -
+                  (cx +
+                    p.inset +
+                    (1 - 2 * p.inset) * hash(wx, wy, seed ^ 0x24805)),
+                dy =
+                  v * p.cells -
+                  (cy +
+                    p.inset +
+                    (1 - 2 * p.inset) * hash(wx, wy, seed ^ 0x24807)),
+                d = dx * dx + dy * dy;
+              if (d < d1) {
+                d3 = d2;
+                d2 = d1;
+                d1 = d;
+                owner = wy * p.cells + wx;
+              } else if (d < d2) {
+                d3 = d2;
+                d2 = d;
+              } else if (d < d3) d3 = d;
+            }
+          const f1 = Math.sqrt(d1),
+            face = smooth(
+              clamp((Math.sqrt(d2) - f1 - p.seamWidth) * inverseSeam),
+            ),
+            open =
+              1 -
+              smooth(clamp((Math.sqrt(d3) - f1 - p.voidSize) * inverseVoid)),
+            grain = grainField(u, v),
+            bulge = Math.sqrt(clamp(1 - f1 * f1 * inverseBead * inverseBead));
+          color = clamp(
+            p.seamTone +
+              (p.beadTone +
+                p.beadVariation * tones[owner] +
+                p.grainTone * (grain - 0.5) -
+                p.seamTone) *
+                face -
+              (p.seamTone - p.voidTone) * open,
+          );
+          height = clamp(
+            p.seamHeight +
+              face * (p.domeHeight * bulge + p.grainHeight * (grain - 0.5)) -
+              (p.seamHeight - p.voidHeight) * open,
+          );
+          roughness =
+            p.seamRoughness + (p.beadRoughness - p.seamRoughness) * face;
+          occlusion = clamp(
+            p.seamAO + (1 - p.seamAO) * face - (p.seamAO - p.voidAO) * open,
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -44522,6 +44599,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'expandedpolystyrene' ||
     kind === 'octopussuckers' ||
     kind === 'ammonitestone' ||
     kind === 'amberresin' ||
