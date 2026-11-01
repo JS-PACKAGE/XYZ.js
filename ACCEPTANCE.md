@@ -12019,3 +12019,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sherpa fleece|sherpafleece|kinds|catalog|distinct|periodic"`定向測試**2173項通過／3755項未選**。
 - 完整suite（工具實跑，worktree `/private/tmp/xyz-ct-suite`於`9a1be8a97`「Add heat sink fins material」，與tilledsoil等的gates同時執行）：**179檔／9,843項全數通過**，Duration 1424.17s。涵蓋`047b7f742`之後的granola、kawung、pancake、garlicskin、jerky、heatsinkfins（含heatsinkfins對`ProceduralMaterial`金屬factor清單的修改）；tilledsoil、5×5修正與sherpafleece則只有定向測試與gates。
 - 未驗證：本材質未跑瀏覽器gallery（garlicskin、jerky、heatsinkfins、tilledsoil亦未做）；不push。
+
+## 2026-11-02 瀏覽器gallery驗證：garlicskin至sherpafleece
+
+- 範圍：補做`garlicskin`、`jerky`、`heatsinkfins`、`tilledsoil`、`sherpafleece`五個材質的`/examples/pbr3d/`瀏覽器gallery檢查（其中`heatsinkfins`是整面金屬，是第二個走金屬factor清單的整面金屬kind，值得在WebGPU與webgl2兩條路徑都選一次）。
+- 方法（工具實跑）：與前兩次gallery驗證相同——spawned Google Chrome headless（`--enable-unsafe-webgpu --use-angle=metal`）開啟vite dev server（服務`ec567825a`狀態的乾淨worktree）上的範例頁，等待`Material `讀數後逐一以`#material`的`input`事件選取五個kind並等待讀數更新；WebGPU與`?renderer=webgl2`各跑一次，兩次結束時`tab.errors()`的`entries`皆為0筆（dropped 0）；狀態列顯示`944 procedural material presets + plain`。
+- 限制：同前次，只涵蓋「能選取、讀數更新、console沒有錯誤」，**沒有**逐材質視覺比對，也沒有跨瀏覽器、跨GPU或Windows／Linux驗證；最近一次完整suite為`9a1be8a97`的179檔／9,843項通過（tilledsoil、5×5修正、sherpafleece之後尚未重跑）；不push。
