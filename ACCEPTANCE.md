@@ -11501,3 +11501,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`golf-ball`：三seed逐凹坑碗心／平台／鄰列幾何與覆蓋率、含列縫與tile wrap的C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.19s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "golf-ball|golfballdimples|kinds|catalog|distinct|periodic"`定向測試，**2087項通過／3485項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：美洲黑櫻桃木縱向面（blackcherry）
+
+- 目錄895→896，含plain的gallery為897項。近似Prunus serotina心材未塗裝縱向木面：均勻中等紅褐色、細平直縱紋、極低對比寬弱帶與極稀疏短小深色導管凹點。外觀依據實際閱讀的[Wood Database Black Cherry](https://www.wood-database.com/black-cherry/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/prunus-serotina.jpg)；僅作配色與紋理形態參考，不重現照片的淺色邊材條帶與深色斑，也不含捲紋、樹膠袋、塗層或老化深色。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`同路徑），constructor只選新preset；導管pose表24,576 B，總lattice預算21,068 Float64／168,544 B。預設0.18 m tile、0.0015 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.11–0.14%，本體色0.253–0.399，橫／縱色差比7.95–8.29，roughness 0.450–0.553，高度0.440–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(155,93,54)，法線max tilt²約0.0008。以Bun產生512 seed7的2×2排列圖並實看：均勻紅褐面與極稀疏短小深色點，與參考照片的整體色相與均勻度相近。
+- 新增4項永久測試（`Black Cherry`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.24s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Black Cherry|blackcherry|kinds|catalog|distinct|periodic"`定向測試，**2089項通過／3490項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。

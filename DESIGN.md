@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`blackcherry`（美洲黑櫻桃木）使目前目錄895→896種，含plain的gallery為897項。近似Prunus serotina心材的未塗裝縱向木面：均勻的中等紅褐色、細而平直的縱向纖維紋、極低對比的寬弱帶，以及極稀疏、短而小的深色導管凹點。不是淺色邊材條帶、捲紋figure、樹膠袋／深色礦物斑、塗層或加深後的老化色。
+
+外觀依據實際閱讀的[Wood Database Black Cherry](https://www.wood-database.com/black-cherry/)（Color／Appearance：心材新切為淺粉褐，隨時間與光照轉為中等紅褐，邊材寬而淡黃；Grain／Texture：多直紋、細而均勻的質地、中等自然光澤；Porosity：semi-ring-porous到diffuse-porous）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/prunus-serotina.jpg)（均勻紅褐面、左緣淺色邊材、少數小深色斑）；僅作配色與紋理形態參考，不重現邊材條帶或深色斑，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`同一路徑），constructor只選preset：48×16個導管site（Float64×4共24,576 B pose表）、3個弱帶、200×8縱向fiber與128²細grain（含warp共21,068 Float64／168,544 B lattice算術預算，非總RAM）。金屬factor為0；導管凹點是真的height凹陷，縱向色紋只是顏料。預設0.18 m nominal tile與0.0015 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.11–0.14%，本體色0.253–0.399，橫／縱色差比7.95–8.29，roughness 0.450–0.553；seed7的512²平均base color約(155,93,54)、法線max tilt²約0.0008。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `golfballdimples`（高爾夫球風格凹坑）使目前目錄894→895種，含plain的gallery為896項。7欄×8列的六角緊密排列圓形淺凹坑（奇數列錯半欄），凹坑為半徑0.46欄的球碗狀，碗中央較低、較暗（AO 0.55）且較粗糙，凹坑之間是較高、光滑、略亮的窄平台；整體為偏白的亮面塑膠。不是完整球體曲率、接縫線、印字或實際球上的凹坑數／分布。
 
 此材質是作者依一般高爾夫球凹坑外觀所作的平面示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際球種、凹坑直徑／深度／數量或規範；色彩、roughness、AO、層高與0.028 m nominal tile（7欄、每欄4 mm）皆作者設定。7×8是為了讓六角列距（7/8≈0.875）近似理想的0.866且列數為偶數、錯位奇偶才能隨tile週期對齊。

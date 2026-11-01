@@ -2202,6 +2202,7 @@ export function createSurfaceSampler(
       case 'yellowheart':
       case 'bloodwood':
       case 'blackwalnut':
+      case 'blackcherry':
       case 'sapele':
       case 'wenge': {
         const fine =
@@ -2210,7 +2211,8 @@ export function createSurfaceSampler(
             kind === 'purpleheart' ||
             kind === 'yellowheart' ||
             kind === 'bloodwood' ||
-            kind === 'blackwalnut'
+            kind === 'blackwalnut' ||
+            kind === 'blackcherry'
               ? proceduralMaterialPresets[kind]
               : undefined,
           sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : fine,
@@ -44454,6 +44456,7 @@ export function createSurfaceSampler(
     kind === 'qrcodelabel' ||
     kind === 'laptopkeycaps' ||
     kind === 'golfballdimples' ||
+    kind === 'blackcherry' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||
