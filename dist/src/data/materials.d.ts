@@ -12571,6 +12571,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         causticHeight: 0.15;
         causticRoughness: -0.2;
     }>;
+    europeanolive: Readonly<{
+        dark: readonly [170, 124, 72];
+        light: readonly [238, 214, 160];
+        roughness: 0.42;
+        relief: 0.002;
+        rings: 6;
+        arch: 3.4;
+        archShift: 0.04;
+        skew: 0.45;
+        warpCells: 7;
+        warp: 0.9;
+        latewoodStart: 0.8;
+        latewoodPeak: 0.96;
+        fiberColumns: 220;
+        fiberRows: 5;
+        grainCells: 128;
+        earlyTone: 0.78;
+        lateTone: 0.14;
+        fiberTone: 0.08;
+        grainTone: 0.03;
+        lateHeight: 0.1;
+        grainHeight: 0.004;
+        lateRoughness: -0.04;
+        grainRoughness: 0.03;
+        earlyOcclusion: 0.03;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13864,4 +13890,5 @@ export declare const proceduralTileMeters: Readonly<{
     tapemeasure: 0.1;
     metalflakepaint: 0.1;
     poolcaustics: 0.5;
+    europeanolive: 0.18;
 }>;

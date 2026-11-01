@@ -956,6 +956,7 @@ const kinds: ProceduralMaterialKind[] = [
   'tapemeasure',
   'metalflakepaint',
   'poolcaustics',
+  'europeanolive',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -139760,5 +139761,186 @@ describe('Pool caustics with a bright branching light network on a blue pool flo
     expect(maxTilt).toBeGreaterThan(0.04);
     expect(maxTilt).toBeLessThan(0.1);
     expect(invalid).toBe(0);
+  });
+});
+
+describe('Pale yellow-tan European olive wood with fine uniform texture and thin dark wavy growth streaks', () => {
+  const p = proceduralMaterialPresets.europeanolive;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'keeps a pale yellow-tan majority with thin darker growth streaks covering under a tenth of the face that are anisotropic, raised and non-metallic for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('europeanolive', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let late = 0,
+        early = 0,
+        lateHeight = 0,
+        earlyHeight = 0,
+        across = 0,
+        along = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          if (a.color < 0.72) {
+            late++;
+            lateHeight += a.height;
+          } else if (a.color > 0.8) {
+            early++;
+            earlyHeight += a.height;
+          }
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.37 ||
+              a.roughness > 0.46 ||
+              a.occlusion < 0.96 ||
+              a.height < 0.49 * p.relief ||
+              a.height > 0.61 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(late / 65536).toBeGreaterThan(0.08);
+      expect(late / 65536).toBeLessThan(0.11);
+      expect(early / 65536).toBeGreaterThan(0.31);
+      expect(early / 65536).toBeLessThan(0.36);
+      expect(low).toBeLessThan(0.63);
+      expect(low).toBeGreaterThan(0.58);
+      expect(high).toBeGreaterThan(0.83);
+      expect(high).toBeLessThan(0.86);
+      expect(lateHeight / late - earlyHeight / early).toBeGreaterThan(
+        0.06 * p.relief,
+      );
+      expect(across).toBeGreaterThan(2.2 * along);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('keeps the ring index, ring profile edges, fiber and grain lattices C1', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('europeanolive', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.warpCells, p.fiberColumns, p.fiberRows, 128])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Dense sweeps cross many latewood ramp starts, peaks and abrupt ends.
+      for (const y of [0.05, 0.31, 0.5, 0.77])
+        for (let i = 0; i < 4096; i++) check(i / 4096, y);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 pale yellow-tan dielectric maps with about four percent darker streak bands and shallow normals', () => {
+    const maps = generateProceduralMaps('europeanolive', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let warm = 0,
+      pale = 0,
+      stripe = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      warm += Number(r >= 190 && r - g > 15 && g - b > 30);
+      pale += Number(g >= 185);
+      stripe += Number(g < 185);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 250,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(warm / (512 * 512)).toBeGreaterThan(0.98);
+    expect(pale / (512 * 512)).toBeGreaterThan(0.94);
+    expect(pale / (512 * 512)).toBeLessThan(0.98);
+    expect(stripe / (512 * 512)).toBeGreaterThan(0.02);
+    expect(stripe / (512 * 512)).toBeLessThan(0.06);
+    expect(maxTilt).toBeGreaterThan(0.003);
+    expect(maxTilt).toBeLessThan(0.01);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('europeanolive', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
   });
 });

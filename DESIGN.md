@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`europeanolive`（歐洲橄欖木）使目前目錄914→915種，含plain的gallery為916項。近似Olea europaea未塗裝弦切面：淡黃褐底色、細而均勻的質地、6條細長起伏帶拱形的深黃褐生長紋（約占面積一成以下）與細縱向纖維。不是深褐至近黑的縱向條紋與紋理、彎曲／野生紋、瘤紋、邊心材界線或塗層。
+
+外觀依據實際閱讀的[Wood Database Olive](https://www.wood-database.com/olive/)（Color／Appearance：心材由黃到淺紅褐，帶更暗的棕到黑色條紋與脈；邊材淡黃且與心材分明；Grain／Texture：紋理可為直、交錯或野生；細而均勻的質地、帶適度天然光澤）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/olea-europaea-300x600.jpg)（淡黃褐面、細暗生長紋與拱形）；僅作配色與紋理形態參考，**不**重現頁面所述的深褐至近黑條紋與脈、野生紋或瘤紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`、`europeanlarch`同路徑），constructor只選新preset（rings 6、arch 3.4、warp 0.9、latewood 0.8–0.96的窄線、lateTone 0.14、earlyTone 0.78）；warp 49＋fiber 220×5＋128²細grain共17,533 Float64／140,264 B lattice算術預算（非總RAM）。金屬factor為0，晚材略高，年輪紋色是顏料。預設0.18 m nominal tile與0.002 UV-relative relief（非公尺位移）皆作者設定。我先把lateTone設為0.3，渲染後年輪線太淡，改為0.14。三seed（0／1／0xffffffff）、256²取樣：color<0.72占9.1–9.9%、color>0.8占33.1–34.1%、色域0.605–0.847、roughness 0.381–0.450、高度0.498–0.602 relief、橫／縱色差比2.44–2.49、最低AO 0.97；seed7的512²中r／g／b平均約(223,194,141)、g≥185占95.9%（g<185占4.1%）、法線max tilt²約0.0052。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `poolcaustics`（泳池焦散）使目前目錄913→914種，含plain的gallery為915項。藍色池底上有一張明亮、分岔的細光網，網眼間是較暗的深藍色塊；約三分之一面積偏亮，光網處roughness略低，池底有細微顆粒起伏。不是隨時間流動的焦散、真實折射光線追蹤、池磚縫、水面反射或深度漸層。
 
 此材質是作者依「泳池底焦散光網」一般印象所作示意，沒有引用特定來源文件、照片或量測；光網由我自行設計的三組彎曲線族疊成，只在視覺上近似光網，並非物理上的焦散模型。線族方向、寬度、增益、色調、roughness與0.5 m nominal tile皆作者設定，不宣稱符合任何真實水池或光學規格。

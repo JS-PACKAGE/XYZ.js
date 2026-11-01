@@ -11688,3 +11688,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Pool caustics`：三seed亮／暗比例與色域、seed移動光網與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.01s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pool caustics|poolcaustics|kinds|catalog|distinct|periodic"`定向測試，**2118項通過／3589項未選**。
 - 本功能未重跑完整179檔suite（metalflakepaint commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：歐洲橄欖木弦切面（europeanolive）
+
+- 目錄914→915，含plain的gallery為916項。近似Olea europaea未塗裝弦切面：淡黃褐底、細而均勻的質地、6條細長起伏帶拱形的深黃褐生長紋（約占面積一成以下）與細縱向纖維。外觀依據實際閱讀的[Wood Database Olive](https://www.wood-database.com/olive/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/olea-europaea-300x600.jpg)；僅作配色與紋理形態參考，**不**重現頁面所述的深褐至近黑條紋與脈、野生紋、瘤紋、邊心材界線或塗層。
+- 直接fallthrough重用`douglasfir`年輪sampler（與`longleafpine`、`westernredcedar`、`sitkaspruce`、`europeanlarch`同路徑），constructor只選新preset；warp 49＋fiber 220×5＋128² grain共17,533 Float64／140,264 B。預設0.18 m tile、0.002 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版lateTone 0.3，實看渲染的年輪線太淡，改為0.14；另外我在zh文件的第一版插入文字中把gallery數誤寫成「915→916項」（應為916項），在提交前以全文搜尋修正了PLAN／DESIGN／TECHNICAL-zh／USAGE-zh四處。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color<0.72占9.1–9.9%、color>0.8占33.1–34.1%、色域0.605–0.847、roughness 0.381–0.450、高度0.498–0.602 relief、橫／縱色差比2.44–2.49、最低AO 0.97，metallic／mortar皆0；seed7的512² r／g／b平均約(223,194,141)、g≥185占95.9%（g<185占4.1%）、法線max tilt²約0.0052。以Bun產生512 seed7排列圖並實看：淡黃褐面與細而起伏的拱形生長紋，比照片更規律、缺少深色條紋。
+- 新增4項永久測試（`European olive`：三seed外觀與各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（7.48s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "European olive|europeanolive|kinds|catalog|distinct|periodic"`定向測試，**2120項通過／3594項未選**。
+- 本功能未重跑完整179檔suite（metalflakepaint commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

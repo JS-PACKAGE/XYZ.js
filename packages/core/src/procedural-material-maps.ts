@@ -37969,6 +37969,7 @@ export function createSurfaceSampler(
       case 'longleafpine':
       case 'westernredcedar':
       case 'sitkaspruce':
+      case 'europeanolive':
       case 'europeanlarch': {
         const p = proceduralMaterialPresets[kind],
           warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25101),
@@ -45149,6 +45150,7 @@ export function createSurfaceSampler(
     kind === 'tapemeasure' ||
     kind === 'metalflakepaint' ||
     kind === 'poolcaustics' ||
+    kind === 'europeanolive' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
     kind === 'sitkaspruce' ||
