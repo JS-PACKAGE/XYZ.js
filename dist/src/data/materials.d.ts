@@ -12708,6 +12708,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         pitRoughness: 0.12;
         pitOcclusion: 0.35;
     }>;
+    pumpkinskin: Readonly<{
+        dark: readonly [150, 62, 10];
+        light: readonly [252, 150, 28];
+        roughness: 0.55;
+        relief: 0.012;
+        ribs: 8;
+        seedSalt: 45211;
+        ribWarpCells: 6;
+        ribWarp: 0.07;
+        streakColumns: 150;
+        streakRows: 6;
+        wartCells: 24;
+        wartPresence: 0.35;
+        wartJitter: 0.3;
+        wartRadius: 0.4;
+        baseTone: 0.72;
+        ribTone: 0.2;
+        streakTone: 0.1;
+        wartTone: 0.16;
+        ribHeight: 0.8;
+        streakHeight: 0.06;
+        wartHeight: 0.22;
+        grooveOcclusion: 0.4;
+        grooveRoughness: 0.12;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14007,4 +14032,5 @@ export declare const proceduralTileMeters: Readonly<{
     europeanyew: 0.18;
     coirdoormat: 0.3;
     citruspeel: 0.12;
+    pumpkinskin: 0.4;
 }>;

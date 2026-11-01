@@ -999,6 +999,7 @@ try {
     'europeanyew',
     'coirdoormat',
     'citruspeel',
+    'pumpkinskin',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

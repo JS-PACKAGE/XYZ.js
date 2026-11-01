@@ -11747,3 +11747,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Citrus peel`：三seed凹點比例與色／粗糙度／AO／高度差、seed移動凹點與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.25s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Citrus peel|citruspeel|kinds|catalog|distinct|periodic"`定向測試，**2128項通過／3621項未選**。
 - 本功能未重跑完整179檔suite（raindropripples commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（raindropripples、europeanyew、coirdoormat與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：南瓜皮（pumpkinskin）
+
+- 目錄920→921，含plain的gallery為922項。橙色果皮上8條沿v方向縱貫的隆起稜（相位被低頻場輕微彎曲）、較暗較粗糙帶AO的溝槽（約四成面積）、細縱向皮紋與約三分之一格有的小疣點。這是作者依一般南瓜皮縱稜外觀所作示意，**沒有**引用特定來源，不宣稱符合任何南瓜品種；不含果蒂、果瓣曲面、白斑或傷痕。
+- 專用sampler：稜`0.5+0.5cos(2π·(8u+0.07·8·(噪聲−0.5)))`（8個整數稜，6×6低頻噪聲）、150×6縱向拉長皮紋、24×24疣點（抖動位置與大小，`smooth(1−q/r²)`圓頂加總並`W/(1+W)`飽和），皆C1。cache合計2,664 Float64／21,312 B。預設0.4 m tile、0.012 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版ribWarp 0.12、疣點偏淡，實看四圖稜過度蜿蜒，改為0.07並加強疣點；首版baseTone 0.78使color最高達1.0036（超出[0,1]），改為0.72後才寫測試。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣color 0.572–0.942、平均約0.728、溝槽（AO<0.95）占43.5–44.2%、最低AO 0.60、roughness 0.55–0.67、高度0.0015–0.958 relief、橫／縱色差比5.2–6.2；沿三條水平線（v=0.13、0.5、0.81）每次恰好數到8個溝槽；seed 0與1取樣色差平均0.059；seed7的512² r／g／b平均約(224,126,23)、AO<242占43.3%、法線max tilt²約0.243。以Bun產生512 seed7四圖並實看：縱向稜與暗溝、法線圖有明顯的縱向稜斜率；疣點在512下很不明顯。
+- 新增4項永久測試（`Pumpkin skin`：三seed每條線恰8個溝槽與色／溝槽／粗糙度／AO統計、seed改變稜彎曲與疣點但稜數固定、含稜／疣點／皮紋格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.05s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pumpkin skin|pumpkinskin|kinds|catalog|distinct|periodic"`定向測試，**2130項通過／3626項未選**。
+- 補記（完整suite）：在凍結worktree於raindropripples commit `96f009884`實跑完整`vitest run`，**179檔／9,657項全部通過**（1384.39s，wall約23分）；該commit之後的europeanyew、coirdoormat、citruspeel與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
+- 未開瀏覽器gallery（raindropripples、europeanyew、coirdoormat、citruspeel與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

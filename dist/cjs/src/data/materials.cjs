@@ -20763,6 +20763,39 @@ var proceduralMaterialPresets = Object.freeze({
 		pitRoughness: .12,
 		pitOcclusion: .35
 	}),
+	pumpkinskin: Object.freeze({
+		dark: [
+			150,
+			62,
+			10
+		],
+		light: [
+			252,
+			150,
+			28
+		],
+		roughness: .55,
+		relief: .012,
+		ribs: 8,
+		seedSalt: 45211,
+		ribWarpCells: 6,
+		ribWarp: .07,
+		streakColumns: 150,
+		streakRows: 6,
+		wartCells: 24,
+		wartPresence: .35,
+		wartJitter: .3,
+		wartRadius: .4,
+		baseTone: .72,
+		ribTone: .2,
+		streakTone: .1,
+		wartTone: .16,
+		ribHeight: .8,
+		streakHeight: .06,
+		wartHeight: .22,
+		grooveOcclusion: .4,
+		grooveRoughness: .12
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22180,7 +22213,8 @@ var proceduralTileMeters = Object.freeze({
 	raindropripples: .4,
 	europeanyew: .18,
 	coirdoormat: .3,
-	citruspeel: .12
+	citruspeel: .12,
+	pumpkinskin: .4
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

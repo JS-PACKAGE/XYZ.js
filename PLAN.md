@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`pumpkinskin`（南瓜皮）使目前目錄920→921種，含plain的gallery為922項。橙色果皮上有8條沿v方向縱貫的隆起稜（稜相位被低頻場輕微彎曲），稜間溝槽較暗、較粗糙並帶AO（約四成面積在溝槽中），稜上有細縱向皮紋與約三分之一格有的小疣點。不是果蒂、果瓣曲面、白斑、傷痕或塗層。
+
+此材質是作者依一般南瓜皮縱稜外觀所作示意，沒有引用特定來源文件、照片或量測；稜數、彎曲量、疣點密度、色調、roughness與0.4 m nominal tile皆作者設定，不宣稱符合任何南瓜品種。
+
+新增專用sampler：稜 = `0.5 + 0.5cos(2π·(8u + 0.07·8·(噪聲−0.5)))`（8個整數稜，噪聲為6×6低頻雜訊使溝槽略為彎曲），皮紋為150×6的縱向拉長值雜訊，疣點為24×24格每格3個Float64的抖動位置與大小（約35%的格有疣）、以`smooth(1 − q/r²)`圓頂加總並以`W/(1+W)`飽和，故皆為C1。cache合計36＋900＋1,728 = 2,664 Float64／21,312 B lattice算術預算（非總RAM）。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.4 m nominal tile與0.012 UV-relative relief（非公尺位移）皆作者設定。調整過程：首版ribWarp 0.12、疣點偏淡，實看後稜過度蜿蜒，改為0.07並加強疣點；另外首版baseTone 0.78使color最高達1.0036（超出[0,1]），改為0.72。三seed（0／1／0xffffffff）、512²取樣：color 0.572–0.942、平均約0.728、AO<0.95的溝槽占43.5–44.2%、最低AO 0.60、roughness 0.55–0.67、高度0.0015–0.958 relief、橫／縱色差比5.2–6.2；沿三條水平線（v = 0.13、0.5、0.81）各數到恰好8個溝槽；seed 0與1的取樣色差平均0.059；seed7的512²中r／g／b平均約(224,126,23)、AO<242占43.3%、法線max tilt²約0.243。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `citruspeel`（柑橘果皮）使目前目錄919→920種，含plain的gallery為921項。明亮橙色果皮，48×48格、約九成格有一個抖動位置的油胞凹點（隨機深度），相鄰凹點可重疊，約四成面積落在凹點中（凹點較暗、較低、較粗糙並帶AO），另有柔和的6×6低頻色斑與細grain。不是橘瓣紋、果蒂、果皮厚度、白色內皮、油珠或傷痕。
 
 此材質是作者依一般橙子果皮（油胞凹點）外觀所作示意，沒有引用特定來源文件、照片或量測；凹點密度與半徑、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何柑橘品種。

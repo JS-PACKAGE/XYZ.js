@@ -37756,6 +37756,73 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'pumpkinskin': {
+        const p = proceduralMaterialPresets.pumpkinskin,
+          warpField = cachedNoise(
+            p.ribWarpCells,
+            p.ribWarpCells,
+            seed ^ p.seedSalt,
+          ),
+          streaks = cachedNoise(
+            p.streakColumns,
+            p.streakRows,
+            seed ^ (p.seedSalt + 1),
+          ),
+          warts = new Float64Array(p.wartCells * p.wartCells * 3),
+          inverseRadius2 = 1 / (p.wartRadius * p.wartRadius);
+        // Per cell: jittered wart centre (x, y) and size; a missing wart has size 0.
+        for (let cy = 0; cy < p.wartCells; cy++)
+          for (let cx = 0; cx < p.wartCells; cx++) {
+            const at = (cy * p.wartCells + cx) * 3,
+              salt = seed ^ (p.seedSalt + 2);
+            warts[at] = p.wartJitter * (2 * hash(cx, cy * 4, salt) - 1);
+            warts[at + 1] = p.wartJitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+            warts[at + 2] =
+              hash(cx, cy * 4 + 3, salt) < p.wartPresence
+                ? 0.5 + 0.5 * hash(cx, cy * 4 + 2, salt)
+                : 0;
+          }
+        return () => {
+          // Ribs run along v: a raised cosine in u whose phase is bent by a low
+          // frequency field, so the grooves wander. Lengthwise skin streaks come from a
+          // stretched value noise, and sparse warts are summed smooth(1 - q / r^2)
+          // domes over the 3 x 3 neighbour cells; every part is C1.
+          const phase =
+              p.ribs * u + p.ribWarp * (warpField(u, v) - 0.5) * p.ribs,
+            rib = 0.5 + 0.5 * Math.cos(TAU * phase),
+            streak = streaks(u, v),
+            x = fract(u) * p.wartCells,
+            y = fract(v) * p.wartCells,
+            cx = Math.floor(x),
+            cy = Math.floor(y);
+          let wart = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const wx =
+                  (((cx + ox) % p.wartCells) + p.wartCells) % p.wartCells,
+                wy = (((cy + oy) % p.wartCells) + p.wartCells) % p.wartCells,
+                at = (wy * p.wartCells + wx) * 3,
+                size = warts[at + 2];
+              if (size === 0) continue;
+              const dx = x - (cx + ox + 0.5 + warts[at]),
+                dy = y - (cy + oy + 0.5 + warts[at + 1]);
+              wart +=
+                size * smooth(clamp(1 - (dx * dx + dy * dy) * inverseRadius2));
+            }
+          const warty = wart / (1 + wart),
+            groove = (1 - rib) * (1 - rib);
+          color =
+            p.baseTone +
+            p.ribTone * (rib - 0.5) +
+            p.streakTone * (streak - 0.5) +
+            p.wartTone * warty;
+          height =
+            p.ribHeight * rib + p.streakHeight * streak + p.wartHeight * warty;
+          roughness += p.grooveRoughness * groove;
+          occlusion = 1 - p.grooveOcclusion * groove * groove;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45364,6 +45431,7 @@ export function createSurfaceSampler(
     kind === 'raindropripples' ||
     kind === 'coirdoormat' ||
     kind === 'citruspeel' ||
+    kind === 'pumpkinskin' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
