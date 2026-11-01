@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`bubinga`（非洲紫檀／布賓加）使目前目錄922→923種，含plain的gallery為924項。近似Guibourtia屬未塗裝縱向木面：粉紅紅褐底色、均勻細質地、3條較暗的紅褐起伏淡條紋、縱向纖維與散布的細暗導管凹點（約1.2%）。不是紫或黑色條紋、稻草色邊材、波紋（pommele）、火焰、瀑布或絞絲等花紋、交錯紋或塗層。
+
+外觀依據實際閱讀的[Wood Database Bubinga](https://www.wood-database.com/bubinga/)（Color／Appearance：心材由粉紅紅色到較深的紅褐，帶更暗的紫或黑色條紋；邊材為淡稻草色且與心材分明；常見多種花紋；Grain／Texture：直到交錯紋、均勻的細到中等質地與適度天然光澤）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/guibourtia-spp-300x600.jpg)（均勻紅褐面、細暗導管線與淡淡的縱向起伏）；僅作配色與紋理形態參考，**不**重現頁面所述的紫／黑色條紋、淡色邊材與各種花紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`同路徑），constructor只選preset：44×14個導管site（pose表19,712 B）、3條起伏（bandWarp 0.6）且對比低（bandContrast 0.25）的暗帶、220×9縱向fiber、128²細grain與固定3×4 warp，共20,840 Float64／166,720 B lattice算術預算（非總RAM）。金屬factor為0；導管凹點是真的height凹陷，色紋只是顏料。預設0.18 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占1.13–1.23%，本體色0.257–0.729，橫／縱色差比11.9–12.9，roughness 0.460–0.564，高度0.41–0.503 relief；seed7的512²平均base color約(141,71,42)、導管占1.29%、法線max tilt²約0.0061。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `pomegranatearils`（石榴籽囊）使目前目錄921→922種，含plain的gallery為923項。20×20格、每格一個抖動位置、大小與色調各異的圓形紅寶石色籽囊緊密堆疊並互相重疊，每顆上有偏左上的小高光，籽囊光滑、略高、無遮蔽；籽囊之間的縫隙很暗、較粗糙並帶AO（AO<0.5約占面積8.7%）。不是半透明（次表面）、果肉汁液、白色隔膜、果皮或籽的內部結構。
 
 此材質是作者依一般石榴籽囊（紅色圓粒緊密堆疊）外觀所作示意，沒有引用特定來源文件、照片或量測；籽囊大小、色調、高光、縫隙色、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何石榴品種，也不模擬半透明。

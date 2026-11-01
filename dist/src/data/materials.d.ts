@@ -12754,6 +12754,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         seamRoughness: 0.4;
         seamOcclusion: 0.7;
     }>;
+    bubinga: Readonly<{
+        dark: readonly [92, 40, 24];
+        light: readonly [184, 98, 58];
+        roughness: 0.46;
+        relief: 0.0025;
+        columns: 44;
+        rows: 14;
+        widthMinimum: 0.04;
+        widthVariation: 0.03;
+        lengthMinimum: 0.1;
+        lengthVariation: 0.14;
+        poreChance: 0.55;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.09;
+        bands: 3;
+        bandWarp: 0.6;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.25;
+        fiberColumns: 220;
+        fiberRows: 9;
+        fiberContrast: 0.22;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14055,4 +14080,5 @@ export declare const proceduralTileMeters: Readonly<{
     citruspeel: 0.12;
     pumpkinskin: 0.4;
     pomegranatearils: 0.12;
+    bubinga: 0.18;
 }>;

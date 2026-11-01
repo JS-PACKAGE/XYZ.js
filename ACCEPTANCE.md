@@ -11768,3 +11768,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Pomegranate arils`：三seed縫隙／高光／粗糙度／AO／高度統計、seed差異與確定性、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（10.13s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Pomegranate arils|pomegranatearils|kinds|catalog|distinct|periodic"`定向測試，**2132項通過／3631項未選**。
 - 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：非洲紫檀／布賓加縱向面（bubinga）
+
+- 目錄922→923，含plain的gallery為924項。近似Guibourtia屬未塗裝縱向木面：粉紅紅褐底、均勻細質地、3條較暗的淡條紋、縱向纖維與散布的細暗導管凹點（約1.2%）。外觀依據實際閱讀的[Wood Database Bubinga](https://www.wood-database.com/bubinga/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/guibourtia-spp-300x600.jpg)；僅作配色與紋理形態參考，**不**重現頁面所述的紫／黑色條紋、淡稻草色邊材與各種花紋。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`同路徑），constructor只選新preset；導管pose表19,712 B，總lattice預算20,840 Float64／166,720 B。預設0.18 m tile、0.0025 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占1.13–1.23%，本體色0.257–0.729，橫／縱色差比11.9–12.9，roughness 0.460–0.564，高度0.41–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(141,71,42)，導管占1.29%，法線max tilt²約0.0061。以Bun產生512 seed7排列圖並實看：均勻紅褐面、規律的暗色寬條紋與散布短導管點；暗條紋比照片寬而規律。
+- 開發中實際遇到的小問題：寫測試時我用腳本以字串替換複製玫瑰木測試，但prettier已把其中一行折行，第一次替換因找不到字串而中止、尚未寫入任何新測試，重跑時才改以折行後的字串並完成。
+- 新增4項永久測試（`Bubinga`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.18s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Bubinga|bubinga|kinds|catalog|distinct|periodic"`定向測試，**2134項通過／3636項未選**。
+- 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
