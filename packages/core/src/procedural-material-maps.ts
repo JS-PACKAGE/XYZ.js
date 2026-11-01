@@ -18338,6 +18338,111 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.slitAO) * slit);
         };
       }
+      case 'ean13barcodes': {
+        const p = proceduralMaterialPresets.ean13barcodes,
+          inkField = cachedNoise(
+            p.inkGainCells,
+            p.inkGainCells,
+            seed ^ 0x25b01,
+          ),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x25b03),
+          // Standard EAN-13 tables: left L and G sets, right R set (R is the complement of L).
+          l = [
+            '0001101',
+            '0011001',
+            '0010011',
+            '0111101',
+            '0100011',
+            '0110001',
+            '0101111',
+            '0111011',
+            '0110111',
+            '0001011',
+          ],
+          r = l.map((code) =>
+            [...code].map((bit) => (bit === '0' ? '1' : '0')).join(''),
+          ),
+          g = r.map((code) => [...code].reverse().join('')),
+          parity = [
+            'LLLLLL',
+            'LLGLGG',
+            'LLGGLG',
+            'LLGGGL',
+            'LGLLGG',
+            'LGGLLG',
+            'LGGGLL',
+            'LGLGLG',
+            'LGLGGL',
+            'LGGLGL',
+          ],
+          modules = 3 + 42 + 5 + 42 + 3,
+          total = p.quiet * 2 + modules,
+          rows: Uint8Array[] = [],
+          guard: Uint8Array[] = [];
+        for (let row = 0; row < p.rows; row++) {
+          const digits: number[] = [];
+          for (let i = 0; i < 12; i++)
+            digits.push(
+              Math.min(9, Math.floor(hash(i, row, seed ^ 0x25b05) * 10)),
+            );
+          let sum = 0;
+          for (let i = 0; i < 12; i++) sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+          digits.push((10 - (sum % 10)) % 10);
+          let bits = '101';
+          for (let i = 1; i <= 6; i++)
+            bits += (parity[digits[0]][i - 1] === 'L' ? l : g)[digits[i]];
+          bits += '01010';
+          for (let i = 7; i <= 12; i++) bits += r[digits[i]];
+          bits += '101';
+          const line = new Uint8Array(total),
+            guards = new Uint8Array(total);
+          for (let i = 0; i < modules; i++) {
+            line[p.quiet + i] = bits[i] === '1' ? 1 : 0;
+            // Start, center and end guard bars run lower than the digit bars.
+            guards[p.quiet + i] =
+              i < 3 || (i >= 45 && i < 50) || i >= modules - 3 ? 1 : 0;
+          }
+          rows.push(line);
+          guard.push(guards);
+        }
+        const inverseSoft = 1 / p.edgeSoft;
+        return () => {
+          const gy = v * p.rows,
+            row = Math.min(p.rows - 1, Math.floor(gy)),
+            fy = gy - row,
+            gx = u * total,
+            index = Math.min(total - 1, Math.floor(gx)),
+            fx = gx - index,
+            here = rows[row][index],
+            // Distance (in modules) to the nearest bar edge in x: a neighbor that differs gives an edge.
+            leftNeighbor = rows[row][(index + total - 1) % total],
+            rightNeighbor = rows[row][(index + 1) % total],
+            edgeLeft = leftNeighbor !== here ? fx : 1,
+            edgeRight = rightNeighbor !== here ? 1 - fx : 1,
+            edge = Math.min(edgeLeft, edgeRight),
+            // Bar cells fade to paper over the last fraction of a module at an edge shared with paper.
+            across = smooth(clamp(edge * inverseSoft)),
+            bottom = guard[row][index] ? p.guardBottom : p.barBottom,
+            vertical = fy > p.barTop && fy < bottom,
+            gapEdge = Math.min(fy, 1 - fy) < p.rowGap ? 1 : 0,
+            ink = here && vertical ? across : 0;
+          const gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5;
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              (p.inkTone + p.inkGain * gain - p.paperTone) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.inkHeight - p.paperHeight) * ink -
+              (p.paperHeight - p.gapHeight) * gapEdge,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = clamp(1 - 0.1 * gapEdge);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45867,6 +45972,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'ean13barcodes' ||
     kind === 'kilimflatweave' ||
     kind === 'tumblingblocks' ||
     kind === 'azulejotiles' ||

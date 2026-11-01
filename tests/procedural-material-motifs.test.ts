@@ -3561,3 +3561,146 @@ describe('kilimflatweave: four motif bands in weft-faced wool', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('ean13barcodes: structurally valid EAN-13 symbols', () => {
+  const p = proceduralMaterialPresets.ean13barcodes;
+  const total = 2 * p.quiet + 95;
+  // The published EAN-13 digit encodings, written out independently of the sampler.
+  const left = [
+    '0001101',
+    '0011001',
+    '0010011',
+    '0111101',
+    '0100011',
+    '0110001',
+    '0101111',
+    '0111011',
+    '0110111',
+    '0001011',
+  ];
+  const right = left.map((code) =>
+    [...code].map((bit) => (bit === '1' ? '0' : '1')).join(''),
+  );
+  const mirrored = right.map((code) => [...code].reverse().join(''));
+  const firstDigit = [
+    'LLLLLL',
+    'LLGLGG',
+    'LLGGLG',
+    'LLGGGL',
+    'LGLLGG',
+    'LGGLLG',
+    'LGGGLL',
+    'LGLGLG',
+    'LGLGGL',
+    'LGGLGL',
+  ];
+
+  const readRow = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    row: number,
+    fy: number,
+  ): string => {
+    const out = empty();
+    let bits = '';
+    for (let i = 0; i < total; i++) {
+      sample((i + 0.5) / total, (row + fy) / p.rows, out);
+      bits += out.color < 0.5 ? '1' : '0';
+    }
+    return bits;
+  };
+
+  it.each(seeds)(
+    'prints guards, parity-coded digit groups and a correct check digit on every label (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('ean13barcodes', seed),
+        seen = new Set<string>();
+      for (let row = 0; row < p.rows; row++) {
+        const all = readRow(sample, row, 0.5);
+        // Quiet zones on both sides are blank paper.
+        expect(all.slice(0, p.quiet)).toBe('0'.repeat(p.quiet));
+        expect(all.slice(total - p.quiet)).toBe('0'.repeat(p.quiet));
+        const bits = all.slice(p.quiet, total - p.quiet);
+        expect(bits.length).toBe(95);
+        expect(bits.slice(0, 3)).toBe('101');
+        expect(bits.slice(45, 50)).toBe('01010');
+        expect(bits.slice(92)).toBe('101');
+        const digits: number[] = [];
+        let pattern = '';
+        for (let group = 0; group < 6; group++) {
+          const code = bits.slice(3 + group * 7, 10 + group * 7),
+            asL = left.indexOf(code),
+            asG = mirrored.indexOf(code);
+          expect(asL >= 0 !== asG >= 0).toBe(true);
+          pattern += asL >= 0 ? 'L' : 'G';
+          digits.push(asL >= 0 ? asL : asG);
+        }
+        const first = firstDigit.indexOf(pattern);
+        expect(first).toBeGreaterThanOrEqual(0);
+        digits.unshift(first);
+        for (let group = 0; group < 6; group++) {
+          const code = bits.slice(50 + group * 7, 57 + group * 7);
+          expect(right.indexOf(code)).toBeGreaterThanOrEqual(0);
+          digits.push(right.indexOf(code));
+        }
+        expect(digits.length).toBe(13);
+        // Check digit: weights 1, 3, 1, 3, ... over all thirteen digits sum to a multiple of 10.
+        const sum = digits.reduce(
+          (a, d, i) => a + d * (i % 2 === 0 ? 1 : 3),
+          0,
+        );
+        expect(sum % 10).toBe(0);
+        seen.add(digits.join(''));
+        // Between the bar bottom and the guard bottom only the guard bars are inked.
+        const lower = readRow(
+          sample,
+          row,
+          (p.barBottom + p.guardBottom) / 2,
+        ).slice(p.quiet, total - p.quiet);
+        const guards = bits
+          .split('')
+          .map((bit, i) =>
+            i < 3 || (i >= 45 && i < 50) || i >= 92 ? bit : '0',
+          )
+          .join('');
+        expect(lower).toBe(guards);
+      }
+      expect(seen.size).toBe(p.rows);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('ean13barcodes', 0),
+      b = createSurfaceSampler('ean13barcodes', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

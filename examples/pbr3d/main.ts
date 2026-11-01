@@ -711,6 +711,7 @@ try {
     'dcbarreljackfaces',
     'stfiberadapterfaces',
     'to92packagefaces',
+    'ean13barcodes',
     'kilimflatweave',
     'tumblingblocks',
     'azulejotiles',
