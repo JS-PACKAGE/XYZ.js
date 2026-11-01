@@ -13078,6 +13078,42 @@ var proceduralMaterialPresets = Object.freeze({
 		threadHeight: .05,
 		seamAO: .6
 	}),
+	kilimflatweave: Object.freeze({
+		dark: [
+			34,
+			20,
+			52
+		],
+		light: [
+			236,
+			218,
+			182
+		],
+		roughness: .9,
+		relief: .0022,
+		cells: 48,
+		band: 12,
+		motif: 12,
+		zigzag: 6,
+		tones: [
+			.1,
+			.3,
+			.56,
+			.88
+		],
+		cellJitter: .05,
+		ribs: 3,
+		ribTone: .05,
+		slitWidth: .14,
+		slitSoft: .05,
+		slitTone: .04,
+		ribHeight: .12,
+		baseHeight: .55,
+		slitDepth: .4,
+		fuzzCells: 192,
+		fuzzTone: .04,
+		slitAO: .5
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21759,6 +21795,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	kilimflatweave: 1.2,
 	tumblingblocks: .6,
 	azulejotiles: .8,
 	moirefringes: .3,

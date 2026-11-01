@@ -3419,3 +3419,145 @@ describe('tumblingblocks: isometric cubes on a hexagonal lattice', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('kilimflatweave: four motif bands in weft-faced wool', () => {
+  const p = proceduralMaterialPresets.kilimflatweave;
+  const n = p.cells;
+  const nearest = (color: number): number => {
+    let best = 0;
+    for (let i = 1; i < p.tones.length; i++)
+      if (Math.abs(color - p.tones[i]) < Math.abs(color - p.tones[best]))
+        best = i;
+    return best;
+  };
+
+  it.each(seeds)(
+    'weaves symmetric diamonds, zigzags, stripes and crosses on a cell grid with slits at color changes (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('kilimflatweave', seed),
+        out = empty(),
+        grid = new Uint8Array(n * n),
+        at = (cx: number, cy: number, fx: number, fy: number): number => {
+          sample((cx + fx) / n, (cy + fy) / n, out);
+          return out.color;
+        };
+      for (let cy = 0; cy < n; cy++)
+        for (let cx = 0; cx < n; cx++)
+          grid[cy * n + cx] = nearest(at(cx, cy, 0.5, 0.5));
+      const cell = (cx: number, cy: number): number =>
+        grid[cy * n + (((cx % n) + n) % n)];
+      const m = p.motif,
+        b = p.band;
+      // Band 0: stepped diamonds repeat every motif and mirror in both axes.
+      let diamonds = 0,
+        diamondChecks = 0;
+      const used0 = new Set<number>();
+      for (let y = 0; y < b; y++)
+        for (let x = 0; x < n; x++) {
+          diamondChecks++;
+          used0.add(cell(x, y));
+          diamonds += Number(
+            cell(x, y) === cell(x + m, y) &&
+              cell(x, y) ===
+                cell(Math.floor(x / m) * m + (m - 1 - (x % m)), y) &&
+              cell(x, y) === cell(x, b - 1 - y),
+          );
+        }
+      expect(diamonds).toBe(diamondChecks);
+      expect(used0.size).toBeGreaterThanOrEqual(3);
+      // Band 1: two alternating colors with period 6 across and down, half of each row in each.
+      for (let y = b; y < 2 * b; y++) {
+        let first = 0;
+        const colors = new Set<number>();
+        for (let x = 0; x < n; x++) {
+          colors.add(cell(x, y));
+          first += Number(cell(x, y) === cell(0, y));
+          expect(cell(x, y)).toBe(cell(x + p.zigzag, y));
+          if (y + p.zigzag < 2 * b)
+            expect(cell(x, y)).toBe(cell(x, y + p.zigzag));
+        }
+        expect(colors.size).toBe(2);
+        expect(first).toBe(n / 2);
+      }
+      // Band 2: whole-row stripes, palindromic within the band.
+      const stripes: number[] = [];
+      for (let y = 2 * b; y < 3 * b; y++) {
+        const row = cell(0, y);
+        for (let x = 0; x < n; x++) expect(cell(x, y)).toBe(row);
+        stripes.push(row);
+      }
+      expect(stripes).toEqual([...stripes].reverse());
+      expect(new Set(stripes).size).toBe(4);
+      // Band 3: a plus-shaped cross of one color through each motif (44 of 144 cells).
+      for (let motif = 0; motif < n / m; motif++) {
+        const colors = new Map<number, number>();
+        for (let y = 3 * b; y < 4 * b; y++)
+          for (let x = motif * m; x < (motif + 1) * m; x++)
+            colors.set(cell(x, y), (colors.get(cell(x, y)) ?? 0) + 1);
+        expect(colors.get(2)).toBe(44);
+      }
+      // Slits: a pale cell whose left neighbor has another color is darker at its left edge than
+      // in its middle by a wide margin; cells that continue the left color are not.
+      let changed = 0,
+        slitOk = 0,
+        continued = 0,
+        flatOk = 0;
+      for (let cy = 0; cy < n; cy++)
+        for (let cx = 0; cx < n; cx++) {
+          const edge = at(cx, cy, 0.05, 0.5),
+            middle = at(cx, cy, 0.5, 0.5);
+          if (cell(cx - 1, cy) !== cell(cx, cy)) {
+            if (cell(cx, cy) >= 1) {
+              changed++;
+              slitOk += Number(edge < middle - 0.12);
+            }
+          } else {
+            continued++;
+            flatOk += Number(Math.abs(edge - middle) < 0.06);
+          }
+        }
+      expect(changed).toBeGreaterThan(100);
+      expect(slitOk).toBe(changed);
+      expect(flatOk).toBe(continued);
+      // Channel ranges.
+      let invalid = 0;
+      const size = 384;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+        }
+      expect(invalid).toBe(0);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('kilimflatweave', 0),
+      b = createSurfaceSampler('kilimflatweave', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

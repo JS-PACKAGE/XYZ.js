@@ -18277,6 +18277,67 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.seamAO) * line);
         };
       }
+      case 'kilimflatweave': {
+        const p = proceduralMaterialPresets.kilimflatweave,
+          fuzzField = cachedNoise(p.fuzzCells, p.fuzzCells, seed ^ 0x25a01),
+          inverseSlit = 1 / p.slitSoft,
+          half = (p.motif - 1) / 2,
+          wrap = (value: number, period: number): number =>
+            ((value % period) + period) % period,
+          // Cell class 0-3 (an index into tones): four bands of stepped diamonds, zigzag, stripes and crosses.
+          cellClass = (cx: number, cy: number): number => {
+            const band = Math.floor(cy / p.band) % 4,
+              ry = cy % p.band,
+              mx = wrap(cx, p.motif) - half,
+              my = ry - half;
+            if (band === 0)
+              return Math.floor((Math.abs(mx) + Math.abs(my)) / 1.5) % 4;
+            if (band === 1) {
+              const slope = Math.abs(wrap(cy, p.zigzag) - p.zigzag / 2 + 0.5);
+              return wrap(cx + Math.floor(slope), p.zigzag) < p.zigzag / 2
+                ? 1
+                : 3;
+            }
+            if (band === 2)
+              return [0, 0, 1, 1, 2, 3, 3, 2, 1, 1, 0, 0][ry % 12];
+            const reach = Math.max(Math.abs(mx), Math.abs(my));
+            return Math.abs(mx) < 1 || Math.abs(my) < 1
+              ? 2
+              : reach > half - 0.5
+                ? 1
+                : 3;
+          };
+        return () => {
+          const gx = u * p.cells,
+            gy = v * p.cells,
+            cx = Math.floor(gx),
+            cy = Math.floor(gy),
+            fx = gx - cx,
+            fy = gy - cy,
+            cls = cellClass(cx, cy),
+            left = cellClass(cx - 1, cy),
+            // Vertical slit where the weft color changes between neighboring cells.
+            slit =
+              left !== cls
+                ? 1 - smooth(clamp((fx - p.slitWidth) * inverseSlit + 0.5))
+                : 0,
+            rib = 0.5 + 0.5 * Math.cos(fy * p.ribs * TAU),
+            fuzz = fuzzField(u, v) - 0.5,
+            jitter = hash(cx, cy, seed ^ 0x25a03) - 0.5;
+          color = clamp(
+            p.tones[cls] +
+              p.cellJitter * jitter +
+              p.ribTone * (rib - 0.5) +
+              p.fuzzTone * fuzz +
+              (p.slitTone - p.tones[cls]) * slit * 0.8,
+          );
+          height = clamp(
+            p.baseHeight + p.ribHeight * (rib - 0.5) - p.slitDepth * slit,
+          );
+          roughness = p.roughness;
+          occlusion = clamp(1 - (1 - p.slitAO) * slit);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45806,6 +45867,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'kilimflatweave' ||
     kind === 'tumblingblocks' ||
     kind === 'azulejotiles' ||
     kind === 'moirefringes' ||

@@ -7203,6 +7203,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         threadHeight: 0.05;
         seamAO: 0.6;
     }>;
+    kilimflatweave: Readonly<{
+        dark: readonly [34, 20, 52];
+        light: readonly [236, 218, 182];
+        roughness: 0.9;
+        relief: 0.0022;
+        cells: 48;
+        band: 12;
+        motif: 12;
+        zigzag: 6;
+        tones: readonly [0.1, 0.3, 0.56, 0.88];
+        cellJitter: 0.05;
+        ribs: 3;
+        ribTone: 0.05;
+        slitWidth: 0.14;
+        slitSoft: 0.05;
+        slitTone: 0.04;
+        ribHeight: 0.12;
+        baseHeight: 0.55;
+        slitDepth: 0.4;
+        fuzzCells: 192;
+        fuzzTone: 0.04;
+        slitAO: 0.5;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13688,6 +13711,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    kilimflatweave: 1.2;
     tumblingblocks: 0.6;
     azulejotiles: 0.8;
     moirefringes: 0.3;
