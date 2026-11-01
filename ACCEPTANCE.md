@@ -11919,3 +11919,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增7項（三seed統計、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Salami|salami"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Salami|salami|kinds|catalog|distinct|periodic"`定向測試**2155項通過／3710項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。
+
+## 2026-11-02 新增材質：覆盆子（raspberry）
+
+- 範圍：新增`raspberry`（目前目錄935→936種，含plain的gallery 937項）：16×18交錯格（奇數行右移半欄）上、略為重疊的圓形紅色小核果，每個像素依固定順序合成3×3鄰格顆粒（`value = value·(1 − m) + 顆粒值·m`，遮罩為C1），顆粒有逐顆色調、穹頂明暗與偏左上高光，縫處roughness＋0.2、AO 0.55；預設0.08 m nominal tile、0.006 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，比真實覆盆子規則許多。
+- 調整紀錄（誠實紀錄）：第一版（半徑0.62、縫色0.12、無高光）在預覽上顆粒過度重疊、像平坦的六角形鋪磚；改為半徑0.56、縫色0.05、加入高光與較大的色調變化後才採用，這是我對預覽的主觀判斷。
+- 測試過程的小疏失：我在撰寫測試時一度在height上限的算式裡誤打入一段多餘的運算式（`a.height / p.roughness / 0 || …`），在執行測試前就發現並改回`a.height / p.relief`，沒有進入commit。
+- 實測（工具實跑）：三seed 512²取樣color 0.035–0.956、平均0.517–0.529、顆粒中心color 0.567–0.792、縫的中點平均0.352–0.364、roughness 0.42–0.62、最低AO 0.55、AO<0.9的縫占15.04%（與seed無關）、height至多0.993–0.998 relief；seed 0與1的顆粒中心色差平均約0.068；seed 7的512²maps平均r／g／b約(154, 40, 54)、AO<230占15.0%、法線tilt²最大約0.256、z分量最小237。
+- 測試：新增7項（三seed統計與固定的縫佈局、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Raspberry with|raspberry"`通過（該filter也會命中一個既有的Eudialyte描述中含「Raspberry-red」的describe，所以通過項數比新增項多）。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Raspberry with|raspberry|kinds|catalog|distinct|periodic"`定向測試**2164項通過／3708項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery；不push。

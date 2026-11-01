@@ -21257,6 +21257,38 @@ var proceduralMaterialPresets = Object.freeze({
 		grainHeight: .4,
 		fatRoughness: .12
 	}),
+	raspberry: Object.freeze({
+		dark: [
+			64,
+			6,
+			22
+		],
+		light: [
+			238,
+			72,
+			84
+		],
+		roughness: .42,
+		relief: .006,
+		columns: 16,
+		rows: 18,
+		seedSalt: 31323,
+		radius: .56,
+		edgeSoft: .35,
+		creaseTone: .05,
+		drupeletTone: .38,
+		toneVariation: .2,
+		domeTone: .3,
+		highlightTone: .18,
+		highlightRadius: .2,
+		highlightShift: .17,
+		grainCells: 128,
+		grainTone: .03,
+		domeHeight: .7,
+		grainHeight: .3,
+		creaseRoughness: .2,
+		creaseOcclusion: .45
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22689,7 +22721,8 @@ var proceduralTileMeters = Object.freeze({
 	crosswordgrid: .3,
 	sweetcorn: .13,
 	baconstrips: .2,
-	salami: .12
+	salami: .12,
+	raspberry: .08
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

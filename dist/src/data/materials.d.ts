@@ -13073,6 +13073,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.4;
         fatRoughness: 0.12;
     }>;
+    raspberry: Readonly<{
+        dark: readonly [64, 6, 22];
+        light: readonly [238, 72, 84];
+        roughness: 0.42;
+        relief: 0.006;
+        columns: 16;
+        rows: 18;
+        seedSalt: 31323;
+        radius: 0.56;
+        edgeSoft: 0.35;
+        creaseTone: 0.05;
+        drupeletTone: 0.38;
+        toneVariation: 0.2;
+        domeTone: 0.3;
+        highlightTone: 0.18;
+        highlightRadius: 0.2;
+        highlightShift: 0.17;
+        grainCells: 128;
+        grainTone: 0.03;
+        domeHeight: 0.7;
+        grainHeight: 0.3;
+        creaseRoughness: 0.2;
+        creaseOcclusion: 0.45;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14387,4 +14411,5 @@ export declare const proceduralTileMeters: Readonly<{
     sweetcorn: 0.13;
     baconstrips: 0.2;
     salami: 0.12;
+    raspberry: 0.08;
 }>;

@@ -38390,6 +38390,76 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'raspberry': {
+        const p = proceduralMaterialPresets.raspberry,
+          count = p.columns * p.rows,
+          tones = new Float64Array(count),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          inverseRadius2 = 1 / (p.radius * p.radius),
+          inverseSoft = 1 / p.edgeSoft,
+          inverseHighlight2 = 1 / (p.highlightRadius * p.highlightRadius),
+          // Row height over column width in the square tile, so dy in cell units is
+          // scaled to the same physical length as dx.
+          aspect = p.columns / p.rows;
+        for (let i = 0; i < count; i++)
+          tones[i] =
+            p.toneVariation *
+            (hash(i % p.columns, Math.floor(i / p.columns), seed ^ p.seedSalt) -
+              0.5);
+        return () => {
+          // Drupelets sit on a hex-like lattice (odd rows shifted half a column; the
+          // even row count keeps the shift periodic). They overlap their neighbours,
+          // so each pixel composites the drupelets of its 3x3 cells in a fixed order:
+          // value = value * (1 - m) + drupelet * m, with m a smooth(clamp(...)) mask
+          // of a smooth(1 - q) disc, which is C1 everywhere.
+          const fx = fract(u) * p.columns,
+            fy = fract(v) * p.rows,
+            col = Math.floor(fx),
+            row = Math.floor(fy);
+          let shade = p.creaseTone,
+            lift = 0,
+            rest = 1;
+          for (let dr = -1; dr <= 1; dr++) {
+            const r = row + dr,
+              rowWrapped = (r + p.rows) % p.rows,
+              shift = rowWrapped % 2 ? 0.5 : 0;
+            for (let dc = -1; dc <= 1; dc++) {
+              const c = col + dc,
+                dx = fx - c - 0.5 - shift,
+                dy = (fy - r - 0.5) * aspect,
+                q = (dx * dx + dy * dy) * inverseRadius2,
+                mask = smooth(clamp((1 - q) * inverseSoft)),
+                dome = smooth(clamp(1 - q)),
+                hx = dx + p.highlightShift,
+                hy = dy + p.highlightShift,
+                highlight = smooth(
+                  clamp(1 - (hx * hx + hy * hy) * inverseHighlight2),
+                ),
+                tone =
+                  p.drupeletTone +
+                  tones[
+                    rowWrapped * p.columns + ((c + p.columns) % p.columns)
+                  ] +
+                  p.domeTone * dome +
+                  p.highlightTone * highlight;
+              shade = shade * (1 - mask) + tone * mask;
+              lift = lift * (1 - mask) + dome * mask;
+              rest *= 1 - mask;
+            }
+          }
+          const cover = 1 - rest,
+            grain = grainField(u, v);
+          color = shade + p.grainTone * (grain - 0.5);
+          height = p.domeHeight * lift + p.grainHeight * grain;
+          roughness += p.creaseRoughness * (1 - cover);
+          occlusion = 1 - p.creaseOcclusion * (1 - cover);
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46133,6 +46203,7 @@ export function createSurfaceSampler(
     kind === 'sweetcorn' ||
     kind === 'baconstrips' ||
     kind === 'salami' ||
+    kind === 'raspberry' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||
