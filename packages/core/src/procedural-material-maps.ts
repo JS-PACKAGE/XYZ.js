@@ -19514,6 +19514,122 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - (1 - p.panelAO) * (1 - disc));
         };
       }
+      case 'minesweeperboard': {
+        const p = proceduralMaterialPresets.minesweeperboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26801),
+          n = p.cells,
+          // 3x5 pixel glyphs for 1-8.
+          glyphs = [
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+          ],
+          mine = new Uint8Array(n * n),
+          count = new Uint8Array(n * n),
+          revealed = new Uint8Array(n * n),
+          wrap = (value: number): number => ((value % n) + n) % n,
+          inverseSoft = 1 / p.edgeSoft;
+        for (let i = 0; i < n * n; i++)
+          mine[i] = hash(i, 5, seed ^ 0x26803) < p.mineDensity ? 1 : 0;
+        // Adjacent-mine counts on a torus, so the board repeats without a seam.
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            let total = 0;
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++)
+                if (dx !== 0 || dy !== 0)
+                  total += mine[wrap(y + dy) * n + wrap(x + dx)];
+            count[y * n + x] = total;
+          }
+        // Flood-reveal from a few safe zero cells; a zero cell opens all of its neighbors.
+        const queue: number[] = [];
+        let opened = 0;
+        for (
+          let attempt = 0;
+          attempt < p.startAttempts && opened < p.starts;
+          attempt++
+        ) {
+          const cell = Math.min(
+            n * n - 1,
+            Math.floor(hash(attempt, 7, seed ^ 0x26805) * n * n),
+          );
+          if (mine[cell] || count[cell] !== 0 || revealed[cell]) continue;
+          revealed[cell] = 1;
+          queue.push(cell);
+          opened++;
+        }
+        for (let read = 0; read < queue.length; read++) {
+          const cell = queue[read];
+          if (count[cell] !== 0) continue;
+          const x = cell % n,
+            y = Math.floor(cell / n);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const next = wrap(y + dy) * n + wrap(x + dx);
+              if (!revealed[next]) {
+                revealed[next] = 1;
+                queue.push(next);
+              }
+            }
+        }
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            cell = row * n + col,
+            grain = grainField(u, v) - 0.5,
+            edge = Math.min(fx, fy, 1 - fx, 1 - fy);
+          if (revealed[cell]) {
+            // Revealed cells are flat with a thin grid line and, when any neighbor is a mine, a digit.
+            let digit = 0;
+            if (count[cell] > 0) {
+              const column = Math.floor((fx - 0.5) / p.pixel + 1.5),
+                line = Math.floor((fy - 0.5) / p.pixel + 2.5);
+              if (
+                column >= 0 &&
+                column < 3 &&
+                line >= 0 &&
+                line < 5 &&
+                glyphs[count[cell] - 1][line * 3 + column] === '1'
+              )
+                digit = 1;
+            }
+            const rule = smooth(
+              clamp((p.bevel * 0.4 - edge) * inverseSoft + 0.5),
+            );
+            color = clamp(
+              p.revealedTone +
+                p.grainTone * grain +
+                (p.lineTone - p.revealedTone) * rule +
+                (p.digitTone - p.revealedTone) * digit,
+            );
+            height = clamp(p.revealedHeight);
+            roughness = p.revealedRoughness;
+            occlusion = p.revealedAO;
+          } else {
+            // Unrevealed cells are raised buttons: light bevel top-left, dark bevel bottom-right.
+            const lit = Math.min(fx, fy) < Math.min(1 - fx, 1 - fy),
+              bevel = 1 - smooth(clamp((edge - p.bevel) * inverseSoft + 0.5));
+            color = clamp(
+              p.raisedTone +
+                p.grainTone * grain +
+                ((lit ? p.lightEdgeTone : p.shadeEdgeTone) - p.raisedTone) *
+                  bevel,
+            );
+            height = clamp(p.raisedHeight - p.bevelDrop * bevel);
+            roughness = p.raisedRoughness;
+            occlusion = 1;
+          }
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47043,6 +47159,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'minesweeperboard' ||
     kind === 'flipdotdisplay' ||
     kind === 'crosswordgrid' ||
     kind === 'fretboard' ||

@@ -7579,6 +7579,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         panelRoughness: 0.9;
         panelAO: 0.45;
     }>;
+    minesweeperboard: Readonly<{
+        dark: readonly [34, 36, 44];
+        light: readonly [214, 216, 220];
+        roughness: 0.55;
+        relief: 0.003;
+        cells: 24;
+        mineDensity: 0.16;
+        starts: 7;
+        startAttempts: 200;
+        pixel: 0.12;
+        bevel: 0.1;
+        edgeSoft: 0.03;
+        grainCells: 192;
+        raisedTone: 0.82;
+        revealedTone: 0.62;
+        lightEdgeTone: 0.97;
+        shadeEdgeTone: 0.42;
+        digitTone: 0.08;
+        lineTone: 0.46;
+        grainTone: 0.03;
+        raisedHeight: 0.7;
+        revealedHeight: 0.35;
+        bevelDrop: 0.12;
+        revealedAO: 0.82;
+        raisedRoughness: 0.5;
+        revealedRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14064,6 +14091,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    minesweeperboard: 0.4;
     flipdotdisplay: 0.5;
     crosswordgrid: 0.3;
     fretboard: 0.32;

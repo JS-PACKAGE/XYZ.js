@@ -13602,6 +13602,41 @@ var proceduralMaterialPresets = Object.freeze({
 		panelRoughness: .9,
 		panelAO: .45
 	}),
+	minesweeperboard: Object.freeze({
+		dark: [
+			34,
+			36,
+			44
+		],
+		light: [
+			214,
+			216,
+			220
+		],
+		roughness: .55,
+		relief: .003,
+		cells: 24,
+		mineDensity: .16,
+		starts: 7,
+		startAttempts: 200,
+		pixel: .12,
+		bevel: .1,
+		edgeSoft: .03,
+		grainCells: 192,
+		raisedTone: .82,
+		revealedTone: .62,
+		lightEdgeTone: .97,
+		shadeEdgeTone: .42,
+		digitTone: .08,
+		lineTone: .46,
+		grainTone: .03,
+		raisedHeight: .7,
+		revealedHeight: .35,
+		bevelDrop: .12,
+		revealedAO: .82,
+		raisedRoughness: .5,
+		revealedRoughness: .7
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22283,6 +22318,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	minesweeperboard: .4,
 	flipdotdisplay: .5,
 	crosswordgrid: .3,
 	fretboard: .32,

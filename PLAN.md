@@ -1255,6 +1255,10 @@
 
 這是作者設計的示意：沒有翻盤動畫、磁性翻轉的雙穩態、盤面反面（黑／黃）的厚度或機械間隙的細節；數字只是隨機序列，沒有時鐘、站名或其他語意。預設0.5 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每個圓盤約21 px；512時約11 px，高光與軸點會很小；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`minesweeperboard`（踩地雷盤面）使目前目錄925→926種，含plain的gallery為927項。每tile一個24×24的踩地雷盤面：每格依seed以16%機率藏一顆地雷（地雷本身不顯示），盤面以環面（torus）計算相鄰地雷數，所以tile邊緣相接時沒有接縫。從7個安全的「0」格開始洪水式揭開（0格會揭開全部8個鄰格），已揭開的格子是平坦、較暗、帶細格線，有相鄰地雷時以3×5點陣字型畫出1–8；未揭開的格子是凸起的按鈕，左上有亮斜角、右下有暗斜角。Metallic與mortar為0。
+
+這是作者設計的示意：盤面沒有旗標、問號、爆炸的地雷或數字顏色（顏色是亮度而非色相）；未揭開區域底下的地雷位置固定但看不見，所以畫面只保證「必要條件」的一致性（見ACCEPTANCE），不保證唯一可解。因為相鄰關係在tile邊界環繞，這不是標準的有邊界踩地雷盤面。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約43 px；512時約21 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

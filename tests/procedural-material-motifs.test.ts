@@ -5263,3 +5263,127 @@ describe('flipdotdisplay: a dot matrix spelling a grid of digits', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('minesweeperboard: opened cells whose digits are consistent with hidden mines', () => {
+  const p = proceduralMaterialPresets.minesweeperboard;
+  const n = p.cells;
+  // 3x5 pixel glyphs for 1-8, written out independently of the sampler.
+  const glyphs = [
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+  ];
+
+  it.each([...seeds, 1, 2, 3])(
+    'opens cells whose zero and digit values are satisfiable by mines among the unopened neighbors (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('minesweeperboard', seed),
+        out = empty(),
+        wrap = (value: number): number => ((value % n) + n) % n,
+        open: boolean[] = [],
+        value: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          sample((col + 0.5) / n, (row + 0.5) / n, out);
+          // Unopened cells are raised buttons; opened ones lie flat.
+          const flat = out.height / p.relief < 0.55;
+          open.push(flat);
+          let digit = 0;
+          if (flat) {
+            let bits = '';
+            for (let line = 0; line < 5; line++)
+              for (let c = 0; c < 3; c++) {
+                sample(
+                  (col + 0.5 + (c - 1) * p.pixel) / n,
+                  (row + 0.5 + (line - 2) * p.pixel) / n,
+                  out,
+                );
+                bits += out.color < 0.3 ? '1' : '0';
+              }
+            if (bits !== '0'.repeat(15)) {
+              const index = glyphs.indexOf(bits);
+              expect(index).toBeGreaterThanOrEqual(0);
+              digit = index + 1;
+            }
+          }
+          value.push(digit);
+        }
+      const openCount = open.filter(Boolean).length;
+      expect(openCount / (n * n)).toBeGreaterThan(0.12);
+      expect(openCount / (n * n)).toBeLessThan(0.75);
+      const neighbors = (cell: number): number[] => {
+        const x = cell % n,
+          y = Math.floor(cell / n),
+          list: number[] = [];
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            if (dx !== 0 || dy !== 0)
+              list.push(wrap(y + dy) * n + wrap(x + dx));
+        return list;
+      };
+      const forced = new Set<number>();
+      for (let cell = 0; cell < n * n; cell++) {
+        if (!open[cell]) continue;
+        const hidden = neighbors(cell).filter((other) => !open[other]);
+        if (value[cell] === 0) {
+          // A zero opens all of its neighbors.
+          expect(hidden.length).toBe(0);
+        } else {
+          // The digit counts mines, which can only sit on unopened cells.
+          expect(hidden.length).toBeGreaterThanOrEqual(value[cell]);
+          if (hidden.length === value[cell])
+            hidden.forEach((other) => forced.add(other));
+        }
+      }
+      // A cell that must be a mine counts toward every opened neighbor's digit, never beyond it.
+      for (let cell = 0; cell < n * n; cell++) {
+        if (!open[cell] || value[cell] === 0) continue;
+        expect(
+          neighbors(cell).filter((other) => forced.has(other)).length,
+        ).toBeLessThanOrEqual(value[cell]);
+      }
+      expect(new Set(value).size).toBeGreaterThanOrEqual(4);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('minesweeperboard', 0),
+      b = createSurfaceSampler('minesweeperboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

@@ -11688,3 +11688,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 目錄924→925，含plain的gallery為926項。每tile 48×48個黑底圓盤（半徑0.42格），亮起黃色（較光滑、略凸、有高光與軸點）、熄滅深灰黑，組成12欄×8列由seed決定的0–9數字（3×5點陣字型，右側與下側各留一點空白）。Metallic／mortar為0，預設tile0.5 m、0.003 UV-relative relief、metallic factor 0。無翻轉動畫與雙穩態機構，數字為隨機序列；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
 - 實測：`tests/procedural-material-motifs.test.ts`二百三十七項（本材質四項）全過。三seed：12×8個數字格逐點（4×6個點）取圓盤中心的亮暗，3×5範圍內的位元皆唯一匹配測試端獨立寫出的0–9字型、右側與下側的空白點全部熄滅；96個數字至少用到8種不同值；找出第一個亮起的圓盤，沿u與沿v通過中心量得亮區寬度與2×設定半徑（0.84格）相差＜0.05；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "flipdotdisplay|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`flipdotdisplay`：option 926個、status為925 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圓盤陣列與數字連續無接縫（高光與軸點在512下很小，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：踩地雷盤面（minesweeperboard）
+
+- 目錄925→926，含plain的gallery為927項。每tile一個24×24環面盤面，16%隱藏地雷（不顯示），從7個安全0格洪水式揭開；已揭開的格子平坦、帶細格線與3×5點陣字型的相鄰地雷數1–8，未揭開的是凸起按鈕（左上亮斜角、右下暗斜角）。Metallic／mortar為0，預設tile0.4 m、0.003 UV-relative relief、metallic factor 0。無旗標與爆炸地雷，相鄰關係在tile邊界環繞（非標準有邊界盤面）；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿在已揭開／未揭開分支留有無作用的乘零算式（`* 0`），在寫入前已改成乾淨版本；預覽中洪水揭開的區域、數字與凸起按鈕都正確。
+- 實測：`tests/procedural-material-motifs.test.ts`二百四十四項（本材質七項）全過。六個seed（0、7、4294967295、1、2、3）：依高度分出未揭開（凸起）與已揭開（平坦），揭開比例在0.12–0.75之間；以測試端獨立寫出的1–8字型解碼數字，空白＝0；環面上每個值為0的已揭開格，8個鄰格全都已揭開；每個值為n的已揭開格，未揭開鄰格數≥n（地雷只可能在未揭開的格子）；當未揭開鄰格數恰等於n時，這些格必為地雷，記為「確定地雷」，再檢查每個已揭開格周圍的確定地雷數不超過其數字；數字至少出現4種不同值；通道範圍、metallic／mortar 0、wrap與seed差異。這些只是必要條件，沒有驗證唯一可解，也沒有真的解出盤面。`tests/procedural-material.test.ts`以`-t "minesweeperboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`minesweeperboard`：option 927個、status為926 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的開啟區域與數字連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
