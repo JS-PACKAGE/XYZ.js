@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`barchart`（長條圖紙）使目前目錄946→947種，含plain的gallery為948項。淡藍灰色圖表紙：每tile 2張圖表（上下排列），每張有12根深海軍藍的長條（高度各自隨機，為繪圖區高度的15–95%，頂端略淡的漸層）、4條橫向的淡灰格線與一條較深的基線。不是真實圖表的座標軸刻度、數字標籤、圖例、標題或多系列資料。
+
+此材質是作者依一般長條圖外觀所作示意，沒有引用特定來源文件、照片或量測，也沒有對照照片；圖表數與長條數（2張×12根）、長條寬度、高度範圍、格線數與寬度、繪圖區邊界、海軍藍與紙色的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際圖表。
+
+新增專用sampler：每根長條是平滑方盒——寬度項`smooth(clamp((0.34 − |dx|)/0.03))`、頂端項與基線項各一個`smooth(clamp(…/0.03))`，完全留在自己的欄內（半寬0.34 < 0.5）；格線是繪圖區內`exp(−sin²(π·步數)/w²)`（C∞，並以繪圖區遮罩限制在繪圖區內），基線是`exp(−d²/w²)`；長條頂端高度由逐欄雜湊決定；全部以凸組合混合；cache合計24＋16,384 = 16,408個Float64／131,264 B lattice算術預算（非總RAM）。顏色是顏料，長條與基線height約0.6 relief＋紙grain 0.4 relief、長條處roughness降低0.08；金屬factor為0、無mortar、AO 1。預設0.25 m nominal tile與0.0012 UV-relative relief（非公尺位移）。實測（工具實跑，seed 0／1／0xffffffff，512²取樣）：color<0.3的長條占25.1–29.4%，color>0.85的紙面占65.0–69.4%，color 0.025–0.970，全圖平均0.695–0.730，roughness 0.54–0.62，height至多0.994–0.999 relief；從欄中心向下掃描找到的24根長條高度占繪圖區的13–91%，且彼此高低差大於0.5；seed 0與1的長條高度平均差約0.22；seed 7的512²maps平均r／g／b約(182, 189, 206)、r<110占26.6%、法線tilt²最大約0.061。我實看了預覽：整齊的深藍長條與淡灰格線，像圖表紙，但沒有刻度與文字。未新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `ecgpaper`（心電圖紙）使目前目錄945→946種，含plain的gallery為947項。淡粉紅色醫療記錄紙：每tile 40×40格的細格線（每5格一條較粗的粗格線，共8×8大格），3條橫向的記錄帶，每帶重複6個心跳波形（P、Q、R、S、T波，各心跳振幅有±18%的差異），以深褐紅色細線描繪在各帶的基線上。不是真實心電圖的導程標示、校準方波、時間刻度、病理波形或列印文字；波形是示意的簡化曲線（T波的頂部偏平）。
 
 此材質是作者依一般心電圖記錄紙外觀所作示意，沒有引用特定來源文件、照片、醫學標準或量測，也沒有對照照片；格數（每tile 40×40、粗格每5格）、記錄帶數與心跳數（3帶×6拍）、各波形的位置與幅度、線寬、粉紅紙色與暗紅墨色、roughness與0.3 m nominal tile皆作者設定，不宣稱符合任何實際心電圖紙或可作醫療用途。

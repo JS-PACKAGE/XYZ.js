@@ -12044,3 +12044,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試：新增9項（三seed統計、基線與R波頂端逐拍驗證、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "ECG paper|ecgpaper"`通過。
 - gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "ECG paper|ecgpaper|kinds|catalog|distinct|periodic"`定向測試**2179項通過／3766項未選**。
 - 未驗證：本材質未跑完整suite與瀏覽器gallery（redalder亦未做）；不push。
+
+## 2026-11-02 新增材質：長條圖紙（barchart）
+
+- 範圍：新增`barchart`（目前目錄946→947種，含plain的gallery 948項）：淡藍灰紙面上每tile 2張圖表、各12根深海軍藍長條（高度隨機，為繪圖區的15–95%，頂端略淡的漸層，完全留在自己的欄內：半寬0.34），4條淡灰橫格線（繪圖區內的`exp(−sin²/w²)`）與一條基線；預設0.25 m nominal tile、0.0012 UV-relative relief。作者示意，沒有引用特定來源、**沒有對照照片**，無刻度、數字與標題。
+- 實作過程的小問題（誠實紀錄）：第一次寫sampler時，基線（axis）的算式我寫了一段含`* 0 +`的無用片段（半途改寫的殘留），在渲染前閱讀程式時就發現並改回單純的`exp(−d²/w²)`，沒有進入commit；第一輪gates在測試檔的型別檢查失敗（`let top = p.plotBottom`被推論成字面型別0.9，之後賦值number而報TS2322），改為`let top: number`後重跑通過。
+- 實測（工具實跑）：三seed 512²取樣長條（color<0.3）占25.1–29.4%、紙面（color>0.85）占65.0–69.4%、color 0.025–0.970、平均0.695–0.730、roughness 0.54–0.62、height至多0.994–0.999 relief；從欄中心向下掃描找到的24根長條高度為繪圖區的13–91%；seed 0與1的長條高度平均差約0.22；seed 7的512²maps平均r／g／b約(182, 189, 206)、r<110占26.6%、法線tilt²最大約0.061、z分量最小251。我實看了預覽，整齊的圖表紙外觀。
+- 測試：新增7項（三seed統計與長條高度掃描、seed差異與決定性、C1＋有符號UV週期、actual512 maps），`-t "Bar chart|barchart"`通過。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Bar chart|barchart|kinds|catalog|distinct|periodic"`定向測試**2178項通過／3774項未選**。
+- 未驗證：本材質未跑完整suite與瀏覽器gallery（redalder、ecgpaper亦未做）；不push。

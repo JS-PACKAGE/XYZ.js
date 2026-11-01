@@ -38985,6 +38985,58 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'barchart': {
+        const p = proceduralMaterialPresets.barchart,
+          heights = new Float64Array(p.columns * p.charts),
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          inverseSoft = 1 / p.edgeSoft,
+          inverseGrid2 = 1 / (p.gridWidth * p.gridWidth),
+          inverseAxis2 = 1 / (p.axisWidth * p.axisWidth),
+          plotHeight = p.plotBottom - p.plotTop;
+        for (let i = 0; i < heights.length; i++)
+          heights[i] =
+            p.heightMinimum + p.heightVariation * hash(i, 0, seed ^ p.seedSalt);
+        return () => {
+          // Bar chart paper: each chart (a row of the tile) has a plot area with
+          // horizontal grid lines, a baseline and one bar per column. A bar is a
+          // smooth box (smoothstep edges), kept inside its own column; grid lines and
+          // the axis are exp(-sin^2 / w^2) or exp(-d^2 / w^2) profiles masked to the
+          // plot area. Everything is a convex mix of C1 terms.
+          const x = fract(u) * p.columns,
+            y = fract(v) * p.charts,
+            col = Math.floor(x),
+            chart = Math.floor(y),
+            local = y - chart,
+            dx = x - col - 0.5,
+            barTop =
+              p.plotBottom - heights[chart * p.columns + col] * plotHeight,
+            inPlot =
+              smooth(clamp((local - p.plotTop) / p.edgeSoft)) *
+              smooth(clamp((p.plotBottom - local) / p.edgeSoft)),
+            steps = (local - p.plotTop) / (plotHeight / p.gridSteps),
+            gridSin = Math.sin(Math.PI * steps),
+            grid = Math.exp(-gridSin * gridSin * inverseGrid2) * inPlot,
+            fill =
+              smooth(clamp((p.barHalfWidth - Math.abs(dx)) * inverseSoft)) *
+              smooth(clamp((local - barTop) * inverseSoft)) *
+              smooth(clamp((p.plotBottom - local) * inverseSoft)),
+            axisDistance = local - p.plotBottom,
+            axis = Math.exp(-axisDistance * axisDistance * inverseAxis2),
+            grain = grainField(u, v),
+            gradient = p.barShade * clamp((local - barTop) / plotHeight),
+            paper = p.paperTone - p.gridDrop * grid,
+            body = paper * (1 - fill) + (p.barTone + gradient) * fill;
+          color =
+            body * (1 - axis) + p.axisTone * axis + p.grainTone * (grain - 0.5);
+          height = p.inkHeight * Math.max(fill, axis) + p.grainHeight * grain;
+          roughness += p.inkRoughness * fill;
+          return;
+        };
+      }
       case 'sheetmusic': {
         const p = proceduralMaterialPresets.sheetmusic,
           grainField = cachedNoise(
@@ -46739,6 +46791,7 @@ export function createSurfaceSampler(
     kind === 'sherpafleece' ||
     kind === 'redalder' ||
     kind === 'ecgpaper' ||
+    kind === 'barchart' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

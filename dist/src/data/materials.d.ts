@@ -13376,6 +13376,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainHeight: 0.4;
         inkRoughness: -0.1;
     }>;
+    barchart: Readonly<{
+        dark: readonly [16, 36, 92];
+        light: readonly [246, 247, 250];
+        roughness: 0.62;
+        relief: 0.0012;
+        seedSalt: 47634;
+        columns: 12;
+        charts: 2;
+        barHalfWidth: 0.34;
+        edgeSoft: 0.03;
+        plotTop: 0.1;
+        plotBottom: 0.9;
+        gridSteps: 4;
+        gridWidth: 0.12;
+        axisWidth: 0.006;
+        heightMinimum: 0.15;
+        heightVariation: 0.8;
+        grainCells: 128;
+        paperTone: 0.96;
+        gridDrop: 0.14;
+        barTone: 0.08;
+        barShade: 0.1;
+        axisTone: 0.03;
+        grainTone: 0.02;
+        inkHeight: 0.6;
+        grainHeight: 0.4;
+        inkRoughness: -0.08;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14701,4 +14729,5 @@ export declare const proceduralTileMeters: Readonly<{
     sherpafleece: 0.15;
     redalder: 0.18;
     ecgpaper: 0.3;
+    barchart: 0.25;
 }>;
