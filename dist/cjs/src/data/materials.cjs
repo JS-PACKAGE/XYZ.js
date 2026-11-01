@@ -13047,6 +13047,37 @@ var proceduralMaterialPresets = Object.freeze({
 		groutAO: .5,
 		crackAO: .85
 	}),
+	tumblingblocks: Object.freeze({
+		dark: [
+			30,
+			24,
+			44
+		],
+		light: [
+			236,
+			226,
+			205
+		],
+		roughness: .82,
+		relief: .0018,
+		columns: 7,
+		rows: 8,
+		topTone: .92,
+		rightTone: .62,
+		leftTone: .3,
+		blockJitter: .06,
+		seamHalfWidth: .018,
+		seamSoft: .012,
+		seamTone: .12,
+		threadCells: 224,
+		threadTone: .05,
+		topHeight: .62,
+		rightHeight: .55,
+		leftHeight: .48,
+		seamDepth: .3,
+		threadHeight: .05,
+		seamAO: .6
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21728,6 +21759,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tumblingblocks: .6,
 	azulejotiles: .8,
 	moirefringes: .3,
 	cinderblockwall: 1.6,

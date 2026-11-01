@@ -18190,6 +18190,93 @@ export function createSurfaceSampler(
           mortar = grout;
         };
       }
+      case 'tumblingblocks': {
+        const p = proceduralMaterialPresets.tumblingblocks,
+          threadField = cachedNoise(
+            p.threadCells,
+            p.threadCells,
+            seed ^ 0x25901,
+          ),
+          faceTones = [p.topTone, p.rightTone, p.leftTone],
+          faceHeights = [p.topHeight, p.rightHeight, p.leftHeight],
+          inverseSeam = 1 / p.seamSoft,
+          root3 = Math.sqrt(3),
+          // Unit-circumradius hex lattice: columns * sqrt(3) wide, rows * 1.5 tall (about 1% off square).
+          width = p.columns * root3,
+          height2 = p.rows * 1.5,
+          // Rays from a hex center to its upper-right, upper-left and bottom vertices split the three faces.
+          spokes = [
+            [Math.cos(-Math.PI / 6), Math.sin(-Math.PI / 6)],
+            [Math.cos((-5 * Math.PI) / 6), Math.sin((-5 * Math.PI) / 6)],
+            [0, 1],
+          ];
+        return () => {
+          const x = u * width,
+            y = v * height2,
+            // Pointy-top hex lookup: pick the nearer of the two candidate centers per row pair.
+            row = Math.round(y / 1.5),
+            rowOffset = (row & 1) * (root3 / 2),
+            colA = Math.round((x - rowOffset) / root3);
+          let bestRow = row,
+            bestCol = colA,
+            bestDistance = Infinity;
+          for (let r = row - 1; r <= row + 1; r++) {
+            const offset = (r & 1) * (root3 / 2),
+              c = Math.round((x - offset) / root3),
+              dx = x - (c * root3 + offset),
+              dy = y - r * 1.5,
+              d = dx * dx + dy * dy;
+            if (d < bestDistance) {
+              bestDistance = d;
+              bestRow = r;
+              bestCol = c;
+            }
+          }
+          const dx = x - (bestCol * root3 + (bestRow & 1) * (root3 / 2)),
+            dy = y - bestRow * 1.5,
+            angle = Math.atan2(dy, dx),
+            // Top: -150..-30 deg; right: -30..90 deg; left: 90..210 deg.
+            face =
+              angle >= (-5 * Math.PI) / 6 && angle < -Math.PI / 6
+                ? 0
+                : angle >= -Math.PI / 6 && angle < Math.PI / 2
+                  ? 1
+                  : 2,
+            radius = Math.sqrt(dx * dx + dy * dy);
+          let seam = Math.max(
+            0,
+            root3 / 2 -
+              Math.max(
+                Math.abs(dx),
+                0.5 * Math.abs(dx) + (root3 / 2) * Math.abs(dy),
+              ),
+          );
+          for (const [sx, sy] of spokes) {
+            const along = dx * sx + dy * sy,
+              across = Math.abs(dx * sy - dy * sx);
+            seam = Math.min(seam, along > 0 ? across : radius);
+          }
+          // Wrap the block index so the jitter is periodic with the lattice.
+          const wrappedCol = ((bestCol % p.columns) + p.columns) % p.columns,
+            wrappedRow = ((bestRow % p.rows) + p.rows) % p.rows,
+            jitter =
+              hash(wrappedCol * 3 + face, wrappedRow, seed ^ 0x25903) - 0.5,
+            line =
+              1 - smooth(clamp((seam - p.seamHalfWidth) * inverseSeam + 0.5)),
+            thread = threadField(u, v) - 0.5;
+          color = clamp(
+            faceTones[face] +
+              p.blockJitter * jitter +
+              p.threadTone * thread +
+              (p.seamTone - faceTones[face]) * line,
+          );
+          height = clamp(
+            faceHeights[face] + p.threadHeight * thread - p.seamDepth * line,
+          );
+          roughness = p.roughness;
+          occlusion = clamp(1 - (1 - p.seamAO) * line);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45719,6 +45806,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tumblingblocks' ||
     kind === 'azulejotiles' ||
     kind === 'moirefringes' ||
     kind === 'cinderblockwall' ||

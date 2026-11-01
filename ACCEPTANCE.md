@@ -11583,3 +11583,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 已知限制：釉面龜裂（crackTone 0.08）在預覽與球面上幾乎看不見；屬於刻意低振幅，沒有調高，測試也不驗證龜裂線（只驗證其不破壞通道範圍與對稱判定）。
 - 實測：`tests/procedural-material-motifs.test.ts`一百五十四項（本材質四項）全過。三seed 1024²取樣：顏色低於0.5的藍色像素占比0.227（測試範圍0.15–0.3）；取tile (1, 2)去掉8 px邊界後，轉90°、左右鏡像、對角翻轉三種映射下色差＜0.3的像素比例皆為1.000（門檻0.99），對照組（橫向位移30 px）僅0.725（門檻＜0.85，證明測試能失敗）；16片磚的藍／白分類與tile (0, 0)一致度≥0.999（門檻0.99）；mortar＞0.5的灰縫沿兩個方向各恰4條（含跨越掃描接縫的合併處理）、寬度為0.012±0.003；通道範圍、metallic 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "azulejotiles|every preset"`定向跑3項通過，沒有重跑該檔其餘5531項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`azulejotiles`：option 911個、status為910 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的花、環與圓盤無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：翻滾方塊拼布（tumblingblocks）
+
+- 目錄910→911，含plain的gallery為912項。每tile 7欄×8列六角晶格（尖頂、外接圓半徑1，一個六邊形中心對齊u=v=0），每個六邊形被三條射線切成亮頂面（0.92）、中右面（0.62）、暗左面（0.3）三個菱形，面間有細縫，另有逐塊±0.06色調抖動與布面織紋。晶格寬7√3與高12比約1.01，正方形UV造成約1%非等比拉伸。Metallic／mortar為0，預設tile0.6 m、0.0018 UV-relative relief、metallic factor 0。亮暗為貼圖色，不隨光向改變；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：第一版把三個色階各占1/3（±0.03）當作期望，實測最大偏差0.0313；原因是細縫為深色，被歸入最暗的「左面」分類。改為：頂面與右面占比彼此相差＜0.01、各在0.29–1/3之間，左面（含縫）在1/3–0.4之間。這是量測分類的問題，不是幾何錯誤。
+- 實測：`tests/procedural-material-motifs.test.ts`一百五十八項（本材質四項）全過。三seed對56個六邊形各探三個面中心：頂面色比右面高0.15以上、右面比左面高0.15以上，56/56；3000多個隨機探針，向右平移一個六邊形寬、及平移半寬加一列的面分類一致度≥0.99；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "tumblingblocks|every preset"`定向跑3項通過。另外，在needlepoint提交（20種新材質）時的整體狀態，以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5665項全過（耗時約1282 s）；之後新增的dicefaces、cinderblockwall、moirefringes、azulejotiles、本材質只做了定向測試。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`tumblingblocks`：option 912個、status為911 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的立方體錯視與接縫無斷裂。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

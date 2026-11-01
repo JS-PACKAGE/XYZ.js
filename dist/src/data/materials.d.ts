@@ -7180,6 +7180,29 @@ export declare const proceduralMaterialPresets: Readonly<{
         groutAO: 0.5;
         crackAO: 0.85;
     }>;
+    tumblingblocks: Readonly<{
+        dark: readonly [30, 24, 44];
+        light: readonly [236, 226, 205];
+        roughness: 0.82;
+        relief: 0.0018;
+        columns: 7;
+        rows: 8;
+        topTone: 0.92;
+        rightTone: 0.62;
+        leftTone: 0.3;
+        blockJitter: 0.06;
+        seamHalfWidth: 0.018;
+        seamSoft: 0.012;
+        seamTone: 0.12;
+        threadCells: 224;
+        threadTone: 0.05;
+        topHeight: 0.62;
+        rightHeight: 0.55;
+        leftHeight: 0.48;
+        seamDepth: 0.3;
+        threadHeight: 0.05;
+        seamAO: 0.6;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13665,6 +13688,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tumblingblocks: 0.6;
     azulejotiles: 0.8;
     moirefringes: 0.3;
     cinderblockwall: 1.6;

@@ -3314,3 +3314,108 @@ describe('azulejotiles: identical D4-symmetric tiles separated by grout', () => 
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('tumblingblocks: isometric cubes on a hexagonal lattice', () => {
+  const p = proceduralMaterialPresets.tumblingblocks;
+  const root3 = Math.sqrt(3),
+    width = p.columns * root3,
+    height = p.rows * 1.5;
+  /** Hex centers of the authored lattice (unit circumradius, a hex centered at u = v = 0). */
+  const centers = (): { x: number; y: number }[] => {
+    const list: { x: number; y: number }[] = [];
+    for (let row = 0; row < p.rows; row++)
+      for (let col = 0; col < p.columns; col++)
+        list.push({ x: col * root3 + (row & 1) * (root3 / 2), y: row * 1.5 });
+    return list;
+  };
+
+  it.each(seeds)(
+    'shades top, right and left faces in order on every cube and splits each hex into thirds (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('tumblingblocks', seed),
+        out = empty(),
+        at = (x: number, y: number): number => {
+          sample(x / width, y / height, out);
+          return out.color;
+        };
+      let ordered = 0,
+        total = 0;
+      for (const { x, y } of centers()) {
+        // Face centers sit at 0.5 of the circumradius toward -90, 30 and 150 degrees.
+        const top = at(x, y - 0.5),
+          right = at(x + 0.5 * Math.cos(Math.PI / 6), y + 0.25),
+          left = at(x - 0.5 * Math.cos(Math.PI / 6), y + 0.25);
+        total++;
+        ordered += Number(top > right + 0.15 && right > left + 0.15);
+      }
+      expect(total).toBe(p.columns * p.rows);
+      expect(ordered).toBe(total);
+      // Face areas: classify a fine sweep by tone; each rhombus covers a third of the surface.
+      const size = 768;
+      const counts = [0, 0, 0];
+      let invalid = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          const tone = out.color;
+          if (tone > 0.78) counts[0]++;
+          else if (tone > 0.46) counts[1]++;
+          else counts[2]++;
+        }
+      expect(invalid).toBe(0);
+      // The thin dark seams classify with the darkest tone, so top and right are each a
+      // third minus their share of the seams (a few percent) and equal to each other.
+      const [top, right, left] = counts.map((count) => count / (size * size));
+      expect(Math.abs(top - right)).toBeLessThan(0.01);
+      expect(top).toBeGreaterThan(0.29);
+      expect(top).toBeLessThan(1 / 3);
+      expect(left).toBeGreaterThan(1 / 3);
+      expect(left).toBeLessThan(0.4);
+      // Cubes repeat by one hex across, and by half a hex plus one row diagonally.
+      let same = 0,
+        probes = 0;
+      const kind = (tone: number): number =>
+        tone > 0.78 ? 0 : tone > 0.46 ? 1 : 2;
+      for (let i = 0; i < 4000; i++) {
+        const x = ((i * 0.6180339887) % 1) * width,
+          y = ((i * 0.7548776662) % 1) * height;
+        probes++;
+        same +=
+          Number(kind(at(x, y)) === kind(at(x + root3, y))) *
+          Number(kind(at(x, y)) === kind(at(x + root3 / 2, y + 1.5)));
+      }
+      expect(same / probes).toBeGreaterThan(0.99);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tumblingblocks', 0),
+      b = createSurfaceSampler('tumblingblocks', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});
