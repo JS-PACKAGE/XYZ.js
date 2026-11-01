@@ -13853,6 +13853,43 @@ var proceduralMaterialPresets = Object.freeze({
 		openRoughness: .2,
 		mountRoughness: .55
 	}),
+	backgammonboard: Object.freeze({
+		dark: [
+			18,
+			12,
+			10
+		],
+		light: [
+			236,
+			224,
+			200
+		],
+		roughness: .5,
+		relief: .003,
+		pointsPerSide: 12,
+		checkers: 15,
+		maxStack: 5,
+		barWidth: .08,
+		frame: .02,
+		tipLength: .4,
+		checkerFill: .46,
+		edgeSoft: .004,
+		grainCells: 192,
+		feltTone: .2,
+		barTone: .12,
+		pointTones: [.52, .34],
+		lightChecker: .92,
+		darkChecker: .07,
+		rimTone: .5,
+		grainTone: .03,
+		feltHeight: .3,
+		pointHeight: .34,
+		barHeight: .5,
+		checkerHeight: .7,
+		rimDrop: .1,
+		checkerRoughness: .3,
+		feltRoughness: .75
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22534,6 +22571,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	backgammonboard: .6,
 	zoneplates: .2,
 	lissajousgrid: .4,
 	mondriancomposition: .6,

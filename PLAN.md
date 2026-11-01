@@ -1283,6 +1283,10 @@
 
 這是作者設計的示意：只依半徑律繪製波帶片的幾何，不模擬繞射、焦點、波長或強度分布；環數、尺寸是正規化的（R與N固定），不對應真實的設計波長與焦距。預設0.2 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓最外圈的環帶（約0.015格寬）約8 px；512時約4 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`backgammonboard`（西洋雙陸棋盤）使目前目錄932→933種，含plain的gallery為934項。每tile一張棋盤：外框內分成左右兩半、每半6個「點」（三角形），中間是較暗的中央隔條（bar）；上排12個三角形尖端向下、下排12個尖端向上，各側色調交替（0.52與0.34），上下兩排相差一格；三角形長度為棋盤高的40%。每方15顆棋子（淺色與深色），隨機放在24個點上，每點最多疊5顆且只放同一種顏色，從棋盤邊緣往中間疊，棋子有邊緣高光與略微凸起。Metallic與mortar為0。
+
+這是作者設計的示意：棋子是「合法的隨機擺放」，不是標準開局或任何實際對局的局面，也沒有骰子、倍率骰、被吃掉棋子放在隔條上或已移出棋盤的棋子；總數固定為每方15顆，因此每個seed中棋子都全部在點上。tile重複時每張棋盤是獨立的一盤。預設0.6 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓棋子約34 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

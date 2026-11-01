@@ -20193,6 +20193,107 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'backgammonboard': {
+        const p = proceduralMaterialPresets.backgammonboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26f01),
+          halfPoints = p.pointsPerSide / 2,
+          // Board inside the frame: two halves of six points around a central bar.
+          inner = 1 - 2 * p.frame,
+          halfWidth = (inner - p.barWidth) / 2,
+          pointWidth = halfWidth / halfPoints,
+          radius = pointWidth * p.checkerFill,
+          // stacks[side][index]: positive = light checkers, negative = dark checkers.
+          counts = new Int8Array(2 * p.pointsPerSide),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Place each color's checkers one at a time on points that are empty or already theirs,
+        // never beyond the stack limit.
+        for (const color of [1, -1]) {
+          let placed = 0;
+          for (
+            let attempt = 0;
+            placed < p.checkers && attempt < 4000;
+            attempt++
+          ) {
+            const point = Math.min(
+              counts.length - 1,
+              Math.floor(
+                hash(attempt, color + 2, seed ^ 0x26f03) * counts.length,
+              ),
+            );
+            if (
+              Math.sign(counts[point]) === -color ||
+              Math.abs(counts[point]) >= p.maxStack
+            )
+              continue;
+            counts[point] += color;
+            placed++;
+          }
+        }
+        return () => {
+          const x = u - p.frame,
+            y = v - p.frame,
+            frame = cover(Math.min(u, 1 - u, v, 1 - v) - p.frame * 0.5),
+            grain = grainField(u, v) - 0.5,
+            top = v < 0.5;
+          // Which half and point column this x belongs to (-1 on the bar or outside the board).
+          let column = -1,
+            offset = 0;
+          if (x >= 0 && x < halfWidth) {
+            column = Math.floor(x / pointWidth);
+            offset = x - column * pointWidth;
+          } else if (x >= halfWidth + p.barWidth && x < inner) {
+            column =
+              halfPoints +
+              Math.floor((x - halfWidth - p.barWidth) / pointWidth);
+            offset =
+              x - halfWidth - p.barWidth - (column - halfPoints) * pointWidth;
+          }
+          const onBar = x >= halfWidth && x < halfWidth + p.barWidth;
+          let tone: number = p.feltTone,
+            heightValue: number = p.feltHeight,
+            rough: number = p.feltRoughness;
+          if (onBar) {
+            tone = p.barTone;
+            heightValue = p.barHeight;
+          } else if (column >= 0 && y >= 0 && y < inner) {
+            // Triangular point: base on the board edge, apex tipLength toward the middle.
+            const depth = top ? y / inner : (inner - y) / inner,
+              half = (pointWidth / 2) * (1 - depth / p.tipLength);
+            if (
+              depth < p.tipLength &&
+              Math.abs(offset - pointWidth / 2) < half
+            ) {
+              tone = p.pointTones[(column + (top ? 0 : 1)) % 2];
+              heightValue = p.pointHeight;
+            }
+            // Checkers stack from the base: point index counts along the top row, then the bottom.
+            const point = (top ? 0 : p.pointsPerSide) + column,
+              stack = counts[point];
+            for (let j = 0; j < Math.abs(stack); j++) {
+              const along = radius + 2 * radius * j,
+                dx = offset - pointWidth / 2,
+                dy = (top ? y : inner - y) - along,
+                distance = Math.sqrt(dx * dx + dy * dy),
+                disc = cover(radius - distance);
+              if (disc > 0) {
+                const rim = cover(radius * 0.18 - (radius - distance));
+                tone +=
+                  ((stack > 0 ? p.lightChecker : p.darkChecker) - tone) * disc;
+                tone += (p.rimTone - tone) * rim * disc * 0.5;
+                heightValue +=
+                  (p.checkerHeight - p.rimDrop * rim - heightValue) * disc;
+                rough += (p.checkerRoughness - rough) * disc;
+              }
+            }
+          }
+          color = clamp(tone + p.grainTone * grain - 0.1 * (1 - frame));
+          height = clamp(heightValue);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47722,6 +47823,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'backgammonboard' ||
     kind === 'zoneplates' ||
     kind === 'lissajousgrid' ||
     kind === 'mondriancomposition' ||

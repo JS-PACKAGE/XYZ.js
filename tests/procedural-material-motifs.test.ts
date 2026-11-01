@@ -6150,3 +6150,113 @@ describe('zoneplates: Fresnel zone rings at radii proportional to sqrt(k)', () =
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('backgammonboard: twenty-four alternating points and legal checker stacks', () => {
+  const p = proceduralMaterialPresets.backgammonboard;
+  const halfPoints = p.pointsPerSide / 2,
+    inner = 1 - 2 * p.frame,
+    halfWidth = (inner - p.barWidth) / 2,
+    pointWidth = halfWidth / halfPoints,
+    radius = pointWidth * p.checkerFill;
+  /** Center of a point's base in board coordinates: x across, and the y of the board edge it sits on. */
+  const pointX = (column: number): number =>
+    p.frame +
+    (column < halfPoints
+      ? (column + 0.5) * pointWidth
+      : halfWidth + p.barWidth + (column - halfPoints + 0.5) * pointWidth);
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'alternates point tones and holds fifteen checkers per color in same-color stacks of at most five (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('backgammonboard', seed),
+        out = empty(),
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        };
+      let light = 0,
+        dark = 0;
+      for (let point = 0; point < 2 * p.pointsPerSide; point++) {
+        const top = point < p.pointsPerSide,
+          column = point % p.pointsPerSide,
+          u = pointX(column),
+          states: ('light' | 'dark' | 'empty')[] = [];
+        for (let j = 0; j < p.maxStack + 1; j++) {
+          const along = radius + 2 * radius * j,
+            v = top ? p.frame + along : 1 - p.frame - along,
+            tone = at(u, v);
+          states.push(tone > 0.75 ? 'light' : tone < 0.18 ? 'dark' : 'empty');
+        }
+        // A stack starts at the board edge with no gaps, holds one color and respects the limit.
+        const height = states.filter((state) => state !== 'empty').length;
+        expect(height).toBeLessThanOrEqual(p.maxStack);
+        states.forEach((state, j) =>
+          expect(state !== 'empty').toBe(j < height),
+        );
+        if (height > 0) {
+          for (let j = 1; j < height; j++) expect(states[j]).toBe(states[0]);
+          if (states[0] === 'light') light += height;
+          else dark += height;
+        }
+      }
+      expect(light).toBe(p.checkers);
+      expect(dark).toBe(p.checkers);
+      // Point tones alternate along each side, and the opposite side is offset by one point.
+      // Sample near the apex, above the tallest possible stack of five checkers.
+      const pointTone = (top: boolean, column: number): number =>
+        at(
+          pointX(column),
+          top ? p.frame + inner * 0.36 : p.frame + inner * 0.64,
+        );
+      for (let column = 0; column < p.pointsPerSide; column++) {
+        const here = pointTone(true, column),
+          opposite = pointTone(false, column);
+        expect(Math.abs(here - opposite)).toBeGreaterThan(0.1);
+        if (column + 1 < p.pointsPerSide) {
+          expect(Math.abs(here - pointTone(true, column + 1))).toBeGreaterThan(
+            0.1,
+          );
+          expect(Math.abs(here - pointTone(false, column + 1))).toBeLessThan(
+            0.06,
+          );
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('backgammonboard', 0),
+      b = createSurfaceSampler('backgammonboard', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

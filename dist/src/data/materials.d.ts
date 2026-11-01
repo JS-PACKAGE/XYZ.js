@@ -7753,6 +7753,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         openRoughness: 0.2;
         mountRoughness: 0.55;
     }>;
+    backgammonboard: Readonly<{
+        dark: readonly [18, 12, 10];
+        light: readonly [236, 224, 200];
+        roughness: 0.5;
+        relief: 0.003;
+        pointsPerSide: 12;
+        checkers: 15;
+        maxStack: 5;
+        barWidth: 0.08;
+        frame: 0.02;
+        tipLength: 0.4;
+        checkerFill: 0.46;
+        edgeSoft: 0.004;
+        grainCells: 192;
+        feltTone: 0.2;
+        barTone: 0.12;
+        pointTones: readonly [0.52, 0.34];
+        lightChecker: 0.92;
+        darkChecker: 0.07;
+        rimTone: 0.5;
+        grainTone: 0.03;
+        feltHeight: 0.3;
+        pointHeight: 0.34;
+        barHeight: 0.5;
+        checkerHeight: 0.7;
+        rimDrop: 0.1;
+        checkerRoughness: 0.3;
+        feltRoughness: 0.75;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14238,6 +14267,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    backgammonboard: 0.6;
     zoneplates: 0.2;
     lissajousgrid: 0.4;
     mondriancomposition: 0.6;

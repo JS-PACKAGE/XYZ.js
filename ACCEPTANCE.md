@@ -11739,3 +11739,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版sampler草稿在環帶混合計算中留有多個乘零與`void`的無效算式，寫入前已重寫：相鄰環帶狀態必定相反，所以只需依到最近邊界的距離在「本環狀態」與「相反狀態」之間混合。
 - 實測：`tests/procedural-material-motifs.test.ts`二百八十一項（本材質四項）全過。三seed、2×2片、每片沿5個方向（0°、45°、90°、150°、270°）以0.0005格步長徑向掃描，找出色調穿過0.3的位置：每個方向恰好14個交點，第k個交點與R·√(k/N)相差＜0.004格；相鄰交點的平方差（環帶面積）與R²/N相差＜0.0035；每片中心為透明（色調＞0.7）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "zoneplates|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`zoneplates`：option 933個、status為932 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的環帶與底板連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：西洋雙陸棋盤（backgammonboard）
+
+- 目錄932→933，含plain的gallery為934項。每tile一張棋盤：外框內左右各6個交替色調的三角形「點」、中央隔條（上排尖端向下、下排尖端向上，兩排相差一格），每方15顆棋子隨機（合法）放在24個點上、每點最多5顆且同色、從棋盤邊緣往中間疊。Metallic／mortar為0，預設tile0.6 m、0.003 UV-relative relief、metallic factor 0。非標準開局，無骰子、倍率骰或隔條上的棋子；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 發現並修正：（1）第一次驗證時`tsc`報三個型別錯誤（`let tone = p.feltTone`等被推論成字面型別），改為明確標註`number`；（2）上一輪就發現我的`verify.sh`在`tsc`失敗後仍繼續往下跑（`cmd && echo`在`set -e`下不會中止），這次起改為`set -eo pipefail`並把`tsc`、`eslint`與建置各自獨立成一行，任何一步失敗就立即中止，之後的材質都用新腳本；前面已提交的材質當時的輸出都有`TSC_OK`，不受影響；（3）測試第一版在三角形上取樣色調的位置（深度30%）被5顆棋子疊成的高疊蓋住（seed 1失敗），改為深度36%（高於五顆疊的頂端）。
+- 實測：`tests/procedural-material-motifs.test.ts`二百九十項（本材質九項）全過。八個seed（0、7、4294967295、1、2、3、4、5）：對24個點、每點6個疊位（含一個超過上限的位置）在棋子圓心取樣，分成淺色棋子（色調＞0.75）、深色棋子（＜0.18）、空；每個點的棋子從棋盤邊緣開始、中間沒有空隙、同一種顏色、數量≤5；全盤淺色與深色棋子各恰15顆；沿三角形中線在尖端附近取樣：同一排相鄰點的色調差＞0.1、上下兩排的對應點色調差＞0.1，而上排第c點與下排第c+1點色調相差＜0.06；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "backgammonboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`backgammonboard`：option 934個、status為933 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的棋盤與棋子。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
