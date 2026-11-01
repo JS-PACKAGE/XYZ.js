@@ -24231,6 +24231,117 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'hanoitowers': {
+        const p = proceduralMaterialPresets.hanoitowers,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29a01),
+          woodField = cachedNoise(p.woodCells, 2, seed ^ 0x29a03),
+          side = 0.5 - 2 * p.margin,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          total = 2 ** p.disks - 1,
+          // Panels show the optimal solution (all disks from the left peg to the right one) after
+          // 0, 1/3, 2/3 and all of its moves. The smallest disk (0) moves in a fixed cycle
+          // between the pegs and every other move is the only legal one that does not touch it.
+          stateAfter = (moves: number): number[][] => {
+            const pegs: number[][] = [
+                Array.from({ length: p.disks }, (_, i) => p.disks - 1 - i),
+                [],
+                [],
+              ],
+              direction = p.disks % 2 === 0 ? 1 : 2;
+            let smallest = 0;
+            for (let move = 0; move < moves; move++) {
+              if (move % 2 === 0) {
+                const target = (smallest + direction) % 3;
+                pegs[target].push(pegs[smallest].pop() as number);
+                smallest = target;
+              } else {
+                const [a, b] = [0, 1, 2].filter((peg) => peg !== smallest),
+                  top = (peg: number): number =>
+                    pegs[peg].length > 0
+                      ? pegs[peg][pegs[peg].length - 1]
+                      : p.disks;
+                if (top(a) < top(b)) pegs[b].push(pegs[a].pop() as number);
+                else pegs[a].push(pegs[b].pop() as number);
+              }
+            }
+            return pegs;
+          },
+          panels = [0, 1, 2, 3].map((i) =>
+            stateAfter(Math.round((total * i) / 3)),
+          );
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.frameTone,
+            level: number = p.frameHeight,
+            rough: number = p.woodRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const frame = cover(
+              p.frameHalf -
+                Math.min(
+                  Math.min(Math.abs(lx), Math.abs(lx - side)),
+                  Math.min(Math.abs(ly), Math.abs(ly - side)),
+                ),
+            );
+            tone = p.boardTone;
+            level = p.boardHeight;
+            if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+              // Panel coordinates 0..1.
+              const x = lx / side,
+                y = ly / side,
+                peg = Math.min(2, Math.floor(x * 3)),
+                centre = (peg + 0.5) / 3,
+                wood = woodField(u * p.woodCells, v * 2) - 0.5;
+              // The base plank and the peg.
+              if (
+                Math.abs(x - 0.5) < 0.5 - 0.01 &&
+                y >= p.baseY &&
+                y < p.baseY + p.baseHalf
+              ) {
+                tone = p.baseTone + p.grainTone * wood;
+                level = p.baseHeight;
+              }
+              if (
+                Math.abs(x - centre) < p.pegHalf &&
+                y >= p.pegTop &&
+                y < p.baseY
+              ) {
+                tone = p.pegTone + p.grainTone * wood;
+                level = p.pegHeight;
+              }
+              // The disks stacked on this peg, bottom first; wider disks are brighter.
+              const stack = panels[quadrant][peg],
+                row = Math.floor((p.baseY - y) / (p.diskHeight + p.diskGap));
+              if (y < p.baseY && row >= 0 && row < stack.length) {
+                const into = (p.baseY - y) % (p.diskHeight + p.diskGap),
+                  size = stack[row],
+                  half = (p.minWidth + p.widthStep * size) / 2;
+                if (into >= p.diskGap && Math.abs(x - centre) < half) {
+                  tone =
+                    p.diskLow +
+                    ((p.diskHigh - p.diskLow) * size) / (p.disks - 1);
+                  level = p.diskHeightLevel;
+                  rough = p.diskRoughness;
+                }
+              }
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51760,6 +51871,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hanoitowers' ||
     kind === 'eightqueens' ||
     kind === 'cantordust' ||
     kind === 'dragoncurve' ||

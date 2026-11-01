@@ -15454,6 +15454,48 @@ var proceduralMaterialPresets = Object.freeze({
 		squareRoughness: .58,
 		queenRoughness: .28
 	}),
+	hanoitowers: Object.freeze({
+		dark: [
+			40,
+			28,
+			18
+		],
+		light: [
+			236,
+			204,
+			150
+		],
+		roughness: .5,
+		relief: .006,
+		disks: 6,
+		margin: .02,
+		minWidth: .08,
+		widthStep: .044,
+		diskHeight: .062,
+		diskGap: .006,
+		baseY: .88,
+		pegHalf: .012,
+		pegTop: .2,
+		baseHalf: .03,
+		frameHalf: .003,
+		edgeSoft: .0012,
+		grainCells: 192,
+		woodCells: 24,
+		boardTone: .18,
+		pegTone: .42,
+		baseTone: .3,
+		diskLow: .38,
+		diskHigh: .96,
+		frameTone: .1,
+		grainTone: .05,
+		boardHeight: .25,
+		pegHeight: .7,
+		baseHeight: .5,
+		diskHeightLevel: .82,
+		frameHeight: .4,
+		woodRoughness: .62,
+		diskRoughness: .34
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -24135,6 +24177,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	hanoitowers: .4,
 	eightqueens: .4,
 	cantordust: .5,
 	dragoncurve: .5,

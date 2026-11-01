@@ -11281,3 +11281,113 @@ describe('eightqueens: every board is a non-attacking placement of eight queens'
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('hanoitowers: the panels show the optimal solution after 0, 1/3, 2/3 and all of its moves', () => {
+  const p = proceduralMaterialPresets.hanoitowers;
+  const n = p.disks;
+  const side = 0.5 - 2 * p.margin;
+
+  // Independent reference: the classic recursive solution, applied move by move.
+  const solution: [number, number][] = [];
+  const solve = (
+    count: number,
+    from: number,
+    to: number,
+    via: number,
+  ): void => {
+    if (count === 0) return;
+    solve(count - 1, from, via, to);
+    solution.push([from, to]);
+    solve(count - 1, via, to, from);
+  };
+  solve(n, 0, 2, 1);
+  const stateAfter = (moves: number): number[][] => {
+    const pegs: number[][] = [
+      Array.from({ length: n }, (_, i) => n - 1 - i),
+      [],
+      [],
+    ];
+    for (const [from, to] of solution.slice(0, moves))
+      pegs[to].push(pegs[from].pop()!);
+    return pegs;
+  };
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'draws the disks of each panel in the stacks of the reference solution (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hanoitowers', seed),
+        out = empty(),
+        isDisk = (quadrant: number, x: number, y: number): boolean => {
+          sample(
+            (quadrant & 1) * 0.5 + p.margin + x * side,
+            (quadrant >> 1) * 0.5 + p.margin + y * side,
+            out,
+          );
+          return out.color > 0.3;
+        };
+      expect(solution.length).toBe(2 ** n - 1);
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const expected = stateAfter(Math.round(((2 ** n - 1) * quadrant) / 3));
+        for (let peg = 0; peg < 3; peg++) {
+          const centre = (peg + 0.5) / 3,
+            stack: number[] = [];
+          for (let row = 0; row < n; row++) {
+            const y =
+              p.baseY -
+              row * (p.diskHeight + p.diskGap) -
+              p.diskGap -
+              p.diskHeight / 2;
+            // The peg itself is thinner than the narrowest disk, so test beside it.
+            if (!isDisk(quadrant, centre + 0.03, y)) break;
+            let width = 0;
+            for (let step = 0; step < 200; step++) {
+              const left = isDisk(quadrant, centre - step * 0.002, y),
+                right = isDisk(quadrant, centre + step * 0.002, y);
+              if (!left && !right && step > 8) break;
+              width = Math.max(width, step * 0.002 * 2);
+            }
+            // Widths are minWidth + widthStep * size; "+ 0" turns a rounded -0 into 0.
+            stack.push(Math.round((width - p.minWidth) / p.widthStep) + 0);
+          }
+          expect(stack).toEqual(expected[peg]);
+        }
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hanoitowers', 0),
+      b = createSurfaceSampler('hanoitowers', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
