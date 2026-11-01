@@ -37885,6 +37885,68 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'cauliflowercurd': {
+        const p = proceduralMaterialPresets.cauliflowercurd,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0xca12),
+          levels = p.octaves.map((octave, level) => {
+            // Per cell: jittered centre (x, y) and size; a missing bud has size 0.
+            const table = new Float64Array(octave.cells * octave.cells * 3);
+            for (let cy = 0; cy < octave.cells; cy++)
+              for (let cx = 0; cx < octave.cells; cx++) {
+                const at = (cy * octave.cells + cx) * 3,
+                  salt = seed ^ (p.seedSalt + 7 * level);
+                table[at] = p.jitter * (2 * hash(cx, cy * 4, salt) - 1);
+                table[at + 1] = p.jitter * (2 * hash(cx, cy * 4 + 1, salt) - 1);
+                table[at + 2] =
+                  hash(cx, cy * 4 + 3, salt) < p.presence
+                    ? 0.6 + 0.4 * hash(cx, cy * 4 + 2, salt)
+                    : 0;
+              }
+            return {
+              ...octave,
+              table,
+              inverseRadius2: 1 / (octave.radius * octave.radius),
+            };
+          });
+        return () => {
+          // Curd florets at three scales: every octave sums smooth(1 - q / r^2) buds over
+          // its 3 x 3 neighbour cells and the octave heights add with their amplitudes,
+          // so large florets carry smaller buds that carry smaller bumps; the result is
+          // C1 and saturates through H / (1 + s H) into color and occlusion.
+          let bumps = 0;
+          for (const level of levels) {
+            const x = fract(u) * level.cells,
+              y = fract(v) * level.cells,
+              cx = Math.floor(x),
+              cy = Math.floor(y);
+            let sum = 0;
+            for (let oy = -1; oy <= 1; oy++)
+              for (let ox = -1; ox <= 1; ox++) {
+                const wx =
+                    (((cx + ox) % level.cells) + level.cells) % level.cells,
+                  wy = (((cy + oy) % level.cells) + level.cells) % level.cells,
+                  at = (wy * level.cells + wx) * 3,
+                  size = level.table[at + 2];
+                if (size === 0) continue;
+                const dx = x - (cx + ox + 0.5 + level.table[at]),
+                  dy = y - (cy + oy + 0.5 + level.table[at + 1]);
+                sum +=
+                  size *
+                  smooth(clamp(1 - (dx * dx + dy * dy) * level.inverseRadius2));
+              }
+            bumps += level.amplitude * sum;
+          }
+          const lift = bumps / (1 + p.saturation * bumps),
+            grain = grainField(u, v);
+          color =
+            p.baseTone +
+            (p.heightTone * lift) / (1 + lift) +
+            p.grainTone * (grain - 0.5);
+          height = lift + p.grainHeight * grain;
+          occlusion = 1 - p.valleyOcclusion / (1 + 8 * lift * lift);
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45495,6 +45557,7 @@ export function createSurfaceSampler(
     kind === 'citruspeel' ||
     kind === 'pumpkinskin' ||
     kind === 'pomegranatearils' ||
+    kind === 'cauliflowercurd' ||
     kind === 'bubinga' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||

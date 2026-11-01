@@ -12779,6 +12779,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         fiberRows: 9;
         fiberContrast: 0.22;
     }>;
+    cauliflowercurd: Readonly<{
+        dark: readonly [142, 132, 100];
+        light: readonly [250, 246, 228];
+        roughness: 0.78;
+        relief: 0.016;
+        octaves: readonly [{
+            readonly cells: 10;
+            readonly radius: 0.62;
+            readonly amplitude: 1;
+        }, {
+            readonly cells: 26;
+            readonly radius: 0.62;
+            readonly amplitude: 0.45;
+        }, {
+            readonly cells: 64;
+            readonly radius: 0.62;
+            readonly amplitude: 0.2;
+        }];
+        seedSalt: 51729;
+        jitter: 0.3;
+        presence: 0.95;
+        saturation: 0.12;
+        baseTone: 0.3;
+        heightTone: 1;
+        grainCells: 128;
+        grainTone: 0.04;
+        grainHeight: 0.04;
+        valleyOcclusion: 0.55;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14081,4 +14110,5 @@ export declare const proceduralTileMeters: Readonly<{
     pumpkinskin: 0.4;
     pomegranatearils: 0.12;
     bubinga: 0.18;
+    cauliflowercurd: 0.12;
 }>;

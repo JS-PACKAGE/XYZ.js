@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`cauliflowercurd`（花椰菜凝乳）使目前目錄923→924種，含plain的gallery為925項。奶白色花球表面，由三個尺度（10²、26²、64²格）的圓頂花蕾堆疊：大花球上長較小的花蕾、再長更小的凸粒；花蕾頂較亮，間隙帶灰米色並有AO遮蔽（AO<0.7約占15%）；整體粗糙（roughness恆為0.78）、帶細grain。不是莖、葉、花球的整體曲面、斑點或褐變。
+
+此材質是作者依一般花椰菜（白花椰）花球表面外觀所作示意，沒有引用特定來源文件、照片或量測；三個尺度的格數、半徑、振幅、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何花椰菜品種，也不是真正的碎形（只有三層疊加）。
+
+新增專用sampler：三個尺度各存每格3個Float64（抖動位置x、y與大小），共(10²＋26²＋64²)×3 = 14,616 Float64，加128²細grain（16,384 Float64），合計31,000 Float64／248,000 B lattice算術預算（非總RAM）。每個尺度把`smooth(1 − q/r²)`花蕾圓頂（r = 0.62格）加總於3×3鄰格，三層高度以振幅1、0.45、0.2相加，`H/(1+0.12H)`飽和為高度；顏色用`H/(1+H)`映射以免超出[0,1]，AO為`1 − 0.55/(1+8H²)`，全部C∞／C1。顏色是顏料，height只用於法線與AO；金屬factor為0、無mortar。預設0.12 m nominal tile與0.016 UV-relative relief（非公尺位移）皆作者設定。調整過程：首版（8／20／48格、r = 0.95、saturation 0.55）渲染成模糊的雲狀起伏、看不出花蕾，改為10／26／64格、r = 0.62、saturation 0.12後實看確認有成簇的圓蕾；此外調整後color最高達1.277（超出[0,1]），改成`H/(1+H)`映射並把heightTone設為1，探測確認最高為0.925–0.951。三seed（0／1／0xffffffff）、512²取樣：AO<0.7占13.8–16.2%、AO<0.6占7.2–9.0%、color>0.75占35.2–38.5%、color 0.281–0.951、平均0.678–0.689、AO 0.45–0.978、高度0到1.66–1.78 relief；seed 0與1的AO<0.7遮罩有22.5%像素不同；seed7的512² r／g／b平均約(216,210,187)、AO<178占15.1%、法線max tilt²約0.715。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `bubinga`（非洲紫檀／布賓加）使目前目錄922→923種，含plain的gallery為924項。近似Guibourtia屬未塗裝縱向木面：粉紅紅褐底色、均勻細質地、3條較暗的紅褐起伏淡條紋、縱向纖維與散布的細暗導管凹點（約1.2%）。不是紫或黑色條紋、稻草色邊材、波紋（pommele）、火焰、瀑布或絞絲等花紋、交錯紋或塗層。
 
 外觀依據實際閱讀的[Wood Database Bubinga](https://www.wood-database.com/bubinga/)（Color／Appearance：心材由粉紅紅色到較深的紅褐，帶更暗的紫或黑色條紋；邊材為淡稻草色且與心材分明；常見多種花紋；Grain／Texture：直到交錯紋、均勻的細到中等質地與適度天然光澤）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/guibourtia-spp-300x600.jpg)（均勻紅褐面、細暗導管線與淡淡的縱向起伏）；僅作配色與紋理形態參考，**不**重現頁面所述的紫／黑色條紋、淡色邊材與各種花紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

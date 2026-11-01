@@ -938,7 +938,8 @@ export type ProceduralMaterialKind =
   | 'citruspeel'
   | 'pumpkinskin'
   | 'pomegranatearils'
-  | 'bubinga';
+  | 'bubinga'
+  | 'cauliflowercurd';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2111,6 +2112,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pumpkinskin',
   'pomegranatearils',
   'bubinga',
+  'cauliflowercurd',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -965,6 +965,7 @@ const kinds: ProceduralMaterialKind[] = [
   'pumpkinskin',
   'pomegranatearils',
   'bubinga',
+  'cauliflowercurd',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -141495,5 +141496,206 @@ describe('Reddish-brown Bubinga with uniform fine texture, faint darker streaks 
       }
     }
     expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Cauliflower curd with cream-white florets carrying smaller buds and bumps at three scales', () => {
+  const p = proceduralMaterialPresets.cauliflowercurd;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const valleyMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('cauliflowercurd', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.occlusion < 0.7);
+      }
+    return mask;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'builds cream bud crowns over a seventh of darker occluded valleys with constant rough roughness and a tall multi-scale height range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('cauliflowercurd', seed),
+        a = empty();
+      let valley = 0,
+        deep = 0,
+        bright = 0,
+        low = 1,
+        high = 0,
+        mean = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        occlusionLow = 1,
+        occlusionHigh = 0,
+        heightLow = 1,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          valley += Number(a.occlusion < 0.7);
+          deep += Number(a.occlusion < 0.6);
+          bright += Number(a.color > 0.75);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          mean += a.color;
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          occlusionLow = Math.min(occlusionLow, a.occlusion);
+          occlusionHigh = Math.max(occlusionHigh, a.occlusion);
+          heightLow = Math.min(heightLow, a.height / p.relief);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(valley / 262144).toBeGreaterThan(0.13);
+      expect(valley / 262144).toBeLessThan(0.17);
+      expect(deep / 262144).toBeGreaterThan(0.07);
+      expect(deep / 262144).toBeLessThan(0.095);
+      expect(bright / 262144).toBeGreaterThan(0.34);
+      expect(bright / 262144).toBeLessThan(0.4);
+      expect(low).toBeGreaterThan(0.27);
+      expect(low).toBeLessThan(0.3);
+      expect(high).toBeGreaterThan(0.92);
+      expect(high).toBeLessThan(0.96);
+      expect(mean / 262144).toBeGreaterThan(0.67);
+      expect(mean / 262144).toBeLessThan(0.7);
+      expect(roughLow).toBeCloseTo(p.roughness, 12);
+      expect(roughHigh).toBeCloseTo(p.roughness, 12);
+      expect(occlusionLow).toBeCloseTo(1 - p.valleyOcclusion, 3);
+      expect(occlusionHigh).toBeGreaterThan(0.97);
+      expect(occlusionHigh).toBeLessThan(0.99);
+      expect(heightLow).toBeLessThan(0.01);
+      expect(heightHigh).toBeGreaterThan(1.6);
+      expect(heightHigh).toBeLessThan(1.85);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('grows different florets per seed and is deterministic for one seed', () => {
+    const first = valleyMask(0),
+      second = valleyMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.15);
+    expect(valleyMask(0)).toEqual(first);
+  });
+  it('keeps the three octaves of overlapping buds, their saturation and the grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('cauliflowercurd', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [
+        ...p.octaves.map((octave) => octave.cells),
+        p.grainCells,
+      ])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream-white dielectric maps with about a seventh of the texels in occluded valleys and strong bud normals', () => {
+    const maps = generateProceduralMaps('cauliflowercurd', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      valleys = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      valleys += Number(maps.occlusion[i] < 178);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 180,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(205);
+    expect(red / (512 * 512)).toBeLessThan(225);
+    expect(green / (512 * 512)).toBeGreaterThan(200);
+    expect(green / (512 * 512)).toBeLessThan(220);
+    expect(blue / (512 * 512)).toBeGreaterThan(178);
+    expect(blue / (512 * 512)).toBeLessThan(197);
+    expect(valleys / (512 * 512)).toBeGreaterThan(0.13);
+    expect(valleys / (512 * 512)).toBeLessThan(0.17);
+    expect(maxTilt).toBeGreaterThan(0.6);
+    expect(maxTilt).toBeLessThan(0.85);
+    expect(invalid).toBe(0);
   });
 });

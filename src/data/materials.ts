@@ -12984,6 +12984,27 @@ export const proceduralMaterialPresets = Object.freeze({
     fiberRows: 9,
     fiberContrast: 0.22,
   }),
+  cauliflowercurd: Object.freeze({
+    dark: [142, 132, 100] as const,
+    light: [250, 246, 228] as const,
+    roughness: 0.78,
+    relief: 0.016,
+    octaves: [
+      { cells: 10, radius: 0.62, amplitude: 1 },
+      { cells: 26, radius: 0.62, amplitude: 0.45 },
+      { cells: 64, radius: 0.62, amplitude: 0.2 },
+    ] as const,
+    seedSalt: 0xca11,
+    jitter: 0.3,
+    presence: 0.95,
+    saturation: 0.12,
+    baseTone: 0.3,
+    heightTone: 1,
+    grainCells: 128,
+    grainTone: 0.04,
+    grainHeight: 0.04,
+    valleyOcclusion: 0.55,
+  }),
   makore: Object.freeze({
     dark: [76, 31, 18] as const,
     light: [205, 139, 93] as const,
@@ -14287,4 +14308,5 @@ export const proceduralTileMeters = Object.freeze({
   pumpkinskin: 0.4,
   pomegranatearils: 0.12,
   bubinga: 0.18,
+  cauliflowercurd: 0.12,
 });

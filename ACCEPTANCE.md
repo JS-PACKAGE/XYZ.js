@@ -11778,3 +11778,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Bubinga`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.18s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Bubinga|bubinga|kinds|catalog|distinct|periodic"`定向測試，**2134項通過／3636項未選**。
 - 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：花椰菜凝乳（cauliflowercurd）
+
+- 目錄923→924，含plain的gallery為925項。奶白色花球表面，由三個尺度（10²、26²、64²格）的圓頂花蕾堆疊（大花球上長小花蕾、再長凸粒），蕾頂較亮、間隙灰米色並有AO遮蔽（AO<0.7約占15%），整體粗糙（roughness恆為0.78）、帶細grain。這是作者依一般白花椰花球外觀所作示意，**沒有**引用特定來源，不是真正的碎形（僅三層疊加），也不含莖、葉、斑點或褐變。
+- 專用sampler：三個尺度各存每格3個Float64（共14,616）＋128² grain（16,384），合計31,000 Float64／248,000 B；每個尺度把`smooth(1−q/r²)`花蕾圓頂（r=0.62格）加總於3×3鄰格，三層以振幅1／0.45／0.2相加，`H/(1+0.12H)`飽和為高度，color用`H/(1+H)`映射，AO為`1−0.55/(1+8H²)`。預設0.12 m tile、0.016 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際修正：首版（8／20／48格、r=0.95、saturation 0.55）實看四圖只是模糊的雲狀起伏、看不出花蕾，改為10／26／64格、r=0.62、saturation 0.12後才有成簇的圓蕾；該版本的探測又發現color最高達1.277（超出[0,1]），改成`H/(1+H)`映射並令heightTone為1，重新探測後最高0.925–0.951；另外首版AO式含一個無意義的`lift < 1`分支（會讓高處AO反而變暗），在寫測試前改為`1−0.55/(1+8H²)`。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣AO<0.7占13.8–16.2%、AO<0.6占7.2–9.0%、color>0.75占35.2–38.5%、color 0.281–0.951、平均0.678–0.689、roughness恆0.78、AO 0.45–0.978、高度0到1.66–1.78 relief；seed 0與1的AO<0.7遮罩有22.5%像素不同；seed7的512² r／g／b平均約(216,210,187)、AO<178占15.1%、法線max tilt²約0.715。
+- 新增4項永久測試（`Cauliflower curd`：三seed谷／蕾頂比例與色／AO／高度範圍、seed差異與確定性、含三個尺度格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（11.31s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Cauliflower curd|cauliflowercurd|kinds|catalog|distinct|periodic"`定向測試，**2135項通過／3642項未選**。
+- 本功能未重跑完整179檔suite（pumpkinskin commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。

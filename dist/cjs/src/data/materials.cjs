@@ -20858,6 +20858,47 @@ var proceduralMaterialPresets = Object.freeze({
 		fiberRows: 9,
 		fiberContrast: .22
 	}),
+	cauliflowercurd: Object.freeze({
+		dark: [
+			142,
+			132,
+			100
+		],
+		light: [
+			250,
+			246,
+			228
+		],
+		roughness: .78,
+		relief: .016,
+		octaves: [
+			{
+				cells: 10,
+				radius: .62,
+				amplitude: 1
+			},
+			{
+				cells: 26,
+				radius: .62,
+				amplitude: .45
+			},
+			{
+				cells: 64,
+				radius: .62,
+				amplitude: .2
+			}
+		],
+		seedSalt: 51729,
+		jitter: .3,
+		presence: .95,
+		saturation: .12,
+		baseTone: .3,
+		heightTone: 1,
+		grainCells: 128,
+		grainTone: .04,
+		grainHeight: .04,
+		valleyOcclusion: .55
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22278,7 +22319,8 @@ var proceduralTileMeters = Object.freeze({
 	citruspeel: .12,
 	pumpkinskin: .4,
 	pomegranatearils: .12,
-	bubinga: .18
+	bubinga: .18,
+	cauliflowercurd: .12
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
