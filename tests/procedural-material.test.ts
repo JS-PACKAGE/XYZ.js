@@ -675,6 +675,7 @@ const kinds: ProceduralMaterialKind[] = [
   'stfiberadapterfaces',
   'to220packagefaces',
   'to92packagefaces',
+  'hazardstripes',
   'radarscope',
   'digitalcamo',
   'topographiccontours',
@@ -77013,6 +77014,7 @@ describe('periodic procedural material fields', () => {
           kind !== 'stfiberadapterfaces' &&
           kind !== 'to220packagefaces' &&
           kind !== 'to92packagefaces' &&
+          kind !== 'hazardstripes' &&
           kind !== 'ftypefemalefaces' &&
           kind !== 'usbcfemalefaces' &&
           kind !== 'iecc6inlets' &&
@@ -86608,6 +86610,7 @@ describe('procedural preset acquisition and ownership', () => {
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
+    'hazardstripes',
   ] as const)(
     'borrows %s maps across independent materials and never takes ownership of overrides',
     async (kind) => {
@@ -86634,6 +86637,7 @@ describe('procedural preset acquisition and ownership', () => {
           kind === 'stfiberadapterfaces' ||
           kind === 'to220packagefaces' ||
           kind === 'to92packagefaces' ||
+          kind === 'hazardstripes' ||
           kind === 'ftypefemalefaces' ||
           kind === 'usbcfemalefaces' ||
           kind === 'iecc6inlets' ||

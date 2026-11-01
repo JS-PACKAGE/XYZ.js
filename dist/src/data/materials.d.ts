@@ -6925,6 +6925,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         baseRoughness: 0.3;
         glowRoughness: 0.15;
     }>;
+    hazardstripes: Readonly<{
+        dark: readonly [18, 18, 20];
+        light: readonly [246, 196, 28];
+        roughness: 0.55;
+        relief: 0.0032;
+        stripes: 8;
+        chipCells: 96;
+        scratchColumns: 192;
+        scratchRows: 10;
+        grainCells: 192;
+        chipWeight: 0.55;
+        scratchWeight: 0.3;
+        edgeWeight: 0.35;
+        edgeReach: 0.3;
+        wearThreshold: 0.66;
+        wearSoft: 0.05;
+        yellowTone: 0.86;
+        blackTone: 0.08;
+        steelHeight: 0.22;
+        paintHeight: 0.14;
+        grainHeight: 0.03;
+        yellowRoughness: 0.45;
+        blackRoughness: 0.62;
+        steelRoughness: 0.36;
+        rimAO: 0.3;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13410,6 +13436,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    hazardstripes: 0.5;
     radarscope: 0.3;
     digitalcamo: 1;
     topographiccontours: 1;

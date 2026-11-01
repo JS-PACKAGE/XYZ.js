@@ -17632,6 +17632,52 @@ export function createSurfaceSampler(
           color = clamp(color * scan + p.grainTone * (grain - 0.5));
         };
       }
+      case 'hazardstripes': {
+        const p = proceduralMaterialPresets.hazardstripes,
+          chipField = cachedNoise(p.chipCells, p.chipCells, seed ^ 0x25101),
+          scratchField = cachedNoise(
+            p.scratchColumns,
+            p.scratchRows,
+            seed ^ 0x25103,
+          ),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25105),
+          inverseWear = 1 / p.wearSoft;
+        return () => {
+          // Diagonal stripes: a = u + v is an integer shear, so every stripe wraps cleanly
+          // when stripes is even. Scratches run along the stripe (a constant), i.e. along b.
+          const a = u + v,
+            b = u - v,
+            phase = a * p.stripes,
+            index = Math.floor(phase),
+            across = phase - index,
+            // Relative distance to the nearest stripe border: 0 at the border, 1 at the center.
+            edge = 2 * Math.min(across, 1 - across),
+            yellow = (index & 1) === 0,
+            chip = chipField(u, v),
+            scratch = scratchField(a, b),
+            grain = grainField(u, v),
+            score =
+              p.chipWeight * chip +
+              p.scratchWeight * scratch +
+              p.edgeWeight * (1 - smooth(clamp(edge / p.edgeReach))),
+            worn = smooth(clamp((score - p.wearThreshold) * inverseWear + 0.5)),
+            paintTone = yellow ? p.yellowTone : p.blackTone,
+            paintRoughness = yellow ? p.yellowRoughness : p.blackRoughness;
+          // Bare steel is the neutral grout gray of the shared mortar mix, which is why the
+          // paint tone stays the base color and only the mortar weight follows the wear.
+          color = paintTone;
+          mortar = worn;
+          height = clamp(
+            p.steelHeight +
+              p.paintHeight * (1 - worn) +
+              p.grainHeight * (grain - 0.5),
+          );
+          roughness =
+            paintRoughness + (p.steelRoughness - paintRoughness) * worn;
+          occlusion = clamp(1 - p.rimAO * 4 * worn * (1 - worn));
+          metallic = worn;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45161,6 +45207,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'hazardstripes' ||
     kind === 'radarscope' ||
     kind === 'digitalcamo' ||
     kind === 'topographiccontours' ||

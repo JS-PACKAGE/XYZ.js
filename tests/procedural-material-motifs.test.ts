@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { proceduralMaterialPresets } from '../src/data/materials.js';
 import {
   createSurfaceSampler,
+  generateProceduralMaps,
   type SurfaceSample,
 } from '../packages/core/src/procedural-material-maps.js';
 
@@ -2263,5 +2264,114 @@ describe('radarscope: rings, bearing spokes, sweep afterglow and blips', () => {
       }
     }
     expect(different).toBeGreaterThan(20);
+  });
+});
+
+describe('hazardstripes: chipped warning stripes over bare steel', () => {
+  const p = proceduralMaterialPresets.hazardstripes;
+  const size = 512;
+  // Expected baseColor bytes: dark + (light - dark) * tone for the two paints, and the shared
+  // neutral gray that the mortar weight mixes in for bare steel.
+  const paint = (tone: number): number[] =>
+    [0, 1, 2].map((c) => p.dark[c] + (p.light[c] - p.dark[c]) * tone);
+  const yellow = paint(p.yellowTone),
+    black = paint(p.blackTone),
+    steel = [153, 153, 139];
+  const distance = (a: ArrayLike<number>, b: number[]): number =>
+    Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+
+  it.each(seeds)(
+    'exposes neutral steel with the metallic mask, mostly at stripe borders (seed %i)',
+    (seed) => {
+      const maps = generateProceduralMaps('hazardstripes', size, seed);
+      let bare = 0,
+        paintCount = 0,
+        edgeBare = 0,
+        badBare = 0,
+        badPaint = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const i = (y * size + x) * 4,
+            metal = maps.metallicRoughness[i + 2],
+            color = maps.baseColor.subarray(i, i + 3),
+            // Relative distance to the nearest diagonal stripe border.
+            along = (((x + 0.5) / size + (y + 0.5) / size) * p.stripes) % 1,
+            edge = 2 * Math.min(along, 1 - along);
+          if (metal > 250) {
+            bare++;
+            edgeBare += Number(edge < 0.3);
+            badBare += Number(distance(color, steel) > 6);
+          } else if (metal < 5) {
+            paintCount++;
+            badPaint += Number(
+              Math.min(distance(color, yellow), distance(color, black)) > 8,
+            );
+          }
+        }
+      // Bare steel shows only the neutral mortar gray; paint shows only the two paint tones.
+      expect(badBare).toBe(0);
+      expect(badPaint).toBe(0);
+      const fraction = bare / (size * size);
+      expect(fraction).toBeGreaterThan(0.05);
+      expect(fraction).toBeLessThan(0.25);
+      expect(paintCount / (size * size)).toBeGreaterThan(0.7);
+      // Wear is biased toward the borders: 30% of the stripe width holds most of the steel.
+      expect(edgeBare / bare).toBeGreaterThan(0.6);
+    },
+  );
+
+  it.each(seeds)(
+    'alternates yellow and black bands, one border per stripe (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('hazardstripes', seed),
+        out = empty(),
+        n = 4096;
+      let invalid = 0;
+      const kinds: number[] = [];
+      for (let i = 0; i < n; i++) {
+        sample((i + 0.5) / n, 0.1337, out);
+        invalid += Number(Math.abs(out.metallic - out.mortar) > 1e-12);
+        for (const value of [
+          out.color,
+          out.height / p.relief,
+          out.roughness,
+          out.occlusion,
+          out.metallic,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+        // 1 yellow, 2 black, 0 worn (bare steel hides the paint underneath).
+        kinds.push(out.metallic > 0.5 ? 0 : out.color > 0.5 ? 1 : 2);
+      }
+      expect(invalid).toBe(0);
+      const painted = kinds.filter((k) => k !== 0);
+      let toggles = 0;
+      for (let i = 0; i < painted.length; i++)
+        toggles += Number(painted[i] !== painted[(i + 1) % painted.length]);
+      // Each of the stripes alternating bands ends at one border, so a full cycle has `stripes` borders.
+      expect(toggles).toBe(p.stripes);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('hazardstripes', 0),
+      b = createSurfaceSampler('hazardstripes', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.metallic).toBeCloseTo(one.metallic, 10);
+        b(u, v, two);
+        different += Number(two.metallic !== one.metallic);
+      }
+    }
+    expect(different).toBeGreaterThan(5);
   });
 });

@@ -12724,6 +12724,40 @@ var proceduralMaterialPresets = Object.freeze({
 		baseRoughness: .3,
 		glowRoughness: .15
 	}),
+	hazardstripes: Object.freeze({
+		dark: [
+			18,
+			18,
+			20
+		],
+		light: [
+			246,
+			196,
+			28
+		],
+		roughness: .55,
+		relief: .0032,
+		stripes: 8,
+		chipCells: 96,
+		scratchColumns: 192,
+		scratchRows: 10,
+		grainCells: 192,
+		chipWeight: .55,
+		scratchWeight: .3,
+		edgeWeight: .35,
+		edgeReach: .3,
+		wearThreshold: .66,
+		wearSoft: .05,
+		yellowTone: .86,
+		blackTone: .08,
+		steelHeight: .22,
+		paintHeight: .14,
+		grainHeight: .03,
+		yellowRoughness: .45,
+		blackRoughness: .62,
+		steelRoughness: .36,
+		rimAO: .3
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21405,6 +21439,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	hazardstripes: .5,
 	radarscope: .3,
 	digitalcamo: 1,
 	topographiccontours: 1,
