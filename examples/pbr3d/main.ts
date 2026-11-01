@@ -980,6 +980,7 @@ try {
     'popcornceiling',
     'forgedcarbon',
     'woodenpalletdeck',
+    'honduranmahogany',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

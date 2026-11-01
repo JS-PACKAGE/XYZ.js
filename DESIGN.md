@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`honduranmahogany`（宏都拉斯桃花心木）使目前目錄901→902種，含plain的gallery為903項。近似Swietenia macrophylla未塗裝縱向木面：偏深的紅褐色、中等均勻質地、7條寬而幾乎筆直的低對比緞帶狀條紋（近似徑切的ribbon figure）與極稀疏、短小的開放導管凹點。不是淺粉褐色新切材、經年變深色、交錯／不規則／波浪紋、cathedral紋、閃光（chatoyancy）光學效果或塗層。
+
+外觀依據實際閱讀的[Wood Database Honduran Mahogany](https://www.wood-database.com/honduran-mahogany/)（Color／Appearance：心材由淺粉褐到較深紅褐，隨年份變深，具chatoyancy；Grain／Texture：可直、交錯、不規則或波浪，中等均勻質地、中等光澤；Porosity：diffuse porous，生長輪常因邊緣薄壁組織帶而明顯）、前述實際閱讀的[Wood Database Black Walnut](https://www.wood-database.com/black-walnut/)中「徑切面的mahogany通常有ribbon紋」一句，以及實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/swietenia-macrophylla-alt.jpg)（均勻深紅褐面、細導管線，底部有一處巢狀年輪紋）；僅作配色與紋理形態參考，不重現巢狀年輪或chatoyancy，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`blackcherry`、`teak`同一路徑），constructor只選preset：56×18個導管site（Float64×4共32,256 B pose表）、7條幾乎筆直（bandWarp 0.18）低對比（bandContrast 0.1）緞帶、220×9縱向fiber與128²細grain（含warp共22,408 Float64／179,264 B lattice算術預算，非總RAM）。金屬factor為0；導管凹點是真的height凹陷，縱向色紋只是顏料。預設0.18 m nominal tile與0.0015 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.145–0.197%，本體色0.255–0.459，橫／縱色差比9.28–10.34，roughness 0.420–0.523；seed7的512²平均base color約(128,68,38)、導管占0.156%、法線max tilt²約0.0008。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `woodenpalletdeck`（木棧板面板）使目前目錄900→901種，含plain的gallery為902項。一個tile內4塊沿u方向的木板，板間是約9%寬度的低窄深縫（AO 0.2、color≈0.02、高度0.04 relief），每塊板各有自己的整體色調、起伏的年輪線、長縱向纖維與細grain，板中線上每個tile有2顆深色略凸的圓形釘頭（每板位置有微小偏移）。不是完整棧板（沒有橫梁／縱梁、板端、裂縫、節疤或金屬釘的金屬性）。
 
 概念依據實際閱讀的[Wikipedia「Pallet」](https://en.wikipedia.org/wiki/Pallet)導言：pallet（skid）是供堆高機等抬升、穩定承載貨物的平面運輸結構，多數為木製。該條目不提供板寬、釘距或顏色，因此板數、縫寬、釘頭尺寸／位置、色彩、roughness與0.4 m nominal tile皆為作者設定，不宣稱符合任何棧板標準或實物。

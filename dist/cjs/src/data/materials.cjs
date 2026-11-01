@@ -20128,6 +20128,39 @@ var proceduralMaterialPresets = Object.freeze({
 		nailRoughness: -.35,
 		grainRoughness: .08
 	}),
+	honduranmahogany: Object.freeze({
+		dark: [
+			88,
+			42,
+			22
+		],
+		light: [
+			196,
+			112,
+			66
+		],
+		roughness: .42,
+		relief: .0015,
+		columns: 56,
+		rows: 18,
+		widthMinimum: .03,
+		widthVariation: .02,
+		lengthMinimum: .05,
+		lengthVariation: .08,
+		poreChance: .18,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .06,
+		bands: 7,
+		bandWarp: .18,
+		bandRadius: .46,
+		bandCore: .16,
+		bandContrast: .1,
+		fiberColumns: 220,
+		fiberRows: 9,
+		fiberContrast: .1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -21526,7 +21559,8 @@ var proceduralTileMeters = Object.freeze({
 	kilimdiamonds: .32,
 	popcornceiling: .25,
 	forgedcarbon: .2,
-	woodenpalletdeck: .4
+	woodenpalletdeck: .4,
+	honduranmahogany: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

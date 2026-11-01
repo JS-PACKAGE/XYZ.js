@@ -12269,6 +12269,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         nailRoughness: -0.35;
         grainRoughness: 0.08;
     }>;
+    honduranmahogany: Readonly<{
+        dark: readonly [88, 42, 22];
+        light: readonly [196, 112, 66];
+        roughness: 0.42;
+        relief: 0.0015;
+        columns: 56;
+        rows: 18;
+        widthMinimum: 0.03;
+        widthVariation: 0.02;
+        lengthMinimum: 0.05;
+        lengthVariation: 0.08;
+        poreChance: 0.18;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.06;
+        bands: 7;
+        bandWarp: 0.18;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.1;
+        fiberColumns: 220;
+        fiberRows: 9;
+        fiberContrast: 0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13549,4 +13574,5 @@ export declare const proceduralTileMeters: Readonly<{
     popcornceiling: 0.25;
     forgedcarbon: 0.2;
     woodenpalletdeck: 0.4;
+    honduranmahogany: 0.18;
 }>;

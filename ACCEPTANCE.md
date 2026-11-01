@@ -11557,3 +11557,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`pallet`：三seed逐板縫／板面／釘頭計數、板色調與seed差異、含板緣與釘頭掃描的C1及帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（9.30s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "pallet|Pallet|woodenpalletdeck|kinds|catalog|distinct|periodic"`定向測試，**2097項通過／3516項未選**。
 - 撰文時曾把cache合計寫成26,201（漏算每板表12個），提交前已更正為26,213／209,704 B。本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：宏都拉斯桃花心木縱向面（honduranmahogany）
+
+- 目錄901→902，含plain的gallery為903項。近似Swietenia macrophylla未塗裝縱向木面：偏深紅褐色、中等均勻質地、7條寬而幾乎筆直的低對比緞帶狀條紋與極稀疏短小開放導管凹點。外觀依據實際閱讀的[Wood Database Honduran Mahogany](https://www.wood-database.com/honduran-mahogany/)、先前實讀的Wood Database Black Walnut中「徑切面mahogany通常有ribbon紋」一句，以及實看的[木面照片](https://www.wood-database.com/wp-content/uploads/swietenia-macrophylla-alt.jpg)；僅作配色與紋理形態參考，不重現照片底部巢狀年輪、chatoyancy、新切淺粉褐、經年變深或交錯／波浪紋。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`blackcherry`、`teak`同路徑），constructor只選新preset；導管pose表32,256 B，總lattice預算22,408 Float64／179,264 B。預設0.18 m tile、0.0015 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.145–0.197%，本體色0.255–0.459，橫／縱色差比9.28–10.34，roughness 0.420–0.523，高度0.440–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(128,68,38)，導管占0.156%，法線max tilt²約0.0008。以Bun產生512 seed7的2×2排列圖並實看：均勻紅褐面與筆直寬緞帶條紋、極稀疏小點。
+- 新增4項永久測試（`Honduran`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.91s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Honduran|honduranmahogany|kinds|catalog|distinct|periodic"`定向測試，**2099項通過／3521項未選**。
+- 補記：凍結worktree在popcornceiling commit（1603438bf）實跑完整suite，**179檔／9,528項全部通過（1234.90s，v26.7.0）**；該結果涵蓋當時HEAD（含kilimdiamonds與popcornceiling），不涵蓋其後forgedcarbon、woodenpalletdeck與本honduranmahogany。本功能未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
