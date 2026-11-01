@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`popcornceiling`（爆米花／吸音天花板噴塗）使目前目錄898→899種，含plain的gallery為900項。20×20格、每格一個隨機偏移、半徑與高度各異的圓形顆粒（半徑0.55–0.85格）以`1 − Π(1 − 顆粒)`軟合併，形成起伏不規則的顆粒團，顆粒間為較低且被遮蔽的谷（AO約0.55）；偏白微暖，帶細斑點grain，粗糙度高。沒有水漬、剝落、刮平區、纖維（石棉）或接縫。
+
+概念依據實際閱讀的[Wikipedia「Popcorn ceiling」](https://en.wikipedia.org/wiki/Popcorn_ceiling)導言：噴塗或刷塗的凹凸天花板處理，凹凸由微小蛭石或聚苯乙烯顆粒形成，有細、中、粗等級。該條目未提供顆粒尺寸或色彩，故顆粒半徑、高度、色調、roughness與0.25 m tile皆作者設定；材質只描述外觀，不含也不暗示任何材料成分（包含早期配方可能含石棉的歷史說明）。
+
+新增專用sampler：constructor填20×20格的顆粒表（中心x／y、1/半徑²、高度，共1,600 Float64／12,800 B），取樣時計算周圍3×3格顆粒的smoothstep圓帽並以`1 − Π(1 − b)`合併，故C1且有界；半徑與偏移使每顆粒不會超出被搜尋的3×3格，tile則以格索引取模週期。另有160² grain（共25,600 + 1,600 = 27,200 Float64／217,600 B lattice算術預算，非總RAM）。金屬factor為0、無mortar；預設0.25 m nominal tile、0.006 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）、256²取樣：高度0.100–0.918 relief、高度>0.6占53.0–54.0%、<0.3占17.5–18.2%、AO 0.55–1、color 0.516–0.962、roughness 0.895–0.945，橫／縱高度變化比0.978–1.005（各向同性）；seed 0與1的平均高度差0.243 relief。seed7的512²中r平均231、範圍210–247，AO<180占22.9%，法線max tilt²約0.148。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `kilimdiamonds`（kilim風格階梯菱形平織）使目前目錄897→898種，含plain的gallery為899項。64×64個緯線格組成的平織場：每個16格的方塊中心與四角各有一個同心階梯菱形，菱形由四個寬2格的環（深褐／奶白／中間灰褐／奶白，角上菱形的色調順序對調）構成；每列有微小的色調差異，每格有一道橫向緯線凸脊與細纖維grain。不是特定地區或部族的圖案，沒有流蘇、邊飾、起絨或斷緯（slit）幾何。
 
 概念依據實際閱讀的[Wikipedia「Kilim」](https://en.wikipedia.org/wiki/Kilim)：kilim是傳統上產於波斯帝國舊地、土耳其與巴爾幹等地的平織（tapestry-woven）地毯。該條目導言未提供具體紋樣或尺寸，因此階梯菱形的圖案、環寬、色調、roughness與0.32 m tile皆為作者設定，**沒有**引用特定來源的紋樣照片或實物，不宣稱忠實再現任何傳統紋樣。

@@ -37131,6 +37131,57 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'popcornceiling': {
+        const p = proceduralMaterialPresets.popcornceiling,
+          // Four values per cell: centre x, centre y (cell units), 1/radius^2, height.
+          lumps = new Float64Array(p.cells * p.cells * 4),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2c101);
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = (row * p.cells + col) * 4,
+              radius =
+                p.radiusMinimum +
+                p.radiusVariation * hash(col, row, seed ^ 0x2c103);
+            lumps[i] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2c105) - 1);
+            lumps[i + 1] =
+              0.5 + p.jitter * (2 * hash(col, row, seed ^ 0x2c107) - 1);
+            lumps[i + 2] = 1 / (radius * radius);
+            lumps[i + 3] =
+              p.heightMinimum +
+              p.heightVariation * hash(col, row, seed ^ 0x2c109);
+          }
+        return () => {
+          // Lumps are smoothstep caps combined as 1 - prod(1 - lump): overlapping
+          // lumps merge softly and stay C1. Radius + jitter keeps every lump within
+          // the 3x3 cells searched.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let open = 1;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const i =
+                  (((row + oy + p.cells) % p.cells) * p.cells +
+                    ((col + ox + p.cells) % p.cells)) *
+                  4,
+                dx = x - (col + ox + lumps[i]),
+                dy = y - (row + oy + lumps[i + 1]);
+              open *=
+                1 -
+                lumps[i + 3] *
+                  smooth(clamp(1 - (dx * dx + dy * dy) * lumps[i + 2]));
+            }
+          const lump = 1 - open,
+            grain = grainField(u, v);
+          color = p.baseTone + p.peakTone * lump + p.grainTone * (grain - 0.5);
+          height = p.baseHeight + p.peakHeight * lump + p.grainHeight * grain;
+          roughness += p.grainRoughness * (grain - 0.5);
+          occlusion = 1 - p.valleyOcclusion * (1 - lump);
+          return;
+        };
+      }
       case 'kilimdiamonds': {
         const p = proceduralMaterialPresets.kilimdiamonds,
           tones = new Float64Array(p.grid * p.grid),
@@ -44515,6 +44566,7 @@ export function createSurfaceSampler(
     kind === 'blackcherry' ||
     kind === 'teak' ||
     kind === 'kilimdiamonds' ||
+    kind === 'popcornceiling' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

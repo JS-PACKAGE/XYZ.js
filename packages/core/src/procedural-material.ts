@@ -913,7 +913,8 @@ export type ProceduralMaterialKind =
   | 'golfballdimples'
   | 'blackcherry'
   | 'teak'
-  | 'kilimdiamonds';
+  | 'kilimdiamonds'
+  | 'popcornceiling';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2061,6 +2062,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'blackcherry',
   'teak',
   'kilimdiamonds',
+  'popcornceiling',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

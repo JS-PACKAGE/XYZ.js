@@ -940,6 +940,7 @@ const kinds: ProceduralMaterialKind[] = [
   'blackcherry',
   'teak',
   'kilimdiamonds',
+  'popcornceiling',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -136739,5 +136740,194 @@ describe('Flat-woven kilim-style field of concentric stepped lozenges with alter
       }
     }
     expect(drift).toBeLessThan(5e-10);
+  });
+});
+
+describe('Off-white popcorn acoustic ceiling with soft merged lumps, shadowed valleys and fine speckle', () => {
+  const p = proceduralMaterialPresets.popcornceiling;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const heights = (seed: number): Float64Array => {
+    const sample = createSurfaceSampler('popcornceiling', seed),
+      out = empty(),
+      result = new Float64Array(128 * 128);
+    for (let y = 0; y < 128; y++)
+      for (let x = 0; x < 128; x++) {
+        sample((x + 0.5) / 128, (y + 0.5) / 128, out);
+        result[y * 128 + x] = out.height / p.relief;
+      }
+    return result;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'covers about half the area with raised lumps over shadowed valleys, isotropically and without metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('popcornceiling', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let across = 0,
+        along = 0,
+        high = 0,
+        low = 0,
+        minHeight = Infinity,
+        maxHeight = -Infinity,
+        minAO = 1,
+        maxAO = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.height - b.height);
+          along += Math.abs(a.height - c.height);
+          const height = a.height / p.relief;
+          high += Number(height > 0.6);
+          low += Number(height < 0.3);
+          minHeight = Math.min(minHeight, height);
+          maxHeight = Math.max(maxHeight, height);
+          minAO = Math.min(minAO, a.occlusion);
+          maxAO = Math.max(maxAO, a.occlusion);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.roughness < 0.88 ||
+              a.roughness > 0.96 ||
+              a.color < 0.5 ||
+              a.color > 0.97,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(minHeight).toBeLessThan(0.15);
+      expect(maxHeight).toBeGreaterThan(0.85);
+      expect(high / 65536).toBeGreaterThan(0.48);
+      expect(high / 65536).toBeLessThan(0.6);
+      expect(low / 65536).toBeGreaterThan(0.14);
+      expect(low / 65536).toBeLessThan(0.22);
+      expect(minAO).toBeLessThan(0.58);
+      expect(maxAO).toBeGreaterThan(0.999);
+      // Lumps have no preferred direction.
+      expect(across / along).toBeGreaterThan(0.85);
+      expect(across / along).toBeLessThan(1.15);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('places lumps differently for different seeds and identically for the same seed', () => {
+    const first = heights(0),
+      second = heights(1),
+      repeat = heights(0);
+    let difference = 0;
+    for (let i = 0; i < first.length; i++) {
+      difference += Math.abs(first[i] - second[i]);
+      expect(repeat[i]).toBe(first[i]);
+    }
+    expect(difference / first.length).toBeGreaterThan(0.15);
+  });
+  it('keeps merged lump shoulders, valleys and speckle C1 and the tile periodic', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('popcornceiling', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 off-white dielectric maps with shadowed valleys and strong lump normals', () => {
+    const maps = generateProceduralMaps('popcornceiling', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let sum = 0,
+      minimum = 255,
+      shadowed = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      sum += maps.baseColor[i];
+      minimum = Math.min(minimum, maps.baseColor[i]);
+      shadowed += Number(maps.occlusion[i] < 180);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.baseColor[i] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 150,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(sum / (512 * 512)).toBeGreaterThan(215);
+    expect(sum / (512 * 512)).toBeLessThan(245);
+    expect(minimum).toBeGreaterThan(190);
+    expect(shadowed / (512 * 512)).toBeGreaterThan(0.18);
+    expect(shadowed / (512 * 512)).toBeLessThan(0.28);
+    expect(maxTilt).toBeGreaterThan(0.08);
+    expect(maxTilt).toBeLessThan(0.25);
+    expect(invalid).toBe(0);
   });
 });

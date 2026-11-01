@@ -11529,3 +11529,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "kilim|Kilim|kinds|catalog|distinct|periodic"`定向測試，**2090項通過／3502項未選**。
 - 補記（瀏覽器gallery）：在teak之後、本功能之前，以乾淨worktree的Vite dev server＋spawned Google Chrome（headless new）實跑`/examples/pbr3d/`，頁面列出897種preset＋plain（898個選項）；對blackwalnut、douglasfir、longleafpine、chesterfieldleather、westernredcedar、perforatedhardboard、qrcodelabel、laptopkeycaps、golfballdimples、blackcherry、teak共11種，WebGPU與`?renderer=webgl2`兩個backend都逐一以`input`事件選取並等到readout顯示該材質，頁面`errors()`皆為空；並實看WebGPU的chesterfieldleather、qrcodelabel與WebGL2的畫面（5×5球陣列皆顯示對應材質）。這項瀏覽器驗證**不含**本功能kilimdiamonds，也不擴大到Safari、實機、Canvas2D（本來即無3D）或fps／跨backend像素一致性。先前嘗試共用headless瀏覽器時tab被關閉、以及port 5199被另一程序佔用導致看到無新材質的頁面，均已改用獨立profile與埠5391重做，不計入證據。
 - 本功能未重跑完整179檔suite；不push。
+
+## 2026-11-02 程序材質：爆米花／吸音天花板噴塗（popcornceiling）
+
+- 目錄898→899，含plain的gallery為900項。20×20格各一個隨機偏移、半徑（0.55–0.85格）與高度不同的圓形顆粒，以`1−Π(1−顆粒)`軟合併成起伏顆粒團，顆粒間為被遮蔽的低谷（AO約0.55），偏白帶細斑點grain。概念依據實際閱讀的[Wikipedia「Popcorn ceiling」](https://en.wikipedia.org/wiki/Popcorn_ceiling)導言（噴塗／刷塗的凹凸天花板處理、由微小顆粒形成）；顆粒尺寸、高度、色彩與0.25 m tile皆作者設定。只描述外觀，不含也不暗示成分（含條目提到的早期配方可能含石棉的歷史說明），無水漬、剝落、刮平區、纖維或接縫。
+- 專用sampler：constructor填20×20顆粒表（1,600 Float64），取樣合併周圍3×3格顆粒，C1且有界，格索引取模週期；另160² grain，共27,200 Float64／217,600 B。預設0.25 m tile、0.006 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣高度0.100–0.918 relief、>0.6占53.0–54.0%、<0.3占17.5–18.2%、AO 0.55–1、color 0.516–0.962、roughness 0.895–0.945，橫／縱高度變化比0.978–1.005；seed 0與1平均高度差0.243 relief。seed7的512² r平均231（210–247），AO<180占22.9%，法線max tilt²約0.148。以Bun產生512 seed7四圖並實看：互相融合的圓形顆粒團、顆粒間的低谷與法線圖的凹凸，辨識度與爆米花天花板相符。
+- 新增4組永久測試（`popcorn`：三seed高度／AO／各向同性統計、seed差異與同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選8項通過（7.11s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "popcorn|Popcorn|kinds|catalog|distinct|periodic"`定向測試，**2093項通過／3506項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery（上一節的11種gallery驗證不含本功能）；不宣稱跨瀏覽器／backend或效能驗證；不push。
