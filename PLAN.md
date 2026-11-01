@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`sheetmusic`（樂譜）使目前目錄927→928種，含plain的gallery為929項。奶油色紙面上6組五線譜（每組5條連續的細黑譜線，間以小節線：每tile 4條），每組16個音符位置，約八成有一個四分音符（隨機音高0–7個半階、符頭＋符桿，低音符桿朝上、高音符桿朝下），其餘為休止；譜組之間留白。不是真實樂曲或可演奏的音符、譜號、拍號、升降記號、符尾、連結線或歌詞。
+
+此材質是作者依一般樂譜外觀所作示意，沒有引用特定來源文件、照片或量測；譜線間距、符頭大小、音符分布規則、墨與紙的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際樂譜印刷規格，音符也不構成有意義的旋律。
+
+新增專用sampler：每個譜組擁有自己的垂直間距、每個音符位置擁有自己的水平間距，所有標記都嚴格限制在自己的範圍內——五條譜線與小節線用`smooth(1 − d²/w²)`，符頭是`smooth(1 − q)`橢圓，符桿是帶平滑端點的線輪廓，因此墨色在任何擁有權邊界前就歸零，整體為C1；音符表為96項Uint8（0為休止，否則1 + 音高階）；cache合計96 B＋128²紙grain（16,384 Float64／131,072 B）= 131,168 B lattice算術預算（非總RAM）。顏色是顏料，墨線height約0.7 relief＋紙grain 0.3 relief；金屬factor為0、無mortar、AO 1。預設0.25 m nominal tile與0.0012 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）量測：512²取樣color<0.5的墨色占7.12–7.17%、color 0.031–0.960、平均約0.881、roughness 0.72到0.82、高度最高0.99 relief；每組5條譜線沿40個u取樣的最大color 0.069；譜組間留白位置的最小color 0.921；每個音符位置在「間」的高度上至多1個符頭，三seed共288個位置中有0.396在「間」上有符頭；seed 0與1的墨色遮罩有2.97%像素不同；seed7的512² r／g／b平均約(218,210,191)、r<100占5.5%、法線max tilt²約0.104。我實看了四圖：整齊的五線譜、小節線與帶符桿的音符。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `buffaloplaid`（水牛格紋）使目前目錄926→927種，含plain的gallery為928項。紅布上橫向與縱向各4條寬條紋（相位為整數，隨tile wrap），單一方向的條紋使布面變成暗紅，兩方向重疊處最暗近黑，形成經典的紅黑大格；布面帶斜向2/2斜紋脊（96條）與逐紗線的雜訊。不是真實織紋結構、每條紗線的幾何、縫線、毛邊或褪色。
 
 此材質是作者依一般水牛格紋（buffalo plaid）襯衫布外觀所作示意，沒有引用特定來源文件、照片或量測；格數、條紋柔邊、斜紋線數、紅與近黑的色調、roughness與0.25 m nominal tile皆作者設定，不宣稱符合任何實際織物規格或配色。

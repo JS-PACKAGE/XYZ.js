@@ -11820,3 +11820,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增5項永久測試（`Buffalo plaid`：三seed四種格區的平均色／roughness／AO、三seed整體範圍、seed只改紗線雜訊、含格緣／斜紋／紗線格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選10項通過（6.22s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Buffalo plaid|buffaloplaid|kinds|catalog|distinct|periodic"`定向測試，**2143項通過／3658項未選**。
 - 本功能未重跑完整179檔suite（amberbubbles commit的完整suite仍在凍結worktree執行，結果另記）、未開瀏覽器gallery（jarrah與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：樂譜（sheetmusic）
+
+- 目錄927→928，含plain的gallery為929項。奶油色紙面上6組五線譜（每組5條連續細黑譜線，每tile 4條小節線），每組16個音符位置、約八成有一個隨機音高（0–7個半階）的四分音符（符頭＋符桿，低音符桿朝上、高音符桿朝下），其餘為休止，譜組間留白。這是作者依一般樂譜外觀所作示意，**沒有**引用特定來源，不宣稱符合任何刻版規格，音符不構成旋律，也不含譜號、拍號、升降記號、符尾、連結線或歌詞。
+- 專用sampler：每個譜組擁有自己的垂直間距、每個音符位置擁有自己的水平間距，所有標記嚴格限制在自己的範圍內（譜線／小節線`smooth(1−d²/w²)`、符頭`smooth(1−q)`橢圓、符桿帶平滑端點），墨色在任何擁有權邊界前歸零，C1；音符表96項Uint8＋128² grain（16,384 Float64）共131,168 B。預設0.25 m tile、0.0012 UV-relative relief（非公尺位移）、metallic factor0、AO 1；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）512²取樣墨色（color<0.5）占7.12–7.17%、color 0.031–0.960、平均約0.881、roughness 0.72到0.82、高度最高0.99 relief；每組五條譜線沿40個u取樣的最大color 0.069；譜組間留白位置的最小color 0.921；每個音符位置在「間」的高度上至多1個符頭，三seed共288個位置中有0.396在「間」上有符頭；seed 0與1的墨色遮罩有2.97%像素不同；seed7的512² r／g／b平均約(218,210,191)、r<100占5.5%、法線max tilt²約0.104。以Bun產生512 seed7四圖並實看：整齊的五線譜、小節線與帶符桿的音符；法線圖在譜線與音符處有細微凸起。
+- 新增5項永久測試（`Sheet music`：三seed五線連續／小節線／留白帶、整體墨色比例與範圍、每位置至多一個符頭與seed差異、含譜線／音符／格線的C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選10項通過（9.41s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試，**2145項通過／3666項未選**。
+- 補記（完整suite）：在凍結worktree於amberbubbles commit `cdff89719`實跑完整`vitest run`，**179檔／9,713項全部通過**（1092.71s，wall約18.2分）；該commit之後的jarrah、buffaloplaid與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
+- 未開瀏覽器gallery（jarrah、buffaloplaid與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

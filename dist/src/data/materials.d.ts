@@ -12879,6 +12879,36 @@ export declare const proceduralMaterialPresets: Readonly<{
         overlapRoughness: 0.04;
         stripeOcclusion: 0.12;
     }>;
+    sheetmusic: Readonly<{
+        dark: readonly [28, 24, 22];
+        light: readonly [244, 236, 214];
+        roughness: 0.82;
+        relief: 0.0012;
+        staves: 6;
+        slots: 16;
+        barsPerTile: 4;
+        seedSalt: 24295;
+        staffBottom: 0.035;
+        lineSpacing: 0.022;
+        lineWidth: 0.0011;
+        barWidth: 0.0014;
+        stepHeight: 0.011;
+        steps: 8;
+        notePresence: 0.8;
+        headRadiusU: 0.0125;
+        headRadiusV: 0.0085;
+        stemWidth: 0.0016;
+        stemLength: 0.045;
+        stemSide: 0.0105;
+        stemRamp: 0.003;
+        grainCells: 128;
+        paperTone: 0.94;
+        inkTone: 0.05;
+        grainTone: 0.04;
+        inkHeight: 0.7;
+        grainHeight: 0.3;
+        inkRoughness: -0.1;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -14185,4 +14215,5 @@ export declare const proceduralTileMeters: Readonly<{
     amberbubbles: 0.12;
     jarrah: 0.18;
     buffaloplaid: 0.25;
+    sheetmusic: 0.25;
 }>;

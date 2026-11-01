@@ -38063,6 +38063,90 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'sheetmusic': {
+        const p = proceduralMaterialPresets.sheetmusic,
+          grainField = cachedNoise(
+            p.grainCells,
+            p.grainCells,
+            seed ^ (p.seedSalt + 1),
+          ),
+          notes = new Uint8Array(p.staves * p.slots),
+          pitch = 1 / p.staves,
+          slotWidth = 1 / p.slots,
+          inverseLine2 = 1 / (p.lineWidth * p.lineWidth),
+          inverseBar2 = 1 / (p.barWidth * p.barWidth),
+          inverseStem2 = 1 / (p.stemWidth * p.stemWidth);
+        // Per staff and slot: 0 for a rest, otherwise 1 + the pitch step (0 is the
+        // bottom line) of a quarter note. Steps stay inside the staff pitch, so a
+        // note never reaches into the neighbouring staff.
+        for (let staff = 0; staff < p.staves; staff++)
+          for (let slot = 0; slot < p.slots; slot++) {
+            const salt = seed ^ p.seedSalt;
+            notes[staff * p.slots + slot] =
+              hash(slot, staff * 4, salt) < p.notePresence
+                ? 1 + Math.floor(p.steps * hash(slot, staff * 4 + 1, salt))
+                : 0;
+          }
+        return () => {
+          // One tile is six staves of five lines. Each staff owns its vertical pitch
+          // and each slot its horizontal slot, with every mark kept strictly inside:
+          // five ruled lines and bar lines use smooth(1 - d^2 / w^2), note heads are
+          // smooth(1 - q) ellipses and stems are a line profile with smooth ends, so
+          // ink is C1 and zero before any ownership boundary.
+          const staff = Math.min(p.staves - 1, Math.floor(fract(v) * p.staves)),
+            offset = fract(v) * p.staves * pitch - staff * pitch,
+            slot = Math.min(p.slots - 1, Math.floor(fract(u) * p.slots)),
+            inSlot = fract(u) - slot * slotWidth - slotWidth / 2;
+          let ink = 0;
+          // Staff lines
+          for (let k = 0; k < 5; k++) {
+            const d = offset - (p.staffBottom + k * p.lineSpacing);
+            ink = Math.max(ink, smooth(clamp(1 - d * d * inverseLine2)));
+          }
+          // Bar lines every barsPerTile-th of the tile, spanning the five lines.
+          const barPhase = fract(u * p.barsPerTile + 0.5) - 0.5,
+            top = p.staffBottom + 4 * p.lineSpacing,
+            along =
+              smooth(
+                clamp((offset - p.staffBottom + p.stemRamp) / p.stemRamp),
+              ) * smooth(clamp((top + p.stemRamp - offset) / p.stemRamp));
+          ink = Math.max(
+            ink,
+            smooth(clamp(1 - (barPhase / p.barsPerTile) ** 2 * inverseBar2)) *
+              along,
+          );
+          const note = notes[staff * p.slots + slot];
+          if (note > 0) {
+            const step = note - 1,
+              headV = p.staffBottom + step * p.stepHeight,
+              dy = offset - headV,
+              hx = inSlot / p.headRadiusU,
+              hy = dy / p.headRadiusV;
+            ink = Math.max(ink, smooth(clamp(1 - hx * hx - hy * hy)));
+            // Stem: on the right going up for low heads, on the left going down for
+            // high ones.
+            const up = step < p.steps / 2,
+              side = up ? p.stemSide : -p.stemSide,
+              reach = up ? dy : -dy,
+              sx = inSlot - side,
+              span =
+                smooth(clamp(reach / p.stemRamp)) *
+                smooth(clamp((p.stemLength - reach) / p.stemRamp));
+            ink = Math.max(
+              ink,
+              smooth(clamp(1 - sx * sx * inverseStem2)) * span,
+            );
+          }
+          const grain = grainField(u, v);
+          color =
+            p.paperTone +
+            p.grainTone * (grain - 0.5) -
+            (p.paperTone - p.inkTone) * ink;
+          height = p.inkHeight * ink + p.grainHeight * grain;
+          roughness += p.inkRoughness * ink;
+          return;
+        };
+      }
       case 'woodenpalletdeck': {
         const p = proceduralMaterialPresets.woodenpalletdeck,
           tones = new Float64Array(p.boards),
@@ -45678,6 +45762,7 @@ export function createSurfaceSampler(
     kind === 'bubinga' ||
     kind === 'jarrah' ||
     kind === 'buffaloplaid' ||
+    kind === 'sheetmusic' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

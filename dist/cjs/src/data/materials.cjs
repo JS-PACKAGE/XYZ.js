@@ -20999,6 +20999,44 @@ var proceduralMaterialPresets = Object.freeze({
 		overlapRoughness: .04,
 		stripeOcclusion: .12
 	}),
+	sheetmusic: Object.freeze({
+		dark: [
+			28,
+			24,
+			22
+		],
+		light: [
+			244,
+			236,
+			214
+		],
+		roughness: .82,
+		relief: .0012,
+		staves: 6,
+		slots: 16,
+		barsPerTile: 4,
+		seedSalt: 24295,
+		staffBottom: .035,
+		lineSpacing: .022,
+		lineWidth: .0011,
+		barWidth: .0014,
+		stepHeight: .011,
+		steps: 8,
+		notePresence: .8,
+		headRadiusU: .0125,
+		headRadiusV: .0085,
+		stemWidth: .0016,
+		stemLength: .045,
+		stemSide: .0105,
+		stemRamp: .003,
+		grainCells: 128,
+		paperTone: .94,
+		inkTone: .05,
+		grainTone: .04,
+		inkHeight: .7,
+		grainHeight: .3,
+		inkRoughness: -.1
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22423,7 +22461,8 @@ var proceduralTileMeters = Object.freeze({
 	cauliflowercurd: .12,
 	amberbubbles: .12,
 	jarrah: .18,
-	buffaloplaid: .25
+	buffaloplaid: .25,
+	sheetmusic: .25
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;

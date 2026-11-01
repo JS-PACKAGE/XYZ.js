@@ -969,6 +969,7 @@ const kinds: ProceduralMaterialKind[] = [
   'amberbubbles',
   'jarrah',
   'buffaloplaid',
+  'sheetmusic',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -142296,6 +142297,251 @@ describe('Buffalo plaid with wide red and black checks on a twill-woven cloth wi
     expect(bright / (512 * 512)).toBeLessThan(0.26);
     expect(maxTilt).toBeGreaterThan(0.38);
     expect(maxTilt).toBeLessThan(0.55);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Sheet music with ruled five-line staves, bar lines and random quarter notes on cream paper', () => {
+  const p = proceduralMaterialPresets.sheetmusic;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const inkMask = (seed: number): boolean[] => {
+    const sample = createSurfaceSampler('sheetmusic', seed),
+      out = empty(),
+      mask: boolean[] = [];
+    for (let y = 0; y < 512; y++)
+      for (let x = 0; x < 512; x++) {
+        sample((x + 0.5) / 512, (y + 0.5) / 512, out);
+        mask.push(out.color < 0.5);
+      }
+    return mask;
+  };
+  // Heads on a space (odd step) are the only ink at those heights along a slot's centre line.
+  const oddHeads = (
+    seed: number,
+  ): { slots: number; heads: number; most: number } => {
+    const sample = createSurfaceSampler('sheetmusic', seed),
+      out = empty();
+    let heads = 0,
+      most = 0;
+    for (let staff = 0; staff < p.staves; staff++)
+      for (let slot = 0; slot < p.slots; slot++) {
+        let dark = 0;
+        for (let step = 1; step < p.steps; step += 2) {
+          sample(
+            (slot + 0.5) / p.slots,
+            staff / p.staves + p.staffBottom + step * p.stepHeight,
+            out,
+          );
+          dark += Number(out.color < 0.2);
+        }
+        heads += Number(dark > 0);
+        most = Math.max(most, dark);
+      }
+    return { slots: p.staves * p.slots, heads, most };
+  };
+  it.each([0, 1, 0xffffffff])(
+    'rules five continuous dark lines per staff, draws bar lines across them and leaves the margins between staves blank for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sheetmusic', seed),
+        out = empty();
+      for (let staff = 0; staff < p.staves; staff++) {
+        for (let k = 0; k < 5; k++)
+          for (let t = 0; t < 40; t++) {
+            sample(
+              (t + 0.5) / 40,
+              staff / p.staves + p.staffBottom + k * p.lineSpacing,
+              out,
+            );
+            expect(out.color).toBeLessThan(0.1);
+          }
+        for (let bar = 0; bar < p.barsPerTile; bar++)
+          for (const space of [0.5, 1.5, 2.5, 3.5]) {
+            sample(
+              bar / p.barsPerTile,
+              staff / p.staves + p.staffBottom + space * p.lineSpacing,
+              out,
+            );
+            expect(out.color).toBeLessThan(0.15);
+          }
+        for (const offset of [0.01, 0.15, 0.16])
+          for (let t = 0; t < 64; t++) {
+            sample((t + 0.37) / 64, staff / p.staves + offset, out);
+            expect(out.color).toBeGreaterThan(0.88);
+          }
+      }
+    },
+  );
+  it.each([0, 1, 0xffffffff])(
+    'prints ink on about seven percent of cream paper with a bounded height, roughness and range for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('sheetmusic', seed),
+        a = empty();
+      let ink = 0,
+        low = 1,
+        high = 0,
+        roughLow = 1,
+        roughHigh = 0,
+        heightHigh = 0,
+        invalid = 0;
+      for (let y = 0; y < 512; y++)
+        for (let x = 0; x < 512; x++) {
+          sample((x + 0.5) / 512, (y + 0.5) / 512, a);
+          ink += Number(a.color < 0.5);
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          roughLow = Math.min(roughLow, a.roughness);
+          roughHigh = Math.max(roughHigh, a.roughness);
+          heightHigh = Math.max(heightHigh, a.height / p.relief);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              keys.some(
+                (key) => !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+              ),
+          );
+        }
+      expect(ink / 262144).toBeGreaterThan(0.065);
+      expect(ink / 262144).toBeLessThan(0.078);
+      expect(low).toBeGreaterThan(0.02);
+      expect(low).toBeLessThan(0.045);
+      expect(high).toBeGreaterThan(0.95);
+      expect(high).toBeLessThan(0.97);
+      expect(roughLow).toBeCloseTo(p.roughness - 0.1, 3);
+      expect(roughHigh).toBeLessThan(p.roughness + 0.01);
+      expect(heightHigh).toBeGreaterThan(0.9);
+      expect(heightHigh).toBeLessThan(1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('puts at most one note head on a space per slot and about two fifths of slots on a space, differently per seed', () => {
+    let slots = 0,
+      heads = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const result = oddHeads(seed);
+      expect(result.most).toBeLessThanOrEqual(1);
+      slots += result.slots;
+      heads += result.heads;
+    }
+    expect(heads / slots).toBeGreaterThan(0.33);
+    expect(heads / slots).toBeLessThan(0.47);
+    const first = inkMask(0),
+      second = inkMask(1);
+    let different = 0;
+    for (let i = 0; i < first.length; i++)
+      different += Number(first[i] !== second[i]);
+    expect(different / first.length).toBeGreaterThan(0.015);
+    expect(inkMask(0)).toEqual(first);
+  });
+  it('keeps ruled lines, bar lines, note heads, stems and the paper grain C1 and periodic across signed UV periods', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('sheetmusic', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.staves, p.slots, 4 * p.slots, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (const lineOffset of [0, 1, 4])
+        for (let i = 0; i < 4096; i++)
+          check(i / 4096, (p.staffBottom + lineOffset * p.lineSpacing) / 1);
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 cream dielectric maps with about five percent dark ink and shallow normals', () => {
+    const maps = generateProceduralMaps('sheetmusic', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let red = 0,
+      green = 0,
+      blue = 0,
+      ink = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      red += maps.baseColor[i];
+      green += maps.baseColor[i + 1];
+      blue += maps.baseColor[i + 2];
+      ink += Number(maps.baseColor[i] < 100);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== 255 ||
+          maps.baseColor[i] < maps.baseColor[i + 1] ||
+          maps.baseColor[i + 1] < maps.baseColor[i + 2] ||
+          maps.normal[i + 2] < 235,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(red / (512 * 512)).toBeGreaterThan(210);
+    expect(red / (512 * 512)).toBeLessThan(226);
+    expect(green / (512 * 512)).toBeGreaterThan(203);
+    expect(green / (512 * 512)).toBeLessThan(218);
+    expect(blue / (512 * 512)).toBeGreaterThan(183);
+    expect(blue / (512 * 512)).toBeLessThan(199);
+    expect(ink / (512 * 512)).toBeGreaterThan(0.045);
+    expect(ink / (512 * 512)).toBeLessThan(0.065);
+    expect(maxTilt).toBeGreaterThan(0.08);
+    expect(maxTilt).toBeLessThan(0.13);
     expect(invalid).toBe(0);
   });
 });

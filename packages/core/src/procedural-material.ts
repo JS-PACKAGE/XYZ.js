@@ -942,7 +942,8 @@ export type ProceduralMaterialKind =
   | 'cauliflowercurd'
   | 'amberbubbles'
   | 'jarrah'
-  | 'buffaloplaid';
+  | 'buffaloplaid'
+  | 'sheetmusic';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2119,6 +2120,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'amberbubbles',
   'jarrah',
   'buffaloplaid',
+  'sheetmusic',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
