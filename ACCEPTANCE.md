@@ -11695,3 +11695,9 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計記錄：第一版草稿在已揭開／未揭開分支留有無作用的乘零算式（`* 0`），在寫入前已改成乾淨版本；預覽中洪水揭開的區域、數字與凸起按鈕都正確。
 - 實測：`tests/procedural-material-motifs.test.ts`二百四十四項（本材質七項）全過。六個seed（0、7、4294967295、1、2、3）：依高度分出未揭開（凸起）與已揭開（平坦），揭開比例在0.12–0.75之間；以測試端獨立寫出的1–8字型解碼數字，空白＝0；環面上每個值為0的已揭開格，8個鄰格全都已揭開；每個值為n的已揭開格，未揭開鄰格數≥n（地雷只可能在未揭開的格子）；當未揭開鄰格數恰等於n時，這些格必為地雷，記為「確定地雷」，再檢查每個已揭開格周圍的確定地雷數不超過其數字；數字至少出現4種不同值；通道範圍、metallic／mortar 0、wrap與seed差異。這些只是必要條件，沒有驗證唯一可解，也沒有真的解出盤面。`tests/procedural-material.test.ts`以`-t "minesweeperboard|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`minesweeperboard`：option 927個、status為926 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的開啟區域與數字連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：俄羅斯方塊堆疊（tetrisstack）
+
+- 目錄926→927，含plain的gallery為928項。每tile一個16×16方塊井，隨機（雜湊驅動）嘗試放置七種四格方塊（I、O、T、S、Z、J、L）的隨機旋轉，只接受完全在井內且不重疊的放置；每種方塊一個色調（七階亮度）、有斜角高光與深色輪廓，未佔用格為深洞。Metallic／mortar為0，預設tile0.4 m、0.0035 UV-relative relief、metallic factor 0。無重力與消行，非真實遊戲盤面；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 實測：`tests/procedural-material-motifs.test.ts`二百五十一項（本材質七項）全過。六個seed（0、7、4294967295、1、2、3）：格中心色調分出佔用格（占比＞0.4）；以格緣中點是否有輪廓線（顏色高於相鄰格較低中心色的0.6倍視為相連）合併相鄰格，每一組恰好4格；每組的形狀以測試端獨立寫出的七種四格方塊在四個旋轉下的標準形（不含鏡像，故S／Z、J／L視為不同）分類，全數屬於七種之一；同形狀的各組平均色調差＜0.07、不同形狀的色調差＞0.06，每個seed至少出現5種形狀；通道範圍、metallic／mortar 0、wrap與seed差異。這驗證「每塊都是真正的四格方塊且同種同色」，沒有驗證遊戲規則（重力、消行）。`tests/procedural-material.test.ts`以`-t "tetrisstack|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`tetrisstack`：option 928個、status為927 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的方塊、輪廓與深洞。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

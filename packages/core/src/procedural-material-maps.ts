@@ -19630,6 +19630,129 @@ export function createSurfaceSampler(
           }
         };
       }
+      case 'tetrisstack': {
+        const p = proceduralMaterialPresets.tetrisstack,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26901),
+          n = p.cells,
+          // The seven tetrominoes (I, O, T, S, Z, J, L) as [x, y] cells.
+          shapes = [
+            [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [3, 0],
+            ],
+            [
+              [0, 0],
+              [1, 0],
+              [0, 1],
+              [1, 1],
+            ],
+            [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+              [1, 1],
+            ],
+            [
+              [1, 0],
+              [2, 0],
+              [0, 1],
+              [1, 1],
+            ],
+            [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [2, 1],
+            ],
+            [
+              [0, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+            ],
+            [
+              [2, 0],
+              [0, 1],
+              [1, 1],
+              [2, 1],
+            ],
+          ],
+          type = new Int8Array(n * n).fill(-1),
+          piece = new Int16Array(n * n).fill(-1),
+          inverseSoft = 1 / p.edgeSoft;
+        let placed = 0;
+        for (let attempt = 0; attempt < p.attempts; attempt++) {
+          const kind = Math.min(
+              6,
+              Math.floor(hash(attempt, 1, seed ^ 0x26903) * 7),
+            ),
+            turns = Math.min(
+              3,
+              Math.floor(hash(attempt, 2, seed ^ 0x26905) * 4),
+            ),
+            ox = Math.floor(hash(attempt, 3, seed ^ 0x26907) * n),
+            oy = Math.floor(hash(attempt, 4, seed ^ 0x26909) * n);
+          // Rotate the shape by quarter turns, then shift its bounding box to the origin.
+          let cells = shapes[kind].map(([x, y]) => [x, y]);
+          for (let t = 0; t < turns; t++)
+            cells = cells.map(([x, y]) => [-y, x]);
+          const minX = Math.min(...cells.map((c) => c[0])),
+            minY = Math.min(...cells.map((c) => c[1]));
+          cells = cells.map(([x, y]) => [x - minX + ox, y - minY + oy]);
+          if (cells.some(([x, y]) => x >= n || y >= n || type[y * n + x] >= 0))
+            continue;
+          for (const [x, y] of cells) {
+            type[y * n + x] = kind;
+            piece[y * n + x] = placed;
+          }
+          placed++;
+        }
+        const pieceAt = (x: number, y: number): number =>
+          x < 0 || y < 0 || x >= n || y >= n ? -2 : piece[y * n + x];
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            col = Math.min(n - 1, Math.floor(gx)),
+            row = Math.min(n - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            id = piece[row * n + col],
+            grain = grainField(u, v) - 0.5;
+          if (id < 0) {
+            color = clamp(p.emptyTone + p.grainTone * grain);
+            height = p.emptyHeight;
+            roughness = p.emptyRoughness;
+            occlusion = p.emptyAO;
+            return;
+          }
+          // Distance to each cell edge, and whether the neighbor across it belongs to the same piece.
+          const toLeft = pieceAt(col - 1, row) === id ? 1 : fx,
+            toRight = pieceAt(col + 1, row) === id ? 1 : 1 - fx,
+            toTop = pieceAt(col, row - 1) === id ? 1 : fy,
+            toBottom = pieceAt(col, row + 1) === id ? 1 : 1 - fy,
+            edge = Math.min(toLeft, toRight, toTop, toBottom),
+            line = 1 - smooth(clamp((edge - p.pieceEdge) * inverseSoft + 0.5)),
+            bevel = 1 - smooth(clamp((edge - p.bevel) * inverseSoft + 0.5)),
+            shine = smooth(
+              clamp(
+                1 - Math.sqrt((fx - 0.3) ** 2 + (fy - 0.3) ** 2) / p.shineWidth,
+              ),
+            );
+          color = clamp(
+            p.tones[type[row * n + col]] +
+              p.grainTone * grain +
+              p.bevelTone * (shine - bevel * 0.5) -
+              (p.tones[type[row * n + col]] - p.emptyTone) * line * 0.9,
+          );
+          height = clamp(
+            p.pieceHeight - p.bevelDrop * bevel - p.edgeDrop * line,
+          );
+          roughness = p.pieceRoughness;
+          occlusion = clamp(1 - (1 - p.edgeAO) * line);
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47159,6 +47282,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tetrisstack' ||
     kind === 'minesweeperboard' ||
     kind === 'flipdotdisplay' ||
     kind === 'crosswordgrid' ||

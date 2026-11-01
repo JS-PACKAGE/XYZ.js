@@ -7606,6 +7606,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         raisedRoughness: 0.5;
         revealedRoughness: 0.7;
     }>;
+    tetrisstack: Readonly<{
+        dark: readonly [12, 12, 20];
+        light: readonly [236, 236, 244];
+        roughness: 0.4;
+        relief: 0.0035;
+        cells: 16;
+        attempts: 900;
+        tones: readonly [0.9, 0.78, 0.66, 0.54, 0.42, 0.3, 0.2];
+        emptyTone: 0.03;
+        bevel: 0.14;
+        pieceEdge: 0.045;
+        edgeSoft: 0.03;
+        shineWidth: 0.35;
+        grainCells: 192;
+        grainTone: 0.03;
+        bevelTone: 0.12;
+        pieceHeight: 0.66;
+        emptyHeight: 0.1;
+        bevelDrop: 0.12;
+        edgeDrop: 0.3;
+        pieceRoughness: 0.36;
+        emptyRoughness: 0.9;
+        emptyAO: 0.5;
+        edgeAO: 0.55;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14091,6 +14116,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    tetrisstack: 0.4;
     minesweeperboard: 0.4;
     flipdotdisplay: 0.5;
     crosswordgrid: 0.3;

@@ -1259,6 +1259,10 @@
 
 這是作者設計的示意：盤面沒有旗標、問號、爆炸的地雷或數字顏色（顏色是亮度而非色相）；未揭開區域底下的地雷位置固定但看不見，所以畫面只保證「必要條件」的一致性（見ACCEPTANCE），不保證唯一可解。因為相鄰關係在tile邊界環繞，這不是標準的有邊界踩地雷盤面。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓每格約43 px；512時約21 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tetrisstack`（俄羅斯方塊堆疊）使目前目錄926→927種，含plain的gallery為928項。每tile一個16×16的方塊井：依seed隨機嘗試放置七種四格方塊（I、O、T、S、Z、J、L）的隨機旋轉，只接受完全在井內且不重疊的放置，所以每個方塊恰好4格；七種方塊各用一個色調（0.9–0.2的七階亮度）、每格有斜角與高光，不同方塊之間有深色輪廓線（相同種類相鄰的兩個方塊也被輪廓分開），未被佔用的格子是近黑色的深洞。Metallic與mortar為0。
+
+這是作者設計的示意：不是實際遊戲盤面——沒有重力、消行、下落、遊戲規則，也沒有保證「可由遊戲自然堆疊出來」，只是隨機的非重疊放置；色調是亮度而非遊戲的標準色相。tile邊緣的方塊不會跨越邊界，所以重複時相鄰tile的方塊只是並排。預設0.4 m nominal tile、0.0035 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約32 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

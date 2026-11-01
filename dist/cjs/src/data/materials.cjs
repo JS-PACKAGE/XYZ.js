@@ -13637,6 +13637,47 @@ var proceduralMaterialPresets = Object.freeze({
 		raisedRoughness: .5,
 		revealedRoughness: .7
 	}),
+	tetrisstack: Object.freeze({
+		dark: [
+			12,
+			12,
+			20
+		],
+		light: [
+			236,
+			236,
+			244
+		],
+		roughness: .4,
+		relief: .0035,
+		cells: 16,
+		attempts: 900,
+		tones: [
+			.9,
+			.78,
+			.66,
+			.54,
+			.42,
+			.3,
+			.2
+		],
+		emptyTone: .03,
+		bevel: .14,
+		pieceEdge: .045,
+		edgeSoft: .03,
+		shineWidth: .35,
+		grainCells: 192,
+		grainTone: .03,
+		bevelTone: .12,
+		pieceHeight: .66,
+		emptyHeight: .1,
+		bevelDrop: .12,
+		edgeDrop: .3,
+		pieceRoughness: .36,
+		emptyRoughness: .9,
+		emptyAO: .5,
+		edgeAO: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22318,6 +22359,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	tetrisstack: .4,
 	minesweeperboard: .4,
 	flipdotdisplay: .5,
 	crosswordgrid: .3,

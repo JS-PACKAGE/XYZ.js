@@ -5387,3 +5387,202 @@ describe('minesweeperboard: opened cells whose digits are consistent with hidden
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tetrisstack: pieces that are real tetrominoes with one tone per kind', () => {
+  const p = proceduralMaterialPresets.tetrisstack;
+  const n = p.cells;
+  // Canonical form of a cell set under the four quarter-turn rotations (reflections are different pieces).
+  const canonical = (cells: [number, number][]): string => {
+    let best = '';
+    let current = cells;
+    for (let turn = 0; turn < 4; turn++) {
+      current = current.map(([x, y]) => [-y, x] as [number, number]);
+      const minX = Math.min(...current.map((c) => c[0])),
+        minY = Math.min(...current.map((c) => c[1])),
+        key = current
+          .map(([x, y]) => `${x - minX},${y - minY}`)
+          .sort()
+          .join(';');
+      if (best === '' || key < best) best = key;
+    }
+    return best;
+  };
+  // The seven tetrominoes, written out independently of the sampler.
+  const known = new Map<string, string>(
+    (
+      [
+        [
+          'I',
+          [
+            [0, 0],
+            [1, 0],
+            [2, 0],
+            [3, 0],
+          ],
+        ],
+        [
+          'O',
+          [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [1, 1],
+          ],
+        ],
+        [
+          'T',
+          [
+            [0, 0],
+            [1, 0],
+            [2, 0],
+            [1, 1],
+          ],
+        ],
+        [
+          'S',
+          [
+            [1, 0],
+            [2, 0],
+            [0, 1],
+            [1, 1],
+          ],
+        ],
+        [
+          'Z',
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [2, 1],
+          ],
+        ],
+        [
+          'J',
+          [
+            [0, 0],
+            [0, 1],
+            [1, 1],
+            [2, 1],
+          ],
+        ],
+        [
+          'L',
+          [
+            [2, 0],
+            [0, 1],
+            [1, 1],
+            [2, 1],
+          ],
+        ],
+      ] as [string, [number, number][]][]
+    ).map(([name, cells]) => [canonical(cells), name]),
+  );
+
+  it.each([...seeds, 1, 2, 3])(
+    'separates the stack into four-cell pieces of the seven tetromino shapes, each shape in its own tone (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('tetrisstack', seed),
+        out = empty(),
+        center: number[] = [],
+        at = (u: number, v: number): number => {
+          sample(u, v, out);
+          return out.color;
+        };
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++)
+          center.push(at((col + 0.5) / n, (row + 0.5) / n));
+      const occupied = center.map((c) => c > 0.12);
+      expect(occupied.filter(Boolean).length / (n * n)).toBeGreaterThan(0.4);
+      // Join neighboring cells when the edge between them is unbroken (no outline).
+      const parent = Array.from({ length: n * n }, (_, i) => i);
+      const find = (i: number): number =>
+        parent[i] === i ? i : (parent[i] = find(parent[i]));
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const a = row * n + col;
+          if (!occupied[a]) continue;
+          for (const [dx, dy] of [
+            [1, 0],
+            [0, 1],
+          ]) {
+            const x = col + dx,
+              y = row + dy;
+            if (x >= n || y >= n) continue;
+            const b = y * n + x;
+            if (!occupied[b]) continue;
+            const edge = at(
+              (col + 0.5 + dx * 0.5) / n,
+              (row + 0.5 + dy * 0.5) / n,
+            );
+            if (edge > 0.6 * Math.min(center[a], center[b]))
+              parent[find(a)] = find(b);
+          }
+        }
+      const groups = new Map<number, number[]>();
+      for (let i = 0; i < n * n; i++)
+        if (occupied[i])
+          groups.set(find(i), [...(groups.get(find(i)) ?? []), i]);
+      const toneOf = new Map<string, number[]>();
+      for (const members of groups.values()) {
+        expect(members.length).toBe(4);
+        const shape = known.get(
+          canonical(
+            members.map((i) => [i % n, Math.floor(i / n)] as [number, number]),
+          ),
+        );
+        expect(shape).toBeDefined();
+        const mean = members.reduce((sum, i) => sum + center[i], 0) / 4;
+        toneOf.set(shape as string, [
+          ...(toneOf.get(shape as string) ?? []),
+          mean,
+        ]);
+      }
+      // One tone per shape and distinct tones across shapes.
+      const means: number[] = [];
+      for (const tones of toneOf.values()) {
+        expect(Math.max(...tones) - Math.min(...tones)).toBeLessThan(0.07);
+        means.push(tones.reduce((a, b) => a + b, 0) / tones.length);
+      }
+      means.sort((a, b) => a - b);
+      for (let i = 1; i < means.length; i++)
+        expect(means[i] - means[i - 1]).toBeGreaterThan(0.06);
+      expect(toneOf.size).toBeGreaterThanOrEqual(5);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tetrisstack', 0),
+      b = createSurfaceSampler('tetrisstack', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
