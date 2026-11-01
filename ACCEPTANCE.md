@@ -11586,3 +11586,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`Monitor-lizard`：三seed逐鱗頂／溝幾何、每鱗色調／seed差異／橫向色帶明暗差、含列縫與wrap的C1及帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過（7.23s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Monitor-lizard|monitorlizardskin|kinds|catalog|distinct|periodic"`定向測試，**2101項通過／3533項未選**。
 - 補記：本輪原先開發的cane webbing（藤編網眼）在寫完sampler並看了預覽後才發現既有`canewebbing`已存在，故整個捨棄且未提交（以`git checkout`丟棄我自己尚未提交的變更），之後挑新材質前改為先比對既有kind名稱。本功能未重跑完整179檔suite、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：粗皮山胡桃木縱向面（shagbarkhickory）
+
+- 目錄904→905，含plain的gallery為906項。近似Carya ovata未塗裝縱向木面：淡黃褐／淡棕底、中等質地、3條較暖淺褐起伏條紋（近似心／邊材對比的calico感）、縱向纖維與散布短小開放導管凹點。外觀依據實際閱讀的[Wood Database Shagbark Hickory](https://www.wood-database.com/shagbark-hickory/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/shagbark-hickory-400x400.jpg)；僅作配色與紋理形態參考，不重現環孔材早材導管列、真正的心／邊材邊界、交錯／波浪紋或塗層。我先嘗試取得`/hickory/`頁面，回傳的HTML不含樹種資料（解析不到Scientific Name等欄位），之後改用實際含資料的`/shagbark-hickory/`頁。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`blackcherry`、`teak`、`honduranmahogany`同路徑），constructor只選新preset；導管pose表17,920 B，總lattice預算21,036 Float64／168,288 B。預設0.18 m tile、0.002 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.77–0.82%，本體色0.254–0.728，橫／縱色差比11.89–12.2，roughness 0.520–0.624，高度0.440–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(195,158,111)，導管占0.78%，法線max tilt²約0.0015。以Bun產生512 seed7的2×2排列圖並實看：淡黃褐面、三條較暖的起伏條紋與散布短導管點。
+- 新增4項永久測試（`Hickory`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.88s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Hickory|shagbarkhickory|kinds|catalog|distinct|periodic"`定向測試，**2103項通過／3538項未選**。
+- 本功能未重跑完整179檔suite（monitorlizardskin commit的完整suite正在凍結worktree執行，結果另記）、未開瀏覽器gallery（monitorlizardskin與本功能均不在先前兩批gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。

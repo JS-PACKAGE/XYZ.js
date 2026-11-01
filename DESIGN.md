@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`shagbarkhickory`（粗皮山胡桃木）使目前目錄904→905種，含plain的gallery為906項。近似Carya ovata未塗裝縱向木面：偏淺的黃褐／淡棕底色、中等質地、3條寬而起伏的較暖淺褐條紋（近似心／邊材交錯的calico感）、細長的縱向纖維紋，以及散布的短小開放導管凹點。不是紅褐心材主導的深色面、環孔材大型早材導管列、交錯／波浪紋、塗層或實際心邊材邊界。
+
+外觀依據實際閱讀的[Wood Database Shagbark Hickory](https://www.wood-database.com/shagbark-hickory/)（Color／Appearance：心材淺到中等棕且帶紅調、邊材較淡的黃褐，心邊材對比的板材被稱為Calico Hickory；Grain／Texture：多直紋、偶有波浪、中等質地；Endgrain：ring-porous，早材導管大到極大且呈單列）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/shagbark-hickory-400x400.jpg)（淡黃褐面、縱向條紋與細孔）；僅作配色與紋理形態參考，不重現環孔材早材導管列或真正的心／邊材邊界，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`blackcherry`、`teak`、`honduranmahogany`同一路徑），constructor只選preset：40×14個導管site（Float64×4共17,920 B pose表）、3條起伏明顯（bandWarp 0.7）且對比中等（bandContrast 0.25）的帶、240×10縱向fiber與128²細grain（含warp共21,036 Float64／168,288 B lattice算術預算，非總RAM）。金屬factor為0；導管凹點是真的height凹陷，縱向色紋只是顏料。預設0.18 m nominal tile與0.002 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.77–0.82%，本體色0.254–0.728，橫／縱色差比11.89–12.2，roughness 0.520–0.624；seed7的512²平均base color約(195,158,111)、導管占0.78%、法線max tilt²約0.0015。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `monitorlizardskin`（巨蜥風格顆粒狀鱗皮）使目前目錄903→904種，含plain的gallery為905項。14欄×16列的六角緊密排列圓形隆起鱗片（奇數列錯半欄），每片有自己的色調（標準差約0.09–0.10）、略亮、較光滑，鱗間是窄而深的暗溝（AO 0.4、color 0.04、roughness 0.7）；4條橫向的深淺色帶沿v方向起伏，整體為橄欖褐色。不是特定物種的鱗片形狀／大小分區、斑點或環紋，沒有腹鱗、背脊或皮褶。
 
 此材質是作者依「巨蜥類粗顆粒鱗皮」的一般印象所作示意，沒有引用特定來源文件、照片或量測；我閱讀的[Wikipedia「Monitor lizard」](https://en.wikipedia.org/wiki/Monitor_lizard)導言只描述屬別、分布與體型，未描述皮膚，所以鱗片尺寸、色調、色帶、roughness、AO與0.14 m nominal tile皆作者設定，不宣稱符合任何實際物種或個體。

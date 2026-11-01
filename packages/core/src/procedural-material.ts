@@ -919,7 +919,8 @@ export type ProceduralMaterialKind =
   | 'woodenpalletdeck'
   | 'honduranmahogany'
   | 'sitkaspruce'
-  | 'monitorlizardskin';
+  | 'monitorlizardskin'
+  | 'shagbarkhickory';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2073,6 +2074,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'honduranmahogany',
   'sitkaspruce',
   'monitorlizardskin',
+  'shagbarkhickory',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

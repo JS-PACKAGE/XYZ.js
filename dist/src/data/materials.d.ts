@@ -12343,6 +12343,31 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.06;
         groutOcclusion: 0.6;
     }>;
+    shagbarkhickory: Readonly<{
+        dark: readonly [150, 108, 64];
+        light: readonly [234, 202, 152];
+        roughness: 0.52;
+        relief: 0.002;
+        columns: 40;
+        rows: 14;
+        widthMinimum: 0.035;
+        widthVariation: 0.03;
+        lengthMinimum: 0.08;
+        lengthVariation: 0.14;
+        poreChance: 0.4;
+        centerMinimum: 0.35;
+        centerRange: 0.3;
+        poreShoulder: 0.5;
+        poreDepth: 0.06;
+        bands: 3;
+        bandWarp: 0.7;
+        bandRadius: 0.46;
+        bandCore: 0.16;
+        bandContrast: 0.25;
+        fiberColumns: 240;
+        fiberRows: 10;
+        fiberContrast: 0.22;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13626,4 +13651,5 @@ export declare const proceduralTileMeters: Readonly<{
     honduranmahogany: 0.18;
     sitkaspruce: 0.12;
     monitorlizardskin: 0.14;
+    shagbarkhickory: 0.18;
 }>;
