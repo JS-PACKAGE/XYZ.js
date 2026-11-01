@@ -9728,3 +9728,206 @@ describe('doubleslitfringes: fringe maxima follow the single-slit envelope', () 
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('fibonaccisquares: squares of side 1, 1, 2, 3, 5, 8, 13 and a spiral through them', () => {
+  const p = proceduralMaterialPresets.fibonaccisquares;
+  const fibonacci = [1, 1, 2, 3, 5, 8, 13];
+  const grid = 1024;
+  const unit = 1 / 24;
+
+  // Tone class of every pixel (-1 for paper, lines and the arc), keeping only pixels whose four
+  // neighbours share the class, so anti-aliased edges (which pass through every tone) are ignored.
+  const classMap = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+  ): Int8Array => {
+    const out = empty(),
+      raw = new Int8Array(grid * grid).fill(-1);
+    for (let y = 0; y < grid; y++)
+      for (let x = 0; x < grid; x++) {
+        sample((x + 0.5) / grid, (y + 0.5) / grid, out);
+        raw[y * grid + x] =
+          out.color < 0.96
+            ? p.tones.findIndex((tone) => Math.abs(tone - out.color) < 0.04)
+            : -1;
+      }
+    const flat = new Int8Array(grid * grid).fill(-1);
+    for (let y = 1; y < grid - 1; y++)
+      for (let x = 1; x < grid - 1; x++) {
+        const k = raw[y * grid + x];
+        if (
+          k >= 0 &&
+          raw[y * grid + x - 1] === k &&
+          raw[y * grid + x + 1] === k &&
+          raw[(y - 1) * grid + x] === k &&
+          raw[(y + 1) * grid + x] === k
+        )
+          flat[y * grid + x] = k;
+      }
+    return flat;
+  };
+  const boxesOf = (
+    flat: Int8Array,
+  ): { x0: number; y0: number; x1: number; y1: number; n: number }[] => {
+    const boxes = fibonacci.map(() => ({
+      x0: Infinity,
+      y0: Infinity,
+      x1: -Infinity,
+      y1: -Infinity,
+      n: 0,
+    }));
+    for (let y = 0; y < grid; y++)
+      for (let x = 0; x < grid; x++) {
+        const k = flat[y * grid + x];
+        if (k < 0) continue;
+        const b = boxes[k];
+        b.x0 = Math.min(b.x0, (x + 0.5) / grid);
+        b.y0 = Math.min(b.y0, (y + 0.5) / grid);
+        b.x1 = Math.max(b.x1, (x + 0.5) / grid);
+        b.y1 = Math.max(b.y1, (y + 0.5) / grid);
+        b.n++;
+      }
+    return boxes;
+  };
+
+  it.each(seeds)(
+    'draws squares of Fibonacci sides in a golden rectangle (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fibonaccisquares', seed),
+        out = empty(),
+        boxes = boxesOf(classMap(sample));
+      let x0 = Infinity,
+        y0 = Infinity,
+        x1 = -Infinity,
+        y1 = -Infinity;
+      for (let y = 0; y < grid; y++)
+        for (let x = 0; x < grid; x++) {
+          sample((x + 0.5) / grid, (y + 0.5) / grid, out);
+          // Anything darker than the paper belongs to the drawing (a square, a line or the arc).
+          if (out.color < 0.96) {
+            x0 = Math.min(x0, (x + 0.5) / grid);
+            y0 = Math.min(y0, (y + 0.5) / grid);
+            x1 = Math.max(x1, (x + 0.5) / grid);
+            y1 = Math.max(y1, (y + 0.5) / grid);
+          }
+        }
+      // The whole figure is a rectangle of 13 x 21 units (sides in the golden ratio, 21/13 = 1.615).
+      expect(Math.abs((y1 - y0) / (x1 - x0) - 21 / 13)).toBeLessThan(0.03);
+      expect(Math.abs((x1 - x0) / unit - 13)).toBeLessThan(0.3);
+      // Each tone fills a square; its side, once the border lines are added back, is a Fibonacci number.
+      boxes.forEach((b, k) => {
+        expect(b.n).toBeGreaterThan(100);
+        expect(
+          Math.abs((b.x1 - b.x0 + 2 * p.lineHalf) / unit - fibonacci[k]),
+        ).toBeLessThan(0.25);
+        expect(
+          Math.abs((b.y1 - b.y0 + 2 * p.lineHalf) / unit - fibonacci[k]),
+        ).toBeLessThan(0.25);
+      });
+      // The squares fill the rectangle exactly: 1 + 1 + 4 + 9 + 25 + 64 + 169 = 13 * 21.
+      expect(fibonacci.reduce((total, side) => total + side * side, 0)).toBe(
+        13 * 21,
+      );
+    },
+  );
+
+  it.each(seeds)(
+    'joins quarter circles tangentially into one spiral (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('fibonaccisquares', seed),
+        out = empty(),
+        boxes = boxesOf(classMap(sample)),
+        centres: [number, number][] = [],
+        ends: [number, number][][] = [];
+      for (let k = 0; k < 7; k++) {
+        const side = fibonacci[k] * unit,
+          left = boxes[k].x0 - p.lineHalf,
+          top = boxes[k].y0 - p.lineHalf,
+          corners: [number, number][] = [
+            [left, top],
+            [left + side, top],
+            [left + side, top + side],
+            [left, top + side],
+          ];
+        // The centre is the one corner around which the quarter circle of radius = side is dark.
+        const hits = corners.filter(([cx, cy], index) => {
+          const towardX = index === 0 || index === 3 ? 1 : -1,
+            towardY = index === 0 || index === 1 ? 1 : -1,
+            samples = 40;
+          let dark = 0;
+          for (let i = 1; i < samples; i++) {
+            const angle = ((i / samples) * Math.PI) / 2;
+            sample(
+              cx + towardX * side * Math.cos(angle) * 0.998,
+              cy + towardY * side * Math.sin(angle) * 0.998,
+              out,
+            );
+            dark += Number(out.color < 0.12);
+          }
+          return dark >= samples - 3;
+        });
+        expect(hits.length).toBe(1);
+        const index = corners.findIndex(
+          ([cx, cy]) => cx === hits[0][0] && cy === hits[0][1],
+        );
+        centres.push(hits[0]);
+        // Arc ends: the two corners next to the centre.
+        ends.push([corners[(index + 1) % 4], corners[(index + 3) % 4]]);
+      }
+      for (let k = 0; k + 1 < 7; k++) {
+        // Consecutive arcs share an end point, and centre, shared point and next centre are collinear.
+        const shared = ends[k].find(([ax, ay]) =>
+          ends[k + 1].some(
+            ([bx, by]) =>
+              Math.abs(ax - bx) < 0.004 && Math.abs(ay - by) < 0.004,
+          ),
+        );
+        expect(shared).toBeDefined();
+        const [sx, sy] = shared!,
+          cross =
+            (centres[k][0] - sx) * (centres[k + 1][1] - sy) -
+            (centres[k][1] - sy) * (centres[k + 1][0] - sx);
+        const lengths =
+          Math.hypot(centres[k][0] - sx, centres[k][1] - sy) *
+          Math.hypot(centres[k + 1][0] - sx, centres[k + 1][1] - sy);
+        // The sine of the angle between the two radii at the shared point (0 = tangent arcs).
+        expect(Math.abs(cross) / lengths).toBeLessThan(0.01);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('fibonaccisquares', 0),
+      b = createSurfaceSampler('fibonaccisquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});

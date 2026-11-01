@@ -22780,6 +22780,143 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'fibonaccisquares': {
+        const p = proceduralMaterialPresets.fibonaccisquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28c01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Squares of side 1, 1, 2, 3, 5, 8, 13 (units) placed around the growing rectangle in the
+          // order right, top, left, bottom, ...; each carries a quarter circle of its own side as
+          // radius, centered on one of its corners, and consecutive arcs are tangent where they
+          // meet, so together they trace the golden spiral.
+          squares: {
+            x: number;
+            y: number;
+            side: number;
+            cx: number;
+            cy: number;
+          }[] = [],
+          unit = p.unit;
+        let left = 0,
+          top = 0,
+          right = 0,
+          bottom = 0,
+          // The point where the previous arc ended, its center and its radius.
+          endX = 0,
+          endY = 0,
+          centerX = 0,
+          centerY = 0,
+          previousSide = 1;
+        for (let k = 0; k < p.sizes.length; k++) {
+          const side = p.sizes[k];
+          let x = 0,
+            y = 0;
+          if (k === 0) {
+            right = side;
+            bottom = side;
+            // The first arc is centered on the top-right corner and runs from the top-left corner
+            // to the bottom-right one.
+            centerX = x + side;
+            centerY = y;
+            endX = x + side;
+            endY = y + side;
+          } else {
+            const place = (k - 1) % 4;
+            if (place === 0) {
+              x = right;
+              y = top;
+              right += side;
+            } else if (place === 1) {
+              x = left;
+              y = top - side;
+              top -= side;
+            } else if (place === 2) {
+              x = left - side;
+              y = top;
+              left -= side;
+            } else {
+              x = left;
+              y = bottom;
+              bottom += side;
+            }
+            // Tangent continuity at the shared point: the new center lies on the line through the
+            // previous center and the end point, on the same side, at distance side from it.
+            const nextX = endX + ((centerX - endX) * side) / previousSide,
+              nextY = endY + ((centerY - endY) * side) / previousSide;
+            // The new arc ends at the other corner of the square next to its center.
+            const cornerXs = [x, x + side],
+              cornerYs = [y, y + side],
+              adjacent: [number, number][] = [];
+            for (const cx of cornerXs)
+              for (const cy of cornerYs)
+                if (Math.abs(cx - nextX) + Math.abs(cy - nextY) === side)
+                  adjacent.push([cx, cy]);
+            const far =
+              adjacent.find(([ax, ay]) => ax !== endX || ay !== endY) ??
+              adjacent[0];
+            centerX = nextX;
+            centerY = nextY;
+            endX = far[0];
+            endY = far[1];
+          }
+          previousSide = side;
+          squares.push({ x, y, side, cx: centerX, cy: centerY });
+        }
+        const width = right - left,
+          rectHeight = bottom - top,
+          originX = 0.5 - (width * unit) / 2 - left * unit,
+          originY = 0.5 - (rectHeight * unit) / 2 - top * unit;
+        return () => {
+          let tone: number = p.paperTone,
+            ink = 0,
+            arc = 0,
+            level: number = p.paperHeight;
+          for (let k = 0; k < squares.length; k++) {
+            const s = squares[k],
+              sx = originX + s.x * unit,
+              sy = originY + s.y * unit,
+              size = s.side * unit,
+              dx = u - sx,
+              dy = v - sy;
+            if (
+              dx >= -p.lineHalf &&
+              dx <= size + p.lineHalf &&
+              dy >= -p.lineHalf &&
+              dy <= size + p.lineHalf
+            ) {
+              const edge = Math.min(
+                Math.min(dx, size - dx),
+                Math.min(dy, size - dy),
+              );
+              if (edge >= 0) {
+                tone = p.tones[k];
+                level = p.faceHeight;
+              }
+              ink = Math.max(ink, cover(p.lineHalf - Math.abs(edge)));
+              // Quarter circle of radius = side about (cx, cy), only on the quadrant inside the square.
+              const px = u - (originX + s.cx * unit),
+                py = v - (originY + s.cy * unit),
+                radius = Math.sqrt(px * px + py * py),
+                inside = dx >= 0 && dx <= size && dy >= 0 && dy <= size;
+              if (inside)
+                arc = Math.max(arc, cover(p.arcHalf - Math.abs(radius - size)));
+            }
+          }
+          const base = tone + (p.lineTone - tone) * ink,
+            marked = base + (p.arcTone - base) * arc;
+          color = clamp(marked + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(
+            level +
+              (p.lineHeight - level) * ink +
+              (p.arcHeight - p.lineHeight) * arc,
+          );
+          roughness =
+            p.paperRoughness +
+            (p.lineRoughness - p.paperRoughness) * Math.max(ink, arc);
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50309,6 +50446,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'fibonaccisquares' ||
     kind === 'doubleslitfringes' ||
     kind === 'sundialplate' ||
     kind === 'ledgersheet' ||
