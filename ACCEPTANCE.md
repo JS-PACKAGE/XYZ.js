@@ -11510,3 +11510,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Black Cherry`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（8.24s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Black Cherry|blackcherry|kinds|catalog|distinct|periodic"`定向測試，**2089項通過／3490項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：柚木縱向面（teak）
+
+- 目錄896→897，含plain的gallery為898項。近似Tectona grandis心材未塗裝縱向木面：金黃到中棕底、直而不均勻的粗質地、長而起伏的深棕縱向條紋與散布的短小開放導管凹點。外觀依據實際閱讀的[Wood Database Teak](https://www.wood-database.com/teak/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/tectona-grandis.jpg)；僅作配色與紋理形態參考。照片導管呈淺色斑，而本preset導管為深色高度凹陷，故**不**重現淺色沉積；也不含老化深色、邊材、波浪／交錯figure或油亮塗層。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`blackcherry`同路徑），constructor只選新preset；導管pose表13,824 B，總lattice預算20,524 Float64／164,192 B。預設0.2 m tile、0.003 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.96–1.02%，本體色0.254–0.758，橫／縱色差比11.25–12.98，roughness 0.600–0.703，導管比本體低約0.092–0.093 relief，metallic／mortar皆0；seed7的512² base color平均約(139,90,38)，導管占1.03%，法線max tilt²約0.010。以Bun產生512 seed7的2×2排列圖並實看：金棕色底、起伏深色條紋與散布短導管點。
+- 新增4項永久測試（`Teak`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（9.11s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Teak|teak|kinds|catalog|distinct|periodic"`定向測試，**2090項通過／3496項未選**。
+- 補記：凍結worktree在qrcodelabel commit（7588fa745）實跑完整suite，**179檔／9,487項全部通過（1332.42s，v26.7.0）**；該結果涵蓋當時HEAD（含douglasfir、longleafpine、chesterfieldleather、westernredcedar、perforatedhardboard、qrcodelabel），不涵蓋其後laptopkeycaps、golfballdimples、blackcherry與本teak。本功能未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。

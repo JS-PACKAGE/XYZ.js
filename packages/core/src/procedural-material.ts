@@ -911,7 +911,8 @@ export type ProceduralMaterialKind =
   | 'qrcodelabel'
   | 'laptopkeycaps'
   | 'golfballdimples'
-  | 'blackcherry';
+  | 'blackcherry'
+  | 'teak';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -2057,6 +2058,7 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'laptopkeycaps',
   'golfballdimples',
   'blackcherry',
+  'teak',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`teak`（柚木縱向面）使目前目錄896→897種，含plain的gallery為898項。近似Tectona grandis心材未塗裝縱向木面：金黃到中等棕色底、直而不均勻的粗質地、長而起伏的深棕縱向條紋與散布的短小開放導管凹點。不是已老化的深色柚木、邊材、波浪／交錯紋figure、油亮塗層，也不是導管內淺色矽質沉積。
+
+外觀依據實際閱讀的[Wood Database Teak](https://www.wood-database.com/teak/)（Color／Appearance：心材金黃或中棕、隨年份變深；Grain／Texture：多直紋，偶有波浪或交錯、粗而不均的質地、中到低光澤、未處理表面略帶油脂感；Porosity：ring-porous或semi-ring-porous）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/tectona-grandis.jpg)（棕色面、長深色縱條紋與淺色導管斑點）；僅作配色與紋理形態參考。本preset的導管是深色高度凹陷，不重現照片中的淺色導管斑；不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`blackcherry`同一路徑），constructor只選preset：36×12個導管site（Float64×4共13,824 B pose表）、5個強起伏帶（bandWarp 0.9、bandContrast 0.28）、240×10縱向fiber與128²細grain（含warp共20,524 Float64／164,192 B lattice算術預算，非總RAM）。金屬factor為0；導管凹點是真的height凹陷，縱向色紋只是顏料。預設0.2 m nominal tile與0.003 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.96–1.02%，本體色0.254–0.758，橫／縱色差比11.25–12.98，roughness 0.600–0.703，導管比本體低約0.092–0.093 relief；seed7的512²平均base color約(139,90,38)、導管占1.03%、法線max tilt²約0.010。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `blackcherry`（美洲黑櫻桃木）使目前目錄895→896種，含plain的gallery為897項。近似Prunus serotina心材的未塗裝縱向木面：均勻的中等紅褐色、細而平直的縱向纖維紋、極低對比的寬弱帶，以及極稀疏、短而小的深色導管凹點。不是淺色邊材條帶、捲紋figure、樹膠袋／深色礦物斑、塗層或加深後的老化色。
 
 外觀依據實際閱讀的[Wood Database Black Cherry](https://www.wood-database.com/black-cherry/)（Color／Appearance：心材新切為淺粉褐，隨時間與光照轉為中等紅褐，邊材寬而淡黃；Grain／Texture：多直紋、細而均勻的質地、中等自然光澤；Porosity：semi-ring-porous到diffuse-porous）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/prunus-serotina.jpg)（均勻紅褐面、左緣淺色邊材、少數小深色斑）；僅作配色與紋理形態參考，不重現邊材條帶或深色斑，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

@@ -975,6 +975,7 @@ try {
     'laptopkeycaps',
     'golfballdimples',
     'blackcherry',
+    'teak',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
