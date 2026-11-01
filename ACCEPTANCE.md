@@ -11428,3 +11428,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Black Walnut`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；在乾淨worktree以`-t "Black Walnut|generic|seed|periodic|distinct"`定向跑，**4493項通過／1023項未選**（517.22s）。
 - 乾淨worktree（僅含本功能）實跑build（tsc＋minify＋copy-vendor＋build-cjs）、strict typecheck、eslint、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）、distribution（367 exports）、全倉`prettier --check .`皆通過；dist相對HEAD只變動既有材質相關14檔。
 - 本功能**未**重跑完整179檔suite，也未開瀏覽器gallery（WebGPU／WebGL2／Canvas2D）或shipped-root；僅由上述定向測試、built gates與Node端圖片實看支持，不宣稱跨瀏覽器／backend或效能驗證。工作樹另有他人進行中的mudcloth未提交變更，本commit不含，亦不push。
+
+## 2026-11-01 程序材質：Douglas-fir弦切面年輪拱紋（douglasfir）
+
+- 目錄887→888，含plain的gallery為889項。近似Pseudotsuga menziesii未塗裝弦切縱向木面：淺橙褐色早材、較暗橙褐色晚材年輪，構成多重尖拱與同心橢圓。外觀依據實際閱讀的[Wood Database Douglas-Fir](https://www.wood-database.com/douglas-fir/)與實看的[弦切樣板照片](https://www.wood-database.com/wp-content/uploads/pseudotsuga-menziesii.jpg)；僅作配色與年輪形態參考，不重現照片中的小節疤，不含樹脂囊／道、邊心材界線、塗層或徑切平行年輪。
+- 專用sampler（非導管sampler的fallthrough）：平滑週期cosine年輪指標場（橫向、縱向拱、skew、seeded warp）通過兩端值與斜率皆0的smoothstep年輪剖面，tile維持週期C1。預設0.2 m tile、0.0035 UV-relative relief（非公尺位移）、metallic factor0；三個constructor cache共17,209 Float64／137,672 B。不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣晚材（color<0.4）占15.2%、早材（color>0.75）占70.5–70.9%，橫／縱色差比2.95–3.09，晚材比早材高約0.157 relief，roughness 0.571–0.650、AO最低0.95，metallic／mortar皆0；seed7的512² base color平均約(214,165,107)、法線max tilt²約0.049。以Bun產生512 seed7的2×2排列圖並實看：多重尖拱與同心橢圓、淺橙底色與深橙細年輪線，無明顯接縫。調參過程中先看過年輪過少／對比過低版本，才調為最終rings13／arch3／warp0.9／lateTone0.7。
+- 新增4項永久測試（`Douglas-fir`：三seed早晚材比例與高度差、含年輪邊緣密集掃描的C1、actual512五maps、帶號UV週期），並加入通用kinds清單；乾淨worktree以`-t "Douglas-fir|douglasfir|kinds|catalog|distinct|periodic"`定向跑，**2077項通過／3446項未選**；7項Douglas-fir名稱篩選為3.36s。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 directional contracts／710 historical namespaces／5 versioned consumers）與distribution（367 exports）皆通過；dist只變動既有材質相關檔。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。前一功能blackwalnut的完整suite在另一個凍結worktree執行，結果另記。

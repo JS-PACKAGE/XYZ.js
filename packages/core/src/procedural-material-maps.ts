@@ -37050,6 +37050,44 @@ export function createSurfaceSampler(
           occlusion = 0.8 + 0.2 * smooth(height);
           return;
         };
+      case 'douglasfir': {
+        const p = proceduralMaterialPresets.douglasfir,
+          warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25101),
+          fiberField = cachedNoise(p.fiberColumns, p.fiberRows, seed ^ 0x25103),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25105),
+          ringPhase = hash(1, 2, seed ^ 0x25107),
+          inverseRise = 1 / (p.latewoodPeak - p.latewoodStart),
+          inverseFall = 1 / (1 - p.latewoodPeak);
+        return () => {
+          // Ring index is a smooth periodic arch field; its level sets are the
+          // flatsawn cathedral contours and fract() is only used through a profile
+          // whose value and slope are zero at both ends, so the tile stays C1.
+          const arch = 0.5 - 0.5 * Math.cos(TAU * v),
+            across =
+              0.5 - 0.5 * Math.cos(TAU * (u + p.archShift * Math.sin(TAU * v))),
+            ring = fract(
+              p.rings * across +
+                p.arch * arch +
+                p.skew * Math.sin(TAU * u) * Math.sin(TAU * v) +
+                p.warp * warpField(u, v) +
+                ringPhase,
+            ),
+            late =
+              smooth(clamp((ring - p.latewoodStart) * inverseRise)) *
+              (1 - smooth(clamp((ring - p.latewoodPeak) * inverseFall))),
+            fiber = fiberField(u, v),
+            grain = grainField(u, v);
+          color =
+            p.earlyTone -
+            p.lateTone * late +
+            p.fiberTone * (fiber - 0.5) +
+            p.grainTone * grain;
+          height = 0.5 + p.lateHeight * late + p.grainHeight * grain - 0.002;
+          roughness += p.lateRoughness * late + p.grainRoughness * grain;
+          occlusion = 1 - p.earlyOcclusion * (1 - late);
+          return;
+        };
+      }
       case 'basswood':
       case 'nickelsilver': {
         const p =
@@ -44173,6 +44211,7 @@ export function createSurfaceSampler(
     kind === 'yellowheart' ||
     kind === 'bloodwood' ||
     kind === 'blackwalnut' ||
+    kind === 'douglasfir' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||
