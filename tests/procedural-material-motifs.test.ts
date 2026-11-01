@@ -2786,3 +2786,163 @@ describe('needlepoint: slanted wool stitches in a repeating diamond motif', () =
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('dicefaces: rounded dice faces with point-symmetric pip layouts', () => {
+  const p = proceduralMaterialPresets.dicefaces;
+  const size = 768;
+  const cell = size / p.cells;
+
+  it.each(seeds)(
+    'draws rounded faces of the authored area with 1-6 pips on a symmetric 3x3 lattice (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('dicefaces', seed),
+        out = empty(),
+        color = new Float64Array(size * size);
+      let invalid = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          sample((x + 0.5) / size, (y + 0.5) / size, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          color[y * size + x] = out.color;
+        }
+      expect(invalid).toBe(0);
+      const counts = new Set<number>();
+      // Rounded square of half size h and corner radius r has area (2h)^2 - (4 - pi) r^2.
+      const expectedArea =
+        (2 * p.halfSize) ** 2 - (4 - Math.PI) * p.cornerRadius ** 2;
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Face pixels are bright or pip-dark; the gap is darker than both... except pips, so
+          // classify by distance from the cell center: inside the face = anything above the gap.
+          let facePixels = 0;
+          const dark = new Uint8Array(cell * cell);
+          for (let y = 0; y < cell; y++)
+            for (let x = 0; x < cell; x++) {
+              const c = color[(row * cell + y) * size + col * cell + x];
+              facePixels += Number(c > 0.5);
+              // Pips lie within 0.34 of the center; stay clear of the soft face edge.
+              const inner =
+                Math.abs((x + 0.5) / cell - 0.5) < 0.38 &&
+                Math.abs((y + 0.5) / cell - 0.5) < 0.38;
+              dark[y * cell + x] = Number(inner && c < 0.25);
+            }
+          // Pips are inside the face, so the face area includes them: add the pip pixels back.
+          const pipPixels = dark.reduce((a, b) => a + b, 0);
+          expect(
+            Math.abs((facePixels + pipPixels) / (cell * cell) - expectedArea),
+          ).toBeLessThan(0.02);
+          // Pips: 4-connected dark components with their centers relative to the face center.
+          const seen = new Uint8Array(dark.length),
+            pips: { x: number; y: number }[] = [];
+          for (let first = 0; first < dark.length; first++) {
+            if (!dark[first] || seen[first]) continue;
+            const queue = [first];
+            seen[first] = 1;
+            let sx = 0,
+              sy = 0;
+            for (let read = 0; read < queue.length; read++) {
+              const i = queue[read],
+                x = i % cell,
+                y = Math.floor(i / cell);
+              sx += x + 0.5;
+              sy += y + 0.5;
+              for (const [dx, dy] of [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ]) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= cell || ny >= cell) continue;
+                const j = ny * cell + nx;
+                if (dark[j] && !seen[j]) {
+                  seen[j] = 1;
+                  queue.push(j);
+                }
+              }
+            }
+            if (queue.length > 20)
+              pips.push({
+                x: sx / queue.length / cell - 0.5,
+                y: sy / queue.length / cell - 0.5,
+              });
+          }
+          counts.add(pips.length);
+          expect(pips.length).toBeGreaterThanOrEqual(1);
+          expect(pips.length).toBeLessThanOrEqual(6);
+          for (const pip of pips) {
+            // Every pip sits on the 3x3 lattice of the authored spacing...
+            for (const coordinate of [pip.x, pip.y])
+              expect(
+                Math.abs(
+                  coordinate -
+                    p.pipSpacing * Math.round(coordinate / p.pipSpacing),
+                ),
+              ).toBeLessThan(0.012);
+            // ...and the layout is point-symmetric: the opposite lattice point is lit too.
+            expect(
+              pips.some(
+                (other) =>
+                  Math.abs(other.x + pip.x) < 0.012 &&
+                  Math.abs(other.y + pip.y) < 0.012,
+              ),
+            ).toBe(true);
+          }
+        }
+      // Every face value shows up somewhere in the 16 faces of at least one seed (checked below).
+      expect(counts.size).toBeGreaterThan(2);
+    },
+  );
+
+  it('uses every pip count from one to six across seeds and wraps seamlessly', () => {
+    const seen = new Set<number>(),
+      out = empty();
+    for (const seed of seeds) {
+      const sample = createSurfaceSampler('dicefaces', seed);
+      for (let row = 0; row < p.cells; row++)
+        for (let col = 0; col < p.cells; col++) {
+          // Count lattice points whose center is a pip (dark) in this face's quadrant frame.
+          let count = 0;
+          for (let j = -1; j <= 1; j++)
+            for (let i = -1; i <= 1; i++) {
+              sample(
+                (col + 0.5 + i * p.pipSpacing) / p.cells,
+                (row + 0.5 + j * p.pipSpacing) / p.cells,
+                out,
+              );
+              count += Number(out.color < 0.25);
+            }
+          seen.add(count);
+        }
+    }
+    expect([...seen].sort()).toEqual([1, 2, 3, 4, 5, 6]);
+    const a = createSurfaceSampler('dicefaces', 0),
+      b = createSurfaceSampler('dicefaces', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

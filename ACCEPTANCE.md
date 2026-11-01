@@ -11556,3 +11556,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版針腳半寬0.2／半長0.62，預覽看起來畫布孔隙占一半以上而不像針繡；放寬到0.27／0.66後覆蓋率明顯提高。測試的「孔隙」比例（AO低於(holeAO+1)/2的像素）原先猜錯為＜0.3，實測0.375，所以門檻改為0.15–0.5（以實測定，並如實標註此值包含針腳邊緣的暗部，不只是畫布孔）。
 - 實測：`tests/procedural-material-motifs.test.ts`一百三十五項（本材質四項）全過：三seed對48×48個針腳中心取色並分類為四個色調（最近色階），各針腳的色調類別在+12針位移處100%相同（母題週期）、在每個母題內左右與上下鏡像100%相同、十字亮色重點占每個母題的44/144（容差0.01）、四種色階都出現；高度場梯度共變異數Σgx·gy＜0（針腳沿(1,1)方向）；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "needlepoint|every preset"`定向跑7項通過（含既有Bargello火焰針繡的測試，名稱也含needlepoint）；沒有重跑該檔其餘5523項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`needlepoint`：option 907個、status為906 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、傾斜針腳與菱形環母題可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：骰子面（dicefaces）
+
+- 目錄906→907，含plain的gallery為908項。4×4個圓角方形象牙白面（半邊0.43格、圓角0.11格、圓頂斜角、面間暗縫），每面依hash有1–6個半球形凹陷圓點，落在3×3格點上（間距0.255格、半徑0.078格），採標準中心對稱排列，每面隨機旋轉90°與鏡射。Metallic／mortar為0，預設tile0.4 m、0.0034 UV-relative relief、metallic factor 0。不模擬相對面點數和為7等整顆骰子的性質；作者設計，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：第一版把「顏色在縫隙色與0.25之間」視為圓點，結果面緣的軟邊（縫隙→面的過渡）形成一圈大連通區，圓點數量達10、中心位置偏到0.075，使三seed都失敗；改為只在距面中心0.38以內的區域找深色像素（圓點最遠約0.333），避開面緣。這是量測範圍的錯，不是材質缺陷。
+- 實測：`tests/procedural-material-motifs.test.ts`一百三十九項（本材質四項）全過。三seed 768²取樣：每個面的面積（含圓點）等於圓角正方形公式 (2h)²−(4−π)r² 的±0.02、圓點數1–6、每個圓點中心都落在間距0.255的3×3格點上（±0.012）、且每個圓點的對點也亮（點對稱，標準骰子排列必然點對稱）；以固定格點探針逐面數亮點，三seed合計48個面恰好涵蓋1、2、3、4、5、6六種點數；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "dicefaces|every preset"`定向跑3項通過，沒有重跑該檔其餘5528項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`dicefaces`：option 908個、status為907 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、各點數面可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

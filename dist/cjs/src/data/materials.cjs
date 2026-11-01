@@ -12899,6 +12899,43 @@ var proceduralMaterialPresets = Object.freeze({
 		stitchRoughness: .82,
 		holeAO: .45
 	}),
+	dicefaces: Object.freeze({
+		dark: [
+			20,
+			14,
+			14
+		],
+		light: [
+			244,
+			238,
+			220
+		],
+		roughness: .34,
+		relief: .0034,
+		cells: 4,
+		halfSize: .43,
+		cornerRadius: .11,
+		edgeSoft: .012,
+		bevelWidth: .1,
+		pipSpacing: .255,
+		pipRadius: .078,
+		pipSoft: .01,
+		grainCells: 192,
+		faceTone: .9,
+		pipTone: .08,
+		gapTone: .02,
+		grainTone: .03,
+		gapHeight: .04,
+		faceHeight: .55,
+		domeHeight: .3,
+		pipDepth: .35,
+		grainHeight: .02,
+		faceRoughness: .3,
+		pipRoughness: .5,
+		gapRoughness: .9,
+		gapAO: .4,
+		pipAO: .6
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21580,6 +21617,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	dicefaces: .4,
 	needlepoint: .3,
 	mandalaflower: .6,
 	kiwislices: .25,

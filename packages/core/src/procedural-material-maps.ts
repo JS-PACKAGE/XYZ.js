@@ -17914,6 +17914,85 @@ export function createSurfaceSampler(
           occlusion = clamp(p.holeAO + (1 - p.holeAO) * cover);
         };
       }
+      case 'dicefaces': {
+        const p = proceduralMaterialPresets.dicefaces,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25501),
+          values = new Uint8Array(p.cells * p.cells),
+          turned = new Uint8Array(p.cells * p.cells),
+          mirrored = new Uint8Array(p.cells * p.cells),
+          inverseEdge = 1 / p.edgeSoft,
+          inverseBevel = 1 / p.bevelWidth,
+          inversePip = 1 / p.pipSoft,
+          // 3x3 pip lattice bit masks (bit = (j + 1) * 3 + (i + 1)); every face is point-symmetric.
+          masks = [
+            0, 0b000010000, 0b100000001, 0b100010001, 0b101000101, 0b101010101,
+            0b101101101,
+          ];
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++) {
+            const i = row * p.cells + col;
+            values[i] =
+              1 + Math.min(5, Math.floor(hash(col, row, seed ^ 0x25503) * 6));
+            turned[i] = hash(col, row, seed ^ 0x25505) < 0.5 ? 1 : 0;
+            mirrored[i] = hash(col, row, seed ^ 0x25507) < 0.5 ? 1 : 0;
+          }
+        return () => {
+          const uc = u * p.cells,
+            vc = v * p.cells,
+            col = Math.floor(uc),
+            row = Math.floor(vc),
+            cell = row * p.cells + col;
+          let x = uc - col - 0.5,
+            y = vc - row - 0.5;
+          // Rounded-square signed distance (negative inside).
+          const qx = Math.abs(x) - (p.halfSize - p.cornerRadius),
+            qy = Math.abs(y) - (p.halfSize - p.cornerRadius),
+            distance =
+              Math.sqrt(Math.max(qx, 0) ** 2 + Math.max(qy, 0) ** 2) +
+              Math.min(Math.max(qx, qy), 0) -
+              p.cornerRadius,
+            face = smooth(clamp(-distance * inverseEdge + 0.5)),
+            dome = smooth(clamp(-distance * inverseBevel)),
+            grain = grainField(u, v);
+          // Pip layout orientation: quarter turn and diagonal mirror vary per face.
+          if (turned[cell]) {
+            const t = x;
+            x = -y;
+            y = t;
+          }
+          if (mirrored[cell]) y = -y;
+          const ci = Math.max(-1, Math.min(1, Math.round(x / p.pipSpacing))),
+            cj = Math.max(-1, Math.min(1, Math.round(y / p.pipSpacing))),
+            present = (masks[values[cell]] >> ((cj + 1) * 3 + (ci + 1))) & 1,
+            pipDistance = Math.sqrt(
+              (x - ci * p.pipSpacing) ** 2 + (y - cj * p.pipSpacing) ** 2,
+            ),
+            pip = present
+              ? smooth(clamp((p.pipRadius - pipDistance) * inversePip + 0.5)) *
+                face
+              : 0,
+            bowl = Math.sqrt(clamp(1 - (pipDistance / p.pipRadius) ** 2));
+          color = clamp(
+            p.gapTone +
+              (p.faceTone + p.grainTone * (grain - 0.5) - p.gapTone) * face +
+              (p.pipTone - p.faceTone) * pip,
+          );
+          height = clamp(
+            p.gapHeight +
+              (p.faceHeight - p.gapHeight) * face +
+              p.domeHeight * dome * face +
+              p.grainHeight * (grain - 0.5) * face -
+              p.pipDepth * bowl * pip,
+          );
+          roughness =
+            p.gapRoughness +
+            (p.faceRoughness - p.gapRoughness) * face +
+            (p.pipRoughness - p.faceRoughness) * pip;
+          occlusion = clamp(
+            p.gapAO + (1 - p.gapAO) * face - (1 - p.pipAO) * pip * bowl,
+          );
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45443,6 +45522,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'dicefaces' ||
     kind === 'needlepoint' ||
     kind === 'mandalaflower' ||
     kind === 'kiwislices' ||
