@@ -3854,3 +3854,104 @@ describe('morsetape: decodable International Morse words on paper tape', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('sandripples: asymmetric ripple train on an integer wave vector', () => {
+  const p = proceduralMaterialPresets.sandripples;
+  const n = 256;
+
+  it.each(seeds)(
+    'concentrates height energy at the ripple wave vector with a gentle windward and steep lee face (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sandripples', seed),
+        out = empty(),
+        height = new Float64Array(n * n);
+      let invalid = 0,
+        mean = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          sample((x + 0.5) / n, (y + 0.5) / n, out);
+          invalid += Number(out.metallic !== 0 || out.mortar !== 0);
+          for (const value of [
+            out.color,
+            out.height / p.relief,
+            out.roughness,
+            out.occlusion,
+          ])
+            invalid += Number(!(value >= 0 && value <= 1));
+          height[y * n + x] = out.height / p.relief;
+          mean += out.height / p.relief;
+        }
+      expect(invalid).toBe(0);
+      mean /= n * n;
+      let power = 0;
+      for (const value of height) power += (value - mean) ** 2;
+      power /= n * n;
+      // Squared DFT magnitude at an integer frequency, normalized so that a real signal's
+      // positive-frequency bins sum (times two) to the mean-square value.
+      const energy = (kx: number, ky: number): number => {
+        let re = 0,
+          im = 0;
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            const angle =
+                (-2 * Math.PI * (kx * (x + 0.5) + ky * (y + 0.5))) / n,
+              value = height[y * n + x] - mean;
+            re += value * Math.cos(angle);
+            im += value * Math.sin(angle);
+          }
+        return (2 * (re * re + im * im)) / (n * n) ** 2;
+      };
+      let band = 0;
+      for (let dx = -3; dx <= 3; dx++)
+        for (let dy = -3; dy <= 3; dy++) band += energy(p.kx + dx, p.ky + dy);
+      // The crests bend with the noise, so energy spreads over a few bins around the fundamental.
+      expect(band / power).toBeGreaterThan(0.65);
+      // Mirror-image and transposed wave vectors carry almost nothing.
+      let far = 0;
+      for (const [kx, ky] of [
+        [p.kx, -p.ky],
+        [p.ky, p.kx],
+        [30, 3],
+        [2, 2],
+      ])
+        far += energy(kx, ky);
+      expect(far / power).toBeLessThan(0.01);
+      // Moving along +u height climbs gently for about the windward fraction of the time
+      // and falls steeply for the rest.
+      let rising = 0,
+        moving = 0;
+      for (let y = 0; y < n; y++)
+        for (let x = 0; x < n; x++) {
+          const step = height[y * n + ((x + 1) % n)] - height[y * n + x];
+          if (Math.abs(step) < 1e-4) continue;
+          moving++;
+          rising += Number(step > 0);
+        }
+      expect(Math.abs(rising / moving - p.windward)).toBeLessThan(0.06);
+      expect(rising / moving).toBeGreaterThan(0.6);
+    },
+  );
+
+  it('wraps seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sandripples', 0),
+      b = createSurfaceSampler('sandripples', 7),
+      one = empty(),
+      two = empty();
+    let different = 0;
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(100);
+  });
+});

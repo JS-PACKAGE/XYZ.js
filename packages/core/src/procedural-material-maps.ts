@@ -18560,6 +18560,59 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sandripples': {
+        const p = proceduralMaterialPresets.sandripples,
+          warpField = cachedNoise(p.warpCells, p.warpCells, seed ^ 0x25d01),
+          fineField = cachedNoise(
+            p.fineWarpCells,
+            p.fineWarpCells,
+            seed ^ 0x25d03,
+          ),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25d05),
+          invWindward = 1 / p.windward,
+          invLee = 1 / (1 - p.windward);
+        return () => {
+          // Integer wave vector keeps the ripple train periodic; noise bends the crests.
+          const phase =
+              u * p.kx +
+              v * p.ky +
+              p.warpAmplitude * (warpField(u, v) - 0.5) * 2 +
+              p.fineWarpAmplitude * (fineField(u, v) - 0.5) * 2,
+            t = fract(phase),
+            windward = t < p.windward,
+            // Gentle windward ramp up, steep lee face down; both rounded at crest and trough.
+            along = windward ? t * invWindward : (t - p.windward) * invLee,
+            ramp = smooth(along),
+            ripple = windward ? ramp : 1 - ramp,
+            bump = Math.sin(Math.PI * along),
+            cellX = Math.floor(u * p.speckCells),
+            cellY = Math.floor(v * p.speckCells),
+            grain = grainField(u, v) - 0.5;
+          let speck = 0;
+          if (hash(cellX, cellY, seed ^ 0x25d07) < p.speckChance) {
+            const dx =
+                u * p.speckCells -
+                cellX -
+                (0.25 + 0.5 * hash(cellX, cellY, seed ^ 0x25d09)),
+              dy =
+                v * p.speckCells -
+                cellY -
+                (0.25 + 0.5 * hash(cellX, cellY, seed ^ 0x25d0b));
+            speck = smooth(
+              clamp(1 - Math.sqrt(dx * dx + dy * dy) / p.speckRadius),
+            );
+          }
+          color = clamp(
+            p.baseTone +
+              (windward ? p.shadeWindward : -p.shadeLee) * bump +
+              p.grainTone * grain +
+              p.speckTone * speck,
+          );
+          height = clamp(ripple + p.grainHeight * grain);
+          roughness = p.roughness;
+          occlusion = clamp(1 - p.leeAO * (windward ? 0 : bump));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46089,6 +46142,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sandripples' ||
     kind === 'morsetape' ||
     kind === 'ean13barcodes' ||
     kind === 'kilimflatweave' ||

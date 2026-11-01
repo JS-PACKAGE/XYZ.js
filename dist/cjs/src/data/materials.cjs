@@ -13178,6 +13178,38 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .5,
 		paperRoughness: .82
 	}),
+	sandripples: Object.freeze({
+		dark: [
+			150,
+			108,
+			62
+		],
+		light: [
+			238,
+			208,
+			150
+		],
+		roughness: .96,
+		relief: .006,
+		kx: 18,
+		ky: 7,
+		windward: .72,
+		warpCells: 6,
+		warpAmplitude: .45,
+		fineWarpCells: 24,
+		fineWarpAmplitude: .08,
+		grainCells: 384,
+		speckCells: 112,
+		speckChance: .05,
+		speckRadius: .2,
+		baseTone: .58,
+		shadeWindward: .08,
+		shadeLee: .2,
+		grainTone: .07,
+		speckTone: .22,
+		grainHeight: .03,
+		leeAO: .25
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21859,6 +21891,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	sandripples: 1,
 	morsetape: .4,
 	ean13barcodes: .35,
 	kilimflatweave: 1.2,

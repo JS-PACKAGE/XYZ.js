@@ -7274,6 +7274,30 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.5;
         paperRoughness: 0.82;
     }>;
+    sandripples: Readonly<{
+        dark: readonly [150, 108, 62];
+        light: readonly [238, 208, 150];
+        roughness: 0.96;
+        relief: 0.006;
+        kx: 18;
+        ky: 7;
+        windward: 0.72;
+        warpCells: 6;
+        warpAmplitude: 0.45;
+        fineWarpCells: 24;
+        fineWarpAmplitude: 0.08;
+        grainCells: 384;
+        speckCells: 112;
+        speckChance: 0.05;
+        speckRadius: 0.2;
+        baseTone: 0.58;
+        shadeWindward: 0.08;
+        shadeLee: 0.2;
+        grainTone: 0.07;
+        speckTone: 0.22;
+        grainHeight: 0.03;
+        leeAO: 0.25;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13759,6 +13783,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    sandripples: 1;
     morsetape: 0.4;
     ean13barcodes: 0.35;
     kilimflatweave: 1.2;

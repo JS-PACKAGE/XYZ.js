@@ -11610,3 +11610,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 調整記錄：第一版為12行×96單位，預覽中訊息只占寬度約一半、標記偏小；改為10行×64單位後，標記約16 px、字數與間隔清晰。首次草稿的sampler含未使用的中間變數，在插入前已重寫成乾淨版本。
 - 實測：`tests/procedural-material-motifs.test.ts`一百七十項（本材質四項）全過。測試端獨立寫出A–Z摩斯表與十個單字，三seed對每行在64個單位中心取樣，將連續的亮／暗區解析為點劃與間隔：左側空白恰3單位、亮段只有1或3單位、暗段只有1或3單位（尾端空白除外）、解碼結果必在單字表內，三seed共30行至少出現3種不同單字；每行首尾單位皆空白（tile邊界不切斷標記）；沿垂直方向量得的標記厚度為2×0.5單位±0.08；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "morsetape|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`morsetape`：option 915個、status為914 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的點劃與接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：風成沙紋（sandripples）
+
+- 目錄914→915，含plain的gallery為916項。整數波向量(18, 7)的不對稱沙紋（迎風坡占72%相位緩升、背風坡28%陡降），波峰受兩組週期低頻噪聲彎曲；迎風較亮、背風較暗並帶AO，另有砂粒起伏與約5%格子的雲母斑點。Metallic／mortar為0，預設tile1 m、0.006 UV-relative relief、metallic factor 0。無波峰分岔、沙丘尺度形態、濕沙；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：第一版測試用relief縮放後的高度與1e-4的絕對門檻判斷「有在變化」的步進，單位不一致（實際等於把門檻放大了1/0.006倍），雖然碰巧通過，但不合理；改為統一使用除以relief的高度後再套1e-4門檻，結果仍通過。
+- 實測：`tests/procedural-material-motifs.test.ts`一百七十四項（本材質四項）全過。三seed在256²格上直接做DFT：能量集中在基頻(18, 7)周圍±3 bin的比例實測約0.79–0.80（門檻＞0.65，因波峰被噪聲彎曲而散開，其餘為諧波）；鏡像向量(18, −7)、轉置向量(7, 18)與無關頻率(30, 3)、(2, 2)的能量合計＜1%（實測約0.0001）；沿+u移動時高度上升的比例實測約0.689，測試要求在0.72±0.06內且＞0.6（遠離對稱波的0.5，顯示迎風緩升確實較久；實測略低於0.72，因砂粒雜訊與圓化峰谷使部分小步進被排除或反向）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "sandripples|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`sandripples`：option 916個、status為915 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的沙紋連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
