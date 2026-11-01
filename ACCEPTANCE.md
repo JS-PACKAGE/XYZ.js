@@ -11799,3 +11799,14 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Amber resin|amberbubbles|kinds|catalog|distinct|periodic"`定向測試，**2137項通過／3647項未選**。
 - 補記（完整suite）：在凍結worktree於pumpkinskin commit `851195586`實跑完整`vitest run`，**179檔／9,685項全部通過**（1399.36s，wall約23.3分）；該commit之後的pomegranatearils、bubinga、cauliflowercurd與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
 - 未開瀏覽器gallery（gamedice之後新增的raindropripples、europeanyew、coirdoormat、citruspeel、pumpkinskin、pomegranatearils、bubinga、cauliflowercurd與本功能均未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：賈拉木縱向面（jarrah）
+
+- 目錄925→926，含plain的gallery為927項。近似Eucalyptus marginata未塗裝縱向木面：磚紅偏棕底、中到粗質地、2條很淡的暗紅褐帶、縱向纖維與散布的細暗導管短痕（約0.65%）。外觀依據實際閱讀的[Wood Database Jarrah](https://www.wood-database.com/jarrah/)與實看的[木面照片](https://www.wood-database.com/wp-content/uploads/jarrah-s-400x400.jpg)；僅作配色與紋理形態參考，**不**重現淡色邊材、膠囊／膠線、捲曲或交錯紋。
+- 直接fallthrough重用Padauk／Bloodwood系導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`、`bubinga`同路徑），constructor只選新preset；導管pose表13,824 B，總lattice預算19,564 Float64／156,512 B。預設0.18 m tile、0.0025 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣導管占0.64–0.66%，本體色0.259–0.559，橫／縱色差比10.5–11.3，roughness 0.500–0.603，高度0.41–0.503 relief，metallic／mortar皆0；seed7的512² base color平均約(105,58,52)，導管占0.63%，法線max tilt²約0.0069。以Bun產生512 seed7排列圖並實看：磚紅偏棕的均勻面、很淡的暗帶與零星細暗導管痕，與照片的低對比外觀接近。
+- 被捨棄的嘗試（未提交）：我曾先試做balsa（輕木，白到米白、帶短橙色導管痕），Wood Database頁面與照片都已讀並看過；但這個導管sampler把本體色固定在0.25–0.38的偏暗範圍、導管痕則壓到0.035，單一線性漸層色盤無法同時把本體映射成近白而導管痕映射成橙褐，要做到必須修改共用sampler（會影響其他已驗證的kind），所以整個捨棄、以`git checkout`丟棄我自己未提交的變更，改做適合此sampler偏暗色盤的jarrah。
+- 新增4項永久測試（`Jarrah`：三seed外觀與縱向各向異性、C1掃描、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（6.73s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Jarrah|jarrah|kinds|catalog|distinct|periodic"`定向測試，**2139項通過／3652項未選**。
+- 補記（瀏覽器gallery）：從乾淨worktree啟動的vite（5391埠），以spawned Google Chrome headless在WebGPU與`?renderer=webgl2`兩條路徑，逐一選取raindropripples、europeanyew、coirdoormat、citruspeel、pumpkinskin、pomegranatearils、bubinga、cauliflowercurd與amberbubbles，並等待readout出現`Material <kind> `，**9種全部成功**，狀態列為「925 procedural material presets + plain」，`errors()`為空。第一次執行時因同時在跑完整suite造成CPU競爭，webgl2分頁的`#material`選取逾時；放寬等待（初始readout 240秒、每種60秒）後重跑兩條路徑皆通過。此驗證只涵蓋「能選取、無console錯誤、readout更新」，**不是**逐材質視覺比對或跨瀏覽器／GPU驗證；jarrah本身尚未納入。
+- 本功能未重跑完整179檔suite（amberbubbles commit的完整suite仍在凍結worktree執行，結果另記）；不宣稱跨瀏覽器／backend或效能驗證；不push。

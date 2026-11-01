@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`jarrah`（賈拉木／澳洲桉）使目前目錄925→926種，含plain的gallery為927項。近似Eucalyptus marginata未塗裝縱向木面：磚紅偏棕的底色、中到粗的質地、2條很淡的暗紅褐起伏帶、縱向纖維與散布的細暗導管短痕（約0.65%）。不是淡黃至粉紅的窄邊材、膠囊／膠線（gum pockets）、捲曲紋、交錯／波浪紋或塗層。
+
+外觀依據實際閱讀的[Wood Database Jarrah](https://www.wood-database.com/jarrah/)（Color／Appearance：心材由淡紅或棕到較深的磚紅、見光變深；窄邊材為淡黃到粉紅；Grain／Texture：交錯或波浪紋、中到粗質地，可能有膠囊或膠線瑕疵）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/jarrah-s-400x400.jpg)（磚紅偏紫灰的均勻面、極淡的縱向色變與零星暗點）；僅作配色與紋理形態參考，**不**重現邊材、膠線、捲曲或交錯紋，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。
+
+直接fallthrough重用既有Padauk／Bloodwood系細長橢圓導管sampler（與`blackwalnut`、`teak`、`honduranmahogany`、`shagbarkhickory`、`eastindianrosewood`、`bubinga`同路徑），constructor只選preset：36×12個導管site（pose表13,824 B）、2條起伏（bandWarp 0.7）且對比低（bandContrast 0.14）的暗帶、180×8縱向fiber、128²細grain與固定3×4 warp，共19,564 Float64／156,512 B lattice算術預算（非總RAM）。金屬factor為0；導管凹點是真的height凹陷，色紋只是顏料。預設0.18 m nominal tile與0.0025 UV-relative relief（非公尺位移）皆作者設定。三seed（0／1／0xffffffff）、256²取樣：導管占0.64–0.66%，本體色0.259–0.559，橫／縱色差比10.5–11.3，roughness 0.500–0.603，高度0.41–0.503 relief；seed7的512²平均base color約(105,58,52)、導管占0.63%、法線max tilt²約0.0069。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `amberbubbles`（含氣泡的琥珀樹脂）使目前目錄924→925種，含plain的gallery為926項。橘黃色的光滑樹脂，由4個整數波數正弦彎曲的3條流動帶形成緩慢捲動的明暗紋；14×14格中約45%有一顆被困住的氣泡（隨機大小與位置），氣泡略凸、更光滑、帶一圈明亮的透鏡邊緣與淡淡的光暈；另有10×10的低頻混濁。不是半透明（次表面）、內含物（昆蟲、植物）、裂紋或打磨痕。
 
 此材質是作者依一般琥珀樹脂（流紋與氣泡）外觀所作示意，沒有引用特定來源文件、照片或量測；流動帶數、氣泡密度與大小、色調、roughness與0.12 m nominal tile皆作者設定，不宣稱符合任何實際琥珀或樹脂，也不模擬半透明與折射。

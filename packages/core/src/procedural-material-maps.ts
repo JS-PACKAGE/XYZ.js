@@ -2205,6 +2205,7 @@ export function createSurfaceSampler(
       case 'blackcherry':
       case 'teak':
       case 'honduranmahogany':
+      case 'jarrah':
       case 'bubinga':
       case 'eastindianrosewood':
       case 'shagbarkhickory':
@@ -2222,7 +2223,8 @@ export function createSurfaceSampler(
             kind === 'honduranmahogany' ||
             kind === 'shagbarkhickory' ||
             kind === 'eastindianrosewood' ||
-            kind === 'bubinga'
+            kind === 'bubinga' ||
+            kind === 'jarrah'
               ? proceduralMaterialPresets[kind]
               : undefined,
           sparse = kind === 'padauk' ? proceduralMaterialPresets.padauk : fine,
@@ -45639,6 +45641,7 @@ export function createSurfaceSampler(
     kind === 'cauliflowercurd' ||
     kind === 'amberbubbles' ||
     kind === 'bubinga' ||
+    kind === 'jarrah' ||
     kind === 'europeanyew' ||
     kind === 'europeanlarch' ||
     kind === 'lenticularsheet' ||

@@ -20938,6 +20938,39 @@ var proceduralMaterialPresets = Object.freeze({
 		bubbleRoughness: .1,
 		bubbleOcclusion: .25
 	}),
+	jarrah: Object.freeze({
+		dark: [
+			66,
+			34,
+			34
+		],
+		light: [
+			156,
+			88,
+			74
+		],
+		roughness: .5,
+		relief: .0025,
+		columns: 36,
+		rows: 12,
+		widthMinimum: .035,
+		widthVariation: .03,
+		lengthMinimum: .09,
+		lengthVariation: .14,
+		poreChance: .3,
+		centerMinimum: .35,
+		centerRange: .3,
+		poreShoulder: .5,
+		poreDepth: .09,
+		bands: 2,
+		bandWarp: .7,
+		bandRadius: .5,
+		bandCore: .2,
+		bandContrast: .14,
+		fiberColumns: 180,
+		fiberRows: 8,
+		fiberContrast: .16
+	}),
 	makore: Object.freeze({
 		dark: [
 			76,
@@ -22360,7 +22393,8 @@ var proceduralTileMeters = Object.freeze({
 	pomegranatearils: .12,
 	bubinga: .18,
 	cauliflowercurd: .12,
-	amberbubbles: .12
+	amberbubbles: .12,
+	jarrah: .18
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
