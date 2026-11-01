@@ -8027,3 +8027,97 @@ describe('knightstour: numbered squares form an open knight tour', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('graycodediscs: encoder discs read out as a Gray code', () => {
+  const p = proceduralMaterialPresets.graycodediscs;
+  const bitsPerDisc = [3, 4, 5, 6];
+
+  it.each([...seeds, 1, 2, 3, 4])(
+    'reads every sector as a distinct code, one bit away from its neighbors (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('graycodediscs', seed),
+        out = empty();
+      for (let disc = 0; disc < 4; disc++) {
+        const cx = 0.25 + 0.5 * (disc & 1),
+          cy = 0.25 + 0.5 * (disc >> 1),
+          bits = bitsPerDisc[disc],
+          sectors = 2 ** bits,
+          // Equal-width tracks between the inner and outer track radius, counted from the outside.
+          width = (p.trackOuter - p.trackInner) / bits,
+          codes: number[] = [];
+        for (let s = 0; s < sectors; s++) {
+          // Sector s spans the angles [s, s + 1) / sectors of a turn, measured from +u toward +v.
+          const angle = ((s + 0.5) / sectors) * Math.PI * 2;
+          let code = 0;
+          for (let track = 0; track < bits; track++) {
+            const radius = p.trackOuter - (track + 0.5) * width;
+            sample(
+              cx + radius * Math.cos(angle),
+              cy + radius * Math.sin(angle),
+              out,
+            );
+            // Clear slots are bright, opaque blocks dark; both are far from the mid-tone rim.
+            expect(out.color < 0.3 || out.color > 0.8).toBe(true);
+            if (out.color > 0.8) code |= 1 << track;
+          }
+          codes.push(code);
+        }
+        expect(new Set(codes).size).toBe(sectors);
+        for (let s = 0; s < sectors; s++) {
+          const next = codes[(s + 1) % sectors];
+          let difference = codes[s] ^ next,
+            changed = 0;
+          while (difference) {
+            changed += difference & 1;
+            difference >>= 1;
+          }
+          // Exactly one track changes between neighboring sectors, including the wrap from the last to the first.
+          expect(changed).toBe(1);
+        }
+        // Sector 0 is all dark (Gray code 0) and the hole at the center is dark.
+        expect(codes[0]).toBe(0);
+        sample(cx, cy, out);
+        expect(out.color).toBeLessThan(0.15);
+        // Outside the disc is the mid-tone mat.
+        sample(cx + 0.245, cy, out);
+        expect(Math.abs(out.color - p.matTone)).toBeLessThan(0.08);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('graycodediscs', 0),
+      b = createSurfaceSampler('graycodediscs', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

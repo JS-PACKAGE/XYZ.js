@@ -21672,6 +21672,72 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'graycodediscs': {
+        const p = proceduralMaterialPresets.graycodediscs,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27e01),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Four optical encoder discs, one per quadrant, with 3, 4, 5 and 6 tracks. A disc with b
+        // tracks has 2^b sectors numbered clockwise from the +u direction; track k (counted from the
+        // outside, so the outermost is the fastest-changing bit 0) is clear where bit k of the Gray
+        // code g = s ^ (s >> 1) of the sector s is 1, so neighboring sectors differ in exactly one
+        // track.
+        return () => {
+          const cell = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            dx = u - (0.25 + 0.5 * (cell & 1)),
+            dy = v - (0.25 + 0.5 * (cell >> 1)),
+            radius = Math.sqrt(dx * dx + dy * dy),
+            b = p.bits[cell],
+            sectors = 1 << b,
+            turn = Math.atan2(dy, dx) / TAU,
+            sector = Math.min(
+              sectors - 1,
+              Math.floor((turn < 0 ? turn + 1 : turn) * sectors),
+            ),
+            gray = sector ^ (sector >> 1),
+            disc = cover(p.discRadius - radius),
+            hole = cover(p.holeRadius - radius),
+            trackWidth = (p.trackOuter - p.trackInner) / b,
+            track = Math.floor((p.trackOuter - radius) / trackWidth),
+            onTracks =
+              radius < p.trackOuter &&
+              radius >= p.trackInner &&
+              track >= 0 &&
+              track < b,
+            clear = onTracks ? (gray >> track) & 1 : 0,
+            // Thin radial marks in the rim at every sector boundary.
+            sectorPosition = (turn < 0 ? turn + 1 : turn) * sectors,
+            fraction = sectorPosition - Math.floor(sectorPosition),
+            tick =
+              radius > p.trackOuter
+                ? cover(
+                    p.tickHalf -
+                      Math.min(fraction, 1 - fraction) *
+                        ((TAU * radius) / sectors),
+                  )
+                : 0;
+          let face = onTracks ? (clear ? p.slotTone : p.blockTone) : p.bodyTone;
+          face += (p.blockTone - face) * tick;
+          const grain = p.grainTone * (grainField(u, v) - 0.5);
+          const lit = p.matTone + (face - p.matTone) * disc;
+          color = clamp(lit + (p.holeTone - lit) * hole + grain);
+          height = clamp(
+            p.matHeight +
+              ((onTracks && clear ? p.slotHeight : p.bodyHeight) -
+                p.matHeight) *
+                disc -
+              (p.bodyHeight - p.matHeight) * hole,
+          );
+          roughness = clamp(
+            p.matRoughness +
+              ((onTracks && clear ? p.slotRoughness : p.bodyRoughness) -
+                p.matRoughness) *
+                disc,
+          );
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49201,6 +49267,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'graycodediscs' ||
     kind === 'knightstour' ||
     kind === 'scrambledcubenet' ||
     kind === 'weavingdraft' ||

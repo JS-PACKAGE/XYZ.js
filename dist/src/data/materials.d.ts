@@ -8147,6 +8147,33 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.4;
         squareRoughness: 0.62;
     }>;
+    graycodediscs: Readonly<{
+        dark: readonly [14, 16, 20];
+        light: readonly [236, 238, 232];
+        roughness: 0.42;
+        relief: 0.0028;
+        bits: readonly [3, 4, 5, 6];
+        discRadius: 0.235;
+        trackOuter: 0.2;
+        trackInner: 0.07;
+        holeRadius: 0.032;
+        tickHalf: 0.0016;
+        edgeSoft: 0.003;
+        grainCells: 192;
+        matTone: 0.32;
+        bodyTone: 0.5;
+        slotTone: 0.93;
+        blockTone: 0.12;
+        holeTone: 0.04;
+        grainTone: 0.03;
+        matHeight: 0.15;
+        bodyHeight: 0.6;
+        slotHeight: 0.35;
+        blockHeight: 0.6;
+        matRoughness: 0.8;
+        bodyRoughness: 0.35;
+        slotRoughness: 0.7;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -14632,6 +14659,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    graycodediscs: 0.35;
     knightstour: 0.4;
     scrambledcubenet: 0.4;
     weavingdraft: 0.4;

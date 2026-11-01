@@ -1353,6 +1353,10 @@
 
 這是作者設計的示意：只畫開放路線，不要求能回到起點（不是閉合的巡邏）；沒有棋子；細線在tile內與數字相交時會與數字重疊（數字畫在線上）；路線搜尋是以搜尋預算的啟發式，並非窮盡——本次在600個seed上實際都找到了完整的64步路線（單次建立最久約49 ms，一次性本機量測，非基準），但並未證明任何seed都必定成功；若全部60次嘗試都失敗，已走過的格子會有編號、未走過的格子則是空白（本次未遇到）。顏色是亮度插值（棋盤的淺深米色與近黑墨），不代表真實棋盤材質。預設0.4 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（每格64 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`graycodediscs`（格雷碼編碼盤）使目前目錄947→948種，含plain的gallery為949項。每tile四個象限各有一片光學編碼盤（optical rotary encoder disc），分別有3、4、5、6條同心軌道（8、16、32、64個扇區）：扇區從+u方向起、朝+v方向（螢幕上順時針）編號，第k條軌道（由外往內數，最外圈是變化最快的第0位元）在該扇區格雷碼 g = s XOR (s >> 1) 的第k位元為1時是亮色的透光槽、為0時是暗色的遮光塊，所以相鄰兩個扇區（包含最後一個接回第0個）恰好只有一條軌道不同。圓盤外緣有細的扇區刻線，中央有一個深色軸孔，盤外是中灰色墊面。Metallic與mortar為0。
+
+這是作者設計的示意：軌道數固定為3、4、5、6（不隨seed改變，seed只影響墊面的細微顆粒），各軌等寬、沒有光電感測器、遮光罩或軸；亮色代表透光、暗色代表遮光只是亮度的約定，不是實際光學材質；顏色是亮度插值。預設0.35 m nominal tile、0.0028 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（64扇區的盤在512 px下每個扇區在最外圈約3 px寬）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。
