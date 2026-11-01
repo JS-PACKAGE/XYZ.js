@@ -12207,6 +12207,35 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.05;
         valleyOcclusion: 0.45;
     }>;
+    forgedcarbon: Readonly<{
+        dark: readonly [8, 8, 10];
+        light: readonly [158, 160, 168];
+        roughness: 0.24;
+        relief: 0.0012;
+        cells: 10;
+        chipsPerCell: 5;
+        jitter: 0.5;
+        halfLengthMinimum: 0.34;
+        halfLengthVariation: 0.3;
+        halfWidthMinimum: 0.12;
+        halfWidthVariation: 0.1;
+        bevel: 0.2;
+        layerMinimum: 1;
+        layerVariation: 6;
+        toneMinimum: 0.12;
+        toneVariation: 0.42;
+        ripples: 9;
+        rippleAmplitude: 0.07;
+        backgroundTone: 0.06;
+        backgroundWeight: 0.25;
+        grainCells: 160;
+        grainTone: 0.03;
+        baseHeight: 0.5;
+        chipHeight: 0.4;
+        rippleHeight: 0.03;
+        rippleRoughness: 0.05;
+        grainRoughness: 0.03;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13485,4 +13514,5 @@ export declare const proceduralTileMeters: Readonly<{
     teak: 0.2;
     kilimdiamonds: 0.32;
     popcornceiling: 0.25;
+    forgedcarbon: 0.2;
 }>;

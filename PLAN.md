@@ -1095,6 +1095,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`forgedcarbon`（鍛造碳纖維風格複合材）使目前目錄899→900種，含plain的gallery為901項。10×10格、每格5個隨機位置／方向／長寬／灰階與疊放權重的圓角長條碎片，覆蓋在近黑樹脂背景上；碎片內有細密的平行編織漣漪（沿碎片長軸）與輕微高度／粗糙度起伏，整體為亮面（roughness約0.18–0.30）。不是規則斜紋或平紋編織（那是既有`carbonfiber`），沒有環氧樹脂厚度、反射清漆或金屬光澤。
+
+此材質是作者依一般鍛造（forged）／短切碳纖維複合材外觀所作示意，沒有引用特定來源文件、產品照片或量測，因此不宣稱符合任何實際製程、纖維長度、碎片尺寸、纖維方向統計或色彩；色調、roughness、高度與0.2 m nominal tile皆作者設定。
+
+新增專用sampler：constructor填10×10×5個碎片表（每片9個Float64：中心、cos／sin、1/半長²、1/半寬²、灰階、疊放權重、漣漪相位；共4,500 Float64／36,000 B）。取樣時搜尋周圍3×3格，每片碎片為四次方超橢圓smoothstep涵蓋度，顏色取「涵蓋度×疊放權重」加權平均並加入權重0.25的背景（光滑函數之商、分母恆正），所以碎片邊緣與重疊C1；碎片中心跨滿所屬格、半長≤0.64，使每片都落在被搜尋的3×3格內。另160² grain（25,600 Float64，合計30,100 Float64／240,800 B lattice算術預算，非總RAM）。初版背景權重0.02使邊緣過窄（局部坡度約7,700／UV、C1掃描最大值0.035超過我設的0.03），調為0.25後掃描最大值≤0.007。金屬factor為0、無mortar；預設0.2 m nominal tile、0.0012 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）、256²取樣：color 0.039–0.592、color<0.1的背景占18.8–20.4%、0.2–0.4的中灰碎片占49.6–52.2%、>0.45的亮碎片占6.6–10.2%、roughness 0.178–0.303，橫／縱色差比0.993–1.027；seed 0與1的平均色差0.158。seed7的512²中r平均49.2、最大98，r<25占20.3%、r>70占15.4%，法線max tilt²約0.0089。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `popcornceiling`（爆米花／吸音天花板噴塗）使目前目錄898→899種，含plain的gallery為900項。20×20格、每格一個隨機偏移、半徑與高度各異的圓形顆粒（半徑0.55–0.85格）以`1 − Π(1 − 顆粒)`軟合併，形成起伏不規則的顆粒團，顆粒間為較低且被遮蔽的谷（AO約0.55）；偏白微暖，帶細斑點grain，粗糙度高。沒有水漬、剝落、刮平區、纖維（石棉）或接縫。
 
 概念依據實際閱讀的[Wikipedia「Popcorn ceiling」](https://en.wikipedia.org/wiki/Popcorn_ceiling)導言：噴塗或刷塗的凹凸天花板處理，凹凸由微小蛭石或聚苯乙烯顆粒形成，有細、中、粗等級。該條目未提供顆粒尺寸或色彩，故顆粒半徑、高度、色調、roughness與0.25 m tile皆作者設定；材質只描述外觀，不含也不暗示任何材料成分（包含早期配方可能含石棉的歷史說明）。

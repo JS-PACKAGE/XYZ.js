@@ -941,6 +941,7 @@ const kinds: ProceduralMaterialKind[] = [
   'teak',
   'kilimdiamonds',
   'popcornceiling',
+  'forgedcarbon',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -136928,6 +136929,200 @@ describe('Off-white popcorn acoustic ceiling with soft merged lumps, shadowed va
     expect(shadowed / (512 * 512)).toBeLessThan(0.28);
     expect(maxTilt).toBeGreaterThan(0.08);
     expect(maxTilt).toBeLessThan(0.25);
+    expect(invalid).toBe(0);
+  });
+});
+
+describe('Forged-carbon composite with randomly oriented glossy chopped chips and fine woven ripples', () => {
+  const p = proceduralMaterialPresets.forgedcarbon;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  const colors = (seed: number): Float64Array => {
+    const sample = createSurfaceSampler('forgedcarbon', seed),
+      out = empty(),
+      result = new Float64Array(128 * 128);
+    for (let y = 0; y < 128; y++)
+      for (let x = 0; x < 128; x++) {
+        sample((x + 0.5) / 128, (y + 0.5) / 128, out);
+        result[y * 128 + x] = out.color;
+      }
+    return result;
+  };
+  it.each([0, 1, 0xffffffff])(
+    'mixes a dark resin background with a majority of mid-graphite chips and a few light chips, isotropically and without metal for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('forgedcarbon', seed),
+        a = empty(),
+        b = empty(),
+        c = empty();
+      let across = 0,
+        along = 0,
+        background = 0,
+        middle = 0,
+        light = 0,
+        sum = 0,
+        low = 1,
+        high = 0,
+        invalid = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          const u = (x + 0.5) / 256,
+            v = (y + 0.5) / 256;
+          sample(u, v, a);
+          sample(u + 1 / 1024, v, b);
+          sample(u, v + 1 / 1024, c);
+          across += Math.abs(a.color - b.color);
+          along += Math.abs(a.color - c.color);
+          background += Number(a.color < 0.1);
+          middle += Number(a.color >= 0.2 && a.color < 0.4);
+          light += Number(a.color > 0.45);
+          sum += a.color;
+          low = Math.min(low, a.color);
+          high = Math.max(high, a.color);
+          invalid += Number(
+            a.metallic !== 0 ||
+              a.mortar !== 0 ||
+              a.occlusion !== 1 ||
+              a.roughness < 0.17 ||
+              a.roughness > 0.31 ||
+              a.height < 0.499 * p.relief ||
+              a.height > 0.76 * p.relief,
+          );
+          for (const key of keys)
+            invalid += Number(
+              !Number.isFinite(a[key]) || a[key] < 0 || a[key] > 1,
+            );
+        }
+      expect(low).toBeLessThan(0.06);
+      expect(high).toBeGreaterThan(0.5);
+      expect(background / 65536).toBeGreaterThan(0.15);
+      expect(background / 65536).toBeLessThan(0.23);
+      expect(middle / 65536).toBeGreaterThan(0.42);
+      expect(middle / 65536).toBeLessThan(0.56);
+      expect(light / 65536).toBeGreaterThan(0.04);
+      expect(light / 65536).toBeLessThan(0.15);
+      expect(sum / 65536).toBeGreaterThan(0.23);
+      expect(sum / 65536).toBeLessThan(0.3);
+      // Chips are randomly oriented, so colour changes equally along both axes.
+      expect(across / along).toBeGreaterThan(0.9);
+      expect(across / along).toBeLessThan(1.1);
+      expect(invalid).toBe(0);
+    },
+  );
+  it('places chips differently for different seeds and identically for the same seed', () => {
+    const first = colors(0),
+      second = colors(1),
+      repeat = colors(0);
+    let difference = 0;
+    for (let i = 0; i < first.length; i++) {
+      difference += Math.abs(first[i] - second[i]);
+      expect(repeat[i]).toBe(first[i]);
+    }
+    expect(difference / first.length).toBeGreaterThan(0.1);
+  });
+  it('keeps chip edges, overlaps, ripples and grain C1 and the tile periodic', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      d = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('forgedcarbon', seed);
+      let worst = 0,
+        drift = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      for (let i = 0; i < 16384; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        check(u, v);
+        if (i < 4096) {
+          sample(u, v, b);
+          sample(u - 7, v + 11, d);
+          for (const key of keys)
+            drift = Math.max(drift, Math.abs(b[key] - d[key]));
+        }
+      }
+      expect(worst).toBeLessThan(0.03);
+      expect(drift).toBeLessThan(5e-10);
+    }
+  });
+  it('writes actual512 near-black graphite dielectric maps with glossy roughness and shallow normals', () => {
+    const maps = generateProceduralMaps('forgedcarbon', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let sum = 0,
+      maximum = 0,
+      dark = 0,
+      light = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      sum += maps.baseColor[i];
+      maximum = Math.max(maximum, maps.baseColor[i]);
+      dark += Number(maps.baseColor[i] < 25);
+      light += Number(maps.baseColor[i] > 70);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.metallicRoughness[i + 1] > 90 ||
+          maps.occlusion[i] !== 255 ||
+          maps.normal[i + 2] < 200,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(sum / (512 * 512)).toBeGreaterThan(40);
+    expect(sum / (512 * 512)).toBeLessThan(60);
+    expect(maximum).toBeLessThan(130);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.15);
+    expect(dark / (512 * 512)).toBeLessThan(0.25);
+    expect(light / (512 * 512)).toBeGreaterThan(0.1);
+    expect(light / (512 * 512)).toBeLessThan(0.2);
+    expect(maxTilt).toBeGreaterThan(0.003);
+    expect(maxTilt).toBeLessThan(0.03);
     expect(invalid).toBe(0);
   });
 });

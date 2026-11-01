@@ -37131,6 +37131,97 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'forgedcarbon': {
+        const p = proceduralMaterialPresets.forgedcarbon,
+          stride = 9,
+          // Per chip: centre x/y (cell units), cos, sin, 1/halfLength^2, 1/halfWidth^2,
+          // tone, layer weight, ripple phase.
+          chips = new Float64Array(p.cells * p.cells * p.chipsPerCell * stride),
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x2d101),
+          inverseBevel = 1 / p.bevel;
+        for (let row = 0; row < p.cells; row++)
+          for (let col = 0; col < p.cells; col++)
+            for (let k = 0; k < p.chipsPerCell; k++) {
+              const i = ((row * p.cells + col) * p.chipsPerCell + k) * stride,
+                salt = (k + 1) * 0x9e37,
+                angle = TAU * hash(col, row, seed ^ (0x2d103 + salt)),
+                halfLength =
+                  p.halfLengthMinimum +
+                  p.halfLengthVariation *
+                    hash(col, row, seed ^ (0x2d105 + salt)),
+                halfWidth =
+                  p.halfWidthMinimum +
+                  p.halfWidthVariation *
+                    hash(col, row, seed ^ (0x2d107 + salt));
+              chips[i] =
+                0.5 +
+                p.jitter * (2 * hash(col, row, seed ^ (0x2d109 + salt)) - 1);
+              chips[i + 1] =
+                0.5 +
+                p.jitter * (2 * hash(col, row, seed ^ (0x2d10b + salt)) - 1);
+              chips[i + 2] = Math.cos(angle);
+              chips[i + 3] = Math.sin(angle);
+              chips[i + 4] = 1 / (halfLength * halfLength);
+              chips[i + 5] = 1 / (halfWidth * halfWidth);
+              chips[i + 6] =
+                p.toneMinimum +
+                p.toneVariation * hash(col, row, seed ^ (0x2d10d + salt));
+              chips[i + 7] =
+                p.layerMinimum +
+                p.layerVariation * hash(col, row, seed ^ (0x2d10f + salt));
+              chips[i + 8] = TAU * hash(col, row, seed ^ (0x2d111 + salt));
+            }
+        return () => {
+          // Each rotated superellipse chip has a smooth coverage; the colour is the
+          // coverage x layer weighted mean of the chip tones plus a small background
+          // weight, a quotient of smooth functions with a positive denominator, so the
+          // chip edges and overlaps stay C1. Centres span their own cell and the reach
+          // (<= 0.64) keeps every chip inside the 3x3 cells searched.
+          const x = fract(u) * p.cells,
+            y = fract(v) * p.cells,
+            col = Math.floor(x),
+            row = Math.floor(y);
+          let weight = p.backgroundWeight,
+            tone = p.backgroundWeight * p.backgroundTone,
+            ripple = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const base =
+                (((row + oy + p.cells) % p.cells) * p.cells +
+                  ((col + ox + p.cells) % p.cells)) *
+                p.chipsPerCell;
+              for (let k = 0; k < p.chipsPerCell; k++) {
+                const i = (base + k) * stride,
+                  dx = x - (col + ox + chips[i]),
+                  dy = y - (row + oy + chips[i + 1]),
+                  a = dx * chips[i + 2] + dy * chips[i + 3],
+                  b = dy * chips[i + 2] - dx * chips[i + 3],
+                  ax = a * a * chips[i + 4],
+                  bx = b * b * chips[i + 5],
+                  coverage = smooth(
+                    clamp((1 - ax * ax - bx * bx) * inverseBevel),
+                  );
+                if (coverage === 0) continue;
+                const w = coverage * chips[i + 7],
+                  wave = Math.sin(TAU * p.ripples * a + chips[i + 8]);
+                weight += w;
+                tone += w * (chips[i + 6] + p.rippleAmplitude * wave);
+                ripple += w * wave;
+              }
+            }
+          const grain = grainField(u, v);
+          ripple /= weight;
+          color = tone / weight + p.grainTone * (grain - 0.5);
+          height =
+            p.baseHeight +
+            p.chipHeight * (1 - p.backgroundWeight / weight) * 0.5 +
+            p.rippleHeight * ripple +
+            0.01 * grain;
+          roughness +=
+            p.rippleRoughness * ripple + p.grainRoughness * (grain - 0.5);
+          return;
+        };
+      }
       case 'popcornceiling': {
         const p = proceduralMaterialPresets.popcornceiling,
           // Four values per cell: centre x, centre y (cell units), 1/radius^2, height.
@@ -44567,6 +44658,7 @@ export function createSurfaceSampler(
     kind === 'teak' ||
     kind === 'kilimdiamonds' ||
     kind === 'popcornceiling' ||
+    kind === 'forgedcarbon' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||

@@ -11538,3 +11538,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4組永久測試（`popcorn`：三seed高度／AO／各向同性統計、seed差異與同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選8項通過（7.11s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "popcorn|Popcorn|kinds|catalog|distinct|periodic"`定向測試，**2093項通過／3506項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery（上一節的11種gallery驗證不含本功能）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：鍛造碳纖維風格複合材（forgedcarbon）
+
+- 目錄899→900，含plain的gallery為901項。10×10格、每格5個隨機位置／方向／長寬／灰階與疊放權重的圓角長條碎片覆蓋近黑樹脂背景，碎片內沿長軸有細密編織漣漪，整體亮面。這是作者依一般鍛造／短切碳纖維複合材所作示意，**沒有**引用特定來源文件、產品照片或量測；不是規則斜紋／平紋（既有`carbonfiber`），無環氧厚度、清漆反射或金屬光澤。我另嘗試以Wikipedia「Carbon-fiber-reinforced polymer」及搜尋找可引用段落，API回傳空extract、搜尋結果無關，故不引用。
+- 專用sampler：碎片表4,500 Float64＋160² grain共30,100 Float64／240,800 B；取樣搜尋3×3格，碎片為四次方超橢圓smoothstep涵蓋度，顏色取涵蓋度×疊放權重的加權平均加權重0.25背景（光滑函數之商、分母恆正），C1。預設0.2 m tile、0.0012 UV-relative relief（非公尺位移）、metallic factor0；不新增API或依賴。
+- 開發中實際發現並修正：背景權重初版0.02時邊緣極窄（局部坡度約7,700／UV），C1掃描三seed最大值0.0349／0.0285／0.0422，其中兩項超過我設的0.03而使測試失敗（以二階差分隨h線性縮小確認是高曲率、非不連續）；改為0.25後最大值0.0059／0.0026／0.0068。另初版碎片中心jitter 0.35在每格5片時形成明顯放射狀叢集，改為0.5並重新實看。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）256²取樣color 0.039–0.592、color<0.1背景占18.8–20.4%、0.2–0.4中灰碎片占49.6–52.2%、>0.45亮碎片占6.6–10.2%、roughness 0.178–0.303，橫／縱色差比0.993–1.027；seed 0與1平均色差0.158。seed7的512² r平均49.2（最大98），r<25占20.3%、r>70占15.4%，法線max tilt²約0.0089。以Bun產生512 seed7的2×2排列圖並實看（三版：過疏、星狀叢集、最終），最終版為密集隨機方向的碎片與編織漣漪。
+- 新增4組永久測試（`Forged-carbon`：三seed灰階分布／各向同性、seed差異與同seed一致、C1與帶號UV週期、actual512五maps），並加入通用kinds清單；名稱篩選7項通過。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Forged-carbon|forgedcarbon|kinds|catalog|distinct|periodic"`定向測試，**2095項通過／3511項未選**。
+- 本功能未重跑完整179檔suite（popcornceiling commit的完整suite另在凍結worktree執行，結果另記）、未開瀏覽器gallery；不宣稱跨瀏覽器／backend或效能驗證；不push。
