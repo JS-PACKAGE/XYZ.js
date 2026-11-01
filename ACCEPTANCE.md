@@ -11991,3 +11991,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 字型說明：十二個字母的3×5點陣是我自己畫的（不是任何標準字型），M與N、D與O在極小尺寸下容易混淆；測試端另寫了一份獨立的字型表來解碼，因此測試驗證的是「畫出來的圖形確實能被這份字型讀回」，不是字型的正確性。
 - 實測：`tests/procedural-material-motifs.test.ts`五百八十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：每個格子以測試端的字型逐像素解碼成12個字母之一（解碼不到的格子會使測試失敗），在8個方向搜尋全部15個單字，清單中至少5個單字能在格內以直線找到，且格內出現的字母種類不超過12個；通道範圍、metallic／mortar 0、wrap與seed差異。注意：「至少5個」是下限（填充字母可能意外多拼出別的單字）；也沒有測試「恰好是哪5個」，因為取樣器內的挑選與放置不對外公開。`tests/procedural-material.test.ts`以`-t "wordsearchgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`wordsearchgrid`：option 967個、status為966 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的字母方格（我把點陣像素由0.0125放大到0.0135，使字母更清楚）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：幻方（magicsquares）
+
+- 目錄966→967，含plain的gallery為968項。每tile四個象限各放一個幻方：3階洛書、4階杜勒、5階與7階（暹羅法），各由seed隨機旋轉0至3次並可能鏡射。Metallic／mortar為0，預設tile0.4 m、0.0014 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 資料來源：洛書與杜勒幻方的數字是照記憶輸入的，沒有對照外部資料；正確性靠測試的「1至n²各一次、每列每欄兩條對角線和相等」條件驗證（杜勒幻方的角落、中央2×2也為34等其他性質未測試）。5階與7階由暹羅法演算法生成。
+- 實測與一個測試端錯誤：`tests/procedural-material-motifs.test.ts`五百九十一項（本材質十項）全過。第一次寫的位數判斷（以頂列中央像素是否有墨判斷是否單位數）是錯的：數字4的頂列中央沒有墨，被誤判為雙位數而讀成負數，九個seed中的九項解碼測試失敗；取樣器本身沒錯。改成「以單一字形讀取，若成功就是單位數；雙位數的窗口中央欄是空白，沒有任何數字的中央欄全空，所以單一讀取必失敗」後全部通過。九個seed（0、7、4294967295、1至6）× 四個象限：逐格解碼數字，驗證為1至n²各一次，每列、每欄、兩條對角線的和等於n(n²+1)/2；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "magicsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`magicsquares`：option 968個、status為967 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個幻方（7階2位數字在512 px下點陣只有約4 px）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

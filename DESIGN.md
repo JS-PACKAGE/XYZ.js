@@ -1433,6 +1433,10 @@
 
 這是作者設計的示意：單字清單不會印在畫面上；填入的隨機字母可能意外拼出清單上的其他單字（測試只要求清單中至少有5個單字能在格內以直線找到）；只有12個字母，3×5點陣的字母在小尺寸下不易分辨（例如D與O、M與N）；字母以單字母方式放置，沒有空格或標點。預設0.35 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上（每格約85 px，點陣像素約14 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`magicsquares`（幻方）使目前目錄966→967種，含plain的gallery為968項。每tile四個象限各放一個幻方：3階（洛書）、4階（杜勒的幻方）、5階與7階（奇數階用暹羅法：從首列中間出發，右上移動、遇到已填的格子就往下一格），每個幻方由seed隨機旋轉0至3次並可能鏡射（旋轉與鏡射不改變幻方性質）。因此每個幻方的數字恰好是1至n²各一次，且每一列、每一欄與兩條對角線的和都等於幻方常數 n(n²+1)/2（15、34、65、175）。數字是3×5點陣（1至2位數），有格線與較粗的外框，米白紙面。Metallic與mortar為0。
+
+這是作者設計的示意：洛書與杜勒幻方的數字照記憶輸入，用「每列、每欄、對角線和相等且為1至n²」的條件驗證（杜勒幻方的其他性質，如四個角落、中央2×2之和也是34，沒有測試）；5階與7階由演算法生成，不是特定的傳統幻方；沒有6階或其他偶數階（需要不同的構造法）；7階的格子較小（約0.07 tile），在512 px約36 px、2位數字的點陣像素只有約4 px。預設0.4 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者高度為背底.02 < 腳.44 < 本體.68。作者local幾何：本體centerY／domeCenterY -.13、halfWidth .14、halfHeight .16（上-.29／下.03），上半採平方半徑C1 profile；腳pitch .075、y .005–.39、root halfwidth .018、tail .0105、shoulderEndY .15、blend .006，並非原廠公差。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是尺寸參考，非插圖量測值或精確CAD。不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -23316,6 +23316,153 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'magicsquares': {
+        const p = proceduralMaterialPresets.magicsquares,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29101),
+          jitterField = cachedNoise(
+            p.jitterCells,
+            p.jitterCells,
+            seed ^ 0x29103,
+          ),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          side = 0.5 - 2 * p.margin,
+          squares: number[][] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Base magic squares: Lo Shu (order 3), Durer's (order 4) and the Siamese method for odd
+          // orders: start in the middle of the top row, move up and right (wrapping), and drop one
+          // row down when that cell is taken.
+          base = (order: number): number[] => {
+            if (order === 3) return [4, 9, 2, 3, 5, 7, 8, 1, 6];
+            if (order === 4)
+              return [16, 3, 2, 13, 5, 10, 11, 8, 9, 6, 7, 12, 4, 15, 14, 1];
+            const grid = new Array<number>(order * order).fill(0);
+            let x = order >> 1,
+              y = 0;
+            for (let value = 1; value <= order * order; value++) {
+              grid[y * order + x] = value;
+              const nextX = (x + 1) % order,
+                nextY = (y + order - 1) % order;
+              if (grid[nextY * order + nextX] !== 0) y = (y + 1) % order;
+              else {
+                x = nextX;
+                y = nextY;
+              }
+            }
+            return grid;
+          };
+        // Four squares, one per quadrant, each rotated and reflected at random by the seed (which
+        // keeps every row, column and diagonal sum at n (n^2 + 1) / 2).
+        for (let quadrant = 0; quadrant < p.orders.length; quadrant++) {
+          const order = p.orders[quadrant],
+            turns = Math.min(
+              3,
+              Math.floor(hash(quadrant, 1, seed ^ 0x29105) * 4),
+            ),
+            flip = hash(quadrant, 2, seed ^ 0x29107) < 0.5;
+          let grid = base(order);
+          for (let t = 0; t < turns; t++) {
+            const rotated = new Array<number>(order * order);
+            for (let row = 0; row < order; row++)
+              for (let col = 0; col < order; col++)
+                rotated[col * order + (order - 1 - row)] =
+                  grid[row * order + col];
+            grid = rotated;
+          }
+          if (flip) {
+            const mirrored = new Array<number>(order * order);
+            for (let row = 0; row < order; row++)
+              for (let col = 0; col < order; col++)
+                mirrored[row * order + (order - 1 - col)] =
+                  grid[row * order + col];
+            grid = mirrored;
+          }
+          squares.push(grid);
+        }
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            order = p.orders[quadrant],
+            cell = side / order,
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let ink = 0,
+            rule = 0,
+            tone: number = p.paperTone;
+          if (
+            lx >= -p.outerHalf &&
+            lx <= side + p.outerHalf &&
+            ly >= -p.outerHalf &&
+            ly <= side + p.outerHalf
+          ) {
+            const col = Math.min(order - 1, Math.max(0, Math.floor(lx / cell))),
+              row = Math.min(order - 1, Math.max(0, Math.floor(ly / cell))),
+              value = squares[quadrant][row * order + col],
+              digits = value >= 10 ? 2 : 1,
+              pixel = cell * p.digitFraction,
+              left = (col + 0.5) * cell - ((digits * 4 - 1) / 2) * pixel,
+              top = (row + 0.5) * cell - 2.5 * pixel,
+              px = Math.floor((lx - left) / pixel),
+              py = Math.floor((ly - top) / pixel);
+            if (lx >= 0 && lx <= side && ly >= 0 && ly <= side) {
+              tone = p.cellTone;
+              if (
+                py >= 0 &&
+                py < 5 &&
+                px >= 0 &&
+                px < digits * 4 - 1 &&
+                px % 4 !== 3
+              ) {
+                const digit =
+                  digits === 2
+                    ? px < 3
+                      ? Math.floor(value / 10)
+                      : value % 10
+                    : value;
+                if (glyphs[digit][py * 3 + (px % 4)] === '1') ink = 1;
+              }
+            }
+            const edge = Math.min(
+                Math.min(lx - col * cell, (col + 1) * cell - lx),
+                Math.min(ly - row * cell, (row + 1) * cell - ly),
+              ),
+              outer = Math.min(
+                Math.min(lx, side - lx),
+                Math.min(ly, side - ly),
+              );
+            rule = Math.max(
+              cover(p.lineHalf - edge),
+              cover(p.outerHalf - outer),
+            );
+          }
+          const surface = tone + (p.lineTone - tone) * rule,
+            inkTone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
+          color = clamp(
+            surface +
+              p.grainTone * (grainField(u, v) - 0.5) +
+              (inkTone - surface) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.lineHeight - p.paperHeight) * rule +
+              (p.inkHeight - p.lineHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50845,6 +50992,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'magicsquares' ||
     kind === 'wordsearchgrid' ||
     kind === 'mastermindboard' ||
     kind === 'elementaryautomata' ||

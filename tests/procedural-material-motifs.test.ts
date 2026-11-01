@@ -10387,3 +10387,114 @@ describe('wordsearchgrid: the listed words are hidden in the letter grid', () =>
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('magicsquares: every row, column and diagonal sums to the magic constant', () => {
+  const p = proceduralMaterialPresets.magicsquares;
+  const orders = [3, 4, 5, 7];
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'numbers 1 to n^2 once with all line sums equal (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('magicsquares', seed),
+        out = empty(),
+        side = 0.5 - 2 * p.margin;
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const n = orders[quadrant],
+          cell = side / n,
+          pixel = cell * p.digitFraction,
+          ox = (quadrant & 1) * 0.5 + p.margin,
+          oy = (quadrant >> 1) * 0.5 + p.margin,
+          grid: number[][] = [];
+        for (let row = 0; row < n; row++) {
+          const line: number[] = [];
+          for (let col = 0; col < n; col++) {
+            const cx = ox + (col + 0.5) * cell,
+              cy = oy + (row + 0.5) * cell,
+              read = (left: number): number => {
+                const bits: string[] = [];
+                for (let y = 0; y < 5; y++) {
+                  let text = '';
+                  for (let x = 0; x < 3; x++) {
+                    sample(left + (x + 0.5) * pixel, cy + (y - 2) * pixel, out);
+                    text += out.color < 0.4 ? '#' : '.';
+                  }
+                  bits.push(text);
+                }
+                return art.findIndex((rows) =>
+                  rows.every((text, i) => text === bits[i]),
+                );
+              };
+            // One digit is centred; read as a single glyph it is valid. Two digits leave the middle
+            // column of that window blank, which no digit has, so the single read fails.
+            const single = read(cx - 1.5 * pixel),
+              value =
+                single >= 0
+                  ? single
+                  : read(cx - 3.5 * pixel) * 10 + read(cx + 0.5 * pixel);
+            line.push(value);
+          }
+          grid.push(line);
+        }
+        const all = grid.flat().sort((a, b) => a - b);
+        expect(all).toEqual(Array.from({ length: n * n }, (_, i) => i + 1));
+        const magic = (n * (n * n + 1)) / 2;
+        for (let i = 0; i < n; i++) {
+          expect(grid[i].reduce((a, b) => a + b, 0)).toBe(magic);
+          expect(grid.reduce((sum, line) => sum + line[i], 0)).toBe(magic);
+        }
+        expect(grid.reduce((sum, line, i) => sum + line[i], 0)).toBe(magic);
+        expect(grid.reduce((sum, line, i) => sum + line[n - 1 - i], 0)).toBe(
+          magic,
+        );
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('magicsquares', 0),
+      b = createSurfaceSampler('magicsquares', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
