@@ -11521,3 +11521,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實際抓到並修正：第一版用固定門檻（0.43／0.5／0.57）切色階，預覽幾乎只剩暗橄欖與沙色兩種、中間色階面積極小，因為三層加權雜訊的值域比門檻窄；改為在constructor排序全部4096個像素值、以四分位數取門檻，使四個色階各佔exactly 25%。
 - 實測：`tests/procedural-material-motifs.test.ts`一百零三項（本材質五項）全過：三seed逐塊以五個探針（避開邊緣）量到的最近色階全部一致（比例＝1，即織紋不改變塊色階）、四個色階面積比各介於0.24–0.26、相鄰塊同色比例＞0.45（隨機約0.25；聚成大方塊）；單塊內織紋色調變化範圍落在weaveTone的0.5–1.5倍、高度變化＞0.5×weaveHeight；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "digitalcamo|every preset"`定向跑3項通過，沒有重跑該檔其餘5521項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`digitalcamo`：option 902個、status為901 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、四色像素與聚簇方塊可辨。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：雷達掃描顯示（radarscope）
+
+- 目錄901→902，含plain的gallery為903項。每tile一個圓形雷達顯示（半徑0.46 UV）：5條等距距離環、24條每15°的方位輻條（每第6條較粗）、一條由seed決定角度的亮掃描臂、其後1.3 rad平方衰減的磷光餘暉、6個隨機亮點、192條掃描線調變。Metallic／mortar為0，預設tile0.3 m、0.0004 UV-relative relief、metallic factor 0。UI風格示意，不含文字／刻度、掃描臂固定不隨時間移動；作者設計，未打包外部圖樣。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試過程中實際遇到並修正（都是測試的量測問題，不是材質缺陷，也沒有放寬門檻）：(1) 輻條角度測試的未點亮扇區方向寫反（把餘暉區當成未點亮），導致距掃描臂0.25 rad內的點也被量到；(2) 亮點恰落在量測圓上會多出非輻條的峰值，所以改在六個候選半徑中取峰值數最少（沒有亮點）的圓；(3) 平坦的輻條頂部因掃描線漣漪有多個局部極大，改為每條輻條只保留一個峰（間距＞0.03 rad）；(4) 亮度衰減測試的取樣角度會落在輻條上使平均為空（NaN），改為取扇區中央；(5) 「餘暉末端比背景亮」的差距太小（lag 1.1時約0.006），改為與lag 0.2比較。
+- 實測：`tests/procedural-material-motifs.test.ts`一百一十項（本材質七項）全過：以掃描圓找到最亮點作為掃描臂角度（不讀seed內部）；在掃描臂後方的射線上，五個距離環的位置都有一個峰值落在k×半徑/5的0.003內；未點亮扇區的輻條峰值全部落在15°的整數倍（<0.01 rad）、數量與扇區寬一致；餘暉在lag 0.2/0.5/0.8/1.1嚴格遞減、其後回到背景（<背景+0.04）、圓外只有背景、掃描臂本身是最亮的線；通道範圍與wrap／seed差異。`tests/procedural-material.test.ts`以`-t "radarscope|every preset"`定向跑3項通過，沒有重跑該檔其餘5522項。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`radarscope`：option 903個、status為902 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼無接縫、每格一個圓形雷達。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

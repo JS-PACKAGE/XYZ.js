@@ -17548,6 +17548,90 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - p.weaveAO * (1 - weave));
         };
       }
+      case 'radarscope': {
+        const p = proceduralMaterialPresets.radarscope,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x25001),
+          sweepAngle = TAU * hash(0, 0, seed ^ 0x25003),
+          blips = new Float64Array(p.blips * 3),
+          inverseSoft = 1 / p.lineSoft,
+          inverseSweep = 1 / p.sweepWidth,
+          spokeStep = TAU / p.spokes,
+          cover = (distance: number, half: number): number =>
+            smooth(clamp((half - distance) * inverseSoft + 0.5));
+        // Blips: polar position (angle, radius as a fraction of the scope) and size scale.
+        for (let i = 0; i < p.blips; i++) {
+          blips[i * 3] = TAU * hash(i, 1, seed ^ 0x25005);
+          blips[i * 3 + 1] = 0.15 + 0.8 * hash(i, 2, seed ^ 0x25007);
+          blips[i * 3 + 2] = 0.7 + 0.6 * hash(i, 3, seed ^ 0x25009);
+        }
+        return () => {
+          const dx = u - 0.5,
+            dy = v - 0.5,
+            rho = Math.sqrt(dx * dx + dy * dy),
+            grain = grainField(u, v),
+            scan =
+              1 -
+              p.scanlineDepth * (0.5 + 0.5 * Math.cos(TAU * p.scanlines * v));
+          color = p.backgroundTone;
+          height = p.baseHeight;
+          roughness = p.baseRoughness;
+          occlusion = 1;
+          if (rho < p.radius + p.outerHalf) {
+            const theta = Math.atan2(dy, dx),
+              // Angular lag behind the sweep arm, in [0, 2pi).
+              lag = (((sweepAngle - theta) % TAU) + TAU) % TAU,
+              afterglow =
+                lag < p.sweepWidth ? (1 - lag * inverseSweep) ** 2 : 0,
+              ringStep = p.radius / p.rings,
+              ring = Math.max(
+                cover(
+                  Math.abs(rho - ringStep * Math.round(rho / ringStep)),
+                  p.ringHalf,
+                ) * (rho > ringStep * 0.5 ? 1 : 0),
+                cover(Math.abs(rho - p.radius), p.outerHalf),
+              ),
+              spokeIndex = Math.round(theta / spokeStep),
+              spokeDistance = rho * Math.abs(theta - spokeIndex * spokeStep),
+              major =
+                ((spokeIndex % p.crossEvery) + p.crossEvery) % p.crossEvery ===
+                0,
+              spoke =
+                cover(spokeDistance, major ? p.crossHalf : p.spokeHalf) *
+                (rho < p.radius ? 1 : 0),
+              arm =
+                cover(rho * lag, p.sweepLineWidth * 0.5) *
+                (lag < Math.PI ? 1 : 0) *
+                (rho < p.radius ? 1 : 0);
+            let blip = 0;
+            for (let i = 0; i < p.blips; i++) {
+              const bx = Math.cos(blips[i * 3]) * blips[i * 3 + 1] * p.radius,
+                by = Math.sin(blips[i * 3]) * blips[i * 3 + 1] * p.radius,
+                d = Math.sqrt((dx - bx) ** 2 + (dy - by) ** 2),
+                size = p.blipRadius * blips[i * 3 + 2],
+                lagBlip = (((sweepAngle - blips[i * 3]) % TAU) + TAU) % TAU,
+                persistence =
+                  p.blipPersistence +
+                  (1 - p.blipPersistence) *
+                    (lagBlip < p.sweepWidth
+                      ? (1 - lagBlip * inverseSweep) ** 2
+                      : 0);
+              blip = Math.max(blip, cover(d, size) * persistence);
+            }
+            const inside = rho < p.radius ? 1 : 0;
+            color =
+              p.backgroundTone +
+              inside * p.glowTone * afterglow +
+              p.ringTone * ring +
+              p.spokeTone * spoke +
+              p.sweepTone * afterglow * inside * 0.5 +
+              p.sweepLineTone * arm +
+              p.blipTone * blip;
+            height = p.baseHeight + p.lineHeight * Math.max(ring, spoke, arm);
+            roughness = p.baseRoughness - p.glowRoughness * afterglow * inside;
+          }
+          color = clamp(color * scan + p.grainTone * (grain - 0.5));
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -45077,6 +45161,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'radarscope' ||
     kind === 'digitalcamo' ||
     kind === 'topographiccontours' ||
     kind === 'garnetschist' ||

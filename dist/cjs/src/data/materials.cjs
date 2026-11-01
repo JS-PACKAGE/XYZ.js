@@ -12681,6 +12681,49 @@ var proceduralMaterialPresets = Object.freeze({
 		weaveRoughness: .04,
 		weaveAO: .25
 	}),
+	radarscope: Object.freeze({
+		dark: [
+			2,
+			10,
+			4
+		],
+		light: [
+			150,
+			255,
+			160
+		],
+		roughness: .3,
+		relief: 4e-4,
+		radius: .46,
+		rings: 5,
+		ringHalf: .0016,
+		outerHalf: .0034,
+		spokes: 24,
+		spokeHalf: .0012,
+		crossEvery: 6,
+		crossHalf: .0022,
+		lineSoft: .0012,
+		sweepWidth: 1.3,
+		sweepLineWidth: .012,
+		blips: 6,
+		blipRadius: .011,
+		blipPersistence: .4,
+		scanlines: 192,
+		scanlineDepth: .12,
+		grainCells: 256,
+		backgroundTone: .04,
+		glowTone: .1,
+		ringTone: .34,
+		spokeTone: .26,
+		sweepTone: .28,
+		sweepLineTone: .9,
+		blipTone: .95,
+		grainTone: .02,
+		baseHeight: .5,
+		lineHeight: .15,
+		baseRoughness: .3,
+		glowRoughness: .15
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -21362,6 +21405,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	radarscope: .3,
 	digitalcamo: 1,
 	topographiccontours: 1,
 	garnetschist: .4,

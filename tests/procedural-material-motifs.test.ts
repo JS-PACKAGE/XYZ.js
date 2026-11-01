@@ -2106,3 +2106,162 @@ describe('digitalcamo: four-tone pixel camouflage on canvas', () => {
     expect(different).toBeGreaterThan(100);
   });
 });
+
+describe('radarscope: rings, bearing spokes, sweep afterglow and blips', () => {
+  const p = proceduralMaterialPresets.radarscope;
+  const TAU = 2 * Math.PI;
+  const spokeStep = TAU / p.spokes;
+  /** Scope color at polar coordinates around the tile center. */
+  const at = (
+    sample: ReturnType<typeof createSurfaceSampler>,
+    rho: number,
+    theta: number,
+  ): number => {
+    const out = empty();
+    sample(0.5 + rho * Math.cos(theta), 0.5 + rho * Math.sin(theta), out);
+    return out.color;
+  };
+  /** Sweep arm angle: the brightest point of a mid-radius circle. */
+  const arm = (sample: ReturnType<typeof createSurfaceSampler>): number => {
+    let best = 0,
+      bright = -1;
+    for (let i = 0; i < 7200; i++) {
+      const theta = (TAU * i) / 7200,
+        c = at(sample, 0.3, theta);
+      if (c > bright) {
+        bright = c;
+        best = theta;
+      }
+    }
+    return best;
+  };
+
+  it.each(seeds)(
+    'draws evenly spaced range rings and bearing spokes (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('radarscope', seed),
+        sweep = arm(sample),
+        step = p.radius / p.rings;
+      // A ray between two spokes, well behind the afterglow so only rings are lit.
+      const behind = sweep + p.sweepWidth + 0.4,
+        ray = (Math.floor(behind / spokeStep) + 0.5) * spokeStep,
+        peaks: number[] = [];
+      const n = 6000,
+        profile: number[] = [];
+      for (let i = 0; i < n; i++)
+        profile.push(at(sample, ((p.radius + 0.02) * (i + 0.5)) / n, ray));
+      for (let i = 1; i < n - 1; i++)
+        if (
+          profile[i] > 0.12 &&
+          profile[i] >= profile[i - 1] &&
+          profile[i] > profile[i + 1]
+        )
+          peaks.push(((p.radius + 0.02) * (i + 0.5)) / n);
+      // Blips and scanlines may add peaks; every authored ring must have one at its radius.
+      for (let k = 1; k <= p.rings; k++)
+        expect(
+          Math.min(...peaks.map((r) => Math.abs(r - k * step))),
+        ).toBeLessThan(0.003);
+      // Spokes along a circle inside the unlit sector. Blips add extra peaks, so take the
+      // candidate radius with the fewest peaks (a blip-free circle).
+      // Unlit sector: angles from just past the arm to the far end of the afterglow.
+      const first = sweep + 0.15,
+        last = sweep + TAU - p.sweepWidth - 0.15,
+        m = 9000;
+      let angles: number[] | undefined;
+      for (const circle of [0.2, 0.25, 0.3, 0.34, 0.38, 0.42]) {
+        const ring: number[] = [],
+          found: number[] = [];
+        for (let i = 0; i <= m; i++)
+          ring.push(at(sample, circle, first + ((last - first) * i) / m));
+        for (let i = 1; i < m; i++)
+          if (ring[i] > 0.1 && ring[i] >= ring[i - 1] && ring[i] > ring[i + 1])
+            found.push(first + ((last - first) * i) / m);
+        // A flat spoke top can hold several local maxima (scanline ripple): keep one per spoke.
+        const merged = found.filter(
+          (angle, i) => i === 0 || angle - found[i - 1] > 0.03,
+        );
+        if (angles === undefined || merged.length < angles.length)
+          angles = merged;
+      }
+      if (angles === undefined) throw new Error('no spoke samples');
+      const wrapped = angles.map((a) => {
+        const r = (((a % spokeStep) + spokeStep) % spokeStep) / spokeStep;
+        return Math.min(r, 1 - r) * spokeStep;
+      });
+      // Every spoke peak sits on a multiple of the authored bearing step.
+      for (const offset of wrapped) expect(offset).toBeLessThan(0.01);
+      const expected = Math.floor((last - first) / spokeStep);
+      expect(angles.length).toBeGreaterThanOrEqual(expected - 1);
+      expect(angles.length).toBeLessThanOrEqual(expected + 3);
+    },
+  );
+
+  it.each(seeds)(
+    'fades the sweep afterglow monotonically behind the arm and keeps the rest dark (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('radarscope', seed),
+        sweep = arm(sample),
+        // Mid-radius between two rings, away from spokes along the arc.
+        rho = p.radius * 0.5 + p.radius / p.rings / 2.5,
+        tones: number[] = [];
+      for (const lag of [0.2, 0.5, 0.8, 1.1]) {
+        // Snap to the middle of a bearing sector so no spoke line enters the average.
+        const theta =
+          (Math.round((sweep - lag) / spokeStep - 0.5) + 0.5) * spokeStep;
+        let sum = 0;
+        for (let k = 0; k < 20; k++)
+          sum += at(sample, rho, theta + (k - 10) * 0.0008);
+        tones.push(sum / 20);
+      }
+      for (let i = 1; i < tones.length; i++)
+        expect(tones[i]).toBeLessThan(tones[i - 1]);
+      // Past the afterglow the scope returns to its dark background.
+      const dark = at(sample, rho, sweep - p.sweepWidth - 0.5 + spokeStep / 2);
+      expect(tones[0]).toBeGreaterThan(dark + 0.05);
+      expect(dark).toBeLessThan(p.backgroundTone + 0.04);
+      // Outside the scope disc only background remains.
+      expect(at(sample, p.radius + 0.03, sweep + 1)).toBeLessThan(
+        p.backgroundTone + 0.04,
+      );
+      // The arm itself is the brightest line.
+      expect(at(sample, 0.3, sweep)).toBeGreaterThan(p.sweepLineTone * 0.8);
+    },
+  );
+
+  it('keeps channels in range and wraps seamlessly, differing between seeds', () => {
+    const a = createSurfaceSampler('radarscope', 0),
+      b = createSurfaceSampler('radarscope', 7),
+      one = empty(),
+      two = empty();
+    let different = 0,
+      invalid = 0;
+    for (let i = 0; i < 40_000; i++) {
+      a((i * 0.6180339887) % 1, (i * 0.7548776662) % 1, one);
+      invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+      for (const value of [
+        one.color,
+        one.height / p.relief,
+        one.roughness,
+        one.occlusion,
+      ])
+        invalid += Number(!(value >= 0 && value <= 1));
+    }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        expect(two.height).toBeCloseTo(one.height, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(20);
+  });
+});
