@@ -10815,3 +10815,88 @@ describe('oghaminscription: stroke groups spell Old Irish tree names', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('gameoflife: each board is the next generation of the one before', () => {
+  const p = proceduralMaterialPresets.gameoflife;
+  const n = 20;
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'applies Conway’s rule between the four boards on a torus (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('gameoflife', seed),
+        out = empty(),
+        side = 0.5 - 2 * p.margin,
+        cell = side / n,
+        boards: number[][] = [];
+      for (let quadrant = 0; quadrant < 4; quadrant++) {
+        const board: number[] = [];
+        for (let y = 0; y < n; y++)
+          for (let x = 0; x < n; x++) {
+            sample(
+              (quadrant & 1) * 0.5 + p.margin + (x + 0.5) * cell,
+              (quadrant >> 1) * 0.5 + p.margin + (y + 0.5) * cell,
+              out,
+            );
+            board.push(out.color > 0.6 ? 1 : 0);
+          }
+        boards.push(board);
+      }
+      // An independent implementation of the rule: count the live cells in the 3x3 block including the cell itself.
+      const next = (board: number[]): number[] =>
+        board.map((alive, index) => {
+          const x = index % n,
+            y = Math.floor(index / n);
+          let block = 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              block += board[((y + dy + n) % n) * n + ((x + dx + n) % n)];
+          return block === 3 || (block === 4 && alive === 1) ? 1 : 0;
+        });
+      for (let k = 0; k < 3; k++)
+        expect(boards[k + 1]).toEqual(next(boards[k]));
+      for (const board of boards) {
+        const live = board.reduce((a, b) => a + b, 0);
+        expect(live).toBeGreaterThan(n * n * 0.05);
+        expect(live).toBeLessThan(n * n * 0.5);
+      }
+      // The boards are not frozen: successive generations differ.
+      for (let k = 0; k < 3; k++) expect(boards[k + 1]).not.toEqual(boards[k]);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('gameoflife', 0),
+      b = createSurfaceSampler('gameoflife', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

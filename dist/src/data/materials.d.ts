@@ -8743,6 +8743,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         stoneRoughness: 0.88;
         carveRoughness: 0.74;
     }>;
+    gameoflife: Readonly<{
+        dark: readonly [8, 22, 20];
+        light: readonly [150, 255, 190];
+        roughness: 0.46;
+        relief: 0.004;
+        size: 20;
+        density: 0.36;
+        burnIn: 10;
+        margin: 0.02;
+        inset: 0.14;
+        lineHalf: 0.0007;
+        frameHalf: 0.0026;
+        edgeSoft: 0.0011;
+        grainCells: 160;
+        deadTone: 0.1;
+        lineTone: 0.2;
+        liveTone: 0.9;
+        frameTone: 0.5;
+        paperTone: 0.04;
+        grainTone: 0.03;
+        liveHeight: 0.8;
+        deadHeight: 0.3;
+        lineHeight: 0.22;
+        frameHeight: 0.5;
+        paperHeight: 0.12;
+        liveRoughness: 0.3;
+        deadRoughness: 0.62;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -15228,6 +15256,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    gameoflife: 0.4;
     oghaminscription: 0.5;
     kaleidoscope: 0.4;
     slidingpuzzle: 0.3;

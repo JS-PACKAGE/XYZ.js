@@ -12020,3 +12020,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計與缺陷記錄：第一版每行最多8個字母格，但最長的單字只有6個字母，右側約四分之一的石面是空的；改成每行6格（同時把刻痕加長加粗）後排滿。送交verify時eslint抓到`let stroke = 0`的初始值從未被使用（`no-useless-assignment`），改成`let stroke: number`後通過。
 - 實測：`tests/procedural-material-motifs.test.ts`六百二十一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）× 8行：沿主幹線上下0.025與0.0075的水平線計算暗段數，由「只在下方／只在上方／上下等數／僅主幹線上有槽」分辨四組，再由暗段數1至5決定字母；每行解出的單字都必須在測試端的16字清單中，且8行至少出現3個不同的單字；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "oghaminscription|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`oghaminscription`：option 971個、status為970 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的刻石。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：生命遊戲（gameoflife）
+
+- 目錄970→971，含plain的gallery為972項。每tile 2×2個20×20環面細胞盤面，依閱讀順序是康威生命遊戲連續四個世代（密度0.36的隨機初始狀態先運行10代）。Metallic／mortar為0，預設tile0.4 m、0.004 UV-relative relief、metallic factor 0。初始狀態為隨機湯，沒有特意放置的結構；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 真實缺陷與調整：（1）第一版burn-in為24代，測試第一次執行失敗：seed 0的盤面只剩8個活細胞（測試要求＞5%即20個），生命遊戲的隨機湯確實會衰退；改為10代。（2）送交verify時strict typecheck報錯：`let current = new Uint8Array(...)`被推論為`Uint8Array<ArrayBuffer>`，與`step`回傳的`Uint8Array<ArrayBufferLike>`不相容，改標`: Uint8Array`。（3）看圖發現seed 7的初始狀態有大片空白：原因是我用`hash(i, 7, seed)`的一維索引產生初始格子，分布不夠均勻；改用`hash(x, y, seed)`二維後均勻許多。這個更換使先前的數字失效，所以重新在14個seed（0、7、4294967295、1至6、8至12）上計數：burn-in 24代時活細胞數最少21、burn-in 10代時為59至121（共400格），因此保留10代。文件中的數字就是這次重量的結果。
+- 實測：`tests/procedural-material-motifs.test.ts`六百三十一項（本材質十項）全過。九個seed（0、7、4294967295、1至6）：以格中心亮度（＞0.6為活）讀出四個盤面，測試端另寫一份規則（數3×3區塊內含自身的活細胞數，等於3，或等於4且自身為活）在環面上推進，要求盤面2、3、4各自恰為前一盤面的下一代；每個盤面的活細胞數介於5%與50%之間，且連續世代不相同；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "gameoflife|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`gameoflife`：option 972個、status為971 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

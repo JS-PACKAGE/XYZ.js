@@ -15287,6 +15287,42 @@ var proceduralMaterialPresets = Object.freeze({
 		stoneRoughness: .88,
 		carveRoughness: .74
 	}),
+	gameoflife: Object.freeze({
+		dark: [
+			8,
+			22,
+			20
+		],
+		light: [
+			150,
+			255,
+			190
+		],
+		roughness: .46,
+		relief: .004,
+		size: 20,
+		density: .36,
+		burnIn: 10,
+		margin: .02,
+		inset: .14,
+		lineHalf: 7e-4,
+		frameHalf: .0026,
+		edgeSoft: .0011,
+		grainCells: 160,
+		deadTone: .1,
+		lineTone: .2,
+		liveTone: .9,
+		frameTone: .5,
+		paperTone: .04,
+		grainTone: .03,
+		liveHeight: .8,
+		deadHeight: .3,
+		lineHeight: .22,
+		frameHeight: .5,
+		paperHeight: .12,
+		liveRoughness: .3,
+		deadRoughness: .62
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -23968,6 +24004,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	gameoflife: .4,
 	oghaminscription: .5,
 	kaleidoscope: .4,
 	slidingpuzzle: .3,

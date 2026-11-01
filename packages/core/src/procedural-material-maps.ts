@@ -23727,6 +23727,99 @@ export function createSurfaceSampler(
           occlusion = clamp(1 - 0.25 * carve);
         };
       }
+      case 'gameoflife': {
+        const p = proceduralMaterialPresets.gameoflife,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29501),
+          n = p.size,
+          side = 0.5 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          boards: Uint8Array[] = [];
+        // A random soup on a torus, run for a burn-in, then four successive generations of Conway's
+        // rule (a live cell survives with 2 or 3 live neighbours, a dead cell is born with exactly 3)
+        // fill the four quadrants in reading order.
+        let current: Uint8Array = new Uint8Array(n * n);
+        for (let i = 0; i < n * n; i++)
+          current[i] =
+            hash(i % n, Math.floor(i / n), seed ^ 0x29503) < p.density ? 1 : 0;
+        const step = (from: Uint8Array): Uint8Array => {
+          const next = new Uint8Array(n * n);
+          for (let y = 0; y < n; y++)
+            for (let x = 0; x < n; x++) {
+              let alive = 0;
+              for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++)
+                  if (dx !== 0 || dy !== 0)
+                    alive += from[((y + dy + n) % n) * n + ((x + dx + n) % n)];
+              next[y * n + x] =
+                alive === 3 || (alive === 2 && from[y * n + x] === 1) ? 1 : 0;
+            }
+          return next;
+        };
+        for (let i = 0; i < p.burnIn; i++) current = step(current);
+        for (let q = 0; q < 4; q++) {
+          boards.push(current);
+          current = step(current);
+        }
+        return () => {
+          const quadrant = (u >= 0.5 ? 1 : 0) + (v >= 0.5 ? 2 : 0),
+            lx = u - (quadrant & 1) * 0.5 - p.margin,
+            ly = v - (quadrant >> 1) * 0.5 - p.margin;
+          let tone: number = p.paperTone,
+            level: number = p.paperHeight,
+            rough: number = p.deadRoughness;
+          if (
+            lx >= -p.frameHalf &&
+            lx <= side + p.frameHalf &&
+            ly >= -p.frameHalf &&
+            ly <= side + p.frameHalf
+          ) {
+            const inside = lx >= 0 && lx < side && ly >= 0 && ly < side,
+              frame = cover(
+                p.frameHalf -
+                  Math.min(
+                    Math.min(Math.abs(lx), Math.abs(lx - side)),
+                    Math.min(Math.abs(ly), Math.abs(ly - side)),
+                  ),
+              );
+            if (inside) {
+              const col = Math.min(n - 1, Math.floor(lx / cell)),
+                row = Math.min(n - 1, Math.floor(ly / cell)),
+                fx = lx - col * cell,
+                fy = ly - row * cell,
+                line = cover(
+                  p.lineHalf -
+                    Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)),
+                ),
+                live =
+                  boards[quadrant][row * n + col] === 1
+                    ? Math.min(
+                        cover(Math.min(fx, cell - fx) - cell * p.inset),
+                        cover(Math.min(fy, cell - fy) - cell * p.inset),
+                      )
+                    : 0;
+              tone =
+                p.deadTone +
+                (p.lineTone - p.deadTone) * line +
+                (p.liveTone - p.deadTone) * live;
+              level =
+                p.deadHeight +
+                (p.lineHeight - p.deadHeight) * line +
+                (p.liveHeight - p.deadHeight) * live;
+              rough =
+                p.deadRoughness + (p.liveRoughness - p.deadRoughness) * live;
+            }
+            tone += (p.frameTone - tone) * frame;
+            level += (p.frameHeight - level) * frame;
+          }
+          color = clamp(tone + p.grainTone * (grainField(u, v) - 0.5));
+          height = clamp(level);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -51256,6 +51349,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'gameoflife' ||
     kind === 'oghaminscription' ||
     kind === 'kaleidoscope' ||
     kind === 'slidingpuzzle' ||
