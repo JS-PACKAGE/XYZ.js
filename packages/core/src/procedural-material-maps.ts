@@ -38092,7 +38092,8 @@ export function createSurfaceSampler(
           // and each slot its horizontal slot, with every mark kept strictly inside:
           // five ruled lines and bar lines use smooth(1 - d^2 / w^2), note heads are
           // smooth(1 - q) ellipses and stems are a line profile with smooth ends, so
-          // ink is C1 and zero before any ownership boundary.
+          // each new mark joins by the union ink += x * (1 - ink), which is C1, and is zero
+          // before any ownership boundary.
           const staff = Math.min(p.staves - 1, Math.floor(fract(v) * p.staves)),
             offset = fract(v) * p.staves * pitch - staff * pitch,
             slot = Math.min(p.slots - 1, Math.floor(fract(u) * p.slots)),
@@ -38101,7 +38102,7 @@ export function createSurfaceSampler(
           // Staff lines
           for (let k = 0; k < 5; k++) {
             const d = offset - (p.staffBottom + k * p.lineSpacing);
-            ink = Math.max(ink, smooth(clamp(1 - d * d * inverseLine2)));
+            ink += smooth(clamp(1 - d * d * inverseLine2)) * (1 - ink);
           }
           // Bar lines every barsPerTile-th of the tile, spanning the five lines.
           const barPhase = fract(u * p.barsPerTile + 0.5) - 0.5,
@@ -38110,11 +38111,10 @@ export function createSurfaceSampler(
               smooth(
                 clamp((offset - p.staffBottom + p.stemRamp) / p.stemRamp),
               ) * smooth(clamp((top + p.stemRamp - offset) / p.stemRamp));
-          ink = Math.max(
-            ink,
+          ink +=
             smooth(clamp(1 - (barPhase / p.barsPerTile) ** 2 * inverseBar2)) *
-              along,
-          );
+            along *
+            (1 - ink);
           const note = notes[staff * p.slots + slot];
           if (note > 0) {
             const step = note - 1,
@@ -38122,7 +38122,7 @@ export function createSurfaceSampler(
               dy = offset - headV,
               hx = inSlot / p.headRadiusU,
               hy = dy / p.headRadiusV;
-            ink = Math.max(ink, smooth(clamp(1 - hx * hx - hy * hy)));
+            ink += smooth(clamp(1 - hx * hx - hy * hy)) * (1 - ink);
             // Stem: on the right going up for low heads, on the left going down for
             // high ones.
             const up = step < p.steps / 2,
@@ -38132,10 +38132,7 @@ export function createSurfaceSampler(
               span =
                 smooth(clamp(reach / p.stemRamp)) *
                 smooth(clamp((p.stemLength - reach) / p.stemRamp));
-            ink = Math.max(
-              ink,
-              smooth(clamp(1 - sx * sx * inverseStem2)) * span,
-            );
+            ink += smooth(clamp(1 - sx * sx * inverseStem2)) * span * (1 - ink);
           }
           const grain = grainField(u, v);
           color =

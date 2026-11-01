@@ -9855,16 +9855,16 @@ function createSurfaceSampler(t, r) {
 					let e = Math.min(t.staves - 1, Math.floor(fract(K) * t.staves)), r = fract(K) * t.staves * a - e * a, u = Math.min(t.slots - 1, Math.floor(fract(G) * t.slots)), d = fract(G) - u * o - o / 2, f = 0;
 					for (let e = 0; e < 5; e++) {
 						let n = r - (t.staffBottom + e * t.lineSpacing);
-						f = Math.max(f, smooth(clamp(1 - n * n * s)));
+						f += smooth(clamp(1 - n * n * s)) * (1 - f);
 					}
 					let p = fract(G * t.barsPerTile + .5) - .5, m = t.staffBottom + 4 * t.lineSpacing, h = smooth(clamp((r - t.staffBottom + t.stemRamp) / t.stemRamp)) * smooth(clamp((m + t.stemRamp - r) / t.stemRamp));
-					f = Math.max(f, smooth(clamp(1 - (p / t.barsPerTile) ** 2 * c)) * h);
+					f += smooth(clamp(1 - (p / t.barsPerTile) ** 2 * c)) * h * (1 - f);
 					let g = i[e * t.slots + u];
 					if (g > 0) {
 						let e = g - 1, n = r - (t.staffBottom + e * t.stepHeight), i = d / t.headRadiusU, a = n / t.headRadiusV;
-						f = Math.max(f, smooth(clamp(1 - i * i - a * a)));
+						f += smooth(clamp(1 - i * i - a * a)) * (1 - f);
 						let o = e < t.steps / 2, s = o ? t.stemSide : -t.stemSide, c = o ? n : -n, u = d - s, p = smooth(clamp(c / t.stemRamp)) * smooth(clamp((t.stemLength - c) / t.stemRamp));
-						f = Math.max(f, smooth(clamp(1 - u * u * l)) * p);
+						f += smooth(clamp(1 - u * u * l)) * p * (1 - f);
 					}
 					let _ = n(G, K);
 					J = t.paperTone + t.grainTone * (_ - .5) - (t.paperTone - t.inkTone) * f, Y = t.inkHeight * f + t.grainHeight * _, X += t.inkRoughness * f;

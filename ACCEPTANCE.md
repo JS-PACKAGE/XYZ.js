@@ -11830,3 +11830,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試，**2145項通過／3666項未選**。
 - 補記（完整suite）：在凍結worktree於amberbubbles commit `cdff89719`實跑完整`vitest run`，**179檔／9,713項全部通過**（1092.71s，wall約18.2分）；該commit之後的jarrah、buffaloplaid與本功能沒有重跑完整suite，僅有各自的定向測試與gates。
 - 未開瀏覽器gallery（jarrah、buffaloplaid與本功能未在gallery驗證內）；不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 修正：樂譜（sheetmusic）的墨色合併改為平滑聯集
+
+- 起因：我在實作下一個材質（crosshatchengraving）時，同樣用了`Math.max`合併多組墨線，其C1掃描測試報出二階差分約872、遠超0.03的失敗；檢查後確認`max`在兩組墨色相等的曲線上有折角，**不是C1**。回頭檢查已提交的`sheetmusic`，它也用`Math.max`合併譜線、小節線、符頭與符桿；先前它的C1測試能通過只是因為取樣點沒有恰好落在這些折角上，我在該section與docs中寫的「整體為C1」因此並不嚴格成立，這是我的疏漏。
+- 修正：把sheetmusic內四處`ink = Math.max(ink, x)`改為平滑聯集`ink += x·(1 − ink)`（兩個C1函數的聯集仍為C1），並在程式註解與README以外的各文件的sampler說明中補上這個合併方式；音符表、幾何與預設值不變。重新實測（工具實跑）：512²墨色（color<0.5）占7.13–7.18%（原記7.12–7.17%）、seed 0與1的墨色遮罩2.98%像素不同（原記2.97%）、平均約0.881、seed7的512²平均(218,210,191)與r<100占5.5%皆不變；先前在樂譜section記載的其他數字（譜線最大color 0.069、留白最小color 0.921、至多1個符頭、0.396的位置有符頭）未受影響。舊的樂譜section保留原文作為歷史紀錄，以本section為準；docs內的數字已同步更正。
+- 驗證：樂譜10項測試重跑通過；乾淨worktree重跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility、distribution與`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試，結果見下方「gates」行。
+- gates（工具實跑）：build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）皆通過，`-t "Sheet music|sheetmusic|kinds|catalog|distinct|periodic"`定向測試**2145項通過／3666項未選**。本修正未重跑完整179檔suite；不push。
