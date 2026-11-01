@@ -13451,6 +13451,40 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .42,
 		tapeRoughness: .5
 	}),
+	calendarpage: Object.freeze({
+		dark: [
+			28,
+			26,
+			36
+		],
+		light: [
+			244,
+			240,
+			228
+		],
+		roughness: .7,
+		relief: .0014,
+		columns: 7,
+		rows: 6,
+		pixel: .055,
+		numberLeft: .1,
+		numberTop: .1,
+		lineHalf: .012,
+		outerHalf: .03,
+		weekendTint: .1,
+		edgeSoft: .005,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .93,
+		lineTone: .12,
+		digitTone: .06,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .74
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22132,6 +22166,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	calendarpage: .3,
 	measuringtape: .16,
 	sudokugrid: .25,
 	sheetmusic: .3,

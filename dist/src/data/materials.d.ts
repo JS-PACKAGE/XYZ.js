@@ -7465,6 +7465,32 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.42;
         tapeRoughness: 0.5;
     }>;
+    calendarpage: Readonly<{
+        dark: readonly [28, 26, 36];
+        light: readonly [244, 240, 228];
+        roughness: 0.7;
+        relief: 0.0014;
+        columns: 7;
+        rows: 6;
+        pixel: 0.055;
+        numberLeft: 0.1;
+        numberTop: 0.1;
+        lineHalf: 0.012;
+        outerHalf: 0.03;
+        weekendTint: 0.1;
+        edgeSoft: 0.005;
+        inkCells: 192;
+        paperCells: 256;
+        paperTone: 0.93;
+        lineTone: 0.12;
+        digitTone: 0.06;
+        inkGain: 0.08;
+        paperGrain: 0.04;
+        inkHeight: 0.56;
+        paperHeight: 0.3;
+        inkRoughness: 0.44;
+        paperRoughness: 0.74;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13950,6 +13976,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    calendarpage: 0.3;
     measuringtape: 0.16;
     sudokugrid: 0.25;
     sheetmusic: 0.3;

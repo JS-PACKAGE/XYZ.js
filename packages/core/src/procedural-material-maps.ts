@@ -19111,6 +19111,93 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'calendarpage': {
+        const p = proceduralMaterialPresets.calendarpage,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26401),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26403),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001001010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          cells = p.columns * p.rows,
+          // The month starts on a hash-chosen weekday column and has 28-31 days, so every cell holds
+          // either the next day number or nothing.
+          firstColumn = Math.min(
+            p.columns - 1,
+            Math.floor(hash(1, 1, seed ^ 0x26405) * p.columns),
+          ),
+          days = 28 + Math.min(3, Math.floor(hash(2, 2, seed ^ 0x26407) * 4)),
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const gx = u * p.columns,
+            gy = v * p.rows,
+            col = Math.min(p.columns - 1, Math.floor(gx)),
+            row = Math.min(p.rows - 1, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            index = row * p.columns + col - firstColumn,
+            // Cell lines (distances in cells), with a heavier frame at the tile edge.
+            lineX = Math.abs(gx - Math.round(gx)),
+            lineY = Math.abs(gy - Math.round(gy)),
+            grid = Math.max(
+              cover(
+                (Math.round(gx) % p.columns === 0 ? p.outerHalf : p.lineHalf) -
+                  lineX,
+              ),
+              cover(
+                (Math.round(gy) % p.rows === 0 ? p.outerHalf : p.lineHalf) -
+                  lineY,
+              ),
+            ),
+            weekend = col === 0 || col === p.columns - 1 ? p.weekendTint : 0;
+          let digit = 0;
+          if (index >= 0 && index < days && row * p.columns + col < cells) {
+            const label = String(index + 1),
+              column = Math.floor((fx - p.numberLeft) / p.pixel),
+              line = Math.floor((fy - p.numberTop) / p.pixel);
+            if (
+              line >= 0 &&
+              line < 5 &&
+              column >= 0 &&
+              column < 4 * label.length - 1
+            ) {
+              const inside = column % 4;
+              if (
+                inside < 3 &&
+                glyphs[Number(label[Math.floor(column / 4)])][
+                  line * 3 + inside
+                ] === '1'
+              )
+                digit = 1;
+            }
+          }
+          const gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5,
+            ink = Math.max(grid, digit),
+            paper = p.paperTone + p.paperGrain * grain - weekend;
+          color = clamp(
+            paper +
+              ((grid >= digit ? p.lineTone : p.digitTone) +
+                p.inkGain * gain -
+                paper) *
+                ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46640,6 +46727,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'calendarpage' ||
     kind === 'measuringtape' ||
     kind === 'sudokugrid' ||
     kind === 'sheetmusic' ||

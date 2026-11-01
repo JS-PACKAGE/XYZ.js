@@ -11660,3 +11660,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 設計調整：第一版草稿把長度單位混用（mm、公分、條帶高度比例），在落地前改為整個sampler都以毫米為單位量測（x、y、刻度長度、字型像素皆為mm），避免單位換算錯誤；預覽的刻度長度與字型大小因此符合實際尺寸。
 - 實測：`tests/procedural-material-motifs.test.ts`二百零八項（本材質四項）全過。三seed、8條條帶：在深度2 mm掃描一圈（步長0.05 mm）恰160個刻度、在中刻度與短刻度長度之間（5.2 mm）恰32個、在長刻度與中刻度之間（7.8 mm）恰16個、長刻度末端之下（10 mm）0個；每個公分k（0–15）在其刻度右側以3×5個像素中心取樣，解碼結果等於十進位字串k（含兩位數的10–15），字型由測試端獨立寫出；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "measuringtape|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`measuringtape`：option 922個、status為921 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的刻度與數字連續無接縫（512下每mm約3.2 px，刻度偏細，已在文件註明建議1024）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：月曆頁（calendarpage）
+
+- 目錄921→922，含plain的gallery為923項。每tile一頁7欄×6列月曆格，每格左上角以3×5點陣字型標示日期，細線分格、外框較粗，週末欄（第一與最後一欄）紙面略深。每個seed決定起始欄（0–6）與天數（28–31），日期依閱讀順序從1連續遞增，其餘留白。Metallic／mortar為0，預設tile0.3 m、0.0014 UV-relative relief、metallic factor 0。無星期標題或月份名稱，不對應真實月份；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 測試修正：第一版以0.03為「兩個平日欄位紙面色調相同」的容差，seed 9因紙面顆粒（±0.02）讓兩處差0.0316而失敗；紙面顆粒本身就能造成最多約0.04的差，所以容差改為0.05，週末色調差（0.1）仍遠大於此。
+- 實測：`tests/procedural-material-motifs.test.ts`二百二十項（本材質十二項）全過。十一個seed（0–9與4294967295）：以3×5像素中心解碼每格的0–2位數字（字型由測試端獨立寫出）；第一個有標籤的格子在第一列（起始欄0–6）、天數28–31、標籤依閱讀順序恰為1、2、…、天數，之後全為空白；第一與最後一欄的空白紙面比第四欄暗0.05以上、第三欄與第四欄相差＜0.05；24個seed中至少出現4種不同起始欄、3種不同天數；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "calendarpage|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 另外，在上一輪（ean13barcodes提交時的整體狀態，共31種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5727項全過（約1395 s）；之後新增的ecgpaper、sheetmusic、sudokugrid、measuringtape、本材質只做了定向測試。
+- 真實dev server的pbr3d頁（WebGPU）選取`calendarpage`：option 923個、status為922 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的格線、日期與週末欄連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

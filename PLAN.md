@@ -1239,6 +1239,10 @@
 
 這是作者設計的示意：只是一段重複的0–15 cm刻度，不是任何卷尺標準（如公制公差等級）的量測；沒有英寸刻度、金屬捲尺的彎曲、字型粗細或磨損。標示值固定為本段的公分序號，tile邊界處15與0銜接。預設0.16 m nominal tile（對應實際的160 mm）、0.0018 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓1 mm約6.4 px；512時1 mm只有約3.2 px，刻度會相當細；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`calendarpage`（月曆頁）使目前目錄921→922種，含plain的gallery為923項。每tile一頁7欄×6列的月曆格，每格左上角以3×5點陣字型標示日期，細線分格、tile外框較粗，第一欄與最後一欄（週末）紙面略深。每個seed決定一個月：從哪一欄開始（0–6）與天數（28–31），日期依閱讀順序從1連續增加到月底，其餘格留白。Metallic與mortar為0。
+
+這是作者設計的示意：沒有星期標題列、月份名稱、年份、節日或手寫備註，也不對應任何真實的月份，只是任選的起始欄與天數；格內只有日期數字。預設0.3 m nominal tile、0.0014 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上讓每格約73 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

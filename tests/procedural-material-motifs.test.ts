@@ -4711,3 +4711,147 @@ describe('measuringtape: millimeter scale with numbered centimeters', () => {
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('calendarpage: a month laid out on a weekday grid', () => {
+  const p = proceduralMaterialPresets.calendarpage;
+  // 3x5 pixel glyphs for 0-9, written out independently of the sampler.
+  const glyphs = [
+    '111101101101111',
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  it.each([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 4294967295])(
+    'numbers consecutive days from a weekday column through a 28-31 day month with tinted weekends (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('calendarpage', seed),
+        out = empty(),
+        dark = (col: number, row: number, fx: number, fy: number): boolean => {
+          sample((col + fx) / p.columns, (row + fy) / p.rows, out);
+          return out.color < 0.3;
+        };
+      // Read the label of a cell: zero, one or two glyphs, left aligned.
+      const read = (col: number, row: number): number | undefined => {
+        let text = '';
+        for (let g = 0; g < 2; g++) {
+          let bits = '';
+          for (let line = 0; line < 5; line++)
+            for (let c = 0; c < 3; c++)
+              bits += dark(
+                col,
+                row,
+                p.numberLeft + (4 * g + c + 0.5) * p.pixel,
+                p.numberTop + (line + 0.5) * p.pixel,
+              )
+                ? '1'
+                : '0';
+          if (bits === '0'.repeat(15)) break;
+          const digit = glyphs.indexOf(bits);
+          expect(digit).toBeGreaterThanOrEqual(0);
+          text += digit;
+        }
+        return text === '' ? undefined : Number(text);
+      };
+      const labels: (number | undefined)[] = [];
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) labels.push(read(col, row));
+      const first = labels.findIndex((value) => value !== undefined),
+        last =
+          labels.length -
+          1 -
+          [...labels].reverse().findIndex((value) => value !== undefined),
+        days = last - first + 1;
+      // The month starts on its own weekday column, runs 28-31 days, and numbers increase by one.
+      expect(first).toBeLessThan(p.columns);
+      expect(days).toBeGreaterThanOrEqual(28);
+      expect(days).toBeLessThanOrEqual(31);
+      for (let i = 0; i < labels.length; i++)
+        expect(labels[i]).toBe(
+          i >= first && i <= last ? i - first + 1 : undefined,
+        );
+      // Weekend columns (first and last) are tinted: compare empty paper at a cell's lower right.
+      const paper = (col: number): number => {
+        sample((col + 0.9) / p.columns, 0.9 / p.rows + 4 / p.rows, out);
+        return out.color;
+      };
+      const weekday = paper(3);
+      expect(paper(0)).toBeLessThan(weekday - 0.05);
+      expect(paper(p.columns - 1)).toBeLessThan(weekday - 0.05);
+      // Paper grain alone moves the tone by up to about 0.04 between two spots.
+      expect(Math.abs(paper(2) - weekday)).toBeLessThan(0.05);
+    },
+  );
+
+  it('uses more than one weekday start and month length across seeds, stays in range and wraps', () => {
+    const starts = new Set<number>(),
+      lengths = new Set<number>(),
+      out = empty();
+    for (let seed = 0; seed < 24; seed++) {
+      const sample = createSurfaceSampler('calendarpage', seed);
+      let first = -1,
+        count = 0;
+      for (let row = 0; row < p.rows; row++)
+        for (let col = 0; col < p.columns; col++) {
+          // A day number always inks its top-left pixel block, so look for any ink in the label box.
+          let inked = false;
+          for (let line = 0; line < 5 && !inked; line++)
+            for (let c = 0; c < 7 && !inked; c++) {
+              sample(
+                (col + p.numberLeft + (c + 0.5) * p.pixel) / p.columns,
+                (row + p.numberTop + (line + 0.5) * p.pixel) / p.rows,
+                out,
+              );
+              inked = out.color < 0.3;
+            }
+          if (inked) {
+            if (first < 0) first = row * p.columns + col;
+            count++;
+          }
+        }
+      starts.add(first);
+      lengths.add(count);
+    }
+    expect(starts.size).toBeGreaterThanOrEqual(4);
+    expect(lengths.size).toBeGreaterThanOrEqual(3);
+    const a = createSurfaceSampler('calendarpage', 0),
+      b = createSurfaceSampler('calendarpage', 3),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(30);
+  });
+});
