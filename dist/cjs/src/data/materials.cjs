@@ -13820,6 +13820,39 @@ var proceduralMaterialPresets = Object.freeze({
 		lineRoughness: .3,
 		panelRoughness: .65
 	}),
+	zoneplates: Object.freeze({
+		dark: [
+			10,
+			12,
+			18
+		],
+		light: [
+			226,
+			230,
+			238
+		],
+		roughness: .38,
+		relief: .0022,
+		plates: 2,
+		zones: 14,
+		radius: .42,
+		ringHalf: .022,
+		ringOffset: .03,
+		edgeSoft: .004,
+		grainCells: 192,
+		openTone: .93,
+		closedTone: .06,
+		mountTone: .5,
+		ringTone: .7,
+		grainTone: .03,
+		closedHeight: .56,
+		openHeight: .3,
+		mountHeight: .4,
+		ringHeight: .66,
+		closedRoughness: .32,
+		openRoughness: .2,
+		mountRoughness: .55
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22501,6 +22534,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	zoneplates: .2,
 	lissajousgrid: .4,
 	mondriancomposition: .6,
 	hilbertcurve: .3,

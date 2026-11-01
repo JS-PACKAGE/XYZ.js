@@ -1279,6 +1279,10 @@
 
 這是作者設計的示意：沒有示波器的螢幕曲率、光暈拖尾、掃描線或讀數文字，相位固定為π/2（不隨格子變化），顏色只是由dark／light兩端線性插值的綠色調。預設0.4 m nominal tile、0.002 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上；每個取樣點要檢查160段折線，成本較其他材質高：單次本機Bun量測512²取樣約155 ms（同一次量測中tumblingblocks約56 ms、brick約17 ms；不是基準測試，也沒有量測瀏覽器或Worker）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`zoneplates`（菲涅耳波帶片）使目前目錄931→932種，含plain的gallery為933項。每tile 2×2片波帶片，每片14個環帶，第k個環帶的外緣半徑為 R·√(k/N)（R = 0.42格、N = 14），這是菲涅耳波帶片的半徑律（各環帶面積相等）；偶數環帶（含中央圓）透明（淺色），奇數環帶不透明（近黑色），最外的第14環不透明並接中灰色底板；波帶片外緣另有一圈淺灰色固定環。環帶邊緣略有柔化，底板與環有細微顆粒。Metallic與mortar為0。
+
+這是作者設計的示意：只依半徑律繪製波帶片的幾何，不模擬繞射、焦點、波長或強度分布；環數、尺寸是正規化的（R與N固定），不對應真實的設計波長與焦距。預設0.2 m nominal tile、0.0022 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議1024以上讓最外圈的環帶（約0.015格寬）約8 px；512時約4 px；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

@@ -6058,3 +6058,95 @@ describe('lissajousgrid: curves with frequencies a = column + 1 and b = row + 1'
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('zoneplates: Fresnel zone rings at radii proportional to sqrt(k)', () => {
+  const p = proceduralMaterialPresets.zoneplates;
+  const radiusOf = (k: number): number => p.radius * Math.sqrt(k / p.zones);
+
+  it.each(seeds)(
+    'puts the k-th ring boundary at R sqrt(k / N) in every direction of every plate, starting open at the center (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('zoneplates', seed),
+        out = empty();
+      for (let plateY = 0; plateY < p.plates; plateY++)
+        for (let plateX = 0; plateX < p.plates; plateX++) {
+          const colorAt = (r: number, angle: number): number => {
+            sample(
+              (plateX + 0.5 + r * Math.cos(angle)) / p.plates,
+              (plateY + 0.5 + r * Math.sin(angle)) / p.plates,
+              out,
+            );
+            return out.color;
+          };
+          expect(colorAt(0, 0)).toBeGreaterThan(0.7);
+          for (const angle of [
+            0,
+            Math.PI / 4,
+            Math.PI / 2,
+            (5 * Math.PI) / 6,
+            (3 * Math.PI) / 2,
+          ]) {
+            // Radial scan: record where the tone crosses 0.3 (zone edges, and the opaque last
+            // zone meeting the mid-gray mount).
+            const crossings: number[] = [];
+            const step = 0.0005;
+            let previous = colorAt(0, angle) < 0.3;
+            for (let r = step; r < p.radius + 0.01; r += step) {
+              const now = colorAt(r, angle) < 0.3;
+              if (now !== previous) crossings.push(r - step / 2);
+              previous = now;
+            }
+            expect(crossings.length).toBe(p.zones);
+            crossings.forEach((radius, index) =>
+              expect(Math.abs(radius - radiusOf(index + 1))).toBeLessThan(
+                0.004,
+              ),
+            );
+            // The squared radii grow linearly with the zone number: equal area per zone.
+            for (let k = 1; k < crossings.length; k++) {
+              const area = crossings[k] ** 2 - crossings[k - 1] ** 2;
+              expect(Math.abs(area - p.radius ** 2 / p.zones)).toBeLessThan(
+                0.0035,
+              );
+            }
+          }
+        }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('zoneplates', 0),
+      b = createSurfaceSampler('zoneplates', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

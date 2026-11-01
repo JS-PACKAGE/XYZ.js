@@ -20145,6 +20145,54 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'zoneplates': {
+        const p = proceduralMaterialPresets.zoneplates,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x26e01),
+          n = p.plates,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        return () => {
+          const gx = u * n,
+            gy = v * n,
+            fx = gx - Math.floor(gx) - 0.5,
+            fy = gy - Math.floor(gy) - 0.5,
+            r = Math.sqrt(fx * fx + fy * fy),
+            grain = grainField(u, v) - 0.5,
+            plate = cover(p.radius - r),
+            ring = cover(p.ringHalf - Math.abs(r - (p.radius + p.ringOffset)));
+          // Fresnel zones: zone k spans radii R sqrt(k / N) to R sqrt((k + 1) / N); odd zones are
+          // opaque. Neighboring zones always differ, so the state blends across the nearest boundary.
+          const zone = Math.min(
+              p.zones - 1,
+              Math.floor((p.zones * r * r) / (p.radius * p.radius)),
+            ),
+            inner = p.radius * Math.sqrt(zone / p.zones),
+            outer = p.radius * Math.sqrt((zone + 1) / p.zones),
+            edge = zone === 0 ? outer - r : Math.min(r - inner, outer - r),
+            keep = smooth(clamp(edge * inverseSoft + 0.5)),
+            closed = zone % 2 === 1 ? keep : 1 - keep,
+            zoneTone = p.openTone + (p.closedTone - p.openTone) * closed,
+            base = p.mountTone + (zoneTone - p.mountTone) * plate,
+            tone = base + (p.ringTone - base) * ring;
+          color = clamp(tone + p.grainTone * grain);
+          height = clamp(
+            p.mountHeight +
+              (p.openHeight +
+                (p.closedHeight - p.openHeight) * closed -
+                p.mountHeight) *
+                plate +
+              (p.ringHeight - p.mountHeight) * ring * (1 - plate),
+          );
+          roughness =
+            p.mountRoughness +
+            (p.openRoughness +
+              (p.closedRoughness - p.openRoughness) * closed -
+              p.mountRoughness) *
+              plate;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -47674,6 +47722,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'zoneplates' ||
     kind === 'lissajousgrid' ||
     kind === 'mondriancomposition' ||
     kind === 'hilbertcurve' ||

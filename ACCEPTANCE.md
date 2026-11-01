@@ -11732,3 +11732,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 實測：`tests/procedural-material-motifs.test.ts`二百七十七項（本材質四項）全過。三seed：測試端以公式獨立生成每格的解析曲線（2000點），每格曲線上每隔40點取樣，落在亮像素（顏色＞0.6）的比例＞0.99；所有亮像素到解析曲線的最近距離都在「線半寬＋2 px」之內（偏離曲線的雜散亮像素占比＜1%），亮像素總數＞5000；通道範圍、metallic／mortar 0、wrap與seed差異（seed只改變面板顆粒）。這驗證曲線位置，沒有驗證光暈強度。`tests/procedural-material.test.ts`以`-t "lissajousgrid|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 另外，在上一輪（tetrisstack提交時的整體狀態，共41種新材質）以`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`完整跑過：兩檔共5802項全過（約1397 s）；之後新增的battleshipgrid、hilbertcurve、mondriancomposition、本材質只做了定向測試。
 - 真實dev server的pbr3d頁（WebGPU）選取`lissajousgrid`：option 932個、status為931 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的圖形表連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：菲涅耳波帶片（zoneplates）
+
+- 目錄931→932，含plain的gallery為933項。每tile 2×2片波帶片，每片14個環帶，第k環外緣半徑為R·√(k/N)（R = 0.42格、N = 14，各環帶等面積），偶數環透明（含中央圓）、奇數環不透明，外圍有固定環與中灰底板。Metallic／mortar為0，預設tile0.2 m、0.0022 UV-relative relief、metallic factor 0。只畫半徑律幾何，不模擬繞射、焦點與波長；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版sampler草稿在環帶混合計算中留有多個乘零與`void`的無效算式，寫入前已重寫：相鄰環帶狀態必定相反，所以只需依到最近邊界的距離在「本環狀態」與「相反狀態」之間混合。
+- 實測：`tests/procedural-material-motifs.test.ts`二百八十一項（本材質四項）全過。三seed、2×2片、每片沿5個方向（0°、45°、90°、150°、270°）以0.0005格步長徑向掃描，找出色調穿過0.3的位置：每個方向恰好14個交點，第k個交點與R·√(k/N)相差＜0.004格；相鄰交點的平方差（環帶面積）與R²/N相差＜0.0035；每片中心為透明（色調＞0.7）；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "zoneplates|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`zoneplates`：option 933個、status為932 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的環帶與底板連續無接縫。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
