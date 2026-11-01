@@ -23463,6 +23463,123 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'slidingpuzzle': {
+        const p = proceduralMaterialPresets.slidingpuzzle,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x29201),
+          jitterField = cachedNoise(
+            p.jitterCells,
+            p.jitterCells,
+            seed ^ 0x29203,
+          ),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          n = p.size,
+          board = Array.from({ length: n * n }, (_, i) => (i + 1) % (n * n)),
+          side = 1 - 2 * p.margin,
+          cell = side / n,
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5));
+        // Start from the solved board and slide the empty square at random: the result can always be
+        // solved again by retracing the moves.
+        let blank = n * n - 1,
+          last = -1;
+        for (let move = 0; move < p.shuffleMoves; move++) {
+          const bx = blank % n,
+            by = Math.floor(blank / n),
+            options: number[] = [];
+          if (bx > 0) options.push(blank - 1);
+          if (bx < n - 1) options.push(blank + 1);
+          if (by > 0) options.push(blank - n);
+          if (by < n - 1) options.push(blank + n);
+          const choices = options.filter((o) => o !== last),
+            target =
+              choices[
+                Math.min(
+                  choices.length - 1,
+                  Math.floor(hash(move, 3, seed ^ 0x29205) * choices.length),
+                )
+              ];
+          board[blank] = board[target];
+          board[target] = 0;
+          last = blank;
+          blank = target;
+        }
+        return () => {
+          const lx = u - p.margin,
+            ly = v - p.margin;
+          let ink = 0,
+            tone: number = p.frameTone,
+            level: number = p.frameHeight,
+            rough: number = p.frameRoughness;
+          if (lx >= 0 && lx < side && ly >= 0 && ly < side) {
+            const col = Math.min(n - 1, Math.floor(lx / cell)),
+              row = Math.min(n - 1, Math.floor(ly / cell)),
+              value = board[row * n + col],
+              fx = lx - col * cell,
+              fy = ly - row * cell,
+              edge =
+                Math.min(Math.min(fx, cell - fx), Math.min(fy, cell - fy)) -
+                p.gap;
+            if (value === 0) {
+              tone = p.holeTone;
+              level = p.holeHeight;
+              rough = p.holeRoughness;
+            } else if (edge < 0) {
+              tone = p.gapTone;
+              level = p.gapHeight;
+              rough = p.holeRoughness;
+            } else {
+              const shape = cover(edge),
+                rise = smooth(clamp(edge / p.bevel));
+              tone =
+                p.gapTone +
+                (p.faceTone +
+                  p.grainTone * (grainField(u, v) - 0.5) -
+                  p.gapTone) *
+                  shape;
+              level = p.gapHeight + (p.faceHeight - p.gapHeight) * rise;
+              rough = p.faceRoughness;
+              const digits = value >= 10 ? 2 : 1,
+                pixel = cell * p.digitFraction,
+                left = cell / 2 - ((digits * 4 - 1) / 2) * pixel,
+                top = cell / 2 - 2.5 * pixel,
+                px = Math.floor((fx - left) / pixel),
+                py = Math.floor((fy - top) / pixel);
+              if (
+                py >= 0 &&
+                py < 5 &&
+                px >= 0 &&
+                px < digits * 4 - 1 &&
+                px % 4 !== 3
+              ) {
+                const digit =
+                  digits === 2
+                    ? px < 3
+                      ? Math.floor(value / 10)
+                      : value % 10
+                    : value;
+                if (glyphs[digit][py * 3 + (px % 4)] === '1') ink = 1;
+              }
+            }
+          }
+          const inkTone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
+          color = clamp(tone + (inkTone - tone) * ink);
+          height = clamp(level - p.inkDepth * ink);
+          roughness = rough;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -50992,6 +51109,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'slidingpuzzle' ||
     kind === 'magicsquares' ||
     kind === 'wordsearchgrid' ||
     kind === 'mastermindboard' ||

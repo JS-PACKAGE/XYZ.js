@@ -11998,3 +11998,10 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 資料來源：洛書與杜勒幻方的數字是照記憶輸入的，沒有對照外部資料；正確性靠測試的「1至n²各一次、每列每欄兩條對角線和相等」條件驗證（杜勒幻方的角落、中央2×2也為34等其他性質未測試）。5階與7階由暹羅法演算法生成。
 - 實測與一個測試端錯誤：`tests/procedural-material-motifs.test.ts`五百九十一項（本材質十項）全過。第一次寫的位數判斷（以頂列中央像素是否有墨判斷是否單位數）是錯的：數字4的頂列中央沒有墨，被誤判為雙位數而讀成負數，九個seed中的九項解碼測試失敗；取樣器本身沒錯。改成「以單一字形讀取，若成功就是單位數；雙位數的窗口中央欄是空白，沒有任何數字的中央欄全空，所以單一讀取必失敗」後全部通過。九個seed（0、7、4294967295、1至6）× 四個象限：逐格解碼數字，驗證為1至n²各一次，每列、每欄、兩條對角線的和等於n(n²+1)/2；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "magicsquares|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`magicsquares`：option 968個、status為967 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的四個幻方（7階2位數字在512 px下點陣只有約4 px）。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：滑塊拼圖（slidingpuzzle）
+
+- 目錄967→968，含plain的gallery為969項。每tile一個4×4盤面：15塊1至15點陣數字的方塊與一個下陷空格，由完成狀態經240步seed隨機的合法滑動（空格與鄰格交換、不立即回頭）得到，必可解回。Metallic／mortar為0，預設tile0.3 m、0.004 UV-relative relief、metallic factor 0。作者設計；仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：數字原本佔格寬約0.84（`digitFraction` 0.12），兩位數幾乎頂到方塊邊，看圖後改成0.1。
+- 實測：`tests/procedural-material-motifs.test.ts`六百零一項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）：由左上角的亮度判斷空格（暗＜0.2），其他格以測試端的點陣字型解碼（沿用前一個材質修正後的「單一字形讀取成功即單位數」判斷）；解碼後必須恰為0至15各一次；以獨立的可解性準則驗證（4×4盤面可解 ⇔ 逆序數＋空格由下往上的列號為奇數），九個seed全部可解；且在原位的方塊不超過6塊（確認有被打亂）。通道範圍、metallic／mortar 0、wrap與seed差異。可解性是「由合法滑動構造」的必然結果，測試只是獨立確認這個性質，並不證明盤面隨機性有多好。`tests/procedural-material.test.ts`以`-t "slidingpuzzle|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 真實dev server的pbr3d頁（WebGPU）選取`slidingpuzzle`：option 969個、status為968 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的盤面。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

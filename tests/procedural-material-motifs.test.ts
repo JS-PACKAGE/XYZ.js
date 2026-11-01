@@ -10498,3 +10498,114 @@ describe('magicsquares: every row, column and diagonal sums to the magic constan
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('slidingpuzzle: the shuffled board is a solvable 15-puzzle', () => {
+  const p = proceduralMaterialPresets.slidingpuzzle;
+  const n = 4;
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'shows tiles 1 to 15 once and one empty square, solvable by parity (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('slidingpuzzle', seed),
+        out = empty(),
+        side = 1 - 2 * p.margin,
+        cell = side / n,
+        pixel = cell * p.digitFraction,
+        board: number[] = [];
+      for (let row = 0; row < n; row++)
+        for (let col = 0; col < n; col++) {
+          const cx = p.margin + (col + 0.5) * cell,
+            cy = p.margin + (row + 0.5) * cell;
+          // The empty square is the sunken dark one: its centre is far darker than a tile face.
+          sample(cx - cell * 0.4, cy - cell * 0.4, out);
+          if (out.color < 0.2) {
+            board.push(0);
+            continue;
+          }
+          const read = (left: number): number => {
+            const bits: string[] = [];
+            for (let y = 0; y < 5; y++) {
+              let text = '';
+              for (let x = 0; x < 3; x++) {
+                sample(left + (x + 0.5) * pixel, cy + (y - 2) * pixel, out);
+                text += out.color < 0.45 ? '#' : '.';
+              }
+              bits.push(text);
+            }
+            return art.findIndex((rows) =>
+              rows.every((text, i) => text === bits[i]),
+            );
+          };
+          const single = read(cx - 1.5 * pixel);
+          board.push(
+            single >= 0
+              ? single
+              : read(cx - 3.5 * pixel) * 10 + read(cx + 0.5 * pixel),
+          );
+        }
+      expect([...board].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: 16 }, (_, i) => i),
+      );
+      // A 4x4 board is solvable iff inversions + the blank's row counted from the bottom (1-based) is odd.
+      const tiles = board.filter((value) => value !== 0);
+      let inversions = 0;
+      for (let i = 0; i < tiles.length; i++)
+        for (let j = i + 1; j < tiles.length; j++)
+          inversions += Number(tiles[i] > tiles[j]);
+      const blankRow = n - Math.floor(board.indexOf(0) / n);
+      expect((inversions + blankRow) % 2).toBe(1);
+      // It was shuffled: very few tiles are still home.
+      expect(
+        board.filter((value, i) => value === (i + 1) % 16).length,
+      ).toBeLessThanOrEqual(6);
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('slidingpuzzle', 0),
+      b = createSurfaceSampler('slidingpuzzle', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
