@@ -933,6 +933,7 @@ const kinds: ProceduralMaterialKind[] = [
   'longleafpine',
   'chesterfieldleather',
   'westernredcedar',
+  'perforatedhardboard',
 ];
 
 describe('Closed silver three-wave spring washers with uniform-width angular lift and open dielectric bores', () => {
@@ -135484,6 +135485,206 @@ describe('Western red cedar with reddish golden-brown straight grain and fine th
     let worst = 0;
     for (const seed of [0, 1, 0xffffffff]) {
       const sample = createSurfaceSampler('westernredcedar', seed);
+      for (let i = 0; i < 8192; i++) {
+        const u = (i * 0.61803398875) % 1,
+          v = (i * 0.41421356237) % 1;
+        sample(u, v, a);
+        sample(u - 7, v + 11, b);
+        for (const key of keys)
+          worst = Math.max(worst, Math.abs(a[key] - b[key]));
+      }
+    }
+    expect(worst).toBeLessThan(5e-10);
+  });
+});
+
+describe('Brown tempered perforated hardboard with a square grid of opaque round holes and rounded rims', () => {
+  const p = proceduralMaterialPresets.perforatedhardboard;
+  const keys = [
+    'color',
+    'height',
+    'roughness',
+    'occlusion',
+    'metallic',
+    'mortar',
+  ] as const;
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    metallic: 0,
+    mortar: 0,
+  });
+  it.each([0, 1, 0xffffffff])(
+    'drills one dark opaque low hole at every cell centre, leaves a continuous brown face between them and darkens the rim for seed %s',
+    (seed) => {
+      const sample = createSurfaceSampler('perforatedhardboard', seed),
+        hole = empty(),
+        face = empty(),
+        rim = empty(),
+        outer = empty(),
+        n = p.cells;
+      let invalid = 0,
+        holes = 0;
+      for (let i = 0; i < n; i++)
+        for (let j = 0; j < n; j++) {
+          sample((i + 0.5) / n, (j + 0.5) / n, hole);
+          sample(i / n, j / n, face);
+          sample(
+            (i + 0.5 + p.holeRadius + 0.5 * p.rimWidth) / n,
+            (j + 0.5) / n,
+            rim,
+          );
+          expect(hole.color).toBeLessThan(0.1);
+          expect(hole.occlusion).toBeLessThan(0.2);
+          expect(hole.height).toBeLessThan(0.05 * p.relief);
+          expect(hole.roughness).toBeGreaterThan(0.9);
+          expect(face.color).toBeGreaterThan(0.45);
+          expect(face.color).toBeLessThan(0.72);
+          expect(face.occlusion).toBeGreaterThan(0.999);
+          expect(face.height).toBeGreaterThan(0.55 * p.relief);
+          sample(
+            (i + 0.5 + p.holeRadius + p.rimWidth + 0.08) / n,
+            (j + 0.5) / n,
+            outer,
+          );
+          // Ring averages cancel the independent grain and fleck noise at the two radii.
+          let rimColor = 0,
+            outerColor = 0;
+          for (let k = 0; k < 8; k++) {
+            const cx = Math.cos((Math.PI * k) / 4),
+              cy = Math.sin((Math.PI * k) / 4),
+              rimRadius = p.holeRadius + 0.5 * p.rimWidth,
+              outerRadius = p.holeRadius + p.rimWidth + 0.08;
+            sample(
+              (i + 0.5 + rimRadius * cx) / n,
+              (j + 0.5 + rimRadius * cy) / n,
+              rim,
+            );
+            rimColor += rim.color / 8;
+            sample(
+              (i + 0.5 + outerRadius * cx) / n,
+              (j + 0.5 + outerRadius * cy) / n,
+              outer,
+            );
+            outerColor += outer.color / 8;
+            expect(rim.occlusion).toBeGreaterThan(0.8);
+            expect(rim.occlusion).toBeLessThan(0.92);
+            expect(outer.occlusion).toBeGreaterThan(0.999);
+          }
+          expect(rimColor).toBeLessThan(outerColor - 0.05);
+          holes++;
+          for (const s of [hole, face, rim])
+            invalid += Number(
+              s.metallic !== 0 ||
+                s.mortar !== 0 ||
+                keys.some(
+                  (key) => !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 1,
+                ),
+            );
+        }
+      expect(holes).toBe(n * n);
+      expect(invalid).toBe(0);
+      let dark = 0;
+      for (let y = 0; y < 256; y++)
+        for (let x = 0; x < 256; x++) {
+          sample((x + 0.5) / 256, (y + 0.5) / 256, face);
+          dark += Number(face.occlusion < 0.5);
+        }
+      expect(dark / 65536).toBeGreaterThan(0.04);
+      expect(dark / 65536).toBeLessThan(0.055);
+    },
+  );
+  it('keeps hole edges, rims, grain, fleck and sheen lattices C1 through the cell wrap', () => {
+    const a = empty(),
+      b = empty(),
+      c = empty(),
+      h = 1e-10;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('perforatedhardboard', seed);
+      let worst = 0;
+      const check = (u: number, v: number) => {
+        for (let axis = 0; axis < 2; axis++) {
+          const du = axis ? 0 : h,
+            dv = axis ? h : 0;
+          sample(u - du, v - dv, a);
+          sample(u, v, b);
+          sample(u + du, v + dv, c);
+          for (const key of keys)
+            worst = Math.max(
+              worst,
+              Math.abs((c[key] - 2 * b[key] + a[key]) / h),
+            );
+        }
+      };
+      for (const n of [p.cells, p.sheenCells, p.fleckCells, p.grainCells])
+        for (let i = 0; i <= n; i++)
+          for (const y of [0, 0.137, 0.5, 0.793]) {
+            check(i / n, y);
+            check(y, i / n);
+          }
+      // Rows through hole centres and cell boundaries cross every hole shoulder and rim.
+      for (const row of [0, 3, 8, 15])
+        for (const offset of [0, 0.5])
+          for (let i = 0; i < 4096; i++)
+            check(i / 4096, (row + offset) / p.cells);
+      for (let i = 0; i < 8192; i++)
+        check((i * 0.61803398875) % 1, (i * 0.41421356237) % 1);
+      expect(worst).toBeLessThan(0.03);
+    }
+  });
+  it('writes actual512 brown dielectric maps with about five percent opaque dark holes and strong rim normals', () => {
+    const maps = generateProceduralMaps('perforatedhardboard', 512, 7, {
+      heightMap: true,
+    });
+    const streams = [
+      maps.baseColor,
+      maps.normal,
+      maps.metallicRoughness,
+      maps.occlusion,
+      maps.height!,
+    ];
+    let brown = 0,
+      dark = 0,
+      occluded = 0,
+      maxTilt = 0,
+      invalid = 0;
+    for (let i = 0; i < maps.baseColor.length; i += 4) {
+      const r = maps.baseColor[i],
+        g = maps.baseColor[i + 1],
+        b = maps.baseColor[i + 2];
+      brown += Number(r > g && g > b && r - b > 20);
+      dark += Number(r < 60);
+      occluded += Number(maps.occlusion[i] < 128);
+      maxTilt = Math.max(
+        maxTilt,
+        (maps.normal[i] / 127.5 - 1) ** 2 +
+          (maps.normal[i + 1] / 127.5 - 1) ** 2,
+      );
+      invalid += Number(
+        maps.metallicRoughness[i + 2] !== 0 ||
+          maps.occlusion[i] !== maps.occlusion[i + 1] ||
+          maps.occlusion[i] !== maps.occlusion[i + 2] ||
+          maps.normal[i + 2] < 150,
+      );
+      for (const map of streams) invalid += Number(map[i + 3] !== 255);
+    }
+    expect(brown / (512 * 512)).toBeGreaterThan(0.93);
+    expect(dark / (512 * 512)).toBeGreaterThan(0.04);
+    expect(dark / (512 * 512)).toBeLessThan(0.06);
+    expect(occluded / (512 * 512)).toBeGreaterThan(0.04);
+    expect(occluded / (512 * 512)).toBeLessThan(0.06);
+    expect(maxTilt).toBeGreaterThan(0.1);
+    expect(maxTilt).toBeLessThan(0.8);
+    expect(invalid).toBe(0);
+  });
+  it('repeats over signed UV periods', () => {
+    const a = empty(),
+      b = empty();
+    let worst = 0;
+    for (const seed of [0, 1, 0xffffffff]) {
+      const sample = createSurfaceSampler('perforatedhardboard', seed);
       for (let i = 0; i < 8192; i++) {
         const u = (i * 0.61803398875) % 1,
           v = (i * 0.41421356237) % 1;

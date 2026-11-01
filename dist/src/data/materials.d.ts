@@ -12025,6 +12025,34 @@ export declare const proceduralMaterialPresets: Readonly<{
         grainRoughness: 0.04;
         earlyOcclusion: 0.04;
     }>;
+    perforatedhardboard: Readonly<{
+        dark: readonly [34, 20, 12];
+        light: readonly [152, 104, 66];
+        roughness: 0.78;
+        relief: 0.004;
+        cells: 16;
+        grainCells: 192;
+        fleckCells: 64;
+        sheenCells: 6;
+        holeRadius: 0.13;
+        holeSoft: 0.03;
+        rimWidth: 0.05;
+        baseTone: 0.58;
+        sheenTone: 0.08;
+        grainTone: 0.05;
+        fleckTone: 0.09;
+        rimTone: 0.2;
+        holeTone: 0.04;
+        baseHeight: 0.6;
+        grainHeight: 0.03;
+        fleckHeight: 0.04;
+        holeHeight: 0.02;
+        rimDrop: 0.12;
+        grainRoughness: 0.08;
+        holeRoughness: 0.18;
+        holeOcclusion: 0.85;
+        rimOcclusion: 0.25;
+    }>;
     makore: Readonly<{
         dark: readonly [76, 31, 18];
         light: readonly [205, 139, 93];
@@ -13295,4 +13323,5 @@ export declare const proceduralTileMeters: Readonly<{
     longleafpine: 0.12;
     chesterfieldleather: 0.5;
     westernredcedar: 0.12;
+    perforatedhardboard: 0.4;
 }>;

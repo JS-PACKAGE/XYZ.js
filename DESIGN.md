@@ -1103,6 +1103,12 @@
 
 預設0.08 m nominal tile、0.0042 UV-relative relief（不是公尺位移）及metallic factor1。Explicit `createMaterial({ metallic: 0 })`僅改scalar factor，不改stored M mask。作者欄位留在既有`src/data` immutable preset；constructor快取四組四欄Float64 pose128 B及96² Float64 grain73,728 B，共73,856 B typed-array payload，不含JS物件／closure開銷，非總RAM或效能認證。sampler沿用C1 profiles與凸層替換，逐點無配置／迴圈／hash／trig／sqrt／鄰居搜尋；保留既有週期不透明maps與texture ownership。建議512辨識安裝孔及三支窄腳尾，32僅粗預覽，不保證每支腳可辨。
 
+`perforatedhardboard`（棕色鑽孔硬纖維板）使目前目錄891→892種，含plain的gallery為893項。16×16格的方格陣列，每格中心有一個圓形暗色不透明孔（孔半徑0.13格、孔徑約占5.1%面積），孔緣有略暗的圓角環；孔間為連續的棕色回火硬纖維板面，含細纖維grain、較大的碎屑斑與低頻光澤起伏。孔不是透明通孔（不含背景穿透），也不含掛鉤、螺絲或金屬板。
+
+概念依據實際閱讀的[Wikipedia「Perforated hardboard」](https://en.wikipedia.org/wiki/Pegboard)：回火硬纖維板（以亞麻仁油薄層塗佈並高溫烘烤）預鑽等距孔，Peg-Board為Masonite舊商標、常泛稱穿孔收納板。**未**查看或引用任何實物照片／規格圖，故孔距、孔徑、色彩、roughness與0.4 m tile皆為作者設定，不宣稱符合任何標準孔徑／孔距或商品。
+
+新增專用sampler：以到每格中心的距離`r`做smoothstep孔洞與圓角環，兩者在格內自行歸零，所以`fract()`換格不影響連續性與C1；孔外為`(base + sheen + grain + fleck − rim)`，孔內為近黑色、低高度、AO約0.15、roughness≥0.92。3個constructor cache為192²細grain、64²碎屑斑與6²光澤（共40,996 Float64／327,968 B lattice算術預算，非總RAM）；金屬factor為0、無mortar。預設0.4 m nominal tile、0.004 UV-relative relief（非公尺位移）。三seed（0／1／0xffffffff）量測：孔心color≤0.04、高度≤0.02 relief；板面color 0.486–0.671、AO 1、高度0.60–0.67 relief；圓角環AO 0.875；256²取樣AO<0.5占4.69%。seed7的512²平均base color約(98,66,41)、r<60的暗孔占5.08%、法線max tilt²約0.415（孔緣陡）。不新增API或依賴，Worker／cache／texture ownership沿既有路徑；本段不宣稱瀏覽器gallery驗證。
+
 `westernredcedar`（北美香柏紅褐直紋）使目前目錄890→891種，含plain的gallery為892項。近似Thuja plicata未塗裝縱向木面：偏紅的金褐色底、細而平行的暗色年輪線，年輪輕微起伏。不是邊材、較暗的紅褐隨機條帶、節疤、塗層或Douglas-fir式大型尖拱，也沒有樹脂道（此樹種原本即無樹脂道）。
 
 外觀依據實際閱讀的[Wood Database Western Red Cedar](https://www.wood-database.com/western-red-cedar/)（Color／Appearance：心材紅到粉褐色且常有更暗的隨機條帶、邊材黃白；Grain／Texture：直紋、粗質地、中等光澤；Resin canals：無）與實際下載並實看的[木面照片](https://www.wood-database.com/wp-content/uploads/thuja-plicata.jpg)（金褐色底配細密平行暗線）；僅作配色與年輪線形態參考，不重現來源的隨機暗帶或邊材，不打包來源圖，也不由照片反推真色、roughness或實際尺寸。

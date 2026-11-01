@@ -11465,3 +11465,12 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 新增4項永久測試（`Western red cedar`：三seed顏色比例／各向異性／高度差、C1、actual512五maps、帶號UV週期），並加入通用kinds清單；名稱篩選7項通過（5.11s）。
 - 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "Western red cedar|westernredcedar|kinds|catalog|distinct|periodic"`定向測試，**2082項通過／3462項未選**。
 - 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。
+
+## 2026-11-02 程序材質：棕色回火鑽孔硬纖維板（perforatedhardboard）
+
+- 目錄891→892，含plain的gallery為893項。16×16格方陣，每格中心一個圓形暗色不透明孔（孔半徑0.13格）與略暗圓角環，孔間為含細纖維grain、碎屑斑與低頻光澤的連續棕色板面。概念依據實際閱讀的[Wikipedia「Perforated hardboard」](https://en.wikipedia.org/wiki/Pegboard)（回火硬纖維板、預鑽等距孔）；**未**查看實物照片或規格圖，孔距、孔徑、色彩與0.4 m tile皆作者設定。孔不是透明通孔，也不含掛鉤、螺絲或金屬板。
+- 專用sampler：到每格中心距離的smoothstep孔洞與圓角環，格內自行歸零，`fract()`換格不影響C1；3個cache共40,996 Float64／327,968 B。預設0.4 m tile、0.004 UV-relative relief（非公尺位移）、metallic factor0；不新增API、依賴或每點配置。
+- 實測（工具實跑）：三seed（0／1／0xffffffff）孔心color≤0.04、高度≤0.02 relief、roughness≥0.92；板面color 0.486–0.671、AO 1、高度0.60–0.67 relief；圓角環AO 0.875；256²取樣AO<0.5占4.69%。seed7的512² base color平均約(98,66,41)，暗孔（r<60與AO<128）各占5.08%，法線max tilt²約0.415；孔心像素的實際height map為0、AO 38/255。以Bun產生512 seed7四圖並實看：棕色板面與規則暗孔陣列、法線圖每孔有環形斜面。
+- 新增4項永久測試（`perforated hardboard`：三seed逐格孔／板面／圓角環、C1含孔心列掃描、actual512五maps、帶號UV週期），並加入通用kinds清單。首次實跑3項失敗：我拿孔環的單點顏色與距離很遠的格角比較，被grain／fleck雜訊抵消；改為同一孔8個角度的環平均比較孔環與外側環後，名稱篩選7項通過（5.70s）。
+- 乾淨worktree實跑build、strict typecheck、eslint、全倉`prettier --check .`、API compatibility（737 exports／2810 contracts／710 historical namespaces／5 consumers）、distribution（367 exports）與`-t "perforated hardboard|perforatedhardboard|kinds|catalog|distinct|periodic"`定向測試，**2083項通過／3468項未選**。
+- 本功能未重跑完整179檔suite、未開瀏覽器gallery，也不宣稱跨瀏覽器／backend或效能驗證；不push。

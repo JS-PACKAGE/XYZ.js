@@ -37096,6 +37096,45 @@ export function createSurfaceSampler(
           return;
         };
       }
+      case 'perforatedhardboard': {
+        const p = proceduralMaterialPresets.perforatedhardboard,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x27101),
+          fleckField = cachedNoise(p.fleckCells, p.fleckCells, seed ^ 0x27103),
+          sheenField = cachedNoise(p.sheenCells, p.sheenCells, seed ^ 0x27105),
+          inverseSoft = 1 / p.holeSoft,
+          inverseRim = 1 / p.rimWidth;
+        return () => {
+          // Holes and rims are functions of the distance to each cell centre and
+          // vanish well inside the cell, so the fract() wrap never changes them.
+          const dx = fract(u * p.cells) - 0.5,
+            dy = fract(v * p.cells) - 0.5,
+            r = Math.sqrt(dx * dx + dy * dy),
+            hole = smooth(clamp((p.holeRadius - r) * inverseSoft + 0.5)),
+            rim =
+              smooth(clamp((p.holeRadius + p.rimWidth - r) * inverseRim)) *
+              (1 - hole),
+            grain = grainField(u, v),
+            fleck = fleckField(u, v),
+            sheen = sheenField(u, v);
+          color =
+            (p.baseTone +
+              p.sheenTone * (sheen - 0.5) +
+              p.grainTone * (grain - 0.5) +
+              p.fleckTone * (fleck - 0.5) -
+              p.rimTone * rim) *
+              (1 - hole) +
+            p.holeTone * hole;
+          height =
+            (p.baseHeight + p.grainHeight * grain + p.fleckHeight * fleck) *
+              (1 - hole) +
+            p.holeHeight * hole -
+            p.rimDrop * rim;
+          roughness +=
+            p.grainRoughness * (grain - 0.5) + p.holeRoughness * hole;
+          occlusion = 1 - p.holeOcclusion * hole - p.rimOcclusion * rim;
+          return;
+        };
+      }
       case 'douglasfir':
       case 'longleafpine':
       case 'westernredcedar': {
@@ -44263,6 +44302,7 @@ export function createSurfaceSampler(
     kind === 'longleafpine' ||
     kind === 'chesterfieldleather' ||
     kind === 'westernredcedar' ||
+    kind === 'perforatedhardboard' ||
     kind === 'thomsonite' ||
     kind === 'dalmatianstone' ||
     kind === 'basswood' ||
