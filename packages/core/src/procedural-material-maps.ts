@@ -22212,6 +22212,139 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'tallymarks': {
+        const p = proceduralMaterialPresets.tallymarks,
+          grainField = cachedNoise(p.grainCells, p.grainCells, seed ^ 0x28501),
+          jitterField = cachedNoise(
+            p.jitterCells,
+            p.jitterCells,
+            seed ^ 0x28503,
+          ),
+          glyphs = [
+            '111101101101111',
+            '010110010010111',
+            '111001111100111',
+            '111001111001111',
+            '101101111001001',
+            '111100111001111',
+            '111100111101111',
+            '111001010010010',
+            '111101111101111',
+            '111101111001111',
+          ],
+          rows = p.rows,
+          counts: number[] = [],
+          inverseSoft = 1 / p.edgeSoft,
+          cover = (inside: number): number =>
+            smooth(clamp(inside * inverseSoft + 0.5)),
+          // Distance from (x, y) to the segment a-b.
+          segment = (
+            x: number,
+            y: number,
+            ax: number,
+            ay: number,
+            bx: number,
+            by: number,
+          ): number => {
+            const dx = bx - ax,
+              dy = by - ay,
+              t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy));
+            return Math.hypot(x - ax - t * dx, y - ay - t * dy);
+          };
+        for (let row = 0; row < rows; row++)
+          counts.push(
+            p.minCount +
+              Math.min(
+                p.maxCount - p.minCount,
+                Math.floor(
+                  hash(row, 1, seed ^ 0x28505) * (p.maxCount - p.minCount + 1),
+                ),
+              ),
+          );
+        // Tally marks: each full group of five is four upright strokes crossed by a diagonal strike,
+        // a last partial group has only the strokes; the total is printed at the right of the row.
+        return () => {
+          const row = Math.min(rows - 1, Math.floor(v * rows)),
+            fy = v * rows - row,
+            count = counts[row],
+            rowCenterV = (row + 0.5) / rows,
+            half = p.strokeHeight / rows / 2;
+          let ink = 0;
+          if (u >= p.marksLeft && u < p.digitLeft - 0.02) {
+            const group = Math.floor((u - p.marksLeft) / p.groupPitch),
+              groupStart = p.marksLeft + group * p.groupPitch,
+              inGroup = Math.min(5, count - group * 5);
+            if (inGroup > 0) {
+              for (let s = 0; s < Math.min(4, inGroup); s++) {
+                const x = groupStart + p.strokeStart + s * p.strokePitch;
+                ink = Math.max(
+                  ink,
+                  cover(
+                    p.strokeHalf -
+                      segment(u, v, x, rowCenterV - half, x, rowCenterV + half),
+                  ),
+                );
+              }
+              if (inGroup === 5) {
+                const left = groupStart + p.strokeStart - p.strikeOverhang,
+                  right =
+                    groupStart +
+                    p.strokeStart +
+                    3 * p.strokePitch +
+                    p.strikeOverhang;
+                ink = Math.max(
+                  ink,
+                  cover(
+                    p.strikeHalf -
+                      segment(
+                        u,
+                        v,
+                        left,
+                        rowCenterV + half * 0.7,
+                        right,
+                        rowCenterV - half * 0.7,
+                      ),
+                  ),
+                );
+              }
+            }
+          } else if (u >= p.digitLeft) {
+            const digits = count >= 10 ? 2 : 1,
+              top = rowCenterV - 2.5 * p.digitPixel,
+              x = Math.floor((u - p.digitLeft) / p.digitPixel),
+              y = Math.floor((v - top) / p.digitPixel);
+            if (
+              y >= 0 &&
+              y < 5 &&
+              x >= 0 &&
+              x < digits * 4 - 1 &&
+              x % 4 !== 3
+            ) {
+              const value =
+                digits === 2
+                  ? x < 3
+                    ? Math.floor(count / 10)
+                    : count % 10
+                  : count;
+              if (glyphs[value][y * 3 + (x % 4)] === '1') ink = 1;
+            }
+          }
+          const rule = cover(p.ruleHalf - Math.min(fy, 1 - fy) / rows),
+            base = p.paperTone + (p.ruleTone - p.paperTone) * rule,
+            tone = p.inkTone + p.inkJitter * (jitterField(u, v) - 0.5);
+          color = clamp(
+            base + p.grainTone * (grainField(u, v) - 0.5) + (tone - base) * ink,
+          );
+          height = clamp(
+            p.paperHeight +
+              (p.ruleHeight - p.paperHeight) * rule +
+              (p.inkHeight - p.ruleHeight) * ink,
+          );
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -49741,6 +49874,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'tallymarks' ||
     kind === 'quasicrystalwaves' ||
     kind === 'tictactoegames' ||
     kind === 'dartboardsectors' ||

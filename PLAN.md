@@ -1375,6 +1375,10 @@
 
 這是作者設計的示意：它是「週期近似」而不是真正的準晶——真正的準晶（如Penrose鋪磚）沒有平移週期；這裡的五重對稱只是近似（波向量取整數所造成的角度與長度誤差），在遠處仍會重複；沒有繞射或物理意義上的準晶；顏色是亮度插值（深藍近黑到暖米色），不代表特定配色。預設0.4 m nominal tile、0.003 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議256以上（最高空間頻率約7.2週期／tile）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
 
+`tallymarks`（正字記號／五劃計數）使目前目錄954→955種，含plain的gallery為956項。每tile 8條橫格線，每列一個計數：左側是歐美慣用的「五條一組」計數記號——每組四條直立筆劃再加一條斜線劃過，湊滿5；最後一組若不滿5就只有直立筆劃（1至4條），右側以3×5點陣數字印出該列的總數（3至49，由seed決定）。所以一列有幾條筆劃（滿組算5）就等於右側印的數字。墨色略有濃淡、紙面有細紋與橫格線。Metallic與mortar為0。
+
+這是作者設計的示意：採用的是「四直一斜」的五劃計數法（不是東亞的「正」字記法）；每條筆劃都是完美的直線，沒有手寫的歪斜與粗細變化（墨色濃淡只是整體亮度擾動）；最多49條（10組），再多就放不進一列。預設0.3 m nominal tile、0.0016 UV-relative relief（非公尺位移）與metallic factor 0；沿用既有週期不透明四maps、optional height、tint／repeats、Worker／cache與texture ownership，不新增API或依賴。建議512以上（筆劃寬約3 px）；32僅粗預覽；不宣稱本段已完成三backend或跨瀏覽器驗證。
+
 `to92packagefaces`（TO-92封裝正面示意）使目前目錄885→886種，含plain的gallery為887項。2×2四個旋轉／微移的霧黑D形本體：直側、平底、上半橢圓穹頂；三支等間距平行直金屬腳有寬根肩與窄尾，本體遮住腳根。無TO-220金屬片、安裝孔或印字。完整腳面M1，本體／背底M0，邊界C1混合；作者正規化高度為背底.02 < 腳.44 < 本體.68。
 
 尺寸參考是實際下載並raster實看的[onsemi P2N2222A/D，January 2013 Rev.7，PDF第6頁](https://www.onsemi.com/pdf/datasheet/p2n2222a-d.pdf#page=6)：內附98ASB42022B，TO-92（TO-226）CASE29-11，Issue AM，09 MAR 2007，圖面第1／2頁，STRAIGHT LEAD BULK PACK視圖。A4.45–5.20 mm、B4.32–5.33 mm、G1.15–1.39 mm及K≥12.70 mm僅是原廠尺寸參考，非插圖量測值。D形上半橢圓、比例、肩寬、色彩、roughness、AO及高度皆作者簡化，不是精確CAD；不推定化學成分、鍍層、光學或電氣特性，不打包來源圖。

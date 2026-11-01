@@ -11904,3 +11904,11 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 測試設計：因tone是和的單調映射，測試端以atanh反解出波場，再對64×64取樣做離散傅立葉分析（只在整數頻率上計算，範圍±10），驗證頻譜只在預期的位置有峰值：10個頻率（5個向量與其負向量）的振幅各為0.5（容許0.01），其餘所有頻率都小於0.01。另有一項檢查五個向量彼此夾角與72°相差＜10°、長度比＜1.15（它們確實是近似五重對稱，不是任意向量），以及不同seed的相位確實不同。
 - 實測：`tests/procedural-material-motifs.test.ts`四百八十六項（本材質六項）全過，第一次執行即通過；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "quasicrystalwaves|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
 - 真實dev server的pbr3d頁（WebGPU）選取`quasicrystalwaves`：option 955個、status為954 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的光斑與五角結構。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。
+
+## 2026-11-02 程序材質：五劃計數記號（tallymarks）
+
+- 目錄954→955，含plain的gallery為956項。每tile 8條橫格列，每列左側為「四直一斜」的五條一組計數記號（最後一組可不滿五），右側以3×5點陣數字印出該列總數（3至49，由seed決定），筆劃數與數字必定一致。Metallic／mortar為0，預設tile0.3 m、0.0016 UV-relative relief、metallic factor 0。完美直線、無手寫變化，不是東亞的「正」字法；作者設計。仍在獨立worktree分支`materials/more-textures`作業。
+- 設計記錄：第一版草稿留有不必要的`tilt`、`digitGap`參數與一個乘以0的`lean`變數，寫入前清掉。
+- 實測：`tests/procedural-material-motifs.test.ts`四百九十六項（本材質十項）全過，第一次執行即通過。九個seed（0、7、4294967295、1至6）×8列：在每個預期的筆劃位置（取每條筆劃下半部，避開斜線）判斷有無墨，斜線以組中央的間隙判斷；一組的筆劃從第一條起連續、斜線只出現在四條筆劃齊全的組、只有最後一組可以不滿五（不滿的組之後不能再有滿組）；整列的總數（滿組算5）在3至49之間，且與以測試端獨立字型逐像素解碼出的右側數字（一或兩位數）完全相等；通道範圍、metallic／mortar 0、wrap與seed差異。`tests/procedural-material.test.ts`以`-t "tallymarks|every preset"`定向跑3項通過。strict typecheck、eslint、build、API structural compatibility與distribution實際通過。
+- 另外，在quasicrystalwaves提交後的狀態，以`git archive HEAD`匯出一份乾淨副本（`/private/tmp/xyz-suite`，避免我在執行期間繼續編輯影響結果），對它執行完整的`vitest run tests/procedural-material.test.ts tests/procedural-material-motifs.test.ts`；結果在完成時另行記錄於後續的進度說明（本段撰寫時尚未回來，不在此宣稱通過）。
+- 真實dev server的pbr3d頁（WebGPU）選取`tallymarks`：option 956個、status為955 presets＋plain，25球渲染且`tab.errors()`空；實看512 seed7 2×2拼貼的計數列與數字。WebGL2、Canvas2D、其他瀏覽器、效能與Worker／cache本次未重新驗證，不宣稱已認證。

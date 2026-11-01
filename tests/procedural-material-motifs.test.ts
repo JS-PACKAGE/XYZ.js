@@ -8904,3 +8904,119 @@ describe('quasicrystalwaves: five plane waves with near five-fold wave vectors',
     expect(different).toBeGreaterThan(50);
   });
 });
+
+describe('tallymarks: strokes counted in fives match the printed total', () => {
+  const p = proceduralMaterialPresets.tallymarks;
+  // Independent 3x5 drawing of the digits 0 to 9.
+  const art = [
+    ['###', '#.#', '#.#', '#.#', '###'],
+    ['.#.', '##.', '.#.', '.#.', '###'],
+    ['###', '..#', '###', '#..', '###'],
+    ['###', '..#', '###', '..#', '###'],
+    ['#.#', '#.#', '###', '..#', '..#'],
+    ['###', '#..', '###', '..#', '###'],
+    ['###', '#..', '###', '#.#', '###'],
+    ['###', '..#', '.#.', '.#.', '.#.'],
+    ['###', '#.#', '###', '#.#', '###'],
+    ['###', '#.#', '###', '..#', '###'],
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5, 6])(
+    'counts four strokes plus a strike per group of five and prints the total (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('tallymarks', seed),
+        out = empty(),
+        dark = (u: number, v: number): boolean => {
+          sample(u, v, out);
+          return out.color < 0.4;
+        };
+      for (let row = 0; row < p.rows; row++) {
+        const center = (row + 0.5) / p.rows,
+          half = p.strokeHeight / p.rows / 2;
+        let strokes = 0,
+          partialSeen = false;
+        for (let group = 0; group < 10; group++) {
+          const start = p.marksLeft + group * p.groupPitch + p.strokeStart;
+          let inGroup = 0;
+          for (let s = 0; s < 4; s++)
+            inGroup += Number(
+              dark(start + s * p.strokePitch, center + 0.85 * half),
+            );
+          // Strokes of a group are the first ones: no gap before a stroke.
+          for (let s = 0; s < 4; s++)
+            if (dark(start + s * p.strokePitch, center + 0.85 * half))
+              expect(s).toBeLessThan(inGroup);
+          const strike = dark(start + 1.5 * p.strokePitch, center);
+          // A strike only crosses a complete set of four strokes.
+          if (strike) expect(inGroup).toBe(4);
+          if (inGroup > 0 && !(inGroup === 4 && strike)) {
+            // Only the last group can be partial (and then nothing follows).
+            partialSeen = true;
+          } else if (inGroup === 0) partialSeen = true;
+          else expect(partialSeen).toBe(false);
+          strokes += inGroup + Number(strike);
+        }
+        expect(strokes).toBeGreaterThanOrEqual(p.minCount);
+        expect(strokes).toBeLessThanOrEqual(p.maxCount);
+        // The printed total, read with the independent glyph table (one or two digits).
+        const readDigit = (left: number): number => {
+          const bits: string[] = [];
+          for (let y = 0; y < 5; y++) {
+            let text = '';
+            for (let x = 0; x < 3; x++)
+              text += dark(
+                left + (x + 0.5) * p.digitPixel,
+                center + (y - 2) * p.digitPixel,
+              )
+                ? '#'
+                : '.';
+            bits.push(text);
+          }
+          return art.findIndex((rows) =>
+            rows.every((text, i) => text === bits[i]),
+          );
+        };
+        const first = readDigit(p.digitLeft),
+          second = readDigit(p.digitLeft + 4 * p.digitPixel);
+        const printed = second >= 0 ? first * 10 + second : first;
+        expect(printed).toBe(strokes);
+      }
+    },
+  );
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('tallymarks', 0),
+      b = createSurfaceSampler('tallymarks', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});
