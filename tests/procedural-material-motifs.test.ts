@@ -4477,3 +4477,125 @@ describe('sheetmusic: five-line staves with notes on the staff grid', () => {
     expect(different).toBeGreaterThan(30);
   });
 });
+
+describe('sudokugrid: conflict-free clues on a 9 x 9 grid with box lines', () => {
+  const p = proceduralMaterialPresets.sudokugrid;
+  // 3x5 pixel glyphs for 1-9, written out independently of the sampler.
+  const glyphs = [
+    '010110010010111',
+    '111001111100111',
+    '111001111001111',
+    '101101111001001',
+    '111100111001111',
+    '111100111101111',
+    '111001001010010',
+    '111101111101111',
+    '111101111001111',
+  ];
+
+  it.each([...seeds, 1, 2, 3, 4, 5])(
+    'prints decodable clues that never repeat in a row, column or box (seed %i)',
+    (seed) => {
+      const sample = createSurfaceSampler('sudokugrid', seed),
+        out = empty(),
+        grid: number[][] = [];
+      let clues = 0;
+      for (let row = 0; row < 9; row++) {
+        grid.push([]);
+        for (let col = 0; col < 9; col++) {
+          let bits = '';
+          for (let gy = 0; gy < 5; gy++)
+            for (let gx = 0; gx < 3; gx++) {
+              sample(
+                (col + 0.5 + (gx - 1) * p.pixel) / 9,
+                (row + 0.5 + (gy - 2) * p.pixel) / 9,
+                out,
+              );
+              bits += out.color < 0.5 ? '1' : '0';
+            }
+          if (bits === '0'.repeat(15)) {
+            grid[row].push(0);
+            continue;
+          }
+          const digit = glyphs.indexOf(bits) + 1;
+          expect(digit).toBeGreaterThanOrEqual(1);
+          grid[row].push(digit);
+          clues++;
+        }
+      }
+      // Roughly the authored share of cells carries a clue.
+      expect(Math.abs(clues / 81 - p.clueChance)).toBeLessThan(0.2);
+      const unique = (digits: number[]): boolean => {
+        const given = digits.filter((d) => d > 0);
+        return new Set(given).size === given.length;
+      };
+      for (let i = 0; i < 9; i++) {
+        expect(unique(grid[i])).toBe(true);
+        expect(unique(grid.map((row) => row[i]))).toBe(true);
+        const box: number[] = [];
+        for (let r = 0; r < 3; r++)
+          for (let c = 0; c < 3; c++)
+            box.push(grid[Math.floor(i / 3) * 3 + r][(i % 3) * 3 + c]);
+        expect(unique(box)).toBe(true);
+      }
+    },
+  );
+
+  it('rules thin cell lines and thicker box lines at the right places', () => {
+    const sample = createSurfaceSampler('sudokugrid', 7),
+      out = empty(),
+      step = 0.0002,
+      width = (center: number, alongU: boolean, cross: number): number => {
+        let run = 0;
+        for (let t = -0.012; t <= 0.012; t += step) {
+          if (alongU) sample(center + t, cross, out);
+          else sample(cross, center + t, out);
+          run += Number(out.color < 0.5);
+        }
+        return run * step;
+      };
+    for (const alongU of [true, false])
+      for (let k = 0; k < 9; k++) {
+        // A cross position inside a cell, away from digits and from the other line family.
+        const measured = width(k / 9, alongU, 0.5 / 9 + 0.012);
+        const half = k % 3 === 0 ? p.thickHalf : p.thinHalf;
+        expect(Math.abs(measured - (2 * half) / 9)).toBeLessThan(0.0012);
+      }
+  });
+
+  it('keeps all channels in range, repeats seamlessly and differs between seeds', () => {
+    const a = createSurfaceSampler('sudokugrid', 0),
+      b = createSurfaceSampler('sudokugrid', 7),
+      one = empty(),
+      two = empty();
+    let invalid = 0,
+      different = 0;
+    for (let y = 0; y < 256; y++)
+      for (let x = 0; x < 256; x++) {
+        a((x + 0.5) / 256, (y + 0.5) / 256, one);
+        invalid += Number(one.metallic !== 0 || one.mortar !== 0);
+        for (const value of [
+          one.color,
+          one.height / p.relief,
+          one.roughness,
+          one.occlusion,
+        ])
+          invalid += Number(!(value >= 0 && value <= 1));
+      }
+    expect(invalid).toBe(0);
+    for (let i = 0; i < 512; i++) {
+      const t = (i + 0.37) / 512;
+      for (const [u, v] of [
+        [t, 0.3101],
+        [0.3101, t],
+      ]) {
+        a(u, v, one);
+        a(u + 1, v + 1, two);
+        expect(two.color).toBeCloseTo(one.color, 10);
+        b(u, v, two);
+        different += Number(two.color !== one.color);
+      }
+    }
+    expect(different).toBeGreaterThan(50);
+  });
+});

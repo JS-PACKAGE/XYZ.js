@@ -13384,6 +13384,36 @@ var proceduralMaterialPresets = Object.freeze({
 		inkRoughness: .46,
 		paperRoughness: .78
 	}),
+	sudokugrid: Object.freeze({
+		dark: [
+			22,
+			24,
+			34
+		],
+		light: [
+			240,
+			236,
+			224
+		],
+		roughness: .72,
+		relief: .0014,
+		clueChance: .42,
+		pixel: .135,
+		thinHalf: .018,
+		thickHalf: .04,
+		edgeSoft: .0025,
+		inkCells: 192,
+		paperCells: 256,
+		paperTone: .92,
+		lineTone: .1,
+		digitTone: .08,
+		inkGain: .08,
+		paperGrain: .04,
+		inkHeight: .56,
+		paperHeight: .3,
+		inkRoughness: .44,
+		paperRoughness: .76
+	}),
 	to92packagefaces: Object.freeze({
 		dark: [
 			8,
@@ -22065,6 +22095,7 @@ var proceduralTileMeters = Object.freeze({
 	dcbarreljackfaces: .04,
 	stfiberadapterfaces: .04,
 	to92packagefaces: .08,
+	sudokugrid: .25,
 	sheetmusic: .3,
 	ecgpaper: .08,
 	datamatrixcodes: .4,

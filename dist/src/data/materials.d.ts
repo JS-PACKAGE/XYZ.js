@@ -7414,6 +7414,28 @@ export declare const proceduralMaterialPresets: Readonly<{
         inkRoughness: 0.46;
         paperRoughness: 0.78;
     }>;
+    sudokugrid: Readonly<{
+        dark: readonly [22, 24, 34];
+        light: readonly [240, 236, 224];
+        roughness: 0.72;
+        relief: 0.0014;
+        clueChance: 0.42;
+        pixel: 0.135;
+        thinHalf: 0.018;
+        thickHalf: 0.04;
+        edgeSoft: 0.0025;
+        inkCells: 192;
+        paperCells: 256;
+        paperTone: 0.92;
+        lineTone: 0.1;
+        digitTone: 0.08;
+        inkGain: 0.08;
+        paperGrain: 0.04;
+        inkHeight: 0.56;
+        paperHeight: 0.3;
+        inkRoughness: 0.44;
+        paperRoughness: 0.76;
+    }>;
     to92packagefaces: Readonly<{
         dark: readonly [8, 10, 13];
         light: readonly [239, 242, 244];
@@ -13899,6 +13921,7 @@ export declare const proceduralTileMeters: Readonly<{
     dcbarreljackfaces: 0.04;
     stfiberadapterfaces: 0.04;
     to92packagefaces: 0.08;
+    sudokugrid: 0.25;
     sheetmusic: 0.3;
     ecgpaper: 0.08;
     datamatrixcodes: 0.4;

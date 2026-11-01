@@ -18926,6 +18926,108 @@ export function createSurfaceSampler(
           occlusion = 1;
         };
       }
+      case 'sudokugrid': {
+        const p = proceduralMaterialPresets.sudokugrid,
+          inkField = cachedNoise(p.inkCells, p.inkCells, seed ^ 0x26201),
+          paperField = cachedNoise(p.paperCells, p.paperCells, seed ^ 0x26203),
+          // 3x5 pixel glyphs for 1-9, one row per string.
+          glyphs = [
+            ['010', '110', '010', '010', '111'],
+            ['111', '001', '111', '100', '111'],
+            ['111', '001', '111', '001', '111'],
+            ['101', '101', '111', '001', '001'],
+            ['111', '100', '111', '001', '111'],
+            ['111', '100', '111', '101', '111'],
+            ['111', '001', '001', '010', '010'],
+            ['111', '101', '111', '101', '111'],
+            ['111', '101', '111', '001', '111'],
+          ],
+          // Fisher-Yates shuffle of 0..n-1 driven by the seeded hash.
+          shuffled = (n: number, salt: number): number[] => {
+            const order = Array.from({ length: n }, (_, i) => i);
+            for (let i = n - 1; i > 0; i--) {
+              const j = Math.floor(hash(i, salt, seed ^ 0x26205) * (i + 1)),
+                swap = order[i];
+              order[i] = order[j];
+              order[j] = swap;
+            }
+            return order;
+          },
+          digitOrder = shuffled(9, 1),
+          rowBands = shuffled(3, 2),
+          colBands = shuffled(3, 3),
+          rowInBand = [shuffled(3, 4), shuffled(3, 5), shuffled(3, 6)],
+          colInBand = [shuffled(3, 7), shuffled(3, 8), shuffled(3, 9)],
+          // A valid solved grid: the canonical pattern with band, line and digit permutations,
+          // all of which preserve the Sudoku rules. 0 marks a blank (non-clue) cell.
+          clues = new Uint8Array(81),
+          inverseSoft = 1 / p.edgeSoft,
+          lineMask = (offset: number, half: number): number =>
+            smooth(clamp((half - offset) * inverseSoft + 0.5));
+        for (let row = 0; row < 9; row++)
+          for (let col = 0; col < 9; col++) {
+            const r =
+                rowBands[Math.floor(row / 3)] * 3 +
+                rowInBand[Math.floor(row / 3)][row % 3],
+              c =
+                colBands[Math.floor(col / 3)] * 3 +
+                colInBand[Math.floor(col / 3)][col % 3],
+              solved =
+                digitOrder[(3 * (r % 3) + Math.floor(r / 3) + c) % 9] + 1;
+            clues[row * 9 + col] =
+              hash(col, row, seed ^ 0x26207) < p.clueChance ? solved : 0;
+          }
+        return () => {
+          const gx = u * 9,
+            gy = v * 9,
+            col = Math.min(8, Math.floor(gx)),
+            row = Math.min(8, Math.floor(gy)),
+            fx = gx - col,
+            fy = gy - row,
+            // Distances (in cells) to the nearest cell line; every third line is a thick box line.
+            lineX = Math.abs(gx - Math.round(gx)) / 9,
+            lineY = Math.abs(gy - Math.round(gy)) / 9,
+            thickX = Math.round(gx) % 3 === 0,
+            thickY = Math.round(gy) % 3 === 0,
+            // Line half widths are given in cells; the offsets above are in tile units.
+            grid = Math.max(
+              lineMask(lineX, thickX ? p.thickHalf / 9 : p.thinHalf / 9),
+              lineMask(lineY, thickY ? p.thickHalf / 9 : p.thinHalf / 9),
+            ),
+            value = clues[row * 9 + col];
+          let digit = 0;
+          if (value > 0) {
+            // Glyph: 3 columns by 5 rows of square "pixels" centered in the cell.
+            const px = (fx - 0.5) / p.pixel + 1.5,
+              py = (fy - 0.5) / p.pixel + 2.5,
+              gcol = Math.floor(px),
+              grow = Math.floor(py);
+            if (
+              gcol >= 0 &&
+              gcol < 3 &&
+              grow >= 0 &&
+              grow < 5 &&
+              glyphs[value - 1][grow][gcol] === '1'
+            )
+              digit = 1;
+          }
+          const gain = inkField(u, v) - 0.5,
+            grain = paperField(u, v) - 0.5,
+            ink = Math.max(grid, digit);
+          color = clamp(
+            p.paperTone +
+              p.paperGrain * grain +
+              ((grid >= digit ? p.lineTone : p.digitTone) +
+                p.inkGain * gain -
+                p.paperTone) *
+                ink,
+          );
+          height = clamp(p.paperHeight + (p.inkHeight - p.paperHeight) * ink);
+          roughness =
+            p.paperRoughness + (p.inkRoughness - p.paperRoughness) * ink;
+          occlusion = 1;
+        };
+      }
       case 'to92packagefaces': {
         const p = proceduralMaterialPresets.to92packagefaces,
           poses = new Float64Array(p.cells * p.cells * 4),
@@ -46455,6 +46557,7 @@ export function createSurfaceSampler(
     kind === 'stfiberadapterfaces' ||
     kind === 'mudcloth' ||
     kind === 'to92packagefaces' ||
+    kind === 'sudokugrid' ||
     kind === 'sheetmusic' ||
     kind === 'ecgpaper' ||
     kind === 'datamatrixcodes' ||
